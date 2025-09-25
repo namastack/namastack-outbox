@@ -1,0 +1,40 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# macOS
+.DS_Store
+
+# Java/Kotlin
+*.class
+*.log
+hs_err_pid*
+
+# Kotlin
+.kotlin/
+
+# Spring Boot
+application-local.yml
+application-local.yaml
+application-local.properties
+
+# Test Results
+test-results/
+reports/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Local environment
+.env
+.env.local
+testcontainers.properties

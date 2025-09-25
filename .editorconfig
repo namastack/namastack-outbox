@@ -1,0 +1,90 @@
+# top-most EditorConfig file
+root = true
+
+# All files
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Kotlin files
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# Ktlint rules
+ktlint_standard_no-wildcard-imports = enabled
+ktlint_standard_import-ordering = enabled
+ktlint_standard_filename = enabled
+ktlint_standard_function-naming = enabled
+ktlint_standard_class-naming = enabled
+ktlint_standard_package-name = enabled
+ktlint_standard_property-naming = enabled
+ktlint_standard_backing-property-naming = enabled
+ktlint_standard_enum-entry-name-case = enabled
+ktlint_standard_function-signature = enabled
+ktlint_standard_spacing-around-angle-brackets = enabled
+ktlint_standard_spacing-between-declarations-with-annotations = enabled
+ktlint_standard_spacing-between-declarations-with-comments = enabled
+ktlint_standard_string-template = enabled
+ktlint_standard_trailing-comma-on-call-site = enabled
+ktlint_standard_trailing-comma-on-declaration-site = enabled
+ktlint_standard_wrapping = enabled
+ktlint_standard_argument-list-wrapping = enabled
+ktlint_standard_annotation = enabled
+ktlint_standard_block-comment-initial-star-alignment = enabled
+ktlint_standard_chain-wrapping = enabled
+ktlint_standard_comment-wrapping = enabled
+ktlint_standard_condition-wrapping = enabled
+ktlint_standard_enum-wrapping = enabled
+ktlint_standard_modifier-order = enabled
+ktlint_standard_parameter-list-wrapping = enabled
+ktlint_standard_property-wrapping = enabled
+ktlint_standard_type-argument-list-spacing = enabled
+ktlint_standard_type-parameter-list-spacing = enabled
+ktlint_standard_unnecessary-parentheses-before-trailing-lambda = enabled
+ktlint_standard_value-argument-comment = enabled
+ktlint_standard_value-parameter-comment = enabled
+
+# Blank line rules
+ktlint_standard_blank-line-before-declaration = enabled
+ktlint_standard_blank-line-between-when-conditions = enabled
+
+# Indentation rules
+ktlint_standard_indent = enabled
+ktlint_standard_parameter-list-spacing = enabled
+
+# Line length
+ktlint_standard_max-line-length = enabled
+
+# Discourage certain patterns
+ktlint_standard_discouraged-comment-location = enabled
+
+# Custom overrides for specific cases
+# Allow wildcard imports for test utilities if needed
+# ktlint_standard_no-wildcard-imports = disabled
+
+# YAML files
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# JSON files
+[*.json]
+indent_style = space
+indent_size = 2
+
+# XML files
+[*.xml]
+indent_style = space
+indent_size = 2
+
+# Properties files
+[*.properties]
+indent_style = space
+indent_size = 4
+
+# Markdown files
+[*.md]
+trim_trailing_whitespace = false

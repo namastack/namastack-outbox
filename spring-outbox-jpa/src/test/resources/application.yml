@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/test-db
+    username: test-user
+    password: test-pass
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+outbox:
+  poll-interval: 1000
+  max-retries: 3
+  schema-initialization:
+    enabled: true
+  locking:
+    extension-seconds: 5
+    refresh-threshold: 2
+
+logging:
+  level:
+    com.beisel.springoutbox: DEBUG
