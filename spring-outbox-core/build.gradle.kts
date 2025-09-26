@@ -1,33 +1,21 @@
-import org.springframework.boot.gradle.tasks.bundling.BootJar
-
 plugins {
     kotlin("jvm")
     kotlin("plugin.spring")
-    id("org.springframework.boot")
-    id("io.spring.dependency-management")
     `maven-publish`
 }
 
 description = "spring-outbox-core"
 
 dependencies {
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:3.5.6"))
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("io.github.oshai:kotlin-logging-jvm:5.1.0")
-    implementation("ch.qos.logback:logback-classic:1.5.18")
-    compileOnly("org.springframework.boot:spring-boot")
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-    testImplementation("org.assertj:assertj-core")
-    testImplementation("io.mockk:mockk:1.14.5")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
+    implementation("org.springframework.boot:spring-boot")
+    implementation("org.springframework.boot:spring-boot-autoconfigure")
+    implementation("org.springframework.boot:spring-boot-starter-logging")
 
-tasks.getByName<BootJar>("bootJar") {
-    enabled = false
-}
-
-tasks.named<Jar>("jar") {
-    enabled = true
+    testImplementation(kotlin("test"))
+    testImplementation("org.assertj:assertj-core:3.24.2")
+    testImplementation("io.mockk:mockk:1.13.8")
 }
 
 tasks.withType<Test> {
