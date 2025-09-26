@@ -1,0 +1,3 @@
+package com.beisel.springoutbox
+
+class ExponentialOutboxRetryDelayStrategyTest

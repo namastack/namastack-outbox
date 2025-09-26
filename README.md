@@ -52,7 +52,8 @@ outbox:
 Or create the tables manually:
 
 ```sql
-CREATE TABLE outbox_record (
+CREATE TABLE outbox_record
+(
     id            VARCHAR(255) PRIMARY KEY,
     status        VARCHAR(20)              NOT NULL,
     aggregate_id  VARCHAR(255)             NOT NULL,
@@ -61,10 +62,11 @@ CREATE TABLE outbox_record (
     created_at    TIMESTAMP WITH TIME ZONE NOT NULL,
     completed_at  TIMESTAMP WITH TIME ZONE,
     retry_count   INT       DEFAULT 0,
-    next_retry_at TIMESTAMP DEFAULT now()
+    next_retry_at TIMESTAMP DEFAULT now()  NOT NULL
 );
 
-CREATE TABLE outbox_lock (
+CREATE TABLE outbox_lock
+(
     aggregate_id VARCHAR(255) PRIMARY KEY,
     acquired_at  TIMESTAMP WITH TIME ZONE NOT NULL,
     expires_at   TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -157,27 +159,6 @@ outbox:
     refresh-threshold: 60      # Renew lock when < 60s remaining
 ```
 
-## Advanced Usage
-
-### Custom Event Types
-
-Create strongly-typed events:
-
-```kotlin
-data class OrderCreatedEvent(
-    val orderId: String,
-    val customerId: String, 
-    val amount: BigDecimal,
-    val timestamp: OffsetDateTime = OffsetDateTime.now()
-)
-
-data class OrderUpdatedEvent(
-    val orderId: String,
-    val changes: Map<String, Any>,
-    val timestamp: OffsetDateTime = OffsetDateTime.now()
-)
-```
-
 ### Error Handling
 
 The library automatically handles retries with exponential backoff:
@@ -213,32 +194,6 @@ class OutboxMonitoringService(
 }
 ```
 
-### Multiple Processors
-
-Handle different event types with multiple processors:
-
-```kotlin
-@Component
-class OrderEventProcessor : OutboxRecordProcessor {
-    override fun process(record: OutboxRecord) {
-        when (record.eventType) {
-            "OrderCreated", "OrderUpdated", "OrderCanceled" -> 
-                processOrderEvent(record)
-        }
-    }
-}
-
-@Component  
-class PaymentEventProcessor : OutboxRecordProcessor {
-    override fun process(record: OutboxRecord) {
-        when (record.eventType) {
-            "PaymentProcessed", "PaymentFailed" ->
-                processPaymentEvent(record) 
-        }
-    }
-}
-```
-
 ## How It Works
 
 ### Outbox Pattern
@@ -262,58 +217,6 @@ class PaymentEventProcessor : OutboxRecordProcessor {
 ✅ **Ordering per aggregate**: Events for the same aggregate are processed in order  
 ✅ **Failure recovery**: System failures don't result in lost events  
 ✅ **Scalability**: Multiple instances can process different aggregates concurrently  
-
-## Best Practices
-
-### 1. Keep Events Small
-```kotlin
-// ✅ Good - minimal event data
-data class OrderCreatedEvent(
-    val orderId: String,
-    val customerId: String,
-    val amount: BigDecimal
-)
-
-// ❌ Avoid - large payloads
-data class OrderCreatedEvent(
-    val completeOrderObject: Order // Potentially large
-)
-```
-
-### 2. Use Meaningful Event Types
-```kotlin
-// ✅ Good - specific event types
-"OrderCreated", "OrderUpdated", "OrderCanceled"
-
-// ❌ Avoid - generic event types  
-"OrderEvent", "DomainEvent"
-```
-
-### 3. Handle Idempotency
-```kotlin
-override fun process(record: OutboxRecord) {
-    val event = parseEvent(record)
-    
-    // Make processing idempotent
-    if (messageAlreadyPublished(event.orderId)) {
-        return // Skip processing
-    }
-    
-    publishMessage(event)
-    markAsPublished(event.orderId)
-}
-```
-
-### 4. Monitor Failed Events
-```kotlin
-@Scheduled(fixedRate = 300000) // Every 5 minutes
-fun monitorFailedEvents() {
-    val failedEvents = outboxRepository.findFailedRecords()
-    if (failedEvents.isNotEmpty()) {
-        alertingService.alert("Found ${failedEvents.size} failed outbox events")
-    }
-}
-```
 
 ## Testing
 
