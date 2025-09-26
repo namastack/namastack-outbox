@@ -12,7 +12,7 @@ description = "spring-outbox-core"
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("io.github.oshai:kotlin-logging-jvm:5.1.0")
+    implementation("io.github.oshai:kotlin-logging-jvm:7.0.13")
     implementation("ch.qos.logback:logback-classic:1.5.18")
     compileOnly("org.springframework.boot:spring-boot")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
