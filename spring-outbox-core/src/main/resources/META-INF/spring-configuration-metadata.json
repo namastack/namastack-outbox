@@ -10,6 +10,12 @@
       "type": "com.beisel.springoutbox.OutboxProperties$Locking",
       "sourceType": "com.beisel.springoutbox.OutboxProperties",
       "description": "Outbox locking configuration"
+    },
+    {
+      "name": "outbox.retry",
+      "type": "com.beisel.springoutbox.OutboxProperties$Retry",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties",
+      "description": "Outbox retry configuration"
     }
   ],
   "properties": [
@@ -19,13 +25,6 @@
       "sourceType": "com.beisel.springoutbox.OutboxProperties",
       "defaultValue": 1000,
       "description": "Interval in milliseconds at which the outbox is polled"
-    },
-    {
-      "name": "outbox.max-retries",
-      "type": "java.lang.Integer",
-      "sourceType": "com.beisel.springoutbox.OutboxProperties",
-      "defaultValue": 3,
-      "description": "Maximum number of retry attempts for failed outbox events"
     },
     {
       "name": "outbox.locking.extension-seconds",
@@ -42,11 +41,39 @@
       "description": "Threshold in seconds before refreshing the lock"
     },
     {
-      "name": "outbox.schema-initialization.enabled",
-      "type": "java.lang.Boolean",
-      "sourceType": "com.beisel.springoutbox.OutboxProperties$SchemaInitialization",
-      "defaultValue": false,
-      "description": "Whether schema initialization is enabled at startup"
+      "name": "outbox.retry.max-retries",
+      "type": "java.lang.Integer",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry",
+      "defaultValue": 3,
+      "description": "Maximum number of retry attempts for failed outbox events"
+    },
+    {
+      "name": "outbox.retry.policy",
+      "type": "java.lang.String",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry",
+      "defaultValue": "exponential",
+      "description": "Retry policy strategy (e.g., exponential, linear)"
+    },
+    {
+      "name": "outbox.retry.initial-delay",
+      "type": "java.lang.Long",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry",
+      "defaultValue": 1000,
+      "description": "Initial delay in milliseconds before the first retry attempt"
+    },
+    {
+      "name": "outbox.retry.max-delay",
+      "type": "java.lang.Long",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry",
+      "defaultValue": 60000,
+      "description": "Maximum delay in milliseconds between retry attempts"
+    },
+    {
+      "name": "outbox.retry.jitter",
+      "type": "java.lang.Long",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry",
+      "defaultValue": 500,
+      "description": "Random jitter in milliseconds to add to retry delays"
     }
   ]
 }

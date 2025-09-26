@@ -58,7 +58,7 @@ class OutboxRecordEntityMapperTest {
                 .createdAt(now)
                 .completedAt(null)
                 .retryCount(0)
-                .nextRetryAt(null)
+                .nextRetryAt(now)
                 .build()
 
         // when
@@ -73,7 +73,7 @@ class OutboxRecordEntityMapperTest {
         assertThat(entity.createdAt).isEqualTo(now)
         assertThat(entity.completedAt).isNull()
         assertThat(entity.retryCount).isEqualTo(0)
-        assertThat(entity.nextRetryAt).isNull()
+        assertThat(entity.nextRetryAt).isEqualTo(now)
     }
 
     @Test
@@ -149,7 +149,7 @@ class OutboxRecordEntityMapperTest {
                 createdAt = now,
                 completedAt = null,
                 retryCount = 0,
-                nextRetryAt = null,
+                nextRetryAt = now,
             )
 
         // when
@@ -164,12 +164,14 @@ class OutboxRecordEntityMapperTest {
         assertThat(record.createdAt).isEqualTo(now)
         assertThat(record.completedAt).isNull()
         assertThat(record.retryCount).isEqualTo(0)
-        assertThat(record.nextRetryAt).isNull()
+        assertThat(record.nextRetryAt).isEqualTo(now)
     }
 
     @Test
     fun `should map OutboxRecordEntity with FAILED status`() {
         // given
+        val now = OffsetDateTime.now()
+
         val entity =
             OutboxRecordEntity(
                 id = "failed-entity",
@@ -180,7 +182,7 @@ class OutboxRecordEntityMapperTest {
                 createdAt = OffsetDateTime.now(),
                 completedAt = null,
                 retryCount = 10,
-                nextRetryAt = null,
+                nextRetryAt = now,
             )
 
         // when
@@ -189,7 +191,6 @@ class OutboxRecordEntityMapperTest {
         // then
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
         assertThat(record.retryCount).isEqualTo(10)
-        assertThat(record.nextRetryAt).isNull()
         assertThat(record.aggregateId).isEqualTo("failed-entity-aggregate")
     }
 

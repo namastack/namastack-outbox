@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS outbox_record
     created_at    TIMESTAMP WITH TIME ZONE NOT NULL,
     completed_at  TIMESTAMP WITH TIME ZONE,
     retry_count   INT       DEFAULT 0,
-    next_retry_at TIMESTAMP DEFAULT now(),
+    next_retry_at TIMESTAMP DEFAULT now()  NOT NULL,
     PRIMARY KEY (id)
 );
 

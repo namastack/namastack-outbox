@@ -1,14 +1,14 @@
 package com.beisel.springoutbox.application
 
 import com.beisel.springoutbox.OutboxJpaTest
-import com.beisel.springoutbox.OutboxLock
-import com.beisel.springoutbox.OutboxLockRepository
 import com.beisel.springoutbox.OutboxRecord
 import com.beisel.springoutbox.OutboxRecordRepository
 import com.beisel.springoutbox.application.event.DomainEvent
 import com.beisel.springoutbox.application.event.OrderCanceledEvent
 import com.beisel.springoutbox.application.event.OrderCreatedEvent
 import com.beisel.springoutbox.application.event.OrderUpdatedEvent
+import com.beisel.springoutbox.lock.OutboxLock
+import com.beisel.springoutbox.lock.OutboxLockRepository
 import org.awaitility.Awaitility
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
