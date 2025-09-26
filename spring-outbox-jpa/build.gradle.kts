@@ -3,6 +3,7 @@ plugins {
     kotlin("plugin.spring")
     kotlin("plugin.jpa") version "2.2.20"
     `maven-publish`
+    jacoco
 }
 
 description = "spring-outbox-jpa"

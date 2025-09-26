@@ -2,6 +2,7 @@ plugins {
     kotlin("jvm")
     kotlin("plugin.spring")
     `maven-publish`
+    jacoco
 }
 
 description = "spring-outbox-core"

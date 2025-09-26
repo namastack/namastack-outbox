@@ -1,3 +1,5 @@
+[![CodeFactor](https://www.codefactor.io/repository/github/rolandbeisel/spring-outbox/badge)](https://www.codefactor.io/repository/github/rolandbeisel/spring-outbox)
+
 # Spring Outbox
 
 A robust Spring Boot library that implements the **Outbox Pattern** for reliable message publishing
@@ -360,7 +362,7 @@ class OutboxMonitoringService(
 
 The library is thoroughly tested with:
 
-- **Unit Tests**: All components with 100% coverage
+- **Unit Tests**: All components with high coverage
 - **Integration Tests**: Real database and locking scenarios
 - **Concurrency Tests**: Race condition validation
 - **Performance Tests**: High-throughput scenarios
