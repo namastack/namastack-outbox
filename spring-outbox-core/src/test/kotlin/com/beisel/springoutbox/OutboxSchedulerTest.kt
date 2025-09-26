@@ -2,6 +2,11 @@ package com.beisel.springoutbox
 
 import com.beisel.springoutbox.OutboxRecordStatus.FAILED
 import com.beisel.springoutbox.OutboxRecordStatus.NEW
+import com.beisel.springoutbox.lock.OutboxLock
+import com.beisel.springoutbox.lock.OutboxLockManager
+import com.beisel.springoutbox.lock.OutboxLockRepository
+import com.beisel.springoutbox.retry.FixedDelayRetryPolicy
+import com.beisel.springoutbox.retry.OutboxRetryPolicy
 import io.mockk.Called
 import io.mockk.every
 import io.mockk.mockk
@@ -10,6 +15,7 @@ import io.mockk.verifyOrder
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Clock
+import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -19,19 +25,21 @@ class OutboxSchedulerTest {
     private val lockRepository: OutboxLockRepository = mockk()
     private val recordRepository: OutboxRecordRepository = mockk()
     private val processor: OutboxRecordProcessor = mockk()
+    private val retryPolicy: OutboxRetryPolicy = FixedDelayRetryPolicy(Duration.ofSeconds(1))
 
     private lateinit var lockManager: OutboxLockManager
-    private lateinit var outboxScheduler: OutboxScheduler
+    private lateinit var outboxProcessingScheduler: OutboxProcessingScheduler
 
     @BeforeEach
     fun setUp() {
         lockManager = OutboxLockManager(lockRepository, properties, clock)
 
-        outboxScheduler =
-            OutboxScheduler(
+        outboxProcessingScheduler =
+            OutboxProcessingScheduler(
                 recordRepository = recordRepository,
                 recordProcessor = processor,
                 lockManager = lockManager,
+                retryPolicy = retryPolicy,
                 properties = properties,
                 clock = clock,
             )
@@ -48,7 +56,7 @@ class OutboxSchedulerTest {
 
         every { processor.process(any()) } returns Unit
 
-        outboxScheduler.process()
+        outboxProcessingScheduler.process()
 
         verify { processor.process(record) }
         verify { recordRepository.save(record) }
@@ -65,7 +73,7 @@ class OutboxSchedulerTest {
             aggregateIdsWithFailedRecords = listOf(aggregateId),
         )
 
-        outboxScheduler.process()
+        outboxProcessingScheduler.process()
 
         verify { processor wasNot Called }
     }
@@ -82,7 +90,7 @@ class OutboxSchedulerTest {
 
         every { processor.process(any()) } returns Unit
 
-        outboxScheduler.process()
+        outboxProcessingScheduler.process()
 
         verifyOrder {
             processor.process(record1)
@@ -104,7 +112,7 @@ class OutboxSchedulerTest {
         every { lockRepository.insertNew(any()) } returns null
         every { lockRepository.findByAggregateId(any()) } returns null
 
-        outboxScheduler.process()
+        outboxProcessingScheduler.process()
 
         verify { processor wasNot Called }
         verify(exactly = 0) { recordRepository.save(any()) }
@@ -121,7 +129,7 @@ class OutboxSchedulerTest {
 
         every { processor.process(record) } throws RuntimeException("Processing failed")
 
-        outboxScheduler.process()
+        outboxProcessingScheduler.process()
 
         verify { processor.process(record) }
         verify { recordRepository.save(match { it.retryCount == 1 }) }
@@ -140,7 +148,7 @@ class OutboxSchedulerTest {
 
         every { processor.process(record) } throws RuntimeException("Processing failed")
 
-        outboxScheduler.process()
+        outboxProcessingScheduler.process()
 
         verify { processor.process(record) }
         verify { recordRepository.save(match { it.status == FAILED }) }
@@ -160,7 +168,7 @@ class OutboxSchedulerTest {
         prepareRecordRepository(incompleteRecords = listOf(record1, record2))
         prepareLockRepository(lock = lock)
 
-        outboxScheduler.process()
+        outboxProcessingScheduler.process()
 
         verify { processor wasNot Called }
         verify(exactly = 0) { recordRepository.save(any()) }
@@ -180,7 +188,7 @@ class OutboxSchedulerTest {
         every { lockRepository.renew(aggregateId, any()) } returns renewedLock
         every { processor.process(any()) } returns Unit
 
-        outboxScheduler.process()
+        outboxProcessingScheduler.process()
 
         verify { processor.process(record) }
         verify { recordRepository.save(record) }
@@ -206,7 +214,7 @@ class OutboxSchedulerTest {
         every { lockRepository.renew(aggregateId, any()) } returns null // renewal fails
         every { lockRepository.deleteById(any()) } returns Unit
 
-        outboxScheduler.process()
+        outboxProcessingScheduler.process()
 
         verify { lockRepository.renew(aggregateId, any()) }
         verify { lockRepository.deleteById(aggregateId) }
@@ -234,7 +242,7 @@ class OutboxSchedulerTest {
 
         every { processor.process(any()) } returns Unit
 
-        outboxScheduler.process()
+        outboxProcessingScheduler.process()
 
         verify { processor.process(record1) }
         verify { processor.process(record2) }
@@ -254,7 +262,7 @@ class OutboxSchedulerTest {
 
         every { processor.process(record) } throws RuntimeException("Processing failed")
 
-        outboxScheduler.process()
+        outboxProcessingScheduler.process()
 
         // After incrementRetryCount() it becomes 5, so calculateBackoff(5) = min(1<<5, 60) = min(32, 60) = 32
         verify { recordRepository.save(match { it.retryCount == 5 }) }
@@ -273,7 +281,7 @@ class OutboxSchedulerTest {
 
         every { processor.process(record) } throws RuntimeException("Processing failed")
 
-        outboxScheduler.process()
+        outboxProcessingScheduler.process()
 
         // Just verify the retry count was incremented
         verify { recordRepository.save(match { it.retryCount == 9 }) }
@@ -284,7 +292,7 @@ class OutboxSchedulerTest {
         every { recordRepository.findAggregateIdsWithPendingRecords(status = NEW) } returns emptyList()
         every { recordRepository.findAggregateIdsWithFailedRecords() } returns emptyList()
 
-        outboxScheduler.process()
+        outboxProcessingScheduler.process()
 
         verify { processor wasNot Called }
         verify { lockRepository wasNot Called }

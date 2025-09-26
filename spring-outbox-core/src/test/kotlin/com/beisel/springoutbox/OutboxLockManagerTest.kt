@@ -1,5 +1,8 @@
 package com.beisel.springoutbox
 
+import com.beisel.springoutbox.lock.OutboxLock
+import com.beisel.springoutbox.lock.OutboxLockManager
+import com.beisel.springoutbox.lock.OutboxLockRepository
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just

@@ -1,0 +1,11 @@
+{
+  "properties": [
+    {
+      "name": "outbox.schema-initialization.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$SchemaInitialization",
+      "defaultValue": false,
+      "description": "Whether schema initialization is enabled at startup"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-package com.beisel.springoutbox
+package com.beisel.springoutbox.lock
 
 import java.time.Clock
 import java.time.OffsetDateTime

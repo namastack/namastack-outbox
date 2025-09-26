@@ -20,5 +20,5 @@ data class OutboxRecordEntity(
     val createdAt: OffsetDateTime,
     val completedAt: OffsetDateTime?,
     val retryCount: Int,
-    val nextRetryAt: OffsetDateTime?,
+    val nextRetryAt: OffsetDateTime,
 )
