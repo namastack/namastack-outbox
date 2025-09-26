@@ -1,17 +1,20 @@
 # Spring Outbox
 
-A robust Spring Boot library that implements the **Outbox Pattern** for reliable message publishing in distributed systems. This library ensures that domain events are published reliably, even in the face of system failures, by using transactional guarantees and distributed locking.
+A robust Spring Boot library that implements the **Outbox Pattern** for reliable message publishing
+in distributed systems. This library ensures that domain events are published reliably, even in the
+face of system failures, by using transactional guarantees and distributed locking.
 
 ## Features
 
 - 🔄 **Transactional Outbox Pattern**: Ensures events are never lost
 - 🔒 **Distributed Locking**: Prevents concurrent processing of the same aggregate
-- 🔁 **Automatic Retry**: Exponential backoff with configurable max retries
+- 🔁 **Automatic Retry**: Multiple retry policies with configurable strategies
 - 📊 **Event Ordering**: Guarantees event processing order per aggregate
 - ⚡ **High Performance**: Optimized for high-throughput scenarios
 - 🛡️ **Race Condition Safe**: Uses optimistic locking to handle concurrency
 - 📈 **Scalable**: Supports multiple application instances
 - 🎯 **Zero Message Loss**: Database-backed reliability
+- 🎲 **Jitter Support**: Randomized delays to prevent thundering herd
 
 ## Quick Start
 
@@ -83,19 +86,19 @@ Implement `OutboxRecordProcessor` to handle your events:
 ```kotlin
 @Component
 class MyEventProcessor : OutboxRecordProcessor {
-    
+
     private val logger = LoggerFactory.getLogger(javaClass)
     private val objectMapper = ObjectMapper()
-    
+
     override fun process(record: OutboxRecord) {
         when (record.eventType) {
             "OrderCreated" -> handleOrderCreated(record)
-            "OrderUpdated" -> handleOrderUpdated(record) 
+            "OrderUpdated" -> handleOrderUpdated(record)
             "OrderCanceled" -> handleOrderCanceled(record)
             else -> logger.warn("Unknown event type: ${record.eventType}")
         }
     }
-    
+
     private fun handleOrderCreated(record: OutboxRecord) {
         val event = objectMapper.readValue(record.payload, OrderCreatedEvent::class.java)
         // Publish to message broker, call external API, etc.
@@ -116,12 +119,12 @@ class OrderService(
     private val outboxRepository: OutboxRecordRepository,
     private val objectMapper: ObjectMapper
 ) {
-    
+
     fun createOrder(command: CreateOrderCommand): Order {
         // Create and save the order
         val order = Order.create(command)
         orderRepository.save(order)
-        
+
         // Save event to outbox - same transaction!
         val event = OrderCreatedEvent(order.id, order.customerId, order.amount)
         val outboxRecord = OutboxRecord.Builder()
@@ -129,9 +132,9 @@ class OrderService(
             .eventType("OrderCreated")
             .payload(objectMapper.writeValueAsString(event))
             .build()
-            
+
         outboxRepository.save(outboxRecord)
-        
+
         return order
     }
 }
@@ -143,34 +146,168 @@ Configure the outbox behavior in your `application.yml`:
 
 ```yaml
 outbox:
-  # Maximum number of retries before marking as failed
-  max-retries: 3
-  
   # Polling interval for processing events
   poll-interval: 5s
-  
+
   # Schema initialization
   schema-initialization:
     enabled: true
-  
+
   # Distributed locking settings  
   locking:
     extension-seconds: 300     # Lock duration (5 minutes)
     refresh-threshold: 60      # Renew lock when < 60s remaining
+
+  # Retry configuration
+  retry:
+    max-retries: 3             # Maximum retry attempts
+    policy: "exponential"      # Retry policy: fixed, exponential, or jittered
+    initial-delay: 1000        # Initial delay in milliseconds
+    max-delay: 60000           # Maximum delay in milliseconds
+    jitter: 500                # Jitter amount in milliseconds (for jittered policy)
+```
+
+## Retry Mechanisms
+
+The library provides sophisticated retry mechanisms to handle transient failures gracefully.
+Multiple retry policies are available to suit different use cases.
+
+### Retry Policies
+
+#### 1. Fixed Delay Retry Policy
+
+Retries with a constant delay between attempts:
+
+```yaml
+outbox:
+  retry:
+    policy: "fixed"
+    initial-delay: 5000  # Always wait 5 seconds between retries
+    max-retries: 5
+```
+
+**Use case**: Simple scenarios where you want consistent retry intervals.
+
+#### 2. Exponential Backoff Retry Policy
+
+Implements exponential backoff with configurable initial and maximum delays:
+
+```yaml
+outbox:
+  retry:
+    policy: "exponential"
+    initial-delay: 1000    # Start with 1 second
+    max-delay: 300000      # Cap at 5 minutes
+    max-retries: 10
+```
+
+**Retry schedule**:
+
+- Retry 1: 1 second
+- Retry 2: 2 seconds
+- Retry 3: 4 seconds
+- Retry 4: 8 seconds
+- Retry 5: 16 seconds
+- ...continues doubling until `max-delay`
+
+**Use case**: Most common scenario - gradually back off to reduce load on failing systems.
+
+#### 3. Jittered Retry Policy
+
+Adds randomization to any base policy to prevent thundering herd problems:
+
+```yaml
+outbox:
+  retry:
+    policy: "jittered"
+    initial-delay: 2000
+    max-delay: 60000
+    jitter: 1000          # Add 0-1000ms random jitter
+    max-retries: 7
+```
+
+**Example with exponential base**:
+
+- Base delay: 2 seconds → Actual delay: 2.0-3.0 seconds
+- Base delay: 4 seconds → Actual delay: 4.0-5.0 seconds
+- Base delay: 8 seconds → Actual delay: 8.0-9.0 seconds
+
+**Use case**: High-traffic systems where many instances might retry simultaneously.
+
+### Custom Retry Policies
+
+You can implement custom retry logic by creating a bean that implements `OutboxRetryPolicy`:
+
+```kotlin
+@Component
+class CustomRetryPolicy : OutboxRetryPolicy {
+
+    override fun shouldRetry(exception: Throwable): Boolean {
+        // Only retry on specific exceptions
+        return when (exception) {
+            is HttpRetryException,
+            is SocketTimeoutException,
+            is ConnectException -> true
+            is SecurityException -> false  // Never retry auth failures
+            else -> true
+        }
+    }
+
+    override fun nextDelay(retryCount: Int): Duration {
+        // Custom delay logic
+        return when {
+            retryCount <= 2 -> Duration.ofSeconds(1)      // Quick retries first
+            retryCount <= 5 -> Duration.ofSeconds(30)     // Medium delays
+            else -> Duration.ofMinutes(5)                 // Longer delays for persistent failures
+        }
+    }
+}
+```
+
+### Retry Behavior Configuration
+
+#### Exception-Based Retry Logic
+
+Control which exceptions should trigger retries:
+
+```kotlin
+@Component
+class SelectiveRetryPolicy : OutboxRetryPolicy {
+
+    override fun shouldRetry(exception: Throwable): Boolean {
+        return when (exception) {
+            // Retry transient failures
+            is SocketTimeoutException,
+            is HttpRetryException,
+            is ConnectTimeoutException -> true
+
+            // Don't retry business logic failures
+            is ValidationException,
+            is AuthenticationException,
+            is IllegalArgumentException -> false
+
+            // Default: retry unknown exceptions
+            else -> true
+        }
+    }
+
+    // ...existing code...
+}
 ```
 
 ### Error Handling
 
-The library automatically handles retries with exponential backoff:
+The library automatically handles retries with the configured policy. Here's what happens when
+processing fails:
 
-- **Retry 1**: 2 seconds
-- **Retry 2**: 4 seconds  
-- **Retry 3**: 8 seconds
-- **Max backoff**: 60 seconds
+1. **Exception Occurs**: During event processing
+2. **Retry Decision**: `shouldRetry(exception)` determines if retry should happen
+3. **Retry Count Check**: Verifies retry count hasn't exceeded `max-retries`
+4. **Delay Calculation**: `nextDelay(retryCount)` calculates wait time
+5. **Scheduling**: Event is scheduled for retry at calculated time
+6. **Final Failure**: After max retries, event is marked as `FAILED`
 
-Failed records are marked with `FAILED` status after max retries.
-
-### Monitoring
+## Monitoring
 
 Query outbox status:
 
@@ -179,15 +316,15 @@ Query outbox status:
 class OutboxMonitoringService(
     private val outboxRepository: OutboxRecordRepository
 ) {
-    
+
     fun getPendingEvents(): List<OutboxRecord> {
         return outboxRepository.findPendingRecords()
     }
-    
+
     fun getFailedEvents(): List<OutboxRecord> {
         return outboxRepository.findFailedRecords()
     }
-    
+
     fun getCompletedEvents(): List<OutboxRecord> {
         return outboxRepository.findCompletedRecords()
     }
@@ -198,7 +335,8 @@ class OutboxMonitoringService(
 
 ### Outbox Pattern
 
-1. **Transactional Write**: Events are saved to the outbox table in the same transaction as your domain changes
+1. **Transactional Write**: Events are saved to the outbox table in the same transaction as your
+   domain changes
 2. **Background Processing**: A scheduler polls for unprocessed events
 3. **Distributed Locking**: Only one instance processes events for each aggregate
 4. **Ordered Processing**: Events are processed in creation order per aggregate
@@ -216,18 +354,19 @@ class OutboxMonitoringService(
 ✅ **At-least-once delivery**: Events will be processed at least once  
 ✅ **Ordering per aggregate**: Events for the same aggregate are processed in order  
 ✅ **Failure recovery**: System failures don't result in lost events  
-✅ **Scalability**: Multiple instances can process different aggregates concurrently  
+✅ **Scalability**: Multiple instances can process different aggregates concurrently
 
 ## Testing
 
 The library is thoroughly tested with:
 
 - **Unit Tests**: All components with 100% coverage
-- **Integration Tests**: Real database and locking scenarios  
+- **Integration Tests**: Real database and locking scenarios
 - **Concurrency Tests**: Race condition validation
 - **Performance Tests**: High-throughput scenarios
 
 Run tests:
+
 ```bash
 ./gradlew test
 ```
