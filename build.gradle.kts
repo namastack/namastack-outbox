@@ -4,6 +4,13 @@ plugins {
     id("io.spring.dependency-management") version "1.1.7" apply false
     id("org.jlleitschuh.gradle.ktlint") version "13.1.0" apply false
     kotlin("jvm") version "2.2.20"
+    id("jacoco-report-aggregation")
+    jacoco
+}
+
+dependencies {
+    jacocoAggregation(project(":spring-outbox-core"))
+    jacocoAggregation(project(":spring-outbox-jpa"))
 }
 
 allprojects {
@@ -23,4 +30,8 @@ repositories {
 
 kotlin {
     jvmToolchain(21)
+}
+
+tasks.check {
+    dependsOn(tasks.named<JacocoReport>("testCodeCoverageReport"))
 }
