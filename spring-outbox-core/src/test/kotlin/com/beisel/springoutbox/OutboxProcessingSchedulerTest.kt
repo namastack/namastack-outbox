@@ -19,7 +19,7 @@ import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.UUID
 
-class OutboxSchedulerTest {
+class OutboxProcessingSchedulerTest {
     private val clock: Clock = Clock.systemUTC()
     private val properties: OutboxProperties = OutboxProperties()
     private val lockRepository: OutboxLockRepository = mockk()
@@ -296,6 +296,238 @@ class OutboxSchedulerTest {
 
         verify { processor wasNot Called }
         verify { lockRepository wasNot Called }
+    }
+
+    @Test
+    fun `does not retry when retryPolicy shouldRetry returns false`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val record = createOutboxRecord(aggregateId, "NonRetryableEvent")
+        val lock = OutboxLock.create(aggregateId, 10L, clock)
+
+        val customRetryPolicy = mockk<OutboxRetryPolicy>()
+        every { customRetryPolicy.shouldRetry(any()) } returns false
+
+        val customScheduler =
+            OutboxProcessingScheduler(
+                recordRepository = recordRepository,
+                recordProcessor = processor,
+                lockManager = lockManager,
+                retryPolicy = customRetryPolicy,
+                properties = properties,
+                clock = clock,
+            )
+
+        prepareRecordRepository(incompleteRecords = listOf(record))
+        prepareLockRepository(lock = lock)
+
+        every { processor.process(record) } throws RuntimeException("Processing failed")
+
+        customScheduler.process()
+
+        verify { processor.process(record) }
+        verify { recordRepository.save(match { it.status == FAILED && it.retryCount == 1 }) }
+        verify { lockRepository.deleteById(aggregateId) }
+    }
+
+    @Test
+    fun `schedules next retry when retries not exhausted and shouldRetry is true`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val record = createOutboxRecord(aggregateId, "RetryableEvent")
+        val lock = OutboxLock.create(aggregateId, 10L, clock)
+
+        val customRetryPolicy = mockk<OutboxRetryPolicy>()
+        every { customRetryPolicy.shouldRetry(any()) } returns true
+        every { customRetryPolicy.nextDelay(any()) } returns Duration.ofSeconds(30)
+
+        val customScheduler =
+            OutboxProcessingScheduler(
+                recordRepository = recordRepository,
+                recordProcessor = processor,
+                lockManager = lockManager,
+                retryPolicy = customRetryPolicy,
+                properties = properties,
+                clock = clock,
+            )
+
+        prepareRecordRepository(incompleteRecords = listOf(record))
+        prepareLockRepository(lock = lock)
+
+        every { processor.process(record) } throws RuntimeException("Processing failed")
+
+        customScheduler.process()
+
+        verify { processor.process(record) }
+        verify { customRetryPolicy.nextDelay(1) }
+        verify { recordRepository.save(match { it.retryCount == 1 && it.status == NEW }) }
+        verify { lockRepository.deleteById(aggregateId) }
+    }
+
+    @Test
+    fun `marks record as completed on successful processing`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val record = createOutboxRecord(aggregateId, "SuccessEvent")
+        val lock = OutboxLock.create(aggregateId, 10L, clock)
+
+        prepareRecordRepository(incompleteRecords = listOf(record))
+        prepareLockRepository(lock = lock)
+
+        every { processor.process(record) } returns Unit
+
+        outboxProcessingScheduler.process()
+
+        verify { processor.process(record) }
+        verify {
+            recordRepository.save(
+                match {
+                    it.status == OutboxRecordStatus.COMPLETED && it.completedAt != null
+                },
+            )
+        }
+        verify { lockRepository.deleteById(aggregateId) }
+    }
+
+    @Test
+    fun `stops processing when lock renewal fails mid-processing`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val record1 = createOutboxRecord(aggregateId, "Event1")
+        val record2 = createOutboxRecord(aggregateId, "Event2")
+
+        // Create a lock that is expiring soon to trigger renewal
+        val expiringSoonLock = mockk<OutboxLock>()
+        every { expiringSoonLock.aggregateId } returns aggregateId
+        every { expiringSoonLock.isExpiringSoon(any(), any()) } returns true
+        every { expiringSoonLock.expiresAt } returns OffsetDateTime.now(clock).plusSeconds(1)
+
+        prepareRecordRepository(incompleteRecords = listOf(record1, record2))
+
+        every { lockRepository.insertNew(any()) } returns expiringSoonLock
+        every { lockRepository.renew(aggregateId, any()) } returns null // renewal fails on first attempt
+        every { lockRepository.deleteById(any()) } returns Unit
+
+        outboxProcessingScheduler.process()
+
+        // Lock renewal is attempted before processing any record
+        verify { lockRepository.renew(aggregateId, any()) }
+        // Since renewal fails, no records should be processed
+        verify { processor wasNot Called }
+        verify(exactly = 0) { recordRepository.save(any()) }
+        verify { lockRepository.deleteById(aggregateId) }
+    }
+
+    @Test
+    fun `processes only retryable records and stops at non-retryable ones`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val record1 = createOutboxRecord(aggregateId, "Event1")
+        val record2 = createOutboxRecord(aggregateId, "Event2")
+        val record3 = createOutboxRecord(aggregateId, "Event3")
+
+        // Make record2 not retryable (future retry time)
+        record2.nextRetryAt = clock.instant().plusSeconds(3600).atOffset(java.time.ZoneOffset.UTC)
+
+        val lock = OutboxLock.create(aggregateId, 10L, clock)
+
+        prepareRecordRepository(incompleteRecords = listOf(record1, record2, record3))
+        prepareLockRepository(lock = lock)
+
+        every { processor.process(any()) } returns Unit
+
+        outboxProcessingScheduler.process()
+
+        // Should only process record1, then stop at record2
+        verify { processor.process(record1) }
+        verify(exactly = 0) { processor.process(record2) }
+        verify(exactly = 0) { processor.process(record3) }
+        verify(exactly = 1) { recordRepository.save(any()) } // Only record1 gets saved
+    }
+
+    @Test
+    fun `handles mixed success and failure in same aggregate`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val record1 = createOutboxRecord(aggregateId, "SuccessEvent")
+        val record2 = createOutboxRecord(aggregateId, "FailEvent")
+        val lock = OutboxLock.create(aggregateId, 10L, clock)
+
+        prepareRecordRepository(incompleteRecords = listOf(record1, record2))
+        prepareLockRepository(lock = lock)
+
+        every { processor.process(record1) } returns Unit
+        every { processor.process(record2) } throws RuntimeException("Processing failed")
+
+        outboxProcessingScheduler.process()
+
+        verifyOrder {
+            processor.process(record1)
+            processor.process(record2)
+        }
+
+        verify {
+            recordRepository.save(
+                match {
+                    it.eventType == "SuccessEvent" &&
+                        it.status == OutboxRecordStatus.COMPLETED
+                },
+            )
+        }
+        verify { recordRepository.save(match { it.eventType == "FailEvent" && it.retryCount == 1 }) }
+        verify { lockRepository.deleteById(aggregateId) }
+    }
+
+    @Test
+    fun `marks record as failed when max retries reached exactly`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val record = createOutboxRecord(aggregateId, "FailingEvent")
+        record.retryCount = properties.retry.maxRetries // Exactly at max retries
+        val lock = OutboxLock.create(aggregateId, 10L, clock)
+
+        prepareRecordRepository(incompleteRecords = listOf(record))
+        prepareLockRepository(lock = lock)
+
+        every { processor.process(record) } throws RuntimeException("Processing failed")
+
+        outboxProcessingScheduler.process()
+
+        verify { processor.process(record) }
+        verify {
+            recordRepository.save(
+                match {
+                    it.status == FAILED && it.retryCount == properties.retry.maxRetries + 1
+                },
+            )
+        }
+        verify { lockRepository.deleteById(aggregateId) }
+    }
+
+    @Test
+    fun `successfully renews lock during processing of multiple records`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val record1 = createOutboxRecord(aggregateId, "Event1")
+        val record2 = createOutboxRecord(aggregateId, "Event2")
+
+        // Create locks that are expiring soon to trigger renewal
+        val expiringSoonLock = mockk<OutboxLock>()
+        every { expiringSoonLock.aggregateId } returns aggregateId
+        every { expiringSoonLock.isExpiringSoon(any(), any()) } returns true
+        every { expiringSoonLock.expiresAt } returns OffsetDateTime.now(clock).plusSeconds(1)
+
+        val renewedLock = mockk<OutboxLock>()
+        every { renewedLock.aggregateId } returns aggregateId
+        every { renewedLock.isExpiringSoon(any(), any()) } returns true
+        every { renewedLock.expiresAt } returns OffsetDateTime.now(clock).plusSeconds(10)
+
+        prepareRecordRepository(incompleteRecords = listOf(record1, record2))
+
+        every { lockRepository.insertNew(any()) } returns expiringSoonLock
+        // First renewal succeeds and returns renewedLock, second renewal also succeeds
+        every { lockRepository.renew(aggregateId, any()) } returnsMany listOf(renewedLock, renewedLock)
+        every { lockRepository.deleteById(any()) } returns Unit
+        every { processor.process(any()) } returns Unit
+
+        outboxProcessingScheduler.process()
+
+        verify(exactly = 2) { processor.process(any()) }
+        verify(exactly = 2) { lockRepository.renew(aggregateId, any()) }
+        verify(exactly = 2) { recordRepository.save(any()) }
+        verify { lockRepository.deleteById(aggregateId) }
     }
 
     private fun prepareRecordRepository(
