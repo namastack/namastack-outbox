@@ -3,9 +3,11 @@ package com.beisel.springoutbox
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
 
 class OutboxRecordTest {
     private val clock = Clock.fixed(Instant.parse("2025-09-25T10:00:00Z"), ZoneOffset.UTC)
@@ -47,7 +49,6 @@ class OutboxRecordTest {
 
         // then
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
-        assertThat(record.nextRetryAt).isNull()
     }
 
     @Test
@@ -148,26 +149,6 @@ class OutboxRecordTest {
     }
 
     @Test
-    fun `canBeRetried should return false when nextRetryAt is null`() {
-        // given
-        val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .status(OutboxRecordStatus.NEW)
-                .nextRetryAt(null)
-                .build()
-
-        // when
-        val result = record.canBeRetried(clock)
-
-        // then
-        assertThat(result).isFalse()
-    }
-
-    @Test
     fun `canBeRetried should return true when nextRetryAt equals current time`() {
         // given
         val record =
@@ -245,7 +226,7 @@ class OutboxRecordTest {
     }
 
     @Test
-    fun `scheduleNextRetry should set nextRetryAt to future time`() {
+    fun `scheduleNextRetry should set nextRetryAt`() {
         // given
         val record =
             OutboxRecord
@@ -253,31 +234,16 @@ class OutboxRecordTest {
                 .aggregateId("test-aggregate")
                 .eventType("TestEvent")
                 .payload("test-payload")
+                .nextRetryAt(now)
                 .build()
 
-        // when
-        record.scheduleNextRetry(30L, clock)
-
-        // then
-        assertThat(record.nextRetryAt).isEqualTo(now.plusSeconds(30))
-    }
-
-    @Test
-    fun `scheduleNextRetry should handle zero seconds`() {
-        // given
-        val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .build()
+        val delay = Duration.of(5, ChronoUnit.SECONDS)
 
         // when
-        record.scheduleNextRetry(0L, clock)
+        record.scheduleNextRetry(delay)
 
         // then
-        assertThat(record.nextRetryAt).isEqualTo(now)
+        assertThat(record.nextRetryAt).isEqualTo(now.plus(delay))
     }
 
     @Test

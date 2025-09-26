@@ -1,6 +1,7 @@
 package com.beisel.springoutbox
 
 import java.time.Clock
+import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -14,7 +15,7 @@ data class OutboxRecord internal constructor(
     val createdAt: OffsetDateTime = OffsetDateTime.now(),
     var completedAt: OffsetDateTime? = null,
     var retryCount: Int = 0,
-    var nextRetryAt: OffsetDateTime? = OffsetDateTime.now(),
+    var nextRetryAt: OffsetDateTime = OffsetDateTime.now(),
 ) {
     fun markCompleted() {
         completedAt = OffsetDateTime.now()
@@ -22,7 +23,6 @@ data class OutboxRecord internal constructor(
     }
 
     fun markFailed() {
-        nextRetryAt = null
         status = OutboxRecordStatus.FAILED
     }
 
@@ -31,15 +31,12 @@ data class OutboxRecord internal constructor(
     }
 
     fun canBeRetried(clock: Clock): Boolean =
-        nextRetryAt?.isBefore(OffsetDateTime.now(clock)) == true && status == OutboxRecordStatus.NEW
+        nextRetryAt.isBefore(OffsetDateTime.now(clock)) && status == OutboxRecordStatus.NEW
 
     fun retriesExhausted(maxRetries: Int): Boolean = retryCount >= maxRetries
 
-    fun scheduleNextRetry(
-        seconds: Long,
-        clock: Clock,
-    ) {
-        nextRetryAt = OffsetDateTime.now(clock).plusSeconds(seconds)
+    fun scheduleNextRetry(delay: Duration) {
+        this.nextRetryAt = nextRetryAt.plus(delay)
     }
 
     class Builder {
@@ -51,7 +48,7 @@ data class OutboxRecord internal constructor(
         private var createdAt: OffsetDateTime = OffsetDateTime.now()
         private var completedAt: OffsetDateTime? = null
         private var retryCount: Int = 0
-        private var nextRetryAt: OffsetDateTime? = OffsetDateTime.now()
+        private var nextRetryAt: OffsetDateTime = OffsetDateTime.now()
 
         fun id(id: String) = apply { this.id = id }
 
@@ -69,7 +66,7 @@ data class OutboxRecord internal constructor(
 
         fun retryCount(retryCount: Int) = apply { this.retryCount = retryCount }
 
-        fun nextRetryAt(nextRetryAt: OffsetDateTime?) = apply { this.nextRetryAt = nextRetryAt }
+        fun nextRetryAt(nextRetryAt: OffsetDateTime) = apply { this.nextRetryAt = nextRetryAt }
 
         fun build(): OutboxRecord =
             OutboxRecord(
