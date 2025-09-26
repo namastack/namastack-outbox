@@ -1,0 +1,29 @@
+name: spring-outbox CI
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'feature/**'
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: 21
+          distribution: corretto
+
+      - name: Build and run tests
+        run: ./gradlew clean test
+
+      - name: Show test results
+        run: ./gradlew test --info
