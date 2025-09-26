@@ -1,5 +1,6 @@
-package com.beisel.springoutbox
+package com.beisel.springoutbox.lock
 
+import com.beisel.springoutbox.OutboxProperties
 import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.OffsetDateTime
@@ -9,7 +10,7 @@ class OutboxLockManager(
     private val properties: OutboxProperties,
     private val clock: Clock,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(OutboxLockManager::class.java)
 
     fun acquire(aggregateId: String): OutboxLock? {
         val lock =

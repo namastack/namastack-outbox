@@ -1,5 +1,7 @@
 package com.beisel.springoutbox
 
+import com.beisel.springoutbox.lock.OutboxLock
+
 object OutboxLockEntityMapper {
     fun map(lock: OutboxLock): OutboxLockEntity =
         OutboxLockEntity(

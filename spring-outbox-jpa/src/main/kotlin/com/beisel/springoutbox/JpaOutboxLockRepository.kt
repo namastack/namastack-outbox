@@ -1,5 +1,7 @@
 package com.beisel.springoutbox
 
+import com.beisel.springoutbox.lock.OutboxLock
+import com.beisel.springoutbox.lock.OutboxLockRepository
 import jakarta.persistence.EntityManager
 import jakarta.persistence.PersistenceException
 import org.springframework.transaction.annotation.Propagation

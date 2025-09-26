@@ -4,16 +4,19 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 
 @ConfigurationProperties(prefix = "outbox")
 data class OutboxProperties(
-    val maxRetries: Int = 3,
     val locking: Locking = Locking(),
-    val schemaInitialization: SchemaInitialization = SchemaInitialization(),
+    val retry: Retry = Retry(),
 ) {
     data class Locking(
         val extensionSeconds: Long = 5,
         val refreshThreshold: Long = 2,
     )
 
-    data class SchemaInitialization(
-        val enabled: Boolean = false,
+    data class Retry(
+        val maxRetries: Int = 3,
+        val policy: String = "exponential",
+        val initialDelay: Long = 1000,
+        val maxDelay: Long = 60000,
+        val jitter: Long = 500,
     )
 }

@@ -1,18 +1,22 @@
 package com.beisel.springoutbox
 
 import com.beisel.springoutbox.OutboxRecordStatus.NEW
+import com.beisel.springoutbox.lock.OutboxLock
+import com.beisel.springoutbox.lock.OutboxLockManager
+import com.beisel.springoutbox.retry.OutboxRetryPolicy
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import java.time.Clock
 
-class OutboxScheduler(
+class OutboxProcessingScheduler(
     private val recordRepository: OutboxRecordRepository,
     private val recordProcessor: OutboxRecordProcessor,
     private val lockManager: OutboxLockManager,
+    private val retryPolicy: OutboxRetryPolicy,
     private val properties: OutboxProperties,
     private val clock: Clock,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
     @Scheduled(fixedDelayString = $$"${outbox.poll-interval}")
     fun process() {
@@ -72,14 +76,13 @@ class OutboxScheduler(
         log.debug("❌ Failed {} for {}: {}", record.eventType, record.aggregateId, ex.message)
 
         record.incrementRetryCount()
-        if (record.retriesExhausted(properties.maxRetries)) {
+        if (record.retriesExhausted(properties.retry.maxRetries) || !retryPolicy.shouldRetry(ex)) {
             record.markFailed()
         } else {
-            record.scheduleNextRetry(calculateBackoff(record.retryCount), clock)
+            val delay = retryPolicy.nextDelay(record.retryCount)
+            record.scheduleNextRetry(delay)
         }
 
         recordRepository.save(record)
     }
-
-    private fun calculateBackoff(retryCount: Int) = minOf(1L.shl(retryCount), 60L)
 }
