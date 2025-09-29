@@ -23,7 +23,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa:3.5.6")
     testImplementation("org.springframework.boot:spring-boot-testcontainers:3.5.6")
     testImplementation("org.postgresql:postgresql:42.7.4")
-    testImplementation("org.testcontainers:postgresql:1.20.4")
+    testImplementation("org.testcontainers:postgresql:1.21.3")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.hibernate.orm:hibernate-core:6.6.3.Final")
 }
