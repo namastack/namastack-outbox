@@ -7,17 +7,17 @@ CREATE TABLE IF NOT EXISTS outbox_record
     payload       TEXT                     NOT NULL,
     created_at    TIMESTAMP WITH TIME ZONE NOT NULL,
     completed_at  TIMESTAMP WITH TIME ZONE,
-    retry_count   INT       DEFAULT 0,
-    next_retry_at TIMESTAMP DEFAULT now()  NOT NULL,
+    retry_count   INT                      NOT NULL,
+    next_retry_at TIMESTAMP WITH TIME ZONE NOT NULL,
     PRIMARY KEY (id)
 );
 
 CREATE TABLE IF NOT EXISTS outbox_lock
 (
-    aggregate_id VARCHAR(255),
+    aggregate_id VARCHAR(255)             NOT NULL,
     acquired_at  TIMESTAMP WITH TIME ZONE NOT NULL,
     expires_at   TIMESTAMP WITH TIME ZONE NOT NULL,
-    version      BIGINT,
+    version      BIGINT                   NOT NULL,
     PRIMARY KEY (aggregate_id)
 );
 
