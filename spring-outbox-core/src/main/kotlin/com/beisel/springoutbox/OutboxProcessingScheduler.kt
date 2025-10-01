@@ -20,13 +20,7 @@ class OutboxProcessingScheduler(
 
     @Scheduled(fixedDelayString = $$"${outbox.poll-interval}")
     fun process() {
-        val aggregateIdsWithFailedRecords = recordRepository.findAggregateIdsWithFailedRecords()
-        val aggregateIdsWithPendingRecords =
-            recordRepository
-                .findAggregateIdsWithPendingRecords(status = NEW)
-                .filterNot(aggregateIdsWithFailedRecords::contains)
-
-        aggregateIdsWithPendingRecords.forEach { aggregateId ->
+        findAggregateIdsWithPendingRecords().forEach { aggregateId ->
             val lock = lockManager.acquire(aggregateId) ?: return@forEach
 
             try {
@@ -52,7 +46,12 @@ class OutboxProcessingScheduler(
 
             lock = lockManager.renew(lock) ?: break
 
-            if (!processRecord(record)) break
+            val success = processRecord(record)
+
+            if (!success && properties.processing.stopOnFirstFailure) {
+                log.debug("🛑 Stopping aggregate {} processing due to failure (stopOnFirstFailure=true)", aggregateId)
+                break
+            }
         }
     }
 
@@ -84,5 +83,17 @@ class OutboxProcessingScheduler(
         }
 
         recordRepository.save(record)
+    }
+
+    private fun findAggregateIdsWithPendingRecords(): List<String> {
+        val excludedAggregateIds = mutableListOf<String>()
+
+        if (properties.processing.stopOnFirstFailure) {
+            excludedAggregateIds.addAll(recordRepository.findAggregateIdsWithFailedRecords())
+        }
+
+        return recordRepository
+            .findAggregateIdsWithPendingRecords(status = NEW)
+            .filterNot(excludedAggregateIds::contains)
     }
 }

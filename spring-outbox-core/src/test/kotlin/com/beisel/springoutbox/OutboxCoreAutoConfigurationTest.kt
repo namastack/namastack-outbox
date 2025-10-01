@@ -95,16 +95,16 @@ class OutboxCoreAutoConfigurationTest {
         }
 
         @Test
-        fun `defaults to fixed retry policy when unknown policy is configured`() {
+        fun `throws exception when unknown policy is configured`() {
             contextRunner()
                 .withUserConfiguration(CompleteTestConfig::class.java)
                 .withPropertyValues(
                     "outbox.retry.policy=unknown",
                     "outbox.retry.initial-delay=200",
                 ).run { context ->
-                    assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
-                    assertThat(context.getBean(OutboxRetryPolicy::class.java))
-                        .isInstanceOf(FixedDelayRetryPolicy::class.java)
+                    assertThat(context).hasFailed()
+                    assertThat(context.getStartupFailure())
+                        .hasMessageContaining("Unsupported retry-policy: unknown")
                 }
         }
 
@@ -115,7 +115,7 @@ class OutboxCoreAutoConfigurationTest {
                 .run { context ->
                     assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
                     assertThat(context.getBean(OutboxRetryPolicy::class.java))
-                        .isInstanceOf(FixedDelayRetryPolicy::class.java)
+                        .isInstanceOf(ExponentialBackoffRetryPolicy::class.java)
                 }
         }
     }

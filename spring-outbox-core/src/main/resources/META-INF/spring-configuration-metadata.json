@@ -16,6 +16,30 @@
       "type": "com.beisel.springoutbox.OutboxProperties$Retry",
       "sourceType": "com.beisel.springoutbox.OutboxProperties",
       "description": "Outbox retry configuration"
+    },
+    {
+      "name": "outbox.retry.exponential",
+      "type": "com.beisel.springoutbox.OutboxProperties$Retry$ExponentialRetry",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry",
+      "description": "Exponential backoff retry policy configuration"
+    },
+    {
+      "name": "outbox.retry.fixed",
+      "type": "com.beisel.springoutbox.OutboxProperties$Retry$FixedRetry",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry",
+      "description": "Fixed delay retry policy configuration"
+    },
+    {
+      "name": "outbox.retry.jittered",
+      "type": "com.beisel.springoutbox.OutboxProperties$Retry$JitteredRetry",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry",
+      "description": "Jittered retry policy configuration with configurable base policy"
+    },
+    {
+      "name": "outbox.processing",
+      "type": "com.beisel.springoutbox.OutboxProperties$Processing",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties",
+      "description": "Outbox processing behavior configuration"
     }
   ],
   "properties": [
@@ -52,28 +76,56 @@
       "type": "java.lang.String",
       "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry",
       "defaultValue": "exponential",
-      "description": "Retry policy strategy (e.g., exponential, linear)"
+      "description": "Retry policy strategy. Options: 'fixed', 'exponential', 'jittered'"
     },
     {
-      "name": "outbox.retry.initial-delay",
+      "name": "outbox.retry.exponential.initial-delay",
       "type": "java.lang.Long",
-      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry$ExponentialRetry",
       "defaultValue": 1000,
-      "description": "Initial delay in milliseconds before the first retry attempt"
+      "description": "Initial delay in milliseconds for exponential backoff retry policy"
     },
     {
-      "name": "outbox.retry.max-delay",
+      "name": "outbox.retry.exponential.max-delay",
       "type": "java.lang.Long",
-      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry$ExponentialRetry",
       "defaultValue": 60000,
-      "description": "Maximum delay in milliseconds between retry attempts"
+      "description": "Maximum delay in milliseconds for exponential backoff retry policy"
     },
     {
-      "name": "outbox.retry.jitter",
+      "name": "outbox.retry.exponential.multiplier",
+      "type": "java.lang.Double",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry$ExponentialRetry",
+      "defaultValue": 2.0,
+      "description": "Multiplier for exponential backoff. Each retry delay is multiplied by this factor."
+    },
+    {
+      "name": "outbox.retry.fixed.delay",
       "type": "java.lang.Long",
-      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry$FixedRetry",
+      "defaultValue": 5000,
+      "description": "Fixed delay in milliseconds between retry attempts for fixed delay retry policy"
+    },
+    {
+      "name": "outbox.retry.jittered.base-policy",
+      "type": "java.lang.String",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry$JitteredRetry",
+      "defaultValue": "exponential",
+      "description": "Base retry policy for jittered retry. Options: 'fixed', 'exponential'"
+    },
+    {
+      "name": "outbox.retry.jittered.jitter",
+      "type": "java.lang.Long",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Retry$JitteredRetry",
       "defaultValue": 500,
-      "description": "Random jitter in milliseconds to add to retry delays"
+      "description": "Maximum random jitter in milliseconds to add to the base policy's delay"
+    },
+    {
+      "name": "outbox.processing.stop-on-first-failure",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.beisel.springoutbox.OutboxProperties$Processing",
+      "defaultValue": true,
+      "description": "Whether to stop processing remaining events in an aggregate when one event fails. If true (default), processing stops on first failure to maintain strict ordering. If false, continues processing other events allowing failed events to be retried later."
     }
   ]
 }
