@@ -233,14 +233,79 @@ outbox:
     extension-seconds: 300     # Lock duration (5 minutes)
     refresh-threshold: 60      # Renew lock when < 60s remaining
 
+  # Processing behavior configuration
+  processing:
+    stop-on-first-failure: true  # Stop processing aggregate when one event fails (default: true)
+
   # Retry configuration
   retry:
-    max-retries: 3             # Maximum retry attempts
-    policy: "exponential"      # Retry policy: fixed, exponential, or jittered
-    initial-delay: 1000        # Initial delay in milliseconds
-    max-delay: 60000           # Maximum delay in milliseconds
-    jitter: 500                # Jitter amount in milliseconds (for jittered policy)
+    max-retries: 3             # Maximum retry attempts (applies to all policies)
+    policy: "exponential"      # Main retry policy: fixed, exponential, or jittered
+    
+    # Exponential backoff configuration
+    exponential:
+      initial-delay: 1000      # Start with 1 second
+      max-delay: 60000         # Cap at 60 seconds  
+      multiplier: 2.0          # Double each time
+    
+    # Fixed delay configuration
+    fixed:
+      delay: 5000              # Always wait 5 seconds
+    
+    # Jittered retry configuration (adds randomness to base policy)
+    jittered:
+      base-policy: exponential # Base policy: fixed or exponential
+      jitter: 500              # Add 0-500ms random jitter
 ```
+
+## Processing Behavior
+
+The library provides configurable processing behavior to handle different use cases and requirements.
+
+### Stop on First Failure
+
+Control how the scheduler handles failures within an aggregate:
+
+```yaml
+outbox:
+  processing:
+    stop-on-first-failure: true  # Default behavior
+```
+
+**`stop-on-first-failure: true` (Default)**
+- When one event fails, processing stops for the remaining events in that aggregate
+- Maintains strict event ordering within aggregates
+- Prevents potential cascading issues from dependent events
+- Recommended when events within an aggregate have dependencies
+
+**`stop-on-first-failure: false`**
+- When one event fails, processing continues with the next events in the same aggregate
+- Maximizes throughput by allowing independent events to proceed
+- Failed events will be retried according to the retry policy
+- Recommended when events within an aggregate are independent
+
+**Example Use Cases:**
+
+```yaml
+# E-commerce scenario - events depend on each other
+outbox:
+  processing:
+    stop-on-first-failure: true  # If OrderCreated fails, don't process OrderShipped
+```
+
+```yaml
+# Logging/Analytics scenario - events are independent  
+outbox:
+  processing:
+    stop-on-first-failure: false  # Continue logging other events even if one fails
+```
+
+**Behavior Impact:**
+
+| Configuration    | Event 1   | Event 2 | Event 3    | Result                         |
+|------------------|-----------|---------|------------|--------------------------------|
+| `true` (default) | ✅ Success | ❌ Fails | ⏸️ Skipped | Event 2 retried, Event 3 waits |
+| `false`          | ✅ Success | ❌ Fails | ✅ Success  | Event 2 retried independently  |
 
 ## Retry Mechanisms
 
@@ -257,8 +322,9 @@ Retries with a constant delay between attempts:
 outbox:
   retry:
     policy: "fixed"
-    initial-delay: 5000  # Always wait 5 seconds between retries
     max-retries: 5
+    fixed:
+      delay: 5000  # Always wait 5 seconds between retries
 ```
 
 **Use case**: Simple scenarios where you want consistent retry intervals.
@@ -271,9 +337,11 @@ Implements exponential backoff with configurable initial and maximum delays:
 outbox:
   retry:
     policy: "exponential"
-    initial-delay: 1000    # Start with 1 second
-    max-delay: 300000      # Cap at 5 minutes
     max-retries: 10
+    exponential:
+      initial-delay: 1000    # Start with 1 second
+      max-delay: 300000      # Cap at 5 minutes
+      multiplier: 2.0        # Backoff multiplier
 ```
 
 **Retry schedule**:
@@ -295,10 +363,14 @@ Adds randomization to any base policy to prevent thundering herd problems:
 outbox:
   retry:
     policy: "jittered"
-    initial-delay: 2000
-    max-delay: 60000
-    jitter: 1000          # Add 0-1000ms random jitter
     max-retries: 7
+    jittered:
+      base-policy: exponential # Base policy: fixed or exponential
+      jitter: 1000             # Add 0-1000ms random jitter
+    exponential:               # Configure the base policy
+      initial-delay: 2000
+      max-delay: 60000
+      multiplier: 2.0
 ```
 
 **Example with exponential base**:

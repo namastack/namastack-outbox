@@ -9,8 +9,7 @@ plugins {
 description = "spring-outbox-jpa"
 
 dependencies {
-    // Minimal JPA dependencies
-    api("jakarta.persistence:jakarta.persistence-api")
+    implementation("jakarta.persistence:jakarta.persistence-api")
     compileOnly("org.hibernate.orm:hibernate-core:7.1.2.Final")
     compileOnly("org.springframework:spring-orm:6.2.11")
 

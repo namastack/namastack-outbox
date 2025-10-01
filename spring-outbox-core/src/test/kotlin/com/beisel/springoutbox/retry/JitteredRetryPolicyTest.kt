@@ -196,6 +196,7 @@ class JitteredRetryPolicyTest {
             ExponentialBackoffRetryPolicy(
                 initialDelay = Duration.ofSeconds(1),
                 maxDelay = Duration.ofMinutes(5),
+                backoffMultiplier = 2.0,
             )
         val jitter = Duration.ofMillis(200)
         val jitteredPolicy = JitteredRetryPolicy(basePolicy, jitter)
