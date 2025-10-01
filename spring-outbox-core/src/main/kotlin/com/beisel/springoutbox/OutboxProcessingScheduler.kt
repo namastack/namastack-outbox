@@ -60,7 +60,7 @@ class OutboxProcessingScheduler(
         try {
             log.debug("⏳ Processing {} for {}", record.eventType, record.aggregateId)
             recordProcessor.process(record)
-            record.markCompleted()
+            record.markCompleted(clock)
             recordRepository.save(record)
             log.debug("✅ Successfully processed {} for {}", record.eventType, record.aggregateId)
             true
@@ -80,7 +80,7 @@ class OutboxProcessingScheduler(
             record.markFailed()
         } else {
             val delay = retryPolicy.nextDelay(record.retryCount)
-            record.scheduleNextRetry(delay)
+            record.scheduleNextRetry(delay, clock)
         }
 
         recordRepository.save(record)

@@ -14,18 +14,17 @@ class OutboxRecordEntityMapperTest {
         val nextRetryAt = now.plusMinutes(10)
 
         val record =
-            OutboxRecord
-                .Builder()
-                .id("test-id")
-                .status(OutboxRecordStatus.NEW)
-                .aggregateId("aggregate-123")
-                .eventType("OrderCreated")
-                .payload("""{"orderId": "123", "amount": 100.50}""")
-                .createdAt(now)
-                .completedAt(completedAt)
-                .retryCount(3)
-                .nextRetryAt(nextRetryAt)
-                .build()
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "aggregate-123",
+                eventType = "OrderCreated",
+                payload = """{"orderId": "123", "amount": 100.50}""",
+                createdAt = now,
+                status = OutboxRecordStatus.NEW,
+                completedAt = completedAt,
+                retryCount = 3,
+                nextRetryAt = nextRetryAt,
+            )
 
         // when
         val entity = OutboxRecordEntityMapper.map(record)
@@ -48,18 +47,17 @@ class OutboxRecordEntityMapperTest {
         val now = OffsetDateTime.now()
 
         val record =
-            OutboxRecord
-                .Builder()
-                .id("test-id-2")
-                .status(OutboxRecordStatus.COMPLETED)
-                .aggregateId("aggregate-456")
-                .eventType("OrderUpdated")
-                .payload("simple-payload")
-                .createdAt(now)
-                .completedAt(null)
-                .retryCount(0)
-                .nextRetryAt(now)
-                .build()
+            OutboxRecord.restore(
+                id = "test-id-2",
+                aggregateId = "aggregate-456",
+                eventType = "OrderUpdated",
+                payload = "simple-payload",
+                createdAt = now,
+                status = OutboxRecordStatus.COMPLETED,
+                completedAt = null,
+                retryCount = 0,
+                nextRetryAt = now,
+            )
 
         // when
         val entity = OutboxRecordEntityMapper.map(record)
@@ -79,16 +77,19 @@ class OutboxRecordEntityMapperTest {
     @Test
     fun `should map OutboxRecord with FAILED status`() {
         // given
+        val now = OffsetDateTime.now()
         val record =
-            OutboxRecord
-                .Builder()
-                .id(UUID.randomUUID().toString())
-                .status(OutboxRecordStatus.FAILED)
-                .aggregateId("failed-aggregate")
-                .eventType("FailedEvent")
-                .payload("failed-payload")
-                .retryCount(5)
-                .build()
+            OutboxRecord.restore(
+                id = UUID.randomUUID().toString(),
+                aggregateId = "failed-aggregate",
+                eventType = "FailedEvent",
+                payload = "failed-payload",
+                createdAt = now,
+                status = OutboxRecordStatus.FAILED,
+                completedAt = null,
+                retryCount = 5,
+                nextRetryAt = now,
+            )
 
         // when
         val entity = OutboxRecordEntityMapper.map(record)
@@ -197,19 +198,22 @@ class OutboxRecordEntityMapperTest {
     @Test
     fun `should maintain data integrity in round-trip mapping`() {
         // given - original record
+        val now = OffsetDateTime.now()
+        val completedAt = now.plusMinutes(1)
+        val nextRetryAt = now.plusMinutes(5)
+
         val originalRecord =
-            OutboxRecord
-                .Builder()
-                .id("round-trip-test")
-                .status(OutboxRecordStatus.NEW)
-                .aggregateId("round-trip-aggregate")
-                .eventType("RoundTripEvent")
-                .payload("""{"test": "round-trip", "number": 42}""")
-                .createdAt(OffsetDateTime.now())
-                .completedAt(OffsetDateTime.now().plusMinutes(1))
-                .retryCount(1)
-                .nextRetryAt(OffsetDateTime.now().plusMinutes(5))
-                .build()
+            OutboxRecord.restore(
+                id = "round-trip-test",
+                aggregateId = "round-trip-aggregate",
+                eventType = "RoundTripEvent",
+                payload = """{"test": "round-trip", "number": 42}""",
+                createdAt = now,
+                status = OutboxRecordStatus.NEW,
+                completedAt = completedAt,
+                retryCount = 1,
+                nextRetryAt = nextRetryAt,
+            )
 
         // when - round trip: Record -> Entity -> Record
         val entity = OutboxRecordEntityMapper.map(originalRecord)
@@ -230,16 +234,20 @@ class OutboxRecordEntityMapperTest {
     @Test
     fun `should handle large payload mapping`() {
         // given
+        val now = OffsetDateTime.now()
         val largePayload = "x".repeat(10000) // 10KB payload
         val record =
-            OutboxRecord
-                .Builder()
-                .id("large-payload-test")
-                .status(OutboxRecordStatus.NEW)
-                .aggregateId("large-aggregate")
-                .eventType("LargeEvent")
-                .payload(largePayload)
-                .build()
+            OutboxRecord.restore(
+                id = "large-payload-test",
+                aggregateId = "large-aggregate",
+                eventType = "LargeEvent",
+                payload = largePayload,
+                createdAt = now,
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                retryCount = 0,
+                nextRetryAt = now,
+            )
 
         // when
         val entity = OutboxRecordEntityMapper.map(record)
@@ -255,15 +263,19 @@ class OutboxRecordEntityMapperTest {
         // Test all enum values
         for (status in OutboxRecordStatus.entries) {
             // given
+            val now = OffsetDateTime.now()
             val record =
-                OutboxRecord
-                    .Builder()
-                    .id("status-test-${status.name}")
-                    .status(status)
-                    .aggregateId("status-aggregate")
-                    .eventType("StatusEvent")
-                    .payload("status-payload")
-                    .build()
+                OutboxRecord.restore(
+                    id = "status-test-${status.name}",
+                    aggregateId = "status-aggregate",
+                    eventType = "StatusEvent",
+                    payload = "status-payload",
+                    createdAt = now,
+                    status = status,
+                    completedAt = null,
+                    retryCount = 0,
+                    nextRetryAt = now,
+                )
 
             // when
             val entity = OutboxRecordEntityMapper.map(record)
