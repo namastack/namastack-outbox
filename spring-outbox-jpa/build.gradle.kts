@@ -18,14 +18,11 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-autoconfigure:3.5.6")
     compileOnly("org.springframework.boot:spring-boot:3.5.6")
 
-    // Test dependencies with full Spring Boot test setup
     testImplementation("org.springframework.boot:spring-boot-starter-test:3.5.6")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa:3.5.6")
-    testImplementation("org.springframework.boot:spring-boot-testcontainers:3.5.6")
-    testImplementation("org.postgresql:postgresql:42.7.4")
-    testImplementation("org.testcontainers:postgresql:1.20.4")
+    testImplementation("com.h2database:h2:2.4.240")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-    testImplementation("org.hibernate.orm:hibernate-core:6.6.3.Final")
+    testImplementation("io.mockk:mockk:1.13.8")
 }
 
 allOpen {

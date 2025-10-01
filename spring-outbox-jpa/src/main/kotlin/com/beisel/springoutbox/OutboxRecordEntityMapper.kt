@@ -1,6 +1,6 @@
 package com.beisel.springoutbox
 
-object OutboxRecordEntityMapper {
+internal object OutboxRecordEntityMapper {
     fun map(record: OutboxRecord): OutboxRecordEntity =
         OutboxRecordEntity(
             id = record.id,
@@ -15,16 +15,15 @@ object OutboxRecordEntityMapper {
         )
 
     fun map(entity: OutboxRecordEntity): OutboxRecord =
-        OutboxRecord
-            .Builder()
-            .id(entity.id)
-            .status(entity.status)
-            .aggregateId(entity.aggregateId)
-            .eventType(entity.eventType)
-            .payload(entity.payload)
-            .createdAt(entity.createdAt)
-            .completedAt(entity.completedAt)
-            .retryCount(entity.retryCount)
-            .nextRetryAt(entity.nextRetryAt)
-            .build()
+        OutboxRecord.restore(
+            id = entity.id,
+            status = entity.status,
+            aggregateId = entity.aggregateId,
+            eventType = entity.eventType,
+            payload = entity.payload,
+            createdAt = entity.createdAt,
+            completedAt = entity.completedAt,
+            retryCount = entity.retryCount,
+            nextRetryAt = entity.nextRetryAt,
+        )
 }

@@ -14,7 +14,7 @@ data class OutboxProperties(
 
     data class Retry(
         val maxRetries: Int = 3,
-        val policy: String = "exponential",
+        val policy: String = "fixed",
         val initialDelay: Long = 1000,
         val maxDelay: Long = 60000,
         val jitter: Long = 500,

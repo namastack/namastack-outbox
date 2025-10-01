@@ -15,6 +15,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-logging")
 
     testImplementation(kotlin("test"))
+    testImplementation("org.springframework.boot:spring-boot-test")
     testImplementation("org.assertj:assertj-core:3.24.2")
     testImplementation("io.mockk:mockk:1.13.8")
 }

@@ -5,54 +5,58 @@ import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.UUID
 
-@ConsistentCopyVisibility
-data class OutboxRecord internal constructor(
+class OutboxRecord internal constructor(
     val id: String,
-    var status: OutboxRecordStatus = OutboxRecordStatus.NEW,
     val aggregateId: String,
     val eventType: String,
     val payload: String,
-    val createdAt: OffsetDateTime = OffsetDateTime.now(),
-    var completedAt: OffsetDateTime? = null,
-    var retryCount: Int = 0,
-    var nextRetryAt: OffsetDateTime = OffsetDateTime.now(),
+    val createdAt: OffsetDateTime,
+    status: OutboxRecordStatus,
+    completedAt: OffsetDateTime?,
+    retryCount: Int,
+    nextRetryAt: OffsetDateTime,
 ) {
-    fun markCompleted() {
-        completedAt = OffsetDateTime.now()
+    var status: OutboxRecordStatus = status
+        internal set
+
+    var completedAt: OffsetDateTime? = completedAt
+        internal set
+
+    var retryCount: Int = retryCount
+        internal set
+
+    var nextRetryAt: OffsetDateTime = nextRetryAt
+        internal set
+
+    internal fun markCompleted(clock: Clock) {
+        completedAt = OffsetDateTime.now(clock)
         status = OutboxRecordStatus.COMPLETED
     }
 
-    fun markFailed() {
+    internal fun markFailed() {
         status = OutboxRecordStatus.FAILED
     }
 
-    fun incrementRetryCount() {
+    internal fun incrementRetryCount() {
         retryCount++
     }
 
-    fun canBeRetried(clock: Clock): Boolean =
+    internal fun canBeRetried(clock: Clock): Boolean =
         nextRetryAt.isBefore(OffsetDateTime.now(clock)) && status == OutboxRecordStatus.NEW
 
-    fun retriesExhausted(maxRetries: Int): Boolean = retryCount >= maxRetries
+    internal fun retriesExhausted(maxRetries: Int): Boolean = retryCount >= maxRetries
 
-    fun scheduleNextRetry(delay: Duration) {
-        this.nextRetryAt = nextRetryAt.plus(delay)
+    internal fun scheduleNextRetry(
+        delay: Duration,
+        clock: Clock,
+    ) {
+        this.nextRetryAt = OffsetDateTime.now(clock).plus(delay)
     }
 
     class Builder {
-        private var id: String = UUID.randomUUID().toString()
-        private var status: OutboxRecordStatus = OutboxRecordStatus.NEW
         private lateinit var aggregateId: String
         private lateinit var eventType: String
         private lateinit var payload: String
-        private var createdAt: OffsetDateTime = OffsetDateTime.now()
-        private var completedAt: OffsetDateTime? = null
-        private var retryCount: Int = 0
-        private var nextRetryAt: OffsetDateTime = OffsetDateTime.now()
-
-        fun id(id: String) = apply { this.id = id }
-
-        fun status(status: OutboxRecordStatus) = apply { this.status = status }
 
         fun aggregateId(aggregateId: String) = apply { this.aggregateId = aggregateId }
 
@@ -60,22 +64,42 @@ data class OutboxRecord internal constructor(
 
         fun payload(payload: String) = apply { this.payload = payload }
 
-        fun createdAt(createdAt: OffsetDateTime) = apply { this.createdAt = createdAt }
+        fun build(clock: Clock = Clock.systemUTC()): OutboxRecord {
+            val now = OffsetDateTime.now(clock)
 
-        fun completedAt(completedAt: OffsetDateTime?) = apply { this.completedAt = completedAt }
+            return OutboxRecord(
+                id = UUID.randomUUID().toString(),
+                status = OutboxRecordStatus.NEW,
+                aggregateId = aggregateId,
+                eventType = eventType,
+                payload = payload,
+                createdAt = now,
+                completedAt = null,
+                retryCount = 0,
+                nextRetryAt = now,
+            )
+        }
+    }
 
-        fun retryCount(retryCount: Int) = apply { this.retryCount = retryCount }
-
-        fun nextRetryAt(nextRetryAt: OffsetDateTime) = apply { this.nextRetryAt = nextRetryAt }
-
-        fun build(): OutboxRecord =
+    companion object {
+        fun restore(
+            id: String,
+            aggregateId: String,
+            eventType: String,
+            payload: String,
+            createdAt: OffsetDateTime,
+            status: OutboxRecordStatus,
+            completedAt: OffsetDateTime?,
+            retryCount: Int,
+            nextRetryAt: OffsetDateTime,
+        ): OutboxRecord =
             OutboxRecord(
                 id = id,
-                status = status,
                 aggregateId = aggregateId,
                 eventType = eventType,
                 payload = payload,
                 createdAt = createdAt,
+                status = status,
                 completedAt = completedAt,
                 retryCount = retryCount,
                 nextRetryAt = nextRetryAt,

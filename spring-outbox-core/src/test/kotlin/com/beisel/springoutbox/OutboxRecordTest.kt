@@ -17,15 +17,20 @@ class OutboxRecordTest {
     fun `markCompleted should set status to COMPLETED and completedAt timestamp`() {
         // given
         val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .build()
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                retryCount = 0,
+                nextRetryAt = now,
+            )
 
         // when
-        record.markCompleted()
+        record.markCompleted(clock)
 
         // then
         assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
@@ -33,16 +38,20 @@ class OutboxRecordTest {
     }
 
     @Test
-    fun `markFailed should set status to FAILED and clear nextRetryAt`() {
+    fun `markFailed should set status to FAILED`() {
         // given
         val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .nextRetryAt(now.plusMinutes(5))
-                .build()
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                retryCount = 0,
+                nextRetryAt = now.plusMinutes(5),
+            )
 
         // when
         record.markFailed()
@@ -55,13 +64,17 @@ class OutboxRecordTest {
     fun `incrementRetryCount should increase retry count by one`() {
         // given
         val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .retryCount(2)
-                .build()
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                retryCount = 2,
+                nextRetryAt = now,
+            )
 
         // when
         record.incrementRetryCount()
@@ -74,12 +87,17 @@ class OutboxRecordTest {
     fun `incrementRetryCount should work from zero`() {
         // given
         val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .build()
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                retryCount = 0,
+                nextRetryAt = now,
+            )
 
         // when
         record.incrementRetryCount()
@@ -92,14 +110,17 @@ class OutboxRecordTest {
     fun `canBeRetried should return true when nextRetryAt is in the past and status is NEW`() {
         // given
         val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .status(OutboxRecordStatus.NEW)
-                .nextRetryAt(now.minusMinutes(1)) // in the past
-                .build()
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                retryCount = 0,
+                nextRetryAt = now.minusMinutes(1), // in the past
+            )
 
         // when
         val result = record.canBeRetried(clock)
@@ -112,14 +133,17 @@ class OutboxRecordTest {
     fun `canBeRetried should return false when nextRetryAt is in the future`() {
         // given
         val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .status(OutboxRecordStatus.NEW)
-                .nextRetryAt(now.plusMinutes(1)) // in the future
-                .build()
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                retryCount = 0,
+                nextRetryAt = now.plusMinutes(1), // in the future
+            )
 
         // when
         val result = record.canBeRetried(clock)
@@ -132,14 +156,17 @@ class OutboxRecordTest {
     fun `canBeRetried should return false when status is not NEW`() {
         // given
         val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .status(OutboxRecordStatus.COMPLETED)
-                .nextRetryAt(now.minusMinutes(1)) // in the past
-                .build()
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.COMPLETED,
+                completedAt = now.minusMinutes(5),
+                retryCount = 0,
+                nextRetryAt = now.minusMinutes(1), // in the past
+            )
 
         // when
         val result = record.canBeRetried(clock)
@@ -149,17 +176,20 @@ class OutboxRecordTest {
     }
 
     @Test
-    fun `canBeRetried should return true when nextRetryAt equals current time`() {
+    fun `canBeRetried should return false when nextRetryAt equals current time`() {
         // given
         val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .status(OutboxRecordStatus.NEW)
-                .nextRetryAt(now) // exactly now
-                .build()
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                retryCount = 0,
+                nextRetryAt = now, // exactly now
+            )
 
         // when
         val result = record.canBeRetried(clock)
@@ -172,13 +202,17 @@ class OutboxRecordTest {
     fun `retriesExhausted should return true when retry count equals max retries`() {
         // given
         val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .retryCount(3)
-                .build()
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                retryCount = 3,
+                nextRetryAt = now,
+            )
 
         // when
         val result = record.retriesExhausted(3)
@@ -191,13 +225,17 @@ class OutboxRecordTest {
     fun `retriesExhausted should return true when retry count exceeds max retries`() {
         // given
         val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .retryCount(5)
-                .build()
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                retryCount = 5,
+                nextRetryAt = now,
+            )
 
         // when
         val result = record.retriesExhausted(3)
@@ -210,13 +248,17 @@ class OutboxRecordTest {
     fun `retriesExhausted should return false when retry count is less than max retries`() {
         // given
         val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .retryCount(2)
-                .build()
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                retryCount = 2,
+                nextRetryAt = now,
+            )
 
         // when
         val result = record.retriesExhausted(3)
@@ -229,39 +271,42 @@ class OutboxRecordTest {
     fun `scheduleNextRetry should set nextRetryAt`() {
         // given
         val record =
-            OutboxRecord
-                .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .nextRetryAt(now)
-                .build()
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                retryCount = 0,
+                nextRetryAt = now,
+            )
 
         val delay = Duration.of(5, ChronoUnit.SECONDS)
 
         // when
-        record.scheduleNextRetry(delay)
+        record.scheduleNextRetry(delay, clock)
 
         // then
         assertThat(record.nextRetryAt).isEqualTo(now.plus(delay))
     }
 
     @Test
-    fun `builder should create record with all properties`() {
+    fun `restore should create record with all properties`() {
         // given/when
         val record =
-            OutboxRecord
-                .Builder()
-                .id("custom-id")
-                .status(OutboxRecordStatus.COMPLETED)
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
-                .payload("test-payload")
-                .createdAt(now.minusHours(1))
-                .completedAt(now.minusMinutes(30))
-                .retryCount(2)
-                .nextRetryAt(now.plusMinutes(10))
-                .build()
+            OutboxRecord.restore(
+                id = "custom-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                createdAt = now.minusHours(1),
+                status = OutboxRecordStatus.COMPLETED,
+                completedAt = now.minusMinutes(30),
+                retryCount = 2,
+                nextRetryAt = now.plusMinutes(10),
+            )
 
         // then
         assertThat(record.id).isEqualTo("custom-id")
@@ -284,7 +329,7 @@ class OutboxRecordTest {
                 .aggregateId("test-aggregate")
                 .eventType("TestEvent")
                 .payload("test-payload")
-                .build()
+                .build(clock)
 
         // then
         assertThat(record.id).isNotEmpty()
