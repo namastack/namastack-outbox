@@ -11,6 +11,7 @@ class ExponentialBackoffRetryPolicyTest {
             ExponentialBackoffRetryPolicy(
                 initialDelay = Duration.ofMillis(100),
                 maxDelay = Duration.ofMinutes(5),
+                backoffMultiplier = 2.0,
             )
 
         assertThat(policy.shouldRetry(RuntimeException("Test exception"))).isTrue()
@@ -25,6 +26,7 @@ class ExponentialBackoffRetryPolicyTest {
             ExponentialBackoffRetryPolicy(
                 initialDelay = initialDelay,
                 maxDelay = Duration.ofMinutes(5),
+                backoffMultiplier = 2.0,
             )
 
         val delay = policy.nextDelay(0)
@@ -38,6 +40,7 @@ class ExponentialBackoffRetryPolicyTest {
             ExponentialBackoffRetryPolicy(
                 initialDelay = initialDelay,
                 maxDelay = Duration.ofMinutes(5),
+                backoffMultiplier = 2.0,
             )
 
         assertThat(policy.nextDelay(0)).isEqualTo(Duration.ofMillis(100)) // 100 * 2^0 = 100
@@ -55,6 +58,7 @@ class ExponentialBackoffRetryPolicyTest {
             ExponentialBackoffRetryPolicy(
                 initialDelay = initialDelay,
                 maxDelay = maxDelay,
+                backoffMultiplier = 2.0,
             )
 
         assertThat(policy.nextDelay(0)).isEqualTo(Duration.ofMillis(100)) // 100 * 2^0 = 100
@@ -73,6 +77,7 @@ class ExponentialBackoffRetryPolicyTest {
             ExponentialBackoffRetryPolicy(
                 initialDelay = initialDelay,
                 maxDelay = maxDelay,
+                backoffMultiplier = 2.0,
             )
 
         // Test with very large retry count
@@ -88,6 +93,7 @@ class ExponentialBackoffRetryPolicyTest {
             ExponentialBackoffRetryPolicy(
                 initialDelay = initialDelay,
                 maxDelay = maxDelay,
+                backoffMultiplier = 2.0,
             )
 
         assertThat(policy.nextDelay(0)).isEqualTo(Duration.ofSeconds(1)) // 1 * 2^0 = 1
@@ -102,6 +108,7 @@ class ExponentialBackoffRetryPolicyTest {
             ExponentialBackoffRetryPolicy(
                 initialDelay = Duration.ZERO,
                 maxDelay = Duration.ofMinutes(5),
+                backoffMultiplier = 2.0,
             )
 
         assertThat(policy.nextDelay(0)).isEqualTo(Duration.ZERO)
@@ -116,6 +123,7 @@ class ExponentialBackoffRetryPolicyTest {
             ExponentialBackoffRetryPolicy(
                 initialDelay = delay,
                 maxDelay = delay,
+                backoffMultiplier = 2.0,
             )
 
         assertThat(policy.nextDelay(0)).isEqualTo(delay)

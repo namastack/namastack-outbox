@@ -2,9 +2,8 @@ package com.beisel.springoutbox
 
 import com.beisel.springoutbox.lock.OutboxLockManager
 import com.beisel.springoutbox.lock.OutboxLockRepository
-import com.beisel.springoutbox.retry.ExponentialBackoffRetryPolicy
-import com.beisel.springoutbox.retry.FixedDelayRetryPolicy
 import com.beisel.springoutbox.retry.OutboxRetryPolicy
+import com.beisel.springoutbox.retry.OutboxRetryPolicyFactory
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
@@ -12,7 +11,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import java.time.Clock
-import java.time.Duration
 
 @AutoConfiguration
 @AutoConfigurationPackage
@@ -24,23 +22,12 @@ class OutboxCoreAutoConfiguration {
     fun clock(): Clock = Clock.systemDefaultZone()
 
     @Bean
-    fun retryPolicy(properties: OutboxProperties): OutboxRetryPolicy {
-        val retryProperties = properties.retry
-
-        return when (retryProperties.policy) {
-            "fixed" -> FixedDelayRetryPolicy(Duration.ofMillis(retryProperties.initialDelay))
-
-            "exponential" ->
-                ExponentialBackoffRetryPolicy(
-                    Duration.ofMillis(retryProperties.initialDelay),
-                    Duration.ofMillis(retryProperties.maxDelay),
-                )
-
-            else -> FixedDelayRetryPolicy(Duration.ofMillis(retryProperties.initialDelay))
-        }
-    }
+    @ConditionalOnMissingBean
+    fun retryPolicy(properties: OutboxProperties): OutboxRetryPolicy =
+        OutboxRetryPolicyFactory.create(name = properties.retry.policy, retryProperties = properties.retry)
 
     @Bean
+    @ConditionalOnBean(OutboxLockRepository::class)
     fun outboxLockManager(
         lockRepository: OutboxLockRepository,
         properties: OutboxProperties,
