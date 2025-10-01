@@ -30,13 +30,24 @@ dependencies {
 }
 ```
 
+Or if you're using Maven, add to your `pom.xml`:
+
+```xml
+<dependency>
+    <groupId>com.beisel</groupId>
+    <artifactId>spring-outbox-jpa</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+</dependency>
+```
+
 ### 2. Enable Outbox
 
-Add the `@EnableOutbox` annotation to your Spring Boot application:
+Add the `@EnableOutbox` and `@EnableScheduling` annotations to your Spring Boot application:
 
 ```kotlin
 @SpringBootApplication
 @EnableOutbox
+@EnableScheduling  // Required for automatic event processing
 class YourApplication
 
 fun main(args: Array<String>) {
@@ -44,7 +55,20 @@ fun main(args: Array<String>) {
 }
 ```
 
-### 3. Configure Database
+### 3. Configure Clock Bean
+
+The library requires a Clock bean for time-based operations. Add this configuration:
+
+```kotlin
+@Configuration
+class OutboxConfiguration {
+
+    @Bean
+    fun clock(): Clock = Clock.systemUTC()
+}
+```
+
+### 4. Configure Database
 
 The library requires two database tables. You can enable automatic schema creation:
 
@@ -57,31 +81,34 @@ outbox:
 Or create the tables manually:
 
 ```sql
-CREATE TABLE outbox_record
+CREATE TABLE IF NOT EXISTS outbox_record
 (
-    id            VARCHAR(255) PRIMARY KEY,
+    id            VARCHAR(255)             NOT NULL,
     status        VARCHAR(20)              NOT NULL,
     aggregate_id  VARCHAR(255)             NOT NULL,
     event_type    VARCHAR(255)             NOT NULL,
     payload       TEXT                     NOT NULL,
     created_at    TIMESTAMP WITH TIME ZONE NOT NULL,
     completed_at  TIMESTAMP WITH TIME ZONE,
-    retry_count   INT       DEFAULT 0,
-    next_retry_at TIMESTAMP DEFAULT now()  NOT NULL
+    retry_count   INT                      NOT NULL,
+    next_retry_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    PRIMARY KEY (id)
 );
 
-CREATE TABLE outbox_lock
+CREATE TABLE IF NOT EXISTS outbox_lock
 (
-    aggregate_id VARCHAR(255) PRIMARY KEY,
+    aggregate_id VARCHAR(255)             NOT NULL,
     acquired_at  TIMESTAMP WITH TIME ZONE NOT NULL,
     expires_at   TIMESTAMP WITH TIME ZONE NOT NULL,
-    version      BIGINT
+    version      BIGINT                   NOT NULL,
+    PRIMARY KEY (aggregate_id)
 );
 
-CREATE INDEX idx_outbox_aggregate_id_created_at ON outbox_record (aggregate_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_aggregate_id_created_at ON outbox_record (aggregate_id, created_at);
+
 ```
 
-### 4. Create Event Processor
+### 5. Create Event Processor
 
 Implement `OutboxRecordProcessor` to handle your events:
 
@@ -109,19 +136,20 @@ class MyEventProcessor : OutboxRecordProcessor {
 }
 ```
 
-### 5. Save Events to Outbox
+### 6. Save Events to Outbox
 
-Inject `OutboxRecordRepository` and save events in your domain services:
+Inject `OutboxRecordRepository`, `Clock`, and save events using the OutboxRecord Builder:
 
 ```kotlin
 @Service
-@Transactional
 class OrderService(
     private val orderRepository: OrderRepository,
     private val outboxRepository: OutboxRecordRepository,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val clock: Clock  // Inject Clock for consistent timestamps
 ) {
 
+    @Transactional
     fun createOrder(command: CreateOrderCommand): Order {
         // Create and save the order
         val order = Order.create(command)
@@ -133,7 +161,28 @@ class OrderService(
             .aggregateId(order.id.toString())
             .eventType("OrderCreated")
             .payload(objectMapper.writeValueAsString(event))
-            .build()
+            .build(clock)  // Pass clock for consistent timestamps
+
+        outboxRepository.save(outboxRecord)
+
+        return order
+    }
+
+    @Transactional
+    fun updateOrder(orderId: OrderId, command: UpdateOrderCommand): Order {
+        val order = orderRepository.findById(orderId) 
+            ?: throw OrderNotFoundException(orderId)
+        
+        order.update(command)
+        orderRepository.save(order)
+
+        // Create update event using Builder
+        val event = OrderUpdatedEvent(order.id, order.customerId, order.amount)
+        val outboxRecord = OutboxRecord.Builder()
+            .aggregateId(order.id.toString())
+            .eventType("OrderUpdated")
+            .payload(objectMapper.writeValueAsString(event))
+            .build(clock)
 
         outboxRepository.save(outboxRecord)
 
@@ -141,6 +190,30 @@ class OrderService(
     }
 }
 ```
+
+**Alternative: Using OutboxRecord.restore() for specific field values**
+
+For testing or when you need to specify all properties (like retry count, status, etc.), use the `restore` method:
+
+```kotlin
+// For testing or when recreating records with specific states
+val outboxRecord = OutboxRecord.restore(
+    id = UUID.randomUUID().toString(),
+    aggregateId = order.id.toString(),
+    eventType = "OrderCreated",
+    payload = objectMapper.writeValueAsString(event),
+    createdAt = OffsetDateTime.now(clock),
+    status = OutboxRecordStatus.NEW,
+    completedAt = null,
+    retryCount = 0,
+    nextRetryAt = OffsetDateTime.now(clock)
+)
+```
+
+**When to use which method:**
+
+- **Builder**: Use for creating new events in your business logic (recommended for most cases)
+- **restore()**: Use in tests or when you need to recreate records with specific field values
 
 ## Configuration
 

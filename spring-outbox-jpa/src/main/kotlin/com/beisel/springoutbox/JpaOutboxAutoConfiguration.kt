@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
 import org.springframework.boot.autoconfigure.AutoConfigureBefore
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
 import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
@@ -19,7 +20,11 @@ import javax.sql.DataSource
 @AutoConfigureBefore(HibernateJpaAutoConfiguration::class)
 @AutoConfigurationPackage
 @ConditionalOnBean(annotation = [EnableOutbox::class])
-class JpaOutboxAutoConfiguration {
+internal class JpaOutboxAutoConfiguration {
+    @Bean
+    @ConditionalOnMissingBean
+    fun clock(): Clock = Clock.systemDefaultZone()
+
     @Bean
     fun outboxLockRepository(entityManager: EntityManager): OutboxLockRepository =
         JpaOutboxLockRepository(entityManager)

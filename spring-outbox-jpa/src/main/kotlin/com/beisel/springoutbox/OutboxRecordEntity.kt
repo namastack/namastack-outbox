@@ -9,7 +9,7 @@ import java.time.OffsetDateTime
 
 @Entity
 @Table(name = "outbox_record")
-data class OutboxRecordEntity(
+internal data class OutboxRecordEntity(
     @Id
     val id: String,
     @Enumerated(EnumType.STRING)
