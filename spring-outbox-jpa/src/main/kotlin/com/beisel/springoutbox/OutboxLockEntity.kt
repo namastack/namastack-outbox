@@ -8,7 +8,7 @@ import java.time.OffsetDateTime
 
 @Entity
 @Table(name = "outbox_lock")
-data class OutboxLockEntity(
+internal data class OutboxLockEntity(
     @Id
     val aggregateId: String,
     val acquiredAt: OffsetDateTime,
