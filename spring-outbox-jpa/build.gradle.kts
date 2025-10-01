@@ -20,6 +20,8 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test:3.5.6")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa:3.5.6")
     testImplementation("com.h2database:h2:2.4.240")
+    testImplementation("org.postgresql:postgresql:42.7.4")
+    testImplementation("com.mysql:mysql-connector-j:9.1.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("io.mockk:mockk:1.14.6")
 }

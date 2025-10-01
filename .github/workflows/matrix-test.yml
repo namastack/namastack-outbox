@@ -1,0 +1,178 @@
+name: Matrix Tests
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'feature/**'
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  matrix-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        java-version: [17, 21, 22]
+        kotlin-version: ['2.0.21', '2.1.0', '2.2.20']
+        database:
+          - name: h2
+            url: "jdbc:h2:mem:testdb"
+            driver: "org.h2.Driver"
+            username: "sa"
+            password: ""
+          - name: postgresql
+            url: "jdbc:postgresql://localhost:5432/testdb"
+            driver: "org.postgresql.Driver"
+            username: "test"
+            password: "test"
+          - name: mysql
+            url: "jdbc:mysql://localhost:3306/testdb"
+            driver: "com.mysql.cj.jdbc.Driver"
+            username: "test"
+            password: "test"
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: testdb
+          MYSQL_USER: test
+          MYSQL_PASSWORD: test
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+        ports:
+          - 3306:3306
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Java ${{ matrix.java-version }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ matrix.java-version }}
+        distribution: 'temurin'
+
+    - name: Cache Gradle packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
+    - name: Update Kotlin version
+      run: |
+        # Update Kotlin version in all build.gradle.kts files
+        find . -name "build.gradle.kts" -exec sed -i 's/kotlin("jvm") version "[^"]*"/kotlin("jvm") version "${{ matrix.kotlin-version }}"/g' {} \;
+        find . -name "build.gradle.kts" -exec sed -i 's/kotlin("plugin.spring") version "[^"]*"/kotlin("plugin.spring") version "${{ matrix.kotlin-version }}"/g' {} \;
+
+    - name: Wait for databases to be ready
+      if: matrix.database.name != 'h2'
+      run: |
+        if [ "${{ matrix.database.name }}" = "postgresql" ]; then
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U test; then
+              echo "PostgreSQL is ready"
+              break
+            fi
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+        elif [ "${{ matrix.database.name }}" = "mysql" ]; then
+          for i in {1..30}; do
+            if mysqladmin ping -h localhost -P 3306 -u test -ptest --silent; then
+              echo "MySQL is ready"
+              break
+            fi
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+        fi
+
+    - name: Set database properties
+      run: |
+        echo "DB_URL=${{ matrix.database.url }}" >> $GITHUB_ENV
+        echo "DB_DRIVER=${{ matrix.database.driver }}" >> $GITHUB_ENV
+        echo "DB_USERNAME=${{ matrix.database.username }}" >> $GITHUB_ENV
+        echo "DB_PASSWORD=${{ matrix.database.password }}" >> $GITHUB_ENV
+
+    - name: Run tests
+      run: |
+        ./gradlew clean test \
+          -Dspring.datasource.url="${{ matrix.database.url }}" \
+          -Dspring.datasource.driver-class-name="${{ matrix.database.driver }}" \
+          -Dspring.datasource.username="${{ matrix.database.username }}" \
+          -Dspring.datasource.password="${{ matrix.database.password }}" \
+          --info
+
+    - name: Generate test report
+      uses: dorny/test-reporter@v1
+      if: success() || failure()
+      with:
+        name: Test Results (Java ${{ matrix.java-version }}, Kotlin ${{ matrix.kotlin-version }}, ${{ matrix.database.name }})
+        path: '**/build/test-results/test/TEST-*.xml'
+        reporter: java-junit
+
+    - name: Upload coverage reports
+      if: matrix.java-version == '21' && matrix.kotlin-version == '2.2.20' && matrix.database.name == 'h2'
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./build/reports/jacoco/testCodeCoverageReport/testCodeCoverageReport.xml
+        fail_ci_if_error: false
+
+  build-matrix:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        java-version: [17, 21, 22]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Java ${{ matrix.java-version }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ matrix.java-version }}
+        distribution: 'temurin'
+
+    - name: Cache Gradle packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
+    - name: Build project
+      run: ./gradlew build -x test
+
+    - name: Check code style
+      run: ./gradlew ktlintCheck
