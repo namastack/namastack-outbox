@@ -1,3 +1,8 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+import org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED
+import org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED
+import org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED
+
 plugins {
     kotlin("jvm")
     kotlin("plugin.spring")
@@ -18,6 +23,12 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+
+    testLogging {
+        exceptionFormat = FULL
+        showStandardStreams = true
+        events(PASSED, SKIPPED, FAILED)
+    }
 }
 
 publishing {
