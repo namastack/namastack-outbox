@@ -9,7 +9,8 @@ import java.time.OffsetDateTime
 internal open class JpaOutboxRecordRepository(
     private val entityManager: EntityManager,
     private val clock: Clock,
-) : OutboxRecordRepository {
+) : OutboxRecordRepository,
+    OutboxRecordStatusRepository {
     @Transactional
     override fun save(record: OutboxRecord): OutboxRecord {
         val entity = map(record)
@@ -111,5 +112,18 @@ internal open class JpaOutboxRecordRepository(
             .setParameter("aggregateId", aggregateId)
             .resultList
             .map { map(it) }
+    }
+
+    override fun countByStatus(status: OutboxRecordStatus): Long {
+        val query = """
+            select count(o)
+            from OutboxRecordEntity o
+            where o.status = :status
+        """
+
+        return entityManager
+            .createQuery(query, Long::class.java)
+            .setParameter("status", status)
+            .singleResult
     }
 }
