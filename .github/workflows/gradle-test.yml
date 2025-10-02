@@ -20,7 +20,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           java-version: 21
-          distribution: corretto
+          distribution: oracle
 
       - name: Build and run tests
         run: ./gradlew clean build --scan
