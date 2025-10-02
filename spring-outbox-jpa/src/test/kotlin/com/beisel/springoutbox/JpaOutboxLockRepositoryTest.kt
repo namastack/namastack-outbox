@@ -14,7 +14,7 @@ import java.util.UUID
 @DataJpaTest
 @ImportAutoConfiguration(JpaOutboxAutoConfiguration::class)
 class JpaOutboxLockRepositoryTest {
-    private val clock: Clock = Clock.systemDefaultZone()
+    private val clock: Clock = Clock.systemUTC()
 
     @Autowired
     private lateinit var jpaOutboxLockRepository: JpaOutboxLockRepository
