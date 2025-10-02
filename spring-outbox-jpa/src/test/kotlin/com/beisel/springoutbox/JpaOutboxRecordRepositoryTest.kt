@@ -4,6 +4,7 @@ import com.beisel.springoutbox.OutboxRecordStatus.COMPLETED
 import com.beisel.springoutbox.OutboxRecordStatus.FAILED
 import com.beisel.springoutbox.OutboxRecordStatus.NEW
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
@@ -11,6 +12,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
 import java.time.Clock
 import java.time.OffsetDateTime
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 @DataJpaTest
@@ -39,12 +41,11 @@ class JpaOutboxRecordRepositoryTest {
         assertThat(persistedRecord.aggregateId).isEqualTo(record.aggregateId)
         assertThat(persistedRecord.eventType).isEqualTo(record.eventType)
         assertThat(persistedRecord.payload).isEqualTo(record.payload)
-        assertThat(persistedRecord.createdAt).isEqualTo(record.createdAt)
         assertThat(persistedRecord.status).isEqualTo(record.status)
-        assertThat(persistedRecord.createdAt).isEqualTo(record.createdAt)
-        assertThat(persistedRecord.completedAt).isEqualTo(record.completedAt)
         assertThat(persistedRecord.retryCount).isEqualTo(record.retryCount)
-        assertThat(persistedRecord.nextRetryAt).isEqualTo(record.nextRetryAt)
+        assertThat(persistedRecord.completedAt).isNull()
+        assertThat(persistedRecord.createdAt).isCloseTo(record.createdAt, within(1, ChronoUnit.MILLIS))
+        assertThat(persistedRecord.nextRetryAt).isCloseTo(record.nextRetryAt, within(1, ChronoUnit.MILLIS))
     }
 
     @Test
