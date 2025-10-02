@@ -32,6 +32,9 @@ class JpaOutboxLockRepositoryTest {
             )
         jpaOutboxLockRepository.insertNew(lock)
         val persistedLock = jpaOutboxLockRepository.findByAggregateId(aggregateId)
+        println(lock)
+        println(persistedLock)
+
         assertThat(persistedLock?.aggregateId).isEqualTo(lock.aggregateId)
         assertThat(persistedLock?.acquiredAt).isEqualTo(lock.acquiredAt)
         assertThat(persistedLock?.expiresAt).isEqualTo(lock.expiresAt)
