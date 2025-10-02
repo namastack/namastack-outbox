@@ -456,15 +456,15 @@ processing fails:
 
 ## Metrics
 
-Das Modul `spring-outbox-metrics` stellt Metriken für Outbox-Records bereit und integriert sich automatisch mit Micrometer und Spring Boot Actuator.
+The `spring-outbox-metrics` module provides metrics for Outbox records and integrates automatically with Micrometer and Spring Boot Actuator.
 
-### Voraussetzungen
-- Das JPA-Modul (`spring-outbox-jpa`) muss eingebunden sein.
-- Micrometer und Spring Boot Actuator müssen als Abhängigkeit vorhanden und konfiguriert sein.
-- Die Annotation `@EnableOutbox` muss in deiner Anwendung gesetzt sein.
+### Prerequisites
+- The JPA module (`spring-outbox-jpa`) must be included.
+- Micrometer and Spring Boot Actuator must be present and configured as dependencies.
+- The `@EnableOutbox` annotation must be set in your application.
 
 ### Integration
-Füge das Metrics-Modul zu deinen Abhängigkeiten hinzu:
+Add the metrics module to your dependencies:
 
 ```kotlin
 dependencies {
@@ -472,37 +472,42 @@ dependencies {
 }
 ```
 
-Stelle sicher, dass die Actuator-Endpunkte aktiviert sind (z.B. in `application.properties`):
+Make sure the Actuator endpoints are enabled (e.g. in `application.properties`):
 ```properties
 management.endpoints.web.exposure.include=*
 ```
 
-### Verfügbare Metriken
-Das Modul registriert für jeden Outbox-Status (NEW, FAILED, COMPLETED) einen Gauge mit dem Namen:
+### Available Metrics
+The module registers a gauge for each Outbox status (NEW, FAILED, COMPLETED) with the name:
 
 - `outbox.records.count{status="new|failed|completed"}`
 
-Diese Metriken zeigen die Anzahl der Outbox-Records pro Status an und können z.B. über `/actuator/metrics/outbox.records.count` abgefragt werden.
+These metrics show the number of Outbox records per status and can be queried via `/actuator/metrics/outbox.records.count`.
 
-### Beispiel: Metrik-Abfrage
+### Example: Querying Metrics
 
 ```shell
 curl http://localhost:8080/actuator/metrics/outbox.records.count
 ```
 
-Das Ergebnis enthält die Werte für alle Status als separate Zeitreihen.
+The result contains the values for all statuses as separate time series.
 
 ### Prometheus Integration
 
-Wenn Prometheus in Spring Boot Actuator aktiviert ist (z.B. durch Hinzufügen von `implementation("io.micrometer:micrometer-registry-prometheus")` und Aktivierung des Endpunkts), sind die Outbox-Metriken auch unter `/actuator/prometheus` verfügbar. Sie erscheinen dort z.B. als:
+If Prometheus is enabled in Spring Boot Actuator (e.g. by adding `implementation("io.micrometer:micrometer-registry-prometheus")` and enabling the endpoint), the Outbox metrics are also available under `/actuator/prometheus`. They appear as:
 
 ```
-outbox_records_count{status="new",...} <Wert>
-outbox_records_count{status="failed",...} <Wert>
-outbox_records_count{status="completed",...} <Wert>
+outbox_records_count{status="new",...} <value>
+outbox_records_count{status="failed",...} <value>
+outbox_records_count{status="completed",...} <value>
 ```
 
-Dadurch können die Metriken direkt von Prometheus abgefragt und für Dashboards oder Alerts verwendet werden.
+This allows the metrics to be scraped directly by Prometheus and used for dashboards or alerts.
+
+### Error Handling
+If the JPA module is not included, an exception with a clear message is thrown at startup.
+
+For more details, see the module documentation and source code.
 
 ## Monitoring
 
