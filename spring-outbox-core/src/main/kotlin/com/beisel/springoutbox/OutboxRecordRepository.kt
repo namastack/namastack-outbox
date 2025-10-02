@@ -14,4 +14,11 @@ interface OutboxRecordRepository {
     fun findAggregateIdsWithFailedRecords(): List<String>
 
     fun findAllIncompleteRecordsByAggregateId(aggregateId: String): List<OutboxRecord>
+
+    fun deleteByStatus(status: OutboxRecordStatus)
+
+    fun deleteByAggregateIdAndStatus(
+        aggregateId: String,
+        status: OutboxRecordStatus,
+    )
 }

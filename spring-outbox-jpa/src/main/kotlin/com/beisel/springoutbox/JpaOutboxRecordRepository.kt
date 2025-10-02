@@ -126,4 +126,35 @@ internal open class JpaOutboxRecordRepository(
             .setParameter("status", status)
             .singleResult
     }
+
+    @Transactional
+    override fun deleteByStatus(status: OutboxRecordStatus) {
+        val query = """
+            delete from OutboxRecordEntity o
+            where o.status = :status
+        """
+
+        entityManager
+            .createQuery(query)
+            .setParameter("status", status)
+            .executeUpdate()
+    }
+
+    @Transactional
+    override fun deleteByAggregateIdAndStatus(
+        aggregateId: String,
+        status: OutboxRecordStatus,
+    ) {
+        val query = """
+            delete from OutboxRecordEntity o
+            where o.status = :status
+            and o.aggregateId = :aggregateId
+        """
+
+        entityManager
+            .createQuery(query)
+            .setParameter("status", status)
+            .setParameter("aggregateId", aggregateId)
+            .executeUpdate()
+    }
 }
