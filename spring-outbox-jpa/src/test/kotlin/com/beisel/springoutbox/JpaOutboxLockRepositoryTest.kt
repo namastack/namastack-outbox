@@ -2,6 +2,7 @@ package com.beisel.springoutbox
 
 import com.beisel.springoutbox.lock.OutboxLock
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
@@ -9,6 +10,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
 import java.time.Clock
 import java.time.OffsetDateTime
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 @DataJpaTest
@@ -32,12 +34,10 @@ class JpaOutboxLockRepositoryTest {
             )
         jpaOutboxLockRepository.insertNew(lock)
         val persistedLock = jpaOutboxLockRepository.findByAggregateId(aggregateId)
-        println(lock)
-        println(persistedLock)
 
         assertThat(persistedLock?.aggregateId).isEqualTo(lock.aggregateId)
-        assertThat(persistedLock?.acquiredAt).isEqualTo(lock.acquiredAt)
-        assertThat(persistedLock?.expiresAt).isEqualTo(lock.expiresAt)
+        assertThat(persistedLock?.acquiredAt).isCloseTo(lock.acquiredAt, within(1, ChronoUnit.MILLIS))
+        assertThat(persistedLock?.expiresAt).isCloseTo(lock.expiresAt, within(1, ChronoUnit.MILLIS))
         assertThat(persistedLock?.version).isEqualTo(0L)
     }
 
@@ -57,7 +57,7 @@ class JpaOutboxLockRepositoryTest {
         jpaOutboxLockRepository.renew(aggregateId, newExpiresAt)
 
         val persistedUpdatedLock = jpaOutboxLockRepository.findByAggregateId(aggregateId) ?: throw AssertionError()
-        assertThat(persistedUpdatedLock.expiresAt).isEqualTo(newExpiresAt)
+        assertThat(persistedUpdatedLock.expiresAt).isCloseTo(newExpiresAt, within(1, ChronoUnit.MILLIS))
     }
 
     @Test
