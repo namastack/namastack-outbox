@@ -454,6 +454,56 @@ processing fails:
 5. **Scheduling**: Event is scheduled for retry at calculated time
 6. **Final Failure**: After max retries, event is marked as `FAILED`
 
+## Metrics
+
+Das Modul `spring-outbox-metrics` stellt Metriken für Outbox-Records bereit und integriert sich automatisch mit Micrometer und Spring Boot Actuator.
+
+### Voraussetzungen
+- Das JPA-Modul (`spring-outbox-jpa`) muss eingebunden sein.
+- Micrometer und Spring Boot Actuator müssen als Abhängigkeit vorhanden und konfiguriert sein.
+- Die Annotation `@EnableOutbox` muss in deiner Anwendung gesetzt sein.
+
+### Integration
+Füge das Metrics-Modul zu deinen Abhängigkeiten hinzu:
+
+```kotlin
+dependencies {
+    implementation("com.beisel:spring-outbox-metrics:0.0.1-SNAPSHOT")
+}
+```
+
+Stelle sicher, dass die Actuator-Endpunkte aktiviert sind (z.B. in `application.properties`):
+```properties
+management.endpoints.web.exposure.include=*
+```
+
+### Verfügbare Metriken
+Das Modul registriert für jeden Outbox-Status (NEW, FAILED, COMPLETED) einen Gauge mit dem Namen:
+
+- `outbox.records.count{status="new|failed|completed"}`
+
+Diese Metriken zeigen die Anzahl der Outbox-Records pro Status an und können z.B. über `/actuator/metrics/outbox.records.count` abgefragt werden.
+
+### Beispiel: Metrik-Abfrage
+
+```shell
+curl http://localhost:8080/actuator/metrics/outbox.records.count
+```
+
+Das Ergebnis enthält die Werte für alle Status als separate Zeitreihen.
+
+### Prometheus Integration
+
+Wenn Prometheus in Spring Boot Actuator aktiviert ist (z.B. durch Hinzufügen von `implementation("io.micrometer:micrometer-registry-prometheus")` und Aktivierung des Endpunkts), sind die Outbox-Metriken auch unter `/actuator/prometheus` verfügbar. Sie erscheinen dort z.B. als:
+
+```
+outbox_records_count{status="new",...} <Wert>
+outbox_records_count{status="failed",...} <Wert>
+outbox_records_count{status="completed",...} <Wert>
+```
+
+Dadurch können die Metriken direkt von Prometheus abgefragt und für Dashboards oder Alerts verwendet werden.
+
 ## Monitoring
 
 Query outbox status:
