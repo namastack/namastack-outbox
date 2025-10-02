@@ -17,7 +17,7 @@ class OutboxActuatorEndpoint(
     }
 
     @DeleteOperation
-    fun deleteOutboxRecords(
+    fun deleteAllOutboxRecords(
         @Selector status: OutboxRecordStatus,
     ) {
         outboxRecordRepository.deleteByStatus(status)

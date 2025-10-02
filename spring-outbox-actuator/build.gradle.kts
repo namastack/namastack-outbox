@@ -36,7 +36,7 @@ publishing {
             from(components["java"])
 
             groupId = "com.beisel"
-            artifactId = "spring-outbox-metrics"
+            artifactId = "spring-outbox-actuator"
             version = project.version.toString()
 
             pom {
