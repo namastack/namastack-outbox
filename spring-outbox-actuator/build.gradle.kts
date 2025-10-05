@@ -11,13 +11,13 @@ plugins {
     jacoco
 }
 
-description = "spring-outbox-metrics"
+description = "spring-outbox-actuator"
 
 dependencies {
 
     implementation(project(":spring-outbox-core"))
     implementation("org.springframework.boot:spring-boot-autoconfigure:3.5.6")
-    compileOnly("io.micrometer:micrometer-core:1.15.4")
+    implementation("org.springframework.boot:spring-boot-actuator:3.5.6")
 }
 
 tasks.withType<Test> {
@@ -36,12 +36,12 @@ publishing {
             from(components["java"])
 
             groupId = "com.beisel"
-            artifactId = "spring-outbox-metrics"
+            artifactId = "spring-outbox-actuator"
             version = project.version.toString()
 
             pom {
-                name.set("Spring Outbox Metrics")
-                description.set("Metrics Implementation for Spring Outbox")
+                name.set("Spring Outbox Actuator")
+                description.set("Actuator Endpoints for Spring Outbox")
             }
         }
     }

@@ -160,6 +160,31 @@ class JpaOutboxRecordRepositoryTest {
         assertThat(jpaOutboxRecordRepository.countByStatus(FAILED)).isEqualTo(3)
     }
 
+    @Test
+    fun `deletes records by status`() {
+        createNewRecords()
+        createFailedRecords()
+
+        jpaOutboxRecordRepository.deleteByStatus(NEW)
+        assertThat(jpaOutboxRecordRepository.countByStatus(NEW)).isEqualTo(0)
+        assertThat(jpaOutboxRecordRepository.countByStatus(FAILED)).isEqualTo(3)
+    }
+
+    @Test
+    fun `deletes records by status and aggregateId`() {
+        val aggregateId1 = UUID.randomUUID().toString()
+        val aggregateId2 = UUID.randomUUID().toString()
+        createNewRecordsForAggregateId(1, aggregateId1, NEW)
+        createNewRecordsForAggregateId(1, aggregateId1, FAILED)
+        createNewRecordsForAggregateId(1, aggregateId2, NEW)
+        createNewRecordsForAggregateId(1, aggregateId2, FAILED)
+
+        jpaOutboxRecordRepository.deleteByAggregateIdAndStatus(aggregateId1, FAILED)
+
+        assertThat(jpaOutboxRecordRepository.findPendingRecords()).hasSize(2)
+        assertThat(jpaOutboxRecordRepository.findFailedRecords()).hasSize(1)
+    }
+
     private fun createFailedRecords(count: Int = 3) {
         val now = OffsetDateTime.now(clock)
         (0 until count).forEach { _ ->
