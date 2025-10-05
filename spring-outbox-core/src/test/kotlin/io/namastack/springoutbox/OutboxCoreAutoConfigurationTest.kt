@@ -1,11 +1,11 @@
 package io.namastack.springoutbox
 
+import io.mockk.mockk
 import io.namastack.springoutbox.lock.OutboxLockManager
 import io.namastack.springoutbox.lock.OutboxLockRepository
 import io.namastack.springoutbox.retry.ExponentialBackoffRetryPolicy
 import io.namastack.springoutbox.retry.FixedDelayRetryPolicy
 import io.namastack.springoutbox.retry.OutboxRetryPolicy
-import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
