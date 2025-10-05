@@ -1,7 +1,7 @@
 package io.namastack.springoutbox
 
-import io.namastack.springoutbox.lock.OutboxLockRepository
 import io.mockk.mockk
+import io.namastack.springoutbox.lock.OutboxLockRepository
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName

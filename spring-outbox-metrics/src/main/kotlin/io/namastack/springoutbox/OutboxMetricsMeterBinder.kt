@@ -1,11 +1,11 @@
 package io.namastack.springoutbox
 
-import io.namastack.springoutbox.OutboxRecordStatus.COMPLETED
-import io.namastack.springoutbox.OutboxRecordStatus.FAILED
-import io.namastack.springoutbox.OutboxRecordStatus.NEW
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.binder.MeterBinder
+import io.namastack.springoutbox.OutboxRecordStatus.COMPLETED
+import io.namastack.springoutbox.OutboxRecordStatus.FAILED
+import io.namastack.springoutbox.OutboxRecordStatus.NEW
 
 class OutboxMetricsMeterBinder(
     private val outboxRecordStatusRepository: OutboxRecordStatusRepository,

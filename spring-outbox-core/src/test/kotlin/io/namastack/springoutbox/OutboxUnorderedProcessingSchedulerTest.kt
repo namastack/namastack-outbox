@@ -1,5 +1,8 @@
 package io.namastack.springoutbox
 
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import io.namastack.springoutbox.OutboxProperties.Processing
 import io.namastack.springoutbox.OutboxRecordStatus.NEW
 import io.namastack.springoutbox.lock.OutboxLock
@@ -7,9 +10,6 @@ import io.namastack.springoutbox.lock.OutboxLockManager
 import io.namastack.springoutbox.lock.OutboxLockRepository
 import io.namastack.springoutbox.retry.FixedDelayRetryPolicy
 import io.namastack.springoutbox.retry.OutboxRetryPolicy
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.verify
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Clock
