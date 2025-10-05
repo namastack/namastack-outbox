@@ -3,8 +3,9 @@
 # Spring Outbox
 
 A robust Spring Boot library that implements the **Outbox Pattern** for reliable message publishing
-in distributed systems. This library ensures that domain events are published reliably, even in the
-face of system failures, by using transactional guarantees and distributed locking.
+in distributed systems — built and maintained by [Namastack](https://namastack.io). This library
+ensures that domain events are published reliably, even in the face of system failures, by using
+transactional guarantees and distributed locking.
 
 ## Features
 
@@ -17,6 +18,17 @@ face of system failures, by using transactional guarantees and distributed locki
 - 📈 **Scalable**: Supports multiple application instances
 - 🎯 **Zero Message Loss**: Database-backed reliability
 - 🎲 **Jitter Support**: Randomized delays to prevent thundering herd
+
+## Disclaimer
+
+This project, **spring-outbox**, is an independent, community-maintained library and is **not
+affiliated with, endorsed by, or sponsored by VMware, Broadcom, or the official Spring team**.
+
+It is designed to integrate with the [Spring Framework](https://spring.io/) ecosystem but is
+maintained separately under the `io.namastack` namespace.
+
+All references to "Spring" are solely for the purpose of indicating compatibility or integration.
+"Spring" and "Spring Boot" are trademarks of their respective owners.
 
 ## Quick Start
 

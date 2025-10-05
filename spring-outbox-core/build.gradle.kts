@@ -1,53 +1,21 @@
-import org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
-import org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED
-import org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED
-import org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED
-
 plugins {
-    kotlin("jvm")
-    kotlin("plugin.spring")
-    `maven-publish`
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.spring)
     jacoco
 }
 
 description = "spring-outbox-core"
 
 dependencies {
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:3.5.6"))
-    implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.springframework.boot:spring-boot")
-    implementation("org.springframework.boot:spring-boot-autoconfigure")
-    implementation("org.springframework.boot:spring-boot-starter-logging")
 
-    testImplementation(kotlin("test"))
-    testImplementation("org.springframework.boot:spring-boot-test")
-    testImplementation("org.assertj:assertj-core:3.27.6")
-    testImplementation("io.mockk:mockk:1.14.6")
-}
+    implementation(platform(libs.spring.boot.dependencies))
+    implementation(libs.kotlin.reflect)
+    implementation(libs.spring.boot)
+    implementation(libs.spring.boot.autoconfigure)
+    implementation(libs.spring.boot.starter.logging)
 
-tasks.withType<Test> {
-    useJUnitPlatform()
-
-    testLogging {
-        exceptionFormat = FULL
-        showStandardStreams = true
-        events(PASSED, SKIPPED, FAILED)
-    }
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            from(components["java"])
-
-            groupId = "io.namastack"
-            artifactId = "spring-outbox-core"
-            version = project.version.toString()
-
-            pom {
-                name.set("Spring Outbox Core")
-                description.set("Core components for Spring Outbox")
-            }
-        }
-    }
+    testImplementation(libs.kotlin.test)
+    testImplementation(libs.spring.boot.test)
+    testImplementation(libs.assertj.core)
+    testImplementation(libs.mockk)
 }
