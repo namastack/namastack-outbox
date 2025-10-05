@@ -1,4 +1,4 @@
-[![CodeFactor](https://www.codefactor.io/repository/github/rolandbeisel/spring-outbox/badge)](https://www.codefactor.io/repository/github/rolandbeisel/spring-outbox)
+[![CodeFactor](https://www.codefactor.io/repository/github/namastack/spring-outbox/badge)](https://www.codefactor.io/repository/github/namastack/spring-outbox/badge)
 
 # Spring Outbox
 
