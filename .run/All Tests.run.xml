@@ -2,11 +2,11 @@
   <configuration default="false" name="All Tests" type="JUnit" factoryName="JUnit">
     <extension name="coverage">
       <pattern>
-        <option name="PATTERN" value="com.beisel.springoutbox.*" />
+        <option name="PATTERN" value="io.namastack.springoutbox.*" />
         <option name="ENABLED" value="true" />
       </pattern>
     </extension>
-    <option name="PACKAGE_NAME" value="com.beisel.springoutbox" />
+    <option name="PACKAGE_NAME" value="io.namastack.springoutbox" />
     <option name="MAIN_CLASS_NAME" value="" />
     <option name="METHOD_NAME" value="" />
     <option name="TEST_OBJECT" value="package" />

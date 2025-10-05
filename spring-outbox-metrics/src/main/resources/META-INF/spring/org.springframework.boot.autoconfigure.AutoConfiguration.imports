@@ -1,1 +1,2 @@
-com.beisel.springoutbox.OutboxMetricsAutoConfiguration
+io.namastack.springoutbox.OutboxMetricsAutoConfiguration
+

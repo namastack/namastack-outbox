@@ -26,7 +26,7 @@ Add the library to your `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.beisel:spring-outbox-jpa:0.0.1-SNAPSHOT")
+    implementation("io.namastack:spring-outbox-jpa:0.0.1-SNAPSHOT")
 }
 ```
 
@@ -35,7 +35,7 @@ Or if you're using Maven, add to your `pom.xml`:
 ```xml
 
 <dependency>
-  <groupId>com.beisel</groupId>
+  <groupId>io.namastack</groupId>
   <artifactId>spring-outbox-jpa</artifactId>
   <version>0.0.1-SNAPSHOT</version>
 </dependency>
@@ -476,7 +476,7 @@ Add the metrics module to your dependencies:
 
 ```kotlin
 dependencies {
-    implementation("com.beisel:spring-outbox-metrics:0.0.1-SNAPSHOT")
+    implementation("io.namastack:spring-outbox-metrics:0.0.1-SNAPSHOT")
 }
 ```
 
