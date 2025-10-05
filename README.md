@@ -33,10 +33,11 @@ dependencies {
 Or if you're using Maven, add to your `pom.xml`:
 
 ```xml
+
 <dependency>
-    <groupId>com.beisel</groupId>
-    <artifactId>spring-outbox-jpa</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+  <groupId>com.beisel</groupId>
+  <artifactId>spring-outbox-jpa</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -170,9 +171,9 @@ class OrderService(
 
     @Transactional
     fun updateOrder(orderId: OrderId, command: UpdateOrderCommand): Order {
-        val order = orderRepository.findById(orderId) 
+        val order = orderRepository.findById(orderId)
             ?: throw OrderNotFoundException(orderId)
-        
+
         order.update(command)
         orderRepository.save(order)
 
@@ -193,7 +194,8 @@ class OrderService(
 
 **Alternative: Using OutboxRecord.restore() for specific field values**
 
-For testing or when you need to specify all properties (like retry count, status, etc.), use the `restore` method:
+For testing or when you need to specify all properties (like retry count, status, etc.), use the
+`restore` method:
 
 ```kotlin
 // For testing or when recreating records with specific states
@@ -241,17 +243,17 @@ outbox:
   retry:
     max-retries: 3             # Maximum retry attempts (applies to all policies)
     policy: "exponential"      # Main retry policy: fixed, exponential, or jittered
-    
+
     # Exponential backoff configuration
     exponential:
       initial-delay: 1000      # Start with 1 second
       max-delay: 60000         # Cap at 60 seconds  
       multiplier: 2.0          # Double each time
-    
+
     # Fixed delay configuration
     fixed:
       delay: 5000              # Always wait 5 seconds
-    
+
     # Jittered retry configuration (adds randomness to base policy)
     jittered:
       base-policy: exponential # Base policy: fixed or exponential
@@ -260,7 +262,8 @@ outbox:
 
 ## Processing Behavior
 
-The library provides configurable processing behavior to handle different use cases and requirements.
+The library provides configurable processing behavior to handle different use cases and
+requirements.
 
 ### Stop on First Failure
 
@@ -273,12 +276,14 @@ outbox:
 ```
 
 **`stop-on-first-failure: true` (Default)**
+
 - When one event fails, processing stops for the remaining events in that aggregate
 - Maintains strict event ordering within aggregates
 - Prevents potential cascading issues from dependent events
 - Recommended when events within an aggregate have dependencies
 
 **`stop-on-first-failure: false`**
+
 - When one event fails, processing continues with the next events in the same aggregate
 - Maximizes throughput by allowing independent events to proceed
 - Failed events will be retried according to the retry policy
@@ -367,7 +372,7 @@ outbox:
     jittered:
       base-policy: exponential # Base policy: fixed or exponential
       jitter: 1000             # Add 0-1000ms random jitter
-    exponential:               # Configure the base policy
+    exponential: # Configure the base policy
       initial-delay: 2000
       max-delay: 60000
       multiplier: 2.0
@@ -456,14 +461,17 @@ processing fails:
 
 ## Metrics
 
-The `spring-outbox-metrics` module provides metrics for Outbox records and integrates automatically with Micrometer and Spring Boot Actuator.
+The `spring-outbox-metrics` module provides metrics for Outbox records and integrates automatically
+with Micrometer and Spring Boot Actuator.
 
 ### Prerequisites
+
 - The JPA module (`spring-outbox-jpa`) must be included.
 - Micrometer and Spring Boot Actuator must be present and configured as dependencies.
 - The `@EnableOutbox` annotation must be set in your application.
 
 ### Integration
+
 Add the metrics module to your dependencies:
 
 ```kotlin
@@ -473,16 +481,19 @@ dependencies {
 ```
 
 Make sure the Actuator endpoints are enabled (e.g. in `application.properties`):
+
 ```properties
 management.endpoints.web.exposure.include=*
 ```
 
 ### Available Metrics
+
 The module registers a gauge for each Outbox status (NEW, FAILED, COMPLETED) with the name:
 
 - `outbox.records.count{status="new|failed|completed"}`
 
-These metrics show the number of Outbox records per status and can be queried via `/actuator/metrics/outbox.records.count`.
+These metrics show the number of Outbox records per status and can be queried via
+`/actuator/metrics/outbox.records.count`.
 
 ### Example: Querying Metrics
 
@@ -494,7 +505,9 @@ The result contains the values for all statuses as separate time series.
 
 ### Prometheus Integration
 
-If Prometheus is enabled in Spring Boot Actuator (e.g. by adding `implementation("io.micrometer:micrometer-registry-prometheus")` and enabling the endpoint), the Outbox metrics are also available under `/actuator/prometheus`. They appear as:
+If Prometheus is enabled in Spring Boot Actuator (e.g. by adding
+`implementation("io.micrometer:micrometer-registry-prometheus")` and enabling the endpoint), the
+Outbox metrics are also available under `/actuator/prometheus`. They appear as:
 
 ```
 outbox_records_count{status="new",...} <value>
@@ -505,6 +518,7 @@ outbox_records_count{status="completed",...} <value>
 This allows the metrics to be scraped directly by Prometheus and used for dashboards or alerts.
 
 ### Error Handling
+
 If the JPA module is not included, an exception with a clear message is thrown at startup.
 
 For more details, see the module documentation and source code.
@@ -575,14 +589,10 @@ Run tests:
 
 ## Requirements
 
-- **Java**: 17+
+- **Java**: 21+
 - **Spring Boot**: 3.0+
 - **Database**: PostgreSQL, MySQL, H2, or any JPA-supported database
-- **Kotlin**: 1.9+
-
-## License
-
-This project is licensed under the MIT License.
+- **Kotlin**: 2.2+
 
 ## Contributing
 
@@ -594,3 +604,8 @@ This project is licensed under the MIT License.
 ## Support
 
 For questions and issues, please open a GitHub issue.
+
+## License
+
+This project is licensed under
+the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).
