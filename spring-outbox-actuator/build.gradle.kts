@@ -35,7 +35,7 @@ publishing {
         create<MavenPublication>("maven") {
             from(components["java"])
 
-            groupId = "com.beisel"
+            groupId = "io.namastack"
             artifactId = "spring-outbox-actuator"
             version = project.version.toString()
 

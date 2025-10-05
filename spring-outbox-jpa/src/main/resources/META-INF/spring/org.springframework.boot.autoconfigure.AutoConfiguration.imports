@@ -1,1 +1,2 @@
-com.beisel.springoutbox.JpaOutboxAutoConfiguration
+io.namastack.springoutbox.JpaOutboxAutoConfiguration
+
