@@ -14,7 +14,7 @@ dependencies {
 }
 
 allprojects {
-    group = "com.beisel"
+    group = "io.namastack"
     version = "0.0.1-SNAPSHOT"
 
     repositories {

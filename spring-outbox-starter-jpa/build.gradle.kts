@@ -6,8 +6,8 @@ plugins {
 description = "spring-outbox-starter-jpa"
 
 dependencies {
-    api("com.beisel:spring-outbox-core:0.0.1-SNAPSHOT")
-    api("com.beisel:spring-outbox-jpa:0.0.1-SNAPSHOT")
+    api("io.namastack:spring-outbox-core:0.0.1-SNAPSHOT")
+    api("io.namastack:spring-outbox-jpa:0.0.1-SNAPSHOT")
 }
 
 publishing {
@@ -15,7 +15,7 @@ publishing {
         create<MavenPublication>("maven") {
             from(components["java"])
 
-            groupId = "com.beisel"
+            groupId = "io.namastack"
             artifactId = "spring-outbox-starter-jpa"
             version = project.version.toString()
 
