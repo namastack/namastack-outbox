@@ -1,1 +1,2 @@
-com.beisel.springoutbox.OutboxActuatorAutoConfiguration
+io.namastack.springoutbox.OutboxActuatorAutoConfiguration
+
