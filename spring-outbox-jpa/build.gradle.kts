@@ -15,7 +15,7 @@ description = "spring-outbox-jpa"
 
 dependencies {
     implementation("jakarta.persistence:jakarta.persistence-api")
-    compileOnly("org.hibernate.orm:hibernate-core:7.1.2.Final")
+    compileOnly("org.hibernate.orm:hibernate-core:7.1.3.Final")
     compileOnly("org.springframework:spring-orm:6.2.11")
 
     implementation(project(":spring-outbox-core"))
