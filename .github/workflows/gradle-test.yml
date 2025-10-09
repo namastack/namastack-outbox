@@ -22,6 +22,17 @@ jobs:
           java-version: 21
           distribution: oracle
 
+      # Cache Gradle dependencies and wrapper
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper/
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
       - name: Build and run tests
         run: ./gradlew clean build
 
@@ -33,4 +44,9 @@ jobs:
 
       - name: Publish to Maven
         if: github.ref == 'refs/heads/main'
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
         run: ./gradlew publish -Prelease=false --no-daemon --stacktrace
