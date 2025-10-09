@@ -5,6 +5,6 @@ plugins {
 description = "spring-outbox-starter-jpa"
 
 dependencies {
-    api("io.namastack:spring-outbox-core:${project.version}")
-    api("io.namastack:spring-outbox-jpa:${project.version}")
+    api(project(":spring-outbox-core"))
+    api(project(":spring-outbox-jpa"))
 }

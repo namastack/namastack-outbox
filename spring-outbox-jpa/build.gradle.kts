@@ -8,7 +8,6 @@ plugins {
 description = "spring-outbox-jpa"
 
 dependencies {
-    implementation(libs.jakarta.persistence.api)
     compileOnly(libs.hibernate.core)
     compileOnly(libs.spring.orm)
 
