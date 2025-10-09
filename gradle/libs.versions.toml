@@ -13,6 +13,7 @@ h2 = "2.4.240"
 mockk = "1.14.6"
 assertj = "3.27.6"
 micrometer = "1.15.4"
+jakarta = "3.2.0"
 
 [libraries]
 # Spring Boot dependencies
@@ -31,7 +32,7 @@ kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test" }
 kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5" }
 
 # JPA and Database dependencies
-jakarta-persistence-api = { module = "jakarta.persistence:jakarta.persistence-api" }
+jakarta-persistence-api = { module = "jakarta.persistence:jakarta.persistence-api", version.ref = "jakarta" }
 hibernate-core = { module = "org.hibernate.orm:hibernate-core", version.ref = "hibernate" }
 spring-orm = { module = "org.springframework:spring-orm", version.ref = "springOrm" }
 h2 = { module = "com.h2database:h2", version.ref = "h2" }
