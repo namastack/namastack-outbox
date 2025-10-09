@@ -22,9 +22,11 @@ dependencies {
     jacocoAggregation(project(":spring-outbox-jpa"))
 }
 
+val isRelease = project.hasProperty("release") && project.property("release") == "true"
+
 allprojects {
     group = "io.namastack"
-    version = "0.1.0-SNAPSHOT"
+    version = "0.1.0" + if (!isRelease) "-SNAPSHOT" else ""
 
     repositories {
         mavenLocal()
@@ -89,6 +91,7 @@ subprojects {
             publications {
                 create<MavenPublication>("maven") {
                     from(components["java"])
+                    artifact(tasks["dokkaJavadocJar"])
 
                     groupId = project.group.toString()
                     artifactId = project.name
@@ -127,8 +130,10 @@ subprojects {
             repositories {
                 maven {
                     name = "OSSRH"
-                    val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-                    val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+                    val releasesRepoUrl =
+                        uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
+                    val snapshotsRepoUrl =
+                        uri("https://central.sonatype.com/repository/maven-snapshots/")
                     url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
 
                     credentials {

@@ -30,3 +30,7 @@ jobs:
         with:
           name: jacoco-coverage
           path: build/reports/jacoco/testCodeCoverageReport/html
+
+      - name: Publish to Maven
+        if: github.ref == 'refs/heads/main'
+        run: ./gradlew publish -Prelease=false --no-daemon --stacktrace
