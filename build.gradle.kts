@@ -145,13 +145,13 @@ subprojects {
         }
 
         configure<SigningExtension> {
-            isRequired = gradle.taskGraph.hasTask("publish")
+            val signingKey = System.getenv("SIGNING_KEY")
+            val signingPassword = System.getenv("SIGNING_PASSWORD")
 
-            useInMemoryPgpKeys(
-                System.getenv("SIGNING_KEY"),
-                System.getenv("SIGNING_PASSWORD"),
-            )
-            sign(the<PublishingExtension>().publications["maven"])
+            if (!signingKey.isNullOrBlank() && !signingPassword.isNullOrBlank()) {
+                useInMemoryPgpKeys(signingKey, signingPassword)
+                sign(the<PublishingExtension>().publications["maven"])
+            }
         }
     }
 }
