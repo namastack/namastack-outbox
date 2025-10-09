@@ -1,11 +1,17 @@
-import org.gradle.api.tasks.testing.logging.TestExceptionFormat
-import org.gradle.api.tasks.testing.logging.TestLogEvent
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+import org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED
+import org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED
+import org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED
+import org.jetbrains.dokka.gradle.DokkaTask
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     alias(libs.plugins.kotlin.spring) apply false
     alias(libs.plugins.spring.boot) apply false
     alias(libs.plugins.spring.dependency.management) apply false
     alias(libs.plugins.ktlint) apply false
+    alias(libs.plugins.dokka)
     alias(libs.plugins.kotlin.jvm)
     id("jacoco-report-aggregation")
     jacoco
@@ -18,7 +24,7 @@ dependencies {
 
 allprojects {
     group = "io.namastack"
-    version = "0.0.1-SNAPSHOT"
+    version = "0.1.0-SNAPSHOT"
 
     repositories {
         mavenLocal()
@@ -37,29 +43,46 @@ tasks.check {
 }
 
 subprojects {
+    apply(plugin = "org.jetbrains.dokka")
     apply(plugin = "maven-publish")
     apply(plugin = "signing")
 
-    // Centralize test configuration for all subprojects
     tasks.withType<Test> {
         useJUnitPlatform()
 
         testLogging {
-            exceptionFormat = TestExceptionFormat.FULL
+            exceptionFormat = FULL
             showStandardStreams = true
-            events(TestLogEvent.PASSED, TestLogEvent.SKIPPED, TestLogEvent.FAILED)
+            events(PASSED, SKIPPED, FAILED)
+        }
+    }
+
+    tasks.withType<KotlinCompile> {
+        compilerOptions {
+            jvmTarget.set(JVM_21)
         }
     }
 
     afterEvaluate {
-        val sourcesJar by tasks.registering(Jar::class) {
-            archiveClassifier.set("sources")
-            from(sourceSets.main.get().allSource)
+        java {
+            withSourcesJar()
         }
 
-        val javadocJar by tasks.registering(Jar::class) {
+        tasks.register<Jar>("dokkaHtmlJar") {
+            dependsOn(tasks.named("dokkaHtml"))
+            from(tasks.named<DokkaTask>("dokkaHtml").flatMap { it.outputDirectory })
+            archiveClassifier.set("html-docs")
+        }
+
+        tasks.register<Jar>("dokkaJavadocJar") {
+            dependsOn(tasks.named("dokkaJavadoc"))
+            from(tasks.named<DokkaTask>("dokkaJavadoc").flatMap { it.outputDirectory })
             archiveClassifier.set("javadoc")
-            from(tasks.named("javadoc"))
+        }
+
+        tasks.build {
+            dependsOn(tasks.named<Jar>("dokkaJavadocJar"))
+            finalizedBy(tasks.named("publishToMavenLocal"))
         }
 
         configure<PublishingExtension> {
@@ -67,16 +90,13 @@ subprojects {
                 create<MavenPublication>("maven") {
                     from(components["java"])
 
-                    artifact(sourcesJar)
-                    artifact(javadocJar)
-
                     groupId = project.group.toString()
                     artifactId = project.name
                     version = project.version.toString()
 
                     pom {
                         name.set(project.name)
-                        description.set(project.description ?: "Spring Outbox module")
+                        description.set(project.description ?: "Spring Outbox Module")
                         url.set("https://github.com/namastack/spring-outbox")
 
                         licenses {
@@ -91,6 +111,7 @@ subprojects {
                                 id.set("rolandbeisel")
                                 name.set("Roland Beisel")
                                 email.set("info@rolandbeisel.de")
+                                url.set("https://rolandbeisel.de")
                             }
                         }
 
@@ -117,13 +138,15 @@ subprojects {
                 }
             }
         }
-        /**
-         configure<SigningExtension> {
-         useInMemoryPgpKeys(
-         System.getenv("SIGNING_KEY"),
-         System.getenv("SIGNING_PASSWORD"),
-         )
-         sign(the<PublishingExtension>().publications["maven"])
-         }**/
+
+        configure<SigningExtension> {
+            isRequired = gradle.taskGraph.hasTask("publish")
+
+            useInMemoryPgpKeys(
+                System.getenv("SIGNING_KEY"),
+                System.getenv("SIGNING_PASSWORD"),
+            )
+            sign(the<PublishingExtension>().publications["maven"])
+        }
     }
 }
