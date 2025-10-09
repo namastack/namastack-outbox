@@ -16,25 +16,60 @@ import org.springframework.context.annotation.Bean
 import java.time.Clock
 import javax.sql.DataSource
 
+/**
+ * Auto-configuration class for JPA-based Spring Outbox functionality.
+ *
+ * This configuration provides JPA implementations for outbox repositories
+ * and handles database schema initialization when enabled.
+ *
+ * @author Roland Beisel
+ * @since 0.1.0
+ */
 @AutoConfiguration
 @AutoConfigureBefore(HibernateJpaAutoConfiguration::class)
 @AutoConfigurationPackage
 @ConditionalOnBean(annotation = [EnableOutbox::class])
 internal class JpaOutboxAutoConfiguration {
+    /**
+     * Provides a default Clock bean if none is configured.
+     *
+     * @return System default zone clock
+     */
     @Bean
     @ConditionalOnMissingBean
     fun clock(): Clock = Clock.systemDefaultZone()
 
+    /**
+     * Creates a JPA-based outbox lock repository.
+     *
+     * @param entityManager JPA entity manager
+     * @return JPA outbox lock repository implementation
+     */
     @Bean
     fun outboxLockRepository(entityManager: EntityManager): OutboxLockRepository =
         JpaOutboxLockRepository(entityManager)
 
+    /**
+     * Creates a JPA-based outbox record repository.
+     *
+     * @param entityManager JPA entity manager
+     * @param clock Clock for time-based operations
+     * @return JPA outbox record repository implementation
+     */
     @Bean
     fun outboxRecordRepository(
         entityManager: EntityManager,
         clock: Clock,
     ): OutboxRecordRepository = JpaOutboxRecordRepository(entityManager, clock)
 
+    /**
+     * Creates a database initializer for outbox schema when schema initialization is enabled.
+     *
+     * This bean is only created when the property 'outbox.schema-initialization.enabled' is set to true.
+     *
+     * @param dataSource The data source to initialize
+     * @return Database initializer for outbox schema
+     */
     @Bean
     @ConditionalOnProperty(name = ["outbox.schema-initialization.enabled"], havingValue = "true")
     fun outboxDataSourceScriptDatabaseInitializer(dataSource: DataSource): DataSourceScriptDatabaseInitializer {
