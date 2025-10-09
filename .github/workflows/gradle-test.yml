@@ -46,6 +46,7 @@ jobs:
         uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: build/reports/jacoco/testCodeCoverageReport.xml
           fail_ci_if_error: false
 
       - name: Publish to Maven
@@ -55,4 +56,4 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-        run: ./gradlew publish -Prelease=false --no-daemon --stacktrace
+        run: ./gradlew publish -Prelease=false --no-daemon
