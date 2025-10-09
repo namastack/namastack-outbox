@@ -6,11 +6,29 @@ import jakarta.transaction.Transactional
 import java.time.Clock
 import java.time.OffsetDateTime
 
+/**
+ * JPA implementation of the OutboxRecordRepository and OutboxRecordStatusRepository interfaces.
+ *
+ * This implementation uses JPA/Hibernate to persist and query outbox records
+ * from a relational database.
+ *
+ * @param entityManager JPA entity manager for database operations
+ * @param clock Clock for time-based operations
+ *
+ * @author Roland Beisel
+ * @since 0.1.0
+ */
 internal open class JpaOutboxRecordRepository(
     private val entityManager: EntityManager,
     private val clock: Clock,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
+    /**
+     * Saves an outbox record to the database.
+     *
+     * @param record The outbox record to save
+     * @return The saved outbox record
+     */
     @Transactional
     override fun save(record: OutboxRecord): OutboxRecord {
         val entity = map(record)
@@ -26,6 +44,11 @@ internal open class JpaOutboxRecordRepository(
         return record
     }
 
+    /**
+     * Finds all pending outbox records that are ready for processing.
+     *
+     * @return List of pending outbox records ordered by creation time
+     */
     override fun findPendingRecords(): List<OutboxRecord> {
         val query = """
             select o
@@ -40,6 +63,11 @@ internal open class JpaOutboxRecordRepository(
             .map { map(it) }
     }
 
+    /**
+     * Finds all completed outbox records.
+     *
+     * @return List of completed outbox records ordered by creation time
+     */
     override fun findCompletedRecords(): List<OutboxRecord> {
         val query = """
             select o
@@ -54,6 +82,11 @@ internal open class JpaOutboxRecordRepository(
             .map { map(it) }
     }
 
+    /**
+     * Finds all failed outbox records.
+     *
+     * @return List of failed outbox records ordered by creation time
+     */
     override fun findFailedRecords(): List<OutboxRecord> {
         val query = """
             select o
@@ -68,6 +101,12 @@ internal open class JpaOutboxRecordRepository(
             .map { map(it) }
     }
 
+    /**
+     * Finds aggregate IDs that have pending records with the specified status.
+     *
+     * @param status The status to filter by
+     * @return List of distinct aggregate IDs with pending records
+     */
     override fun findAggregateIdsWithPendingRecords(status: OutboxRecordStatus): List<String> {
         val query = """
             select distinct o.aggregateId
@@ -84,6 +123,11 @@ internal open class JpaOutboxRecordRepository(
             .resultList
     }
 
+    /**
+     * Finds aggregate IDs that have failed records.
+     *
+     * @return List of distinct aggregate IDs with failed records
+     */
     override fun findAggregateIdsWithFailedRecords(): List<String> {
         val query = """
             select distinct aggregateId
@@ -97,6 +141,12 @@ internal open class JpaOutboxRecordRepository(
             .resultList
     }
 
+    /**
+     * Finds all incomplete records for a specific aggregate ID.
+     *
+     * @param aggregateId The aggregate ID to search for
+     * @return List of incomplete outbox records for the aggregate, ordered by creation time
+     */
     override fun findAllIncompleteRecordsByAggregateId(aggregateId: String): List<OutboxRecord> {
         val query = """
             select o
@@ -114,6 +164,12 @@ internal open class JpaOutboxRecordRepository(
             .map { map(it) }
     }
 
+    /**
+     * Counts the number of outbox records with the specified status.
+     *
+     * @param status The status to count records for
+     * @return The number of records with the given status
+     */
     override fun countByStatus(status: OutboxRecordStatus): Long {
         val query = """
             select count(o)
@@ -127,6 +183,11 @@ internal open class JpaOutboxRecordRepository(
             .singleResult
     }
 
+    /**
+     * Deletes all records with the specified status.
+     *
+     * @param status The status of records to delete
+     */
     @Transactional
     override fun deleteByStatus(status: OutboxRecordStatus) {
         val query = """
@@ -140,6 +201,12 @@ internal open class JpaOutboxRecordRepository(
             .executeUpdate()
     }
 
+    /**
+     * Deletes records for a specific aggregate ID and status.
+     *
+     * @param aggregateId The aggregate ID
+     * @param status The status of records to delete
+     */
     @Transactional
     override fun deleteByAggregateIdAndStatus(
         aggregateId: String,

@@ -3,7 +3,7 @@
 # Spring Outbox
 
 A robust Spring Boot library that implements the **Outbox Pattern** for reliable message publishing
-in distributed systems — built and maintained by [Namastack](https://namastack.io). This library
+in distributed systems — built and maintained by [Namastack](https://spring-outbox.namastack.io). This library
 ensures that domain events are published reliably, even in the face of system failures, by using
 transactional guarantees and distributed locking.
 
@@ -38,7 +38,7 @@ Add the library to your `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("io.namastack:spring-outbox-jpa:0.0.1-SNAPSHOT")
+    implementation("io.namastack:spring-outbox-jpa:0.1.0")
 }
 ```
 
@@ -48,8 +48,8 @@ Or if you're using Maven, add to your `pom.xml`:
 
 <dependency>
   <groupId>io.namastack</groupId>
-  <artifactId>spring-outbox-jpa</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <artifactId>spring-outbox-starter-jpa</artifactId>
+  <version>0.1.0</version>
 </dependency>
 ```
 
@@ -488,7 +488,7 @@ Add the metrics module to your dependencies:
 
 ```kotlin
 dependencies {
-    implementation("io.namastack:spring-outbox-metrics:0.0.1-SNAPSHOT")
+    implementation("io.namastack:spring-outbox-metrics:0.1.0")
 }
 ```
 
