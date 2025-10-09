@@ -1,4 +1,5 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/namastack/spring-outbox/badge)](https://www.codefactor.io/repository/github/namastack/spring-outbox)
+[![spring-outbox CI](https://github.com/namastack/spring-outbox/actions/workflows/gradle-test.yml/badge.svg)](https://github.com/namastack/spring-outbox/actions/workflows/gradle-test.yml)
 
 # Spring Outbox
 
