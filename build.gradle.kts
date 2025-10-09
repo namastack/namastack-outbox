@@ -82,7 +82,7 @@ subprojects {
 
         tasks.build {
             dependsOn(tasks.named<Jar>("dokkaJavadocJar"))
-            finalizedBy("publishToMavenLocal")
+            finalizedBy(tasks.named("publishToMavenLocal"))
         }
 
         configure<PublishingExtension> {
