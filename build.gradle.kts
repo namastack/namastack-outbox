@@ -18,8 +18,11 @@ plugins {
 }
 
 dependencies {
+    jacocoAggregation(project(":spring-outbox-actuator"))
     jacocoAggregation(project(":spring-outbox-core"))
     jacocoAggregation(project(":spring-outbox-jpa"))
+    jacocoAggregation(project(":spring-outbox-metrics"))
+    jacocoAggregation(project(":spring-outbox-starter-jpa"))
 }
 
 val isRelease = project.hasProperty("release") && project.property("release") == "true"
