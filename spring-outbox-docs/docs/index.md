@@ -8,11 +8,12 @@ hide:
     ![Namastack Logo](assets/spring_outbox_light.svg#only-light){ width="80%" }
     ![Namastack Logo](assets/spring_outbox_dark.svg#only-dark){ width="80%" }
     [Getting Started :octicons-rocket-24:](quickstart.md){ .md-button style="margin: 2rem;" }
+    [View on GitHub :simple-github:](https://github.com/namastack/spring-outbox){ .md-button style="margin: 2rem;" target=blank}
 </figure>
 
 # Welcome!
 
-## Why should you use spring-outbox?
+## Why should you use Spring Outbox?
 
 <div class="grid cards" markdown>
 
@@ -66,28 +67,43 @@ hide:
 
 </div>
 
-## How It Works / Architecture Overview
+## :material-head-question: How It Works
 
 ![Namastack Logo](assets/diagram_light.svg#only-light){ width="60%", align=right }
 ![Namastack Logo](assets/diagram_dark.svg#only-dark){ width="60%", align=right}
 
-**spring-outbox** solves the dual-write problem with database-backed reliability. Your component
-writes to both the entity table and outbox table within a single ACID transaction — guaranteeing
-atomicity between your domain state and message log.
+**Spring Outbox** brings bulletproof reliability to your event-driven systems — combining 
+transactional integrity with seamless message delivery.
 
-**No more inconsistent state when transactions fail halfway**.
+When your **application** writes data, both the **entity table** and the **outbox table** 
+are updated within a **single ACID transaction**. This guarantees that your domain state and outgoing 
+events are always consistent — even if the system crashes mid-operation.
 
-The outbox scheduler polls for unprocessed records and hands them to your implementation of an
-outbox processor, which publishes to your message broker with **automatic retry logic**
-(exponential backoff, jittered delays, configurable policies). **Distributed locking** ensures only
-one instance processes events per aggregate, eliminating race conditions while enabling **horizontal
-scaling**. **Event ordering per aggregate is guaranteed** — critical for state machines and
-dependent operations.
+A background **outbox scheduler** polls the database for new outbox records and hands them off to 
+your **custom outbox processor** — a lightweight interface you implement to publish messages to 
+your **broker** (e.g. Kafka, RabbitMQ, SNS).
 
-**At-least-once delivery. Per-aggregate ordering. Zero data loss.**  
+Once messages are successfully delivered, they’re marked as processed.  
+This architecture ensures:
 
-Built on Spring Boot and JPA, with Micrometer metrics, and production-grade retry mechanisms. 
-Deploy with confidence across multiple instances — **spring outbox** handles **coordination**, 
-**failure recovery**, and **thundering herd prevention** automatically.
+- **Zero message loss**, even under failure
+- **Strict per-aggregate ordering** for deterministic processing
+- **Horizontal scalability** with distributed locking
+- **At-least-once delivery** with safe retry policies and observability
 
-**Transactional guarantees meet message-driven architecture.**
+With **Spring Outbox**, you get the reliability of database transactions — and the resilience of 
+message-driven design.  
+Build confidently, scale safely, and never lose an event again.
+
+---
+
+!!! note "Disclaimer"
+
+    This project is an independent, community-maintained library and is not affiliated 
+    with, endorsed by, or sponsored by VMware, Broadcom, or the official Spring team.
+    
+    It is designed to integrate with the Spring Framework ecosystem but is maintained separately under 
+    the `io.namastack` namespace.
+    
+    All references to "Spring" are solely for the purpose of indicating compatibility or integration. 
+    **"Spring" and "Spring Boot" are trademarks of their respective owners.**
