@@ -38,3 +38,6 @@ reports/
 .env
 .env.local
 testcontainers.properties
+
+venv/
+site/

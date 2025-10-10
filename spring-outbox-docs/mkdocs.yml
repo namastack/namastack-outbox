@@ -1,0 +1,36 @@
+site_name: spring-outbox
+site_url: https://outbox.namastack.io
+theme:
+  name: material
+  logo: assets/namastack_logo.svg
+  favicon: assets/namastack_logo.svg
+  palette:
+    - scheme: default
+      primary: blue grey
+      accent: yellow
+      toggle:
+        icon: material/brightness-4
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue grey
+      accent: yellow
+      toggle:
+        icon: material/brightness-7
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.top
+
+nav:
+  - Home: index.md
+  - Quick Start: quickstart.md
+  - Features: features.md
+extra_css:
+  - stylesheets/extra.css
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+docs_dir: docs
