@@ -1,5 +1,8 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/namastack/spring-outbox/badge)](https://www.codefactor.io/repository/github/namastack/spring-outbox)
+[![codecov](https://codecov.io/github/namastack/spring-outbox/graph/badge.svg?token=TZS1OQB4XC)](https://codecov.io/github/namastack/spring-outbox)
 [![spring-outbox CI](https://github.com/namastack/spring-outbox/actions/workflows/gradle-test.yml/badge.svg)](https://github.com/namastack/spring-outbox/actions/workflows/gradle-test.yml)
+[![dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 # Spring Outbox
 
