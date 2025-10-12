@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'spring-outbox-docs/**'
-      - '.github/workflows/deploy-docs.yml'  # re-run if workflow changes
+      - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
 permissions:

@@ -1,4 +1,4 @@
-:root  > * {
+:root > * {
   --md-accent-fg-color: #FFDE59;
   --md-accent-fg-color--light: #FFDE59;
   --md-accent-fg-color--dark: #FFDE59;
@@ -6,4 +6,8 @@
 
 .yellow-icon {
   color: #FFDE59;
+}
+
+.quickstart-button {
+  margin: 1rem 2rem;
 }

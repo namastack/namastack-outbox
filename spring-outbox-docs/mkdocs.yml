@@ -4,6 +4,10 @@ theme:
   name: material
   logo: assets/namastack_logo.svg
   favicon: assets/namastack_logo.svg
+  custom_dir: overrides
+  footer:
+    navigation: true   # shows navigation links on left
+    text: "© 2025 MyCompany"
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
@@ -31,15 +35,30 @@ theme:
         icon: material/brightness-7
         name: Switch to light mode
   features:
+    - navigation.instant
     - navigation.tabs
     - navigation.top
+    - navigation.path
+    - toc.follow
+    - toc.integrate
 
 nav:
   - Home: index.md
   - Quick Start: quickstart.md
   - Features: features.md
+
+copyright: 'Copyright &copy; 2025 namastack.io'
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/namastack/spring-outbox
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/roland-beisel/
+
 extra_css:
   - stylesheets/extra.css
+
 markdown_extensions:
   - attr_list
   - md_in_html
@@ -51,4 +70,9 @@ markdown_extensions:
       alternate_style: true
   - admonition
   - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
 docs_dir: docs
