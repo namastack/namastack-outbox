@@ -7,8 +7,8 @@ hide:
 <figure markdown="span">
     ![Namastack Logo](assets/spring_outbox_light.svg#only-light){ width="80%" }
     ![Namastack Logo](assets/spring_outbox_dark.svg#only-dark){ width="80%" }
-    [Getting Started :octicons-rocket-24:](quickstart.md){ .md-button style="margin: 2rem;" }
-    [View on GitHub :simple-github:](https://github.com/namastack/spring-outbox){ .md-button style="margin: 2rem;" target=blank}
+    [Getting Started :octicons-rocket-24:](quickstart.md){ .md-button .quickstart-button }
+    [View on GitHub :simple-github:](https://github.com/namastack/spring-outbox){ .md-button .quickstart-button target=blank}
 </figure>
 
 # Welcome!

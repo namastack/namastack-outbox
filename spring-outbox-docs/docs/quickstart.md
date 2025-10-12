@@ -1,8 +1,3 @@
----
-hide:
-  - navigation
----
-
 # Quick Start
 
 **Spring Outbox** is a minimal-configuration Spring Boot library for reliably publishing domain 
@@ -17,7 +12,7 @@ event publishing with minimal boilerplate.
 
 ---
 
-## 🧩 1. Add Dependency
+## Add Dependency
 
 Add the library to your project.
 
@@ -39,7 +34,7 @@ Add the library to your project.
     </dependency>
     ```
 
-## ⚙️ 2. Enable Spring Outbox
+## Enable Spring Outbox
 
 Annotate your application class to enable outbox processing:
 
@@ -70,7 +65,7 @@ Annotate your application class to enable outbox processing:
     }
     ```
 
-## 🕒 3. Provide a Clock Bean
+## Provide a Clock Bean
 
 Spring Outbox uses a Clock for reliable, testable timestamps.
 
@@ -98,7 +93,7 @@ Spring Outbox uses a Clock for reliable, testable timestamps.
     }
     ```
 
-## 🗄️ 4. Configure the Database
+## Configure the Database
 
 Let the library create its schema automatically:
 
@@ -137,7 +132,7 @@ CREATE TABLE IF NOT EXISTS outbox_lock
 CREATE INDEX IF NOT EXISTS idx_outbox_aggregate_id_created_at ON outbox_record (aggregate_id, created_at);
 ```
 
-## 🧠 5. Implement Your Processor
+## Implement Your Processor
 
 You decide how events are published — to Kafka, RabbitMQ, SNS, or any other broker.
 
@@ -203,7 +198,7 @@ You decide how events are published — to Kafka, RabbitMQ, SNS, or any other br
     }
     ```
 
-## 🧾 6. Write Events Transactionally
+## Write Events Transactionally
 
 Store events in the outbox within the same transaction as your entity:
 
@@ -285,7 +280,7 @@ Store events in the outbox within the same transaction as your entity:
     }
     ```
 
-## ⚡ 7. Configuration Overview
+## Configuration Overview
 
 Configure the outbox behavior in your application.yml:
 
