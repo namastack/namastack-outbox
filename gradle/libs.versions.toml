@@ -12,7 +12,7 @@ springOrm = "6.2.11"
 h2 = "2.4.240"
 mockk = "1.14.6"
 assertj = "3.27.6"
-micrometer = "1.15.4"
+micrometer = "1.15.5"
 
 [libraries]
 # Spring Boot dependencies
