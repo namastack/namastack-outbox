@@ -44,12 +44,17 @@ theme:
 
 nav:
   - Home: index.md
-  - Quick Start: quickstart.md
+  - Quickstart: quickstart.md
   - Features: features.md
 
 copyright: 'Copyright &copy; 2025 namastack.io'
 
+plugins:
+  - search
+  - macros
+
 extra:
+  outbox_version: 0.1.0
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/namastack/spring-outbox

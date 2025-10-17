@@ -17,9 +17,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  */
 @ConfigurationProperties(prefix = "outbox")
 data class OutboxProperties(
+    val pollInterval: Long = 5000,
     val locking: Locking = Locking(),
     val retry: Retry = Retry(),
     val processing: Processing = Processing(),
+    val schemaInitialization: SchemaInitialization = SchemaInitialization(),
 ) {
     /**
      * Configuration for outbox record locking mechanism.
@@ -89,5 +91,14 @@ data class OutboxProperties(
      */
     data class Processing(
         val stopOnFirstFailure: Boolean = true,
+    )
+
+    /**
+     * Configuration for database schema initialization.
+     *
+     * @param enabled Whether to enable automatic schema initialization
+     */
+    data class SchemaInitialization(
+        val enabled: Boolean = true,
     )
 }
