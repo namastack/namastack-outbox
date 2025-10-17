@@ -1,4 +1,4 @@
-# Quick Start
+# Quickstart
 
 **Spring Outbox** is a minimal-configuration Spring Boot library for reliably publishing domain 
 events using the Outbox Pattern.
@@ -20,7 +20,7 @@ Add the library to your project.
 
     ```kotlin
     dependencies {
-        implementation("io.namastack:spring-outbox-jpa:0.1.0")
+        implementation("io.namastack:spring-outbox-jpa:{{ outbox_version }}")
     }
     ```
 
@@ -30,7 +30,7 @@ Add the library to your project.
     <dependency>
       <groupId>io.namastack</groupId>
       <artifactId>spring-outbox-starter-jpa</artifactId>
-      <version>0.1.0</version>
+      <version>{{ outbox_version }}</version>
     </dependency>
     ```
 
@@ -140,7 +140,7 @@ You decide how events are published — to Kafka, RabbitMQ, SNS, or any other br
 
     ```kotlin
     @Component
-    class MyEventProcessor : OutboxRecordProcessor {
+    class MyEventProcessor(val messagePublisher: MessagePublisher) : OutboxRecordProcessor {
     
         private val logger = LoggerFactory.getLogger(javaClass)
         private val objectMapper = ObjectMapper()
