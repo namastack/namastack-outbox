@@ -8,7 +8,7 @@ dokka = "2.0.0"
 
 # Dependency versions
 hibernate = "7.1.3.Final"
-springOrm = "6.2.11"
+springOrm = "6.2.12"
 h2 = "2.4.240"
 mockk = "1.14.6"
 assertj = "3.27.6"
