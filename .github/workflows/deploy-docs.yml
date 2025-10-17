@@ -27,6 +27,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
+        working-directory: spring-outbox-docs
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt || pip install mkdocs-material
