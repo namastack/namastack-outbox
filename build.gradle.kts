@@ -2,7 +2,6 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
 import org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED
 import org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED
 import org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED
-import org.jetbrains.dokka.gradle.DokkaTask
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -11,7 +10,7 @@ plugins {
     alias(libs.plugins.spring.boot) apply false
     alias(libs.plugins.spring.dependency.management) apply false
     alias(libs.plugins.ktlint) apply false
-    alias(libs.plugins.dokka)
+    alias(libs.plugins.dokka.javadoc)
     alias(libs.plugins.kotlin.jvm)
     id("jacoco-report-aggregation")
     jacoco
@@ -48,7 +47,7 @@ tasks.check {
 }
 
 subprojects {
-    apply(plugin = "org.jetbrains.dokka")
+    apply(plugin = "org.jetbrains.dokka-javadoc")
     apply(plugin = "maven-publish")
     apply(plugin = "signing")
 
@@ -73,15 +72,13 @@ subprojects {
             withSourcesJar()
         }
 
-        tasks.register<Jar>("dokkaHtmlJar") {
-            dependsOn(tasks.named("dokkaHtml"))
-            from(tasks.named<DokkaTask>("dokkaHtml").flatMap { it.outputDirectory })
-            archiveClassifier.set("html-docs")
+        dokka {
+            moduleName = rootProject.name
         }
 
         tasks.register<Jar>("dokkaJavadocJar") {
-            dependsOn(tasks.named("dokkaJavadoc"))
-            from(tasks.named<DokkaTask>("dokkaJavadoc").flatMap { it.outputDirectory })
+            dependsOn(tasks.dokkaGenerateJavadoc)
+            from(tasks.dokkaGeneratePublicationJavadoc.flatMap { it.outputDirectory })
             archiveClassifier.set("javadoc")
         }
 
