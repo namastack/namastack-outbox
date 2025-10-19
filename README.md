@@ -1,6 +1,9 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/namastack/spring-outbox/badge)](https://www.codefactor.io/repository/github/namastack/spring-outbox)
 [![codecov](https://codecov.io/github/namastack/spring-outbox/graph/badge.svg?token=TZS1OQB4XC)](https://codecov.io/github/namastack/spring-outbox)
+[![javadoc](https://javadoc.io/badge2/io.namastack/spring-outbox-core/javadoc.svg)](https://javadoc.io/doc/io.namastack/spring-outbox-core)
 [![spring-outbox CI](https://github.com/namastack/spring-outbox/actions/workflows/gradle-test.yml/badge.svg)](https://github.com/namastack/spring-outbox/actions/workflows/gradle-test.yml)
+[![GitHub Release Date](https://img.shields.io/github/release-date/namastack/spring-outbox)](https://github.com/namastack/spring-outbox/releases/latest)
+[![GitHub last commit](https://img.shields.io/github/last-commit/namastack/spring-outbox)](https://github.com/namastack/spring-outbox/commits/main)
 [![dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
