@@ -5,12 +5,15 @@ on:
     branches:
       - 'main'
       - 'feature/**'
+      - 'fix/**'
   pull_request:
     branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
