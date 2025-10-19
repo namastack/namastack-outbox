@@ -11,16 +11,12 @@ version = "0.1.0"
 
 repositories {
     mavenCentral()
-
-    maven {
-        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
-    }
 }
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("io.namastack:spring-outbox-starter-jpa:0.1.0-SNAPSHOT")
+    implementation("io.namastack:spring-outbox-starter-jpa:0.1.0")
     implementation("org.flywaydb:flyway-core")
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
