@@ -12,6 +12,7 @@ plugins {
     alias(libs.plugins.ktlint) apply false
     alias(libs.plugins.dokka.javadoc)
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.maven.publish)
     id("jacoco-report-aggregation")
     jacoco
 }
@@ -48,8 +49,7 @@ tasks.check {
 
 subprojects {
     apply(plugin = "org.jetbrains.dokka-javadoc")
-    apply(plugin = "maven-publish")
-    apply(plugin = "signing")
+    apply(plugin = "com.vanniktech.maven.publish")
 
     tasks.withType<Test> {
         useJUnitPlatform()
@@ -76,81 +76,42 @@ subprojects {
             moduleName = rootProject.name
         }
 
-        tasks.register<Jar>("dokkaJavadocJar") {
-            dependsOn(tasks.dokkaGenerateJavadoc)
-            from(tasks.dokkaGeneratePublicationJavadoc.flatMap { it.outputDirectory })
-            archiveClassifier.set("javadoc")
-        }
-
         tasks.build {
-            dependsOn(tasks.named<Jar>("dokkaJavadocJar"))
             finalizedBy(tasks.named("publishToMavenLocal"))
         }
 
-        configure<PublishingExtension> {
-            publications {
-                create<MavenPublication>("maven") {
-                    from(components["java"])
-                    artifact(tasks["dokkaJavadocJar"])
+        mavenPublishing {
+            publishToMavenCentral()
+            signAllPublications()
 
-                    groupId = project.group.toString()
-                    artifactId = project.name
-                    version = project.version.toString()
+            coordinates(project.group.toString(), project.name, project.version.toString())
 
-                    pom {
-                        name.set(project.name)
-                        description.set(project.description ?: "Spring Outbox Module")
-                        url.set("https://github.com/namastack/spring-outbox")
+            pom {
+                name.set(project.name)
+                description.set(project.description ?: "Spring Outbox Module")
+                url.set("https://github.com/namastack/spring-outbox")
 
-                        licenses {
-                            license {
-                                name.set("Apache License 2.0")
-                                url.set("https://www.apache.org/licenses/LICENSE-2.0")
-                            }
-                        }
-
-                        developers {
-                            developer {
-                                id.set("rolandbeisel")
-                                name.set("Roland Beisel")
-                                email.set("info@rolandbeisel.de")
-                                url.set("https://rolandbeisel.de")
-                            }
-                        }
-
-                        scm {
-                            connection.set("scm:git:https://github.com/namastack/spring-outbox.git")
-                            developerConnection.set("scm:git:ssh://github.com/namastack/spring-outbox.git")
-                            url.set("https://github.com/namastack/spring-outbox")
-                        }
+                licenses {
+                    license {
+                        name.set("Apache License 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0")
                     }
                 }
-            }
 
-            repositories {
-                maven {
-                    name = "OSSRH"
-                    val releasesRepoUrl =
-                        uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
-                    val snapshotsRepoUrl =
-                        uri("https://central.sonatype.com/repository/maven-snapshots/")
-                    url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
-
-                    credentials {
-                        username = System.getenv("OSSRH_USERNAME")
-                        password = System.getenv("OSSRH_PASSWORD")
+                developers {
+                    developer {
+                        id.set("rolandbeisel")
+                        name.set("Roland Beisel")
+                        email.set("info@rolandbeisel.de")
+                        url.set("https://rolandbeisel.de")
                     }
                 }
-            }
-        }
 
-        configure<SigningExtension> {
-            val signingKey = System.getenv("SIGNING_KEY")
-            val signingPassword = System.getenv("SIGNING_PASSWORD")
-
-            if (!signingKey.isNullOrBlank() && !signingPassword.isNullOrBlank()) {
-                useInMemoryPgpKeys(signingKey, signingPassword)
-                sign(the<PublishingExtension>().publications["maven"])
+                scm {
+                    connection.set("scm:git:https://github.com/namastack/spring-outbox.git")
+                    developerConnection.set("scm:git:ssh://github.com/namastack/spring-outbox.git")
+                    url.set("https://github.com/namastack/spring-outbox")
+                }
             }
         }
     }
