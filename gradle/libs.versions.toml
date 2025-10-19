@@ -5,6 +5,7 @@ springBoot = "3.5.6"
 dependencyManagement = "1.1.7"
 ktlint = "13.1.0"
 dokka = "2.1.0"
+publish = "0.34.0"
 
 # Dependency versions
 hibernate = "7.1.4.Final"
@@ -56,3 +57,4 @@ spring-dependency-management = { id = "io.spring.dependency-management", version
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 dokka-javadoc = { id = "org.jetbrains.dokka-javadoc", version.ref = "dokka" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "publish" }
