@@ -20,7 +20,7 @@ Add the library to your project.
 
     ```kotlin
     dependencies {
-        implementation("io.namastack:spring-outbox-jpa:{{ outbox_version }}")
+        implementation("io.namastack:spring-outbox-starter-jpa:{{ outbox_version }}")
     }
     ```
 

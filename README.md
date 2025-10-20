@@ -45,7 +45,7 @@ Add the library to your `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("io.namastack:spring-outbox-jpa:0.1.0")
+    implementation("io.namastack:spring-outbox-starter-jpa:0.1.0")
 }
 ```
 
