@@ -63,12 +63,9 @@ class OutboxProcessingScheduler(
         aggregateId: String,
         initialLock: OutboxLock,
     ) {
-        val records =
-            recordRepository
-                .findAllIncompleteRecordsByAggregateId(aggregateId)
-                .sortedBy { it.createdAt }
-
+        val records = recordRepository.findAllIncompleteRecordsByAggregateId(aggregateId)
         var lock = initialLock
+
         for (record in records) {
             if (!record.canBeRetried(clock)) break
 
