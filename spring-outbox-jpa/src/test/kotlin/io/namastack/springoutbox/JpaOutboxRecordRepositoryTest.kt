@@ -98,6 +98,26 @@ class JpaOutboxRecordRepositoryTest {
     }
 
     @Test
+    fun `returns pending records ordered by createdAt asc`() {
+        val now = OffsetDateTime.now(clock)
+        val aggregateId = UUID.randomUUID().toString()
+
+        createNewRecordsForAggregateId(1, aggregateId, NEW, now.minusMinutes(1))
+        createNewRecordsForAggregateId(1, aggregateId, NEW, now.minusMinutes(2))
+        createNewRecordsForAggregateId(1, aggregateId, NEW, now.minusMinutes(3))
+
+        val records = jpaOutboxRecordRepository.findPendingRecords()
+
+        assertThat(records).hasSize(3)
+        assertThat(records.map { it.createdAt })
+            .containsExactly(
+                now.minusMinutes(3),
+                now.minusMinutes(2),
+                now.minusMinutes(1),
+            )
+    }
+
+    @Test
     fun `finds failed records`() {
         createFailedRecords(3)
 
@@ -246,8 +266,8 @@ class JpaOutboxRecordRepositoryTest {
         count: Int = 3,
         aggregateId: String,
         status: OutboxRecordStatus = NEW,
+        createdAt: OffsetDateTime = OffsetDateTime.now(clock),
     ) {
-        val now = OffsetDateTime.now(clock)
         (0 until count).forEach { _ ->
             jpaOutboxRecordRepository.save(
                 OutboxRecord.restore(
@@ -255,11 +275,11 @@ class JpaOutboxRecordRepositoryTest {
                     aggregateId = aggregateId,
                     eventType = "eventType",
                     payload = "payload",
-                    createdAt = now,
+                    createdAt = createdAt,
                     status = status,
                     completedAt = null,
                     retryCount = 0,
-                    nextRetryAt = now,
+                    nextRetryAt = createdAt,
                 ),
             )
         }

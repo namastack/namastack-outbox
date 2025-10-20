@@ -20,6 +20,7 @@ interface OutboxRecordRepository {
 
     /**
      * Finds all pending outbox records that are ready for processing.
+     * Implementations **must** return records sorted by creation time ascending
      *
      * @return List of pending outbox records
      */
@@ -27,6 +28,7 @@ interface OutboxRecordRepository {
 
     /**
      * Finds all completed outbox records.
+     * Implementations **must** return records sorted by creation time ascending
      *
      * @return List of completed outbox records
      */
@@ -34,6 +36,7 @@ interface OutboxRecordRepository {
 
     /**
      * Finds all failed outbox records.
+     * Implementations **must** return records sorted by creation time ascending
      *
      * @return List of failed outbox records
      */
@@ -56,6 +59,7 @@ interface OutboxRecordRepository {
 
     /**
      * Finds all incomplete records for a specific aggregate ID.
+     * Implementations **must** return records sorted by creation time ascending
      *
      * @param aggregateId The aggregate ID to search for
      * @return List of incomplete outbox records for the aggregate
