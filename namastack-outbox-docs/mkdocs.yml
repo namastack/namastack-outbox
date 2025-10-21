@@ -57,7 +57,7 @@ extra:
   outbox_version: 0.1.0
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/namastack/spring-outbox
+      link: https://github.com/namastack/namastack-outbox
     - icon: fontawesome/brands/linkedin
       link: https://www.linkedin.com/in/roland-beisel/
 
