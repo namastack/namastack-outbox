@@ -8,7 +8,7 @@ hide:
     ![Namastack Logo](assets/namastack_outbox_light.svg#only-light){ width="80%" }
     ![Namastack Logo](assets/namastack_outbox_dark.svg#only-dark){ width="80%" }
     [Getting Started :octicons-rocket-24:](quickstart.md){ .md-button .quickstart-button }
-    [View on GitHub :simple-github:](https://github.com/namastack/spring-outbox){ .md-button .quickstart-button target=blank}
+    [View on GitHub :simple-github:](https://github.com/namastack/namastack-outbox){ .md-button .quickstart-button target=blank}
 </figure>
 
 # Welcome!

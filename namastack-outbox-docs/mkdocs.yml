@@ -1,5 +1,5 @@
 site_name: Namastack Outbox for Spring Boot
-site_url: https://spring-outbox.namastack.io
+site_url: https://outbox.namastack.io
 theme:
   name: material
   logo: assets/namastack_logo.svg
