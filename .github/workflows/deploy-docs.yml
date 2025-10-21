@@ -1,11 +1,11 @@
-name: spring-outbox docs
+name: namastack-outbox docs
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'spring-outbox-docs/**'
+      - 'namastack-outbox-docs/**'
       - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
@@ -27,19 +27,19 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        working-directory: spring-outbox-docs
+        working-directory: namastack-outbox-docs
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt || pip install mkdocs-material
 
       - name: Build MkDocs site
-        working-directory: spring-outbox-docs
+        working-directory: namastack-outbox-docs
         run: mkdocs build --strict
 
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: spring-outbox-docs/site/
+          path: namastack-outbox-docs/site/
 
   deploy:
     runs-on: ubuntu-latest

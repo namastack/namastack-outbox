@@ -1,11 +1,9 @@
-name: spring-outbox CI
+name: namastack-outbox CI
 
 on:
   push:
     branches:
       - 'main'
-      - 'feature/**'
-      - 'fix/**'
   pull_request:
     branches: [ main ]
 

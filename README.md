@@ -7,10 +7,10 @@
 [![dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-# Spring Outbox
+# Namastack Outbox for Spring Boot
 
 A robust Spring Boot library that implements the **Outbox Pattern** for reliable message publishing
-in distributed systems — built and maintained by [Namastack](https://spring-outbox.namastack.io).
+in distributed systems — built and maintained by [Namastack](https://outbox.namastack.io).
 This library ensures that domain events are published reliably, even in the face of system failures,
 by using transactional guarantees and distributed locking.
 
@@ -26,17 +26,6 @@ by using transactional guarantees and distributed locking.
 - 🎯 **Zero Message Loss**: Database-backed reliability
 - 🎲 **Jitter Support**: Randomized delays to prevent thundering herd
 
-## Disclaimer
-
-This project, **spring-outbox**, is an independent, community-maintained library and is **not
-affiliated with, endorsed by, or sponsored by VMware, Broadcom, or the official Spring team**.
-
-It is designed to integrate with the [Spring Framework](https://spring.io/) ecosystem but is
-maintained separately under the `io.namastack` namespace.
-
-All references to "Spring" are solely for the purpose of indicating compatibility or integration.
-"Spring" and "Spring Boot" are trademarks of their respective owners.
-
 ## Quick Start
 
 ### 1. Add Dependencies
@@ -45,7 +34,7 @@ Add the library to your `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("io.namastack:spring-outbox-starter-jpa:0.1.0")
+    implementation("io.namastack:namastack-outbox-starter-jpa:0.1.0")
 }
 ```
 
@@ -55,7 +44,7 @@ Or if you're using Maven, add to your `pom.xml`:
 
 <dependency>
   <groupId>io.namastack</groupId>
-  <artifactId>spring-outbox-starter-jpa</artifactId>
+  <artifactId>namastack-outbox-starter-jpa</artifactId>
   <version>0.1.0</version>
 </dependency>
 ```
@@ -480,12 +469,13 @@ processing fails:
 
 ## Metrics
 
-The `spring-outbox-metrics` module provides metrics for Outbox records and integrates automatically
+The `namastack-outbox-metrics` module provides metrics for Outbox records and integrates
+automatically
 with Micrometer and Spring Boot Actuator.
 
 ### Prerequisites
 
-- The JPA module (`spring-outbox-jpa`) must be included.
+- The JPA module (`namastack-outbox-jpa`) must be included.
 - Micrometer and Spring Boot Actuator must be present and configured as dependencies.
 - The `@EnableOutbox` annotation must be set in your application.
 
@@ -495,7 +485,7 @@ Add the metrics module to your dependencies:
 
 ```kotlin
 dependencies {
-    implementation("io.namastack:spring-outbox-metrics:0.1.0")
+    implementation("io.namastack:namastack-outbox-metrics:0.1.0")
 }
 ```
 
@@ -628,3 +618,24 @@ For questions and issues, please open a GitHub issue.
 
 This project is licensed under
 the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).
+
+## Trademarks
+
+Spring®, Spring Boot®, and the Spring leaf logo are trademarks of Broadcom Inc. and/or its
+subsidiaries in the United States and other countries.
+
+Java™ and OpenJDK™ are trademarks or registered trademarks of Oracle and/or its affiliates.
+
+PostgreSQL®, MySQL®, and other database names used herein are trademarks of their respective owners.
+
+“AWS” and “Amazon Web Services” are trademarks or registered trademarks of Amazon.com, Inc. or its
+affiliates.
+
+Apache®, Apache Kafka®, Apache Tomcat®, and Apache Cassandra™ are trademarks or registered
+trademarks of the Apache Software Foundation in the United States and/or other countries.
+
+All other trademarks and copyrights are property of their respective owners and are used only for
+identification or descriptive purposes.
+
+This project, Namastack Outbox for Spring, is an independent open-source project and is not
+affiliated with, endorsed by, or sponsored by Broadcom Inc. or the Spring team.

@@ -18,11 +18,11 @@ plugins {
 }
 
 dependencies {
-    jacocoAggregation(project(":spring-outbox-actuator"))
-    jacocoAggregation(project(":spring-outbox-core"))
-    jacocoAggregation(project(":spring-outbox-jpa"))
-    jacocoAggregation(project(":spring-outbox-metrics"))
-    jacocoAggregation(project(":spring-outbox-starter-jpa"))
+    jacocoAggregation(project(":namastack-outbox-actuator"))
+    jacocoAggregation(project(":namastack-outbox-core"))
+    jacocoAggregation(project(":namastack-outbox-jpa"))
+    jacocoAggregation(project(":namastack-outbox-metrics"))
+    jacocoAggregation(project(":namastack-outbox-starter-jpa"))
 }
 
 val isRelease = project.hasProperty("release") && project.property("release") == "true"
@@ -88,8 +88,8 @@ subprojects {
 
             pom {
                 name.set(project.name)
-                description.set(project.description ?: "Spring Outbox Module")
-                url.set("https://github.com/namastack/spring-outbox")
+                description.set(project.description ?: "Namastack Outbox Module")
+                url.set("https://github.com/namastack/namastack-outbox")
 
                 licenses {
                     license {
@@ -108,9 +108,9 @@ subprojects {
                 }
 
                 scm {
-                    connection.set("scm:git:https://github.com/namastack/spring-outbox.git")
-                    developerConnection.set("scm:git:ssh://github.com/namastack/spring-outbox.git")
-                    url.set("https://github.com/namastack/spring-outbox")
+                    connection.set("scm:git:https://github.com/namastack/namastack-outbox.git")
+                    developerConnection.set("scm:git:ssh://github.com/namastack/namastack-outbox.git")
+                    url.set("https://github.com/namastack/namastack-outbox")
                 }
             }
         }

@@ -1,0 +1,131 @@
+{
+  "groups": [
+    {
+      "name": "outbox",
+      "type": "io.namastack.outbox.OutboxProperties",
+      "description": "Outbox configuration properties"
+    },
+    {
+      "name": "outbox.locking",
+      "type": "io.namastack.outbox.OutboxProperties$Locking",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "description": "Outbox locking configuration"
+    },
+    {
+      "name": "outbox.retry",
+      "type": "io.namastack.outbox.OutboxProperties$Retry",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "description": "Outbox retry configuration"
+    },
+    {
+      "name": "outbox.retry.exponential",
+      "type": "io.namastack.outbox.OutboxProperties$Retry$ExponentialRetry",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
+      "description": "Exponential backoff retry policy configuration"
+    },
+    {
+      "name": "outbox.retry.fixed",
+      "type": "io.namastack.outbox.OutboxProperties$Retry$FixedRetry",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
+      "description": "Fixed delay retry policy configuration"
+    },
+    {
+      "name": "outbox.retry.jittered",
+      "type": "io.namastack.outbox.OutboxProperties$Retry$JitteredRetry",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
+      "description": "Jittered retry policy configuration with configurable base policy"
+    },
+    {
+      "name": "outbox.processing",
+      "type": "io.namastack.outbox.OutboxProperties$Processing",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "description": "Outbox processing behavior configuration"
+    }
+  ],
+  "properties": [
+    {
+      "name": "outbox.poll-interval",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "defaultValue": 1000,
+      "description": "Interval in milliseconds at which the outbox is polled"
+    },
+    {
+      "name": "outbox.locking.extension-seconds",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Locking",
+      "defaultValue": 5,
+      "description": "Number of seconds to extend the lock duration"
+    },
+    {
+      "name": "outbox.locking.refresh-threshold",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Locking",
+      "defaultValue": 2,
+      "description": "Threshold in seconds before refreshing the lock"
+    },
+    {
+      "name": "outbox.retry.max-retries",
+      "type": "java.lang.Integer",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
+      "defaultValue": 3,
+      "description": "Maximum number of retry attempts for failed outbox events"
+    },
+    {
+      "name": "outbox.retry.policy",
+      "type": "java.lang.String",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
+      "defaultValue": "exponential",
+      "description": "Retry policy strategy. Options: 'fixed', 'exponential', 'jittered'"
+    },
+    {
+      "name": "outbox.retry.exponential.initial-delay",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry$ExponentialRetry",
+      "defaultValue": 1000,
+      "description": "Initial delay in milliseconds for exponential backoff retry policy"
+    },
+    {
+      "name": "outbox.retry.exponential.max-delay",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry$ExponentialRetry",
+      "defaultValue": 60000,
+      "description": "Maximum delay in milliseconds for exponential backoff retry policy"
+    },
+    {
+      "name": "outbox.retry.exponential.multiplier",
+      "type": "java.lang.Double",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry$ExponentialRetry",
+      "defaultValue": 2.0,
+      "description": "Multiplier for exponential backoff. Each retry delay is multiplied by this factor."
+    },
+    {
+      "name": "outbox.retry.fixed.delay",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry$FixedRetry",
+      "defaultValue": 5000,
+      "description": "Fixed delay in milliseconds between retry attempts for fixed delay retry policy"
+    },
+    {
+      "name": "outbox.retry.jittered.base-policy",
+      "type": "java.lang.String",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry$JitteredRetry",
+      "defaultValue": "exponential",
+      "description": "Base retry policy for jittered retry. Options: 'fixed', 'exponential'"
+    },
+    {
+      "name": "outbox.retry.jittered.jitter",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry$JitteredRetry",
+      "defaultValue": 500,
+      "description": "Maximum random jitter in milliseconds to add to the base policy's delay"
+    },
+    {
+      "name": "outbox.processing.stop-on-first-failure",
+      "type": "java.lang.Boolean",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
+      "defaultValue": true,
+      "description": "Whether to stop processing remaining events in an aggregate when one event fails. If true (default), processing stops on first failure to maintain strict ordering. If false, continues processing other events allowing failed events to be retried later."
+    }
+  ]
+}

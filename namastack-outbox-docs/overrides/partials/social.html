@@ -1,0 +1,34 @@
+{% macro split_and_get(value, sep, index) %}
+{%- if value.split is defined -%}
+{%- set parts = value.split(sep) -%}
+{%- else -%}
+{%- set parts = value | split(sep) -%}
+{%- endif -%}
+{{- parts[index] -}}
+{% endmacro %}
+<div class="md-social">
+  <div class="md-copyright">
+    <div class="md-copyright__highlight">
+      <a href="/legal-notice">Legal Notice</a>
+    </div>
+  </div>
+  {% for social in config.extra.social %}
+  {% set rel = "noopener" %}
+  {% if "mastodon" in social.icon %}
+  {% set rel = rel ~ " me" %}
+  {% endif %}
+  {% set title = social.name %}
+  {% if not title and "//" in social.link %}
+  {% set url = split_and_get(social.link, "//", 1) %}
+  {% set title = split_and_get(url, "/", 0) %}
+  {% endif %}
+  <a href="{{ social.link }}" target="_blank" rel="{{ rel }}" title="{{ title | e }}"
+     class="md-social__link">
+    {% include ".icons/" ~ social.icon ~ ".svg" %}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="md-copyright">
+  Trademarks: Spring®, Spring Boot®, and the Spring leaf logo are trademarks of Broadcom Inc. and/or its subsidiaries in the United States and other countries. Java™ and OpenJDK™ are trademarks or registered trademarks of Oracle and/or its affiliates. PostgreSQL®, MySQL®, Apache®, Apache Kafka®, Apache Tomcat®, and Apache Cassandra™ are trademarks or registered trademarks of their respective owners. “AWS” and “Amazon Web Services” are trademarks or registered trademarks of Amazon.com, Inc. or its affiliates. All other trademarks and copyrights are property of their respective owners and are used only for identification or descriptive purposes. This project, Namastack Outbox for Spring, is an independent open-source project and is not affiliated with, endorsed by, or sponsored by Broadcom Inc. or the Spring team.
+</div>

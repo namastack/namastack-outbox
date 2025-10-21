@@ -1,7 +1,7 @@
-rootProject.name = "spring-outbox"
+rootProject.name = "namastack-outbox"
 
-include("spring-outbox-core")
-include("spring-outbox-jpa")
-include("spring-outbox-metrics")
-include("spring-outbox-actuator")
-include("spring-outbox-starter-jpa")
+include("namastack-outbox-core")
+include("namastack-outbox-jpa")
+include("namastack-outbox-metrics")
+include("namastack-outbox-actuator")
+include("namastack-outbox-starter-jpa")
