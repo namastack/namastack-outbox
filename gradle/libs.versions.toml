@@ -1,7 +1,7 @@
 [versions]
 # Kotlin and Plugin versions
 kotlin = "2.2.21"
-springBoot = "3.5.6"
+springBoot = "3.5.7"
 dependencyManagement = "1.1.7"
 ktlint = "13.1.0"
 dokka = "2.1.0"
