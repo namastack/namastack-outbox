@@ -381,37 +381,4 @@ class OutboxProcessingSchedulerTest {
             verify(exactly = 1) { recordProcessor.process(record) }
         }
     }
-
-    @Nested
-    @DisplayName("Processing Statistics")
-    inner class ProcessingStatistics {
-        @Test
-        fun `return correct processing stats`() {
-            val assignedPartitions = listOf(1, 3, 5)
-
-            every { partitionCoordinator.getAssignedPartitions("test-instance") } returns assignedPartitions
-            every { recordRepository.countRecordsByPartition(1, NEW) } returns 10L
-            every { recordRepository.countRecordsByPartition(3, NEW) } returns 5L
-            every { recordRepository.countRecordsByPartition(5, NEW) } returns 8L
-
-            val stats = scheduler.getProcessingStats()
-
-            assertThat(stats.instanceId).isEqualTo("test-instance")
-            assertThat(stats.assignedPartitions).isEqualTo(assignedPartitions)
-            assertThat(stats.pendingRecordsPerPartition).isEqualTo(mapOf(1 to 10L, 3 to 5L, 5 to 8L))
-            assertThat(stats.totalPendingRecords).isEqualTo(23L)
-        }
-
-        @Test
-        fun `return empty stats when no partitions assigned`() {
-            every { partitionCoordinator.getAssignedPartitions("test-instance") } returns emptyList()
-
-            val stats = scheduler.getProcessingStats()
-
-            assertThat(stats.instanceId).isEqualTo("test-instance")
-            assertThat(stats.assignedPartitions).isEmpty()
-            assertThat(stats.pendingRecordsPerPartition).isEmpty()
-            assertThat(stats.totalPendingRecords).isEqualTo(0L)
-        }
-    }
 }

@@ -42,6 +42,19 @@ internal class JpaOutboxAutoConfiguration {
     fun clock(): Clock = Clock.systemDefaultZone()
 
     /**
+     * Creates a named EntityManager for outbox operations.
+     *
+     * This bean uses the primary EntityManager by default, but can be overridden
+     * to use a specific EntityManager for multi-database scenarios.
+     *
+     * @param entityManager Primary JPA entity manager
+     * @return Named entity manager for outbox operations
+     */
+    @Bean("outboxEntityManager")
+    @ConditionalOnMissingBean(name = ["outboxEntityManager"])
+    fun outboxEntityManager(entityManager: EntityManager): EntityManager = entityManager
+
+    /**
      * Creates a transaction template for outbox operations.
      *
      * @param transactionManager Platform transaction manager
@@ -63,7 +76,7 @@ internal class JpaOutboxAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun outboxRecordRepository(
-        entityManager: EntityManager,
+        @Qualifier("outboxEntityManager") entityManager: EntityManager,
         @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
         clock: Clock,
     ): OutboxRecordRepository = JpaOutboxRecordRepository(entityManager, transactionTemplate, clock)
@@ -78,7 +91,7 @@ internal class JpaOutboxAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun outboxInstanceRepository(
-        entityManager: EntityManager,
+        @Qualifier("outboxEntityManager") entityManager: EntityManager,
         @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
     ): OutboxInstanceRepository = JpaOutboxInstanceRepository(entityManager, transactionTemplate)
 

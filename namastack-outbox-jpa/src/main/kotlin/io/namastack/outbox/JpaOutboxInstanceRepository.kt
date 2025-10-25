@@ -1,5 +1,7 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.OutboxInstanceStatus.ACTIVE
+import io.namastack.outbox.OutboxInstanceStatus.SHUTTING_DOWN
 import jakarta.persistence.EntityManager
 import jakarta.persistence.LockModeType
 import org.springframework.transaction.support.TransactionTemplate
@@ -44,8 +46,8 @@ internal open class JpaOutboxInstanceRepository(
 
     override fun findAll(): List<OutboxInstance> {
         val query = """
-            SELECT i FROM OutboxInstanceEntity i
-            ORDER BY i.createdAt ASC
+            select o from OutboxInstanceEntity o
+            order by o.createdAt asc
         """
 
         val entities =
@@ -58,9 +60,9 @@ internal open class JpaOutboxInstanceRepository(
 
     override fun findByStatus(status: OutboxInstanceStatus): List<OutboxInstance> {
         val query = """
-            SELECT i FROM OutboxInstanceEntity i
-            WHERE i.status = :status
-            ORDER BY i.lastHeartbeat DESC
+            select o from OutboxInstanceEntity o
+            where o.status = :status
+            order by o.lastHeartbeat desc
         """
 
         val entities =
@@ -72,21 +74,21 @@ internal open class JpaOutboxInstanceRepository(
         return OutboxInstanceEntityMapper.fromEntities(entities)
     }
 
-    override fun findActiveInstances(): List<OutboxInstance> = findByStatus(OutboxInstanceStatus.ACTIVE)
+    override fun findActiveInstances(): List<OutboxInstance> = findByStatus(ACTIVE)
 
     override fun findInstancesWithStaleHeartbeat(cutoffTime: OffsetDateTime): List<OutboxInstance> {
         val query = """
-            SELECT i FROM OutboxInstanceEntity i
-            WHERE i.lastHeartbeat < :cutoffTime
-            AND i.status IN (:activeStatuses)
-            ORDER BY i.lastHeartbeat ASC
+            select o from OutboxInstanceEntity o
+            where o.lastHeartbeat < :cutoffTime
+            and o.status in (:activeStatuses)
+            order by o.lastHeartbeat asc
         """
 
         val entities =
             entityManager
                 .createQuery(query, OutboxInstanceEntity::class.java)
                 .setParameter("cutoffTime", cutoffTime)
-                .setParameter("activeStatuses", listOf(OutboxInstanceStatus.ACTIVE, OutboxInstanceStatus.SHUTTING_DOWN))
+                .setParameter("activeStatuses", listOf(ACTIVE, SHUTTING_DOWN))
                 .resultList
 
         return OutboxInstanceEntityMapper.fromEntities(entities)
@@ -138,8 +140,8 @@ internal open class JpaOutboxInstanceRepository(
     override fun deleteByStatus(status: OutboxInstanceStatus): Int =
         transactionTemplate.executeNonNull {
             val query = """
-            DELETE FROM OutboxInstanceEntity i
-            WHERE i.status = :status
+            delete from OutboxInstanceEntity o
+            where o.status = :status
         """
 
             entityManager
@@ -151,8 +153,8 @@ internal open class JpaOutboxInstanceRepository(
     override fun deleteStaleInstances(cutoffTime: OffsetDateTime): Int =
         transactionTemplate.executeNonNull {
             val query = """
-            DELETE FROM OutboxInstanceEntity i
-            WHERE i.lastHeartbeat < :cutoffTime
+            delete from OutboxInstanceEntity o
+            where o.lastHeartbeat < :cutoffTime
         """
 
             entityManager
@@ -162,7 +164,7 @@ internal open class JpaOutboxInstanceRepository(
         }
 
     override fun count(): Long {
-        val query = "SELECT COUNT(i) FROM OutboxInstanceEntity i"
+        val query = "select count(o) from OutboxInstanceEntity o"
 
         return entityManager
             .createQuery(query, Long::class.java)
@@ -171,8 +173,8 @@ internal open class JpaOutboxInstanceRepository(
 
     override fun countByStatus(status: OutboxInstanceStatus): Long {
         val query = """
-            SELECT COUNT(i) FROM OutboxInstanceEntity i
-            WHERE i.status = :status
+            select count(o) from OutboxInstanceEntity o
+            where o.status = :status
         """
 
         return entityManager

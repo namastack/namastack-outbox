@@ -8,7 +8,6 @@ import java.util.UUID
 class OutboxRecordEntityMapperTest {
     @Test
     fun `should map OutboxRecord to OutboxRecordEntity with all properties`() {
-        // given
         val now = OffsetDateTime.now()
         val completedAt = now.plusMinutes(5)
         val nextRetryAt = now.plusMinutes(10)
@@ -27,10 +26,8 @@ class OutboxRecordEntityMapperTest {
                 nextRetryAt = nextRetryAt,
             )
 
-        // when
         val entity = OutboxRecordEntityMapper.map(record)
 
-        // then
         assertThat(entity.id).isEqualTo("test-id")
         assertThat(entity.status).isEqualTo(OutboxRecordStatus.NEW)
         assertThat(entity.aggregateId).isEqualTo("aggregate-123")
@@ -44,7 +41,6 @@ class OutboxRecordEntityMapperTest {
 
     @Test
     fun `should map OutboxRecord to OutboxRecordEntity with null values`() {
-        // given
         val now = OffsetDateTime.now()
 
         val record =
@@ -61,10 +57,8 @@ class OutboxRecordEntityMapperTest {
                 nextRetryAt = now,
             )
 
-        // when
         val entity = OutboxRecordEntityMapper.map(record)
 
-        // then
         assertThat(entity.id).isEqualTo("test-id-2")
         assertThat(entity.status).isEqualTo(OutboxRecordStatus.COMPLETED)
         assertThat(entity.aggregateId).isEqualTo("aggregate-456")
@@ -78,7 +72,6 @@ class OutboxRecordEntityMapperTest {
 
     @Test
     fun `should map OutboxRecord with FAILED status`() {
-        // given
         val now = OffsetDateTime.now()
         val record =
             OutboxRecord.restore(
@@ -94,10 +87,8 @@ class OutboxRecordEntityMapperTest {
                 nextRetryAt = now,
             )
 
-        // when
         val entity = OutboxRecordEntityMapper.map(record)
 
-        // then
         assertThat(entity.status).isEqualTo(OutboxRecordStatus.FAILED)
         assertThat(entity.retryCount).isEqualTo(5)
         assertThat(entity.aggregateId).isEqualTo("failed-aggregate")
@@ -105,7 +96,6 @@ class OutboxRecordEntityMapperTest {
 
     @Test
     fun `should map OutboxRecordEntity to OutboxRecord with all properties`() {
-        // given
         val now = OffsetDateTime.now()
         val completedAt = now.plusMinutes(3)
         val nextRetryAt = now.plusMinutes(15)
@@ -124,10 +114,8 @@ class OutboxRecordEntityMapperTest {
                 nextRetryAt = nextRetryAt,
             )
 
-        // when
         val record = OutboxRecordEntityMapper.map(entity)
 
-        // then
         assertThat(record.id).isEqualTo("entity-id-1")
         assertThat(record.status).isEqualTo(OutboxRecordStatus.NEW)
         assertThat(record.aggregateId).isEqualTo("entity-aggregate-789")
@@ -141,7 +129,6 @@ class OutboxRecordEntityMapperTest {
 
     @Test
     fun `should map OutboxRecordEntity to OutboxRecord with null values`() {
-        // given
         val now = OffsetDateTime.now()
 
         val entity =
@@ -158,10 +145,8 @@ class OutboxRecordEntityMapperTest {
                 nextRetryAt = now,
             )
 
-        // when
         val record = OutboxRecordEntityMapper.map(entity)
 
-        // then
         assertThat(record.id).isEqualTo("entity-id-2")
         assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
         assertThat(record.aggregateId).isEqualTo("completed-aggregate")
@@ -175,7 +160,6 @@ class OutboxRecordEntityMapperTest {
 
     @Test
     fun `should map OutboxRecordEntity with FAILED status`() {
-        // given
         val now = OffsetDateTime.now()
 
         val entity =
@@ -192,10 +176,8 @@ class OutboxRecordEntityMapperTest {
                 nextRetryAt = now,
             )
 
-        // when
         val record = OutboxRecordEntityMapper.map(entity)
 
-        // then
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
         assertThat(record.retryCount).isEqualTo(10)
         assertThat(record.aggregateId).isEqualTo("failed-entity-aggregate")
@@ -203,7 +185,6 @@ class OutboxRecordEntityMapperTest {
 
     @Test
     fun `should maintain data integrity in round-trip mapping`() {
-        // given - original record
         val now = OffsetDateTime.now()
         val completedAt = now.plusMinutes(1)
         val nextRetryAt = now.plusMinutes(5)
@@ -222,11 +203,9 @@ class OutboxRecordEntityMapperTest {
                 nextRetryAt = nextRetryAt,
             )
 
-        // when - round trip: Record -> Entity -> Record
         val entity = OutboxRecordEntityMapper.map(originalRecord)
         val mappedBackRecord = OutboxRecordEntityMapper.map(entity)
 
-        // then - all properties should be identical
         assertThat(mappedBackRecord.id).isEqualTo(originalRecord.id)
         assertThat(mappedBackRecord.status).isEqualTo(originalRecord.status)
         assertThat(mappedBackRecord.aggregateId).isEqualTo(originalRecord.aggregateId)
@@ -240,7 +219,6 @@ class OutboxRecordEntityMapperTest {
 
     @Test
     fun `should handle large payload mapping`() {
-        // given
         val now = OffsetDateTime.now()
         val largePayload = "x".repeat(10000) // 10KB payload
         val record =
@@ -257,11 +235,9 @@ class OutboxRecordEntityMapperTest {
                 nextRetryAt = now,
             )
 
-        // when
         val entity = OutboxRecordEntityMapper.map(record)
         val mappedBack = OutboxRecordEntityMapper.map(entity)
 
-        // then
         assertThat(entity.payload).hasSize(10000)
         assertThat(mappedBack.payload).isEqualTo(largePayload)
     }
@@ -270,7 +246,6 @@ class OutboxRecordEntityMapperTest {
     fun `should map all status types correctly`() {
         // Test all enum values
         for (status in OutboxRecordStatus.entries) {
-            // given
             val now = OffsetDateTime.now()
             val record =
                 OutboxRecord.restore(
@@ -286,11 +261,9 @@ class OutboxRecordEntityMapperTest {
                     nextRetryAt = now,
                 )
 
-            // when
             val entity = OutboxRecordEntityMapper.map(record)
             val mappedBack = OutboxRecordEntityMapper.map(entity)
 
-            // then
             assertThat(entity.status).isEqualTo(status)
             assertThat(mappedBack.status).isEqualTo(status)
         }

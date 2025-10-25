@@ -2,7 +2,6 @@ package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionCoordinator
-import io.namastack.outbox.partition.PartitionProcessingStats
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
@@ -179,27 +178,5 @@ class OutboxProcessingScheduler(
         }
 
         recordRepository.save(record)
-    }
-
-    /**
-     * Gets statistics about current partition processing load.
-     */
-    fun getProcessingStats(): PartitionProcessingStats {
-        val myInstanceId = instanceRegistry.getCurrentInstanceId()
-        val assignedPartitions = partitionCoordinator.getAssignedPartitions(myInstanceId)
-
-        val pendingRecordsPerPartition =
-            assignedPartitions.associateWith { partition ->
-                recordRepository.countRecordsByPartition(partition, NEW)
-            }
-
-        val totalPendingRecords = pendingRecordsPerPartition.values.sum()
-
-        return PartitionProcessingStats(
-            instanceId = myInstanceId,
-            assignedPartitions = assignedPartitions,
-            pendingRecordsPerPartition = pendingRecordsPerPartition,
-            totalPendingRecords = totalPendingRecords,
-        )
     }
 }

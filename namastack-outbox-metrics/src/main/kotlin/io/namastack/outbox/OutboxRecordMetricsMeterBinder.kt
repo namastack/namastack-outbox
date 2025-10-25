@@ -18,7 +18,7 @@ import io.namastack.outbox.OutboxRecordStatus.NEW
  * @author Roland Beisel
  * @since 0.1.0
  */
-class OutboxMetricsMeterBinder(
+class OutboxRecordMetricsMeterBinder(
     private val outboxRecordStatusRepository: OutboxRecordStatusRepository,
 ) : MeterBinder {
     /**
