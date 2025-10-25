@@ -165,11 +165,7 @@ class OutboxInstanceRegistry(
      * Re-registers this instance if it was somehow lost.
      */
     private fun reregisterInstance() {
-        try {
-            registerInstance()
-        } catch (ex: Exception) {
-            log.error("Failed to re-register instance {}", currentInstanceId, ex)
-        }
+        registerInstance()
     }
 
     /**
@@ -251,7 +247,6 @@ class OutboxInstanceRegistry(
      */
     private fun getApplicationPort(): Int =
         try {
-            // Try to get from Spring Boot server port
             System.getProperty("server.port")?.toInt() ?: 8080
         } catch (_: Exception) {
             8080 // Fallback

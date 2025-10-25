@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import jakarta.persistence.EntityManager
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
 import org.springframework.boot.autoconfigure.AutoConfigureBefore
@@ -12,7 +13,8 @@ import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
 import org.springframework.boot.sql.init.DatabaseInitializationMode
 import org.springframework.boot.sql.init.DatabaseInitializationSettings
 import org.springframework.context.annotation.Bean
-import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import javax.sql.DataSource
 
@@ -29,7 +31,6 @@ import javax.sql.DataSource
 @AutoConfigureBefore(HibernateJpaAutoConfiguration::class)
 @AutoConfigurationPackage
 @ConditionalOnBean(annotation = [EnableOutbox::class])
-@EnableScheduling
 internal class JpaOutboxAutoConfiguration {
     /**
      * Provides a default Clock bean if none is configured.
@@ -41,27 +42,45 @@ internal class JpaOutboxAutoConfiguration {
     fun clock(): Clock = Clock.systemDefaultZone()
 
     /**
+     * Creates a transaction template for outbox operations.
+     *
+     * @param transactionManager Platform transaction manager
+     * @return Transaction template for outbox operations
+     */
+    @Bean("outboxTransactionTemplate")
+    @ConditionalOnMissingBean(name = ["outboxTransactionTemplate"])
+    fun outboxTransactionTemplate(transactionManager: PlatformTransactionManager): TransactionTemplate =
+        TransactionTemplate(transactionManager)
+
+    /**
      * Creates a JPA-based outbox record repository.
      *
      * @param entityManager JPA entity manager
+     * @param transactionTemplate Transaction template for programmatic transaction management
      * @param clock Clock for time-based operations
      * @return JPA outbox record repository implementation
      */
     @Bean
+    @ConditionalOnMissingBean
     fun outboxRecordRepository(
         entityManager: EntityManager,
+        @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
         clock: Clock,
-    ): OutboxRecordRepository = JpaOutboxRecordRepository(entityManager, clock)
+    ): OutboxRecordRepository = JpaOutboxRecordRepository(entityManager, transactionTemplate, clock)
 
     /**
      * Creates a JPA-based outbox instance repository.
      *
      * @param entityManager JPA entity manager
+     * @param transactionTemplate Transaction template for programmatic transaction management
      * @return JPA outbox instance repository implementation
      */
     @Bean
-    fun outboxInstanceRepository(entityManager: EntityManager): OutboxInstanceRepository =
-        JpaOutboxInstanceRepository(entityManager)
+    @ConditionalOnMissingBean
+    fun outboxInstanceRepository(
+        entityManager: EntityManager,
+        @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
+    ): OutboxInstanceRepository = JpaOutboxInstanceRepository(entityManager, transactionTemplate)
 
     /**
      * Creates a database initializer for outbox schema when schema initialization is enabled.
@@ -75,7 +94,7 @@ internal class JpaOutboxAutoConfiguration {
     @ConditionalOnProperty(name = ["outbox.schema-initialization.enabled"], havingValue = "true")
     fun outboxDataSourceScriptDatabaseInitializer(dataSource: DataSource): DataSourceScriptDatabaseInitializer {
         val settings = DatabaseInitializationSettings()
-        settings.schemaLocations = mutableListOf("classpath:schema/outbox_and_outbox_lock.sql")
+        settings.schemaLocations = mutableListOf("classpath:schema/outbox-tables.sql")
         settings.mode = DatabaseInitializationMode.ALWAYS
 
         return DataSourceScriptDatabaseInitializer(dataSource, settings)

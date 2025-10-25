@@ -2,7 +2,7 @@ package io.namastack.outbox
 
 import jakarta.persistence.EntityManager
 import jakarta.persistence.LockModeType
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.OffsetDateTime
 
 /**
@@ -12,28 +12,30 @@ import java.time.OffsetDateTime
  * and cleanup of dead instances.
  *
  * @param entityManager JPA entity manager for database operations
+ * @param transactionTemplate Transaction template for programmatic transaction management
  *
  * @author Roland Beisel
  * @since 0.2.0
  */
 internal open class JpaOutboxInstanceRepository(
     private val entityManager: EntityManager,
+    private val transactionTemplate: TransactionTemplate,
 ) : OutboxInstanceRepository {
-    @Transactional
-    override fun save(instance: OutboxInstance): OutboxInstance {
-        val entity = OutboxInstanceEntityMapper.toEntity(instance)
-        val existingEntity = entityManager.find(OutboxInstanceEntity::class.java, entity.instanceId)
+    override fun save(instance: OutboxInstance): OutboxInstance =
+        transactionTemplate.executeNonNull {
+            val entity = OutboxInstanceEntityMapper.toEntity(instance)
+            val existingEntity = entityManager.find(OutboxInstanceEntity::class.java, entity.instanceId)
 
-        val savedEntity =
-            if (existingEntity != null) {
-                entityManager.merge(entity)
-            } else {
-                entityManager.persist(entity)
-                entity
-            }
+            val savedEntity =
+                if (existingEntity != null) {
+                    entityManager.merge(entity)
+                } else {
+                    entityManager.persist(entity)
+                    entity
+                }
 
-        return OutboxInstanceEntityMapper.fromEntity(savedEntity)
-    }
+            OutboxInstanceEntityMapper.fromEntity(savedEntity)
+        }
 
     override fun findById(instanceId: String): OutboxInstance? {
         val entity = entityManager.find(OutboxInstanceEntity::class.java, instanceId)
@@ -90,74 +92,74 @@ internal open class JpaOutboxInstanceRepository(
         return OutboxInstanceEntityMapper.fromEntities(entities)
     }
 
-    @Transactional
     override fun updateHeartbeat(
         instanceId: String,
         timestamp: OffsetDateTime,
-    ): Boolean {
-        val entity =
-            entityManager.find(
-                OutboxInstanceEntity::class.java,
-                instanceId,
-                LockModeType.PESSIMISTIC_WRITE,
-            ) ?: return false
+    ): Boolean =
+        transactionTemplate.executeNonNull {
+            val entity =
+                entityManager.find(
+                    OutboxInstanceEntity::class.java,
+                    instanceId,
+                    LockModeType.PESSIMISTIC_WRITE,
+                ) ?: return@executeNonNull false
 
-        entity.updateHeartbeat(timestamp)
-        return true
-    }
+            entity.updateHeartbeat(timestamp)
+            true
+        }
 
-    @Transactional
     override fun updateStatus(
         instanceId: String,
         status: OutboxInstanceStatus,
         timestamp: OffsetDateTime,
-    ): Boolean {
-        val entity =
-            entityManager.find(
-                OutboxInstanceEntity::class.java,
-                instanceId,
-                LockModeType.PESSIMISTIC_WRITE,
-            ) ?: return false
+    ): Boolean =
+        transactionTemplate.executeNonNull {
+            val entity =
+                entityManager.find(
+                    OutboxInstanceEntity::class.java,
+                    instanceId,
+                    LockModeType.PESSIMISTIC_WRITE,
+                ) ?: return@executeNonNull false
 
-        entity.updateStatus(status, timestamp)
-        return true
-    }
+            entity.updateStatus(status, timestamp)
+            true
+        }
 
-    @Transactional
-    override fun deleteById(instanceId: String): Boolean {
-        val entity =
-            entityManager.find(OutboxInstanceEntity::class.java, instanceId)
-                ?: return false
+    override fun deleteById(instanceId: String): Boolean =
+        transactionTemplate.executeNonNull {
+            val entity =
+                entityManager.find(OutboxInstanceEntity::class.java, instanceId)
+                    ?: return@executeNonNull false
 
-        entityManager.remove(entity)
-        return true
-    }
+            entityManager.remove(entity)
+            true
+        }
 
-    @Transactional
-    override fun deleteByStatus(status: OutboxInstanceStatus): Int {
-        val query = """
+    override fun deleteByStatus(status: OutboxInstanceStatus): Int =
+        transactionTemplate.executeNonNull {
+            val query = """
             DELETE FROM OutboxInstanceEntity i
             WHERE i.status = :status
         """
 
-        return entityManager
-            .createQuery(query)
-            .setParameter("status", status)
-            .executeUpdate()
-    }
+            entityManager
+                .createQuery(query)
+                .setParameter("status", status)
+                .executeUpdate()
+        }
 
-    @Transactional
-    override fun deleteStaleInstances(cutoffTime: OffsetDateTime): Int {
-        val query = """
+    override fun deleteStaleInstances(cutoffTime: OffsetDateTime): Int =
+        transactionTemplate.executeNonNull {
+            val query = """
             DELETE FROM OutboxInstanceEntity i
             WHERE i.lastHeartbeat < :cutoffTime
         """
 
-        return entityManager
-            .createQuery(query)
-            .setParameter("cutoffTime", cutoffTime)
-            .executeUpdate()
-    }
+            entityManager
+                .createQuery(query)
+                .setParameter("cutoffTime", cutoffTime)
+                .executeUpdate()
+        }
 
     override fun count(): Long {
         val query = "SELECT COUNT(i) FROM OutboxInstanceEntity i"

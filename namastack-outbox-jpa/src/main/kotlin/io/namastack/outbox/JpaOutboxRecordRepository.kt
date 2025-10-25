@@ -2,7 +2,7 @@ package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordEntityMapper.map
 import jakarta.persistence.EntityManager
-import jakarta.transaction.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.OffsetDateTime
 
@@ -13,6 +13,7 @@ import java.time.OffsetDateTime
  * from a relational database.
  *
  * @param entityManager JPA entity manager for database operations
+ * @param transactionTemplate Transaction template for programmatic transaction management
  * @param clock Clock for time-based operations
  *
  * @author Roland Beisel
@@ -20,6 +21,7 @@ import java.time.OffsetDateTime
  */
 internal open class JpaOutboxRecordRepository(
     private val entityManager: EntityManager,
+    private val transactionTemplate: TransactionTemplate,
     private val clock: Clock,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
@@ -29,20 +31,20 @@ internal open class JpaOutboxRecordRepository(
      * @param record The outbox record to save
      * @return The saved outbox record
      */
-    @Transactional
-    override fun save(record: OutboxRecord): OutboxRecord {
-        val entity = map(record)
+    override fun save(record: OutboxRecord): OutboxRecord =
+        transactionTemplate.executeNonNull {
+            val entity = map(record)
 
-        val existingEntity = entityManager.find(OutboxRecordEntity::class.java, entity.id)
+            val existingEntity = entityManager.find(OutboxRecordEntity::class.java, entity.id)
 
-        if (existingEntity != null) {
-            entityManager.merge(entity)
-        } else {
-            entityManager.persist(entity)
+            if (existingEntity != null) {
+                entityManager.merge(entity)
+            } else {
+                entityManager.persist(entity)
+            }
+
+            record
         }
-
-        return record
-    }
 
     /**
      * Finds all pending outbox records that are ready for processing.
@@ -197,17 +199,18 @@ internal open class JpaOutboxRecordRepository(
      *
      * @param status The status of records to delete
      */
-    @Transactional
     override fun deleteByStatus(status: OutboxRecordStatus) {
-        val query = """
-            delete from OutboxRecordEntity o
-            where o.status = :status
-        """
+        transactionTemplate.executeNonNull {
+            val query = """
+                delete from OutboxRecordEntity o
+                where o.status = :status
+            """
 
-        entityManager
-            .createQuery(query)
-            .setParameter("status", status)
-            .executeUpdate()
+            entityManager
+                .createQuery(query)
+                .setParameter("status", status)
+                .executeUpdate()
+        }
     }
 
     /**
@@ -216,22 +219,23 @@ internal open class JpaOutboxRecordRepository(
      * @param aggregateId The aggregate ID
      * @param status The status of records to delete
      */
-    @Transactional
     override fun deleteByAggregateIdAndStatus(
         aggregateId: String,
         status: OutboxRecordStatus,
     ) {
-        val query = """
-            delete from OutboxRecordEntity o
-            where o.status = :status
-            and o.aggregateId = :aggregateId
-        """
+        transactionTemplate.execute {
+            val query = """
+                delete from OutboxRecordEntity o
+                where o.status = :status
+                and o.aggregateId = :aggregateId
+            """
 
-        entityManager
-            .createQuery(query)
-            .setParameter("status", status)
-            .setParameter("aggregateId", aggregateId)
-            .executeUpdate()
+            entityManager
+                .createQuery(query)
+                .setParameter("status", status)
+                .setParameter("aggregateId", aggregateId)
+                .executeUpdate()
+        }
     }
 
     override fun findAggregateIdsInPartitions(
