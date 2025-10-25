@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Performance Test Complete Run" type="CompoundRunConfigurationType">
+    <toRun name="OutboxPerformanceTestProcessorApplication 1" type="SpringBootApplicationConfigurationType" />
+    <toRun name="OutboxPerformanceTestProcessorApplication 2" type="SpringBootApplicationConfigurationType" />
+    <toRun name="OutboxPerformanceTestProcessorApplication 3" type="SpringBootApplicationConfigurationType" />
+    <toRun name="OutboxPerformanceTestProducerApplication" type="SpringBootApplicationConfigurationType" />
+    <method v="2" />
+  </configuration>
+</component>

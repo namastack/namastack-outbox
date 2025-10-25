@@ -40,6 +40,12 @@
       "type": "io.namastack.outbox.OutboxProperties$Processing",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "description": "Outbox processing behavior configuration"
+    },
+    {
+      "name": "outbox.instance",
+      "type": "io.namastack.outbox.OutboxProperties$Instance",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "description": "Outbox instance management and coordination configuration"
     }
   ],
   "properties": [
@@ -49,6 +55,13 @@
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "defaultValue": 1000,
       "description": "Interval in milliseconds at which the outbox is polled"
+    },
+    {
+      "name": "outbox.batch-size",
+      "type": "java.lang.Integer",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "defaultValue": 100,
+      "description": "Maximum number of aggregate IDs to process in a single batch"
     },
     {
       "name": "outbox.locking.extension-seconds",
@@ -126,6 +139,34 @@
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": true,
       "description": "Whether to stop processing remaining events in an aggregate when one event fails. If true (default), processing stops on first failure to maintain strict ordering. If false, continues processing other events allowing failed events to be retried later."
+    },
+    {
+      "name": "outbox.instance.graceful-shutdown-timeout-seconds",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
+      "defaultValue": 15,
+      "description": "Timeout in seconds for graceful shutdown of outbox processing instances"
+    },
+    {
+      "name": "outbox.instance.stale-instance-timeout-seconds",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
+      "defaultValue": 30,
+      "description": "Timeout in seconds to consider an instance stale and remove it from active instances"
+    },
+    {
+      "name": "outbox.instance.heartbeat-interval-seconds",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
+      "defaultValue": 5,
+      "description": "Interval in seconds between instance heartbeats to indicate the instance is still active"
+    },
+    {
+      "name": "outbox.instance.new-instance-detection-interval-seconds",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
+      "defaultValue": 10,
+      "description": "Interval in seconds for detecting new instances that have joined the cluster"
     }
   ]
 }

@@ -1,10 +1,10 @@
 package io.namastack.outbox
 
 import io.mockk.mockk
-import io.namastack.outbox.lock.OutboxLockManager
-import io.namastack.outbox.lock.OutboxLockRepository
+import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.ExponentialBackoffRetryPolicy
 import io.namastack.outbox.retry.FixedDelayRetryPolicy
+import io.namastack.outbox.retry.JitteredRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
@@ -15,8 +15,6 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Clock
-import java.time.Instant
-import java.time.ZoneId
 
 @DisplayName("OutboxCoreAutoConfiguration")
 class OutboxCoreAutoConfigurationTest {
@@ -33,45 +31,43 @@ class OutboxCoreAutoConfigurationTest {
                 .withUserConfiguration(CompleteTestConfig::class.java)
                 .withPropertyValues(
                     "outbox.retry.policy=fixed",
-                    "outbox.retry.initial-delay=100",
-                    "outbox.retry.max-delay=1000",
+                    "outbox.retry.fixed.delay=100",
+                    "outbox.instance.graceful-shutdown-timeout-seconds=1",
                 ).run { context ->
                     assertThat(context).hasSingleBean(Clock::class.java)
-                    assertThat(context).hasSingleBean(OutboxLockManager::class.java)
                     assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
                     assertThat(context.getBean(OutboxRetryPolicy::class.java))
                         .isInstanceOf(FixedDelayRetryPolicy::class.java)
-                    assertThat(context).hasBean("outboxScheduler")
+                    assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
+                    assertThat(context).hasSingleBean(PartitionCoordinator::class.java)
+                    assertThat(context).hasSingleBean(OutboxProcessingScheduler::class.java)
                 }
         }
 
         @Test
-        fun `creates scheduler with all dependencies when all required beans are present`() {
+        fun `creates beans with exponential retry policy by default`() {
+            contextRunner()
+                .withUserConfiguration(CompleteTestConfig::class.java)
+                .run { context ->
+                    assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
+                    assertThat(context.getBean(OutboxRetryPolicy::class.java))
+                        .isInstanceOf(ExponentialBackoffRetryPolicy::class.java)
+                }
+        }
+
+        @Test
+        fun `creates beans with jittered retry policy when configured`() {
             contextRunner()
                 .withUserConfiguration(CompleteTestConfig::class.java)
                 .withPropertyValues(
-                    "outbox.retry.policy=exponential",
-                    "outbox.retry.initial-delay=1000",
-                    "outbox.retry.max-delay=60000",
-                    "outbox.locking.extension-seconds=300",
-                    "outbox.locking.refresh-threshold=60",
+                    "outbox.retry.policy=jittered",
+                    "outbox.retry.jittered.base-policy=fixed",
+                    "outbox.retry.jittered.jitter=100",
+                    "outbox.instance.graceful-shutdown-timeout-seconds=1",
                 ).run { context ->
-                    assertThat(context).hasBean("outboxScheduler")
-                    val scheduler = context.getBean("outboxScheduler", OutboxProcessingScheduler::class.java)
-                    assertThat(scheduler).isNotNull
-                }
-        }
-
-        @Test
-        fun `does not create scheduler when OutboxRecordRepository is missing`() {
-            contextRunner()
-                .withUserConfiguration(ConfigWithoutRecordRepository::class.java)
-                .withPropertyValues("outbox.retry.policy=fixed")
-                .run { context ->
-                    assertThat(context).hasSingleBean(Clock::class.java)
-                    assertThat(context).hasSingleBean(OutboxLockManager::class.java)
                     assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
-                    assertThat(context).doesNotHaveBean("outboxScheduler")
+                    assertThat(context.getBean(OutboxRetryPolicy::class.java))
+                        .isInstanceOf(JitteredRetryPolicy::class.java)
                 }
         }
     }
@@ -85,8 +81,9 @@ class OutboxCoreAutoConfigurationTest {
                 .withUserConfiguration(CompleteTestConfig::class.java)
                 .withPropertyValues(
                     "outbox.retry.policy=exponential",
-                    "outbox.retry.initial-delay=500",
-                    "outbox.retry.max-delay=30000",
+                    "outbox.retry.exponential.initial-delay=500",
+                    "outbox.retry.exponential.max-delay=30000",
+                    "outbox.instance.graceful-shutdown-timeout-seconds=1",
                 ).run { context ->
                     assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
                     assertThat(context.getBean(OutboxRetryPolicy::class.java))
@@ -100,7 +97,7 @@ class OutboxCoreAutoConfigurationTest {
                 .withUserConfiguration(CompleteTestConfig::class.java)
                 .withPropertyValues(
                     "outbox.retry.policy=unknown",
-                    "outbox.retry.initial-delay=200",
+                    "outbox.instance.graceful-shutdown-timeout-seconds=1",
                 ).run { context ->
                     assertThat(context).hasFailed()
                     assertThat(context.getStartupFailure())
@@ -124,14 +121,24 @@ class OutboxCoreAutoConfigurationTest {
     @DisplayName("Bean Override Scenarios")
     inner class BeanOverrideScenarios {
         @Test
-        fun `uses custom clock bean when provided`() {
+        fun `uses custom retry policy when provided`() {
             contextRunner()
-                .withUserConfiguration(ConfigWithCustomClock::class.java)
-                .withPropertyValues("outbox.retry.policy=fixed")
+                .withUserConfiguration(ConfigWithCustomRetryPolicy::class.java)
                 .run { context ->
-                    assertThat(context).hasSingleBean(Clock::class.java)
-                    val clock = context.getBean(Clock::class.java)
-                    assertThat(clock.instant()).isEqualTo(Instant.MAX)
+                    assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
+                    assertThat(context.getBean(OutboxRetryPolicy::class.java))
+                        .isInstanceOf(FixedDelayRetryPolicy::class.java)
+                }
+        }
+
+        @Test
+        fun `throws exception when record processor is missing`() {
+            contextRunner()
+                .withUserConfiguration(ConfigWithoutRequiredBeans::class.java)
+                .run { context ->
+                    assertThat(context).hasFailed()
+                    assertThat(context.getStartupFailure())
+                        .hasMessageContaining("OutboxRecordProcessor")
                 }
         }
     }
@@ -143,59 +150,114 @@ class OutboxCoreAutoConfigurationTest {
         fun `does not create any outbox beans`() {
             contextRunner()
                 .withUserConfiguration(ConfigWithoutEnableOutbox::class.java)
-                .withPropertyValues("outbox.retry.policy=fixed")
-                .run { context ->
+                .withPropertyValues(
+                    "outbox.retry.policy=fixed",
+                    "outbox.instance.graceful-shutdown-timeout-seconds=1",
+                ).run { context ->
                     assertThat(context).doesNotHaveBean(Clock::class.java)
-                    assertThat(context).doesNotHaveBean(OutboxLockManager::class.java)
                     assertThat(context).doesNotHaveBean(OutboxRetryPolicy::class.java)
-                    assertThat(context).doesNotHaveBean("outboxScheduler")
+                    assertThat(context).doesNotHaveBean(OutboxInstanceRegistry::class.java)
+                    assertThat(context).doesNotHaveBean(PartitionCoordinator::class.java)
+                    assertThat(context).doesNotHaveBean(OutboxProcessingScheduler::class.java)
                 }
         }
     }
 
-    // Test Configuration Classes
+    @Nested
+    @DisplayName("Conditional Bean Creation")
+    inner class ConditionalBeanCreation {
+        @Test
+        fun `creates all beans when all dependencies are present`() {
+            contextRunner()
+                .withUserConfiguration(CompleteTestConfig::class.java)
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(Clock::class.java)
+                    assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
+                    assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
+                    assertThat(context).hasSingleBean(PartitionCoordinator::class.java)
+                    assertThat(context).hasSingleBean(OutboxProcessingScheduler::class.java)
+                }
+        }
+
+        @Test
+        fun `creates only basic beans when no dependencies provided`() {
+            contextRunner()
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    assertThat(context).hasSingleBean(Clock::class.java)
+                    assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
+                    assertThat(context).doesNotHaveBean(OutboxInstanceRegistry::class.java)
+                    assertThat(context).doesNotHaveBean(PartitionCoordinator::class.java)
+                    assertThat(context).doesNotHaveBean(OutboxProcessingScheduler::class.java)
+                }
+        }
+
+        @Test
+        fun `creates instance registry when instance repository available`() {
+            contextRunner()
+                .withUserConfiguration(ConfigWithOnlyInstanceRepository::class.java)
+                .run { context ->
+                    assertThat(context).hasSingleBean(Clock::class.java)
+                    assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
+                    assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
+                    assertThat(context).hasSingleBean(PartitionCoordinator::class.java)
+                    assertThat(context).doesNotHaveBean(OutboxProcessingScheduler::class.java)
+                }
+        }
+    }
 
     @EnableOutbox
     @Configuration
     private class CompleteTestConfig {
         @Bean
-        fun outboxLockRepository(): OutboxLockRepository = mockk(relaxed = true)
-
-        @Bean
         fun outboxRecordRepository(): OutboxRecordRepository = mockk(relaxed = true)
 
         @Bean
         fun outboxRecordProcessor(): OutboxRecordProcessor = mockk(relaxed = true)
+
+        @Bean
+        fun outboxInstanceRepository(): OutboxInstanceRepository = mockk(relaxed = true)
     }
 
     @EnableOutbox
     @Configuration
-    private class ConfigWithoutRecordRepository {
+    private class MinimalTestConfig
+
+    @EnableOutbox
+    @Configuration
+    private class ConfigWithOnlyInstanceRepository {
         @Bean
-        fun outboxLockRepository(): OutboxLockRepository = mockk(relaxed = true)
+        fun outboxInstanceRepository(): OutboxInstanceRepository = mockk(relaxed = true)
+    }
+
+    @EnableOutbox
+    @Configuration
+    private class ConfigWithoutRequiredBeans {
+        @Bean
+        fun outboxRecordRepository(): OutboxRecordRepository = mockk(relaxed = true)
 
         @Bean
-        fun outboxRecordProcessor(): OutboxRecordProcessor = mockk(relaxed = true)
+        fun outboxInstanceRepository(): OutboxInstanceRepository = mockk(relaxed = true)
+
+        // Missing OutboxRecordProcessor - this should cause the partitionAwareOutboxProcessingScheduler to fail
     }
 
     @Configuration
     private class ConfigWithoutEnableOutbox {
         @Bean
-        fun outboxLockRepository(): OutboxLockRepository = mockk(relaxed = true)
-
-        @Bean
         fun outboxRecordRepository(): OutboxRecordRepository = mockk(relaxed = true)
 
         @Bean
         fun outboxRecordProcessor(): OutboxRecordProcessor = mockk(relaxed = true)
+
+        @Bean
+        fun outboxInstanceRepository(): OutboxInstanceRepository = mockk(relaxed = true)
     }
 
     @EnableOutbox
     @Configuration
-    private class ConfigWithCustomClock {
-        @Bean
-        fun outboxLockRepository(): OutboxLockRepository = mockk(relaxed = true)
-
+    private class ConfigWithCustomRetryPolicy {
         @Bean
         fun outboxRecordRepository(): OutboxRecordRepository = mockk(relaxed = true)
 
@@ -203,6 +265,9 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxRecordProcessor(): OutboxRecordProcessor = mockk(relaxed = true)
 
         @Bean
-        fun clock(): Clock = Clock.fixed(Instant.MAX, ZoneId.systemDefault())
+        fun outboxInstanceRepository(): OutboxInstanceRepository = mockk(relaxed = true)
+
+        @Bean
+        fun retryPolicy(): OutboxRetryPolicy = FixedDelayRetryPolicy(java.time.Duration.ofSeconds(1))
     }
 }

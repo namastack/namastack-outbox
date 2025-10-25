@@ -1,1 +1,2 @@
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=io.namastack.outbox.OutboxCoreAutoConfiguration
+

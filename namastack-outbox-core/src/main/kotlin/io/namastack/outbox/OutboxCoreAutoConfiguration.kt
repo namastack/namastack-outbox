@@ -1,7 +1,6 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.lock.OutboxLockManager
-import io.namastack.outbox.lock.OutboxLockRepository
+import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -47,41 +46,65 @@ class OutboxCoreAutoConfiguration {
         OutboxRetryPolicyFactory.create(name = properties.retry.policy, retryProperties = properties.retry)
 
     /**
-     * Creates the outbox lock manager when a lock repository is available.
+     * Creates the outbox instance registry for horizontal scaling.
      *
-     * @param lockRepository Repository for managing locks
-     * @param properties Outbox configuration properties
-     * @param clock Clock for time-based operations
-     * @return Configured outbox lock manager
+     * @param instanceRepository Repository for instance persistence
+     * @param properties Configuration properties for outbox functionality
+     * @param clock Clock for time operations
+     * @return OutboxInstanceRegistry bean
      */
     @Bean
-    @ConditionalOnBean(OutboxLockRepository::class)
-    fun outboxLockManager(
-        lockRepository: OutboxLockRepository,
+    @ConditionalOnMissingBean
+    @ConditionalOnBean(OutboxInstanceRepository::class)
+    fun outboxInstanceRegistry(
+        instanceRepository: OutboxInstanceRepository,
         properties: OutboxProperties,
         clock: Clock,
-    ): OutboxLockManager = OutboxLockManager(lockRepository, properties, clock)
+    ): OutboxInstanceRegistry = OutboxInstanceRegistry(instanceRepository, properties, clock)
 
     /**
-     * Creates the outbox processing scheduler when required dependencies are available.
+     * Creates the partition coordinator for managing partition assignments.
      *
-     * @param recordRepository Repository for outbox records
-     * @param recordProcessor Processor for handling records
-     * @param lockManager Manager for acquiring locks
-     * @param retryPolicy Policy for retry behavior
-     * @param properties Configuration properties
-     * @param clock Clock for time-based operations
-     * @return Configured outbox processing scheduler
+     * @param instanceRegistry Registry for managing instances
+     * @return PartitionCoordinator bean
      */
     @Bean
-    @ConditionalOnBean(OutboxRecordRepository::class)
-    fun outboxScheduler(
+    @ConditionalOnMissingBean
+    @ConditionalOnBean(OutboxInstanceRegistry::class)
+    fun partitionCoordinator(instanceRegistry: OutboxInstanceRegistry): PartitionCoordinator =
+        PartitionCoordinator(instanceRegistry)
+
+    /**
+     * Creates the partition-aware outbox processing scheduler.
+     *
+     * @param recordRepository Repository for accessing outbox records
+     * @param recordProcessor Processor for handling individual records
+     * @param partitionCoordinator Coordinator for partition assignments
+     * @param instanceRegistry Registry for instance management
+     * @param retryPolicy Policy for determining retry behavior
+     * @param properties Configuration properties
+     * @param clock Clock for time-based operations
+     * @return PartitionAwareOutboxProcessingScheduler bean
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnBean(value = [OutboxRecordRepository::class, PartitionCoordinator::class])
+    fun partitionAwareOutboxProcessingScheduler(
         recordRepository: OutboxRecordRepository,
         recordProcessor: OutboxRecordProcessor,
-        lockManager: OutboxLockManager,
+        partitionCoordinator: PartitionCoordinator,
+        instanceRegistry: OutboxInstanceRegistry,
         retryPolicy: OutboxRetryPolicy,
         properties: OutboxProperties,
         clock: Clock,
     ): OutboxProcessingScheduler =
-        OutboxProcessingScheduler(recordRepository, recordProcessor, lockManager, retryPolicy, properties, clock)
+        OutboxProcessingScheduler(
+            recordRepository,
+            recordProcessor,
+            partitionCoordinator,
+            instanceRegistry,
+            retryPolicy,
+            properties,
+            clock,
+        )
 }

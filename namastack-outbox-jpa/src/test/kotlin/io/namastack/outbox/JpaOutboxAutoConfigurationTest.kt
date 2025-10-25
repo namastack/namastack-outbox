@@ -1,7 +1,6 @@
 package io.namastack.outbox
 
 import io.mockk.mockk
-import io.namastack.outbox.lock.OutboxLockRepository
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
@@ -29,23 +28,9 @@ class JpaOutboxAutoConfigurationTest {
             contextRunner()
                 .withUserConfiguration(CompleteTestConfig::class.java)
                 .run { context ->
-                    assertThat(context).hasSingleBean(OutboxLockRepository::class.java)
                     assertThat(context).hasSingleBean(OutboxRecordRepository::class.java)
-                    assertThat(context.getBean(OutboxLockRepository::class.java))
-                        .isInstanceOf(JpaOutboxLockRepository::class.java)
                     assertThat(context.getBean(OutboxRecordRepository::class.java))
                         .isInstanceOf(JpaOutboxRecordRepository::class.java)
-                }
-        }
-
-        @Test
-        fun `creates JpaOutboxLockRepository with EntityManager dependency`() {
-            contextRunner()
-                .withUserConfiguration(CompleteTestConfig::class.java)
-                .run { context ->
-                    assertThat(context).hasSingleBean(OutboxLockRepository::class.java)
-                    val repository = context.getBean(OutboxLockRepository::class.java)
-                    assertThat(repository).isInstanceOf(JpaOutboxLockRepository::class.java)
                 }
         }
 
@@ -70,7 +55,6 @@ class JpaOutboxAutoConfigurationTest {
                 .withUserConfiguration(ConfigWithoutEnableOutbox::class.java)
                 .withPropertyValues("outbox.schema-initialization.enabled=true")
                 .run { context ->
-                    assertThat(context).doesNotHaveBean(OutboxLockRepository::class.java)
                     assertThat(context).doesNotHaveBean(OutboxRecordRepository::class.java)
                     assertThat(context).doesNotHaveBean(DataSourceScriptDatabaseInitializer::class.java)
                 }

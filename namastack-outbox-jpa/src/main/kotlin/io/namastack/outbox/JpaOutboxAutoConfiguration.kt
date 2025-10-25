@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.lock.OutboxLockRepository
 import jakarta.persistence.EntityManager
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
@@ -13,6 +12,7 @@ import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
 import org.springframework.boot.sql.init.DatabaseInitializationMode
 import org.springframework.boot.sql.init.DatabaseInitializationSettings
 import org.springframework.context.annotation.Bean
+import org.springframework.scheduling.annotation.EnableScheduling
 import java.time.Clock
 import javax.sql.DataSource
 
@@ -29,6 +29,7 @@ import javax.sql.DataSource
 @AutoConfigureBefore(HibernateJpaAutoConfiguration::class)
 @AutoConfigurationPackage
 @ConditionalOnBean(annotation = [EnableOutbox::class])
+@EnableScheduling
 internal class JpaOutboxAutoConfiguration {
     /**
      * Provides a default Clock bean if none is configured.
@@ -38,16 +39,6 @@ internal class JpaOutboxAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun clock(): Clock = Clock.systemDefaultZone()
-
-    /**
-     * Creates a JPA-based outbox lock repository.
-     *
-     * @param entityManager JPA entity manager
-     * @return JPA outbox lock repository implementation
-     */
-    @Bean
-    fun outboxLockRepository(entityManager: EntityManager): OutboxLockRepository =
-        JpaOutboxLockRepository(entityManager)
 
     /**
      * Creates a JPA-based outbox record repository.
@@ -61,6 +52,16 @@ internal class JpaOutboxAutoConfiguration {
         entityManager: EntityManager,
         clock: Clock,
     ): OutboxRecordRepository = JpaOutboxRecordRepository(entityManager, clock)
+
+    /**
+     * Creates a JPA-based outbox instance repository.
+     *
+     * @param entityManager JPA entity manager
+     * @return JPA outbox instance repository implementation
+     */
+    @Bean
+    fun outboxInstanceRepository(entityManager: EntityManager): OutboxInstanceRepository =
+        JpaOutboxInstanceRepository(entityManager)
 
     /**
      * Creates a database initializer for outbox schema when schema initialization is enabled.

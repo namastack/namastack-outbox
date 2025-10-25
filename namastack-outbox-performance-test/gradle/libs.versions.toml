@@ -1,0 +1,58 @@
+[versions]
+# Kotlin and Plugin versions
+kotlin = "2.2.20"
+springBoot = "3.5.6"
+dependencyManagement = "1.1.7"
+ktlint = "13.1.0"
+dokka = "2.1.0"
+publish = "0.34.0"
+
+# Dependency versions
+hibernate = "7.1.4.Final"
+springOrm = "6.2.12"
+h2 = "2.4.240"
+mockk = "1.14.6"
+assertj = "3.27.6"
+micrometer = "1.15.5"
+
+[libraries]
+# Spring Boot dependencies
+spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+spring-boot = { module = "org.springframework.boot:spring-boot", version.ref = "springBoot" }
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "springBoot" }
+spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa", version.ref = "springBoot" }
+spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-starter-logging", version.ref = "springBoot" }
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator", version.ref = "springBoot" }
+
+# Kotlin dependencies
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test" }
+kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5" }
+
+# JPA and Database dependencies
+hibernate-core = { module = "org.hibernate.orm:hibernate-core", version.ref = "hibernate" }
+spring-orm = { module = "org.springframework:spring-orm", version.ref = "springOrm" }
+h2 = { module = "com.h2database:h2", version.ref = "h2" }
+
+# Test dependencies
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+
+# Metrics dependencies
+micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometer" }
+
+[plugins]
+# Kotlin plugins
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+kotlin-jpa = { id = "org.jetbrains.kotlin.plugin.jpa", version.ref = "kotlin" }
+
+# Spring plugins
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "dependencyManagement" }
+
+# Code quality plugins
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
+dokka-javadoc = { id = "org.jetbrains.dokka-javadoc", version.ref = "dokka" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "publish" }

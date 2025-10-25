@@ -67,6 +67,7 @@ class JpaOutboxRecordRepositoryTest {
                 aggregateId = record.aggregateId,
                 eventType = record.eventType,
                 payload = record.payload,
+                partition = 1,
                 createdAt = record.createdAt,
                 status = record.status,
                 completedAt = record.completedAt,
@@ -150,21 +151,7 @@ class JpaOutboxRecordRepositoryTest {
         createFailedRecords(3)
         createCompletedRecords(3)
 
-        val aggregateIds = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW)
-
-        assertThat(aggregateIds).containsExactlyInAnyOrder(aggregateId1, aggregateId2)
-    }
-
-    @Test
-    fun `finds aggregate ids with failed records`() {
-        val aggregateId1 = UUID.randomUUID().toString()
-        val aggregateId2 = UUID.randomUUID().toString()
-        createNewRecordsForAggregateId(3, aggregateId1, FAILED)
-        createNewRecordsForAggregateId(3, aggregateId2, FAILED)
-        createNewRecords(3)
-        createCompletedRecords(3)
-
-        val aggregateIds = jpaOutboxRecordRepository.findAggregateIdsWithFailedRecords()
+        val aggregateIds = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, emptySet(), 10)
 
         assertThat(aggregateIds).containsExactlyInAnyOrder(aggregateId1, aggregateId2)
     }
@@ -214,6 +201,7 @@ class JpaOutboxRecordRepositoryTest {
                     aggregateId = UUID.randomUUID().toString(),
                     eventType = "eventType",
                     payload = "payload",
+                    partition = 1,
                     createdAt = now,
                     status = FAILED,
                     completedAt = null,
@@ -233,6 +221,7 @@ class JpaOutboxRecordRepositoryTest {
                     aggregateId = UUID.randomUUID().toString(),
                     eventType = "eventType",
                     payload = "payload",
+                    partition = 1,
                     createdAt = now,
                     status = COMPLETED,
                     completedAt = now,
@@ -252,6 +241,7 @@ class JpaOutboxRecordRepositoryTest {
                     aggregateId = UUID.randomUUID().toString(),
                     eventType = "eventType",
                     payload = "payload",
+                    partition = 1,
                     createdAt = now,
                     status = NEW,
                     completedAt = null,
@@ -275,6 +265,7 @@ class JpaOutboxRecordRepositoryTest {
                     aggregateId = aggregateId,
                     eventType = "eventType",
                     payload = "payload",
+                    partition = 1,
                     createdAt = createdAt,
                     status = status,
                     completedAt = null,

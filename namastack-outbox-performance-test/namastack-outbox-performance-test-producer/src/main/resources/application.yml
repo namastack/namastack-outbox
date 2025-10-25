@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: namastack-outbox-performance-test-producer
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/outbox_performance_test
+    username: username
+    password: password
+
+server:
+  port: 8082
+
+outbox:
+  poll-interval: 2000
+  schema-initialization:
+    enabled: true
+  locking:
+    refresh-threshold: 2
+    extension-seconds: 5
+  retry:
+    policy: jittered
+    max-retries: 3
+    jittered:
+      base-policy: exponential
+      jitter: 1000
+    exponential:
+      initial-delay: 1000
+      max-delay: 60000
+      multiplier: 2.0
+  processing:
+    stop-on-first-failure: true
+
+logging:
+  level:
+    io.namastack.springoutbox: DEBUG

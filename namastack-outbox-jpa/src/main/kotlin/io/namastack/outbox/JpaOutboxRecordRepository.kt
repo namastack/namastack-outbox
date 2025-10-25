@@ -105,40 +105,49 @@ internal open class JpaOutboxRecordRepository(
      * Finds aggregate IDs that have pending records with the specified status.
      *
      * @param status The status to filter by
+     * @param excludedAggregateIds Set of aggregate IDs to exclude
+     * @param batchSize Maximum number of aggregate IDs to return
      * @return List of distinct aggregate IDs with pending records
      */
-    override fun findAggregateIdsWithPendingRecords(status: OutboxRecordStatus): List<String> {
+    override fun findAggregateIdsWithPendingRecords(
+        status: OutboxRecordStatus,
+        excludedAggregateIds: Set<String>,
+        batchSize: Int,
+    ): List<String> {
+        val now = OffsetDateTime.now(clock)
+
+        // Same fix: Only return aggregates where the record to be processed
+        // is actually the NEXT record in sequence
         val query = """
-            select distinct o.aggregateId
+            select o.aggregateId, min(o.createdAt) as minCreated
             from OutboxRecordEntity o
-            where
-                o.status = :status
-                and o.nextRetryAt <= :now
+            where o.status = :status
+            and o.nextRetryAt <= :now
+            and o.aggregateId not in :excludedAggregateIds
+            and not exists (
+                select 1 from OutboxRecordEntity older
+                where older.aggregateId = o.aggregateId
+                and older.completedAt is null
+                and older.createdAt < o.createdAt
+            )
+            group by o.aggregateId
+            order by minCreated asc
         """
 
         return entityManager
-            .createQuery(query, String::class.java)
+            .createQuery(query)
             .setParameter("status", status)
-            .setParameter("now", OffsetDateTime.now(clock))
+            .setParameter("now", now)
+            .setParameter("excludedAggregateIds", excludedAggregateIds)
+            .setMaxResults(batchSize)
             .resultList
-    }
-
-    /**
-     * Finds aggregate IDs that have failed records.
-     *
-     * @return List of distinct aggregate IDs with failed records
-     */
-    override fun findAggregateIdsWithFailedRecords(): List<String> {
-        val query = """
-            select distinct aggregateId
-            from OutboxRecordEntity
-            where status = :failedStatus
-    """
-
-        return entityManager
-            .createQuery(query, String::class.java)
-            .setParameter("failedStatus", OutboxRecordStatus.FAILED)
-            .resultList
+            .map { result ->
+                if (result is Array<*>) {
+                    result[0] as String
+                } else {
+                    result as String
+                }
+            }
     }
 
     /**
@@ -223,5 +232,95 @@ internal open class JpaOutboxRecordRepository(
             .setParameter("status", status)
             .setParameter("aggregateId", aggregateId)
             .executeUpdate()
+    }
+
+    override fun findAggregateIdsInPartitions(
+        partitions: List<Int>,
+        status: OutboxRecordStatus,
+        batchSize: Int,
+    ): List<String> {
+        val now = OffsetDateTime.now(clock)
+
+        // Critical fix: Only return aggregates where the NEW record to be processed
+        // is actually the NEXT record in sequence (no older incomplete records exist)
+        val query = """
+            select o.aggregateId, min(o.createdAt) as minCreated
+            from OutboxRecordEntity o
+            where o.partition in :partitions
+            and o.status = :status
+            and o.nextRetryAt <= :now
+            and not exists (
+                select 1 from OutboxRecordEntity older
+                where older.aggregateId = o.aggregateId
+                and older.completedAt is null
+                and older.createdAt < o.createdAt
+            )
+            group by o.aggregateId
+            order by minCreated asc
+        """
+
+        return entityManager
+            .createQuery(query)
+            .setParameter("partitions", partitions)
+            .setParameter("status", status)
+            .setParameter("now", now)
+            .setMaxResults(batchSize)
+            .resultList
+            .map { result ->
+                if (result is Array<*>) {
+                    result[0] as String
+                } else {
+                    result as String
+                }
+            }
+    }
+
+    override fun countRecordsByPartition(
+        partition: Int,
+        status: OutboxRecordStatus,
+    ): Long {
+        val query = """
+            select count(o)
+            from OutboxRecordEntity o
+            where o.partition = :partition
+            and o.status = :status
+        """
+
+        return entityManager
+            .createQuery(query, Long::class.java)
+            .setParameter("partition", partition)
+            .setParameter("status", status)
+            .singleResult
+    }
+
+    override fun findRecordsByPartition(
+        partition: Int,
+        status: OutboxRecordStatus?,
+    ): List<OutboxRecord> {
+        val queryBuilder =
+            StringBuilder(
+                """
+            select o
+            from OutboxRecordEntity o
+            where o.partition = :partition
+        """,
+            )
+
+        if (status != null) {
+            queryBuilder.append(" and o.status = :status")
+        }
+
+        queryBuilder.append(" order by o.createdAt asc")
+
+        val query =
+            entityManager
+                .createQuery(queryBuilder.toString(), OutboxRecordEntity::class.java)
+                .setParameter("partition", partition)
+
+        if (status != null) {
+            query.setParameter("status", status)
+        }
+
+        return query.resultList.map { map(it) }
     }
 }
