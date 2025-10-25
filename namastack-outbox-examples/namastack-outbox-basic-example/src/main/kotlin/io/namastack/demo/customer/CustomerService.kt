@@ -5,11 +5,13 @@ import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 
 @Service
 class CustomerService(
     private val customerRepository: CustomerRepository,
     private val outboxRecordRepository: OutboxRecordRepository,
+    private val clock: Clock,
 ) {
     @Transactional
     fun register(
@@ -27,7 +29,7 @@ class CustomerService(
                 .aggregateId(customer.id)
                 .eventType(CustomerRegisteredEvent::class.simpleName.toString())
                 .payload(ObjectMapper().writeValueAsString(registeredEvent))
-                .build(),
+                .build(clock),
         )
 
         return customer
@@ -47,7 +49,7 @@ class CustomerService(
                 .aggregateId(customer.id)
                 .eventType(CustomerActivatedEvent::class.simpleName.toString())
                 .payload(ObjectMapper().writeValueAsString(activatedEvent))
-                .build(),
+                .build(clock),
         )
 
         return customer
@@ -67,7 +69,7 @@ class CustomerService(
                 .aggregateId(customer.id)
                 .eventType(CustomerDeactivatedEvent::class.simpleName.toString())
                 .payload(ObjectMapper().writeValueAsString(deactivatedEvent))
-                .build(),
+                .build(clock),
         )
 
         return customer

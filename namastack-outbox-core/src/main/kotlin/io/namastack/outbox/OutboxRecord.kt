@@ -119,9 +119,9 @@ class OutboxRecord internal constructor(
      * Builder class for creating new OutboxRecord instances.
      */
     class Builder {
-        private lateinit var aggregateId: String
-        private lateinit var eventType: String
-        private lateinit var payload: String
+        private lateinit var builderAggregateId: String
+        private lateinit var builderEventType: String
+        private lateinit var builderPayload: String
 
         /**
          * Sets the aggregate ID for the outbox record.
@@ -129,7 +129,7 @@ class OutboxRecord internal constructor(
          * @param aggregateId Identifier of the aggregate
          * @return this Builder instance for method chaining
          */
-        fun aggregateId(aggregateId: String) = apply { this.aggregateId = aggregateId }
+        fun aggregateId(aggregateId: String) = apply { this.builderAggregateId = aggregateId }
 
         /**
          * Sets the event type for the outbox record.
@@ -137,7 +137,7 @@ class OutboxRecord internal constructor(
          * @param eventType Type/name of the event
          * @return this Builder instance for method chaining
          */
-        fun eventType(eventType: String) = apply { this.eventType = eventType }
+        fun eventType(eventType: String) = apply { this.builderEventType = eventType }
 
         /**
          * Sets the payload for the outbox record.
@@ -145,7 +145,7 @@ class OutboxRecord internal constructor(
          * @param payload Event payload in serialized form
          * @return this Builder instance for method chaining
          */
-        fun payload(payload: String) = apply { this.payload = payload }
+        fun payload(payload: String) = apply { this.builderPayload = payload }
 
         /**
          * Builds the OutboxRecord with the configured values.
@@ -154,14 +154,18 @@ class OutboxRecord internal constructor(
          * @return A new OutboxRecord instance
          */
         fun build(clock: Clock = Clock.systemUTC()): OutboxRecord {
+            require(::builderAggregateId.isInitialized) { "aggregateId must be set" }
+            require(::builderEventType.isInitialized) { "eventType must be set" }
+            require(::builderPayload.isInitialized) { "payload must be set" }
+
             val now = OffsetDateTime.now(clock)
 
             return OutboxRecord(
                 id = UUID.randomUUID().toString(),
                 status = OutboxRecordStatus.NEW,
-                aggregateId = aggregateId,
-                eventType = eventType,
-                payload = payload,
+                aggregateId = builderAggregateId,
+                eventType = builderEventType,
+                payload = builderPayload,
                 createdAt = now,
                 completedAt = null,
                 retryCount = 0,
