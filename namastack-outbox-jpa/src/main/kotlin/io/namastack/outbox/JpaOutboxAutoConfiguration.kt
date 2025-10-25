@@ -13,6 +13,8 @@ import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
 import org.springframework.boot.sql.init.DatabaseInitializationMode
 import org.springframework.boot.sql.init.DatabaseInitializationSettings
 import org.springframework.context.annotation.Bean
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import javax.sql.DataSource
 
@@ -40,27 +42,65 @@ internal class JpaOutboxAutoConfiguration {
     fun clock(): Clock = Clock.systemDefaultZone()
 
     /**
+     * Creates a TransactionTemplate for programmatic transaction management in outbox operations.
+     *
+     * This bean is automatically configured using the default PlatformTransactionManager.
+     * For multi-persistence unit scenarios, users can provide their own TransactionTemplate bean
+     * with a specific transaction manager.
+     *
+     * @param transactionManager The platform transaction manager
+     * @return Configured transaction template
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = ["outboxTransactionTemplate"])
+    @ConditionalOnBean(PlatformTransactionManager::class)
+    fun outboxTransactionTemplate(transactionManager: PlatformTransactionManager): TransactionTemplate =
+        TransactionTemplate(transactionManager)
+
+    /**
      * Creates a JPA-based outbox lock repository.
      *
+     * Uses the outboxTransactionTemplate for transaction management. For multi-persistence unit
+     * scenarios, users can provide their own OutboxLockRepository bean with a specific configuration.
+     *
      * @param entityManager JPA entity manager
+     * @param outboxTransactionTemplate Transaction template for managing transactions
      * @return JPA outbox lock repository implementation
      */
     @Bean
-    fun outboxLockRepository(entityManager: EntityManager): OutboxLockRepository =
-        JpaOutboxLockRepository(entityManager)
+    @ConditionalOnMissingBean
+    fun outboxLockRepository(
+        entityManager: EntityManager,
+        outboxTransactionTemplate: TransactionTemplate,
+    ): OutboxLockRepository =
+        JpaOutboxLockRepository(
+            entityManager,
+            outboxTransactionTemplate,
+        )
 
     /**
      * Creates a JPA-based outbox record repository.
      *
+     * Uses the outboxTransactionTemplate for transaction management. For multi-persistence unit
+     * scenarios, users can provide their own OutboxRecordRepository bean with a specific configuration.
+     *
      * @param entityManager JPA entity manager
+     * @param outboxTransactionTemplate Transaction template for managing transactions
      * @param clock Clock for time-based operations
      * @return JPA outbox record repository implementation
      */
     @Bean
+    @ConditionalOnMissingBean
     fun outboxRecordRepository(
         entityManager: EntityManager,
+        outboxTransactionTemplate: TransactionTemplate,
         clock: Clock,
-    ): OutboxRecordRepository = JpaOutboxRecordRepository(entityManager, clock)
+    ): OutboxRecordRepository =
+        JpaOutboxRecordRepository(
+            entityManager,
+            outboxTransactionTemplate,
+            clock,
+        )
 
     /**
      * Creates a database initializer for outbox schema when schema initialization is enabled.

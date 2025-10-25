@@ -12,6 +12,7 @@ import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.transaction.PlatformTransactionManager
 import java.time.Clock
 import javax.sql.DataSource
 
@@ -88,6 +89,9 @@ class JpaOutboxAutoConfigurationTest {
 
         @Bean
         fun dataSource(): DataSource = mockk(relaxed = true)
+
+        @Bean
+        fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
     }
 
     @Configuration
