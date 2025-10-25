@@ -6,11 +6,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  * Configuration properties for Outbox functionality.
  *
  * This class defines all configurable aspects of the outbox pattern implementation,
- * including locking, retry policies, and processing behavior.
+ * including retry policies, processing behavior, and instance management.
  *
- * @param locking Configuration for outbox record locking
+ * @param pollInterval Interval in milliseconds at which the outbox is polled
+ * @param batchSize Maximum number of records to process in a single batch
  * @param retry Configuration for retry mechanisms
  * @param processing Configuration for record processing behavior
+ * @param instance Configuration for instance management and coordination
+ * @param schemaInitialization Configuration for database schema initialization
  *
  * @author Roland Beisel
  * @since 0.1.0
@@ -18,22 +21,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 @ConfigurationProperties(prefix = "outbox")
 data class OutboxProperties(
     val pollInterval: Long = 5000,
-    val locking: Locking = Locking(),
+    val batchSize: Int = 100,
     val retry: Retry = Retry(),
     val processing: Processing = Processing(),
+    val instance: Instance = Instance(),
     val schemaInitialization: SchemaInitialization = SchemaInitialization(),
 ) {
-    /**
-     * Configuration for outbox record locking mechanism.
-     *
-     * @param extensionSeconds Duration in seconds to extend a lock
-     * @param refreshThreshold Threshold in seconds for refreshing locks
-     */
-    data class Locking(
-        val extensionSeconds: Long = 5,
-        val refreshThreshold: Long = 2,
-    )
-
     /**
      * Configuration for retry policies and behavior.
      *
@@ -91,6 +84,21 @@ data class OutboxProperties(
      */
     data class Processing(
         val stopOnFirstFailure: Boolean = true,
+    )
+
+    /**
+     * Configuration for instance management and coordination.
+     *
+     * @param gracefulShutdownTimeoutSeconds Timeout in seconds for graceful shutdown
+     * @param staleInstanceTimeoutSeconds Timeout in seconds to consider an instance stale
+     * @param heartbeatIntervalSeconds Interval in seconds between heartbeats
+     * @param newInstanceDetectionIntervalSeconds Interval in seconds for detecting new instances
+     */
+    data class Instance(
+        val gracefulShutdownTimeoutSeconds: Long = 15,
+        val staleInstanceTimeoutSeconds: Long = 30,
+        val heartbeatIntervalSeconds: Long = 5,
+        val newInstanceDetectionIntervalSeconds: Long = 10,
     )
 
     /**

@@ -9,5 +9,10 @@ description = "namastack-outbox-metrics"
 dependencies {
     implementation(project(":namastack-outbox-core"))
     implementation(libs.spring.boot.autoconfigure)
-    compileOnly(libs.micrometer.core)
+    implementation(libs.micrometer.core)
+
+    testImplementation(libs.kotlin.test)
+    testImplementation(libs.spring.boot.test)
+    testImplementation(libs.assertj.core)
+    testImplementation(libs.mockk)
 }

@@ -1,0 +1,18 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="OutboxPerformanceTestProcessorApplication 2" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <envs>
+      <env name="SERVER_PORT" value="9002" />
+    </envs>
+    <module name="namastack-outbox-performance-test.namastack-outbox-performance-test-processor.main" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="io.namastack.performance.OutboxPerformanceTestProcessorApplication" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="io.namastack.performance.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
