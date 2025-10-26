@@ -1,6 +1,6 @@
 package io.namastack.outbox.partition
 
-import kotlin.math.abs
+import org.apache.commons.codec.digest.MurmurHash3
 
 /**
  * Utility for calculating partition assignments using consistent hashing.
@@ -27,12 +27,11 @@ object PartitionHasher {
      * @param aggregateId The aggregate ID to calculate partition for
      * @return Partition number between 0 and TOTAL_PARTITIONS-1
      */
-    fun getPartitionForAggregate(aggregateId: String): Int =
-        aggregateId.hashCode().let { hash ->
-            if (hash == Int.MIN_VALUE) {
-                0
-            } else {
-                abs(hash) % TOTAL_PARTITIONS
-            }
-        }
+    fun getPartitionForAggregate(aggregateId: String): Int {
+        val bytes = aggregateId.toByteArray(Charsets.UTF_8)
+        val hash = MurmurHash3.hash32x86(bytes, 0, bytes.size, 0)
+        val positiveHash = hash and 0x7fffffff
+
+        return positiveHash % TOTAL_PARTITIONS
+    }
 }

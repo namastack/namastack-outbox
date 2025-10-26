@@ -15,6 +15,7 @@ mockk = "1.14.6"
 assertj = "3.27.6"
 micrometer = "1.15.5"
 jakarta = "2.1.1"
+commons = "1.19.0"
 
 [libraries]
 # Spring Boot dependencies
@@ -46,6 +47,9 @@ assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 
 # Metrics dependencies
 micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometer" }
+
+# Common dependencies
+commons-codec = { module = "commons-codec:commons-codec", version.ref = "commons" }
 
 [plugins]
 # Kotlin plugins
