@@ -7,6 +7,20 @@
 [![dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
+> **🚀 Major Update Coming: v0.2.0 Next Week!**
+>
+> We're releasing a **major architectural improvement** that replaces distributed locking with **hash-based partitioning** for true horizontal scaling. This eliminates lock contention bottlenecks and enables linear scaling with instance count.
+>
+> **Key Benefits:**
+> - ✅ **Zero Lock Contention** - No more fighting over shared locks
+> - ✅ **True Horizontal Scaling** - Linear performance with added instances
+> - ✅ **Predictable Performance** - Consistent processing times
+> - ✅ **Operational Simplicity** - No complex lock management
+>
+> **⚠️ Breaking Change Notice:** v0.2.0 requires database migration and configuration updates. Migration guides will be provided with the release.
+>
+> [📖 Read the technical details](https://github.com/namastack/namastack-outbox/issues/44) | [🎯 Follow progress](https://github.com/namastack/namastack-outbox/milestone/1)
+
 # Namastack Outbox for Spring Boot
 
 A robust Spring Boot library that implements the **Outbox Pattern** for reliable message publishing
