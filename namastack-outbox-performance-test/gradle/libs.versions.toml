@@ -8,12 +8,9 @@ dokka = "2.1.0"
 publish = "0.34.0"
 
 # Dependency versions
-hibernate = "7.1.4.Final"
-springOrm = "6.2.12"
-h2 = "2.4.240"
-mockk = "1.14.6"
-assertj = "3.27.6"
+postgresql = "42.7.4"
 micrometer = "1.15.5"
+gatling = "3.14.6"
 
 [libraries]
 # Spring Boot dependencies
@@ -24,22 +21,16 @@ spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-
 spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-starter-logging", version.ref = "springBoot" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator", version.ref = "springBoot" }
 
-# Kotlin dependencies
-kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
-kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test" }
-kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5" }
-
 # JPA and Database dependencies
-hibernate-core = { module = "org.hibernate.orm:hibernate-core", version.ref = "hibernate" }
-spring-orm = { module = "org.springframework:spring-orm", version.ref = "springOrm" }
-h2 = { module = "com.h2database:h2", version.ref = "h2" }
-
-# Test dependencies
-mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
-assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 
 # Metrics dependencies
-micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometer" }
+micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }
+
+# Test dependencies
+gatling-core = { module = "io.gatling:gatling-core", version.ref = "gatling" }
+gatling-app = { module = "io.gatling:gatling-app", version.ref = "gatling" }
+gatling-highcharts = { module = "io.gatling.highcharts:gatling-charts-highcharts", version.ref = "gatling" }
 
 [plugins]
 # Kotlin plugins
@@ -53,6 +44,6 @@ spring-dependency-management = { id = "io.spring.dependency-management", version
 
 # Code quality plugins
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
-dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
-dokka-javadoc = { id = "org.jetbrains.dokka-javadoc", version.ref = "dokka" }
-maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "publish" }
+
+# Test plugins
+gatling = { id = "io.gatling.gradle", version.ref = "gatling" }

@@ -17,7 +17,7 @@ repositories {
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("io.namastack:namastack-outbox-starter-jpa:0.1.0")
+    implementation("io.namastack:namastack-outbox-starter-jpa:0.2.0-SNAPSHOT")
     implementation("org.flywaydb:flyway-core")
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-test")

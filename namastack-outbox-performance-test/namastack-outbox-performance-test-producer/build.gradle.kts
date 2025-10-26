@@ -12,7 +12,7 @@ dependencies {
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.data.jpa)
     implementation("io.namastack:namastack-outbox-starter-jpa:0.2.0-SNAPSHOT")
-    runtimeOnly("org.postgresql:postgresql")
+    runtimeOnly(libs.postgresql)
 }
 
 allOpen {

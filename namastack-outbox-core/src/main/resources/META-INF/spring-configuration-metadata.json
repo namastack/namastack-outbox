@@ -47,14 +47,14 @@
       "name": "outbox.poll-interval",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties",
-      "defaultValue": 1000,
+      "defaultValue": 2000,
       "description": "Interval in milliseconds at which the outbox is polled"
     },
     {
       "name": "outbox.batch-size",
       "type": "java.lang.Integer",
       "sourceType": "io.namastack.outbox.OutboxProperties",
-      "defaultValue": 100,
+      "defaultValue": 10,
       "description": "Maximum number of aggregate IDs to process in a single batch"
     },
     {
@@ -75,7 +75,7 @@
       "name": "outbox.retry.exponential.initial-delay",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$ExponentialRetry",
-      "defaultValue": 1000,
+      "defaultValue": 2000,
       "description": "Initial delay in milliseconds for exponential backoff retry policy"
     },
     {
@@ -150,3 +150,4 @@
     }
   ]
 }
+

@@ -20,8 +20,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  */
 @ConfigurationProperties(prefix = "outbox")
 data class OutboxProperties(
-    val pollInterval: Long = 5000,
-    val batchSize: Int = 100,
+    val pollInterval: Long = 2000,
+    val batchSize: Int = 10,
     val retry: Retry = Retry(),
     val processing: Processing = Processing(),
     val instance: Instance = Instance(),
@@ -51,7 +51,7 @@ data class OutboxProperties(
          * @param multiplier Multiplier for exponential backoff
          */
         data class ExponentialRetry(
-            val initialDelay: Long = 1000,
+            val initialDelay: Long = 2000,
             val maxDelay: Long = 60000,
             val multiplier: Double = 2.0,
         )
