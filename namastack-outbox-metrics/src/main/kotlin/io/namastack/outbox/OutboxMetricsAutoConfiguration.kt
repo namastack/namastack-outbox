@@ -26,21 +26,41 @@ internal class OutboxMetricsAutoConfiguration {
     @ConditionalOnBean(PartitionCoordinator::class)
     fun outboxPartitionMetricsProvider(
         recordRepository: ObjectProvider<OutboxRecordRepository>,
-        partitionCoordinator: PartitionCoordinator,
-        instanceRegistry: OutboxInstanceRegistry,
+        partitionCoordinator: ObjectProvider<PartitionCoordinator>,
+        instanceRegistry: ObjectProvider<OutboxInstanceRegistry>,
     ): OutboxPartitionMetricsProvider {
         val repository =
             recordRepository.getIfAvailable()
                 ?: throw IllegalStateException(
-                    "OutboxRecordRepository bean is missing! The Outbox partition metrics cannot be registered because no persistence module (e.g. namastack-outbox-jpa) is included. Please add a persistence module to your dependencies to enable Outbox partition metrics.",
+                    "OutboxRecordRepository bean is missing! The Outbox partition metrics cannot be registered.",
                 )
 
-        return OutboxPartitionMetricsProvider(repository, partitionCoordinator, instanceRegistry)
+        val coordinator =
+            partitionCoordinator.getIfAvailable()
+                ?: throw IllegalStateException(
+                    "PartitionCoordinator bean is missing! The Outbox partition metrics cannot be registered.",
+                )
+
+        val registry =
+            instanceRegistry.getIfAvailable()
+                ?: throw IllegalStateException(
+                    "OutboxInstanceRegistry bean is missing! The Outbox partition metrics cannot be registered.",
+                )
+
+        return OutboxPartitionMetricsProvider(repository, coordinator, registry)
     }
 
     @Bean
     @ConditionalOnBean(OutboxPartitionMetricsProvider::class)
     fun outboxPartitionMetricsMeterBinder(
-        partitionMetricsProvider: OutboxPartitionMetricsProvider,
-    ): OutboxPartitionMetricsMeterBinder = OutboxPartitionMetricsMeterBinder(partitionMetricsProvider)
+        partitionMetricsProvider: ObjectProvider<OutboxPartitionMetricsProvider>,
+    ): OutboxPartitionMetricsMeterBinder {
+        val provider =
+            partitionMetricsProvider.getIfAvailable()
+                ?: throw IllegalStateException(
+                    "OutboxPartitionMetricsProvider bean is missing! The Outbox partition metrics meter binder cannot be registered.",
+                )
+
+        return OutboxPartitionMetricsMeterBinder(provider)
+    }
 }

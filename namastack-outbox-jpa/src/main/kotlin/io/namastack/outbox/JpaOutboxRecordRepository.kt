@@ -107,13 +107,11 @@ internal open class JpaOutboxRecordRepository(
      * Finds aggregate IDs that have pending records with the specified status.
      *
      * @param status The status to filter by
-     * @param excludedAggregateIds Set of aggregate IDs to exclude
      * @param batchSize Maximum number of aggregate IDs to return
      * @return List of distinct aggregate IDs with pending records
      */
     override fun findAggregateIdsWithPendingRecords(
         status: OutboxRecordStatus,
-        excludedAggregateIds: Set<String>,
         batchSize: Int,
     ): List<String> {
         val now = OffsetDateTime.now(clock)
@@ -125,7 +123,6 @@ internal open class JpaOutboxRecordRepository(
             from OutboxRecordEntity o
             where o.status = :status
             and o.nextRetryAt <= :now
-            and o.aggregateId not in :excludedAggregateIds
             and not exists (
                 select 1 from OutboxRecordEntity older
                 where older.aggregateId = o.aggregateId
@@ -140,7 +137,6 @@ internal open class JpaOutboxRecordRepository(
             .createQuery(query)
             .setParameter("status", status)
             .setParameter("now", now)
-            .setParameter("excludedAggregateIds", excludedAggregateIds)
             .setMaxResults(batchSize)
             .resultList
             .map { result ->

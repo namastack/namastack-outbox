@@ -46,13 +46,11 @@ interface OutboxRecordRepository {
      * Finds aggregate IDs that have pending records with the specified status.
      *
      * @param status The status to filter by
-     * @param excludedAggregateIds Set of aggregate IDs to exclude
      * @param batchSize Maximum number of aggregate IDs to return
      * @return List of aggregate IDs with pending records
      */
     fun findAggregateIdsWithPendingRecords(
         status: OutboxRecordStatus,
-        excludedAggregateIds: Set<String>,
         batchSize: Int,
     ): List<String>
 

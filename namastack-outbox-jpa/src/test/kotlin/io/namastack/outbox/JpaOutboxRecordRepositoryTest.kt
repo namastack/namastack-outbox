@@ -151,7 +151,7 @@ class JpaOutboxRecordRepositoryTest {
         createFailedRecords(3)
         createCompletedRecords(3)
 
-        val aggregateIds = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, emptySet(), 10)
+        val aggregateIds = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
 
         assertThat(aggregateIds).containsExactlyInAnyOrder(aggregateId1, aggregateId2)
     }
@@ -214,32 +214,11 @@ class JpaOutboxRecordRepositoryTest {
     }
 
     @Test
-    fun `finds aggregate ids with pending records excludes specified aggregates`() {
-        val aggregateId1 = UUID.randomUUID().toString()
-        val aggregateId2 = UUID.randomUUID().toString()
-        val excludedAggregateId = UUID.randomUUID().toString()
-
-        createNewRecordsForAggregateId(1, aggregateId1, NEW)
-        createNewRecordsForAggregateId(1, aggregateId2, NEW)
-        createNewRecordsForAggregateId(1, excludedAggregateId, NEW)
-
-        val aggregateIds =
-            jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(
-                NEW,
-                setOf(excludedAggregateId),
-                10,
-            )
-
-        assertThat(aggregateIds).containsExactlyInAnyOrder(aggregateId1, aggregateId2)
-        assertThat(aggregateIds).doesNotContain(excludedAggregateId)
-    }
-
-    @Test
     fun `finds aggregate ids with pending records respects batch size`() {
         val aggregateIds = (1..5).map { UUID.randomUUID().toString() }
         aggregateIds.forEach { createNewRecordsForAggregateId(1, it, NEW) }
 
-        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, emptySet(), 3)
+        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 3)
 
         assertThat(result).hasSize(3)
         assertThat(result).allMatch { it in aggregateIds }
@@ -410,6 +389,214 @@ class JpaOutboxRecordRepositoryTest {
         assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(otherAggregateId)).hasSize(2)
     }
 
+    @Test
+    fun `findAggregateIdsWithPendingRecords processes oldest record when multiple NEW records exist`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val now = OffsetDateTime.now(clock)
+
+        createRecordWithAggregateAndTime(aggregateId, NEW, now.minusMinutes(3))
+        createRecordWithAggregateAndTime(aggregateId, NEW, now.minusMinutes(1))
+
+        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
+
+        assertThat(result).contains(aggregateId)
+    }
+
+    @Test
+    fun `findAggregateIdsWithPendingRecords allows processing when oldest record is ready`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val now = OffsetDateTime.now(clock)
+
+        createRecordWithAggregateAndTime(aggregateId, NEW, now.minusMinutes(3))
+
+        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
+
+        assertThat(result).contains(aggregateId)
+    }
+
+    @Test
+    fun `findAggregateIdsWithPendingRecords allows processing after older record completed`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val now = OffsetDateTime.now(clock)
+
+        // Create an older FAILED record that blocks processing
+        val olderFailedRecord =
+            OutboxRecord.restore(
+                id = UUID.randomUUID().toString(),
+                aggregateId = aggregateId,
+                eventType = "eventType",
+                payload = "payload",
+                partition = 1,
+                createdAt = now.minusMinutes(5),
+                status = FAILED,
+                completedAt = null, // Still incomplete, blocks processing
+                retryCount = 3,
+                nextRetryAt = now.minusMinutes(5),
+            )
+        jpaOutboxRecordRepository.save(olderFailedRecord)
+
+        // Create a newer NEW record that should be blocked
+        createRecordWithAggregateAndTime(aggregateId, NEW, now.minusMinutes(1))
+
+        val result1 = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
+        assertThat(result1).doesNotContain(aggregateId)
+
+        // Complete the older record
+        val completedRecord =
+            OutboxRecord.restore(
+                id = olderFailedRecord.id,
+                aggregateId = aggregateId,
+                eventType = "eventType",
+                payload = "payload",
+                partition = 1,
+                createdAt = now.minusMinutes(5),
+                status = COMPLETED,
+                completedAt = now,
+                retryCount = 3,
+                nextRetryAt = now.minusMinutes(5),
+            )
+        jpaOutboxRecordRepository.save(completedRecord)
+
+        val result2 = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
+        assertThat(result2).contains(aggregateId)
+    }
+
+    @Test
+    fun `findAggregateIdsWithPendingRecords handles failed older records correctly`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val now = OffsetDateTime.now(clock)
+
+        // Create an older FAILED record (incomplete, so blocks processing)
+        val failedRecord =
+            OutboxRecord.restore(
+                id = UUID.randomUUID().toString(),
+                aggregateId = aggregateId,
+                eventType = "eventType",
+                payload = "payload",
+                partition = 1,
+                createdAt = now.minusMinutes(5),
+                status = FAILED,
+                completedAt = null, // Still incomplete!
+                retryCount = 3,
+                nextRetryAt = now.minusMinutes(5),
+            )
+        jpaOutboxRecordRepository.save(failedRecord)
+
+        // Create a newer NEW record that should be blocked by the failed record
+        createRecordWithAggregateAndTime(aggregateId, NEW, now.minusMinutes(1))
+
+        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
+        assertThat(result).doesNotContain(aggregateId)
+    }
+
+    @Test
+    fun `findAggregateIdsWithPendingRecords respects nextRetryAt timing`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val now = OffsetDateTime.now(clock)
+
+        createRecordWithRetryTime(aggregateId, NEW, now.plusMinutes(5))
+
+        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
+
+        assertThat(result).doesNotContain(aggregateId)
+    }
+
+    @Test
+    fun `findAggregateIdsWithPendingRecords allows processing when nextRetryAt is past`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val now = OffsetDateTime.now(clock)
+
+        createRecordWithRetryTime(aggregateId, NEW, now.minusMinutes(1))
+
+        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
+
+        assertThat(result).contains(aggregateId)
+    }
+
+    @Test
+    fun `findAggregateIdsWithPendingRecords handles mixed aggregate scenarios correctly`() {
+        val now = OffsetDateTime.now(clock)
+
+        val readyAggregate = UUID.randomUUID().toString()
+        createRecordWithAggregateAndTime(readyAggregate, NEW, now.minusMinutes(1))
+
+        val multipleRecordsAggregate = UUID.randomUUID().toString()
+        createRecordWithAggregateAndTime(multipleRecordsAggregate, NEW, now.minusMinutes(3))
+        createRecordWithAggregateAndTime(multipleRecordsAggregate, NEW, now.minusMinutes(1))
+
+        val notReadyAggregate = UUID.randomUUID().toString()
+        createRecordWithRetryTime(notReadyAggregate, NEW, now.plusMinutes(5))
+
+        val exactlyNowAggregate = UUID.randomUUID().toString()
+        createRecordWithRetryTime(exactlyNowAggregate, NEW, now)
+
+        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
+
+        assertThat(result).contains(readyAggregate)
+        assertThat(result).contains(multipleRecordsAggregate)
+        assertThat(result).contains(exactlyNowAggregate)
+        assertThat(result).doesNotContain(notReadyAggregate)
+    }
+
+    @Test
+    fun `findAggregateIdsWithPendingRecords orders by oldest record creation time`() {
+        val now = OffsetDateTime.now(clock)
+
+        val aggregate1 = UUID.randomUUID().toString()
+        val aggregate2 = UUID.randomUUID().toString()
+        val aggregate3 = UUID.randomUUID().toString()
+
+        createRecordWithAggregateAndTime(aggregate2, NEW, now.minusMinutes(2))
+        createRecordWithAggregateAndTime(aggregate1, NEW, now.minusMinutes(3))
+        createRecordWithAggregateAndTime(aggregate3, NEW, now.minusMinutes(1))
+
+        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
+
+        assertThat(result).containsExactly(aggregate1, aggregate2, aggregate3)
+    }
+
+    @Test
+    fun `findAggregateIdsInPartitions processes oldest record when multiple NEW records exist`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val now = OffsetDateTime.now(clock)
+
+        createRecordWithPartitionAndTime(aggregateId, NEW, 1, now.minusMinutes(3))
+        createRecordWithPartitionAndTime(aggregateId, NEW, 1, now.minusMinutes(1))
+
+        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 10)
+
+        assertThat(result).contains(aggregateId)
+    }
+
+    @Test
+    fun `findAggregateIdsInPartitions allows processing when oldest record is ready`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val now = OffsetDateTime.now(clock)
+
+        createRecordWithPartitionAndTime(aggregateId, NEW, 1, now.minusMinutes(3))
+
+        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 10)
+
+        assertThat(result).contains(aggregateId)
+    }
+
+    @Test
+    fun `findAggregateIdsInPartitions orders by oldest record creation time across partitions`() {
+        val now = OffsetDateTime.now(clock)
+
+        val aggregate1 = UUID.randomUUID().toString()
+        val aggregate2 = UUID.randomUUID().toString()
+        val aggregate3 = UUID.randomUUID().toString()
+
+        createRecordWithPartitionAndTime(aggregate2, NEW, 1, now.minusMinutes(2))
+        createRecordWithPartitionAndTime(aggregate1, NEW, 2, now.minusMinutes(3))
+        createRecordWithPartitionAndTime(aggregate3, NEW, 1, now.minusMinutes(1))
+
+        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(listOf(1, 2), NEW, 10)
+
+        assertThat(result).containsExactly(aggregate1, aggregate2, aggregate3)
+    }
+
     private fun createFailedRecords(count: Int = 3) {
         val now = OffsetDateTime.now(clock)
         (0 until count).forEach { _ ->
@@ -537,6 +724,76 @@ class JpaOutboxRecordRepositoryTest {
                 ),
             )
         }
+    }
+
+    private fun createRecordWithAggregateAndTime(
+        aggregateId: String,
+        status: OutboxRecordStatus,
+        createdAt: OffsetDateTime,
+    ): OutboxRecord {
+        val record =
+            OutboxRecord.restore(
+                id = UUID.randomUUID().toString(),
+                aggregateId = aggregateId,
+                eventType = "eventType",
+                payload = "payload",
+                partition = 1,
+                createdAt = createdAt,
+                status = status,
+                completedAt = null,
+                retryCount = 0,
+                nextRetryAt = createdAt,
+            )
+
+        jpaOutboxRecordRepository.save(record)
+        return record
+    }
+
+    private fun createRecordWithRetryTime(
+        aggregateId: String,
+        status: OutboxRecordStatus,
+        nextRetryAt: OffsetDateTime,
+    ): OutboxRecord {
+        val record =
+            OutboxRecord.restore(
+                id = UUID.randomUUID().toString(),
+                aggregateId = aggregateId,
+                eventType = "eventType",
+                payload = "payload",
+                partition = 1,
+                createdAt = OffsetDateTime.now(clock),
+                status = status,
+                completedAt = null,
+                retryCount = 0,
+                nextRetryAt = nextRetryAt,
+            )
+
+        jpaOutboxRecordRepository.save(record)
+        return record
+    }
+
+    private fun createRecordWithPartitionAndTime(
+        aggregateId: String,
+        status: OutboxRecordStatus,
+        partition: Int,
+        createdAt: OffsetDateTime,
+    ): OutboxRecord {
+        val record =
+            OutboxRecord.restore(
+                id = UUID.randomUUID().toString(),
+                aggregateId = aggregateId,
+                eventType = "eventType",
+                payload = "payload",
+                partition = partition,
+                createdAt = createdAt,
+                status = status,
+                completedAt = null,
+                retryCount = 0,
+                nextRetryAt = createdAt,
+            )
+
+        jpaOutboxRecordRepository.save(record)
+        return record
     }
 
     @EnableOutbox
