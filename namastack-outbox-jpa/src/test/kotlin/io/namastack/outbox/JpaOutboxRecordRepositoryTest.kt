@@ -32,7 +32,7 @@ class JpaOutboxRecordRepositoryTest {
                 .aggregateId(aggregateId)
                 .eventType("eventType")
                 .payload("payload")
-                .build()
+                .build(clock)
 
         jpaOutboxRecordRepository.save(record)
 
@@ -57,7 +57,7 @@ class JpaOutboxRecordRepositoryTest {
                 .aggregateId(aggregateId)
                 .eventType("eventType")
                 .payload("payload")
-                .build()
+                .build(clock)
 
         jpaOutboxRecordRepository.save(record)
 

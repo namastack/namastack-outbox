@@ -117,19 +117,45 @@ CREATE TABLE IF NOT EXISTS outbox_record
     completed_at  TIMESTAMP WITH TIME ZONE,
     retry_count   INT                      NOT NULL,
     next_retry_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    partition     INTEGER                  NOT NULL,
     PRIMARY KEY (id)
 );
 
-CREATE TABLE IF NOT EXISTS outbox_lock
+CREATE TABLE IF NOT EXISTS outbox_instance
 (
-    aggregate_id VARCHAR(255)             NOT NULL,
-    acquired_at  TIMESTAMP WITH TIME ZONE NOT NULL,
-    expires_at   TIMESTAMP WITH TIME ZONE NOT NULL,
-    version      BIGINT                   NOT NULL,
-    PRIMARY KEY (aggregate_id)
+    instance_id    VARCHAR(255) PRIMARY KEY,
+    hostname       VARCHAR(255)             NOT NULL,
+    port           INTEGER                  NOT NULL,
+    status         VARCHAR(50)              NOT NULL,
+    started_at     TIMESTAMP WITH TIME ZONE NOT NULL,
+    last_heartbeat TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at     TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at     TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_outbox_aggregate_id_created_at ON outbox_record (aggregate_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_created
+    ON outbox_record (aggregate_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_partition_status_retry
+    ON outbox_record (partition, status, next_retry_at);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry
+    ON outbox_record (status, next_retry_at);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status
+    ON outbox_record (status);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_completed_created
+    ON outbox_record (aggregate_id, completed_at, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_instance_status_heartbeat
+    ON outbox_instance (status, last_heartbeat);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_instance_last_heartbeat
+    ON outbox_instance (last_heartbeat);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_instance_status
+    ON outbox_instance (status);
 ```
 
 ## Implement Your Processor
@@ -282,25 +308,32 @@ Store events in the outbox within the same transaction as your entity:
 
 ## Configuration Overview
 
-Configure the outbox behavior in your application.yml:
+C## Configuration
+
+Configure the outbox behavior in your `application.yml`:
 
 ```yaml
 outbox:
-  # Polling interval for processing events
-  poll-interval: 5s
+  # Polling interval for processing events (milliseconds)
+  poll-interval: 2000
+
+  # Batch size for processing events
+  batch-size: 10
 
   # Schema initialization
   schema-initialization:
     enabled: true
 
-  # Distributed locking settings  
-  locking:
-    extension-seconds: 300     # Lock duration (5 minutes)
-    refresh-threshold: 60      # Renew lock when < 60s remaining
-
   # Processing behavior configuration
   processing:
     stop-on-first-failure: true  # Stop processing aggregate when one event fails (default: true)
+
+  # Instance coordination and partition management
+  instance:
+    graceful-shutdown-timeout-seconds: 15     # Timeout for graceful shutdown
+    stale-instance-timeout-seconds: 30        # When to consider an instance stale
+    heartbeat-interval-seconds: 5             # Heartbeat frequency
+    new-instance-detection-interval-seconds: 10  # Instance discovery frequency
 
   # Retry configuration
   retry:
@@ -309,7 +342,7 @@ outbox:
 
     # Exponential backoff configuration
     exponential:
-      initial-delay: 1000      # Start with 1 second
+      initial-delay: 2000      # Start with 2 seconds
       max-delay: 60000         # Cap at 60 seconds  
       multiplier: 2.0          # Double each time
 

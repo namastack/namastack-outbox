@@ -90,7 +90,7 @@ This architecture ensures:
 
 - **Zero message loss**, even under failure
 - **Strict per-aggregate ordering** for deterministic processing
-- **Horizontal scalability** with distributed locking
+- **Horizontal scalability** with hash-based partitioning
 - **At-least-once delivery** with safe retry policies and observability
 
 With **Namastack Outbox for Spring Boot**, you get the reliability of database transactions — and

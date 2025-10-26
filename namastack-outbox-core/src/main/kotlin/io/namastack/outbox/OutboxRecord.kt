@@ -155,7 +155,7 @@ class OutboxRecord internal constructor(
          * @param clock Clock to use for timestamps (defaults to system UTC)
          * @return A new OutboxRecord instance
          */
-        fun build(clock: Clock = Clock.systemUTC()): OutboxRecord {
+        fun build(clock: Clock): OutboxRecord {
             val now = OffsetDateTime.now(clock)
             val partition = PartitionHasher.getPartitionForAggregate(aggregateId)
 

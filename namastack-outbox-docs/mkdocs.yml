@@ -5,9 +5,6 @@ theme:
   logo: assets/namastack_logo.svg
   favicon: assets/namastack_logo.svg
   custom_dir: overrides
-  footer:
-    navigation: true   # shows navigation links on left
-    text: "© 2025 MyCompany"
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
@@ -54,7 +51,7 @@ plugins:
   - macros
 
 extra:
-  outbox_version: 0.1.0
+  outbox_version: 0.2.0
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/namastack/namastack-outbox

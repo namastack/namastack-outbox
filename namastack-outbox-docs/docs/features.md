@@ -35,25 +35,102 @@ sequenceDiagram
     P->>O: Mark Complete
 ```
 
-### :material-lock: Distributed Locking
+### :material-view-grid: Hash-based Partitioning
 
-!!! info "Concurrent Processing Prevention"
-    Each aggregate gets its own distributed lock to prevent multiple instances from processing the same events simultaneously while allowing different aggregates to be processed in parallel.
+!!! success "Scalable Partition-based Coordination"
+    Instead of distributed locking, the library uses **hash-based partitioning** to enable horizontal scaling across multiple instances while maintaining strict event ordering per aggregate. This approach eliminates lock contention and provides better performance.
 
-=== "Features"
-    - **Per-Aggregate Locking**: Fine-grained control prevents bottlenecks
-    - **Automatic Expiration**: Locks expire to prevent deadlocks
-    - **Lock Renewal**: Active processors can extend their locks
-    - **Optimistic Locking**: Prevents race conditions during renewal
-    - **Horizontal Scaling**: Multiple instances can work on different aggregates
+=== "How Partitioning Works"
+    ```mermaid
+    graph TB
+        A[Aggregate ID: order-123] --> H[MurmurHash3]
+        H --> P[Partition 42]
+        P --> I1[Instance 1]
+        
+        B[Aggregate ID: user-456] --> H2[MurmurHash3]
+        H2 --> P2[Partition 128]
+        P2 --> I2[Instance 2]
+        
+        C[Aggregate ID: order-789] --> H3[MurmurHash3]
+        H3 --> P3[Partition 42]
+        P3 --> I1
+        
+        subgraph "256 Fixed Partitions"
+            P[Partition 42]
+            P2[Partition 128]
+            P3["...other partitions"]
+        end
+        
+        subgraph "Dynamic Instance Assignment"
+            I1[Instance 1: Partitions 0-127]
+            I2[Instance 2: Partitions 128-255]
+        end
+    ```
 
-=== "Configuration"
+=== "Key Benefits"
+    - **🎯 Consistent Hashing**: Each aggregate always maps to the same partition using MurmurHash3
+    - **⚡ No Lock Contention**: Eliminates distributed lock overhead and deadlock risks
+    - **📈 Horizontal Scaling**: Partitions automatically redistribute when instances join/leave
+    - **🔄 Load Balancing**: Even distribution of partitions across all active instances
+    - **🛡️ Ordering Guarantee**: Events within the same aggregate process in strict order
+    - **🚀 Better Performance**: No lock acquisition/renewal overhead
+
+=== "Partition Assignment"
+    ```kotlin
+    // Each aggregate always maps to the same partition
+    val partition = PartitionHasher.getPartitionForAggregate("order-123")
+    // partition will always be the same value for "order-123"
+    
+    // 256 fixed partitions provide fine-grained load distribution
+    // Partitions are automatically distributed among active instances
+    ```
+
+=== "Instance Coordination"
     ```yaml
     outbox:
-      locking:
-        extension-seconds: 300     # Lock duration (5 minutes)
-        refresh-threshold: 60      # Renew when < 60s remaining
+      instance:
+        graceful-shutdown-timeout-seconds: 15     # Time to wait for graceful shutdown
+        stale-instance-timeout-seconds: 30        # When to consider an instance dead
+        heartbeat-interval-seconds: 5             # How often instances send heartbeats
+        new-instance-detection-interval-seconds: 10  # How often to check for new instances
     ```
+
+!!! example "Scaling Behavior"
+
+    === "3 Instances with 256 Partitions"
+        ```
+        Instance 1: Partitions 0-84   (85 partitions)
+        Instance 2: Partitions 85-169 (85 partitions) 
+        Instance 3: Partitions 170-255 (86 partitions)
+        ```
+
+    === "Instance 2 Goes Down"
+        ```
+        Instance 1: Partitions 0-84, 170-211   (127 partitions)
+        Instance 3: Partitions 85-169, 212-255 (129 partitions)
+        ```
+        
+        **🔄 Automatic Rebalancing**: Partitions from failed instances are redistributed
+
+    === "New Instance Joins"
+        ```
+        Instance 1: Partitions 0-63    (64 partitions)
+        Instance 2: Partitions 64-127  (64 partitions)
+        Instance 3: Partitions 128-191 (64 partitions)
+        Instance 4: Partitions 192-255 (64 partitions)
+        ```
+        
+        **⚖️ Load Balancing**: Partitions are redistributed evenly
+
+!!! info "Migration from Distributed Locking (v0.1.0 → v0.2.0)"
+    If you're upgrading from version 0.1.0, the distributed locking approach has been **completely replaced** with hash-based partitioning. This change provides:
+    
+    - **Better Performance**: No lock acquisition overhead
+    - **Improved Scalability**: Linear scaling with instance count
+    - **Simplified Operations**: No lock management or deadlock handling
+    - **Enhanced Reliability**: No single point of failure from lock storage
+    
+    See the [Migration Guide](../README.md#migration-from-010-to-020) for upgrade instructions.
 
 ### :material-sort-numeric-ascending: Event Ordering
 
@@ -199,37 +276,85 @@ The library provides sophisticated retry strategies to handle transient failures
     | Metric | Description | Tags |
     |--------|-------------|------|
     | `outbox.records.count` | Number of outbox records | `status=new\|failed\|completed` |
+    | `outbox.partitions.assigned.count` | Number of partitions assigned to this instance | - |
+    | `outbox.partitions.pending.records.total` | Total pending records across assigned partitions | - |
+    | `outbox.partitions.pending.records.max` | Maximum pending records in any assigned partition | - |
+    | `outbox.partitions.pending.records.avg` | Average pending records per assigned partition | - |
+    | `outbox.cluster.instances.total` | Total number of active instances in the cluster | - |
+    | `outbox.cluster.partitions.total` | Total number of partitions (always 256) | - |
+    | `outbox.cluster.partitions.avg_per_instance` | Average partitions per instance | - |
     
     **Endpoints:**
     
     - :material-api: `/actuator/metrics/outbox.records.count`
+    - :material-api: `/actuator/metrics/outbox.partitions.assigned.count`
+    - :material-api: `/actuator/metrics/outbox.cluster.instances.total`
     - :material-chart-box: `/actuator/prometheus` (if Prometheus enabled)
 
 === "Prometheus Format"
     ```prometheus
+    # Record status metrics
     outbox_records_count{status="new"} 42
     outbox_records_count{status="failed"} 3  
     outbox_records_count{status="completed"} 1337
+    
+    # Partition metrics
+    outbox_partitions_assigned_count 64
+    outbox_partitions_pending_records_total 128
+    outbox_partitions_pending_records_max 8
+    outbox_partitions_pending_records_avg 2.0
+    
+    # Cluster metrics
+    outbox_cluster_instances_total 4
+    outbox_cluster_partitions_total 256
+    outbox_cluster_partitions_avg_per_instance 64.0
     ```
 
 === "Query Examples"
     ```bash
-    # Get current metrics
+    # Get current record metrics
     curl http://localhost:8080/actuator/metrics/outbox.records.count
     
-    # Prometheus endpoint
+    # Get partition distribution
+    curl http://localhost:8080/actuator/metrics/outbox.partitions.assigned.count
+    
+    # Get cluster status
+    curl http://localhost:8080/actuator/metrics/outbox.cluster.instances.total
+    
+    # Prometheus endpoint (all metrics)
     curl http://localhost:8080/actuator/prometheus | grep outbox
     ```
 
-### :material-database-search: Status Monitoring
+=== "Grafana Dashboard Ideas"
+    ```
+    📊 Load Distribution
+    - Monitor outbox.partitions.pending.records.* across instances
+    - Alert on uneven partition distribution
+    
+    🏥 Cluster Health  
+    - Track outbox.cluster.instances.total for instance failures
+    - Monitor partition reassignment frequency
+    
+    📈 Processing Backlog
+    - Watch outbox.records.count{status="new"} for backlogs
+    - Alert on growing pending record counts
+    
+    ❌ Failure Rate
+    - Monitor outbox.records.count{status="failed"} for issues
+    - Track retry patterns and failure trends
+    ```
 
-Monitor outbox status programmatically:
+### :material-database-search: Status & Partition Monitoring
+
+Monitor outbox status and partition distribution programmatically:
 
 ```kotlin
 @Service
 class OutboxMonitoringService(
-    private val outboxRepository: OutboxRecordRepository
+    private val outboxRepository: OutboxRecordRepository,
+    private val partitionMetricsProvider: OutboxPartitionMetricsProvider
 ) {
+    // Record status monitoring
     fun getPendingEvents(): List<OutboxRecord> = 
         outboxRepository.findPendingRecords()
         
@@ -238,7 +363,39 @@ class OutboxMonitoringService(
         
     fun getCompletedEvents(): List<OutboxRecord> = 
         outboxRepository.findCompletedRecords()
+    
+    // Partition monitoring (new in v0.2.0)
+    fun getPartitionStats(): PartitionProcessingStats {
+        return partitionMetricsProvider.getProcessingStats()
+    }
+
+    fun getClusterStats(): PartitionStats {
+        return partitionMetricsProvider.getPartitionStats()
+    }
+    
+    // Health check example
+    fun getHealthStatus(): OutboxHealthStatus {
+        val pendingCount = outboxRepository.countByStatus(OutboxRecordStatus.NEW)
+        val failedCount = outboxRepository.countByStatus(OutboxRecordStatus.FAILED)
+        val partitionStats = partitionMetricsProvider.getProcessingStats()
+        
+        return OutboxHealthStatus(
+            pendingRecords = pendingCount,
+            failedRecords = failedCount,
+            assignedPartitions = partitionStats.assignedPartitions,
+            totalPendingInPartitions = partitionStats.totalPendingRecords,
+            isHealthy = failedCount < 100 && pendingCount < 1000
+        )
+    }
 }
+
+data class OutboxHealthStatus(
+    val pendingRecords: Long,
+    val failedRecords: Long,
+    val assignedPartitions: Int,
+    val totalPendingInPartitions: Long,
+    val isHealthy: Boolean
+)
 ```
 
 ## :material-lightning-bolt: Performance Features
@@ -253,17 +410,17 @@ class OutboxMonitoringService(
 
 ### :material-shield-check: Race Condition Safety
 
-=== "Optimistic Locking"
-    - Uses database-level optimistic locking
-    - Prevents concurrent modifications
-    - Automatic retry on version conflicts
-    - No performance penalty for read operations
+=== "Partition-based Isolation"
+    - Events for the same aggregate always process on the same instance
+    - No coordination needed between instances for the same aggregate
+    - Hash-based partitioning ensures consistent aggregate assignment
+    - Eliminates race conditions through architectural design
 
-=== "Lock-Free Aggregates"
-    - Different aggregates process independently
-    - No global locks or bottlenecks
-    - Scales horizontally across instances
-    - Maintains per-aggregate ordering guarantees
+=== "Lock-Free Design"
+    - No distributed locks or coordination overhead
+    - Partition ownership provides natural isolation
+    - Instance coordination only for partition assignment
+    - Optimistic concurrency for instance management only
 
 ## :material-code-braces: Developer Experience
 
@@ -341,9 +498,11 @@ class OutboxMonitoringService(
     - :material-check-all: **At-least-once delivery**: Events will be processed at least once
     - :material-sort-ascending: **Ordering per aggregate**: Events for the same aggregate are processed in order
     - :material-backup-restore: **Failure recovery**: System failures don't result in lost events
-    - :material-scale-balance: **Scalability**: Multiple instances can process different aggregates concurrently
+    - :material-scale-balance: **Horizontal scalability**: Multiple instances process different partitions concurrently
     - :material-shield-lock: **Consistency**: Database transactions ensure data integrity
     - :material-clock-check: **Eventual consistency**: Failed events are automatically retried
+    - :material-autorenew: **Automatic rebalancing**: Partitions redistribute when instances join/leave
+    - :material-chart-line: **Linear scaling**: Performance scales with instance count
 
 !!! warning "What Namastack Outbox for Spring Boot Does NOT Guarantee"
     
