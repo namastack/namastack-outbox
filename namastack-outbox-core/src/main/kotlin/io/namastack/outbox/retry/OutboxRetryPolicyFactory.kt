@@ -3,7 +3,24 @@ package io.namastack.outbox.retry
 import io.namastack.outbox.OutboxProperties
 import java.time.Duration
 
+/**
+ * Factory for creating retry policy instances based on configuration.
+ *
+ * This factory creates appropriate retry policy implementations based on the
+ * policy name and configuration properties.
+ *
+ * @author Roland Beisel
+ * @since 0.1.0
+ */
 object OutboxRetryPolicyFactory {
+    /**
+     * Creates a retry policy instance based on the given name and properties.
+     *
+     * @param name The name of the retry policy ("fixed", "exponential", "jittered")
+     * @param retryProperties Configuration properties for retry behavior
+     * @return A configured retry policy instance
+     * @throws IllegalStateException if the policy name is unsupported or configuration is invalid
+     */
     fun create(
         name: String,
         retryProperties: OutboxProperties.Retry,

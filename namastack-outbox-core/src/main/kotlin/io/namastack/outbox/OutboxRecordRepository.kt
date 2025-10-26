@@ -46,16 +46,13 @@ interface OutboxRecordRepository {
      * Finds aggregate IDs that have pending records with the specified status.
      *
      * @param status The status to filter by
+     * @param batchSize Maximum number of aggregate IDs to return
      * @return List of aggregate IDs with pending records
      */
-    fun findAggregateIdsWithPendingRecords(status: OutboxRecordStatus): List<String>
-
-    /**
-     * Finds aggregate IDs that have failed records.
-     *
-     * @return List of aggregate IDs with failed records
-     */
-    fun findAggregateIdsWithFailedRecords(): List<String>
+    fun findAggregateIdsWithPendingRecords(
+        status: OutboxRecordStatus,
+        batchSize: Int,
+    ): List<String>
 
     /**
      * Finds all incomplete records for a specific aggregate ID.
@@ -83,4 +80,42 @@ interface OutboxRecordRepository {
         aggregateId: String,
         status: OutboxRecordStatus,
     )
+
+    /**
+     * Finds aggregate IDs that have pending records in specific partitions.
+     *
+     * @param partitions List of partition numbers to search in
+     * @param status The status to filter by
+     * @param batchSize Maximum number of aggregate IDs to return
+     * @return List of aggregate IDs with pending records in the specified partitions
+     */
+    fun findAggregateIdsInPartitions(
+        partitions: List<Int>,
+        status: OutboxRecordStatus,
+        batchSize: Int,
+    ): List<String>
+
+    /**
+     * Counts records in a specific partition by status.
+     *
+     * @param partition The partition number
+     * @param status The status to count
+     * @return Number of records in the partition with the specified status
+     */
+    fun countRecordsByPartition(
+        partition: Int,
+        status: OutboxRecordStatus,
+    ): Long
+
+    /**
+     * Finds all records in a specific partition.
+     *
+     * @param partition The partition number
+     * @param status The status to filter by (optional)
+     * @return List of records in the partition
+     */
+    fun findRecordsByPartition(
+        partition: Int,
+        status: OutboxRecordStatus? = null,
+    ): List<OutboxRecord>
 }

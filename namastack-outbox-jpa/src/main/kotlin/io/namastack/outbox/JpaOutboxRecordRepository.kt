@@ -2,7 +2,7 @@ package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordEntityMapper.map
 import jakarta.persistence.EntityManager
-import jakarta.transaction.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.OffsetDateTime
 
@@ -13,6 +13,7 @@ import java.time.OffsetDateTime
  * from a relational database.
  *
  * @param entityManager JPA entity manager for database operations
+ * @param transactionTemplate Transaction template for programmatic transaction management
  * @param clock Clock for time-based operations
  *
  * @author Roland Beisel
@@ -20,6 +21,7 @@ import java.time.OffsetDateTime
  */
 internal open class JpaOutboxRecordRepository(
     private val entityManager: EntityManager,
+    private val transactionTemplate: TransactionTemplate,
     private val clock: Clock,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
@@ -29,20 +31,20 @@ internal open class JpaOutboxRecordRepository(
      * @param record The outbox record to save
      * @return The saved outbox record
      */
-    @Transactional
-    override fun save(record: OutboxRecord): OutboxRecord {
-        val entity = map(record)
+    override fun save(record: OutboxRecord): OutboxRecord =
+        transactionTemplate.executeNonNull {
+            val entity = map(record)
 
-        val existingEntity = entityManager.find(OutboxRecordEntity::class.java, entity.id)
+            val existingEntity = entityManager.find(OutboxRecordEntity::class.java, entity.id)
 
-        if (existingEntity != null) {
-            entityManager.merge(entity)
-        } else {
-            entityManager.persist(entity)
+            if (existingEntity != null) {
+                entityManager.merge(entity)
+            } else {
+                entityManager.persist(entity)
+            }
+
+            record
         }
-
-        return record
-    }
 
     /**
      * Finds all pending outbox records that are ready for processing.
@@ -105,40 +107,45 @@ internal open class JpaOutboxRecordRepository(
      * Finds aggregate IDs that have pending records with the specified status.
      *
      * @param status The status to filter by
+     * @param batchSize Maximum number of aggregate IDs to return
      * @return List of distinct aggregate IDs with pending records
      */
-    override fun findAggregateIdsWithPendingRecords(status: OutboxRecordStatus): List<String> {
+    override fun findAggregateIdsWithPendingRecords(
+        status: OutboxRecordStatus,
+        batchSize: Int,
+    ): List<String> {
+        val now = OffsetDateTime.now(clock)
+
+        // Same fix: Only return aggregates where the record to be processed
+        // is actually the NEXT record in sequence
         val query = """
-            select distinct o.aggregateId
+            select o.aggregateId, min(o.createdAt) as minCreated
             from OutboxRecordEntity o
-            where
-                o.status = :status
-                and o.nextRetryAt <= :now
+            where o.status = :status
+            and o.nextRetryAt <= :now
+            and not exists (
+                select 1 from OutboxRecordEntity older
+                where older.aggregateId = o.aggregateId
+                and older.completedAt is null
+                and older.createdAt < o.createdAt
+            )
+            group by o.aggregateId
+            order by minCreated asc
         """
 
         return entityManager
-            .createQuery(query, String::class.java)
+            .createQuery(query)
             .setParameter("status", status)
-            .setParameter("now", OffsetDateTime.now(clock))
+            .setParameter("now", now)
+            .setMaxResults(batchSize)
             .resultList
-    }
-
-    /**
-     * Finds aggregate IDs that have failed records.
-     *
-     * @return List of distinct aggregate IDs with failed records
-     */
-    override fun findAggregateIdsWithFailedRecords(): List<String> {
-        val query = """
-            select distinct aggregateId
-            from OutboxRecordEntity
-            where status = :failedStatus
-    """
-
-        return entityManager
-            .createQuery(query, String::class.java)
-            .setParameter("failedStatus", OutboxRecordStatus.FAILED)
-            .resultList
+            .map { result ->
+                if (result is Array<*>) {
+                    result[0] as String
+                } else {
+                    result as String
+                }
+            }
     }
 
     /**
@@ -188,17 +195,18 @@ internal open class JpaOutboxRecordRepository(
      *
      * @param status The status of records to delete
      */
-    @Transactional
     override fun deleteByStatus(status: OutboxRecordStatus) {
-        val query = """
-            delete from OutboxRecordEntity o
-            where o.status = :status
-        """
+        transactionTemplate.executeNonNull {
+            val query = """
+                delete from OutboxRecordEntity o
+                where o.status = :status
+            """
 
-        entityManager
-            .createQuery(query)
-            .setParameter("status", status)
-            .executeUpdate()
+            entityManager
+                .createQuery(query)
+                .setParameter("status", status)
+                .executeUpdate()
+        }
     }
 
     /**
@@ -207,21 +215,112 @@ internal open class JpaOutboxRecordRepository(
      * @param aggregateId The aggregate ID
      * @param status The status of records to delete
      */
-    @Transactional
     override fun deleteByAggregateIdAndStatus(
         aggregateId: String,
         status: OutboxRecordStatus,
     ) {
+        transactionTemplate.execute {
+            val query = """
+                delete from OutboxRecordEntity o
+                where o.status = :status
+                and o.aggregateId = :aggregateId
+            """
+
+            entityManager
+                .createQuery(query)
+                .setParameter("status", status)
+                .setParameter("aggregateId", aggregateId)
+                .executeUpdate()
+        }
+    }
+
+    override fun findAggregateIdsInPartitions(
+        partitions: List<Int>,
+        status: OutboxRecordStatus,
+        batchSize: Int,
+    ): List<String> {
+        val now = OffsetDateTime.now(clock)
+
+        // Critical fix: Only return aggregates where the NEW record to be processed
+        // is actually the NEXT record in sequence (no older incomplete records exist)
         val query = """
-            delete from OutboxRecordEntity o
-            where o.status = :status
-            and o.aggregateId = :aggregateId
+            select o.aggregateId, min(o.createdAt) as minCreated
+            from OutboxRecordEntity o
+            where o.partition in :partitions
+            and o.status = :status
+            and o.nextRetryAt <= :now
+            and not exists (
+                select 1 from OutboxRecordEntity older
+                where older.aggregateId = o.aggregateId
+                and older.completedAt is null
+                and older.createdAt < o.createdAt
+            )
+            group by o.aggregateId
+            order by minCreated asc
         """
 
-        entityManager
+        return entityManager
             .createQuery(query)
+            .setParameter("partitions", partitions)
             .setParameter("status", status)
-            .setParameter("aggregateId", aggregateId)
-            .executeUpdate()
+            .setParameter("now", now)
+            .setMaxResults(batchSize)
+            .resultList
+            .map { result ->
+                if (result is Array<*>) {
+                    result[0] as String
+                } else {
+                    result as String
+                }
+            }
+    }
+
+    override fun countRecordsByPartition(
+        partition: Int,
+        status: OutboxRecordStatus,
+    ): Long {
+        val query = """
+            select count(o)
+            from OutboxRecordEntity o
+            where o.partition = :partition
+            and o.status = :status
+        """
+
+        return entityManager
+            .createQuery(query, Long::class.java)
+            .setParameter("partition", partition)
+            .setParameter("status", status)
+            .singleResult
+    }
+
+    override fun findRecordsByPartition(
+        partition: Int,
+        status: OutboxRecordStatus?,
+    ): List<OutboxRecord> {
+        val queryBuilder =
+            StringBuilder(
+                """
+            select o
+            from OutboxRecordEntity o
+            where o.partition = :partition
+        """,
+            )
+
+        if (status != null) {
+            queryBuilder.append(" and o.status = :status")
+        }
+
+        queryBuilder.append(" order by o.createdAt asc")
+
+        val query =
+            entityManager
+                .createQuery(queryBuilder.toString(), OutboxRecordEntity::class.java)
+                .setParameter("partition", partition)
+
+        if (status != null) {
+            query.setParameter("status", status)
+        }
+
+        return query.resultList.map { map(it) }
     }
 }

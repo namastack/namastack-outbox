@@ -29,7 +29,7 @@ class OutboxDataSourceScriptDatabaseInitializerEnabledTest {
     @Test
     fun `initializer creates outbox tables`() {
         dataSource.connection.use { conn ->
-            assertThat(findAllTableNames(conn)).contains("OUTBOX_RECORD", "OUTBOX_LOCK")
+            assertThat(findAllTableNames(conn)).contains("OUTBOX_RECORD")
         }
     }
 

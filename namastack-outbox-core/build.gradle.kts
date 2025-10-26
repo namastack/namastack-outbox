@@ -13,6 +13,9 @@ dependencies {
     implementation(libs.spring.boot)
     implementation(libs.spring.boot.autoconfigure)
     implementation(libs.spring.boot.starter.logging)
+    implementation(libs.spring.boot.starter.logging)
+    implementation(libs.commons.codec)
+    implementation(libs.jakarta.annotation.api)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.spring.boot.test)

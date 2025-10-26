@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.partition.PartitionHasher
 import java.time.Clock
 import java.time.Duration
 import java.time.OffsetDateTime
@@ -31,6 +32,7 @@ class OutboxRecord internal constructor(
     val eventType: String,
     val payload: String,
     val createdAt: OffsetDateTime,
+    val partition: Int,
     status: OutboxRecordStatus,
     completedAt: OffsetDateTime?,
     retryCount: Int,
@@ -153,8 +155,9 @@ class OutboxRecord internal constructor(
          * @param clock Clock to use for timestamps (defaults to system UTC)
          * @return A new OutboxRecord instance
          */
-        fun build(clock: Clock = Clock.systemUTC()): OutboxRecord {
+        fun build(clock: Clock): OutboxRecord {
             val now = OffsetDateTime.now(clock)
+            val partition = PartitionHasher.getPartitionForAggregate(aggregateId)
 
             return OutboxRecord(
                 id = UUID.randomUUID().toString(),
@@ -162,6 +165,7 @@ class OutboxRecord internal constructor(
                 aggregateId = aggregateId,
                 eventType = eventType,
                 payload = payload,
+                partition = partition,
                 createdAt = now,
                 completedAt = null,
                 retryCount = 0,
@@ -180,9 +184,10 @@ class OutboxRecord internal constructor(
          * @param aggregateId Aggregate identifier
          * @param eventType Event type
          * @param payload Event payload
+         * @param partition Partition for this record
          * @param createdAt Creation timestamp
          * @param status Current status
-         * @param completedAt Completion timestamp (may be null)
+         * @param completedAt Completion timestamp
          * @param retryCount Number of retries
          * @param nextRetryAt Next retry timestamp
          * @return Restored OutboxRecord instance
@@ -196,6 +201,7 @@ class OutboxRecord internal constructor(
             status: OutboxRecordStatus,
             completedAt: OffsetDateTime?,
             retryCount: Int,
+            partition: Int,
             nextRetryAt: OffsetDateTime,
         ): OutboxRecord =
             OutboxRecord(
@@ -203,6 +209,7 @@ class OutboxRecord internal constructor(
                 aggregateId = aggregateId,
                 eventType = eventType,
                 payload = payload,
+                partition = partition,
                 createdAt = createdAt,
                 status = status,
                 completedAt = completedAt,

@@ -1,0 +1,12 @@
+plugins {
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.gatling)
+}
+
+description = "namastack-outbox-performance-test-executor"
+
+dependencies {
+    testImplementation(libs.gatling.core)
+    testImplementation(libs.gatling.app)
+    testImplementation(libs.gatling.highcharts)
+}

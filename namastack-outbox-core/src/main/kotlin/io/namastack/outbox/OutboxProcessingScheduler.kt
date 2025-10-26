@@ -1,33 +1,35 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordStatus.NEW
-import io.namastack.outbox.lock.OutboxLock
-import io.namastack.outbox.lock.OutboxLockManager
+import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import java.time.Clock
 
 /**
- * Scheduler responsible for processing outbox records at regular intervals.
+ * Scheduler for processing outbox records.
  *
- * This class implements the core scheduling and processing logic for the outbox pattern.
- * It acquires locks on aggregates, processes pending records, and handles failures and retries.
+ * This scheduler coordinates with the partition coordinator to only process
+ * records assigned to the current instance, enabling horizontal scaling
+ * across multiple application instances.
  *
  * @param recordRepository Repository for accessing outbox records
  * @param recordProcessor Processor for handling individual records
- * @param lockManager Manager for acquiring and releasing locks
+ * @param partitionCoordinator Coordinator for partition assignments
+ * @param instanceRegistry Registry for instance management
  * @param retryPolicy Policy for determining retry behavior
  * @param properties Configuration properties
  * @param clock Clock for time-based operations
  *
  * @author Roland Beisel
- * @since 0.1.0
+ * @since 0.2.0
  */
 class OutboxProcessingScheduler(
     private val recordRepository: OutboxRecordRepository,
     private val recordProcessor: OutboxRecordProcessor,
-    private val lockManager: OutboxLockManager,
+    private val partitionCoordinator: PartitionCoordinator,
+    private val instanceRegistry: OutboxInstanceRegistry,
     private val retryPolicy: OutboxRetryPolicy,
     private val properties: OutboxProperties,
     private val clock: Clock,
@@ -37,19 +39,47 @@ class OutboxProcessingScheduler(
     /**
      * Main processing method that runs on a scheduled interval.
      *
-     * Finds aggregates with pending records, acquires locks, and processes records
-     * for each aggregate in a thread-safe manner.
+     * Only processes records from partitions assigned to this instance,
+     * ensuring proper load distribution and avoiding conflicts.
      */
-    @Scheduled(fixedDelayString = $$"${outbox.poll-interval}")
+    @Scheduled(fixedDelayString = "\${outbox.poll-interval}")
     fun process() {
-        findAggregateIdsWithPendingRecords().forEach { aggregateId ->
-            val lock = lockManager.acquire(aggregateId) ?: return@forEach
+        try {
+            val myInstanceId = instanceRegistry.getCurrentInstanceId()
+            val assignedPartitions = partitionCoordinator.getAssignedPartitions(myInstanceId)
 
-            try {
-                processRecords(aggregateId, lock)
-            } finally {
-                lockManager.release(aggregateId)
+            if (assignedPartitions.isEmpty()) {
+                log.debug("No partitions assigned to instance {} - waiting for rebalancing", myInstanceId)
+                return
             }
+
+            log.debug(
+                "Processing {} partitions for instance {}: {}",
+                assignedPartitions.size,
+                myInstanceId,
+                assignedPartitions,
+            )
+
+            val aggregateIds =
+                recordRepository.findAggregateIdsInPartitions(
+                    partitions = assignedPartitions,
+                    status = NEW,
+                    batchSize = properties.batchSize,
+                )
+
+            if (aggregateIds.isNotEmpty()) {
+                log.debug(
+                    "Found {} aggregates to process: {}",
+                    aggregateIds.size,
+                    aggregateIds.take(5).plus(if (aggregateIds.size > 5) "..." else ""),
+                )
+
+                aggregateIds.forEach { aggregateId ->
+                    processAggregate(aggregateId)
+                }
+            }
+        } catch (ex: Exception) {
+            log.error("Error during partition-aware outbox processing", ex)
         }
     }
 
@@ -57,26 +87,35 @@ class OutboxProcessingScheduler(
      * Processes all incomplete records for a specific aggregate.
      *
      * @param aggregateId The aggregate ID to process records for
-     * @param initialLock The initial lock acquired for this aggregate
      */
-    private fun processRecords(
-        aggregateId: String,
-        initialLock: OutboxLock,
-    ) {
-        val records = recordRepository.findAllIncompleteRecordsByAggregateId(aggregateId)
-        var lock = initialLock
+    private fun processAggregate(aggregateId: String) {
+        try {
+            val records = recordRepository.findAllIncompleteRecordsByAggregateId(aggregateId)
 
-        for (record in records) {
-            if (!record.canBeRetried(clock)) break
-
-            lock = lockManager.renew(lock) ?: break
-
-            val success = processRecord(record)
-
-            if (!success && properties.processing.stopOnFirstFailure) {
-                log.debug("🛑 Stopping aggregate {} processing due to failure (stopOnFirstFailure=true)", aggregateId)
-                break
+            if (records.isEmpty()) {
+                return
             }
+
+            log.debug("Processing {} records for aggregate {}", records.size, aggregateId)
+
+            for (record in records) {
+                if (!record.canBeRetried(clock)) {
+                    log.debug("Skipping record {} - not ready for retry", record.id)
+                    break
+                }
+
+                val success = processRecord(record)
+
+                if (!success && properties.processing.stopOnFirstFailure) {
+                    log.debug(
+                        "🛑 Stopping aggregate {} processing due to failure (stopOnFirstFailure=true)",
+                        aggregateId,
+                    )
+                    break
+                }
+            }
+        } catch (ex: Exception) {
+            log.error("Error processing aggregate {}", aggregateId, ex)
         }
     }
 
@@ -88,10 +127,17 @@ class OutboxProcessingScheduler(
      */
     private fun processRecord(record: OutboxRecord): Boolean =
         try {
-            log.debug("⏳ Processing {} for {}", record.eventType, record.aggregateId)
+            log.debug(
+                "⏳ Processing {} for {} (partition {})",
+                record.eventType,
+                record.aggregateId,
+                record.partition,
+            )
+
             recordProcessor.process(record)
             record.markCompleted(clock)
             recordRepository.save(record)
+
             log.debug("✅ Successfully processed {} for {}", record.eventType, record.aggregateId)
             true
         } catch (ex: Exception) {
@@ -114,31 +160,23 @@ class OutboxProcessingScheduler(
         record.incrementRetryCount()
         if (record.retriesExhausted(properties.retry.maxRetries) || !retryPolicy.shouldRetry(ex)) {
             record.markFailed()
+            log.warn(
+                "🚫 Record {} for aggregate {} marked as FAILED after {} retries",
+                record.id,
+                record.aggregateId,
+                record.retryCount,
+            )
         } else {
             val delay = retryPolicy.nextDelay(record.retryCount)
             record.scheduleNextRetry(delay, clock)
+            log.debug(
+                "🔄 Scheduled retry #{} for record {} in {}",
+                record.retryCount,
+                record.id,
+                delay,
+            )
         }
 
         recordRepository.save(record)
-    }
-
-    /**
-     * Finds aggregate IDs that have pending records ready for processing.
-     *
-     * Takes into account configuration like stopOnFirstFailure to exclude
-     * aggregates that have failed records when appropriate.
-     *
-     * @return List of aggregate IDs with pending records
-     */
-    private fun findAggregateIdsWithPendingRecords(): List<String> {
-        val excludedAggregateIds = mutableListOf<String>()
-
-        if (properties.processing.stopOnFirstFailure) {
-            excludedAggregateIds.addAll(recordRepository.findAggregateIdsWithFailedRecords())
-        }
-
-        return recordRepository
-            .findAggregateIdsWithPendingRecords(status = NEW)
-            .filterNot(excludedAggregateIds::contains)
     }
 }

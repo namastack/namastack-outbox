@@ -1,7 +1,7 @@
 [versions]
 # Kotlin and Plugin versions
 kotlin = "2.2.21"
-springBoot = "3.5.6"
+springBoot = "3.5.7"
 dependencyManagement = "1.1.7"
 ktlint = "13.1.0"
 dokka = "2.1.0"
@@ -14,6 +14,8 @@ h2 = "2.4.240"
 mockk = "1.14.6"
 assertj = "3.27.6"
 micrometer = "1.15.5"
+jakarta = "2.1.1"
+commons = "1.19.0"
 
 [libraries]
 # Spring Boot dependencies
@@ -25,6 +27,9 @@ spring-boot-test = { module = "org.springframework.boot:spring-boot-test", versi
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBoot" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa", version.ref = "springBoot" }
 spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator", version.ref = "springBoot" }
+
+# Jakarta dependencies
+jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakarta"}
 
 # Kotlin dependencies
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
@@ -43,6 +48,9 @@ assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 # Metrics dependencies
 micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometer" }
 
+# Common dependencies
+commons-codec = { module = "commons-codec:commons-codec", version.ref = "commons" }
+
 [plugins]
 # Kotlin plugins
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -55,6 +63,5 @@ spring-dependency-management = { id = "io.spring.dependency-management", version
 
 # Code quality plugins
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
-dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 dokka-javadoc = { id = "org.jetbrains.dokka-javadoc", version.ref = "dokka" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "publish" }

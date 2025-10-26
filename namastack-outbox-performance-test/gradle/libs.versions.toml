@@ -1,0 +1,49 @@
+[versions]
+# Kotlin and Plugin versions
+kotlin = "2.2.20"
+springBoot = "3.5.6"
+dependencyManagement = "1.1.7"
+ktlint = "13.1.0"
+dokka = "2.1.0"
+publish = "0.34.0"
+
+# Dependency versions
+postgresql = "42.7.4"
+micrometer = "1.15.5"
+gatling = "3.14.6"
+
+[libraries]
+# Spring Boot dependencies
+spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+spring-boot = { module = "org.springframework.boot:spring-boot", version.ref = "springBoot" }
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "springBoot" }
+spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa", version.ref = "springBoot" }
+spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-starter-logging", version.ref = "springBoot" }
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator", version.ref = "springBoot" }
+
+# JPA and Database dependencies
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+
+# Metrics dependencies
+micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }
+
+# Test dependencies
+gatling-core = { module = "io.gatling:gatling-core", version.ref = "gatling" }
+gatling-app = { module = "io.gatling:gatling-app", version.ref = "gatling" }
+gatling-highcharts = { module = "io.gatling.highcharts:gatling-charts-highcharts", version.ref = "gatling" }
+
+[plugins]
+# Kotlin plugins
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+kotlin-jpa = { id = "org.jetbrains.kotlin.plugin.jpa", version.ref = "kotlin" }
+
+# Spring plugins
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "dependencyManagement" }
+
+# Code quality plugins
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
+
+# Test plugins
+gatling = { id = "io.gatling.gradle", version.ref = "gatling" }
