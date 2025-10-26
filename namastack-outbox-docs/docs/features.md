@@ -130,7 +130,7 @@ sequenceDiagram
     - **Simplified Operations**: No lock management or deadlock handling
     - **Enhanced Reliability**: No single point of failure from lock storage
     
-    See the [Migration Guide](../README.md#migration-from-010-to-020) for upgrade instructions.
+    See the [Migration Guide](https://github.com/namastack/namastack-outbox?tab=readme-ov-file#migration-from-010-to-020) for upgrade instructions.
 
 ### :material-sort-numeric-ascending: Event Ordering
 
