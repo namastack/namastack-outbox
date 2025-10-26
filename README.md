@@ -7,38 +7,25 @@
 [![dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-> **🚀 Major Update Coming: v0.2.0 Next Week!**
->
-> We're releasing a **major architectural improvement** that replaces distributed locking with **hash-based partitioning** for true horizontal scaling. This eliminates lock contention bottlenecks and enables linear scaling with instance count.
->
-> **Key Benefits:**
-> - ✅ **Zero Lock Contention** - No more fighting over shared locks
-> - ✅ **True Horizontal Scaling** - Linear performance with added instances
-> - ✅ **Predictable Performance** - Consistent processing times
-> - ✅ **Operational Simplicity** - No complex lock management
->
-> **⚠️ Breaking Change Notice:** v0.2.0 requires database migration and configuration updates. Migration guides will be provided with the release.
->
-> [📖 Read the technical details](https://github.com/namastack/namastack-outbox/issues/44) | [🎯 Follow progress](https://github.com/namastack/namastack-outbox/milestone/1)
-
 # Namastack Outbox for Spring Boot
 
 A robust Spring Boot library that implements the **Outbox Pattern** for reliable message publishing
 in distributed systems — built and maintained by [Namastack](https://outbox.namastack.io).
 This library ensures that domain events are published reliably, even in the face of system failures,
-by using transactional guarantees and distributed locking.
+by using transactional guarantees and hash-based partitioning.
 
 ## Features
 
 - 🔄 **Transactional Outbox Pattern**: Ensures events are never lost
-- 🔒 **Distributed Locking**: Prevents concurrent processing of the same aggregate
+- 🎯 **Hash-based Partitioning**: Automatic partition assignment for horizontal scaling
 - 🔁 **Automatic Retry**: Multiple retry policies with configurable strategies
 - 📊 **Event Ordering**: Guarantees event processing order per aggregate
 - ⚡ **High Performance**: Optimized for high-throughput scenarios
-- 🛡️ **Race Condition Safe**: Uses optimistic locking to handle concurrency
-- 📈 **Scalable**: Supports multiple application instances
+- 🛡️ **Race Condition Safe**: Partition-based coordination prevents conflicts
+- 📈 **Horizontally Scalable**: Dynamic instance coordination and rebalancing
 - 🎯 **Zero Message Loss**: Database-backed reliability
 - 🎲 **Jitter Support**: Randomized delays to prevent thundering herd
+- 📊 **Built-in Metrics**: Comprehensive monitoring with Micrometer integration
 
 ## Quick Start
 
@@ -59,7 +46,7 @@ Or if you're using Maven, add to your `pom.xml`:
 <dependency>
   <groupId>io.namastack</groupId>
   <artifactId>namastack-outbox-starter-jpa</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
 </dependency>
 ```
 
@@ -80,7 +67,8 @@ fun main(args: Array<String>) {
 
 ### 3. Configure Clock Bean
 
-The library requires a Clock bean for time-based operations. Add this configuration:
+The library requires a Clock bean for time-based operations. Configure your own Clock, if you 
+don't want to use the default Clock bean from namastack-outbox:
 
 ```kotlin
 @Configuration
@@ -115,20 +103,45 @@ CREATE TABLE IF NOT EXISTS outbox_record
     completed_at  TIMESTAMP WITH TIME ZONE,
     retry_count   INT                      NOT NULL,
     next_retry_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    partition     INTEGER                  NOT NULL,
     PRIMARY KEY (id)
 );
 
-CREATE TABLE IF NOT EXISTS outbox_lock
+CREATE TABLE IF NOT EXISTS outbox_instance
 (
-    aggregate_id VARCHAR(255)             NOT NULL,
-    acquired_at  TIMESTAMP WITH TIME ZONE NOT NULL,
-    expires_at   TIMESTAMP WITH TIME ZONE NOT NULL,
-    version      BIGINT                   NOT NULL,
-    PRIMARY KEY (aggregate_id)
+    instance_id    VARCHAR(255) PRIMARY KEY,
+    hostname       VARCHAR(255)             NOT NULL,
+    port           INTEGER                  NOT NULL,
+    status         VARCHAR(50)              NOT NULL,
+    started_at     TIMESTAMP WITH TIME ZONE NOT NULL,
+    last_heartbeat TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at     TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at     TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_outbox_aggregate_id_created_at ON outbox_record (aggregate_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_created
+    ON outbox_record (aggregate_id, created_at);
 
+CREATE INDEX IF NOT EXISTS idx_outbox_record_partition_status_retry
+    ON outbox_record (partition, status, next_retry_at);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry
+    ON outbox_record (status, next_retry_at);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status
+    ON outbox_record (status);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_completed_created
+    ON outbox_record (aggregate_id, completed_at, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_instance_status_heartbeat
+    ON outbox_instance (status, last_heartbeat);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_instance_last_heartbeat
+    ON outbox_instance (last_heartbeat);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_instance_status
+    ON outbox_instance (status);
 ```
 
 ### 5. Create Event Processor
@@ -226,6 +239,7 @@ val outboxRecord = OutboxRecord.restore(
     aggregateId = order.id.toString(),
     eventType = "OrderCreated",
     payload = objectMapper.writeValueAsString(event),
+    partition = 1,
     createdAt = OffsetDateTime.now(clock),
     status = OutboxRecordStatus.NEW,
     completedAt = null,
@@ -245,21 +259,26 @@ Configure the outbox behavior in your `application.yml`:
 
 ```yaml
 outbox:
-  # Polling interval for processing events
-  poll-interval: 5s
+  # Polling interval for processing events (milliseconds)
+  poll-interval: 2000
+  
+  # Batch size for processing events
+  batch-size: 10
 
   # Schema initialization
   schema-initialization:
     enabled: true
 
-  # Distributed locking settings  
-  locking:
-    extension-seconds: 300     # Lock duration (5 minutes)
-    refresh-threshold: 60      # Renew lock when < 60s remaining
-
   # Processing behavior configuration
   processing:
     stop-on-first-failure: true  # Stop processing aggregate when one event fails (default: true)
+
+  # Instance coordination and partition management
+  instance:
+    graceful-shutdown-timeout-seconds: 15     # Timeout for graceful shutdown
+    stale-instance-timeout-seconds: 30        # When to consider an instance stale
+    heartbeat-interval-seconds: 5             # Heartbeat frequency
+    new-instance-detection-interval-seconds: 10  # Instance discovery frequency
 
   # Retry configuration
   retry:
@@ -268,7 +287,7 @@ outbox:
 
     # Exponential backoff configuration
     exponential:
-      initial-delay: 1000      # Start with 1 second
+      initial-delay: 2000      # Start with 2 seconds
       max-delay: 60000         # Cap at 60 seconds  
       multiplier: 2.0          # Double each time
 
@@ -282,7 +301,65 @@ outbox:
       jitter: 500              # Add 0-500ms random jitter
 ```
 
-## Processing Behavior
+## Hash-based Partitioning
+
+The library uses hash-based partitioning to enable horizontal scaling across multiple application 
+instances while maintaining strict event ordering per aggregate (if activated).
+
+### How Partitioning Works
+
+1. **Consistent Hashing**: Each outbox record is assigned to a partition based on its `aggregateId` using MurmurHash3
+2. **Fixed Partition Count**: The system uses 256 fixed partitions (configurable at compile time)
+3. **Dynamic Assignment**: Partitions are automatically distributed among active instances
+4. **Automatic Rebalancing**: When instances join or leave, partitions are reassigned
+
+### Partition Assignment
+
+```kotlin
+// Each aggregate always maps to the same partition
+val partition = PartitionHasher.getPartitionForAggregate("order-123")
+// partition will always be the same value for "order-123"
+```
+
+### Instance Coordination
+
+The library automatically coordinates multiple instances:
+
+```yaml
+outbox:
+  instance:
+    graceful-shutdown-timeout-seconds: 15     # Time to wait for graceful shutdown
+    stale-instance-timeout-seconds: 30        # When to consider an instance dead
+    heartbeat-interval-seconds: 5             # How often instances send heartbeats
+    new-instance-detection-interval-seconds: 10  # How often to check for new instances
+```
+
+### Scaling Behavior
+
+- **Scale Up**: New instances automatically receive partition assignments
+- **Scale Down**: Partitions from stopped instances are redistributed to remaining instances
+- **Load Balancing**: Partitions are distributed as evenly as possible across instances
+
+### Example: 3 Instances with 256 Partitions
+
+```
+Instance 1: Partitions 0-84   (85 partitions)
+Instance 2: Partitions 85-169 (85 partitions) 
+Instance 3: Partitions 170-255 (86 partitions)
+```
+
+When Instance 2 goes down:
+```
+Instance 1: Partitions 0-84, 170-211   (127 partitions)
+Instance 3: Partitions 85-169, 212-255 (129 partitions)
+```
+
+### Ordering Guarantees
+
+✅ **Per-Aggregate Ordering**: All events for the same aggregate are processed in order  
+✅ **Cross-Instance Safety**: Only one instance processes events for each aggregate  
+✅ **Failure Recovery**: Partitions are automatically reassigned when instances fail  
+✅ **No Manual Configuration**: Partition assignment is fully automatic
 
 The library provides configurable processing behavior to handle different use cases and
 requirements.
@@ -483,9 +560,8 @@ processing fails:
 
 ## Metrics
 
-The `namastack-outbox-metrics` module provides metrics for Outbox records and integrates
-automatically
-with Micrometer and Spring Boot Actuator.
+The `namastack-outbox-metrics` module provides comprehensive metrics for Outbox records and 
+partition distribution, integrating automatically with Micrometer and Spring Boot Actuator.
 
 ### Prerequisites
 
@@ -499,61 +575,94 @@ Add the metrics module to your dependencies:
 
 ```kotlin
 dependencies {
-    implementation("io.namastack:namastack-outbox-metrics:0.1.0")
+    implementation("io.namastack:namastack-outbox-metrics:0.2.0")
 }
 ```
 
 Make sure the Actuator endpoints are enabled (e.g. in `application.properties`):
 
 ```properties
-management.endpoints.web.exposure.include=*
+management.endpoints.web.exposure.include=health, info, metrics
 ```
 
 ### Available Metrics
 
-The module registers a gauge for each Outbox status (NEW, FAILED, COMPLETED) with the name:
+#### Record Status Metrics
 
-- `outbox.records.count{status="new|failed|completed"}`
+The module registers gauges for each Outbox status:
 
-These metrics show the number of Outbox records per status and can be queried via
-`/actuator/metrics/outbox.records.count`.
+- `outbox.records.count{status="new|failed|completed"}` - Count of records by status
+
+#### Partition Metrics
+
+The module also provides partition-level metrics for monitoring load distribution:
+
+- `outbox.partitions.assigned.count` - Number of partitions assigned to this instance
+- `outbox.partitions.pending.records.total` - Total pending records across assigned partitions
+- `outbox.partitions.pending.records.max` - Maximum pending records in any assigned partition
+- `outbox.partitions.pending.records.avg` - Average pending records per assigned partition
+
+#### Cluster Metrics
+
+Monitor cluster-wide partition distribution:
+
+- `outbox.cluster.instances.total` - Total number of active instances in the cluster
+- `outbox.cluster.partitions.total` - Total number of partitions (always 256)
+- `outbox.cluster.partitions.avg_per_instance` - Average partitions per instance
 
 ### Example: Querying Metrics
 
 ```shell
+# Record status metrics
 curl http://localhost:8080/actuator/metrics/outbox.records.count
-```
 
-The result contains the values for all statuses as separate time series.
+# Partition metrics
+curl http://localhost:8080/actuator/metrics/outbox.partitions.assigned.count
+curl http://localhost:8080/actuator/metrics/outbox.cluster.instances.total
+```
 
 ### Prometheus Integration
 
 If Prometheus is enabled in Spring Boot Actuator (e.g. by adding
-`implementation("io.micrometer:micrometer-registry-prometheus")` and enabling the endpoint), the
-Outbox metrics are also available under `/actuator/prometheus`. They appear as:
+`implementation("io.micrometer:micrometer-registry-prometheus")` and enabling the endpoint), all
+Outbox metrics are available under `/actuator/prometheus`:
 
 ```
+# Record metrics
 outbox_records_count{status="new",...} <value>
 outbox_records_count{status="failed",...} <value>
 outbox_records_count{status="completed",...} <value>
+
+# Partition metrics
+outbox_partitions_assigned_count{...} <value>
+outbox_partitions_pending_records_total{...} <value>
+outbox_partitions_pending_records_max{...} <value>
+outbox_partitions_pending_records_avg{...} <value>
+
+# Cluster metrics
+outbox_cluster_instances_total{...} <value>
+outbox_cluster_partitions_total{...} <value>
+outbox_cluster_partitions_avg_per_instance{...} <value>
 ```
 
-This allows the metrics to be scraped directly by Prometheus and used for dashboards or alerts.
+### Grafana Dashboard
 
-### Error Handling
+Use these metrics to create monitoring dashboards:
 
-If the JPA module is not included, an exception with a clear message is thrown at startup.
-
-For more details, see the module documentation and source code.
+- **Load Distribution**: Monitor `outbox.partitions.pending.records.*` across instances
+- **Cluster Health**: Track `outbox.cluster.instances.total` for instance failures
+- **Processing Backlog**: Watch `outbox.records.count{status="new"}` for backlogs
+- **Failure Rate**: Monitor `outbox.records.count{status="failed"}` for issues
 
 ## Monitoring
 
-Query outbox status:
+Monitor outbox status and partition distribution:
 
 ```kotlin
 @Service
 class OutboxMonitoringService(
-    private val outboxRepository: OutboxRecordRepository
+    private val outboxRepository: OutboxRecordRepository,
+    private val partitionMetricsProvider: OutboxPartitionMetricsProvider
 ) {
 
     fun getPendingEvents(): List<OutboxRecord> {
@@ -567,6 +676,14 @@ class OutboxMonitoringService(
     fun getCompletedEvents(): List<OutboxRecord> {
         return outboxRepository.findCompletedRecords()
     }
+
+    fun getPartitionStats(): PartitionProcessingStats {
+        return partitionMetricsProvider.getProcessingStats()
+    }
+
+    fun getClusterStats(): PartitionStats {
+        return partitionMetricsProvider.getPartitionStats()
+    }
 }
 ```
 
@@ -574,33 +691,41 @@ class OutboxMonitoringService(
 
 ### Outbox Pattern
 
-1. **Transactional Write**: Events are saved to the outbox table in the same transaction as your
-   domain changes
-2. **Background Processing**: A scheduler polls for unprocessed events
-3. **Distributed Locking**: Only one instance processes events for each aggregate
-4. **Ordered Processing**: Events are processed in creation order per aggregate
-5. **Retry Logic**: Failed events are automatically retried with exponential backoff
+1. **Transactional Write**: Events are saved to the outbox table in the same transaction as your domain changes
+2. **Hash-based Partitioning**: Each event is assigned to a partition based on its aggregateId
+3. **Instance Coordination**: Partitions are automatically distributed among active instances
+4. **Background Processing**: A scheduler polls for unprocessed events in assigned partitions
+5. **Ordered Processing**: Events are processed in creation order per aggregate
+6. **Retry Logic**: Failed events are automatically retried with configurable policies
 
-### Distributed Locking
+### Hash-based Partitioning
 
-- Each aggregate gets its own lock to prevent concurrent processing
-- Locks automatically expire and can be overtaken by other instances
-- Optimistic locking prevents race conditions during lock renewal
-- Lock-free processing for different aggregates enables horizontal scaling
+- **Consistent Hashing**: Each aggregate maps to the same partition using MurmurHash3
+- **Fixed Partitions**: 256 partitions provide fine-grained load distribution
+- **Dynamic Assignment**: Partitions are automatically redistributed when instances join/leave
+- **Load Balancing**: Even distribution of partitions across all active instances
+
+### Instance Coordination
+
+- **Heartbeat System**: Instances send regular heartbeats to indicate they're alive
+- **Automatic Discovery**: New instances are automatically detected and included
+- **Failure Detection**: Stale instances are detected and their partitions redistributed
+- **Graceful Shutdown**: Instances can shutdown gracefully, releasing their partitions
 
 ### Reliability Guarantees
 
 ✅ **At-least-once delivery**: Events will be processed at least once  
 ✅ **Ordering per aggregate**: Events for the same aggregate are processed in order  
 ✅ **Failure recovery**: System failures don't result in lost events  
-✅ **Scalability**: Multiple instances can process different aggregates concurrently
+✅ **Horizontal scalability**: Multiple instances process different partitions concurrently  
+✅ **Automatic rebalancing**: Partitions are redistributed when instances change
 
 ## Testing
 
 The library is thoroughly tested with:
 
 - **Unit Tests**: All components with high coverage
-- **Integration Tests**: Real database and locking scenarios
+- **Integration Tests**: Real database and partitioning scenarios
 - **Concurrency Tests**: Race condition validation
 - **Performance Tests**: High-throughput scenarios
 
@@ -609,6 +734,84 @@ Run tests:
 ```bash
 ./gradlew test
 ```
+
+## Migration from 0.1.0 to 0.2.0
+
+Version 0.2.0 introduces significant architectural improvements, transitioning from distributed locking to **hash-based partitioning** for better horizontal scaling and performance. This change requires database schema updates.
+
+### Key Changes in 0.2.0
+
+🎯 **Hash-based Partitioning**: Replaced distributed locking with partition-based coordination  
+📊 **Instance Management**: New `outbox_instance` table for coordinating multiple instances  
+🔢 **Partition Field**: Added `partition` column to `outbox_record` table  
+📈 **Enhanced Performance**: Optimized queries and improved throughput  
+📊 **Built-in Metrics**: Comprehensive monitoring with partition-level visibility
+
+### Database Schema Changes
+
+The 0.2.0 release introduces:
+
+1. **New `outbox_instance` table** for instance coordination
+2. **New `partition` column** in `outbox_record` table
+3. **Additional database indexes** for optimal performance
+4. **Removal of lock-related tables** (if you used the distributed locking approach)
+
+### Migration Steps
+
+#### Option 1: Simple Migration (Recommended)
+
+The **easiest and safest approach** is to drop existing outbox tables and let the library recreate them with the new schema:
+
+```sql
+-- Stop all application instances first
+-- This ensures no events are being processed during migration
+
+-- Drop existing tables (this will lose existing outbox data)
+DROP TABLE IF EXISTS outbox_record;
+DROP TABLE IF EXISTS outbox_lock;  -- If you have this from 0.1.0
+
+-- Update your application to version 0.2.0
+-- The new schema will be automatically created on startup if schema-initialization is enabled
+```
+
+**When to use this approach:**
+- ✅ You can afford to lose unprocessed outbox events
+- ✅ You're okay with a brief service interruption
+- ✅ You want the simplest migration path
+- ✅ You're in development or staging environment
+
+#### Option 2: Data Preservation Migration
+
+If you need to preserve existing outbox data, please **contact the maintainer** for assistance with a custom migration script. This requires:
+
+- Migrating existing records to the new partition-based structure
+- Calculating partition assignments for existing records
+- Handling any failed or pending events appropriately
+
+**When you need custom migration support:**
+- 🔄 You have critical unprocessed events that must be preserved
+- 🏭 You're migrating in a production environment with strict data requirements
+- 📊 You need to maintain event processing history
+
+### Verification Steps
+
+After migration, verify the setup:
+
+1. **Check Tables**: Ensure `outbox_record` and `outbox_instance` tables exist
+2. **Verify Partitioning**: Confirm that new records have `partition` values assigned
+3. **Test Scaling**: Start multiple instances and verify partition assignment works
+4. **Monitor Metrics**: Use the new metrics endpoints to monitor partition distribution
+
+### Breaking Changes
+
+- **Removed**: Distributed lock-based coordination
+- **Changed**: `OutboxRecord` now includes partition information
+- **New**: Instance coordination requires heartbeat mechanism
+- **New**: Automatic partition assignment for horizontal scaling
+
+### Need Help?
+
+If you cannot use the simple drop-and-recreate approach and need to preserve existing outbox data, please **contact the maintainer** by opening a GitHub issue.
 
 ## Requirements
 

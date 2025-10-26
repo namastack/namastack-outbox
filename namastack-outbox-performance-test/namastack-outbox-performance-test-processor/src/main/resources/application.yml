@@ -14,16 +14,13 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus
+        include: health, info, metrics, prometheus
 
 outbox:
   poll-interval: 1000
   batch-size: 50
   schema-initialization:
     enabled: true
-  locking:
-    refresh-threshold: 2
-    extension-seconds: 5
   retry:
     policy: jittered
     max-retries: 3

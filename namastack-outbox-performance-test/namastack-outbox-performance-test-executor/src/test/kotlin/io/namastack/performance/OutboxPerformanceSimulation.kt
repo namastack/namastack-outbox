@@ -7,7 +7,7 @@ import io.gatling.javaapi.http.HttpDsl
 import java.time.Duration
 import java.util.UUID
 
-class PostSimulation : Simulation() {
+class OutboxPerformanceSimulation : Simulation() {
     val httpProtocol =
         HttpDsl.http
             .baseUrl("http://localhost:8082")
@@ -33,7 +33,7 @@ class PostSimulation : Simulation() {
     init {
         setUp(
             scn.injectOpen(
-                constantUsersPerSec(100.0).during(Duration.ofSeconds(120)),
+                constantUsersPerSec(200.0).during(Duration.ofSeconds(120)),
             ),
         ).protocols(httpProtocol)
     }
