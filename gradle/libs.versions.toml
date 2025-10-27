@@ -14,7 +14,7 @@ h2 = "2.4.240"
 mockk = "1.14.6"
 assertj = "3.27.6"
 micrometer = "1.15.5"
-jakarta = "2.1.1"
+jakarta = "3.0.0"
 commons = "1.19.0"
 
 [libraries]
