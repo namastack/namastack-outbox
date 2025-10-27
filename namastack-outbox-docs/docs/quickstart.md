@@ -308,8 +308,6 @@ Store events in the outbox within the same transaction as your entity:
 
 ## Configuration Overview
 
-C## Configuration
-
 Configure the outbox behavior in your `application.yml`:
 
 ```yaml
