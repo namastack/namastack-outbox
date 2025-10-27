@@ -5,10 +5,12 @@ import io.namastack.outbox.OutboxRecordRepository
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
+import java.time.Clock
 
 @RestController
 class OutboxRecordController(
     private val outboxRecordRepository: OutboxRecordRepository,
+    private val clock: Clock = Clock.systemDefaultZone(),
 ) {
     @PostMapping("/outbox/record/{aggregateId}")
     fun createOutboxRecord(
@@ -20,7 +22,7 @@ class OutboxRecordController(
                 .aggregateId(aggregateId)
                 .payload("random".repeat(100))
                 .eventType("OutboxRecordCreatedEvent")
-                .build(),
+                .build(clock),
         )
     }
 }
