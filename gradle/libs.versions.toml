@@ -16,6 +16,7 @@ assertj = "3.27.6"
 micrometer = "1.16.0"
 jakarta = "3.0.0"
 commons = "1.20.0"
+jackson = "3.0.1"
 
 [libraries]
 # Spring Boot dependencies
@@ -50,6 +51,9 @@ micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "mic
 
 # Common dependencies
 commons-codec = { module = "commons-codec:commons-codec", version.ref = "commons" }
+
+# Jackson dependencies
+jackson-databind = { module = "tools.jackson.core:jackson-databind", version.ref = "jackson" }
 
 [plugins]
 # Kotlin plugins
