@@ -103,60 +103,10 @@ outbox:
     enabled: true
 ```
 
-Or create the tables manually:
+The library will create all required tables and indices on startup.
 
-```sql
-CREATE TABLE IF NOT EXISTS outbox_record
-(
-    id            VARCHAR(255)             NOT NULL,
-    status        VARCHAR(20)              NOT NULL,
-    aggregate_id  VARCHAR(255)             NOT NULL,
-    event_type    VARCHAR(255)             NOT NULL,
-    payload       TEXT                     NOT NULL,
-    created_at    TIMESTAMP WITH TIME ZONE NOT NULL,
-    completed_at  TIMESTAMP WITH TIME ZONE,
-    retry_count   INT                      NOT NULL,
-    next_retry_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    partition     INTEGER                  NOT NULL,
-    PRIMARY KEY (id)
-);
-
-CREATE TABLE IF NOT EXISTS outbox_instance
-(
-    instance_id    VARCHAR(255) PRIMARY KEY,
-    hostname       VARCHAR(255)             NOT NULL,
-    port           INTEGER                  NOT NULL,
-    status         VARCHAR(50)              NOT NULL,
-    started_at     TIMESTAMP WITH TIME ZONE NOT NULL,
-    last_heartbeat TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at     TIMESTAMP WITH TIME ZONE NOT NULL,
-    updated_at     TIMESTAMP WITH TIME ZONE NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_created
-    ON outbox_record (aggregate_id, created_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_partition_status_retry
-    ON outbox_record (partition, status, next_retry_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry
-    ON outbox_record (status, next_retry_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status
-    ON outbox_record (status);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_completed_created
-    ON outbox_record (aggregate_id, completed_at, created_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_instance_status_heartbeat
-    ON outbox_instance (status, last_heartbeat);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_instance_last_heartbeat
-    ON outbox_instance (last_heartbeat);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_instance_status
-    ON outbox_instance (status);
-```
+!!! info "Manual Schema Creation"
+    If you prefer to manage the database schema manually, see the [Database Configuration](features.md#database-configuration) section in the Features guide for SQL DDL statements.
 
 ## Implement Your Processor
 
@@ -226,7 +176,121 @@ You decide how events are published — to Kafka, RabbitMQ, SNS, or any other br
 
 ## Write Events Transactionally
 
-Store events in the outbox within the same transaction as your entity:
+With **Namastack Outbox v0.3.0+**, publishing events is as simple as annotating your event class and using Spring's `@DomainEvents`:
+
+=== "Kotlin"
+
+    ```kotlin
+    // Step 1: Annotate your event with @OutboxEvent
+    @OutboxEvent(aggregateId = "orderId")
+    data class OrderCreatedEvent(
+        val orderId: String,
+        val customerId: String,
+        val amount: BigDecimal
+    ) : DomainEvent
+    
+    // Step 2: Use @DomainEvents in your aggregate root
+    @Entity
+    @Table(name = "orders")
+    class Order(
+        @Id
+        val id: String,
+        val customerId: String,
+        val amount: BigDecimal
+    ) : AbstractAggregateRoot<Order>() {
+        
+        companion object {
+            fun create(command: CreateOrderCommand): Order {
+                val order = Order(
+                    id = UUID.randomUUID().toString(),
+                    customerId = command.customerId,
+                    amount = command.amount
+                )
+                order.registerEvent(OrderCreatedEvent(order.id, order.customerId, order.amount))
+                return order
+            }
+        }
+    }
+    
+    // Step 3: Save via repository - events are automatically handled
+    @Service
+    class OrderService(private val orderRepository: OrderRepository) {
+    
+        fun createOrder(command: CreateOrderCommand): Order {
+            val order = Order.create(command)
+            orderRepository.save(order)  // @DomainEvents -> @OutboxEvent -> Outbox
+            return order
+        }
+    }
+    ```
+
+=== "Java"
+
+    ```java
+    // Step 1: Annotate your event with @OutboxEvent
+    @OutboxEvent(aggregateId = "orderId")
+    public record OrderCreatedEvent(
+        String orderId,
+        String customerId,
+        BigDecimal amount
+    ) implements DomainEvent {}
+    
+    // Step 2: Use @DomainEvents in your aggregate root
+    @Entity
+    @Table(name = "orders")
+    public class Order extends AbstractAggregateRoot<Order> {
+        @Id
+        private String id;
+        private String customerId;
+        private BigDecimal amount;
+        
+        public Order(String id, String customerId, BigDecimal amount) {
+            this.id = id;
+            this.customerId = customerId;
+            this.amount = amount;
+        }
+        
+        public static Order create(CreateOrderCommand command) {
+            Order order = new Order(
+                UUID.randomUUID().toString(),
+                command.getCustomerId(),
+                command.getAmount()
+            );
+            order.registerEvent(new OrderCreatedEvent(order.id, order.customerId, order.amount));
+            return order;
+        }
+        
+        // Getters...
+    }
+    
+    // Step 3: Save via repository - events are automatically handled
+    @Service
+    public class OrderService {
+        private final OrderRepository orderRepository;
+        
+        public OrderService(OrderRepository orderRepository) {
+            this.orderRepository = orderRepository;
+        }
+        
+        public Order createOrder(CreateOrderCommand command) {
+            Order order = Order.create(command);
+            orderRepository.save(order);  // @DomainEvents -> @OutboxEvent -> Outbox
+            return order;
+        }
+    }
+    ```
+
+!!! success "That's it!"
+    Your events are now:
+
+    - ✅ Automatically serialized to JSON (Jackson)
+    - ✅ Persisted to the outbox database
+    - ✅ Stored atomically with your business data
+    - ✅ Processed and published reliably
+
+## Alternative: Manual Outbox Record Creation
+
+If you prefer more control or don't want to use `@DomainEvents`, you can manually create and persist outbox records:
 
 === "Kotlin"
 
@@ -238,19 +302,19 @@ Store events in the outbox within the same transaction as your entity:
         private val objectMapper: ObjectMapper,
         private val clock: Clock
     ) {
-    
+
         @Transactional
         fun createOrder(command: CreateOrderCommand): Order {
             val order = Order.create(command)
             orderRepository.save(order)
-    
+
             val event = OrderCreatedEvent(order.id, order.customerId, order.amount)
             val record = OutboxRecord.Builder()
-                .aggregateId(order.id.toString())
+                .aggregateId(order.id)
                 .eventType("OrderCreated")
                 .payload(objectMapper.writeValueAsString(event))
                 .build(clock)
-    
+
             outboxRepository.save(record)
             return order
         }
@@ -262,12 +326,11 @@ Store events in the outbox within the same transaction as your entity:
     ```java
     @Service
     public class OrderService {
-    
         private final OrderRepository orderRepository;
         private final OutboxRecordRepository outboxRepository;
         private final ObjectMapper objectMapper;
         private final Clock clock;
-    
+
         public OrderService(OrderRepository orderRepository,
                             OutboxRecordRepository outboxRepository,
                             ObjectMapper objectMapper,
@@ -277,34 +340,32 @@ Store events in the outbox within the same transaction as your entity:
             this.objectMapper = objectMapper;
             this.clock = clock;
         }
-    
+
         @Transactional
         public Order createOrder(CreateOrderCommand command) {
-            // Create and save the order
             Order order = Order.create(command);
             orderRepository.save(order);
-    
-            // Create the event
+
             OrderCreatedEvent event = new OrderCreatedEvent(order.getId(), order.getCustomerId(), order.getAmount());
-    
-            try {
-                // Build the outbox record
-                OutboxRecord record = new OutboxRecord.Builder()
-                        .aggregateId(order.getId().toString())
-                        .eventType("OrderCreated")
-                        .payload(objectMapper.writeValueAsString(event))
-                        .build(clock);
-    
-                // Save the outbox record
-                outboxRepository.save(record);
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to serialize OrderCreatedEvent", e);
-            }
-    
+            OutboxRecord record = new OutboxRecord.Builder()
+                    .aggregateId(order.getId())
+                    .eventType("OrderCreated")
+                    .payload(objectMapper.writeValueAsString(event))
+                    .build(clock);
+
+            outboxRepository.save(record);
             return order;
         }
     }
     ```
+
+!!! note "When to Use Manual Creation"
+    Use the manual approach when:
+
+    - You need explicit control over which events are persisted
+    - You're working with legacy code that doesn't use aggregate roots
+    - You want to persist custom metadata alongside events
+    - You prefer explicit over implicit behavior
 
 ## Configuration Overview
 
@@ -325,6 +386,7 @@ outbox:
   # Processing behavior configuration
   processing:
     stop-on-first-failure: true  # Stop processing aggregate when one event fails (default: true)
+    publish-after-save: true     # Publish events to listeners after saving to outbox (default: true)
 
   # Instance coordination and partition management
   instance:

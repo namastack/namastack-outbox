@@ -1,77 +1,49 @@
 package io.namastack.demo.customer
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import io.namastack.outbox.OutboxRecord
-import io.namastack.outbox.OutboxRecordRepository
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
-import java.time.Clock
 
 @Service
 class CustomerService(
     private val customerRepository: CustomerRepository,
-    private val outboxRecordRepository: OutboxRecordRepository,
-    private val clock: Clock,
 ) {
-    @Transactional
+    private val logger = LoggerFactory.getLogger(CustomerService::class.java)
+
     fun register(
         firstName: String,
         lastName: String,
     ): Customer {
+        logger.info("📝 Registering customer: $firstName $lastName")
+
         val customer = Customer.register(firstName, lastName)
-        customerRepository.save(customer)
+        customer.addRegisteredEvent()
 
-        val registeredEvent = CustomerRegisteredEvent(customer.id, customer.firstname, customer.lastname)
-
-        outboxRecordRepository.save(
-            OutboxRecord
-                .Builder()
-                .aggregateId(customer.id)
-                .eventType(CustomerRegisteredEvent::class.simpleName.toString())
-                .payload(ObjectMapper().writeValueAsString(registeredEvent))
-                .build(clock),
-        )
-
-        return customer
+        return customerRepository.save(customer)
     }
 
-    @Transactional
     fun activate(customerId: String): Customer {
-        val customer = customerRepository.findById(customerId).orElseThrow()
+        logger.info("🎉 Activating customer: $customerId")
+
+        val customer =
+            customerRepository
+                .findById(customerId)
+                .orElseThrow { IllegalArgumentException("Customer not found: $customerId") }
 
         customer.activate()
 
-        val activatedEvent = CustomerActivatedEvent(customer.id)
-
-        outboxRecordRepository.save(
-            OutboxRecord
-                .Builder()
-                .aggregateId(customer.id)
-                .eventType(CustomerActivatedEvent::class.simpleName.toString())
-                .payload(ObjectMapper().writeValueAsString(activatedEvent))
-                .build(clock),
-        )
-
-        return customer
+        return customerRepository.save(customer)
     }
 
-    @Transactional
     fun deactivate(customerId: String): Customer {
-        val customer = customerRepository.findById(customerId).orElseThrow()
+        logger.info("😔 Deactivating customer: $customerId")
+
+        val customer =
+            customerRepository
+                .findById(customerId)
+                .orElseThrow { IllegalArgumentException("Customer not found: $customerId") }
 
         customer.deactivate()
 
-        val deactivatedEvent = CustomerDeactivatedEvent(customer.id)
-
-        outboxRecordRepository.save(
-            OutboxRecord
-                .Builder()
-                .aggregateId(customer.id)
-                .eventType(CustomerDeactivatedEvent::class.simpleName.toString())
-                .payload(ObjectMapper().writeValueAsString(deactivatedEvent))
-                .build(clock),
-        )
-
-        return customer
+        return customerRepository.save(customer)
     }
 }

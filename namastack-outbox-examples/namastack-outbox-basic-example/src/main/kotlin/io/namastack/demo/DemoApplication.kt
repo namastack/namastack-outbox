@@ -11,14 +11,22 @@ import org.springframework.scheduling.annotation.EnableScheduling
 /**
  * Namastack Outbox for Spring Boot Demo Application
  *
- * This application demonstrates the usage of the Namastack Outbox for Spring Boot library for implementing
- * the transactional outbox pattern in a Spring Boot application.
+ * This application demonstrates the declarative @OutboxEvent approach for implementing
+ * the transactional outbox pattern with Spring Boot and Spring Data JPA.
  *
- * Key Features Demonstrated:
- * - Reliable event publishing using the outbox pattern
- * - Event processing with custom processors
- * - Transactional safety guarantees
- * - Domain event ordering per aggregate
+ * How It Works:
+ * 1. Events are marked with @OutboxEvent annotation
+ * 2. Aggregates use @DomainEvents to collect events during state changes
+ * 3. repository.save() triggers @DomainEvents publication
+ * 4. OutboxEventMulticaster intercepts @OutboxEvent annotated events
+ * 5. Events are automatically serialized and persisted to outbox
+ * 6. DemoRecordProcessor polls and processes events asynchronously
+ *
+ * Key Components:
+ * - Customer: Aggregate root with domain events
+ * - CustomerService: Clean service without manual outbox code
+ * - OutboxEventListener: Demonstrates optional event listener
+ * - DemoRecordProcessor: Processes outbox records asynchronously
  *
  * @author Roland Beisel
  */
@@ -38,37 +46,66 @@ class DemoApplication(
     }
 
     override fun run(vararg args: String?) {
-        logger.info("🚀 Starting Namastack Outbox for Spring Boot Demo...")
-        logger.info("📋 This demo will showcase the transactional outbox pattern with customer lifecycle events")
+        logger.info("")
+        logger.info("╔════════════════════════════════════════════════════════════╗")
+        logger.info("║  Namastack Outbox for Spring Boot - Demo Application v0.3.0 ║")
+        logger.info("║  Demonstrating @OutboxEvent + @DomainEvents Pattern         ║")
+        logger.info("╚════════════════════════════════════════════════════════════╝")
+        logger.info("")
 
-        // Wait a moment for the application to fully initialize
-        Thread.sleep(1000)
+        Thread.sleep(500)
 
         demonstrateCustomerLifecycle()
 
-        logger.info("✨ Demo completed successfully!")
-        logger.info("💡 Check the logs above to see the outbox pattern in action")
-        logger.info("🔗 You can also interact with the REST API at http://localhost:8080/api/customers")
+        logger.info("")
+        logger.info("✨ Demo flow completed!")
+        logger.info("📊 Events are being processed asynchronously by the Outbox Processor")
+        logger.info("💡 Press Ctrl+C to stop the application")
+        logger.info("")
     }
 
     private fun demonstrateCustomerLifecycle() {
-        logger.info("📝 Creating customers...")
+        logger.info("─────────────────────────────────────────────────────────────")
+        logger.info("Step 1: Creating Customers")
+        logger.info("─────────────────────────────────────────────────────────────")
+
         val customer1 = customerService.register("John", "Smith")
         val customer2 = customerService.register("Alice", "Thompson")
         val customer3 = customerService.register("Bruno", "Bertolli")
 
-        Thread.sleep(500)
+        logger.info("✓ 3 customers registered")
+        logger.info("")
 
-        logger.info("✅ Activating customers...")
+        Thread.sleep(1000)
+
+        logger.info("─────────────────────────────────────────────────────────────")
+        logger.info("Step 2: Activating Customers")
+        logger.info("─────────────────────────────────────────────────────────────")
+
         customerService.activate(customer1.id)
         customerService.activate(customer2.id)
         customerService.activate(customer3.id)
 
-        Thread.sleep(500)
+        logger.info("✓ 3 customers activated")
+        logger.info("")
 
-        logger.info("❌ Deactivating customers...")
+        Thread.sleep(1000)
+
+        logger.info("─────────────────────────────────────────────────────────────")
+        logger.info("Step 3: Deactivating Customers")
+        logger.info("─────────────────────────────────────────────────────────────")
+
         customerService.deactivate(customer1.id)
         customerService.deactivate(customer2.id)
         customerService.deactivate(customer3.id)
+
+        logger.info("✓ 3 customers deactivated")
+        logger.info("")
+
+        logger.info("─────────────────────────────────────────────────────────────")
+        logger.info("Events Published to Outbox!")
+        logger.info("─────────────────────────────────────────────────────────────")
+        logger.info("Waiting for asynchronous processing...")
+        logger.info("")
     }
 }

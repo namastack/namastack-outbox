@@ -3,17 +3,19 @@ package io.namastack.demo.customer
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import org.springframework.data.domain.AbstractAggregateRoot
 import java.util.UUID
 
 @Entity
 @Table(name = "customer")
-data class Customer(
+class Customer(
     @Id
     val id: String,
     val firstname: String,
     val lastname: String,
-    private var activated: Boolean = false,
-) {
+) : AbstractAggregateRoot<Customer>() {
+    var activated: Boolean = false
+
     companion object {
         fun register(
             firstname: String,
@@ -22,10 +24,20 @@ data class Customer(
     }
 
     fun activate() {
-        activated = true
+        if (!activated) {
+            activated = true
+            registerEvent(CustomerActivatedEvent(id))
+        }
     }
 
     fun deactivate() {
-        activated = false
+        if (activated) {
+            activated = false
+            registerEvent(CustomerDeactivatedEvent(id))
+        }
+    }
+
+    fun addRegisteredEvent() {
+        registerEvent(CustomerRegisteredEvent(id = id, firstname = firstname, lastname = lastname))
     }
 }
