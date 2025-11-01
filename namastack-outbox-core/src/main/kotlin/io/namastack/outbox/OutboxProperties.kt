@@ -81,9 +81,11 @@ data class OutboxProperties(
      * Configuration for outbox record processing behavior.
      *
      * @param stopOnFirstFailure Whether to stop processing on the first failure
+     * @param publishAfterSave Whether to publish events to listeners after saving to outbox
      */
     data class Processing(
         val stopOnFirstFailure: Boolean = true,
+        val publishAfterSave: Boolean = true,
     )
 
     /**

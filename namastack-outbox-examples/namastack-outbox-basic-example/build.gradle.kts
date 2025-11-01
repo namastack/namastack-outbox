@@ -15,10 +15,10 @@ repositories {
 }
 
 dependencies {
+    implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("io.namastack:namastack-outbox-starter-jpa:0.2.0-SNAPSHOT")
-    implementation("org.flywaydb:flyway-core")
+    implementation("io.namastack:namastack-outbox-starter-jpa:0.3.0-SNAPSHOT")
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

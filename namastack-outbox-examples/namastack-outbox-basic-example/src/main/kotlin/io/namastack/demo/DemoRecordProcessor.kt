@@ -10,69 +10,48 @@ class DemoRecordProcessor : OutboxRecordProcessor {
     private val logger = LoggerFactory.getLogger(DemoRecordProcessor::class.java)
 
     override fun process(record: OutboxRecord) {
+        logger.info("🔄 [Outbox Processor] Processing event: ${record.eventType} | Aggregate: ${record.aggregateId}")
+
         when (record.eventType) {
-            "CustomerRegisteredEvent" -> handleCustomerRegistered(record)
-            "CustomerActivatedEvent" -> handleCustomerActivated(record)
-            "CustomerDeactivatedEvent" -> handleCustomerDeactivated(record)
-            else -> handleUnknownEvent(record)
+            "CustomerRegisteredEvent" -> handleCustomerRegistered()
+            "CustomerActivatedEvent" -> handleCustomerActivated()
+            "CustomerDeactivatedEvent" -> handleCustomerDeactivated()
+            else -> logger.warn("⚠️ Unknown event type: ${record.eventType}")
         }
+
+        logger.info("✅ [Outbox Processor] Event processed: ${record.eventType}")
     }
 
-    private fun handleCustomerRegistered(record: OutboxRecord) {
-        logger.info("📝 Processing CustomerRegistered event for aggregate: ${record.aggregateId}")
-
-        // Simulate email service call
-        simulateExternalServiceCall("Email Service", "Welcome email")
-
-        // Simulate CRM integration
-        simulateExternalServiceCall("CRM System", "Customer profile creation")
-
-        logger.info("✅ CustomerRegistered event processed successfully")
+    private fun handleCustomerRegistered() {
+        logger.info("📝 Handling CustomerRegistered")
+        simulateExternalServiceCall("Email Service", "Send welcome email")
+        simulateExternalServiceCall("CRM System", "Create customer profile")
     }
 
-    private fun handleCustomerActivated(record: OutboxRecord) {
-        logger.info("🎉 Processing CustomerActivated event for aggregate: ${record.aggregateId}")
-
-        // Simulate notification service
-        simulateExternalServiceCall("Notification Service", "Activation confirmation")
-
-        // Simulate analytics tracking
-        simulateExternalServiceCall("Analytics Service", "Customer activation tracking")
-
-        logger.info("✅ CustomerActivated event processed successfully")
+    private fun handleCustomerActivated() {
+        logger.info("🎉 Handling CustomerActivated")
+        simulateExternalServiceCall("Notification Service", "Send activation confirmation")
+        simulateExternalServiceCall("Analytics Service", "Track activation")
     }
 
-    private fun handleCustomerDeactivated(record: OutboxRecord) {
-        logger.info("😔 Processing CustomerDeactivated event for aggregate: ${record.aggregateId}")
-
-        // Simulate cleanup services
-        simulateExternalServiceCall("Cleanup Service", "Account deactivation")
-
-        // Simulate audit logging
-        simulateExternalServiceCall("Audit Service", "Deactivation audit log")
-
-        logger.info("✅ CustomerDeactivated event processed successfully")
-    }
-
-    private fun handleUnknownEvent(record: OutboxRecord) {
-        logger.warn("⚠️ Unknown event type: ${record.eventType} for aggregate: ${record.aggregateId}")
+    private fun handleCustomerDeactivated() {
+        logger.info("😔 Handling CustomerDeactivated")
+        simulateExternalServiceCall("Cleanup Service", "Cleanup account data")
+        simulateExternalServiceCall("Audit Service", "Log deactivation event")
     }
 
     private fun simulateExternalServiceCall(
         serviceName: String,
         operation: String,
     ) {
-        logger.debug("📡 Calling $serviceName for: $operation")
+        logger.debug("📡 → $serviceName: $operation")
+        Thread.sleep((50..100).random().toLong())
 
-        // Simulate network delay
-        Thread.sleep((50..150).random().toLong())
-
-        // Occasionally simulate failures for retry demonstration
-        if (Math.random() < 0.1) { // 10% failure rate
-            logger.warn("❌ $serviceName temporarily unavailable - will retry")
-            throw RuntimeException("Simulated failure in $serviceName: $operation")
+        if (Math.random() < 0.05) {
+            logger.warn("❌ $serviceName failed (will retry)")
+            throw RuntimeException("$serviceName temporarily unavailable")
         }
 
-        logger.debug("✅ $serviceName call completed: $operation")
+        logger.debug("✓ $serviceName completed")
     }
 }

@@ -3,6 +3,7 @@ package io.namastack.outbox
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
+import org.springframework.beans.factory.BeanFactory
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
@@ -55,24 +56,11 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnBean(OutboxInstanceRepository::class)
     fun outboxInstanceRegistry(
         instanceRepository: OutboxInstanceRepository,
         properties: OutboxProperties,
         clock: Clock,
     ): OutboxInstanceRegistry = OutboxInstanceRegistry(instanceRepository, properties, clock)
-
-    /**
-     * Creates the partition coordinator for managing partition assignments.
-     *
-     * @param instanceRegistry Registry for managing instances
-     * @return PartitionCoordinator bean
-     */
-    @Bean
-    @ConditionalOnMissingBean
-    @ConditionalOnBean(OutboxInstanceRegistry::class)
-    fun partitionCoordinator(instanceRegistry: OutboxInstanceRegistry): PartitionCoordinator =
-        PartitionCoordinator(instanceRegistry)
 
     /**
      * Creates the partition-aware outbox processing scheduler.
@@ -88,7 +76,6 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnBean(value = [OutboxRecordRepository::class, PartitionCoordinator::class])
     fun partitionAwareOutboxProcessingScheduler(
         recordRepository: OutboxRecordRepository,
         recordProcessor: OutboxRecordProcessor,
@@ -107,4 +94,41 @@ class OutboxCoreAutoConfiguration {
             properties,
             clock,
         )
+
+    /**
+     * Creates the partition coordinator for managing partition assignments.
+     *
+     * @param instanceRegistry Registry for managing instances
+     * @return PartitionCoordinator bean
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun partitionCoordinator(instanceRegistry: OutboxInstanceRegistry): PartitionCoordinator =
+        PartitionCoordinator(instanceRegistry)
+
+    /**
+     * Creates the custom application event multicaster for @OutboxEvent handling.
+     *
+     * Intercepts events annotated with @OutboxEvent, persists them to the outbox,
+     * and optionally publishes them to listeners (controlled by publishAfterSave config).
+     *
+     * Only created if [OutboxEventSerializer] is available (Jackson module loaded).
+     *
+     * @param beanFactory Factory for creating nested beans
+     * @param outboxRecordRepository Repository for persisting outbox records
+     * @param outboxEventSerializer Serializer for event payloads
+     * @param outboxProperties Configuration properties
+     * @param clock Clock for timestamps
+     * @return OutboxEventMulticaster bean
+     */
+    @Bean(name = ["applicationEventMulticaster"])
+    @ConditionalOnMissingBean
+    fun outboxApplicationEventMulticaster(
+        beanFactory: BeanFactory,
+        outboxRecordRepository: OutboxRecordRepository,
+        outboxEventSerializer: OutboxEventSerializer,
+        outboxProperties: OutboxProperties,
+        clock: Clock,
+    ): OutboxEventMulticaster =
+        OutboxEventMulticaster(beanFactory, outboxRecordRepository, outboxEventSerializer, outboxProperties, clock)
 }

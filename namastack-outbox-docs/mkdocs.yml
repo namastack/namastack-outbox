@@ -51,7 +51,7 @@ plugins:
   - macros
 
 extra:
-  outbox_version: 0.2.0
+  outbox_version: 0.3.0
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/namastack/namastack-outbox

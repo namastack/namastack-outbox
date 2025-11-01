@@ -424,6 +424,182 @@ data class OutboxHealthStatus(
 
 ## :material-code-braces: Developer Experience
 
+### :material-puzzle: Declarative Event Serialization
+
+!!! success "Automatic Outbox Persistence with @OutboxEvent"
+    The library provides a simple declarative approach to automatically persist domain events to the outbox. Simply annotate your event class with `@OutboxEvent` and the framework handles serialization and storage transparently.
+
+!!! info "Jackson Serializer Included"
+    When using `namastack-outbox-starter-jpa`, the `namastack-outbox-jackson` module is automatically included as a transitive dependency. This means Jackson-based JSON serialization works **out of the box** without any additional configuration!
+    
+    ```kotlin
+    dependencies {
+        implementation("io.namastack:namastack-outbox-starter-jpa")
+        // namastack-outbox-jackson is automatically included
+        // Jackson serialization is ready to use immediately
+    }
+    ```
+
+=== "Basic Usage"
+    ```kotlin
+    @OutboxEvent(aggregateId = "customerId")
+    data class CustomerActivatedEvent(
+        val customerId: String,
+        val activatedAt: OffsetDateTime,
+        val metadata: Map<String, String>
+    ) : DomainEvent
+    ```
+    
+    The `aggregateId` parameter uses SpEL (Spring Expression Language) to extract the aggregate ID from the event properties.
+
+=== "With @DomainEvents (Recommended)"
+    ```kotlin
+    @Entity
+    class Customer(
+        @Id
+        val id: String = UUID.randomUUID().toString()
+    ) : AbstractAggregateRoot<Customer>() {
+        
+        fun activate() {
+            registerEvent(
+                CustomerActivatedEvent(
+                    customerId = this.id,
+                    activatedAt = OffsetDateTime.now()
+                )
+            )
+        }
+    }
+    
+    @Service
+    class CustomerService(
+        private val repository: CustomerRepository
+    ) {
+        fun activateCustomer(customerId: String) {
+            val customer = repository.findById(customerId).orElseThrow()
+            customer.activate()
+            repository.save(customer)  // Triggers @DomainEvents -> @OutboxEvent -> Outbox
+        }
+    }
+    ```
+
+=== "SpEL Expression Examples"
+    ```kotlin
+    // Simple field access
+    @OutboxEvent(aggregateId = "id")
+    data class OrderCreatedEvent(val id: String)
+    
+    // Explicit root reference
+    @OutboxEvent(aggregateId = "#root.customerId")
+    data class PaymentProcessedEvent(val customerId: String)
+    
+    // Nested property access
+    @OutboxEvent(aggregateId = "order.id")
+    data class ShipmentInitiatedEvent(val order: OrderInfo)
+    
+    // Complex expressions
+    @OutboxEvent(aggregateId = "user.account.id")
+    data class SubscriptionUpgradedEvent(val user: UserInfo)
+    ```
+
+**Key Features:**
+
+- :material-code-braces: **Automatic Serialization**: Events are automatically serialized when published
+- :material-arrow-expand-right: **Transactional Safety**: Events are stored in the same transaction as business data
+- :material-lightning-bolt: **Transparent**: No manual outbox API calls needed
+- :material-palette: **Flexible**: Works with Spring's `@DomainEvents` pattern
+- :material-language-kotlin: **SpEL Expressions**: Powerful property extraction using Spring Expression Language
+
+**Processing Flow:**
+
+```
+1. Domain event occurs within @Transactional method
+2. Event is published via ApplicationEventPublisher
+3. OutboxEventMulticaster intercepts the event
+4. @OutboxEvent annotation is detected
+5. aggregateId is extracted using SpEL expression
+6. Event is serialized (JSON format)
+7. OutboxRecord is created and persisted
+8. Transaction commits (atomically with business data)
+9. Event is optionally published to listeners (configurable)
+10. OutboxProcessor picks up event asynchronously
+```
+
+**Configuration Options:**
+
+```yaml
+outbox:
+  processing:
+    publish-after-save: true  # Publish to listeners after saving to outbox
+```
+
+- `true` (default): Events are saved to outbox AND published to listeners immediately
+- `false`: Events are ONLY saved to outbox, not published to listeners
+
+!!! example "Complete Example"
+
+    === "Domain Event"
+        ```kotlin
+        @OutboxEvent(aggregateId = "orderId")
+        data class OrderShippedEvent(
+            val orderId: String,
+            val trackingNumber: String,
+            val estimatedDelivery: LocalDate
+        )
+        ```
+    
+    === "Aggregate Root"
+        ```kotlin
+        @Entity
+        @Table(name = "orders")
+        class Order(
+            @Id
+            val id: String,
+            var status: OrderStatus = OrderStatus.CREATED
+        ) : AbstractAggregateRoot<Order>() {
+            
+            fun ship(trackingNumber: String, estimatedDelivery: LocalDate) {
+                this.status = OrderStatus.SHIPPED
+                registerEvent(
+                    OrderShippedEvent(
+                        orderId = this.id,
+                        trackingNumber = trackingNumber,
+                        estimatedDelivery = estimatedDelivery
+                    )
+                )
+            }
+        }
+        ```
+    
+    === "Service"
+        ```kotlin
+        @Service
+        class OrderService(
+            private val orderRepository: OrderRepository
+        ) {
+            fun shipOrder(orderId: String, trackingNumber: String) {
+                val order = orderRepository.findById(orderId).orElseThrow()
+                order.ship(trackingNumber, LocalDate.now().plusDays(3))
+                orderRepository.save(order)
+                // @DomainEvents are published automatically
+                // OrderShippedEvent is intercepted by OutboxEventMulticaster
+                // Event is saved to outbox in same transaction
+            }
+        }
+        ```
+    
+    === "Event Listener (Optional)"
+        ```kotlin
+        @Component
+        class OrderShippedEventListener {
+            @EventListener
+            fun onOrderShipped(event: OrderShippedEvent) {
+                // Called immediately if publish-after-save = true
+                // Can send notifications, update cache, etc.
+                logger.info("Order ${event.orderId} shipped with tracking: ${event.trackingNumber}")
+            }
+        }
+        ```
+
 ### :material-puzzle: Easy Integration
 
 !!! success "Minimal Setup Required"
@@ -478,7 +654,7 @@ data class OutboxHealthStatus(
     - :material-dolphin: **MySQL** 
     - :material-database: **H2** (Development/Testing)
     - :material-microsoft-azure: **SQL Server**
-    - :material-oracle: **Oracle**
+    - :material-vector-square-close: **Oracle**
     - And any other JPA-compatible database
 
 === "Schema Management"
@@ -503,6 +679,79 @@ data class OutboxHealthStatus(
     - :material-clock-check: **Eventual consistency**: Failed events are automatically retried
     - :material-autorenew: **Automatic rebalancing**: Partitions redistribute when instances join/leave
     - :material-chart-line: **Linear scaling**: Performance scales with instance count
+
+## :material-database: Database Configuration
+
+The library provides automatic schema initialization, but you can also create tables manually.
+
+### Automatic Schema Creation (Recommended)
+
+Enable automatic schema initialization in your `application.yml`:
+
+```yaml
+outbox:
+  schema-initialization:
+    enabled: true
+```
+
+The library will create all required tables and indices on startup.
+
+### Manual Table Creation
+
+If you prefer to manage the database schema manually, create the following tables and indices:
+
+```sql
+CREATE TABLE IF NOT EXISTS outbox_record
+(
+    id            VARCHAR(255)             NOT NULL,
+    status        VARCHAR(20)              NOT NULL,
+    aggregate_id  VARCHAR(255)             NOT NULL,
+    event_type    VARCHAR(255)             NOT NULL,
+    payload       TEXT                     NOT NULL,
+    created_at    TIMESTAMP WITH TIME ZONE NOT NULL,
+    completed_at  TIMESTAMP WITH TIME ZONE,
+    retry_count   INT                      NOT NULL,
+    next_retry_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    partition     INTEGER                  NOT NULL,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS outbox_instance
+(
+    instance_id    VARCHAR(255) PRIMARY KEY,
+    hostname       VARCHAR(255)             NOT NULL,
+    port           INTEGER                  NOT NULL,
+    status         VARCHAR(50)              NOT NULL,
+    started_at     TIMESTAMP WITH TIME ZONE NOT NULL,
+    last_heartbeat TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at     TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at     TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_created
+    ON outbox_record (aggregate_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_partition_status_retry
+    ON outbox_record (partition, status, next_retry_at);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry
+    ON outbox_record (status, next_retry_at);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status
+    ON outbox_record (status);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_completed_created
+    ON outbox_record (aggregate_id, completed_at, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_instance_status_heartbeat
+    ON outbox_instance (status, last_heartbeat);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_instance_last_heartbeat
+    ON outbox_instance (last_heartbeat);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_instance_status
+    ON outbox_instance (status);
+```
 
 !!! warning "What Namastack Outbox for Spring Boot Does NOT Guarantee"
     
