@@ -10,4 +10,9 @@ dependencies {
     implementation(project(":namastack-outbox-core"))
     implementation(libs.spring.boot.autoconfigure)
     implementation(libs.jackson.databind)
+
+    testImplementation(libs.kotlin.test)
+    testImplementation(libs.spring.boot.test)
+    testImplementation(libs.assertj.core)
+    testImplementation(libs.mockk)
 }

@@ -18,7 +18,6 @@ management:
 
 outbox:
   poll-interval: 1000
-  batch-size: 50
   schema-initialization:
     enabled: true
   retry:
