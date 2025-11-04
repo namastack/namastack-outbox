@@ -97,13 +97,13 @@ class OutboxCoreAutoConfiguration {
         clock: Clock,
     ): OutboxProcessingScheduler =
         OutboxProcessingScheduler(
-            recordRepository,
-            recordProcessor,
-            partitionCoordinator,
-            instanceRegistry,
-            retryPolicy,
-            properties,
-            clock,
+            recordRepository = recordRepository,
+            recordProcessor = recordProcessor,
+            partitionCoordinator = partitionCoordinator,
+            instanceRegistry = instanceRegistry,
+            retryPolicy = retryPolicy,
+            properties = properties,
+            clock = clock,
         )
 
     /**
@@ -125,5 +125,11 @@ class OutboxCoreAutoConfiguration {
         outboxProperties: OutboxProperties,
         clock: Clock,
     ): OutboxEventMulticaster =
-        OutboxEventMulticaster(beanFactory, outboxRecordRepository, outboxEventSerializer, outboxProperties, clock)
+        OutboxEventMulticaster(
+            beanFactory = beanFactory,
+            outboxRecordRepository = outboxRecordRepository,
+            outboxEventSerializer = outboxEventSerializer,
+            outboxProperties = outboxProperties,
+            clock = clock,
+        )
 }

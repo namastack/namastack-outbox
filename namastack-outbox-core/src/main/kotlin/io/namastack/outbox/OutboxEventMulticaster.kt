@@ -35,6 +35,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class OutboxEventMulticaster(
     beanFactory: BeanFactory,
+    private val baseMulticaster: SimpleApplicationEventMulticaster = SimpleApplicationEventMulticaster(beanFactory),
     private val outboxRecordRepository: OutboxRecordRepository,
     private val outboxEventSerializer: OutboxEventSerializer,
     private val outboxProperties: OutboxProperties,
@@ -62,21 +63,19 @@ class OutboxEventMulticaster(
         event: ApplicationEvent,
         eventType: ResolvableType?,
     ) {
-        val eventPayload = extractEventPayload(event)
+        val (payload, annotation) =
+            extractEventPayload(event) ?: return baseMulticaster.multicastEvent(
+                event,
+                eventType,
+            )
 
-        if (eventPayload != null) {
-            log.debug("Saving @OutboxEvent to outbox: ${eventPayload::class.simpleName}")
-            saveOutboxRecord(eventPayload)
+        log.debug("Saving @OutboxEvent to outbox: ${payload::class.simpleName}")
+        saveOutboxRecord(payload, annotation)
 
-            if (outboxProperties.processing.publishAfterSave) {
-                log.debug("Publishing @OutboxEvent to listeners: ${eventPayload::class.simpleName}")
-                super.multicastEvent(event, eventType)
-            }
-
-            return
+        if (outboxProperties.processing.publishAfterSave) {
+            log.debug("Publishing @OutboxEvent to listeners: ${payload::class.simpleName}")
+            baseMulticaster.multicastEvent(event, eventType)
         }
-
-        super.multicastEvent(event, eventType)
     }
 
     /**
@@ -100,12 +99,12 @@ class OutboxEventMulticaster(
      * @param event The application event to check
      * @return The payload object if @OutboxEvent annotation is present, null otherwise
      */
-    private fun extractEventPayload(event: ApplicationEvent): Any? {
+    private fun extractEventPayload(event: ApplicationEvent): Pair<Any, OutboxEvent>? {
         if (event !is PayloadApplicationEvent<*>) return null
 
-        if (!event.payload.javaClass.isAnnotationPresent(OutboxEvent::class.java)) return null
+        val annotation = event.payload.javaClass.getAnnotation(OutboxEvent::class.java) ?: return null
 
-        return event.payload
+        return event.payload to annotation
     }
 
     /**
@@ -119,8 +118,11 @@ class OutboxEventMulticaster(
      *
      * @param payload The event payload to persist
      */
-    private fun saveOutboxRecord(payload: Any) {
-        val aggregateId = resolveAggregateId(payload)
+    private fun saveOutboxRecord(
+        payload: Any,
+        annotation: OutboxEvent,
+    ) {
+        val aggregateId = resolveAggregateId(payload, annotation)
 
         outboxRecordRepository.save(
             record =
@@ -156,12 +158,11 @@ class OutboxEventMulticaster(
      * @throws IllegalStateException if @OutboxEvent annotation is not found
      * @throws IllegalArgumentException if SpEL expression evaluation fails or returns non-String
      */
-    private fun resolveAggregateId(payload: Any): String {
-        val annotation =
-            payload.javaClass.getAnnotation(OutboxEvent::class.java)
-                ?: throw IllegalStateException("@OutboxEvent annotation not found on ${payload::class.simpleName}")
-
-        return try {
+    private fun resolveAggregateId(
+        payload: Any,
+        annotation: OutboxEvent,
+    ): String =
+        try {
             val spelExpression = annotation.aggregateId
 
             val expression =
@@ -187,5 +188,4 @@ class OutboxEventMulticaster(
                 e,
             )
         }
-    }
 }

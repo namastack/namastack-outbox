@@ -295,17 +295,6 @@ class OutboxCoreAutoConfigurationTest {
 
     @EnableOutbox
     @Configuration
-    private class MinimalTestConfig
-
-    @EnableOutbox
-    @Configuration
-    private class ConfigWithOnlyInstanceRepository {
-        @Bean
-        fun outboxInstanceRepository(): OutboxInstanceRepository = mockk(relaxed = true)
-    }
-
-    @EnableOutbox
-    @Configuration
     private class ConfigWithoutRequiredBeans {
         @Bean
         fun outboxRecordRepository(): OutboxRecordRepository = mockk(relaxed = true)
@@ -322,18 +311,6 @@ class OutboxCoreAutoConfigurationTest {
 
         @Bean
         fun outboxEventSerializer(): OutboxEventSerializer = mockk(relaxed = true)
-
-        @Bean
-        fun outboxInstanceRepository(): OutboxInstanceRepository = mockk(relaxed = true)
-    }
-
-    @Configuration
-    private class ConfigWithoutEnableOutbox {
-        @Bean
-        fun outboxRecordRepository(): OutboxRecordRepository = mockk(relaxed = true)
-
-        @Bean
-        fun outboxRecordProcessor(): OutboxRecordProcessor = mockk(relaxed = true)
 
         @Bean
         fun outboxInstanceRepository(): OutboxInstanceRepository = mockk(relaxed = true)

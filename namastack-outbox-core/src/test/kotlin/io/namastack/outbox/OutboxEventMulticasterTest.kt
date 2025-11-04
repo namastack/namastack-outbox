@@ -2,258 +2,191 @@ package io.namastack.outbox
 
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.config.ConfigurableBeanFactory
+import org.springframework.context.ApplicationContext
 import org.springframework.context.PayloadApplicationEvent
+import org.springframework.context.event.ContextRefreshedEvent
+import org.springframework.context.event.SimpleApplicationEventMulticaster
 import java.time.Clock
 import java.time.Instant
-import java.time.ZoneOffset
+import java.time.ZoneId
 
-@DisplayName("OutboxEventMulticaster")
 class OutboxEventMulticasterTest {
-    private val clock = Clock.fixed(Instant.parse("2025-10-25T10:00:00Z"), ZoneOffset.UTC)
+    private var beanFactory = mockk<ConfigurableBeanFactory>()
+    private var baseMulticaster = mockk<SimpleApplicationEventMulticaster>()
+    private var outboxRecordRepository = mockk<OutboxRecordRepository>()
+    private var outboxEventSerializer = mockk<OutboxEventSerializer>()
+    private var outboxProperties = OutboxProperties(processing = OutboxProperties.Processing(publishAfterSave = true))
+    private val clock: Clock = Clock.fixed(Instant.now(), ZoneId.of("UTC"))
 
-    private val beanFactory = mockk<ConfigurableBeanFactory>()
-    private val recordRepository = mockk<OutboxRecordRepository>()
-    private val eventSerializer = mockk<OutboxEventSerializer>()
-    private val properties =
-        OutboxProperties(
-            processing = OutboxProperties.Processing(publishAfterSave = true),
-        )
-
-    private lateinit var multicaster: OutboxEventMulticaster
+    private lateinit var eventMulticaster: OutboxEventMulticaster
 
     @BeforeEach
     fun setUp() {
-        every { beanFactory.getBeanClassLoader() } returns OutboxEventMulticasterTest::class.java.classLoader
-        every { beanFactory.resolveEmbeddedValue(any()) } answers { firstArg() }
+        every { beanFactory.beanClassLoader } returns this::class.java.classLoader
 
-        multicaster = OutboxEventMulticaster(beanFactory, recordRepository, eventSerializer, properties, clock)
+        eventMulticaster =
+            OutboxEventMulticaster(
+                beanFactory = beanFactory,
+                baseMulticaster = baseMulticaster,
+                outboxRecordRepository = outboxRecordRepository,
+                outboxEventSerializer = outboxEventSerializer,
+                outboxProperties = outboxProperties,
+                clock = clock,
+            )
 
-        every { recordRepository.save(any()) } returns mockk()
-        every { eventSerializer.serialize(any()) } returns "serialized-payload"
+        every { baseMulticaster.multicastEvent(any(), any()) } answers { }
     }
 
-    @Nested
-    @DisplayName("Event Publishing")
-    inner class EventPublishing {
-        @Test
-        fun `saves non-outbox event to outbox when marked with @OutboxEvent`() {
-            val payload = TestOutboxEvent(aggregateId = "agg-1", data = "test-data")
-            val event = PayloadApplicationEvent(this, payload)
-            val recordSlot = slot<OutboxRecord>()
+    @Test
+    fun `passes non annotated events to parent`() {
+        val event = PayloadApplicationEvent(this, NotAnnotatedTestEvent(id = "agg-1"))
 
-            every { recordRepository.save(capture(recordSlot)) } returns mockk()
+        eventMulticaster.multicastEvent(event)
 
-            multicaster.multicastEvent(event)
-
-            verify(exactly = 1) { recordRepository.save(any()) }
-            val captured = recordSlot.captured
-            assertThat(captured.aggregateId).isEqualTo("agg-1")
-            assertThat(captured.eventType).isEqualTo("TestOutboxEvent")
-            assertThat(captured.payload).isEqualTo("serialized-payload")
-        }
-
-        @Test
-        fun `ignores events without @OutboxEvent annotation`() {
-            val payload = TestRegularEvent(data = "test-data")
-            val event = PayloadApplicationEvent(this, payload)
-
-            multicaster.multicastEvent(event)
-
-            verify(exactly = 0) { recordRepository.save(any()) }
-        }
-
-        @Test
-        fun `processes multiple outbox events independently`() {
-            val event1 = PayloadApplicationEvent(this, TestOutboxEvent(aggregateId = "agg-1", data = "data1"))
-            val event2 = PayloadApplicationEvent(this, TestOutboxEvent(aggregateId = "agg-2", data = "data2"))
-            val recordSlots = mutableListOf<OutboxRecord>()
-
-            every { recordRepository.save(any()) } answers {
-                recordSlots.add(firstArg())
-                mockk()
-            }
-
-            multicaster.multicastEvent(event1)
-            multicaster.multicastEvent(event2)
-
-            assertThat(recordSlots).hasSize(2)
-            assertThat(recordSlots.map { it.aggregateId }).containsExactly("agg-1", "agg-2")
+        verify(exactly = 1) {
+            baseMulticaster.multicastEvent(event, any())
         }
     }
 
-    @Nested
-    @DisplayName("Event Serialization")
-    inner class EventSerialization {
-        @Test
-        fun `serializes outbox event using OutboxEventSerializer`() {
-            val payload = TestOutboxEvent(aggregateId = "agg-1", data = "test")
-            val event = PayloadApplicationEvent(this, payload)
+    @Test
+    fun `passes non PayloadApplicationEvent to parent`() {
+        val event = ContextRefreshedEvent(mockk<ApplicationContext>())
 
-            every { recordRepository.save(any()) } returns mockk()
+        eventMulticaster.multicastEvent(event)
 
-            multicaster.multicastEvent(event)
-
-            verify(exactly = 1) { eventSerializer.serialize(payload) }
-        }
-
-        @Test
-        fun `stores serialized payload in record`() {
-            val payload = TestOutboxEvent(aggregateId = "agg-1", data = "test")
-            val event = PayloadApplicationEvent(this, payload)
-            val recordSlot = slot<OutboxRecord>()
-            val customPayload = "custom-serialized-data"
-
-            every { eventSerializer.serialize(any()) } returns customPayload
-            every { recordRepository.save(capture(recordSlot)) } returns mockk()
-
-            multicaster.multicastEvent(event)
-
-            assertThat(recordSlot.captured.payload).isEqualTo(customPayload)
-        }
-
-        @Test
-        fun `stops processing when serialization fails`() {
-            val payload = TestOutboxEvent(aggregateId = "agg-1", data = "test")
-            val event = PayloadApplicationEvent(this, payload)
-
-            every { eventSerializer.serialize(any()) } throws RuntimeException("Serialization error")
-
-            try {
-                multicaster.multicastEvent(event)
-            } catch (ex: Exception) {
-                assertThat(ex).hasMessage("Serialization error")
-            }
-
-            verify(exactly = 0) { recordRepository.save(any()) }
+        verify(exactly = 1) {
+            baseMulticaster.multicastEvent(event, any())
         }
     }
 
-    @Nested
-    @DisplayName("Configuration")
-    inner class Configuration {
-        @Test
-        fun `publishes to listeners when publishAfterSave is true`() {
-            val propsEnabled =
-                OutboxProperties(
-                    processing = OutboxProperties.Processing(publishAfterSave = true),
-                )
-            val multicasterEnabled =
-                OutboxEventMulticaster(
-                    beanFactory,
-                    recordRepository,
-                    eventSerializer,
-                    propsEnabled,
-                    clock,
-                )
+    @Test
+    fun `stores annotated events in outbox`() {
+        val event = PayloadApplicationEvent(this, AnnotatedTestEvent(id = "agg-1"))
+        val serializedPayload = "serialized"
 
-            val payload = TestOutboxEvent(aggregateId = "agg-1", data = "test")
-            val event = PayloadApplicationEvent(this, payload)
+        every { outboxEventSerializer.serialize(event.payload) } returns serializedPayload
+        every { outboxRecordRepository.save(any()) } answers { firstArg() }
 
-            every { recordRepository.save(any()) } returns mockk()
+        eventMulticaster.multicastEvent(event)
 
-            multicasterEnabled.multicastEvent(event)
-
-            verify(exactly = 1) { recordRepository.save(any()) }
+        verify(exactly = 1) {
+            outboxRecordRepository.save(
+                withArg<OutboxRecord> { record ->
+                    assertThat(record.aggregateId).isEqualTo("agg-1")
+                    assertThat(record.payload).isEqualTo(serializedPayload)
+                    assertThat(record.eventType).isEqualTo("AnnotatedTestEvent")
+                    assertThat(record.createdAt.toInstant()).isEqualTo(clock.instant())
+                },
+            )
         }
-
-        @Test
-        fun `saves to outbox even when publishAfterSave is false`() {
-            val propsDisabled =
-                OutboxProperties(
-                    processing = OutboxProperties.Processing(publishAfterSave = false),
-                )
-            val multicasterDisabled =
-                OutboxEventMulticaster(
-                    beanFactory,
-                    recordRepository,
-                    eventSerializer,
-                    propsDisabled,
-                    clock,
-                )
-
-            val payload = TestOutboxEvent(aggregateId = "agg-1", data = "test")
-            val event = PayloadApplicationEvent(this, payload)
-
-            every { recordRepository.save(any()) } returns mockk()
-
-            multicasterDisabled.multicastEvent(event)
-
-            verify(exactly = 1) { recordRepository.save(any()) }
+        verify(exactly = 1) {
+            baseMulticaster.multicastEvent(any<PayloadApplicationEvent<*>>(), any())
         }
     }
 
-    @Nested
-    @DisplayName("Error Handling")
-    inner class ErrorHandling {
-        @Test
-        fun `fails when record repository throws exception`() {
-            val payload = TestOutboxEvent(aggregateId = "agg-1", data = "test")
-            val event = PayloadApplicationEvent(this, payload)
+    @Test
+    fun `does not publish to parent when publishAfterSave is false`() {
+        val localProperties = OutboxProperties(processing = OutboxProperties.Processing(publishAfterSave = false))
+        val localMulticaster =
+            OutboxEventMulticaster(
+                beanFactory = beanFactory,
+                baseMulticaster = baseMulticaster,
+                outboxRecordRepository = outboxRecordRepository,
+                outboxEventSerializer = outboxEventSerializer,
+                outboxProperties = localProperties,
+                clock = clock,
+            )
 
-            every { recordRepository.save(any()) } throws RuntimeException("Database error")
+        val event = PayloadApplicationEvent(this, AnnotatedTestEvent(id = "agg-1"))
 
-            try {
-                multicaster.multicastEvent(event)
-            } catch (ex: Exception) {
-                assertThat(ex)
-                    .isInstanceOf(RuntimeException::class.java)
-                    .hasMessage("Database error")
-            }
+        every { outboxEventSerializer.serialize(event.payload) } returns "serialized"
+        every { outboxRecordRepository.save(any()) } answers { firstArg() }
 
-            verify(exactly = 1) { recordRepository.save(any()) }
+        localMulticaster.multicastEvent(event)
+
+        verify(exactly = 0) {
+            baseMulticaster.multicastEvent(any(), any())
         }
     }
 
-    @Nested
-    @DisplayName("Method Overloads")
-    inner class MethodOverloads {
-        @Test
-        fun `multicastEvent works with eventType parameter`() {
-            val payload = TestOutboxEvent(aggregateId = "agg-1", data = "test")
-            val event = PayloadApplicationEvent(this, payload)
-            val eventType =
-                org.springframework.core.ResolvableType
-                    .forInstance(event)
-            val recordSlot = slot<OutboxRecord>()
+    @Test
+    fun `resolves spel expression for aggregateId`() {
+        val event = PayloadApplicationEvent(this, SpELAnnotatedTestEvent(customId = "agg-1"))
 
-            every { recordRepository.save(capture(recordSlot)) } returns mockk()
+        every { outboxEventSerializer.serialize(event.payload) } returns "serialized"
+        every { outboxRecordRepository.save(any()) } answers { firstArg() }
 
-            multicaster.multicastEvent(event, eventType)
+        eventMulticaster.multicastEvent(event)
 
-            verify(exactly = 1) { recordRepository.save(any()) }
-            assertThat(recordSlot.captured.aggregateId).isEqualTo("agg-1")
-        }
-
-        @Test
-        fun `multicastEvent works without eventType parameter`() {
-            val payload = TestOutboxEvent(aggregateId = "agg-1", data = "test")
-            val event = PayloadApplicationEvent(this, payload)
-            val recordSlot = slot<OutboxRecord>()
-
-            every { recordRepository.save(capture(recordSlot)) } returns mockk()
-
-            multicaster.multicastEvent(event)
-
-            verify(exactly = 1) { recordRepository.save(any()) }
-            assertThat(recordSlot.captured.aggregateId).isEqualTo("agg-1")
+        verify(exactly = 1) {
+            outboxRecordRepository.save(
+                match { record ->
+                    record.aggregateId == "agg-1"
+                },
+            )
         }
     }
 
-    @OutboxEvent(aggregateId = "aggregateId")
-    private data class TestOutboxEvent(
-        val aggregateId: String,
-        val data: String,
+    @Test
+    fun `throws exception when serialization fails`() {
+        val event = PayloadApplicationEvent(this, AnnotatedTestEvent(id = "agg-1"))
+
+        every { outboxEventSerializer.serialize(event.payload) } throws RuntimeException("Serialization failed")
+
+        assertThatThrownBy {
+            eventMulticaster.multicastEvent(event)
+        }.isInstanceOf(RuntimeException::class.java)
+    }
+
+    @Test
+    fun `throws exception when spel expression returns non string value`() {
+        val event = PayloadApplicationEvent(this, NonStringIdEvent(id = 42))
+        every { outboxEventSerializer.serialize(any()) } returns "serialized"
+
+        assertThatThrownBy {
+            eventMulticaster.multicastEvent(event)
+        }.isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessage("Failed to resolve aggregateId from SpEL: 'id'. Valid examples: 'id', '#this.id', '#root.id'")
+    }
+
+    @Test
+    fun `throws exception when spel expression result is null`() {
+        val event = PayloadApplicationEvent(this, AnnotatedWithNullableTestEvent(id = null))
+        every { outboxEventSerializer.serialize(any()) } returns "serialized"
+
+        assertThatThrownBy {
+            eventMulticaster.multicastEvent(event)
+        }.isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessage("Failed to resolve aggregateId from SpEL: 'id'. Valid examples: 'id', '#this.id', '#root.id'")
+    }
+
+    @OutboxEvent(aggregateId = "#this.customId")
+    data class SpELAnnotatedTestEvent(
+        val customId: String,
     )
 
-    private data class TestRegularEvent(
-        val data: String,
+    @OutboxEvent(aggregateId = "id")
+    data class AnnotatedTestEvent(
+        val id: String,
+    )
+
+    @OutboxEvent(aggregateId = "id")
+    data class AnnotatedWithNullableTestEvent(
+        val id: String? = null,
+    )
+
+    @OutboxEvent(aggregateId = "id")
+    data class NonStringIdEvent(
+        val id: Int,
+    )
+
+    data class NotAnnotatedTestEvent(
+        val id: String,
     )
 }
