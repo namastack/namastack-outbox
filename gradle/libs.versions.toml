@@ -10,6 +10,7 @@ publish = "0.34.0"
 # Dependency versions
 hibernate = "7.1.7.Final"
 springOrm = "6.2.12"
+springTx = "6.2.12"
 h2 = "2.4.240"
 mockk = "1.14.6"
 assertj = "3.27.6"
@@ -17,24 +18,23 @@ micrometer = "1.16.0"
 jakarta = "3.0.0"
 commons = "1.20.0"
 jackson = "3.0.1"
+junit = "1.14.1"
 
 [libraries]
 # Spring Boot dependencies
-spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
 spring-boot = { module = "org.springframework.boot:spring-boot", version.ref = "springBoot" }
 spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure", version.ref = "springBoot" }
 spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-starter-logging", version.ref = "springBoot" }
-spring-boot-test = { module = "org.springframework.boot:spring-boot-test", version.ref = "springBoot" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBoot" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa", version.ref = "springBoot" }
 spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator", version.ref = "springBoot" }
+spring-tx = { module = "org.springframework:spring-tx", version.ref = "springTx" }
 
 # Jakarta dependencies
 jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakarta"}
 
 # Kotlin dependencies
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
-kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test" }
 kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5" }
 
 # JPA and Database dependencies
@@ -45,6 +45,7 @@ h2 = { module = "com.h2database:h2", version.ref = "h2" }
 # Test dependencies
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }
 
 # Metrics dependencies
 micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometer" }

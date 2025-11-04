@@ -1,14 +1,15 @@
 package io.namastack.outbox
 
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.BeanFactory
 import org.springframework.context.ApplicationEvent
 import org.springframework.context.PayloadApplicationEvent
+import org.springframework.context.event.ApplicationEventMulticaster
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.core.ResolvableType
 import org.springframework.expression.Expression
 import org.springframework.expression.spel.standard.SpelExpressionParser
 import org.springframework.expression.spel.support.StandardEvaluationContext
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 import java.util.concurrent.ConcurrentHashMap
 
@@ -26,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap
  * - Configurable publishing behavior (publishAfterSave flag)
  *
  * SpEL Expression Caching:
- * Parsed SpEL expressions are cached in a ConcurrentHashMap to avoid re-parsing
+ * Parsed SpEL expressions are cached in a ConcurrentHashMap to avoid reparsing
  * the same expressions for every event. This significantly improves performance
  * for high-volume event processing.
  *
@@ -34,13 +35,12 @@ import java.util.concurrent.ConcurrentHashMap
  * @since 0.3.0
  */
 class OutboxEventMulticaster(
-    beanFactory: BeanFactory,
-    private val baseMulticaster: SimpleApplicationEventMulticaster = SimpleApplicationEventMulticaster(beanFactory),
+    private val delegateEventMulticaster: SimpleApplicationEventMulticaster,
     private val outboxRecordRepository: OutboxRecordRepository,
     private val outboxEventSerializer: OutboxEventSerializer,
     private val outboxProperties: OutboxProperties,
     private val clock: Clock,
-) : SimpleApplicationEventMulticaster(beanFactory) {
+) : ApplicationEventMulticaster by delegateEventMulticaster {
     companion object {
         private val log = LoggerFactory.getLogger(OutboxEventMulticaster::class.java)
         private val spelParser = SpelExpressionParser()
@@ -64,7 +64,7 @@ class OutboxEventMulticaster(
         eventType: ResolvableType?,
     ) {
         val (payload, annotation) =
-            extractEventPayload(event) ?: return baseMulticaster.multicastEvent(
+            extractEventPayload(event) ?: return delegateEventMulticaster.multicastEvent(
                 event,
                 eventType,
             )
@@ -74,7 +74,7 @@ class OutboxEventMulticaster(
 
         if (outboxProperties.processing.publishAfterSave) {
             log.debug("Publishing @OutboxEvent to listeners: ${payload::class.simpleName}")
-            baseMulticaster.multicastEvent(event, eventType)
+            delegateEventMulticaster.multicastEvent(event, eventType)
         }
     }
 
@@ -122,14 +122,19 @@ class OutboxEventMulticaster(
         payload: Any,
         annotation: OutboxEvent,
     ) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw IllegalStateException("OutboxEvent requires an active transaction")
+        }
+
         val aggregateId = resolveAggregateId(payload, annotation)
+        val eventType = annotation.eventType.takeIf { it.isNotEmpty() } ?: payload::class.qualifiedName!!
 
         outboxRecordRepository.save(
             record =
                 OutboxRecord
                     .Builder()
                     .aggregateId(aggregateId)
-                    .eventType(payload::class.simpleName!!)
+                    .eventType(eventType)
                     .payload(outboxEventSerializer.serialize(payload))
                     .build(clock),
         )

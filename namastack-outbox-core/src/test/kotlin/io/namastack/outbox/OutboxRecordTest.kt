@@ -14,7 +14,7 @@ class OutboxRecordTest {
     private val now = OffsetDateTime.now(clock)
 
     @Test
-    fun `markCompleted should set status to COMPLETED and completedAt timestamp`() {
+    fun `markCompleted should set status to COMPLETED and completedAt timestamp when record is NEW`() {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
@@ -32,11 +32,34 @@ class OutboxRecordTest {
         record.markCompleted(clock)
 
         assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
-        assertThat(record.completedAt).isNotNull()
+        assertThat(record.completedAt).isEqualTo(now)
     }
 
     @Test
-    fun `markFailed should set status to FAILED`() {
+    fun `markCompleted should not modify record when already completed`() {
+        val completedAt = now.minusMinutes(5)
+        val record =
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                partition = 1,
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.COMPLETED,
+                completedAt = completedAt,
+                retryCount = 0,
+                nextRetryAt = now,
+            )
+
+        record.markCompleted(clock)
+
+        assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
+        assertThat(record.completedAt).isEqualTo(completedAt)
+    }
+
+    @Test
+    fun `markFailed should set status to FAILED when record is NEW`() {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
@@ -47,6 +70,48 @@ class OutboxRecordTest {
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
+                retryCount = 0,
+                nextRetryAt = now.plusMinutes(5),
+            )
+
+        record.markFailed()
+
+        assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
+    }
+
+    @Test
+    fun `markFailed should not modify record when already failed`() {
+        val record =
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                partition = 1,
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.FAILED,
+                completedAt = null,
+                retryCount = 2,
+                nextRetryAt = now.plusMinutes(5),
+            )
+
+        record.markFailed()
+
+        assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
+    }
+
+    @Test
+    fun `markFailed should change status from COMPLETED to FAILED`() {
+        val record =
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                partition = 1,
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.COMPLETED,
+                completedAt = now.minusMinutes(5),
                 retryCount = 0,
                 nextRetryAt = now.plusMinutes(5),
             )

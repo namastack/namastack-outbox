@@ -11,8 +11,9 @@ dependencies {
     implementation(libs.spring.boot.autoconfigure)
     implementation(libs.spring.boot.actuator)
 
-    testImplementation(libs.kotlin.test)
+    testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.kotlin.test.junit5)
-    testImplementation(libs.mockk)
     testImplementation(libs.assertj.core)
+    testImplementation(libs.mockk)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }

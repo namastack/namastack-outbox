@@ -10,6 +10,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
+import org.springframework.context.event.SimpleApplicationEventMulticaster
 import java.time.Clock
 
 /**
@@ -126,7 +127,7 @@ class OutboxCoreAutoConfiguration {
         clock: Clock,
     ): OutboxEventMulticaster =
         OutboxEventMulticaster(
-            beanFactory = beanFactory,
+            delegateEventMulticaster = SimpleApplicationEventMulticaster(beanFactory),
             outboxRecordRepository = outboxRecordRepository,
             outboxEventSerializer = outboxEventSerializer,
             outboxProperties = outboxProperties,

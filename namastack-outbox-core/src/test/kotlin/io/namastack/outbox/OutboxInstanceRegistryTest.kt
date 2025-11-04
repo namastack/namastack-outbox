@@ -27,10 +27,10 @@ class OutboxInstanceRegistryTest {
         OutboxProperties(
             instance =
                 OutboxProperties.Instance(
-                    gracefulShutdownTimeoutSeconds = 2,
-                    staleInstanceTimeoutSeconds = 5,
-                    heartbeatIntervalSeconds = 5,
-                    newInstanceDetectionIntervalSeconds = 10,
+                    gracefulShutdownTimeoutSeconds = 1,
+                    staleInstanceTimeoutSeconds = 2,
+                    heartbeatIntervalSeconds = 1,
+                    newInstanceDetectionIntervalSeconds = 2,
                 ),
         )
 
@@ -173,7 +173,7 @@ class OutboxInstanceRegistryTest {
         @Test
         fun `clean up stale instances`() {
             val staleInstance = createInstance("stale-instance")
-            val cutoffTime = now.minus(Duration.ofSeconds(5))
+            val cutoffTime = now.minus(Duration.ofSeconds(2))
 
             every { instanceRepository.findInstancesWithStaleHeartbeat(cutoffTime) } returns listOf(staleInstance)
 
@@ -186,7 +186,7 @@ class OutboxInstanceRegistryTest {
         @Test
         fun `not clean up current instance even if stale`() {
             val currentInstance = createInstance(registry.getCurrentInstanceId())
-            val cutoffTime = now.minus(Duration.ofSeconds(5))
+            val cutoffTime = now.minus(Duration.ofSeconds(2))
 
             every { instanceRepository.findInstancesWithStaleHeartbeat(cutoffTime) } returns listOf(currentInstance)
 
@@ -200,7 +200,7 @@ class OutboxInstanceRegistryTest {
         fun `handle multiple stale instances`() {
             val staleInstance1 = createInstance("stale-1")
             val staleInstance2 = createInstance("stale-2")
-            val cutoffTime = now.minus(Duration.ofSeconds(5))
+            val cutoffTime = now.minus(Duration.ofSeconds(2))
 
             every { instanceRepository.findInstancesWithStaleHeartbeat(cutoffTime) } returns
                 listOf(staleInstance1, staleInstance2)

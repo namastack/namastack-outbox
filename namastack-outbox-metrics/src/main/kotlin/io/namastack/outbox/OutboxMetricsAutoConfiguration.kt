@@ -23,7 +23,6 @@ internal class OutboxMetricsAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean(PartitionCoordinator::class)
     fun outboxPartitionMetricsProvider(
         recordRepository: ObjectProvider<OutboxRecordRepository>,
         partitionCoordinator: ObjectProvider<PartitionCoordinator>,
@@ -51,7 +50,6 @@ internal class OutboxMetricsAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean(OutboxPartitionMetricsProvider::class)
     fun outboxPartitionMetricsMeterBinder(
         partitionMetricsProvider: ObjectProvider<OutboxPartitionMetricsProvider>,
     ): OutboxPartitionMetricsMeterBinder {

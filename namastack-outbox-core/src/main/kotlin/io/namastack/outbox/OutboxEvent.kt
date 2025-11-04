@@ -48,4 +48,5 @@ package io.namastack.outbox
 @Retention(AnnotationRetention.RUNTIME)
 annotation class OutboxEvent(
     val aggregateId: String,
+    val eventType: String = "",
 )

@@ -65,19 +65,25 @@ class OutboxRecord internal constructor(
 
     /**
      * Marks this record as completed and sets the completion timestamp.
+     * Only changes the status and completedAt time if the record is not already completed.
      *
      * @param clock Clock to use for determining the current time
      */
     internal fun markCompleted(clock: Clock) {
-        completedAt = OffsetDateTime.now(clock)
-        status = OutboxRecordStatus.COMPLETED
+        if (status != OutboxRecordStatus.COMPLETED) {
+            completedAt = OffsetDateTime.now(clock)
+            status = OutboxRecordStatus.COMPLETED
+        }
     }
 
     /**
      * Marks this record as failed.
+     * Only changes the status if the record is not already failed.
      */
     internal fun markFailed() {
-        status = OutboxRecordStatus.FAILED
+        if (status != OutboxRecordStatus.FAILED) {
+            status = OutboxRecordStatus.FAILED
+        }
     }
 
     /**
