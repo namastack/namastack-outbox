@@ -27,7 +27,7 @@ internal data class OutboxRecordEntity(
     val aggregateId: String,
     val eventType: String,
     val payload: String,
-    val partition: Int,
+    val partitionNo: Int,
     val createdAt: OffsetDateTime,
     val completedAt: OffsetDateTime?,
     val retryCount: Int,

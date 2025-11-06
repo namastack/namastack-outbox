@@ -246,7 +246,7 @@ internal open class JpaOutboxRecordRepository(
         val query = """
             select o.aggregateId, min(o.createdAt) as minCreated
             from OutboxRecordEntity o
-            where o.partition in :partitions
+            where o.partitionNo in :partitions
             and o.status = :status
             and o.nextRetryAt <= :now
             and not exists (
@@ -282,7 +282,7 @@ internal open class JpaOutboxRecordRepository(
         val query = """
             select count(o)
             from OutboxRecordEntity o
-            where o.partition = :partition
+            where o.partitionNo = :partition
             and o.status = :status
         """
 
@@ -302,7 +302,7 @@ internal open class JpaOutboxRecordRepository(
                 """
             select o
             from OutboxRecordEntity o
-            where o.partition = :partition
+            where o.partitionNo = :partition
         """,
             )
 

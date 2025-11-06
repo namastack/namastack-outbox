@@ -1,8 +1,10 @@
 package io.namastack.outbox
 
+import io.mockk.every
 import io.mockk.mockk
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -15,6 +17,7 @@ import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
+import java.sql.SQLException
 import java.time.Clock
 import java.time.ZoneId
 import javax.sql.DataSource
@@ -134,6 +137,20 @@ class JpaOutboxAutoConfigurationTest {
                 .run { context ->
                     assertThat(context).doesNotHaveBean(DataSourceScriptDatabaseInitializer::class.java)
                 }
+        }
+
+        @Test
+        fun `throws on unknown database type`() {
+            val dataSource = mockk<DataSource>()
+
+            every { dataSource.connection } throws SQLException("unknown connection")
+
+            val jpaOutboxAutoConfiguration = JpaOutboxAutoConfiguration()
+
+            assertThatThrownBy {
+                jpaOutboxAutoConfiguration.outboxDataSourceScriptDatabaseInitializer(dataSource)
+            }.isInstanceOf(RuntimeException::class.java)
+                .hasMessageContaining("Could not detect database name")
         }
     }
 

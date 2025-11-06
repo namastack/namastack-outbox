@@ -817,7 +817,7 @@ If you cannot use the simple drop-and-recreate approach and need to preserve exi
 
 - **Java**: 21+
 - **Spring Boot**: 3.0+
-- **Database**: PostgreSQL, MySQL, H2, or any JPA-supported database
+- **Database**: PostgreSQL, MySQL, H2 (more are coming)
 - **Kotlin**: 2.2+
 
 ## Contributing

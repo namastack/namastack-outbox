@@ -13,8 +13,10 @@ import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
 import org.springframework.boot.sql.init.DatabaseInitializationMode
 import org.springframework.boot.sql.init.DatabaseInitializationSettings
 import org.springframework.context.annotation.Bean
+import org.springframework.jdbc.support.JdbcUtils
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
+import java.sql.DatabaseMetaData
 import java.time.Clock
 import javax.sql.DataSource
 
@@ -106,10 +108,21 @@ internal class JpaOutboxAutoConfiguration {
     @Bean
     @ConditionalOnProperty(name = ["outbox.schema-initialization.enabled"], havingValue = "true")
     fun outboxDataSourceScriptDatabaseInitializer(dataSource: DataSource): DataSourceScriptDatabaseInitializer {
+        val databaseName = detectDatabaseName(dataSource)
+        val databaseType = DatabaseType.from(databaseName)
+
         val settings = DatabaseInitializationSettings()
-        settings.schemaLocations = mutableListOf("classpath:schema/outbox-tables.sql")
+        settings.schemaLocations = mutableListOf(databaseType.schemaLocation)
         settings.mode = DatabaseInitializationMode.ALWAYS
 
         return DataSourceScriptDatabaseInitializer(dataSource, settings)
     }
+
+    private fun detectDatabaseName(dataSource: DataSource): String =
+        try {
+            val metadata = JdbcUtils.extractDatabaseMetaData(dataSource, DatabaseMetaData::getDatabaseProductName)
+            JdbcUtils.commonDatabaseName(metadata)
+        } catch (e: Exception) {
+            throw RuntimeException("Could not detect database name", e)
+        }
 }
