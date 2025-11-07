@@ -8,7 +8,7 @@ dokka = "2.1.0"
 publish = "0.34.0"
 
 # Dependency versions
-hibernate = "7.1.6.Final"
+hibernate = "7.1.7.Final"
 springOrm = "6.2.12"
 h2 = "2.4.240"
 mockk = "1.14.6"
