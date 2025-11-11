@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: namastack-outbox-basic-example
+
+  datasource:
+    url: jdbc:sqlserver://localhost;databaseName=outbox_example;encrypt=true;trustServerCertificate=true
+    username: username
+    password: "ThisIsAComplexPassw0rd123!"
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+outbox:
+  batch-size: 10
+  poll-interval: 2000
+  schema-initialization:
+    enabled: true
+  retry:
+    policy: jittered
+    max-retries: 3
+    jittered:
+      base-policy: exponential
+      jitter: 1000
+    exponential:
+      initial-delay: 1000
+      max-delay: 60000
+      multiplier: 2.0
+  processing:
+    stop-on-first-failure: true
+  instance:
+    graceful-shutdown-timeout-seconds: 2
+    heartbeat-interval-seconds: 5
+    stale-instance-timeout-seconds: 10

@@ -1,0 +1,10 @@
+services:
+  database:
+    image: mariadb:12
+    environment:
+      MARIADB_DATABASE: outbox_example
+      MARIADB_ROOT_PASSWORD: password
+      MARIADB_USER: username
+      MARIADB_PASSWORD: password
+    ports:
+      - "3306:3306"

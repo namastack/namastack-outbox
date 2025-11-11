@@ -1,0 +1,9 @@
+services:
+  database:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: outbox_example
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
