@@ -82,6 +82,13 @@ interface OutboxRecordRepository {
     )
 
     /**
+     * Deletes a record by its unique ID.
+     *
+     * @param id The unique identifier of the outbox record
+     */
+    fun deleteById(id: String)
+
+    /**
      * Finds aggregate IDs that have pending records in specific partitions.
      *
      * @param partitions List of partition numbers to search in

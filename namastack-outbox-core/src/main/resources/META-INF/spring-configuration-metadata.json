@@ -128,6 +128,13 @@
       "description": "Whether to publish events to listeners after saving them to the outbox. If true (default), events are published to listeners and saved to outbox for durability. If false, events are only saved to outbox and not published immediately."
     },
     {
+      "name": "outbox.processing.delete-completed-records",
+      "type": "java.lang.Boolean",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
+      "defaultValue": false,
+      "description": "If true, completed outbox records will be deleted from the outbox table after successful processing instead of being marked as completed. Default: false."
+    },
+    {
       "name": "outbox.instance.graceful-shutdown-timeout-seconds",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
@@ -157,4 +164,3 @@
     }
   ]
 }
-

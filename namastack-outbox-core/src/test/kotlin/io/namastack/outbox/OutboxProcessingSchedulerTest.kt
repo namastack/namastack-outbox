@@ -257,6 +257,34 @@ class OutboxProcessingSchedulerTest {
             assertThat(record.retryCount).isEqualTo(1)
             assertThat(record.status).isEqualTo(FAILED)
         }
+
+        @Test
+        fun `deletes record by id when deleteCompletedRecords is enabled`() {
+            val record = outboxRecord(status = NEW, nextRetryAt = now.minusMinutes(1))
+            val propertiesWithDelete =
+                properties.copy(processing = properties.processing.copy(deleteCompletedRecords = true))
+            val schedulerWithDelete =
+                OutboxProcessingScheduler(
+                    recordRepository,
+                    recordProcessor,
+                    partitionCoordinator,
+                    instanceRegistry,
+                    retryPolicy,
+                    propertiesWithDelete,
+                    clock,
+                )
+
+            every { partitionCoordinator.getAssignedPartitions("test-instance") } returns listOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
+            every { recordRepository.deleteById(record.id) } returns Unit
+
+            schedulerWithDelete.process()
+
+            verify(exactly = 1) { recordProcessor.process(record) }
+            verify(exactly = 1) { recordRepository.deleteById(record.id) }
+            verify(exactly = 0) { recordRepository.save(any()) }
+        }
     }
 
     @Nested

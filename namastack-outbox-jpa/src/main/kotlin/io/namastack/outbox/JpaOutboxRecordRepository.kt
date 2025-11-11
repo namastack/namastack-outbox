@@ -219,7 +219,7 @@ internal open class JpaOutboxRecordRepository(
         aggregateId: String,
         status: OutboxRecordStatus,
     ) {
-        transactionTemplate.execute {
+        transactionTemplate.executeNonNull {
             val query = """
                 delete from OutboxRecordEntity o
                 where o.status = :status
@@ -231,6 +231,20 @@ internal open class JpaOutboxRecordRepository(
                 .setParameter("status", status)
                 .setParameter("aggregateId", aggregateId)
                 .executeUpdate()
+        }
+    }
+
+    /**
+     * Deletes a record by its unique ID.
+     *
+     * @param id The unique identifier of the outbox record
+     */
+    override fun deleteById(id: String) {
+        transactionTemplate.executeNonNull {
+            val entity = entityManager.find(OutboxRecordEntity::class.java, id)
+            if (entity != null) {
+                entityManager.remove(entity)
+            }
         }
     }
 

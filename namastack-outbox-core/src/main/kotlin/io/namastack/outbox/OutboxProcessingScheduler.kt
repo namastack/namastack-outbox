@@ -135,8 +135,18 @@ class OutboxProcessingScheduler(
             )
 
             recordProcessor.process(record)
-            record.markCompleted(clock)
-            recordRepository.save(record)
+
+            if (properties.processing.deleteCompletedRecords) {
+                log.debug(
+                    "Deleting outbox record {} after successful processing (deleteCompletedRecords=true)",
+                    record.id,
+                )
+                recordRepository.deleteById(record.id)
+            } else {
+                log.debug("Marking outbox record {} as completed", record.id)
+                record.markCompleted(clock)
+                recordRepository.save(record)
+            }
 
             log.debug("✅ Successfully processed {} for {}", record.eventType, record.aggregateId)
             true
