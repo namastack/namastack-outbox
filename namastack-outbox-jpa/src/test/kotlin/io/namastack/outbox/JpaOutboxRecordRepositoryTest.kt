@@ -597,6 +597,24 @@ class JpaOutboxRecordRepositoryTest {
         assertThat(result).containsExactly(aggregate1, aggregate2, aggregate3)
     }
 
+    @Test
+    fun `deletes record by id`() {
+        val aggregateId = UUID.randomUUID().toString()
+        val record =
+            OutboxRecord
+                .Builder()
+                .aggregateId(aggregateId)
+                .eventType("eventType")
+                .payload("payload")
+                .build(clock)
+
+        jpaOutboxRecordRepository.save(record)
+        assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId)).hasSize(1)
+
+        jpaOutboxRecordRepository.deleteById(record.id)
+        assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId)).isEmpty()
+    }
+
     private fun createFailedRecords(count: Int = 3) {
         val now = OffsetDateTime.now(clock)
         (0 until count).forEach { _ ->

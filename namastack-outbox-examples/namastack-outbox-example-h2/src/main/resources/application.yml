@@ -30,6 +30,7 @@ outbox:
       multiplier: 2.0
   processing:
     stop-on-first-failure: true
+    delete-completed-records: true
   instance:
     graceful-shutdown-timeout-seconds: 2
     heartbeat-interval-seconds: 5

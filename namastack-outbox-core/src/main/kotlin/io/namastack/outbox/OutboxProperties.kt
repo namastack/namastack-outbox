@@ -86,6 +86,7 @@ data class OutboxProperties(
     data class Processing(
         val stopOnFirstFailure: Boolean = true,
         val publishAfterSave: Boolean = true,
+        val deleteCompletedRecords: Boolean = false,
     )
 
     /**
