@@ -3,12 +3,14 @@ package io.namastack.outbox
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
+import org.springframework.beans.factory.BeanFactory
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
+import org.springframework.context.event.SimpleApplicationEventMulticaster
 import java.time.Clock
 
 /**
@@ -55,7 +57,6 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnBean(OutboxInstanceRepository::class)
     fun outboxInstanceRegistry(
         instanceRepository: OutboxInstanceRepository,
         properties: OutboxProperties,
@@ -70,7 +71,6 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnBean(OutboxInstanceRegistry::class)
     fun partitionCoordinator(instanceRegistry: OutboxInstanceRegistry): PartitionCoordinator =
         PartitionCoordinator(instanceRegistry)
 
@@ -88,7 +88,6 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnBean(value = [OutboxRecordRepository::class, PartitionCoordinator::class])
     fun partitionAwareOutboxProcessingScheduler(
         recordRepository: OutboxRecordRepository,
         recordProcessor: OutboxRecordProcessor,
@@ -99,12 +98,39 @@ class OutboxCoreAutoConfiguration {
         clock: Clock,
     ): OutboxProcessingScheduler =
         OutboxProcessingScheduler(
-            recordRepository,
-            recordProcessor,
-            partitionCoordinator,
-            instanceRegistry,
-            retryPolicy,
-            properties,
-            clock,
+            recordRepository = recordRepository,
+            recordProcessor = recordProcessor,
+            partitionCoordinator = partitionCoordinator,
+            instanceRegistry = instanceRegistry,
+            retryPolicy = retryPolicy,
+            properties = properties,
+            clock = clock,
+        )
+
+    /**
+     * Creates the custom application event multicaster for @OutboxEvent handling.
+     *
+     * @param beanFactory Factory for creating nested beans
+     * @param outboxRecordRepository Repository for persisting outbox records
+     * @param outboxEventSerializer Serializer for event payloads
+     * @param outboxProperties Configuration properties
+     * @param clock Clock for timestamps
+     * @return OutboxEventMulticaster bean
+     */
+    @Bean(name = ["applicationEventMulticaster"])
+    @ConditionalOnMissingBean
+    fun outboxApplicationEventMulticaster(
+        beanFactory: BeanFactory,
+        outboxRecordRepository: OutboxRecordRepository,
+        outboxEventSerializer: OutboxEventSerializer,
+        outboxProperties: OutboxProperties,
+        clock: Clock,
+    ): OutboxEventMulticaster =
+        OutboxEventMulticaster(
+            delegateEventMulticaster = SimpleApplicationEventMulticaster(beanFactory),
+            outboxRecordRepository = outboxRecordRepository,
+            outboxEventSerializer = outboxEventSerializer,
+            outboxProperties = outboxProperties,
+            clock = clock,
         )
 }
