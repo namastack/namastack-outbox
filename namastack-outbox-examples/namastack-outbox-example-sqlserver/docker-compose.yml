@@ -1,0 +1,11 @@
+services:
+  mssql:
+    image: 'mcr.microsoft.com/mssql/server:2022-latest'
+    environment:
+      ACCEPT_EULA: 'y'
+      MSSQL_SA_PASSWORD: 'ThisIsAComplexPassw0rd!'
+      MSSQL_DB: 'outbox_example'
+      MSSQL_USER: 'username'
+      MSSQL_PASSWORD: 'ThisIsAComplexPassw0rd123!'
+    ports:
+      - "1433:1433"

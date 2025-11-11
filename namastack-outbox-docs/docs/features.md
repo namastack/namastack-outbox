@@ -22,78 +22,80 @@ Pattern in distributed systems with reliability, scalability, and ease of use.
 ```mermaid
 sequenceDiagram
     participant A as Application
-    participant DB as Database
-    participant O as Outbox
+    participant DB as Entity Table
+    participant O as Outbox Table
+    participant S as Scheduler
     participant P as Processor
     
     A->>DB: Begin Transaction
     A->>DB: Save Business Data
     A->>O: Save Event
     DB->>A: Commit Transaction
-    P->>O: Poll Events
+    S->>O: Poll Events
+    S->>P: Invoke Processor
     P->>P: Process Event
-    P->>O: Mark Complete
+    S->>O: Mark Complete
 ```
 
 ### :material-view-grid: Hash-based Partitioning
 
-!!! success "Scalable Partition-based Coordination"
-    Instead of distributed locking, the library uses **hash-based partitioning** to enable horizontal scaling across multiple instances while maintaining strict event ordering per aggregate. This approach eliminates lock contention and provides better performance.
+Instead of distributed locking, the library uses **hash-based partitioning** to enable horizontal scaling across multiple instances while maintaining strict event ordering per aggregate. This approach eliminates lock contention and provides better performance.
 
-=== "How Partitioning Works"
-    ```mermaid
-    graph TB
-        A[Aggregate ID: order-123] --> H[MurmurHash3]
-        H --> P[Partition 42]
-        P --> I1[Instance 1]
-        
-        B[Aggregate ID: user-456] --> H2[MurmurHash3]
-        H2 --> P2[Partition 128]
-        P2 --> I2[Instance 2]
-        
-        C[Aggregate ID: order-789] --> H3[MurmurHash3]
-        H3 --> P3[Partition 42]
-        P3 --> I1
-        
-        subgraph "256 Fixed Partitions"
-            P[Partition 42]
-            P2[Partition 128]
-            P3["...other partitions"]
-        end
-        
-        subgraph "Dynamic Instance Assignment"
-            I1[Instance 1: Partitions 0-127]
-            I2[Instance 2: Partitions 128-255]
-        end
-    ```
+#### How Partitioning Works
 
-=== "Key Benefits"
-    - **🎯 Consistent Hashing**: Each aggregate always maps to the same partition using MurmurHash3
-    - **⚡ No Lock Contention**: Eliminates distributed lock overhead and deadlock risks
-    - **📈 Horizontal Scaling**: Partitions automatically redistribute when instances join/leave
-    - **🔄 Load Balancing**: Even distribution of partitions across all active instances
-    - **🛡️ Ordering Guarantee**: Events within the same aggregate process in strict order
-    - **🚀 Better Performance**: No lock acquisition/renewal overhead
-
-=== "Partition Assignment"
-    ```kotlin
-    // Each aggregate always maps to the same partition
-    val partition = PartitionHasher.getPartitionForAggregate("order-123")
-    // partition will always be the same value for "order-123"
+```mermaid
+graph TB
+    A[Aggregate ID: order-123] --> H[MurmurHash3]
+    H --> P[Partition 42]
+    P --> I1[Instance 1]
     
-    // 256 fixed partitions provide fine-grained load distribution
-    // Partitions are automatically distributed among active instances
-    ```
+    B[Aggregate ID: user-456] --> H2[MurmurHash3]
+    H2 --> P2[Partition 128]
+    P2 --> I2[Instance 2]
+    
+    C[Aggregate ID: order-789] --> H3[MurmurHash3]
+    H3 --> P3[Partition 42]
+    P3 --> I1
+    
+    subgraph "256 Fixed Partitions"
+        P[Partition 42]
+        P2[Partition 128]
+        P3["...other partitions"]
+    end
+    
+    subgraph "Dynamic Instance Assignment"
+        I1[Instance 1: Partitions 0-127]
+        I2[Instance 2: Partitions 128-255]
+    end
+```
 
-=== "Instance Coordination"
-    ```yaml
-    outbox:
-      instance:
-        graceful-shutdown-timeout-seconds: 15     # Time to wait for graceful shutdown
-        stale-instance-timeout-seconds: 30        # When to consider an instance dead
-        heartbeat-interval-seconds: 5             # How often instances send heartbeats
-        new-instance-detection-interval-seconds: 10  # How often to check for new instances
-    ```
+#### Key Benefits
+
+- **🎯 Consistent Hashing**: Each aggregate always maps to the same partition using MurmurHash3
+- **⚡ No Lock Contention**: Eliminates distributed lock overhead and deadlock risks
+- **📈 Horizontal Scaling**: Partitions automatically redistribute when instances join/leave
+- **🔄 Load Balancing**: Even distribution of partitions across all active instances
+- **🛡️ Ordering Guarantee**: Events within the same aggregate process in strict order
+- **🚀 Better Performance**: No lock acquisition/renewal overhead
+
+#### Partition Assignment
+
+256 fixed partitions provide fine-grained load distribution. Partitions are automatically distributed among active instances. Each aggregate always maps to the same partition.
+
+```kotlin
+val partition = PartitionHasher.getPartitionForAggregate("order-123")
+```
+
+#### Instance Coordination
+
+```yaml
+outbox:
+  instance:
+    graceful-shutdown-timeout-seconds: 15     # Time to wait for graceful shutdown
+    stale-instance-timeout-seconds: 30        # When to consider an instance dead
+    heartbeat-interval-seconds: 5             # How often instances send heartbeats
+    new-instance-detection-interval-seconds: 10  # How often to check for new instances
+```
 
 !!! example "Scaling Behavior"
 
@@ -121,16 +123,6 @@ sequenceDiagram
         ```
         
         **⚖️ Load Balancing**: Partitions are redistributed evenly
-
-!!! info "Migration from Distributed Locking (v0.1.0 → v0.2.0)"
-    If you're upgrading from version 0.1.0, the distributed locking approach has been **completely replaced** with hash-based partitioning. This change provides:
-    
-    - **Better Performance**: No lock acquisition overhead
-    - **Improved Scalability**: Linear scaling with instance count
-    - **Simplified Operations**: No lock management or deadlock handling
-    - **Enhanced Reliability**: No single point of failure from lock storage
-    
-    See the [Migration Guide](https://github.com/namastack/namastack-outbox?tab=readme-ov-file#migration-from-010-to-020) for upgrade instructions.
 
 ### :material-sort-numeric-ascending: Event Ordering
 
@@ -231,8 +223,7 @@ The library provides sophisticated retry strategies to handle transient failures
 
 ### :material-package-down: Including the Metrics Module
 
-!!! info "Add Dependency"
-    To enable monitoring and observability features, include the `namastack-outbox-metrics` module in your project:
+The `namastack-outbox-metrics` module provides automatic integration with Spring Boot Actuator and Micrometer. To enable monitoring and observability features, include the `namastack-outbox-metrics` module in your project:
 
 === "Gradle"
     ```kotlin
@@ -269,13 +260,10 @@ The library provides sophisticated retry strategies to handle transient failures
 
 ### :material-monitor-dashboard: Built-in Metrics
 
-!!! tip "Micrometer Integration"
-    The `namastack-outbox-metrics` module provides automatic integration with Spring Boot Actuator and Micrometer.
-
 === "Available Metrics"
     | Metric | Description | Tags |
     |--------|-------------|------|
-    | `outbox.records.count` | Number of outbox records | `status=new\|failed\|completed` |
+    | `outbox.records.count` | Number of outbox records | `status=new|failed|completed` |
     | `outbox.partitions.assigned.count` | Number of partitions assigned to this instance | - |
     | `outbox.partitions.pending.records.total` | Total pending records across assigned partitions | - |
     | `outbox.partitions.pending.records.max` | Maximum pending records in any assigned partition | - |
@@ -422,93 +410,47 @@ data class OutboxHealthStatus(
     - Instance coordination only for partition assignment
     - Optimistic concurrency for instance management only
 
-## :material-code-braces: Developer Experience
-
-### :material-puzzle: Easy Integration
-
-!!! success "Minimal Setup Required"
-    
-    1. **Add Dependency**: Single JAR includes everything needed
-    2. **Enable Annotation**: `@EnableOutbox` activates all features  
-    3. **Configure Database**: Automatic schema creation available
-    4. **Implement Processor**: Simple interface for event handling
-
-=== "Builder Pattern"
-    ```kotlin
-    val outboxRecord = OutboxRecord.Builder()
-        .aggregateId(order.id.toString())
-        .eventType("OrderCreated")
-        .payload(objectMapper.writeValueAsString(event))
-        .build(clock)
-    ```
-
-=== "Restore Pattern"
-    ```kotlin
-    val outboxRecord = OutboxRecord.restore(
-        id = UUID.randomUUID().toString(),
-        aggregateId = order.id.toString(),
-        eventType = "OrderCreated",
-        payload = objectMapper.writeValueAsString(event),
-        createdAt = OffsetDateTime.now(clock),
-        status = OutboxRecordStatus.NEW,
-        completedAt = null,
-        retryCount = 0,
-        nextRetryAt = OffsetDateTime.now(clock)
-    )
-    ```
-
-### :material-test-tube: Testing Support
-
-- **Unit Tests**: All components with high coverage
-- **Integration Tests**: Real database and locking scenarios  
-- **Concurrency Tests**: Race condition validation
-- **Performance Tests**: High-throughput scenarios
-
-```bash
-./gradlew test
-```
-
 ## :material-database: Database Support
 
-!!! info "Broad Compatibility"
-    Works with any JPA-supported database:
+### Supported Databases
 
-=== "Supported Databases"
-    - :material-elephant: **PostgreSQL** (Recommended)
-    - :material-dolphin: **MySQL** 
-    - :material-database: **H2** (Development/Testing)
-    - :material-microsoft-azure: **SQL Server**
-    - :material-oracle: **Oracle**
-    - And any other JPA-compatible database
+- :material-elephant: **PostgreSQL** (Recommended)
+- :material-dolphin: **MySQL** 
+- :seal: **MariaDB** 
+- :material-microsoft-azure: **SQL Server**
+- :fontawesome-regular-circle: **Oracle**
+- :material-database: **H2** (Development/Testing)
 
-=== "Schema Management"
-    ```yaml
-    # Automatic schema creation
-    outbox:
-      schema-initialization:
-        enabled: true
-    ```
-    
-    Or use manual SQL scripts for production deployments.
+### Schema Management
+
+Let the library create its schema automatically:
+
+```yaml
+outbox:
+  schema-initialization:
+    enabled: true
+```
+
+Or create the tables manually. You can look up the latest database schemas for all supported databases [here](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jpa/src/main/resources/schema).
 
 ## :material-security: Reliability Guarantees
 
-!!! check "What Namastack Outbox for Spring Boot Guarantees"
+### What Namastack Outbox for Spring Boot Guarantees
     
-    - :material-check-all: **At-least-once delivery**: Events will be processed at least once
-    - :material-sort-ascending: **Ordering per aggregate**: Events for the same aggregate are processed in order
-    - :material-backup-restore: **Failure recovery**: System failures don't result in lost events
-    - :material-scale-balance: **Horizontal scalability**: Multiple instances process different partitions concurrently
-    - :material-shield-lock: **Consistency**: Database transactions ensure data integrity
-    - :material-clock-check: **Eventual consistency**: Failed events are automatically retried
-    - :material-autorenew: **Automatic rebalancing**: Partitions redistribute when instances join/leave
-    - :material-chart-line: **Linear scaling**: Performance scales with instance count
+- :material-check-all: **At-least-once delivery**: Events will be processed at least once
+- :material-sort-ascending: **Ordering per aggregate**: Events for the same aggregate are processed in order
+- :material-backup-restore: **Failure recovery**: System failures don't result in lost events
+- :material-scale-balance: **Horizontal scalability**: Multiple instances process different partitions concurrently
+- :material-shield-lock: **Consistency**: Database transactions ensure data integrity
+- :material-clock-check: **Eventual consistency**: Failed events are automatically retried
+- :material-autorenew: **Automatic rebalancing**: Partitions redistribute when instances join/leave
+- :material-chart-line: **Linear scaling**: Performance scales with instance count
 
-!!! warning "What Namastack Outbox for Spring Boot Does NOT Guarantee"
+### What Namastack Outbox for Spring Boot Does NOT Guarantee
     
-    - :material-close: **Exactly-once delivery**: Events may be processed multiple times (your handlers should be idempotent)
-    - :material-close: **Global ordering**: No ordering guarantee across different aggregates
-    - :material-close: **Real-time processing**: Events are processed asynchronously with configurable delays
+- :material-close: **Exactly-once delivery**: Events may be processed multiple times (your handlers should be idempotent)
+- :material-close: **Global ordering**: No ordering guarantee across different aggregates
+- :material-close: **Real-time processing**: Events are processed asynchronously with configurable delays
 
 ---
 

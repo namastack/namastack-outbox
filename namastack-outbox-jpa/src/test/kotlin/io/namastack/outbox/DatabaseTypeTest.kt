@@ -54,9 +54,9 @@ class DatabaseTypeTest {
 
         @Test
         fun `throws for unsupported database`() {
-            assertThatThrownBy { DatabaseType.from("oracle") }
+            assertThatThrownBy { DatabaseType.from("unsupported") }
                 .isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessage("Unsupported database type: oracle")
+                .hasMessage("Unsupported database type: unsupported")
         }
     }
 }

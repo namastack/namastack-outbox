@@ -813,11 +813,32 @@ After migration, verify the setup:
 
 If you cannot use the simple drop-and-recreate approach and need to preserve existing outbox data, please **contact the maintainer** by opening a GitHub issue.
 
+## Supported Databases
+
+Namastack Outbox supports the following relational databases:
+
+- **H2** (for development and testing)
+- **MariaDB**
+- **MySQL**
+- **Oracle**
+- **PostgreSQL**
+- **SQL Server**
+
+All supported databases are tested with the default schema and index definitions provided by the library. If you encounter compatibility issues or require support for another database, please open a GitHub issue.
+
+### Database Compatibility Notes
+
+- **H2**: Recommended for development and CI testing only.
+- **MariaDB/MySQL**: Fully supported. Use InnoDB for transactional guarantees.
+- **Oracle**: Supported with standard schema. Ensure correct data types for timestamps and text fields.
+- **PostgreSQL**: Fully supported and recommended for production.
+- **SQL Server**: Supported. Make sure to use the correct dialect in your JPA configuration.
+
 ## Requirements
 
 - **Java**: 21+
 - **Spring Boot**: 3.0+
-- **Database**: PostgreSQL, MySQL, H2 (more are coming)
+- **Database**: H2, MariaDB, MySQL, Oracle, PostgreSQL, SQL Server
 - **Kotlin**: 2.2+
 
 ## Contributing

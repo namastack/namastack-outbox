@@ -14,9 +14,6 @@ outbox:
   poll-interval: 2000
   schema-initialization:
     enabled: true
-  locking:
-    refresh-threshold: 2
-    extension-seconds: 5
   retry:
     policy: jittered
     max-retries: 3
@@ -29,6 +26,8 @@ outbox:
       multiplier: 2.0
   processing:
     stop-on-first-failure: true
+  instance:
+    graceful-shutdown-timeout-seconds: 2
 
 logging:
   level:

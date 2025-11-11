@@ -33,6 +33,8 @@ outbox:
       multiplier: 2.0
   processing:
     stop-on-first-failure: true
+  instance:
+    graceful-shutdown-timeout-seconds: 2
 
 logging:
   level:

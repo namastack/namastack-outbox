@@ -1,0 +1,10 @@
+services:
+  database:
+    image: mysql:9.5
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: outbox_example
+      MYSQL_USER: username
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"

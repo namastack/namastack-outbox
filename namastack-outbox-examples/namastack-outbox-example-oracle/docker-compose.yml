@@ -1,0 +1,11 @@
+services:
+  database:
+    image: gvenzl/oracle-free:latest
+    container_name: oracle-db
+    environment:
+      ORACLE_DATABASE: outbox_example
+      APP_USER: username
+      APP_USER_PASSWORD: password
+      ORACLE_PASSWORD: oracle
+    ports:
+      - "1521:1521"

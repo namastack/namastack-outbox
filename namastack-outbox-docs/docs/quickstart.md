@@ -67,7 +67,7 @@ Annotate your application class to enable outbox processing:
 
 ## Provide a Clock Bean
 
-Namastack Outbox for Spring Boot uses a Clock for reliable, testable timestamps.
+Namastack Outbox for Spring Boot uses a Clock to ensure reliable and testable timestamps. If you do not provide a Clock, namastack-outbox will create one automatically using `systemDefaultZone`.
 
 === "Kotlin"
 
@@ -103,60 +103,7 @@ outbox:
     enabled: true
 ```
 
-Or create the tables manually:
-
-```sql
-CREATE TABLE IF NOT EXISTS outbox_record
-(
-    id            VARCHAR(255)             NOT NULL,
-    status        VARCHAR(20)              NOT NULL,
-    aggregate_id  VARCHAR(255)             NOT NULL,
-    event_type    VARCHAR(255)             NOT NULL,
-    payload       TEXT                     NOT NULL,
-    created_at    TIMESTAMP WITH TIME ZONE NOT NULL,
-    completed_at  TIMESTAMP WITH TIME ZONE,
-    retry_count   INT                      NOT NULL,
-    next_retry_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    partition     INTEGER                  NOT NULL,
-    PRIMARY KEY (id)
-);
-
-CREATE TABLE IF NOT EXISTS outbox_instance
-(
-    instance_id    VARCHAR(255) PRIMARY KEY,
-    hostname       VARCHAR(255)             NOT NULL,
-    port           INTEGER                  NOT NULL,
-    status         VARCHAR(50)              NOT NULL,
-    started_at     TIMESTAMP WITH TIME ZONE NOT NULL,
-    last_heartbeat TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at     TIMESTAMP WITH TIME ZONE NOT NULL,
-    updated_at     TIMESTAMP WITH TIME ZONE NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_created
-    ON outbox_record (aggregate_id, created_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_partition_status_retry
-    ON outbox_record (partition, status, next_retry_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry
-    ON outbox_record (status, next_retry_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status
-    ON outbox_record (status);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_completed_created
-    ON outbox_record (aggregate_id, completed_at, created_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_instance_status_heartbeat
-    ON outbox_instance (status, last_heartbeat);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_instance_last_heartbeat
-    ON outbox_instance (last_heartbeat);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_instance_status
-    ON outbox_instance (status);
-```
+Or create the tables manually. You can look up the latest database schemas for all supported databases [here](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jpa/src/main/resources/schema).
 
 ## Implement Your Processor
 
@@ -167,17 +114,17 @@ You decide how events are published — to Kafka, RabbitMQ, SNS, or any other br
     ```kotlin
     @Component
     class MyEventProcessor(val messagePublisher: MessagePublisher) : OutboxRecordProcessor {
-    
+
         private val logger = LoggerFactory.getLogger(javaClass)
         private val objectMapper = ObjectMapper()
-    
+
         override fun process(record: OutboxRecord) {
             when (record.eventType) {
                 "OrderCreated" -> handleOrderCreated(record)
                 else -> logger.warn("Unknown event type: ${record.eventType}")
             }
         }
-    
+
         private fun handleOrderCreated(record: OutboxRecord) {
             val event = objectMapper.readValue(record.payload, OrderCreatedEvent::class.java)
             messagePublisher.publish("orders.created", event)
@@ -190,17 +137,17 @@ You decide how events are published — to Kafka, RabbitMQ, SNS, or any other br
     ```java
     @Component
     public class MyEventProcessor implements OutboxRecordProcessor {
-    
+
         private static final Logger logger = LoggerFactory.getLogger(MyEventProcessor.class);
         private final ObjectMapper objectMapper = new ObjectMapper();
-    
+
         // Assume you have some MessagePublisher bean injected
         private final MessagePublisher messagePublisher;
-    
+
         public MyEventProcessor(MessagePublisher messagePublisher) {
             this.messagePublisher = messagePublisher;
         }
-    
+
         @Override
         public void process(OutboxRecord record) {
             switch (record.getEventType()) {
@@ -212,7 +159,7 @@ You decide how events are published — to Kafka, RabbitMQ, SNS, or any other br
                     break;
             }
         }
-    
+
         private void handleOrderCreated(OutboxRecord record) {
             try {
                 OrderCreatedEvent event = objectMapper.readValue(record.getPayload(), OrderCreatedEvent.class);
@@ -238,19 +185,19 @@ Store events in the outbox within the same transaction as your entity:
         private val objectMapper: ObjectMapper,
         private val clock: Clock
     ) {
-    
+
         @Transactional
         fun createOrder(command: CreateOrderCommand): Order {
             val order = Order.create(command)
             orderRepository.save(order)
-    
+
             val event = OrderCreatedEvent(order.id, order.customerId, order.amount)
             val record = OutboxRecord.Builder()
                 .aggregateId(order.id.toString())
                 .eventType("OrderCreated")
                 .payload(objectMapper.writeValueAsString(event))
                 .build(clock)
-    
+
             outboxRepository.save(record)
             return order
         }
@@ -262,12 +209,12 @@ Store events in the outbox within the same transaction as your entity:
     ```java
     @Service
     public class OrderService {
-    
+
         private final OrderRepository orderRepository;
         private final OutboxRecordRepository outboxRepository;
         private final ObjectMapper objectMapper;
         private final Clock clock;
-    
+
         public OrderService(OrderRepository orderRepository,
                             OutboxRecordRepository outboxRepository,
                             ObjectMapper objectMapper,
@@ -277,16 +224,16 @@ Store events in the outbox within the same transaction as your entity:
             this.objectMapper = objectMapper;
             this.clock = clock;
         }
-    
+
         @Transactional
         public Order createOrder(CreateOrderCommand command) {
             // Create and save the order
             Order order = Order.create(command);
             orderRepository.save(order);
-    
+
             // Create the event
             OrderCreatedEvent event = new OrderCreatedEvent(order.getId(), order.getCustomerId(), order.getAmount());
-    
+
             try {
                 // Build the outbox record
                 OutboxRecord record = new OutboxRecord.Builder()
@@ -294,13 +241,13 @@ Store events in the outbox within the same transaction as your entity:
                         .eventType("OrderCreated")
                         .payload(objectMapper.writeValueAsString(event))
                         .build(clock);
-    
+
                 // Save the outbox record
                 outboxRepository.save(record);
             } catch (Exception e) {
                 throw new RuntimeException("Failed to serialize OrderCreatedEvent", e);
             }
-    
+
             return order;
         }
     }
@@ -341,7 +288,7 @@ outbox:
     # Exponential backoff configuration
     exponential:
       initial-delay: 2000      # Start with 2 seconds
-      max-delay: 60000         # Cap at 60 seconds  
+      max-delay: 60000         # Cap at 60 seconds
       multiplier: 2.0          # Double each time
 
     # Fixed delay configuration
