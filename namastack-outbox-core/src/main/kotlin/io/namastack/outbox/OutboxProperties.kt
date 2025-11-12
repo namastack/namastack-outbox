@@ -87,6 +87,8 @@ data class OutboxProperties(
         val stopOnFirstFailure: Boolean = true,
         val publishAfterSave: Boolean = true,
         val deleteCompletedRecords: Boolean = false,
+        val executorCorePoolSize: Int = 4,
+        val executorMaxPoolSize: Int = 8,
     )
 
     /**

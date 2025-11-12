@@ -4,6 +4,7 @@ import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import org.slf4j.LoggerFactory
+import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.annotation.Scheduled
 import java.time.Clock
 
@@ -12,12 +13,15 @@ import java.time.Clock
  *
  * This scheduler coordinates with the partition coordinator to only process
  * records assigned to the current instance, enabling horizontal scaling
- * across multiple application instances.
+ * across multiple application instances. It uses a configurable TaskExecutor
+ * to enable parallel processing of multiple aggregateIds, while still
+ * guaranteeing strict ordering per aggregateId.
  *
  * @param recordRepository Repository for accessing outbox records
  * @param recordProcessor Processor for handling individual records
  * @param partitionCoordinator Coordinator for partition assignments
  * @param instanceRegistry Registry for instance management
+ * @param taskExecutor TaskExecutor for parallel processing of aggregateIds
  * @param retryPolicy Policy for determining retry behavior
  * @param properties Configuration properties
  * @param clock Clock for time-based operations
@@ -30,6 +34,7 @@ class OutboxProcessingScheduler(
     private val recordProcessor: OutboxRecordProcessor,
     private val partitionCoordinator: PartitionCoordinator,
     private val instanceRegistry: OutboxInstanceRegistry,
+    private val taskExecutor: TaskExecutor,
     private val retryPolicy: OutboxRetryPolicy,
     private val properties: OutboxProperties,
     private val clock: Clock,
@@ -68,14 +73,10 @@ class OutboxProcessingScheduler(
                 )
 
             if (aggregateIds.isNotEmpty()) {
-                log.debug(
-                    "Found {} aggregates to process: {}",
-                    aggregateIds.size,
-                    aggregateIds.take(5).plus(if (aggregateIds.size > 5) "..." else ""),
-                )
+                log.debug("Found {} aggregates to process", aggregateIds.size)
 
                 aggregateIds.forEach { aggregateId ->
-                    processAggregate(aggregateId)
+                    taskExecutor.execute { processAggregate(aggregateId) }
                 }
             }
         } catch (ex: Exception) {

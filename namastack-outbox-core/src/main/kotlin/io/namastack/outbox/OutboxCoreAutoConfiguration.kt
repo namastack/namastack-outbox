@@ -4,6 +4,7 @@ import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import org.springframework.beans.factory.BeanFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
@@ -11,6 +12,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.event.SimpleApplicationEventMulticaster
+import org.springframework.core.task.TaskExecutor
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import java.time.Clock
 
 /**
@@ -35,6 +38,28 @@ class OutboxCoreAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun clock(): Clock = Clock.systemDefaultZone()
+
+    /**
+     * Provides a configurable ThreadPoolTaskExecutor for parallel processing of aggregateIds.
+     *
+     * The pool size can be configured via OutboxProperties. This executor is used by the
+     * OutboxProcessingScheduler to process multiple aggregateIds in parallel while maintaining
+     * strict ordering per aggregateId.
+     *
+     * @param properties Outbox configuration properties
+     * @return Configured ThreadPoolTaskExecutor
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxTaskExecutor(properties: OutboxProperties): ThreadPoolTaskExecutor {
+        val executor = ThreadPoolTaskExecutor()
+        executor.corePoolSize = properties.processing.executorCorePoolSize
+        executor.maxPoolSize = properties.processing.executorMaxPoolSize
+        executor.setThreadNamePrefix("outbox-proc-")
+        executor.initialize()
+
+        return executor
+    }
 
     /**
      * Creates a retry policy based on configuration properties.
@@ -81,6 +106,7 @@ class OutboxCoreAutoConfiguration {
      * @param recordProcessor Processor for handling individual records
      * @param partitionCoordinator Coordinator for partition assignments
      * @param instanceRegistry Registry for instance management
+     * @param taskExecutor TaskExecutor for parallel processing of aggregateIds
      * @param retryPolicy Policy for determining retry behavior
      * @param properties Configuration properties
      * @param clock Clock for time-based operations
@@ -95,6 +121,8 @@ class OutboxCoreAutoConfiguration {
         instanceRegistry: OutboxInstanceRegistry,
         retryPolicy: OutboxRetryPolicy,
         properties: OutboxProperties,
+        @Qualifier("outboxTaskExecutor")
+        taskExecutor: TaskExecutor,
         clock: Clock,
     ): OutboxProcessingScheduler =
         OutboxProcessingScheduler(
@@ -104,6 +132,7 @@ class OutboxCoreAutoConfiguration {
             instanceRegistry = instanceRegistry,
             retryPolicy = retryPolicy,
             properties = properties,
+            taskExecutor = taskExecutor,
             clock = clock,
         )
 

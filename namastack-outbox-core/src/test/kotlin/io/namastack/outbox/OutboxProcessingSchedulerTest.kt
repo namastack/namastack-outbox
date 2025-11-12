@@ -10,15 +10,18 @@ import io.namastack.outbox.OutboxRecordTestFactory.outboxRecord
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
+import java.util.concurrent.TimeUnit
 
 @DisplayName("OutboxProcessingScheduler")
 class OutboxProcessingSchedulerTest {
@@ -38,10 +41,17 @@ class OutboxProcessingSchedulerTest {
             retry = OutboxProperties.Retry(maxRetries = 3),
         )
 
+    private lateinit var taskExecutor: ThreadPoolTaskExecutor
     private lateinit var scheduler: OutboxProcessingScheduler
 
     @BeforeEach
     fun setUp() {
+        taskExecutor = ThreadPoolTaskExecutor()
+        taskExecutor.corePoolSize = 2
+        taskExecutor.maxPoolSize = 4
+        taskExecutor.setThreadNamePrefix("outbox-proc-")
+        taskExecutor.initialize()
+
         scheduler =
             OutboxProcessingScheduler(
                 recordRepository = recordRepository,
@@ -50,6 +60,7 @@ class OutboxProcessingSchedulerTest {
                 instanceRegistry = instanceRegistry,
                 retryPolicy = retryPolicy,
                 properties = properties,
+                taskExecutor = taskExecutor,
                 clock = clock,
             )
 
@@ -92,6 +103,7 @@ class OutboxProcessingSchedulerTest {
                     recordProcessor,
                     partitionCoordinator,
                     instanceRegistry,
+                    taskExecutor,
                     retryPolicy,
                     customProperties,
                     clock,
@@ -156,8 +168,12 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 1) { recordProcessor.process(record1) }
-            verify(exactly = 1) { recordProcessor.process(record2) }
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    verify(exactly = 1) { recordProcessor.process(record1) }
+                    verify(exactly = 1) { recordProcessor.process(record2) }
+                }
         }
 
         @Test
@@ -203,8 +219,12 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            assertThat(record.status).isEqualTo(COMPLETED)
-            assertThat(record.completedAt).isEqualTo(now)
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    assertThat(record.status).isEqualTo(COMPLETED)
+                    assertThat(record.completedAt).isEqualTo(now)
+                }
         }
 
         @Test
@@ -219,9 +239,13 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            assertThat(record.retryCount).isEqualTo(1)
-            assertThat(record.nextRetryAt).isEqualTo(now.plus(Duration.ofSeconds(10)))
-            assertThat(record.status).isEqualTo(NEW)
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    assertThat(record.retryCount).isEqualTo(1)
+                    assertThat(record.nextRetryAt).isEqualTo(now.plus(Duration.ofSeconds(10)))
+                    assertThat(record.status).isEqualTo(NEW)
+                }
         }
 
         @Test
@@ -236,8 +260,12 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            assertThat(record.retryCount).isEqualTo(4)
-            assertThat(record.status).isEqualTo(FAILED)
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    assertThat(record.retryCount).isEqualTo(4)
+                    assertThat(record.status).isEqualTo(FAILED)
+                }
         }
 
         @Test
@@ -254,8 +282,12 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            assertThat(record.retryCount).isEqualTo(1)
-            assertThat(record.status).isEqualTo(FAILED)
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    assertThat(record.retryCount).isEqualTo(1)
+                    assertThat(record.status).isEqualTo(FAILED)
+                }
         }
 
         @Test
@@ -269,6 +301,7 @@ class OutboxProcessingSchedulerTest {
                     recordProcessor,
                     partitionCoordinator,
                     instanceRegistry,
+                    taskExecutor,
                     retryPolicy,
                     propertiesWithDelete,
                     clock,
@@ -281,9 +314,13 @@ class OutboxProcessingSchedulerTest {
 
             schedulerWithDelete.process()
 
-            verify(exactly = 1) { recordProcessor.process(record) }
-            verify(exactly = 1) { recordRepository.deleteById(record.id) }
-            verify(exactly = 0) { recordRepository.save(any()) }
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    verify(exactly = 1) { recordProcessor.process(record) }
+                    verify(exactly = 1) { recordRepository.deleteById(record.id) }
+                    verify(exactly = 0) { recordRepository.save(any()) }
+                }
         }
     }
 
@@ -320,6 +357,7 @@ class OutboxProcessingSchedulerTest {
                     recordProcessor,
                     partitionCoordinator,
                     instanceRegistry,
+                    taskExecutor,
                     retryPolicy,
                     propertiesNonStop,
                     clock,

@@ -31,6 +31,8 @@ outbox:
   processing:
     stop-on-first-failure: true
     publish-after-save: true
+    executor-core-pool-size: 10
+    executor-max-pool-size: 20
   instance:
     graceful-shutdown-timeout-seconds: 2
     heartbeat-interval-seconds: 5
