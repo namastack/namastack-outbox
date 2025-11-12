@@ -17,6 +17,7 @@ management:
         include: health, info, metrics, prometheus
 
 outbox:
+  batch-size: 10
   poll-interval: 1000
   schema-initialization:
     enabled: true
@@ -32,9 +33,17 @@ outbox:
       multiplier: 2.0
   processing:
     stop-on-first-failure: true
+    delete-completed-records: true
+    publish-after-save: false
+    executor-core-pool-size: 4
+    executor-max-pool-size: 8
   instance:
     graceful-shutdown-timeout-seconds: 2
+    new-instance-detection-interval-seconds: 5
+    stale-instance-timeout-seconds: 10
+    heartbeat-interval-seconds: 5
 
 logging:
   level:
-    io.namastack.outbox: DEBUG
+    ROOT: WARN
+    #io.namastack.outbox: DEBUG

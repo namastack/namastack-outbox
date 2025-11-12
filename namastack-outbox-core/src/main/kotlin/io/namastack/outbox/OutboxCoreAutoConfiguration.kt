@@ -50,7 +50,7 @@ class OutboxCoreAutoConfiguration {
      * @return Configured ThreadPoolTaskExecutor
      */
     @Bean
-    @ConditionalOnMissingBean
+    @ConditionalOnMissingBean(name = ["outboxTaskExecutor"])
     fun outboxTaskExecutor(properties: OutboxProperties): ThreadPoolTaskExecutor {
         val executor = ThreadPoolTaskExecutor()
         executor.corePoolSize = properties.processing.executorCorePoolSize

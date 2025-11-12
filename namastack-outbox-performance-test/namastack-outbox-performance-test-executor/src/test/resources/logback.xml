@@ -1,0 +1,18 @@
+<configuration>
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Keep Gatling quiet -->
+  <logger name="io.gatling" level="INFO"/>
+  <logger name="io.gatling.http" level="WARN"/>
+  <logger name="io.gatling.core" level="WARN"/>
+  <logger name="io.netty" level="WARN"/>
+  <logger name="org.asynchttpclient" level="WARN"/>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+  </root>
+</configuration>
