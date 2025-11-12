@@ -5,7 +5,7 @@ springBoot = "3.5.7"
 dependencyManagement = "1.1.7"
 ktlint = "14.0.1"
 dokka = "2.1.0"
-publish = "0.34.0"
+publish = "0.35.0"
 
 # Dependency versions
 hibernate = "7.1.7.Final"
