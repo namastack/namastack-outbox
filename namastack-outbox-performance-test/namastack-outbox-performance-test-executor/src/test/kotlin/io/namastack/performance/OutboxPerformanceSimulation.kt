@@ -10,6 +10,8 @@ import java.util.UUID
 class OutboxPerformanceSimulation : Simulation() {
     val httpProtocol =
         HttpDsl.http
+            .disableWarmUp()
+            .shareConnections()
             .baseUrl("http://localhost:8082")
             .header("Content-Type", "application/json")
 
@@ -33,7 +35,7 @@ class OutboxPerformanceSimulation : Simulation() {
     init {
         setUp(
             scn.injectOpen(
-                constantUsersPerSec(500.0).during(Duration.ofSeconds(120)),
+                constantUsersPerSec(1000.0).during(Duration.ofSeconds(120)),
             ),
         ).protocols(httpProtocol)
     }

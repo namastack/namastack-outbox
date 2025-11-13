@@ -1,14 +1,11 @@
 package io.namastack.performance
 
-import io.namastack.outbox.EnableOutbox
-import io.namastack.outbox.OutboxCoreAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
+import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories
 
-@EnableOutbox
-@SpringBootApplication(
-    exclude = [OutboxCoreAutoConfiguration::class],
-)
+@EnableR2dbcRepositories
+@SpringBootApplication(scanBasePackages = ["io.namastack.performance"])
 class OutboxPerformanceTestProducerApplication
 
 fun main(args: Array<String>) {
