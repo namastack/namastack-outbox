@@ -47,7 +47,7 @@ class OutboxProcessingScheduler(
      * Only processes records from partitions assigned to this instance,
      * ensuring proper load distribution and avoiding conflicts.
      */
-    @Scheduled(fixedDelayString = "\${outbox.poll-interval}")
+    @Scheduled(fixedDelayString = "\${outbox.poll-interval:2000}")
     fun process() {
         try {
             val myInstanceId = instanceRegistry.getCurrentInstanceId()
