@@ -135,6 +135,20 @@
       "description": "If true, completed outbox records will be deleted from the outbox table after successful processing instead of being marked as completed. Default: false."
     },
     {
+      "name": "outbox.processing.executor-core-pool-size",
+      "type": "java.lang.Integer",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
+      "defaultValue": 4,
+      "description": "Core pool size for the ThreadPoolTaskExecutor used for parallel processing of aggregateIds. Default: 4."
+    },
+    {
+      "name": "outbox.processing.executor-max-pool-size",
+      "type": "java.lang.Integer",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
+      "defaultValue": 8,
+      "description": "Maximum pool size for the ThreadPoolTaskExecutor used for parallel processing of aggregateIds. Default: 8."
+    },
+    {
       "name": "outbox.instance.graceful-shutdown-timeout-seconds",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",

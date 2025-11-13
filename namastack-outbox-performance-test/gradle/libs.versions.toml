@@ -7,6 +7,7 @@ dokka = "2.1.0"
 
 # Dependency versions
 postgresql = "42.7.4"
+postgresR2dbc = "1.0.8.RELEASE"
 micrometer = "1.15.5"
 gatling = "3.14.6"
 
@@ -21,9 +22,16 @@ spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-start
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa", version.ref = "springBoot" }
 spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-starter-logging", version.ref = "springBoot" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator", version.ref = "springBoot" }
+spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux", version.ref = "springBoot" }
+spring-boot-starter-data-r2dbc = { module = "org.springframework.boot:spring-boot-starter-data-r2dbc", version.ref = "springBoot" }
+
+# Common dependencies
+jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin", version = "3.0.2" }
+commons-codec = { module = "commons-codec:commons-codec", version = "1.20.0" }
 
 # JPA and Database dependencies
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+r2dbc-postgresql = { module = "org.postgresql:r2dbc-postgresql" }
 
 # Metrics dependencies
 micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }

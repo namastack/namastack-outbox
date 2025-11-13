@@ -10,10 +10,11 @@ description = "namastack-outbox-performance-test-producer"
 dependencies {
     implementation(platform(libs.spring.boot.dependencies))
     implementation(libs.kotlin.reflect)
-    implementation(libs.spring.boot.starter.web)
-    implementation(libs.spring.boot.starter.data.jpa)
-    implementation("io.namastack:namastack-outbox-starter-jpa:0.3.0-SNAPSHOT")
-    runtimeOnly(libs.postgresql)
+    implementation(libs.spring.boot.starter.webflux)
+    implementation(libs.spring.boot.starter.data.r2dbc)
+    implementation(libs.r2dbc.postgresql)
+    implementation(libs.jackson.module.kotlin)
+    implementation(libs.commons.codec)
 }
 
 allOpen {

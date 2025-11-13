@@ -225,6 +225,41 @@ class OutboxCoreAutoConfigurationTest {
         }
     }
 
+    @Nested
+    @DisplayName("TaskExecutor Configuration")
+    inner class TaskExecutorConfiguration {
+        @Test
+        fun `creates default outboxTaskExecutor with default pool sizes`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    val executor =
+                        context.getBean(
+                            "outboxTaskExecutor",
+                        ) as org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
+                    assertThat(executor.corePoolSize).isEqualTo(4)
+                    assertThat(executor.maxPoolSize).isEqualTo(8)
+                }
+        }
+
+        @Test
+        fun `applies custom pool sizes from properties`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues(
+                    "outbox.processing.executor-core-pool-size=7",
+                    "outbox.processing.executor-max-pool-size=15",
+                ).run { context ->
+                    val executor =
+                        context.getBean(
+                            "outboxTaskExecutor",
+                        ) as org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
+                    assertThat(executor.corePoolSize).isEqualTo(7)
+                    assertThat(executor.maxPoolSize).isEqualTo(15)
+                }
+        }
+    }
+
     @EnableOutbox
     @Configuration
     private class MinimalTestConfig {
