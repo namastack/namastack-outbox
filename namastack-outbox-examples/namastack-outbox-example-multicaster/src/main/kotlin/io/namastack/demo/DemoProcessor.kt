@@ -10,7 +10,7 @@ class DemoProcessor : OutboxRecordProcessor {
     private val logger = LoggerFactory.getLogger(DemoProcessor::class.java)
 
     override fun process(record: OutboxRecord) {
-        logger.info("Processing ${record.id} for aggregate ${record.aggregateId}")
+        logger.info("Processing record ${record.id} for aggregate ${record.aggregateId}")
         simulateExternalServiceCall()
     }
 

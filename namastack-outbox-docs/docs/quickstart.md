@@ -173,7 +173,113 @@ You decide how events are published — to Kafka, RabbitMQ, SNS, or any other br
 
 ## Write Events Transactionally
 
-Store events in the outbox within the same transaction as your entity:
+Namastack Outbox ensures that your domain events are reliably stored and published as part of the same transaction as your business data. There are two main ways to achieve this:
+
+### 1. Using @DomainEvents and ApplicationEventPublisher (Recommended)
+
+With Spring Data JPA, you can leverage the `@DomainEvents` annotation on your aggregate root (usually by extending `AbstractAggregateRoot`). This allows you to collect domain events during your business logic and have them automatically published by Spring after the entity is saved.
+
+**How it works:**
+- Annotate a method in your aggregate with `@DomainEvents` to return a list of events.
+- After the entity is persisted, Spring automatically publishes these events using the `ApplicationEventPublisher`.
+- Namastack Outbox intercepts these events (if annotated with `@OutboxEvent`) and stores them in the outbox table, ensuring transactional consistency.
+
+=== "Kotlin"
+
+    ```kotlin
+    @Entity
+    class Order(...) : AbstractAggregateRoot<Order>() {
+        ...existing code...
+        fun markCreated() {
+            // business logic
+            registerEvent(OrderCreatedEvent(id, ...))
+        }
+    }
+    ```
+
+    ```kotlin
+    // In your service
+    @Transactional
+    fun createOrder(command: CreateOrderCommand): Order {
+        val order = Order.create(command)
+        order.markCreated()
+        orderRepository.save(order) // triggers @DomainEvents
+        return order
+    }
+    ```
+
+=== "Java"
+
+    ```java
+    @Entity
+    public class Order extends AbstractAggregateRoot<Order> {
+        ...existing code...
+        public void markCreated() {
+            // business logic
+            registerEvent(new OrderCreatedEvent(id, ...));
+        }
+    }
+    ```
+
+    ```java
+    // In your service
+    @Transactional
+    public Order createOrder(CreateOrderCommand command) {
+        Order order = Order.create(command);
+        order.markCreated();
+        orderRepository.save(order); // triggers @DomainEvents
+        return order;
+    }
+    ```
+
+### 2. Using ApplicationEventPublisher Directly
+
+You can also publish events directly using Spring's `ApplicationEventPublisher`. If your event class is annotated with `@OutboxEvent`, Namastack Outbox will automatically intercept and persist it in the outbox table.
+
+=== "Kotlin"
+
+    ```kotlin
+    @Service
+    class OrderService(
+        private val orderRepository: OrderRepository,
+        private val applicationEventPublisher: ApplicationEventPublisher
+    ) {
+        @Transactional
+        fun createOrder(command: CreateOrderCommand): Order {
+            val order = Order.create(command)
+            orderRepository.save(order)
+            val event = OrderCreatedEvent(order.id, ...)
+            applicationEventPublisher.publishEvent(event)
+            return order
+        }
+    }
+    ```
+
+=== "Java"
+
+    ```java
+    @Service
+    public class OrderService {
+        private final OrderRepository orderRepository;
+        private final ApplicationEventPublisher applicationEventPublisher;
+        public OrderService(OrderRepository orderRepository, ApplicationEventPublisher applicationEventPublisher) {
+            this.orderRepository = orderRepository;
+            this.applicationEventPublisher = applicationEventPublisher;
+        }
+        @Transactional
+        public Order createOrder(CreateOrderCommand command) {
+            Order order = Order.create(command);
+            orderRepository.save(order);
+            OrderCreatedEvent event = new OrderCreatedEvent(order.getId(), ...);
+            applicationEventPublisher.publishEvent(event);
+            return order;
+        }
+    }
+    ```
+
+### 3. Manual Approach: Using OutboxRecordRepository
+
+If you need full control, you can always use the manual approach by injecting `OutboxRecordRepository` and saving events directly. This is useful for advanced scenarios or when you want to set all fields explicitly.
 
 === "Kotlin"
 
@@ -185,20 +291,19 @@ Store events in the outbox within the same transaction as your entity:
         private val objectMapper: ObjectMapper,
         private val clock: Clock
     ) {
-
         @Transactional
         fun createOrder(command: CreateOrderCommand): Order {
             val order = Order.create(command)
             orderRepository.save(order)
 
-            val event = OrderCreatedEvent(order.id, order.customerId, order.amount)
-            val record = OutboxRecord.Builder()
+            val event = OrderCreatedEvent(order.id, ...)
+            val outboxRecord = OutboxRecord.Builder()
                 .aggregateId(order.id.toString())
                 .eventType("OrderCreated")
                 .payload(objectMapper.writeValueAsString(event))
                 .build(clock)
 
-            outboxRepository.save(record)
+            outboxRepository.save(outboxRecord)
             return order
         }
     }
@@ -209,49 +314,39 @@ Store events in the outbox within the same transaction as your entity:
     ```java
     @Service
     public class OrderService {
-
         private final OrderRepository orderRepository;
         private final OutboxRecordRepository outboxRepository;
         private final ObjectMapper objectMapper;
         private final Clock clock;
-
-        public OrderService(OrderRepository orderRepository,
-                            OutboxRecordRepository outboxRepository,
-                            ObjectMapper objectMapper,
-                            Clock clock) {
+        public OrderService(OrderRepository orderRepository, OutboxRecordRepository outboxRepository, ObjectMapper objectMapper, Clock clock) {
             this.orderRepository = orderRepository;
             this.outboxRepository = outboxRepository;
             this.objectMapper = objectMapper;
             this.clock = clock;
         }
-
         @Transactional
         public Order createOrder(CreateOrderCommand command) {
-            // Create and save the order
             Order order = Order.create(command);
             orderRepository.save(order);
-
-            // Create the event
-            OrderCreatedEvent event = new OrderCreatedEvent(order.getId(), order.getCustomerId(), order.getAmount());
-
-            try {
-                // Build the outbox record
-                OutboxRecord record = new OutboxRecord.Builder()
-                        .aggregateId(order.getId().toString())
-                        .eventType("OrderCreated")
-                        .payload(objectMapper.writeValueAsString(event))
-                        .build(clock);
-
-                // Save the outbox record
-                outboxRepository.save(record);
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to serialize OrderCreatedEvent", e);
-            }
-
+            OrderCreatedEvent event = new OrderCreatedEvent(order.getId(), ...);
+            OutboxRecord outboxRecord = new OutboxRecord.Builder()
+                .aggregateId(order.getId().toString())
+                .eventType("OrderCreated")
+                .payload(objectMapper.writeValueAsString(event))
+                .build(clock);
+            outboxRepository.save(outboxRecord);
             return order;
         }
     }
     ```
+
+**Tip:**
+- By default, `publish-after-save: true` ensures that events are not only stored in the outbox, but also published to all listeners in the same transaction. This is useful if you want to react to events immediately within your application (e.g. for projections or side effects), in addition to externalizing them via the outbox. If you only want to store events for external processing, set `publish-after-save: false`.
+
+**Key Benefits:**
+- All approaches ensure events are stored and published in the same transaction as your business data.
+- Outbox records are only created if the transaction commits successfully.
+- You can use either approach, or all three, depending on your domain model and preferences.
 
 ## Configuration Overview
 
@@ -260,10 +355,10 @@ Configure the outbox behavior in your `application.yml`:
 ```yaml
 outbox:
   # Polling interval for processing events (milliseconds)
-  poll-interval: 2000
+  poll-interval: 2000                # Interval in milliseconds at which the outbox is polled (default: 2000)
 
   # Batch size for processing events
-  batch-size: 10
+  batch-size: 10                     # Maximum number of aggregate IDs to process in a single batch (default: 10)
 
   # Schema initialization
   schema-initialization:
@@ -271,32 +366,36 @@ outbox:
 
   # Processing behavior configuration
   processing:
-    stop-on-first-failure: true  # Stop processing aggregate when one event fails (default: true)
+    stop-on-first-failure: true      # Whether to stop processing remaining events in an aggregate when one event fails (default: true)
+    publish-after-save: true         # Whether to publish events to listeners after saving them to the outbox (default: true)
+    delete-completed-records: false  # If true, completed outbox records will be deleted after processing (default: false)
+    executor-core-pool-size: 4       # Core pool size for the ThreadPoolTaskExecutor (default: 4)
+    executor-max-pool-size: 8        # Maximum pool size for the ThreadPoolTaskExecutor (default: 8)
 
   # Instance coordination and partition management
   instance:
-    graceful-shutdown-timeout-seconds: 15     # Timeout for graceful shutdown
-    stale-instance-timeout-seconds: 30        # When to consider an instance stale
-    heartbeat-interval-seconds: 5             # Heartbeat frequency
-    new-instance-detection-interval-seconds: 10  # Instance discovery frequency
+    graceful-shutdown-timeout-seconds: 15      # Timeout in seconds for graceful shutdown (default: 15)
+    stale-instance-timeout-seconds: 30         # Timeout in seconds to consider an instance stale (default: 30)
+    heartbeat-interval-seconds: 5              # Interval in seconds between instance heartbeats (default: 5)
+    new-instance-detection-interval-seconds: 10 # Interval in seconds for detecting new instances (default: 10)
 
   # Retry configuration
   retry:
-    max-retries: 3             # Maximum retry attempts (applies to all policies)
-    policy: "exponential"      # Main retry policy: fixed, exponential, or jittered
+    max-retries: 3                # Maximum number of retry attempts for failed outbox events (default: 3)
+    policy: "exponential"         # Retry policy strategy: fixed, exponential, or jittered (default: exponential)
 
     # Exponential backoff configuration
     exponential:
-      initial-delay: 2000      # Start with 2 seconds
-      max-delay: 60000         # Cap at 60 seconds
-      multiplier: 2.0          # Double each time
+      initial-delay: 2000         # Initial delay in ms for exponential backoff (default: 2000)
+      max-delay: 60000            # Maximum delay in ms for exponential backoff (default: 60000)
+      multiplier: 2.0             # Multiplier for exponential backoff (default: 2.0)
 
     # Fixed delay configuration
     fixed:
-      delay: 5000              # Always wait 5 seconds
+      delay: 5000                 # Fixed delay in ms between retry attempts (default: 5000)
 
     # Jittered retry configuration (adds randomness to base policy)
     jittered:
-      base-policy: exponential # Base policy: fixed or exponential
-      jitter: 500              # Add 0-500ms random jitter
+      base-policy: exponential    # Base retry policy for jittered retry (default: exponential)
+      jitter: 500                 # Maximum random jitter in ms to add to the base policy's delay (default: 500)
 ```

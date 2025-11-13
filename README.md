@@ -35,7 +35,7 @@ Add the library to your `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jpa:0.2.0")
+    implementation("io.namastack:namastack-outbox-starter-jpa:0.3.0")
 }
 ```
 
@@ -46,7 +46,7 @@ Or if you're using Maven, add to your `pom.xml`:
 <dependency>
   <groupId>io.namastack</groupId>
   <artifactId>namastack-outbox-starter-jpa</artifactId>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
 </dependency>
 ```
 
@@ -67,7 +67,7 @@ fun main(args: Array<String>) {
 
 ### 3. Configure Clock Bean
 
-The library requires a Clock bean for time-based operations. Configure your own Clock, if you 
+The library requires a Clock bean for time-based operations. Configure your own Clock, if you
 don't want to use the default Clock bean from namastack-outbox:
 
 ```kotlin
@@ -89,60 +89,8 @@ outbox:
     enabled: true
 ```
 
-Or create the tables manually:
-
-```sql
-CREATE TABLE IF NOT EXISTS outbox_record
-(
-    id            VARCHAR(255)             NOT NULL,
-    status        VARCHAR(20)              NOT NULL,
-    aggregate_id  VARCHAR(255)             NOT NULL,
-    event_type    VARCHAR(255)             NOT NULL,
-    payload       TEXT                     NOT NULL,
-    created_at    TIMESTAMP WITH TIME ZONE NOT NULL,
-    completed_at  TIMESTAMP WITH TIME ZONE,
-    retry_count   INT                      NOT NULL,
-    next_retry_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    partition     INTEGER                  NOT NULL,
-    PRIMARY KEY (id)
-);
-
-CREATE TABLE IF NOT EXISTS outbox_instance
-(
-    instance_id    VARCHAR(255) PRIMARY KEY,
-    hostname       VARCHAR(255)             NOT NULL,
-    port           INTEGER                  NOT NULL,
-    status         VARCHAR(50)              NOT NULL,
-    started_at     TIMESTAMP WITH TIME ZONE NOT NULL,
-    last_heartbeat TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at     TIMESTAMP WITH TIME ZONE NOT NULL,
-    updated_at     TIMESTAMP WITH TIME ZONE NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_created
-    ON outbox_record (aggregate_id, created_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_partition_status_retry
-    ON outbox_record (partition, status, next_retry_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry
-    ON outbox_record (status, next_retry_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status
-    ON outbox_record (status);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_completed_created
-    ON outbox_record (aggregate_id, completed_at, created_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_instance_status_heartbeat
-    ON outbox_instance (status, last_heartbeat);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_instance_last_heartbeat
-    ON outbox_instance (last_heartbeat);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_instance_status
-    ON outbox_instance (status);
-```
+Or create the tables manually. You can look up the latest database schemas for all supported
+databases [here](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jpa/src/main/resources/schema).
 
 ### 5. Create Event Processor
 
@@ -150,31 +98,69 @@ Implement `OutboxRecordProcessor` to handle your events:
 
 ```kotlin
 @Component
-class MyEventProcessor : OutboxRecordProcessor {
-
-    private val logger = LoggerFactory.getLogger(javaClass)
+class MyEventProcessor(
+    private val objectMapper: ObjectMapper,
+    private val messagePublisher: MessagePublisher,
+) : OutboxRecordProcessor {
+    
     private val objectMapper = ObjectMapper()
 
     override fun process(record: OutboxRecord) {
         when (record.eventType) {
-            "OrderCreated" -> handleOrderCreated(record)
-            "OrderUpdated" -> handleOrderUpdated(record)
-            "OrderCanceled" -> handleOrderCanceled(record)
+            "OrderCreatedEvent" -> handleOrderCreated(record)
+            "OrderUpdatedEvent" -> handleOrderUpdated(record)
+            "OrderCanceledEvent" -> handleOrderCanceled(record)
             else -> logger.warn("Unknown event type: ${record.eventType}")
         }
     }
 
     private fun handleOrderCreated(record: OutboxRecord) {
         val event = objectMapper.readValue(record.payload, OrderCreatedEvent::class.java)
-        // Publish to message broker, call external API, etc.
-        messagePublisher.publish("orders.created", event)
+        messagePublisher.publish(event)
     }
 }
 ```
 
-### 6. Save Events to Outbox
+### 6. Save Outbox Records to Outbox
 
-Inject `OutboxRecordRepository`, `Clock`, and save events using the OutboxRecord Builder:
+Namastack Outbox supports two main ways to save events to the outbox table, both ensuring that your events are reliably persisted and later processed in the correct order:
+
+#### 1. Save via @OutboxEvent Annotation (Recommended, since 0.3.0)
+
+Annotate your event class with `@OutboxEvent` to enable automatic outbox persistence. The annotation supports SpEL expressions for dynamic aggregateId extraction and allows you to optionally specify the event type (otherwise, the fully qualified class name is used by default):
+
+```kotlin
+@OutboxEvent(
+    aggregateId = "#root.id.toString()", // required - supports SpEL expressions
+    eventType = "CustomerRegisteredEvent" // optional - default is qualifiedName of class
+)
+data class CustomerRegisteredEvent(
+    val id: UUID,
+    val firstname: String,
+    val lastname: String,
+    val email: String,
+)
+```
+
+To publish your event, simply use the standard Spring `ApplicationEventPublisher`:
+
+```kotlin
+applicationEventPublisher.publish(event)
+```
+
+Alternatively, you can use `@DomainEvents` with `AbstractAggregateRoot` from Spring Data JPA to automatically publish domain events after entity persistence.
+
+You can control whether events are also published to listeners (in addition to being saved in the outbox) via configuration:
+
+```yaml
+outbox:
+  processing:
+    publish-after-save: true # default is true
+```
+
+#### 2. Save via OutboxRecordRepository (Manual Approach)
+
+If you need more control, you can inject `OutboxRecordRepository` and save events manually using the OutboxRecord builder. This is useful for advanced scenarios or when you want to set all fields explicitly.
 
 ```kotlin
 @Service
@@ -182,76 +168,30 @@ class OrderService(
     private val orderRepository: OrderRepository,
     private val outboxRepository: OutboxRecordRepository,
     private val objectMapper: ObjectMapper,
-    private val clock: Clock  // Inject Clock for consistent timestamps
+    private val clock: Clock
 ) {
-
     @Transactional
     fun createOrder(command: CreateOrderCommand): Order {
-        // Create and save the order
         val order = Order.create(command)
         orderRepository.save(order)
 
-        // Save event to outbox - same transaction!
         val event = OrderCreatedEvent(order.id, order.customerId, order.amount)
         val outboxRecord = OutboxRecord.Builder()
             .aggregateId(order.id.toString())
             .eventType("OrderCreated")
             .payload(objectMapper.writeValueAsString(event))
-            .build(clock)  // Pass clock for consistent timestamps
-
-        outboxRepository.save(outboxRecord)
-
-        return order
-    }
-
-    @Transactional
-    fun updateOrder(orderId: OrderId, command: UpdateOrderCommand): Order {
-        val order = orderRepository.findById(orderId)
-            ?: throw OrderNotFoundException(orderId)
-
-        order.update(command)
-        orderRepository.save(order)
-
-        // Create update event using Builder
-        val event = OrderUpdatedEvent(order.id, order.customerId, order.amount)
-        val outboxRecord = OutboxRecord.Builder()
-            .aggregateId(order.id.toString())
-            .eventType("OrderUpdated")
-            .payload(objectMapper.writeValueAsString(event))
             .build(clock)
 
         outboxRepository.save(outboxRecord)
-
         return order
     }
+    // ...existing code for updateOrder, etc...
 }
 ```
 
-**Alternative: Using OutboxRecord.restore() for specific field values**
+**Tip:** For testing or advanced use cases, you can use `OutboxRecord.restore()` to set all fields (status, retry count, etc.) explicitly.
 
-For testing or when you need to specify all properties (like retry count, status, etc.), use the
-`restore` method:
-
-```kotlin
-// For testing or when recreating records with specific states
-val outboxRecord = OutboxRecord.restore(
-    id = UUID.randomUUID().toString(),
-    aggregateId = order.id.toString(),
-    eventType = "OrderCreated",
-    payload = objectMapper.writeValueAsString(event),
-    partition = 1,
-    createdAt = OffsetDateTime.now(clock),
-    status = OutboxRecordStatus.NEW,
-    completedAt = null,
-    retryCount = 0,
-    nextRetryAt = OffsetDateTime.now(clock)
-)
-```
-
-**When to use which method:**
-
-- **Builder**: Use for creating new events in your business logic (recommended for most cases)
-- **restore()**: Use in tests or when you need to recreate records with specific field values
+Both approaches ensure that your events are saved in the same transaction as your business data, providing strong consistency and reliable event delivery.
 
 ## Configuration
 
@@ -260,10 +200,10 @@ Configure the outbox behavior in your `application.yml`:
 ```yaml
 outbox:
   # Polling interval for processing events (milliseconds)
-  poll-interval: 2000
-  
+  poll-interval: 2000                # Interval in milliseconds at which the outbox is polled (default: 2000)
+
   # Batch size for processing events
-  batch-size: 10
+  batch-size: 10                     # Maximum number of aggregate IDs to process in a single batch (default: 10)
 
   # Schema initialization
   schema-initialization:
@@ -271,44 +211,49 @@ outbox:
 
   # Processing behavior configuration
   processing:
-    stop-on-first-failure: true  # Stop processing aggregate when one event fails (default: true)
+    stop-on-first-failure: true      # Whether to stop processing remaining events in an aggregate when one event fails (default: true)
+    publish-after-save: true         # Whether to publish events to listeners after saving them to the outbox (default: true)
+    delete-completed-records: false  # If true, completed outbox records will be deleted after processing (default: false)
+    executor-core-pool-size: 4       # Core pool size for the ThreadPoolTaskExecutor (default: 4)
+    executor-max-pool-size: 8        # Maximum pool size for the ThreadPoolTaskExecutor (default: 8)
 
   # Instance coordination and partition management
   instance:
-    graceful-shutdown-timeout-seconds: 15     # Timeout for graceful shutdown
-    stale-instance-timeout-seconds: 30        # When to consider an instance stale
-    heartbeat-interval-seconds: 5             # Heartbeat frequency
-    new-instance-detection-interval-seconds: 10  # Instance discovery frequency
+    graceful-shutdown-timeout-seconds: 15      # Timeout in seconds for graceful shutdown (default: 15)
+    stale-instance-timeout-seconds: 30         # Timeout in seconds to consider an instance stale (default: 30)
+    heartbeat-interval-seconds: 5              # Interval in seconds between instance heartbeats (default: 5)
+    new-instance-detection-interval-seconds: 10 # Interval in seconds for detecting new instances (default: 10)
 
   # Retry configuration
   retry:
-    max-retries: 3             # Maximum retry attempts (applies to all policies)
-    policy: "exponential"      # Main retry policy: fixed, exponential, or jittered
+    max-retries: 3                # Maximum number of retry attempts for failed outbox events (default: 3)
+    policy: "exponential"         # Retry policy strategy: fixed, exponential, or jittered (default: exponential)
 
     # Exponential backoff configuration
     exponential:
-      initial-delay: 2000      # Start with 2 seconds
-      max-delay: 60000         # Cap at 60 seconds  
-      multiplier: 2.0          # Double each time
+      initial-delay: 2000         # Initial delay in ms for exponential backoff (default: 2000)
+      max-delay: 60000            # Maximum delay in ms for exponential backoff (default: 60000)
+      multiplier: 2.0             # Multiplier for exponential backoff (default: 2.0)
 
     # Fixed delay configuration
     fixed:
-      delay: 5000              # Always wait 5 seconds
+      delay: 5000                 # Fixed delay in ms between retry attempts (default: 5000)
 
     # Jittered retry configuration (adds randomness to base policy)
     jittered:
-      base-policy: exponential # Base policy: fixed or exponential
-      jitter: 500              # Add 0-500ms random jitter
+      base-policy: exponential    # Base retry policy for jittered retry (default: exponential)
+      jitter: 500                 # Maximum random jitter in ms to add to the base policy's delay (default: 500)
 ```
 
 ## Hash-based Partitioning
 
-The library uses hash-based partitioning to enable horizontal scaling across multiple application 
+The library uses hash-based partitioning to enable horizontal scaling across multiple application
 instances while maintaining strict event ordering per aggregate (if activated).
 
 ### How Partitioning Works
 
-1. **Consistent Hashing**: Each outbox record is assigned to a partition based on its `aggregateId` using MurmurHash3
+1. **Consistent Hashing**: Each outbox record is assigned to a partition based on its `aggregateId`
+   using MurmurHash3
 2. **Fixed Partition Count**: The system uses 256 fixed partitions (configurable at compile time)
 3. **Dynamic Assignment**: Partitions are automatically distributed among active instances
 4. **Automatic Rebalancing**: When instances join or leave, partitions are reassigned
@@ -349,6 +294,7 @@ Instance 3: Partitions 170-255 (86 partitions)
 ```
 
 When Instance 2 goes down:
+
 ```
 Instance 1: Partitions 0-84, 170-211   (127 partitions)
 Instance 3: Partitions 85-169, 212-255 (129 partitions)
@@ -560,7 +506,7 @@ processing fails:
 
 ## Metrics
 
-The `namastack-outbox-metrics` module provides comprehensive metrics for Outbox records and 
+The `namastack-outbox-metrics` module provides comprehensive metrics for Outbox records and
 partition distribution, integrating automatically with Micrometer and Spring Boot Actuator.
 
 ### Prerequisites
@@ -575,7 +521,7 @@ Add the metrics module to your dependencies:
 
 ```kotlin
 dependencies {
-    implementation("io.namastack:namastack-outbox-metrics:0.2.0")
+    implementation("io.namastack:namastack-outbox-metrics:0.3.0")
 }
 ```
 
@@ -691,7 +637,8 @@ class OutboxMonitoringService(
 
 ### Outbox Pattern
 
-1. **Transactional Write**: Events are saved to the outbox table in the same transaction as your domain changes
+1. **Transactional Write**: Events are saved to the outbox table in the same transaction as your
+   domain changes
 2. **Hash-based Partitioning**: Each event is assigned to a partition based on its aggregateId
 3. **Instance Coordination**: Partitions are automatically distributed among active instances
 4. **Background Processing**: A scheduler polls for unprocessed events in assigned partitions
@@ -735,32 +682,21 @@ Run tests:
 ./gradlew test
 ```
 
-## Migration from 0.1.0 to 0.2.0
-
-Version 0.2.0 introduces significant architectural improvements, transitioning from distributed locking to **hash-based partitioning** for better horizontal scaling and performance. This change requires database schema updates.
-
-### Key Changes in 0.2.0
-
-🎯 **Hash-based Partitioning**: Replaced distributed locking with partition-based coordination  
-📊 **Instance Management**: New `outbox_instance` table for coordinating multiple instances  
-🔢 **Partition Field**: Added `partition` column to `outbox_record` table  
-📈 **Enhanced Performance**: Optimized queries and improved throughput  
-📊 **Built-in Metrics**: Comprehensive monitoring with partition-level visibility
+## Migration from 0.2.0 to 0.3.0
 
 ### Database Schema Changes
 
-The 0.2.0 release introduces:
+The 0.3.0 release introduces:
 
-1. **New `outbox_instance` table** for instance coordination
-2. **New `partition` column** in `outbox_record` table
-3. **Additional database indexes** for optimal performance
-4. **Removal of lock-related tables** (if you used the distributed locking approach)
+1. **Specific migration scripts per database type**
+2. **Renaming of `partition` column to `partition_no`, because of reserved keyword problem
 
 ### Migration Steps
 
 #### Option 1: Simple Migration (Recommended)
 
-The **easiest and safest approach** is to drop existing outbox tables and let the library recreate them with the new schema:
+The **easiest and safest approach** is to drop existing outbox tables and let the library recreate
+them with the new schema:
 
 ```sql
 -- Stop all application instances first
@@ -768,13 +704,15 @@ The **easiest and safest approach** is to drop existing outbox tables and let th
 
 -- Drop existing tables (this will lose existing outbox data)
 DROP TABLE IF EXISTS outbox_record;
-DROP TABLE IF EXISTS outbox_lock;  -- If you have this from 0.1.0
+DROP TABLE IF EXISTS outbox_lock;
+-- If you have this from 0.1.0
 
--- Update your application to version 0.2.0
+-- Update your application to version 0.3.0
 -- The new schema will be automatically created on startup if schema-initialization is enabled
 ```
 
 **When to use this approach:**
+
 - ✅ You can afford to lose unprocessed outbox events
 - ✅ You're okay with a brief service interruption
 - ✅ You want the simplest migration path
@@ -782,13 +720,15 @@ DROP TABLE IF EXISTS outbox_lock;  -- If you have this from 0.1.0
 
 #### Option 2: Data Preservation Migration
 
-If you need to preserve existing outbox data, please **contact the maintainer** for assistance with a custom migration script. This requires:
+If you need to preserve existing outbox data, please **contact the maintainer** for assistance with
+a custom migration script. This requires:
 
 - Migrating existing records to the new partition-based structure
 - Calculating partition assignments for existing records
 - Handling any failed or pending events appropriately
 
 **When you need custom migration support:**
+
 - 🔄 You have critical unprocessed events that must be preserved
 - 🏭 You're migrating in a production environment with strict data requirements
 - 📊 You need to maintain event processing history
@@ -811,7 +751,8 @@ After migration, verify the setup:
 
 ### Need Help?
 
-If you cannot use the simple drop-and-recreate approach and need to preserve existing outbox data, please **contact the maintainer** by opening a GitHub issue.
+If you cannot use the simple drop-and-recreate approach and need to preserve existing outbox data,
+please **contact the maintainer** by opening a GitHub issue.
 
 ## Supported Databases
 
@@ -824,13 +765,16 @@ Namastack Outbox supports the following relational databases:
 - **PostgreSQL**
 - **SQL Server**
 
-All supported databases are tested with the default schema and index definitions provided by the library. If you encounter compatibility issues or require support for another database, please open a GitHub issue.
+All supported databases are tested with the default schema and index definitions provided by the
+library. If you encounter compatibility issues or require support for another database, please open
+a GitHub issue.
 
 ### Database Compatibility Notes
 
 - **H2**: Recommended for development and CI testing only.
 - **MariaDB/MySQL**: Fully supported. Use InnoDB for transactional guarantees.
-- **Oracle**: Supported with standard schema. Ensure correct data types for timestamps and text fields.
+- **Oracle**: Supported with standard schema. Ensure correct data types for timestamps and text
+  fields.
 - **PostgreSQL**: Fully supported and recommended for production.
 - **SQL Server**: Supported. Make sure to use the correct dialect in your JPA configuration.
 

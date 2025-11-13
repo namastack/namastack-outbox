@@ -170,6 +170,62 @@ Control how the scheduler handles failures within aggregates:
 | `true` (default) | :material-check: Success | :material-close: Fails | :material-pause: Skipped | Event 2 retried, Event 3 waits |
 | `false`          | :material-check: Success | :material-close: Fails | :material-check: Success | Event 2 retried independently  |
 
+### :material-broadcast: OutboxEventMulticaster
+
+Namastack Outbox provides a custom `OutboxEventMulticaster` that intercepts and stores all events annotated with `@OutboxEvent` in the outbox table. This multicaster integrates seamlessly with Spring's event system and ensures that events are reliably persisted and later processed, regardless of whether they are published via `@DomainEvents` or `ApplicationEventPublisher`.
+
+**Key Features:**
+- Intercepts all events annotated with `@OutboxEvent`
+- Stores events transactionally in the outbox table
+- Works with both `@DomainEvents` and direct `ApplicationEventPublisher` usage
+- Optionally publishes events to other listeners in the same transaction (`publish-after-save: true`)
+- Ensures that only events with the annotation are handled by the outbox
+- Uses a pluggable serializer for event payloads (default: Jackson)
+
+**How it works:**
+- When an event is published, the multicaster checks for the `@OutboxEvent` annotation.
+- If present, the event is serialized and stored in the outbox table.
+- If `publish-after-save` is enabled, the event is also forwarded to other listeners.
+- Serialization and deserialization is handled by the `OutboxEventSerializer` (default: Jackson, see below).
+
+#### @OutboxEvent Annotation
+
+The `@OutboxEvent` annotation marks a class as an outbox event. Only events with this annotation are intercepted and stored by the outbox multicaster. The annotation supports SpEL expressions for dynamic aggregateId extraction and allows you to specify a custom event type.
+
+**Example:**
+```kotlin
+@OutboxEvent(
+    aggregateId = "#root.id.toString()", // required
+    eventType = "OrderCreatedEvent"      // optional
+)
+data class OrderCreatedEvent(
+    val id: UUID,
+    val ... // other fields
+)
+```
+
+- You can use SpEL to extract the aggregateId from any property of your event.
+- If you omit `eventType`, the fully qualified class name is used by default.
+
+#### Serialization: namastack-outbox-jackson & Custom Serializer
+
+The `namastack-outbox-jackson` module provides a default implementation of `OutboxEventSerializer` using Jackson for JSON serialization. This module is included automatically with the starter and works out of the box for most use cases.
+
+- Serializes and deserializes event payloads as JSON
+- Supports all standard Jackson features (custom modules, mixins, etc.)
+- No configuration required if you use the starter
+
+**Custom Serialization:**
+If you need a different serialization format (e.g. XML, Avro, Protobuf), you can provide your own implementation of `OutboxEventSerializer` as a Spring bean. The library will automatically use your custom serializer instead of the default.
+
+**How to provide a custom serializer:**
+
+1. Implement the `OutboxEventSerializer` interface.
+2. Register your implementation as a Spring bean.
+3. The outbox will use your serializer for all event payloads.
+
+---
+
 ## :material-cog: Advanced Configuration
 
 ### :material-refresh: Retry Mechanisms
@@ -352,7 +408,6 @@ class OutboxMonitoringService(
     fun getCompletedEvents(): List<OutboxRecord> = 
         outboxRepository.findCompletedRecords()
     
-    // Partition monitoring (new in v0.2.0)
     fun getPartitionStats(): PartitionProcessingStats {
         return partitionMetricsProvider.getProcessingStats()
     }
