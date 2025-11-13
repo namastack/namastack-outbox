@@ -137,10 +137,14 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 1) { recordProcessor.process(record) }
-            verify(exactly = 1) { recordRepository.save(record) }
-            assertThat(record.status).isEqualTo(COMPLETED)
-            assertThat(record.completedAt).isNotNull()
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    verify(exactly = 1) { recordProcessor.process(record) }
+                    verify(exactly = 1) { recordRepository.save(record) }
+                    assertThat(record.status).isEqualTo(COMPLETED)
+                    assertThat(record.completedAt).isNotNull()
+                }
         }
 
         @Test
@@ -190,7 +194,9 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 0) { recordProcessor.process(any()) }
+            await().during(1, TimeUnit.SECONDS).untilAsserted {
+                verify(exactly = 0) { recordProcessor.process(any()) }
+            }
         }
 
         @Test
@@ -201,7 +207,9 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 0) { recordProcessor.process(any()) }
+            await().during(1, TimeUnit.SECONDS).untilAsserted {
+                verify(exactly = 0) { recordProcessor.process(any()) }
+            }
         }
     }
 
@@ -341,8 +349,15 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 1) { recordProcessor.process(record1) }
-            verify(exactly = 0) { recordProcessor.process(record2) }
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    verify(exactly = 1) { recordProcessor.process(record1) }
+                }
+
+            await().during(1, TimeUnit.SECONDS).untilAsserted {
+                verify(exactly = 0) { recordProcessor.process(record2) }
+            }
         }
 
         @Test
@@ -375,8 +390,12 @@ class OutboxProcessingSchedulerTest {
 
             schedulerNonStop.process()
 
-            verify(exactly = 1) { recordProcessor.process(record1) }
-            verify(exactly = 1) { recordProcessor.process(record2) }
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    verify(exactly = 1) { recordProcessor.process(record1) }
+                    verify(exactly = 1) { recordProcessor.process(record2) }
+                }
         }
 
         @Test
@@ -392,8 +411,12 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 1) { recordProcessor.process(record1) }
-            verify(exactly = 1) { recordProcessor.process(record2) }
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    verify(exactly = 1) { recordProcessor.process(record1) }
+                    verify(exactly = 1) { recordProcessor.process(record2) }
+                }
         }
     }
 
@@ -418,7 +441,9 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 0) { recordProcessor.process(any()) }
+            await().during(1, TimeUnit.SECONDS).untilAsserted {
+                verify(exactly = 0) { recordProcessor.process(any()) }
+            }
         }
 
         @Test
@@ -430,7 +455,9 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 0) { recordProcessor.process(any()) }
+            await().during(1, TimeUnit.SECONDS).untilAsserted {
+                verify(exactly = 0) { recordProcessor.process(any()) }
+            }
         }
 
         @Test
@@ -444,7 +471,11 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 1) { recordProcessor.process(record) }
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    verify(exactly = 1) { recordProcessor.process(record) }
+                }
         }
     }
 }
