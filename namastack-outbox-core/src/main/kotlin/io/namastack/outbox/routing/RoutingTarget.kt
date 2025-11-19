@@ -25,7 +25,7 @@ data class RoutingTarget(
      * @param key The partition/message key
      * @return A new RoutingTarget instance with updated key
      */
-    fun withKey(key: String?): RoutingTarget = copy(key = key)
+    fun withKey(key: String): RoutingTarget = copy(key = key)
 
     companion object {
         /**

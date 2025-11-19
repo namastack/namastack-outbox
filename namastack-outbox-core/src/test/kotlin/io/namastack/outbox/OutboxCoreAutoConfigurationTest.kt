@@ -5,6 +5,7 @@ import io.namastack.outbox.retry.ExponentialBackoffRetryPolicy
 import io.namastack.outbox.retry.FixedDelayRetryPolicy
 import io.namastack.outbox.retry.JitteredRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicy
+import io.namastack.outbox.routing.RoutingConfiguration
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -260,6 +261,91 @@ class OutboxCoreAutoConfigurationTest {
         }
     }
 
+    @Nested
+    @DisplayName("RoutingConfiguration")
+    inner class RoutingConfigurationTests {
+        @Test
+        fun `creates routing configuration when provided`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithRoutingConfiguration::class.java)
+                .run { context ->
+                    assertThat(context).hasSingleBean(RoutingConfiguration::class.java)
+                }
+        }
+
+        @Test
+        fun `uses custom routing configuration when provided`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithRoutingConfiguration::class.java)
+                .run { context ->
+                    val routingConfig = context.getBean(RoutingConfiguration::class.java)
+                    assertThat(routingConfig).isNotNull
+                    assertThat(routingConfig).isSameAs(ConfigWithRoutingConfiguration.customRoutingConfig)
+                }
+        }
+
+        @Test
+        fun `routing configuration can resolve routes`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithRoutingConfiguration::class.java)
+                .run { context ->
+                    val testRecord = OutboxRecordTestFactory.outboxRecord()
+
+                    val routingConfig = context.getBean(RoutingConfiguration::class.java)
+                    val route = routingConfig.getRoute("TestEvent")
+
+                    assertThat(route).isNotNull
+                    assertThat(route.target(testRecord).target).isEqualTo("test-topic")
+                }
+        }
+
+        @Test
+        fun `routing configuration fallback to wildcard route`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithWildcardRouting::class.java)
+                .run { context ->
+                    val testRecord = OutboxRecordTestFactory.outboxRecord()
+
+                    val routingConfig = context.getBean(RoutingConfiguration::class.java)
+                    val route = routingConfig.getRoute("UnknownEvent")
+
+                    assertThat(route).isNotNull
+                    assertThat(route.target(testRecord).target).isEqualTo("fallback-topic")
+                }
+        }
+
+        @Test
+        fun `routing configuration applies headers`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithHeaderRouting::class.java)
+                .run { context ->
+                    val testRecord = OutboxRecordTestFactory.outboxRecord()
+
+                    val routingConfig = context.getBean(RoutingConfiguration::class.java)
+                    val route = routingConfig.getRoute("CreatedEvent")
+                    val headers = route.headers(testRecord)
+
+                    assertThat(headers).containsEntry("event-type", "CreatedEvent")
+                    assertThat(headers).containsEntry("source", "test-service")
+                }
+        }
+
+        @Test
+        fun `routing configuration applies custom mapper`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithMapperRouting::class.java)
+                .run { context ->
+                    val testRecord = OutboxRecordTestFactory.outboxRecord()
+
+                    val routingConfig = context.getBean(RoutingConfiguration::class.java)
+                    val route = routingConfig.getRoute("CreatedEvent")
+                    val mappedPayload = route.mapper(testRecord)
+
+                    assertThat(mappedPayload).isEqualTo("PAYLOAD")
+                }
+        }
+    }
+
     @EnableOutbox
     @Configuration
     private class MinimalTestConfig {
@@ -374,5 +460,107 @@ class OutboxCoreAutoConfigurationTest {
 
         @Bean
         fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
+    }
+
+    @EnableOutbox
+    @Configuration
+    private class ConfigWithRoutingConfiguration {
+        companion object {
+            val customRoutingConfig =
+                RoutingConfiguration
+                    .builder()
+                    .route("TestEvent") { target("test-topic") }
+                    .build()
+        }
+
+        @Bean
+        fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
+
+        @Bean
+        fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
+
+        @Bean
+        fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
+
+        @Bean
+        fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
+
+        @Bean
+        fun routingConfiguration() = customRoutingConfig
+    }
+
+    @EnableOutbox
+    @Configuration
+    private class ConfigWithWildcardRouting {
+        @Bean
+        fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
+
+        @Bean
+        fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
+
+        @Bean
+        fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
+
+        @Bean
+        fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
+
+        @Bean
+        fun routingConfiguration() =
+            RoutingConfiguration
+                .builder()
+                .route("SpecificEvent") { target("specific-topic") }
+                .routeAll { target("fallback-topic") }
+                .build()
+    }
+
+    @EnableOutbox
+    @Configuration
+    private class ConfigWithHeaderRouting {
+        @Bean
+        fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
+
+        @Bean
+        fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
+
+        @Bean
+        fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
+
+        @Bean
+        fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
+
+        @Bean
+        fun routingConfiguration() =
+            RoutingConfiguration
+                .builder()
+                .route("CreatedEvent") {
+                    target("header-topic")
+                    header("event-type", "CreatedEvent")
+                    header("source", "test-service")
+                }.build()
+    }
+
+    @EnableOutbox
+    @Configuration
+    private class ConfigWithMapperRouting {
+        @Bean
+        fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
+
+        @Bean
+        fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
+
+        @Bean
+        fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
+
+        @Bean
+        fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
+
+        @Bean
+        fun routingConfiguration() =
+            RoutingConfiguration
+                .builder()
+                .route("CreatedEvent") {
+                    target("mapper-topic")
+                    mapper { it.payload.uppercase() }
+                }.build()
     }
 }

@@ -84,19 +84,46 @@ class RoutingConfiguration private constructor(
 
     /**
      * Companion object providing factory methods and constants.
+     *
+     * @author Roland Beisel
+     * @since 0.4.0
      */
     companion object {
         /**
          * Key used to store the wildcard routing rule.
+         *
+         * The wildcard key "*" is used as a fallback when no specific route is configured
+         * for an event type.
          */
         const val WILDCARD_ROUTE_KEY = "*"
 
         /**
          * Creates a new builder for configuring RoutingConfiguration.
          *
-         * @return A new Builder instance
+         * @return A new Builder instance for fluent configuration
          */
         @JvmStatic
         fun builder() = Builder()
+
+        /**
+         * Creates a default RoutingConfiguration with sensible defaults.
+         *
+         * The default configuration:
+         * - Routes all events using their eventType as the target/topic
+         * - Sets the aggregateId as the partition key to maintain ordering
+         * - Uses the raw payload without transformation
+         *
+         * @return A new RoutingConfiguration with default routing rules
+         */
+        fun default(): RoutingConfiguration =
+            builder()
+                .routeAll {
+                    target { record ->
+                        RoutingTarget
+                            .forTarget(record.eventType)
+                            .withKey(record.aggregateId)
+                    }
+                    mapper { record -> record.payload }
+                }.build()
     }
 }

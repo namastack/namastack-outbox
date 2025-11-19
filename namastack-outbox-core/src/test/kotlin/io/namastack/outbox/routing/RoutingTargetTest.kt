@@ -56,14 +56,6 @@ class RoutingTargetTest {
         }
 
         @Test
-        fun `should clear key when passed null`() {
-            val target = RoutingTarget("kafka:orders", "orderId")
-            val updated = target.withKey(null)
-
-            assertThat(updated.key).isNull()
-        }
-
-        @Test
         fun `should return new instance`() {
             val target = RoutingTarget("kafka:orders")
             val updated = target.withKey("key")

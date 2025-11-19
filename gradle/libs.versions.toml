@@ -11,6 +11,7 @@ publish = "0.35.0"
 hibernate = "7.1.7.Final"
 springOrm = "6.2.12"
 springTx = "6.2.12"
+springKafka = "4.0.0"
 h2 = "2.4.240"
 mockk = "1.14.6"
 assertj = "3.27.6"
@@ -28,6 +29,8 @@ spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-s
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBoot" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa", version.ref = "springBoot" }
 spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator", version.ref = "springBoot" }
+spring-kafka = { module = "org.springframework.kafka:spring-kafka", version.ref = "springKafka" }
+spring-kafka-test = { module = "org.springframework.kafka:spring-kafka-test", version.ref = "springKafka" }
 spring-tx = { module = "org.springframework:spring-tx", version.ref = "springTx" }
 
 # Jakarta dependencies
