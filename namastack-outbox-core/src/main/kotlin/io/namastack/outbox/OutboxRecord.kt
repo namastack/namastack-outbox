@@ -182,6 +182,14 @@ class OutboxRecord internal constructor(
 
     companion object {
         /**
+         * Creates a new builder for constructing OutboxRecord instances.
+         *
+         * @return A new Builder instance
+         */
+        @JvmStatic
+        fun builder() = Builder()
+
+        /**
          * Restores an OutboxRecord from persisted data.
          *
          * This method is used when loading records from the database.

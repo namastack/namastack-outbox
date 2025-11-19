@@ -20,6 +20,8 @@ plugins {
 dependencies {
     jacocoAggregation(project(":namastack-outbox-actuator"))
     jacocoAggregation(project(":namastack-outbox-core"))
+    jacocoAggregation(project(":namastack-outbox-kafka"))
+    jacocoAggregation(project(":namastack-outbox-jackson"))
     jacocoAggregation(project(":namastack-outbox-jpa"))
     jacocoAggregation(project(":namastack-outbox-metrics"))
     jacocoAggregation(project(":namastack-outbox-starter-jpa"))
@@ -29,7 +31,7 @@ val isRelease = project.hasProperty("release") && project.property("release") ==
 
 allprojects {
     group = "io.namastack"
-    version = "0.3.0" + if (!isRelease) "-SNAPSHOT" else ""
+    version = "0.4.0" + if (!isRelease) "-SNAPSHOT" else ""
 
     repositories {
         mavenLocal()

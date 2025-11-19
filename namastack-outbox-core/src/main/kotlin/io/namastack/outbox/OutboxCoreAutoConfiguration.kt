@@ -3,6 +3,7 @@ package io.namastack.outbox
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
+import io.namastack.outbox.routing.RoutingConfiguration
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -162,4 +163,16 @@ class OutboxCoreAutoConfiguration {
             outboxProperties = outboxProperties,
             clock = clock,
         )
+
+    /**
+     * Creates a default routing configuration if none is provided.
+     *
+     * The default configuration routes all events using their eventType as the target
+     * and the aggregateId as the partition key to maintain strict ordering per aggregateId.
+     *
+     * @return Default RoutingConfiguration bean
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun routingConfiguration(): RoutingConfiguration = RoutingConfiguration.default()
 }
