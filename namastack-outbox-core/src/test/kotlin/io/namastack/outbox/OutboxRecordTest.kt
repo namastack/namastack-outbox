@@ -364,7 +364,7 @@ class OutboxRecordTest {
     fun `builder should create record with default values`() {
         val record =
             OutboxRecord
-                .Builder()
+                .builder()
                 .aggregateId("test-aggregate")
                 .eventType("TestEvent")
                 .payload("test-payload")
