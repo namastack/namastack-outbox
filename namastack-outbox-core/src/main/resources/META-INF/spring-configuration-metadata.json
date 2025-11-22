@@ -58,6 +58,13 @@
       "description": "Maximum number of aggregate IDs to process in a single batch"
     },
     {
+      "name": "outbox.rebalance-interval",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "defaultValue": 5000,
+      "description": "Interval in milliseconds at which partition rebalancing is triggered."
+    },
+    {
       "name": "outbox.retry.max-retries",
       "type": "java.lang.Integer",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
