@@ -46,4 +46,4 @@ outbox:
 logging:
   level:
     ROOT: WARN
-    #io.namastack.outbox: DEBUG
+    io.namastack.outbox: DEBUG

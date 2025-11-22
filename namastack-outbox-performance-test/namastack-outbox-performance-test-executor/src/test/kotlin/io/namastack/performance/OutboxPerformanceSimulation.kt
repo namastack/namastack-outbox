@@ -35,7 +35,7 @@ class OutboxPerformanceSimulation : Simulation() {
     init {
         setUp(
             scn.injectOpen(
-                constantUsersPerSec(1000.0).during(Duration.ofSeconds(120)),
+                constantUsersPerSec(200.0).during(Duration.ofSeconds(120)),
             ),
         ).protocols(httpProtocol)
     }
