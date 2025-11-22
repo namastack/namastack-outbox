@@ -88,7 +88,13 @@ interface OutboxRecordRepository {
      */
     fun deleteById(id: String)
 
-    /** Bulk delete by IDs. */
+    /**
+     * Bulk delete by unique IDs.
+     * Implementations should ignore an empty collection and preferably issue a single batched statement.
+     * Order of deletion is not guaranteed.
+     *
+     * @param ids Collection of record IDs to delete; empty collection MUST be a no-op.
+     */
     fun deleteByIds(ids: Collection<String>)
 
     /**

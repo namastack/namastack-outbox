@@ -39,7 +39,7 @@ class PartitionCoordinatorTest {
         verify(exactly = 0) { partitionAssignmentRepository.findAll() }
         verify(exactly = 0) { partitionAssignmentRepository.claimAllPartitions(any()) }
         verify(exactly = 0) { partitionAssignmentRepository.claimStalePartitions(any(), any(), any()) }
-        verify(exactly = 0) { partitionAssignmentRepository.releasePartition(any(), any()) }
+        verify(exactly = 0) { partitionAssignmentRepository.releasePartitions(any(), any()) }
     }
 
     @Test
@@ -51,7 +51,7 @@ class PartitionCoordinatorTest {
 
         verify(exactly = 1) { partitionAssignmentRepository.claimAllPartitions("current") }
         verify(exactly = 0) { partitionAssignmentRepository.claimStalePartitions(any(), any(), any()) }
-        verify(exactly = 0) { partitionAssignmentRepository.releasePartition(any(), any()) }
+        verify(exactly = 0) { partitionAssignmentRepository.releasePartitions(any(), any()) }
     }
 
     @Test
@@ -72,7 +72,7 @@ class PartitionCoordinatorTest {
                 eq("current"),
             )
         }
-        verify(exactly = 0) { partitionAssignmentRepository.releasePartition(any(), any()) }
+        verify(exactly = 0) { partitionAssignmentRepository.releasePartitions(any(), any()) }
     }
 
     @Test
@@ -86,10 +86,8 @@ class PartitionCoordinatorTest {
         partitionCoordinator.rebalance()
 
         // Release 15 partitions: last 15 of sorted owned (85..99)
-        (85 until 100).forEach { p ->
-            verify { partitionAssignmentRepository.releasePartition(p, "current") }
-        }
-        verify(exactly = 15) { partitionAssignmentRepository.releasePartition(any(), any()) }
+        verify { partitionAssignmentRepository.releasePartitions((85 until 100).toSet(), "current") }
+        verify(exactly = 1) { partitionAssignmentRepository.releasePartitions(any(), any()) }
         // No stale claim
         verify(exactly = 0) { partitionAssignmentRepository.claimStalePartitions(any(), any(), any()) }
     }
@@ -102,12 +100,10 @@ class PartitionCoordinatorTest {
         every { partitionAssignmentRepository.findAll() } returns (owned + other).toSet()
 
         val coord = partitionCoordinator
-        coord.rebalance() // first -> release 15
-        coord.rebalance() // second -> no new instances -> should NOT release again
+        coord.rebalance()
+        coord.rebalance()
 
-        (85 until 127).forEach { p ->
-            verify(exactly = 1) { partitionAssignmentRepository.releasePartition(p, "current") }
-        }
+        verify(exactly = 1) { partitionAssignmentRepository.releasePartitions((85 until 128).toSet(), "current") }
     }
 
     @Test

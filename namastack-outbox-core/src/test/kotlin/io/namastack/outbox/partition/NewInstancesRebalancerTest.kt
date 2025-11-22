@@ -21,7 +21,7 @@ class NewInstancesRebalancerTest {
             )
         val ctx = PartitionContext("i-1", setOf("i-1"), assignments, targetPartitionCount = 2)
         rebalancer.rebalance(ctx, previousActiveInstanceIds = setOf("i-1"))
-        verify(exactly = 0) { repo.releasePartition(any(), any()) }
+        verify(exactly = 0) { repo.releasePartitions(any(), any()) }
     }
 
     @Test
@@ -37,8 +37,7 @@ class NewInstancesRebalancerTest {
         val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments, targetPartitionCount = 2)
         rebalancer.rebalance(ctx, previousActiveInstanceIds = setOf("i-1"))
         // Sorted partition numbers owned by i-1: 0,1,2,3 -> takeLast(2) -> 2,3
-        verify { repo.releasePartition(2, "i-1") }
-        verify { repo.releasePartition(3, "i-1") }
+        verify { repo.releasePartitions(setOf(2, 3), "i-1") }
     }
 
     @Test
@@ -50,7 +49,7 @@ class NewInstancesRebalancerTest {
             )
         val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments, targetPartitionCount = 1)
         rebalancer.rebalance(ctx, previousActiveInstanceIds = setOf("i-1"))
-        verify(exactly = 0) { repo.releasePartition(any(), any()) }
+        verify(exactly = 0) { repo.releasePartitions(any(), any()) }
     }
 
     @Test
@@ -62,6 +61,6 @@ class NewInstancesRebalancerTest {
         val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments, targetPartitionCount = 5)
         // Owned < target -> no release
         rebalancer.rebalance(ctx, previousActiveInstanceIds = setOf("i-1"))
-        verify(exactly = 0) { repo.releasePartition(any(), any()) }
+        verify(exactly = 0) { repo.releasePartitions(any(), any()) }
     }
 }

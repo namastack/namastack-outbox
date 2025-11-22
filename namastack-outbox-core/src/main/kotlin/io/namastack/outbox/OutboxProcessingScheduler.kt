@@ -22,6 +22,7 @@ import java.util.concurrent.CountDownLatch
  * @param recordRepository Repository for accessing outbox records
  * @param recordProcessor Processor for handling individual records
  * @param partitionCoordinator Coordinator for partition assignments
+ * @param rebalanceSignal Signals deferred rebalance; consumed only after a batch completes
  * @param taskExecutor TaskExecutor for parallel processing of aggregateIds
  * @param retryPolicy Policy for determining retry behavior
  * @param properties Configuration properties
@@ -43,10 +44,15 @@ class OutboxProcessingScheduler(
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
     /**
-     * Main processing method that runs on a scheduled interval.
+     * Scheduled entry point:
+     * 1. Consume a pending rebalance signal (rebalance only AFTER previous batch finished).
+     * 2. Fetch currently owned partitions (cached via coordinator).
+     * 3. Query distinct aggregate IDs with NEW records in those partitions (bounded by batchSize).
+     * 4. Process aggregates in parallel using a CountDownLatch to wait until all tasks finish before next cycle.
      *
-     * Only processes records from partitions assigned to this instance,
-     * ensuring proper load distribution and avoiding conflicts.
+     * Notes:
+     * - Empty partition set => fast exit.
+     * - Rebalance never interleaves with in-flight aggregate processing.
      */
     @Scheduled(fixedDelayString = "\${outbox.poll-interval:2000}")
     fun process() {
@@ -94,9 +100,10 @@ class OutboxProcessingScheduler(
     }
 
     /**
-     * Processes all incomplete records for a specific aggregate.
-     *
-     * @param aggregateId The aggregate ID to process records for
+     * Process all incomplete records for one aggregate in creation order.
+     * Stops early when:
+     *  - First non-retriable (future retry time) record encountered (maintains ordering gap).
+     *  - A failure occurs and stopOnFirstFailure is enabled.
      */
     private fun processAggregate(aggregateId: String) {
         try {
@@ -130,10 +137,10 @@ class OutboxProcessingScheduler(
     }
 
     /**
-     * Processes a single outbox record.
-     *
-     * @param record The record to process
-     * @return true if processing was successful, false otherwise
+     * Process a single record:
+     *  - Invoke business processor
+     *  - On success either delete (if configured) or mark as completed & persist
+     *  - On exception delegate to failure handler
      */
     private fun processRecord(record: OutboxRecord): Boolean =
         try {
@@ -162,14 +169,14 @@ class OutboxProcessingScheduler(
             true
         } catch (ex: Exception) {
             handleFailure(record, ex)
-            false
+            false // single false (removed duplicate)
         }
 
     /**
-     * Handles processing failures by updating retry count and scheduling next retry.
-     *
-     * @param record The record that failed processing
-     * @param ex The exception that caused the failure
+     * Handle a failed record:
+     *  - Increment retry counter
+     *  - Decide FAILED vs scheduled retry based on maxRetries & retryPolicy
+     *  - Persist updated state
      */
     private fun handleFailure(
         record: OutboxRecord,

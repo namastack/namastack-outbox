@@ -41,26 +41,19 @@ class OutboxInstanceRegistry(
     private val staleInstanceTimeout = Duration.ofSeconds(properties.instance.staleInstanceTimeoutSeconds)
     private val gracefulShutdownTimeout = Duration.ofSeconds(properties.instance.gracefulShutdownTimeoutSeconds)
 
-    /**
-     * Gets all currently active instances.
-     */
+    /** Returns all active instances (status ACTIVE). */
     fun getActiveInstances(): List<OutboxInstance> = instanceRepository.findActiveInstances()
 
+    /** Returns the unique ID of this running instance. */
     fun getCurrentInstanceId() = currentInstanceId
 
-    /**
-     * Gets all active instance IDs.
-     */
+    /** Returns the set of active instance IDs. */
     fun getActiveInstanceIds(): Set<String> = getActiveInstances().map { it.instanceId }.toSet()
 
-    /**
-     * Checks if a specific instance is active.
-     */
+    /** True if the given instance currently has status ACTIVE. */
     fun isInstanceActive(instanceId: String): Boolean = instanceRepository.findById(instanceId)?.status == ACTIVE
 
-    /**
-     * Gets the count of active instances.
-     */
+    /** Number of ACTIVE instances. */
     fun getActiveInstanceCount(): Long = instanceRepository.countByStatus(ACTIVE)
 
     /**
@@ -98,12 +91,8 @@ class OutboxInstanceRegistry(
     }
 
     /**
-     * Sends heartbeat and cleans up stale instances.
-     *
-     * Executes periodically to keep the current instance alive in the registry
-     * and remove instances with stale heartbeats that are no longer responding.
-     *
-     * Runs on a fixed schedule defined by outbox.instance.heartbeat-interval-seconds.
+     * Periodic heartbeat + stale cleanup trigger.
+     * Combines update & pruning to reduce scheduling overhead.
      */
     @Scheduled(fixedRateString = "\${outbox.instance.heartbeat-interval-seconds:5}000")
     fun performHeartbeatAndCleanup() {

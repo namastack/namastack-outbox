@@ -23,6 +23,11 @@ data class OutboxInstance(
     val updatedAt: OffsetDateTime,
 ) {
     companion object {
+        /**
+         * Factory method creating a new instance snapshot.
+         * All timestamps (started, heartbeat, created, updated) are initialized to now.
+         * @return a newly constructed active OutboxInstance
+         */
         fun create(
             instanceId: String,
             hostname: String,

@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import io.mockk.mockk
+import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.retry.ExponentialBackoffRetryPolicy
 import io.namastack.outbox.retry.FixedDelayRetryPolicy
 import io.namastack.outbox.retry.JitteredRetryPolicy
@@ -267,6 +268,9 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
 
         @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
+
+        @Bean
         fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
 
         @Bean
@@ -284,6 +288,9 @@ class OutboxCoreAutoConfigurationTest {
 
         @Bean
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
+
+        @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
 
         @Bean
         fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
@@ -306,6 +313,9 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
 
         @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
+
+        @Bean
         fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
 
         @Bean
@@ -323,6 +333,9 @@ class OutboxCoreAutoConfigurationTest {
     private class ConfigWithCustomRetryPolicy {
         @Bean
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
+
+        @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
 
         @Bean
         fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
@@ -344,6 +357,9 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
 
         @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
+
+        @Bean
         fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
 
         @Bean
@@ -357,6 +373,9 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
 
         @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
+
+        @Bean
         fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
 
         @Bean
@@ -368,6 +387,9 @@ class OutboxCoreAutoConfigurationTest {
     private class ConfigWithoutSerializer {
         @Bean
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
+
+        @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
 
         @Bean
         fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)

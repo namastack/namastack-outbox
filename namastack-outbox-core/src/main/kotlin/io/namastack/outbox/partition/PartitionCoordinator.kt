@@ -3,6 +3,19 @@ package io.namastack.outbox.partition
 import io.namastack.outbox.OutboxInstanceRegistry
 import org.slf4j.LoggerFactory
 
+/**
+ * Central orchestrator for partition ownership management.
+ *
+ * Responsibilities:
+ *  - Bootstrap: claim all partitions if none exist yet.
+ *  - Rebalance: reclaim stale partitions and release surplus when topology changes.
+ *  - Caching: memorizes owned partition numbers until next rebalance.
+ *  - Stats: provides aggregated partition distribution metrics.
+ *
+ * Concurrency assumptions:
+ *  - Rebalance invoked after batch completion (scheduler guarantees no overlapping processing).
+ *  - Ownership changes only through this coordinator / repository layer.
+ */
 class PartitionCoordinator(
     private val instanceRegistry: OutboxInstanceRegistry,
     private val partitionAssignmentRepository: PartitionAssignmentRepository,
@@ -20,6 +33,14 @@ class PartitionCoordinator(
     private var lastKnownInstanceIds: Set<String> = emptySet()
     private var cachedAssignedPartitions: List<Int>? = null
 
+    /**
+     * Perform a rebalance cycle:
+     *  1. Fetch active instance IDs.
+     *  2. Build immutable context snapshot.
+     *  3. Bootstrap if no assignments exist.
+     *  4. Claim stale partitions, then release surplus for new instances.
+     *  5. Invalidate cached partition list.
+     */
     fun rebalance() {
         log.debug("Starting rebalance for instance {}", currentInstanceId)
 
@@ -53,6 +74,10 @@ class PartitionCoordinator(
         cachedAssignedPartitions = null
     }
 
+    /**
+     * Return currently owned partition numbers (cached until next rebalance).
+     * Cache is invalidated after each successful rebalance.
+     */
     fun getAssignedPartitionNumbers(): List<Int> =
         cachedAssignedPartitions
             ?: partitionAssignmentRepository
@@ -61,6 +86,10 @@ class PartitionCoordinator(
                 .toList()
                 .also { cachedAssignedPartitions = it }
 
+    /**
+     * Compute distribution statistics including unassigned partitions and per-instance counts.
+     * Returned object can be used for monitoring/metrics.
+     */
     fun getPartitionStats(): PartitionStats {
         val allAssignments = partitionAssignmentRepository.findAll()
         val partitionAssignments: Map<Int, String> =
@@ -96,6 +125,10 @@ class PartitionCoordinator(
         )
     }
 
+    /**
+     * Attempt to claim all partitions for this instance during initial startup.
+     * Failures are silently ignored (another instance may have bootstrapped concurrently).
+     */
     private fun bootstrapPartitions() {
         try {
             partitionAssignmentRepository.claimAllPartitions(currentInstanceId)
@@ -104,10 +137,8 @@ class PartitionCoordinator(
     }
 
     /**
-     * Calculates how many partitions each instance has been assigned.
-     *
-     * @param assignments Current partition assignments
-     * @return Map of instance ID to partition count
+     * Count how many partitions each instance owns.
+     * @param assignments map of partitionNumber -> instanceId
      */
     private fun calculateInstanceStats(assignments: Map<Int, String>): Map<String, Int> =
         assignments.values.groupingBy { it }.eachCount()
