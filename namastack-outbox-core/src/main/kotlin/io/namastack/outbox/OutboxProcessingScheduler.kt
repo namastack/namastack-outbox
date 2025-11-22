@@ -1,12 +1,14 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.partition.OutboxRebalanceSignal
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import org.slf4j.LoggerFactory
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.annotation.Scheduled
 import java.time.Clock
+import java.util.concurrent.CountDownLatch
 
 /**
  * Scheduler for processing outbox records.
@@ -20,7 +22,6 @@ import java.time.Clock
  * @param recordRepository Repository for accessing outbox records
  * @param recordProcessor Processor for handling individual records
  * @param partitionCoordinator Coordinator for partition assignments
- * @param instanceRegistry Registry for instance management
  * @param taskExecutor TaskExecutor for parallel processing of aggregateIds
  * @param retryPolicy Policy for determining retry behavior
  * @param properties Configuration properties
@@ -33,7 +34,7 @@ class OutboxProcessingScheduler(
     private val recordRepository: OutboxRecordRepository,
     private val recordProcessor: OutboxRecordProcessor,
     private val partitionCoordinator: PartitionCoordinator,
-    private val instanceRegistry: OutboxInstanceRegistry,
+    private val rebalanceSignal: OutboxRebalanceSignal,
     private val taskExecutor: TaskExecutor,
     private val retryPolicy: OutboxRetryPolicy,
     private val properties: OutboxProperties,
@@ -50,34 +51,42 @@ class OutboxProcessingScheduler(
     @Scheduled(fixedDelayString = "\${outbox.poll-interval:2000}")
     fun process() {
         try {
-            val myInstanceId = instanceRegistry.getCurrentInstanceId()
-            val assignedPartitions = partitionCoordinator.getAssignedPartitions(myInstanceId)
-
-            if (assignedPartitions.isEmpty()) {
-                log.debug("No partitions assigned to instance {} - waiting for rebalancing", myInstanceId)
-                return
+            if (rebalanceSignal.consume()) {
+                log.trace("Executing deferred rebalance after batch completion")
+                partitionCoordinator.rebalance()
             }
 
-            log.debug(
-                "Processing {} partitions for instance {}: {}",
+            val assignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
+            if (assignedPartitions.isEmpty()) return
+
+            log.trace(
+                "Processing {} partitions: {}",
                 assignedPartitions.size,
-                myInstanceId,
-                assignedPartitions,
+                assignedPartitions.sorted(),
             )
 
             val aggregateIds =
                 recordRepository.findAggregateIdsInPartitions(
-                    partitions = assignedPartitions,
+                    partitions = assignedPartitions.toList(),
                     status = NEW,
                     batchSize = properties.batchSize,
                 )
 
             if (aggregateIds.isNotEmpty()) {
-                log.debug("Found {} aggregates to process", aggregateIds.size)
+                log.trace("Found {} aggregates to process", aggregateIds.size)
 
+                val latch = CountDownLatch(aggregateIds.size)
                 aggregateIds.forEach { aggregateId ->
-                    taskExecutor.execute { processAggregate(aggregateId) }
+                    taskExecutor.execute {
+                        try {
+                            processAggregate(aggregateId)
+                        } finally {
+                            latch.countDown()
+                        }
+                    }
                 }
+
+                latch.await()
             }
         } catch (ex: Exception) {
             log.error("Error during partition-aware outbox processing", ex)

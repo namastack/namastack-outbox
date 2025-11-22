@@ -25,6 +25,15 @@ CREATE TABLE IF NOT EXISTS outbox_instance
     updated_at     TIMESTAMP     NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS outbox_partition
+(
+    partition_number INTEGER PRIMARY KEY,
+    instance_id      VARCHAR2(255),
+    version          INTEGER DEFAULT 0 NOT NULL,
+    assigned_at      TIMESTAMP         NOT NULL,
+    updated_at       TIMESTAMP         NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_created
     ON outbox_record (aggregate_id, created_at);
 
@@ -48,3 +57,6 @@ CREATE INDEX IF NOT EXISTS idx_outbox_instance_last_heartbeat
 
 CREATE INDEX IF NOT EXISTS idx_outbox_instance_status
     ON outbox_instance (status);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_partition_instance_id
+    ON outbox_partition (instance_id);

@@ -56,15 +56,7 @@ class OutboxInstanceRegistryTest {
             registry.registerInstance()
 
             verify(exactly = 1) { instanceRepository.save(any()) }
-            assertThat(registry.getCurrentInstanceId()).isNotNull()
-        }
-
-        @Test
-        fun `generate unique instance IDs`() {
-            val registry1 = OutboxInstanceRegistry(instanceRepository, properties, clock)
-            val registry2 = OutboxInstanceRegistry(instanceRepository, properties, clock)
-
-            assertThat(registry1.getCurrentInstanceId()).isNotEqualTo(registry2.getCurrentInstanceId())
+            assertThat(registry.getCurrentInstanceId()).isNotNull
         }
 
         @Test
@@ -179,21 +171,21 @@ class OutboxInstanceRegistryTest {
 
             registry.performHeartbeatAndCleanup()
 
-            verify(exactly = 1) { instanceRepository.updateStatus("stale-instance", DEAD, now) }
             verify(exactly = 1) { instanceRepository.deleteById("stale-instance") }
         }
 
         @Test
         fun `not clean up current instance even if stale`() {
-            val currentInstance = createInstance(registry.getCurrentInstanceId())
+            val currentInstanceId = registry.getCurrentInstanceId()
+            val currentInstance = createInstance(currentInstanceId)
             val cutoffTime = now.minus(Duration.ofSeconds(2))
 
             every { instanceRepository.findInstancesWithStaleHeartbeat(cutoffTime) } returns listOf(currentInstance)
 
             registry.performHeartbeatAndCleanup()
 
-            verify(exactly = 0) { instanceRepository.updateStatus(registry.getCurrentInstanceId(), DEAD, any()) }
-            verify(exactly = 0) { instanceRepository.deleteById(registry.getCurrentInstanceId()) }
+            verify(exactly = 0) { instanceRepository.updateStatus(currentInstanceId, DEAD, any()) }
+            verify(exactly = 0) { instanceRepository.deleteById(currentInstanceId) }
         }
 
         @Test
@@ -207,8 +199,6 @@ class OutboxInstanceRegistryTest {
 
             registry.performHeartbeatAndCleanup()
 
-            verify(exactly = 1) { instanceRepository.updateStatus("stale-1", DEAD, now) }
-            verify(exactly = 1) { instanceRepository.updateStatus("stale-2", DEAD, now) }
             verify(exactly = 1) { instanceRepository.deleteById("stale-1") }
             verify(exactly = 1) { instanceRepository.deleteById("stale-2") }
         }
@@ -227,65 +217,19 @@ class OutboxInstanceRegistryTest {
     }
 
     @Nested
-    @DisplayName("New Instance Detection")
-    inner class NewInstanceDetection {
-        @Test
-        fun `detect new instances`() {
-            val existingInstance = createInstance("existing-instance")
-            val newInstance = createInstance("new-instance")
-
-            // First call - only existing instance
-            every { instanceRepository.findActiveInstances() } returns listOf(existingInstance)
-            registry.detectNewInstances()
-
-            // Second call - new instance added
-            every { instanceRepository.findActiveInstances() } returns listOf(existingInstance, newInstance)
-            registry.detectNewInstances()
-
-            // Should detect the new instance
-        }
-
-        @Test
-        fun `not detect current instance as new`() {
-            val currentInstance = createInstance(registry.getCurrentInstanceId())
-
-            every { instanceRepository.findActiveInstances() } returns listOf(currentInstance)
-
-            registry.detectNewInstances()
-
-            // Should not log current instance as new
-        }
-
-        @Test
-        fun `handle detection exception gracefully`() {
-            every { instanceRepository.findActiveInstances() } throws RuntimeException("DB error")
-
-            registry.detectNewInstances()
-
-            // Should not throw exception
-        }
-
-        @Test
-        fun `update known instances during detection`() {
-            val instance1 = createInstance("instance-1")
-            val instance2 = createInstance("instance-2")
-
-            every { instanceRepository.findActiveInstances() } returns listOf(instance1, instance2)
-
-            registry.detectNewInstances()
-
-            // Known instances should be updated internally
-        }
-    }
-
-    @Nested
     @DisplayName("Graceful Shutdown")
     inner class GracefulShutdown {
         @Test
         fun `perform graceful shutdown`() {
             registry.gracefulShutdown()
 
-            verify(exactly = 1) { instanceRepository.updateStatus(registry.getCurrentInstanceId(), SHUTTING_DOWN, now) }
+            verify(exactly = 1) {
+                instanceRepository.updateStatus(
+                    instanceId = registry.getCurrentInstanceId(),
+                    status = SHUTTING_DOWN,
+                    timestamp = now,
+                )
+            }
             verify(exactly = 1) { instanceRepository.deleteById(registry.getCurrentInstanceId()) }
         }
 
@@ -295,7 +239,13 @@ class OutboxInstanceRegistryTest {
 
             registry.gracefulShutdown()
 
-            verify(exactly = 1) { instanceRepository.updateStatus(registry.getCurrentInstanceId(), SHUTTING_DOWN, now) }
+            verify(exactly = 1) {
+                instanceRepository.updateStatus(
+                    instanceId = registry.getCurrentInstanceId(),
+                    status = SHUTTING_DOWN,
+                    timestamp = now,
+                )
+            }
         }
 
         @Test
@@ -304,7 +254,13 @@ class OutboxInstanceRegistryTest {
 
             registry.gracefulShutdown()
 
-            verify(exactly = 1) { instanceRepository.updateStatus(registry.getCurrentInstanceId(), SHUTTING_DOWN, now) }
+            verify(exactly = 1) {
+                instanceRepository.updateStatus(
+                    instanceId = registry.getCurrentInstanceId(),
+                    status = SHUTTING_DOWN,
+                    timestamp = now,
+                )
+            }
             verify(exactly = 1) { instanceRepository.deleteById(registry.getCurrentInstanceId()) }
         }
     }
@@ -358,15 +314,6 @@ class OutboxInstanceRegistryTest {
             every { instanceRepository.findInstancesWithStaleHeartbeat(any()) } throws RuntimeException("Query failed")
 
             registry.performHeartbeatAndCleanup()
-
-            // Should not propagate exception
-        }
-
-        @Test
-        fun `handle repository failures during new instance detection`() {
-            every { instanceRepository.findActiveInstances() } throws RuntimeException("Network error")
-
-            registry.detectNewInstances()
 
             // Should not propagate exception
         }

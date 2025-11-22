@@ -1,6 +1,9 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.partition.OutboxRebalanceSignal
+import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
+import io.namastack.outbox.partition.PartitionRebalanceScheduler
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import org.springframework.beans.factory.BeanFactory
@@ -96,8 +99,30 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    fun partitionCoordinator(instanceRegistry: OutboxInstanceRegistry): PartitionCoordinator =
-        PartitionCoordinator(instanceRegistry)
+    fun partitionCoordinator(
+        instanceRegistry: OutboxInstanceRegistry,
+        partitionAssignmentRepository: PartitionAssignmentRepository,
+    ): PartitionCoordinator = PartitionCoordinator(instanceRegistry, partitionAssignmentRepository)
+
+    /**
+     * Creates the signal for outbox rebalance events.
+     *
+     * @return OutboxRebalanceSignal bean
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxRebalanceSignal(): OutboxRebalanceSignal = OutboxRebalanceSignal()
+
+    /**
+     * Creates the scheduler for partition rebalancing.
+     *
+     * @param signal Signal for rebalance events
+     * @return PartitionRebalanceScheduler bean
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun partitionRebalanceScheduler(signal: OutboxRebalanceSignal): PartitionRebalanceScheduler =
+        PartitionRebalanceScheduler(signal)
 
     /**
      * Creates the partition-aware outbox processing scheduler.
@@ -105,7 +130,6 @@ class OutboxCoreAutoConfiguration {
      * @param recordRepository Repository for accessing outbox records
      * @param recordProcessor Processor for handling individual records
      * @param partitionCoordinator Coordinator for partition assignments
-     * @param instanceRegistry Registry for instance management
      * @param taskExecutor TaskExecutor for parallel processing of aggregateIds
      * @param retryPolicy Policy for determining retry behavior
      * @param properties Configuration properties
@@ -118,22 +142,21 @@ class OutboxCoreAutoConfiguration {
         recordRepository: OutboxRecordRepository,
         recordProcessor: OutboxRecordProcessor,
         partitionCoordinator: PartitionCoordinator,
-        instanceRegistry: OutboxInstanceRegistry,
         retryPolicy: OutboxRetryPolicy,
         properties: OutboxProperties,
-        @Qualifier("outboxTaskExecutor")
-        taskExecutor: TaskExecutor,
+        @Qualifier("outboxTaskExecutor") taskExecutor: TaskExecutor,
         clock: Clock,
+        rebalanceSignal: OutboxRebalanceSignal, // neu eingebunden
     ): OutboxProcessingScheduler =
         OutboxProcessingScheduler(
             recordRepository = recordRepository,
             recordProcessor = recordProcessor,
             partitionCoordinator = partitionCoordinator,
-            instanceRegistry = instanceRegistry,
             retryPolicy = retryPolicy,
             properties = properties,
             taskExecutor = taskExecutor,
             clock = clock,
+            rebalanceSignal = rebalanceSignal,
         )
 
     /**

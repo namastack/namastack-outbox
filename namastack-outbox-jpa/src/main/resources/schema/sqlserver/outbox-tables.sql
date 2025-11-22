@@ -39,3 +39,17 @@ CREATE TABLE outbox_instance
     INDEX idx_outbox_instance_last_heartbeat (last_heartbeat),
     INDEX idx_outbox_instance_status (status)
 );
+
+IF NOT EXISTS(SELECT *
+              FROM INFORMATION_SCHEMA.TABLES
+              WHERE TABLE_NAME = 'outbox_partition')
+CREATE TABLE outbox_partition
+(
+    partition_number INT       NOT NULL,
+    instance_id      VARCHAR(255),
+    version          BIGINT    NOT NULL DEFAULT 0,
+    assigned_at      DATETIME2 NOT NULL,
+    updated_at       DATETIME2 NOT NULL
+        PRIMARY KEY (partition_number),
+    INDEX idx_outbox_partition_instance_id (instance_id)
+);

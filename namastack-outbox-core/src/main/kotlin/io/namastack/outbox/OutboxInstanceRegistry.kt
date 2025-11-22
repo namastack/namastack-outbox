@@ -9,17 +9,23 @@ import java.time.Clock
 import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
+import kotlin.String
 
 /**
- * Registry service for managing outbox processor instances.
+ * Registry service for managing outbox processor instances in a distributed system.
  *
- * Handles instance registration, heartbeat management for horizontal scaling
- * across multiple physical application instances.
+ * Handles:
+ * - Instance registration and deregistration
+ * - Heartbeat management for detecting live instances
+ * - Stale instance detection and cleanup
+ * - Graceful shutdown with notification period
+ *
+ * Enables horizontal scaling across multiple application instances by maintaining
+ * a persistent registry of active processors with regular heartbeat updates.
  *
  * @param instanceRepository Repository for persisting instance data
- * @param properties Configuration properties for outbox functionality
- * @param clock Clock for time-based operations
+ * @param properties Configuration properties for outbox instance management
+ * @param clock Clock for consistent time-based operations
  *
  * @author Roland Beisel
  * @since 0.2.0
@@ -28,24 +34,19 @@ class OutboxInstanceRegistry(
     private val instanceRepository: OutboxInstanceRepository,
     private val properties: OutboxProperties,
     private val clock: Clock,
+    private val currentInstanceId: String = UUID.randomUUID().toString(),
 ) {
     private val log = LoggerFactory.getLogger(OutboxInstanceRegistry::class.java)
-
-    private val currentInstanceId = generateInstanceId()
-    private val knownInstances = ConcurrentHashMap<String, OffsetDateTime>()
 
     private val staleInstanceTimeout = Duration.ofSeconds(properties.instance.staleInstanceTimeoutSeconds)
     private val gracefulShutdownTimeout = Duration.ofSeconds(properties.instance.gracefulShutdownTimeoutSeconds)
 
     /**
-     * Gets the current instance ID.
-     */
-    fun getCurrentInstanceId(): String = currentInstanceId
-
-    /**
      * Gets all currently active instances.
      */
     fun getActiveInstances(): List<OutboxInstance> = instanceRepository.findActiveInstances()
+
+    fun getCurrentInstanceId() = currentInstanceId
 
     /**
      * Gets all active instance IDs.
@@ -63,12 +64,16 @@ class OutboxInstanceRegistry(
     fun getActiveInstanceCount(): Long = instanceRepository.countByStatus(ACTIVE)
 
     /**
-     * Registers this instance on startup.
+     * Registers this instance on startup and sets up shutdown hook.
+     *
+     * Creates an OutboxInstance entry in the repository with the current host
+     * and port information, then registers a JVM shutdown hook for graceful cleanup.
+     *
+     * @throws Exception if registration fails
      */
     @PostConstruct
     fun registerInstance() {
         try {
-            val now = OffsetDateTime.now(clock)
             val hostname = InetAddress.getLocalHost().hostName
             val port = getApplicationPort()
 
@@ -82,16 +87,10 @@ class OutboxInstanceRegistry(
                 )
 
             instanceRepository.save(instance)
-            knownInstances[currentInstanceId] = now
 
             log.info("📝 Registered outbox instance: {} on {}:{}", currentInstanceId, hostname, port)
 
-            // Setup shutdown hook for graceful deregistration
-            Runtime.getRuntime().addShutdownHook(
-                Thread {
-                    gracefulShutdown()
-                },
-            )
+            Runtime.getRuntime().addShutdownHook(Thread { gracefulShutdown() })
         } catch (ex: Exception) {
             log.error("Failed to register instance {}", currentInstanceId, ex)
             throw ex
@@ -100,6 +99,11 @@ class OutboxInstanceRegistry(
 
     /**
      * Sends heartbeat and cleans up stale instances.
+     *
+     * Executes periodically to keep the current instance alive in the registry
+     * and remove instances with stale heartbeats that are no longer responding.
+     *
+     * Runs on a fixed schedule defined by outbox.instance.heartbeat-interval-seconds.
      */
     @Scheduled(fixedRateString = "\${outbox.instance.heartbeat-interval-seconds:5}000")
     fun performHeartbeatAndCleanup() {
@@ -113,13 +117,15 @@ class OutboxInstanceRegistry(
 
     /**
      * Sends heartbeat for current instance.
+     *
+     * Updates the last heartbeat timestamp in the repository. If the update fails,
+     * it indicates the instance was removed and triggers re-registration.
      */
     private fun sendHeartbeat() {
         val now = OffsetDateTime.now(clock)
         val success = instanceRepository.updateHeartbeat(currentInstanceId, now)
 
         if (success) {
-            knownInstances[currentInstanceId] = now
             log.debug("💓 Sent heartbeat for instance {}", currentInstanceId)
         } else {
             log.warn("⚠️ Failed to send heartbeat for instance {} - re-registering", currentInstanceId)
@@ -129,6 +135,9 @@ class OutboxInstanceRegistry(
 
     /**
      * Cleans up instances with stale heartbeats.
+     *
+     * Queries the repository for instances whose last heartbeat is older than the
+     * configured timeout threshold and removes them from the registry.
      */
     private fun cleanupStaleInstances() {
         val cutoffTime = OffsetDateTime.now(clock).minus(staleInstanceTimeout)
@@ -143,26 +152,31 @@ class OutboxInstanceRegistry(
 
     /**
      * Handles detection of a stale instance.
+     *
+     * Logs a warning about the stale instance and removes it from the registry,
+     * indicating that it is no longer responding to heartbeat requests.
+     *
+     * @param instance The stale instance to remove
      */
     private fun handleStaleInstance(instance: OutboxInstance) {
-        log.warn(
+        log.debug(
             "💀 Detected stale instance: {} (last heartbeat: {})",
             instance.instanceId,
             instance.lastHeartbeat,
         )
 
-        // Mark as dead and remove
-        instanceRepository.updateStatus(
-            instance.instanceId,
-            OutboxInstanceStatus.DEAD,
-            OffsetDateTime.now(clock),
-        )
-        instanceRepository.deleteById(instance.instanceId)
-        knownInstances.remove(instance.instanceId)
+        try {
+            instanceRepository.deleteById(instance.instanceId)
+        } catch (_: Exception) {
+            log.debug("Could not delete instance {} - it's already deleted.", instance.instanceId)
+        }
     }
 
     /**
      * Re-registers this instance if it was somehow lost.
+     *
+     * Called when a heartbeat update fails, indicating the instance entry
+     * was removed from the registry and needs to be recreated.
      */
     private fun reregisterInstance() {
         registerInstance()
@@ -170,24 +184,24 @@ class OutboxInstanceRegistry(
 
     /**
      * Performs graceful shutdown of this instance.
+     *
+     * Marks the instance as shutting down in the registry, waits for other instances
+     * to notice the status change, then removes it completely. This allows other instances
+     * to redistribute work before shutdown completes.
      */
     fun gracefulShutdown() {
         try {
             log.info("🛑 Initiating graceful shutdown for instance {}", currentInstanceId)
 
-            // Mark as shutting down
             instanceRepository.updateStatus(
                 currentInstanceId,
                 OutboxInstanceStatus.SHUTTING_DOWN,
                 OffsetDateTime.now(clock),
             )
 
-            // Wait a bit for other instances to notice
             Thread.sleep(gracefulShutdownTimeout.toMillis())
 
-            // Remove from registry
             instanceRepository.deleteById(currentInstanceId)
-            knownInstances.remove(currentInstanceId)
 
             log.info("✅ Graceful shutdown completed for instance {}", currentInstanceId)
         } catch (ex: Exception) {
@@ -196,59 +210,17 @@ class OutboxInstanceRegistry(
     }
 
     /**
-     * Detects new instances that joined.
-     */
-    @Scheduled(fixedRateString = "\${outbox.instance.new-instance-detection-interval-seconds:10}000")
-    fun detectNewInstances() {
-        try {
-            val currentActive = getActiveInstances()
-            val currentIds = currentActive.map { it.instanceId }.toSet()
-            val knownIds = knownInstances.keys.toSet()
-
-            // Find new instances
-            val newInstanceIds = currentIds - knownIds
-            newInstanceIds.forEach { instanceId ->
-                val instance = currentActive.find { it.instanceId == instanceId }
-                if (instance != null) {
-                    handleNewInstance(instance)
-                }
-            }
-
-            // Update known instances
-            currentActive.forEach { instance ->
-                knownInstances[instance.instanceId] = instance.lastHeartbeat
-            }
-        } catch (ex: Exception) {
-            log.error("Error detecting new instances", ex)
-        }
-    }
-
-    /**
-     * Handles detection of a new instance.
-     */
-    private fun handleNewInstance(instance: OutboxInstance) {
-        if (instance.instanceId != currentInstanceId) {
-            log.info(
-                "🆕 Detected new instance: {} on {}:{}",
-                instance.instanceId,
-                instance.hostname,
-                instance.port,
-            )
-        }
-    }
-
-    /**
-     * Generates a unique instance ID.
-     */
-    private fun generateInstanceId(): String = UUID.randomUUID().toString()
-
-    /**
-     * Gets the application port (with fallback).
+     * Gets the application port from system properties.
+     *
+     * Attempts to retrieve the server.port system property. Falls back to port 8080
+     * if the property is not set or cannot be parsed as an integer.
+     *
+     * @return The application port, or 8080 if unavailable
      */
     private fun getApplicationPort(): Int =
         try {
             System.getProperty("server.port")?.toInt() ?: 8080
         } catch (_: Exception) {
-            8080 // Fallback
+            8080
         }
 }

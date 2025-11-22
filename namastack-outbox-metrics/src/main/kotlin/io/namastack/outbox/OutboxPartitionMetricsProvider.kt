@@ -30,7 +30,7 @@ class OutboxPartitionMetricsProvider(
      */
     fun getProcessingStats(): PartitionProcessingStats {
         val myInstanceId = instanceRegistry.getCurrentInstanceId()
-        val assignedPartitions = partitionCoordinator.getAssignedPartitions(myInstanceId)
+        val assignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
 
         val pendingRecordsPerPartition =
             assignedPartitions.associateWith { partition ->
