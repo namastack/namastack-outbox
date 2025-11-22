@@ -248,6 +248,24 @@ internal open class JpaOutboxRecordRepository(
         }
     }
 
+    /**
+     * Deletes records by their unique IDs.
+     *
+     * @param ids The collection of unique identifiers of the outbox records to delete
+     */
+    override fun deleteByIds(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        transactionTemplate.executeNonNull {
+            val query = """
+                delete from OutboxRecordEntity o where o.id in :ids
+            """
+            entityManager
+                .createQuery(query)
+                .setParameter("ids", ids)
+                .executeUpdate()
+        }
+    }
+
     override fun findAggregateIdsInPartitions(
         partitions: List<Int>,
         status: OutboxRecordStatus,

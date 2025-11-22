@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS outbox_record
+CREATE TABLE outbox_record
 (
     id            VARCHAR2(255)  NOT NULL,
     status        VARCHAR2(20)   NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS outbox_record
     PRIMARY KEY (id)
 );
 
-CREATE TABLE IF NOT EXISTS outbox_instance
+CREATE TABLE outbox_instance
 (
     instance_id    VARCHAR2(255) PRIMARY KEY,
     hostname       VARCHAR2(255) NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS outbox_instance
     updated_at     TIMESTAMP     NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS outbox_partition
+CREATE TABLE outbox_partition
 (
     partition_number INTEGER PRIMARY KEY,
     instance_id      VARCHAR2(255),
@@ -33,6 +33,12 @@ CREATE TABLE IF NOT EXISTS outbox_partition
     assigned_at      TIMESTAMP         NOT NULL,
     updated_at       TIMESTAMP         NOT NULL
 );
+
+CREATE TABLE outbox_partition_lock (
+    id NUMBER PRIMARY KEY
+);
+MERGE INTO outbox_partition_lock p USING (SELECT 1 AS id FROM dual) s ON (p.id = s.id)
+WHEN NOT MATCHED THEN INSERT (id) VALUES (1);
 
 CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_created
     ON outbox_record (aggregate_id, created_at);

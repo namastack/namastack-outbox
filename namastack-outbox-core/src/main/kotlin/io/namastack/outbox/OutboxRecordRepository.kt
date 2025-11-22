@@ -88,6 +88,9 @@ interface OutboxRecordRepository {
      */
     fun deleteById(id: String)
 
+    /** Bulk delete by IDs. */
+    fun deleteByIds(ids: Collection<String>)
+
     /**
      * Finds aggregate IDs that have pending records in specific partitions.
      *

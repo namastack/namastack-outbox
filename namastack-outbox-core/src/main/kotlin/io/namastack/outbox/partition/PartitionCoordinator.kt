@@ -18,6 +18,7 @@ class PartitionCoordinator(
     private val log = LoggerFactory.getLogger(PartitionCoordinator::class.java)
     private val currentInstanceId = instanceRegistry.getCurrentInstanceId()
     private var lastKnownInstanceIds: Set<String> = emptySet()
+    private var cachedAssignedPartitions: List<Int>? = null
 
     fun rebalance() {
         log.debug("Starting rebalance for instance {}", currentInstanceId)
@@ -49,10 +50,16 @@ class PartitionCoordinator(
         newInstanceRebalancer.rebalance(partitionContext, lastKnownInstanceIds)
 
         lastKnownInstanceIds = activeInstanceIds
+        cachedAssignedPartitions = null
     }
 
     fun getAssignedPartitionNumbers(): List<Int> =
-        partitionAssignmentRepository.findByInstanceId(currentInstanceId).map { it.partitionNumber }.toList()
+        cachedAssignedPartitions
+            ?: partitionAssignmentRepository
+                .findByInstanceId(currentInstanceId)
+                .map { it.partitionNumber }
+                .toList()
+                .also { cachedAssignedPartitions = it }
 
     fun getPartitionStats(): PartitionStats {
         val allAssignments = partitionAssignmentRepository.findAll()

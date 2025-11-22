@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:17
+    command: -c 'max_connections=200'
     environment:
       POSTGRES_DB: outbox_performance_test
       POSTGRES_USER: username

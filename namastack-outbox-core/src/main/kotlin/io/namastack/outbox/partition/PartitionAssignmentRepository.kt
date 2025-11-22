@@ -28,33 +28,6 @@ interface PartitionAssignmentRepository {
     fun findByInstanceId(instanceId: String): Set<PartitionAssignment>
 
     /**
-     * Claims a partition for an instance using atomic optimistic locking.
-     *
-     * @param partitionNumber The partition to claim
-     * @param instanceId The instance ID claiming this partition
-     */
-    fun claimPartition(
-        partitionNumber: Int,
-        instanceId: String,
-    )
-
-    /**
-     * Claims a stale partition (from an instance that's no longer active).
-     *
-     * Atomic operation: only succeeds if partition is still owned by staleInstanceId.
-     * If concurrent modification or constraint violation: Exception is thrown.
-     *
-     * @param partitionNumber The partition to claim
-     * @param staleInstanceId The instance ID that currently owns the partition
-     * @param newInstanceId The instance ID claiming this partition
-     */
-    fun claimStalePartition(
-        partitionNumber: Int,
-        staleInstanceId: String,
-        newInstanceId: String,
-    )
-
-    /**
      * Claims a set of stale partitions in a single atomic transaction (all-or-nothing).
      *
      * Success conditions:
@@ -91,17 +64,14 @@ interface PartitionAssignmentRepository {
     fun claimAllPartitions(instanceId: String)
 
     /**
-     * Releases a partition owned by the given instance.
+     * Releases multiple partitions owned by the given instance in a single transaction.
+     * Partitions not owned by the instance are ignored.
      *
-     * Atomic operation: only releases if partition is owned by currentInstanceId.
-     * Prevents accidental/malicious release of partitions owned by other instances.
-     * If partition is not owned by currentInstanceId, exception is thrown.
-     *
-     * @param partitionNumber The partition to release
-     * @param currentInstanceId The instance ID that currently owns this partition
+     * @param partitionNumbers Partitions to release
+     * @param currentInstanceId Owning instance
      */
-    fun releasePartition(
-        partitionNumber: Int,
+    fun releasePartitions(
+        partitionNumbers: Set<Int>,
         currentInstanceId: String,
     )
 }

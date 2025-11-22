@@ -7,6 +7,12 @@ spring:
     username: username
     password: password
 
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 100
+
 server:
   port: 8081
 
@@ -17,8 +23,8 @@ management:
         include: health, info, metrics, prometheus
 
 outbox:
-  batch-size: 10
-  poll-interval: 1000
+  batch-size: 1500
+  poll-interval: 2000
   schema-initialization:
     enabled: true
   retry:
@@ -35,8 +41,8 @@ outbox:
     stop-on-first-failure: true
     delete-completed-records: true
     publish-after-save: false
-    executor-core-pool-size: 4
-    executor-max-pool-size: 8
+    executor-core-pool-size: 2
+    executor-max-pool-size: 4
   instance:
     graceful-shutdown-timeout-seconds: 2
     new-instance-detection-interval-seconds: 5
@@ -46,4 +52,4 @@ outbox:
 logging:
   level:
     ROOT: WARN
-    io.namastack.outbox: DEBUG
+    io.namastack.outbox: WARN

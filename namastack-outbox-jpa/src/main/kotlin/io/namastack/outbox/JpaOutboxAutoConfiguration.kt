@@ -132,6 +132,10 @@ internal class JpaOutboxAutoConfiguration {
         settings.schemaLocations = mutableListOf(databaseType.schemaLocation)
         settings.mode = DatabaseInitializationMode.ALWAYS
 
+        if (databaseType == DatabaseType.Oracle) {
+            settings.isContinueOnError = true
+        }
+
         return DataSourceScriptDatabaseInitializer(dataSource, settings)
     }
 

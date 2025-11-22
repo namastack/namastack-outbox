@@ -25,13 +25,14 @@ class NewInstancesRebalancer(
                 .getAllPartitionNumbersByInstanceId(currentInstanceId)
                 .sorted()
                 .takeLast(partitionsToReleaseCount)
+                .toSet()
 
-        partitionToRelease.forEach { partitionNumber ->
-            try {
-                partitionAssignmentRepository.releasePartition(partitionNumber, currentInstanceId)
-            } catch (_: Exception) {
-                log.warn("Could not release partition $partitionNumber from active instance $currentInstanceId")
-            }
+        if (partitionToRelease.isEmpty()) return
+
+        try {
+            partitionAssignmentRepository.releasePartitions(partitionToRelease, currentInstanceId)
+        } catch (_: Exception) {
+            log.warn("Could not release partitions $partitionToRelease from active instance $currentInstanceId")
         }
 
         log.debug("Successfully released {} partitions of {}", partitionsToReleaseCount, currentInstanceId)

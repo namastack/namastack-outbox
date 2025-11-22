@@ -42,3 +42,8 @@ CREATE TABLE IF NOT EXISTS outbox_partition
     updated_at       TIMESTAMP NOT NULL,
     INDEX idx_outbox_partition_instance_id (instance_id)
 ) ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS outbox_partition_lock (
+    id INT PRIMARY KEY
+);
+INSERT IGNORE INTO outbox_partition_lock (id) VALUES (1);
