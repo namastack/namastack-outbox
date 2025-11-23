@@ -5,10 +5,12 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.namastack.outbox.PartitionTest.PartitionTestConfiguration
+import io.namastack.outbox.partition.OutboxRebalanceSignal
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
+import io.namastack.outbox.retry.FixedDelayRetryPolicy
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.BeforeEach
+import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
@@ -18,9 +20,14 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
+import org.springframework.core.task.SimpleAsyncTaskExecutor
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
+import java.time.Duration.ofSeconds
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit.SECONDS
 
 @DataJpaTest(showSql = false)
 @ImportAutoConfiguration(
@@ -38,92 +45,147 @@ class PartitionTest {
     private lateinit var instanceRepository: OutboxInstanceRepository
 
     @Autowired
+    private lateinit var outboxRecordProcessor: OutboxRecordProcessor
+
+    @Autowired
+    private lateinit var outboxRecordRepository: OutboxRecordRepository
+
+    @Autowired
     private lateinit var partitionAssignmentRepository: PartitionAssignmentRepository
 
-    private lateinit var instanceRegistry1: OutboxInstanceRegistry
-    private lateinit var instanceRegistry2: OutboxInstanceRegistry
-    private lateinit var instanceRegistry3: OutboxInstanceRegistry
-    private lateinit var instanceRegistry4: OutboxInstanceRegistry
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `only one instance claims all partition when concurrent bootstrapping two instances`() {
+        val instanceId1 = "instance-1"
+        val instanceId2 = "instance-2"
 
-    private lateinit var partitionCoordinator1: PartitionCoordinator
-    private lateinit var partitionCoordinator2: PartitionCoordinator
-    private lateinit var partitionCoordinator3: PartitionCoordinator
-    private lateinit var partitionCoordinator4: PartitionCoordinator
+        val rebalanceSignalForInstance1 = OutboxRebalanceSignal().apply { request() }
+        val rebalanceSignalForInstance2 = OutboxRebalanceSignal().apply { request() }
 
-    @BeforeEach
-    fun setUp() {
-        instanceRegistry1 = OutboxInstanceRegistry(instanceRepository, outboxProperties, clock, "instance-1")
-        instanceRegistry2 = OutboxInstanceRegistry(instanceRepository, outboxProperties, clock, "instance-2")
-        instanceRegistry3 = OutboxInstanceRegistry(instanceRepository, outboxProperties, clock, "instance-3")
-        instanceRegistry4 = OutboxInstanceRegistry(instanceRepository, outboxProperties, clock, "instance-4")
+        val executor = Executors.newFixedThreadPool(2)
+        val barrier = CyclicBarrier(2)
 
-        partitionCoordinator1 = PartitionCoordinator(instanceRegistry1, partitionAssignmentRepository)
-        partitionCoordinator2 = PartitionCoordinator(instanceRegistry2, partitionAssignmentRepository)
-        partitionCoordinator3 = PartitionCoordinator(instanceRegistry3, partitionAssignmentRepository)
-        partitionCoordinator4 = PartitionCoordinator(instanceRegistry4, partitionAssignmentRepository)
+        // setup two instances and start processing concurrently at exactly the same time
+        executor.submit {
+            barrier.await()
+            setupOutboxProcessingScheduler(instanceId1, rebalanceSignalForInstance1).process()
+        }
+        executor.submit {
+            barrier.await()
+            setupOutboxProcessingScheduler(instanceId2, rebalanceSignalForInstance2).process()
+        }
 
-        removeInstance(instanceRegistry1.getCurrentInstanceId())
-        removeInstance(instanceRegistry2.getCurrentInstanceId())
-        removeInstance(instanceRegistry3.getCurrentInstanceId())
-        removeInstance(instanceRegistry4.getCurrentInstanceId())
+        await()
+            .atMost(5, SECONDS)
+            .untilAsserted {
+                val partitionCountInstance1 = partitionAssignmentRepository.findByInstanceId(instanceId1).size
+                val partitionCountInstance2 = partitionAssignmentRepository.findByInstanceId(instanceId2).size
+
+                // assert that exactly one of the instances claimed all partitions
+                assertThat(Pair(partitionCountInstance1, partitionCountInstance2)).satisfiesAnyOf(
+                    {
+                        assertThat(partitionCountInstance1).isEqualTo(256)
+                        assertThat(partitionCountInstance2).isEqualTo(0)
+                    },
+                    {
+                        assertThat(partitionCountInstance1).isEqualTo(0)
+                        assertThat(partitionCountInstance2).isEqualTo(256)
+                    },
+                )
+            }
     }
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    fun test() {
-        instanceRegistry1.registerInstance()
-        partitionCoordinator1.rebalance()
+    fun `concurrent stale partition claim leads to consistent 128-128 distribution`() {
+        // bootstrap with a single instance owning all partitions
+        val instanceId1 = "instance-1"
+        val rebalanceSignalForInstance1 = OutboxRebalanceSignal().apply { request() }
+        setupOutboxProcessingScheduler(instanceId1, rebalanceSignalForInstance1).process()
 
-        var assignments = partitionAssignmentRepository.findAll()
-        assertThat(assignments.count { it.instanceId == instanceRegistry1.getCurrentInstanceId() }).isEqualTo(256)
+        // remove bootstrap instance so all its partitions become stale
+        instanceRepository.deleteById(instanceId1)
 
-        instanceRegistry2.registerInstance()
-        instanceRegistry3.registerInstance()
+        // prepare two new instances that will concurrently attempt to claim stale partitions
+        val instanceId2 = "instance-2"
+        val instanceId3 = "instance-3"
 
-        partitionCoordinator1.rebalance()
-        partitionCoordinator2.rebalance()
-        partitionCoordinator3.rebalance()
+        val rebalanceSignalForInstance2 = OutboxRebalanceSignal().apply { request() }
+        val rebalanceSignalForInstance3 = OutboxRebalanceSignal().apply { request() }
 
-        assignments = partitionAssignmentRepository.findAll()
-        assertThat(assignments.count { it.instanceId == instanceRegistry1.getCurrentInstanceId() }).isEqualTo(86)
-        assertThat(assignments.count { it.instanceId == instanceRegistry2.getCurrentInstanceId() }).isEqualTo(85)
-        assertThat(assignments.count { it.instanceId == instanceRegistry3.getCurrentInstanceId() }).isEqualTo(85)
+        val scheduler2 = setupOutboxProcessingScheduler(instanceId2, rebalanceSignalForInstance2)
+        val scheduler3 = setupOutboxProcessingScheduler(instanceId3, rebalanceSignalForInstance3)
 
-        removeInstance("instance-3")
-        partitionCoordinator1.rebalance()
-        partitionCoordinator2.rebalance()
+        val executor = Executors.newScheduledThreadPool(2)
 
-        assignments = partitionAssignmentRepository.findAll()
-        assertThat(assignments.count { it.instanceId == instanceRegistry1.getCurrentInstanceId() }).isEqualTo(128)
-        assertThat(assignments.count { it.instanceId == instanceRegistry2.getCurrentInstanceId() }).isEqualTo(128)
+        // rebalance both instances at fixed rate
+        executor.scheduleAtFixedRate({
+            rebalanceSignalForInstance2.request()
+            scheduler2.process()
+        }, 0, 1, SECONDS)
+        executor.scheduleAtFixedRate({
+            rebalanceSignalForInstance3.request()
+            scheduler3.process()
+        }, 0, 1, SECONDS)
 
-        instanceRegistry4.registerInstance()
+        // await stable distribution: each new instance should own exactly half (128) of 256 partitions
+        await()
+            .atMost(5, SECONDS)
+            .untilAsserted {
+                val total = partitionAssignmentRepository.findAll().size
+                val count2 = partitionAssignmentRepository.findByInstanceId(instanceId2).size
+                val count3 = partitionAssignmentRepository.findByInstanceId(instanceId3).size
+                val unassigned = partitionAssignmentRepository.findAll().count { it.instanceId == null }
 
-        partitionCoordinator4.rebalance()
-        partitionCoordinator1.rebalance()
-        partitionCoordinator2.rebalance()
-
-        partitionCoordinator1.rebalance()
-        partitionCoordinator2.rebalance()
-        partitionCoordinator4.rebalance()
-
-        assignments = partitionAssignmentRepository.findAll()
-        assertThat(assignments.count { it.instanceId == instanceRegistry1.getCurrentInstanceId() }).isEqualTo(86)
-        assertThat(assignments.count { it.instanceId == instanceRegistry2.getCurrentInstanceId() }).isEqualTo(85)
-        assertThat(assignments.count { it.instanceId == instanceRegistry4.getCurrentInstanceId() }).isEqualTo(85)
+                assertThat(total).isEqualTo(256)
+                assertThat(count2).isEqualTo(128)
+                assertThat(count3).isEqualTo(128)
+                assertThat(unassigned).isEqualTo(0)
+            }
     }
 
-    private fun removeInstance(instanceId: String) {
-        instanceRepository.deleteById(instanceId)
+    private fun setupOutboxProcessingScheduler(
+        instanceId: String,
+        rebalanceSignal: OutboxRebalanceSignal,
+    ): OutboxProcessingScheduler {
+        val instanceRegistry =
+            OutboxInstanceRegistry(
+                currentInstanceId = instanceId,
+                instanceRepository = instanceRepository,
+                properties = outboxProperties,
+                clock = clock,
+            )
+
+        instanceRegistry.registerInstance()
+
+        val partitionCoordinator =
+            PartitionCoordinator(
+                instanceRegistry = instanceRegistry,
+                partitionAssignmentRepository = partitionAssignmentRepository,
+            )
+
+        return OutboxProcessingScheduler(
+            recordProcessor = outboxRecordProcessor,
+            recordRepository = outboxRecordRepository,
+            clock = clock,
+            partitionCoordinator = partitionCoordinator,
+            rebalanceSignal = rebalanceSignal,
+            taskExecutor = SimpleAsyncTaskExecutor(),
+            properties = outboxProperties,
+            retryPolicy = FixedDelayRetryPolicy(ofSeconds(1)),
+        )
     }
 
     @TestConfiguration
     class PartitionTestConfiguration {
         @Bean
-        fun outboxEventSerializer(): OutboxEventSerializer = mockk()
+        fun outboxEventSerializer(): OutboxEventSerializer = mockk(relaxed = true)
 
         @Bean
-        fun outboxRecordProcessor(): OutboxRecordProcessor = mockk()
+        fun outboxRecordProcessor(): OutboxRecordProcessor = mockk(relaxed = true)
+
+        @Bean
+        fun outboxRecordRepository(): OutboxRecordRepository = mockk(relaxed = true)
 
         @Bean
         @Primary

@@ -29,17 +29,14 @@ class StalePartitionsRebalancer(
         val ownedPartitionCount = partitionContext.countOwnedPartitionAssignments()
         val targetPartitionCount = partitionContext.targetPartitionCount
 
-        // Shortage (how many partitions we still need); non-negative.
         val partitionsToClaimCount = max(0, targetPartitionCount - ownedPartitionCount)
         if (partitionsToClaimCount == 0) return
 
-        // Stale partitions ordered by partition number for deterministic selection.
         val stalePartitionAssignments =
             partitionContext.getStalePartitionAssignments().sortedBy { it.partitionNumber }
 
         if (stalePartitionAssignments.isEmpty()) return
 
-        // Take only what we need (up to shortage) and convert to a set for repository call.
         val partitionsToClaim =
             stalePartitionAssignments
                 .map { it.partitionNumber }
@@ -49,7 +46,6 @@ class StalePartitionsRebalancer(
 
         if (partitionsToClaim.isEmpty()) return
 
-        // Capture stale instance ids (may be null -> only claim unassigned).
         val staleInstanceIds = stalePartitionAssignments.mapNotNull { it.instanceId }.toSet().ifEmpty { null }
         val currentInstanceId = partitionContext.currentInstanceId
 
@@ -61,12 +57,14 @@ class StalePartitionsRebalancer(
             )
         } catch (_: Exception) {
             log.debug("Could not claim partitions {} for current instance {}", partitionsToClaim, currentInstanceId)
+            return
         }
 
         log.debug(
-            "Successfully claimed {} partitions for current instance {}",
+            "Successfully claimed {} partitions for current instance {}: {}",
             partitionsToClaimCount,
             currentInstanceId,
+            partitionsToClaim,
         )
     }
 }

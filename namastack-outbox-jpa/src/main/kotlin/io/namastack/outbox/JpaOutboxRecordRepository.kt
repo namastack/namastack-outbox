@@ -324,35 +324,4 @@ internal open class JpaOutboxRecordRepository(
             .setParameter("status", status)
             .singleResult
     }
-
-    override fun findRecordsByPartition(
-        partition: Int,
-        status: OutboxRecordStatus?,
-    ): List<OutboxRecord> {
-        val queryBuilder =
-            StringBuilder(
-                """
-            select o
-            from OutboxRecordEntity o
-            where o.partitionNo = :partition
-        """,
-            )
-
-        if (status != null) {
-            queryBuilder.append(" and o.status = :status")
-        }
-
-        queryBuilder.append(" order by o.createdAt asc")
-
-        val query =
-            entityManager
-                .createQuery(queryBuilder.toString(), OutboxRecordEntity::class.java)
-                .setParameter("partition", partition)
-
-        if (status != null) {
-            query.setParameter("status", status)
-        }
-
-        return query.resultList.map { map(it) }
-    }
 }

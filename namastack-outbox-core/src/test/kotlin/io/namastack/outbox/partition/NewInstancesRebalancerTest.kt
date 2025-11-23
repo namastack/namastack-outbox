@@ -1,5 +1,6 @@
 package io.namastack.outbox.partition
 
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.DisplayName
@@ -60,6 +61,35 @@ class NewInstancesRebalancerTest {
             )
         val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments, targetPartitionCount = 5)
         // Owned < target -> no release
+        rebalancer.rebalance(ctx, previousActiveInstanceIds = setOf("i-1"))
+        verify(exactly = 0) { repo.releasePartitions(any(), any()) }
+    }
+
+    @Test
+    fun `rebalancer handles exception in releasePartitions gracefully`() {
+        val assignments =
+            setOf(
+                PartitionAssignment.create(3, "i-1", clock),
+                PartitionAssignment.create(1, "i-1", clock),
+                PartitionAssignment.create(2, "i-1", clock),
+                PartitionAssignment.create(0, "i-1", clock),
+            )
+        val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments, targetPartitionCount = 2)
+
+        every { repo.releasePartitions(setOf(2, 3), "i-1") } throws RuntimeException("fail")
+
+        rebalancer.rebalance(ctx, previousActiveInstanceIds = setOf("i-1"))
+    }
+
+    @Test
+    fun `does nothing when partitionToRelease is empty`() {
+        val assignments =
+            setOf(
+                PartitionAssignment.create(0, "i-1", clock),
+                PartitionAssignment.create(1, "i-1", clock),
+            )
+        val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments, targetPartitionCount = 2)
+        // owned = 2, target = 2 -> partitionToRelease = empty
         rebalancer.rebalance(ctx, previousActiveInstanceIds = setOf("i-1"))
         verify(exactly = 0) { repo.releasePartitions(any(), any()) }
     }

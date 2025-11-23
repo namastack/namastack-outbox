@@ -42,11 +42,14 @@ class JpaOutboxAutoConfigurationTest {
                     assertThat(context).hasSingleBean(Clock::class.java)
                     assertThat(context).hasBean("outboxTransactionTemplate")
                     assertThat(context).hasBean("outboxEntityManager")
+                    assertThat(context).hasBean("outboxPartitionAssignmentRepository")
 
-                    assertThat(context.getBean(OutboxRecordRepository::class.java))
+                    assertThat(context.getBean("outboxRecordRepository"))
                         .isInstanceOf(JpaOutboxRecordRepository::class.java)
-                    assertThat(context.getBean(OutboxInstanceRepository::class.java))
+                    assertThat(context.getBean("outboxInstanceRepository"))
                         .isInstanceOf(JpaOutboxInstanceRepository::class.java)
+                    assertThat(context.getBean("outboxPartitionAssignmentRepository"))
+                        .isInstanceOf(JpaOutboxPartitionAssignmentRepository::class.java)
                 }
         }
 

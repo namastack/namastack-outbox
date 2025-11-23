@@ -288,39 +288,6 @@ class JpaOutboxRecordRepositoryTest {
     }
 
     @Test
-    fun `finds records by partition with status filter`() {
-        val aggregateId1 = UUID.randomUUID().toString()
-        val aggregateId2 = UUID.randomUUID().toString()
-        val aggregateId3 = UUID.randomUUID().toString()
-
-        createRecordWithPartition(aggregateId1, NEW, 1)
-        createRecordWithPartition(aggregateId2, FAILED, 1)
-        createRecordWithPartition(aggregateId3, NEW, 2)
-
-        val newRecordsPartition1 = jpaOutboxRecordRepository.findRecordsByPartition(1, NEW)
-        val failedRecordsPartition1 = jpaOutboxRecordRepository.findRecordsByPartition(1, FAILED)
-
-        assertThat(newRecordsPartition1).hasSize(1)
-        assertThat(newRecordsPartition1.first().aggregateId).isEqualTo(aggregateId1)
-        assertThat(failedRecordsPartition1).hasSize(1)
-        assertThat(failedRecordsPartition1.first().aggregateId).isEqualTo(aggregateId2)
-    }
-
-    @Test
-    fun `finds records by partition without status filter`() {
-        val aggregateId1 = UUID.randomUUID().toString()
-        val aggregateId2 = UUID.randomUUID().toString()
-
-        createRecordWithPartition(aggregateId1, NEW, 1)
-        createRecordWithPartition(aggregateId2, FAILED, 1)
-
-        val allRecordsPartition1 = jpaOutboxRecordRepository.findRecordsByPartition(1)
-
-        assertThat(allRecordsPartition1).hasSize(2)
-        assertThat(allRecordsPartition1.map { it.aggregateId }).containsExactlyInAnyOrder(aggregateId1, aggregateId2)
-    }
-
-    @Test
     fun `finds pending records returns empty when none exist`() {
         createCompletedRecords(2)
         createFailedRecords(1)
@@ -613,6 +580,104 @@ class JpaOutboxRecordRepositoryTest {
 
         jpaOutboxRecordRepository.deleteById(record.id)
         assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId)).isEmpty()
+    }
+
+    @Test
+    fun `deletes multiple records by ids`() {
+        val aggregateId1 = UUID.randomUUID().toString()
+        val aggregateId2 = UUID.randomUUID().toString()
+        val aggregateId3 = UUID.randomUUID().toString()
+
+        val record1 =
+            OutboxRecord
+                .Builder()
+                .aggregateId(
+                    aggregateId1,
+                ).eventType("event")
+                .payload("payload")
+                .build(clock)
+        val record2 =
+            OutboxRecord
+                .Builder()
+                .aggregateId(
+                    aggregateId2,
+                ).eventType("event")
+                .payload("payload")
+                .build(clock)
+        val record3 =
+            OutboxRecord
+                .Builder()
+                .aggregateId(
+                    aggregateId3,
+                ).eventType("event")
+                .payload("payload")
+                .build(clock)
+
+        jpaOutboxRecordRepository.save(record1)
+        jpaOutboxRecordRepository.save(record2)
+        jpaOutboxRecordRepository.save(record3)
+
+        val allRecords = jpaOutboxRecordRepository.findPendingRecords()
+        assertThat(allRecords).hasSize(3)
+
+        jpaOutboxRecordRepository.deleteByIds(listOf(record1.id, record3.id))
+
+        val remaining = jpaOutboxRecordRepository.findPendingRecords()
+        assertThat(remaining).hasSize(1)
+        assertThat(remaining.first().aggregateId).isEqualTo(aggregateId2)
+    }
+
+    @Test
+    fun `deletes records by ids with empty list does nothing`() {
+        createNewRecords(3)
+
+        val beforeCount = jpaOutboxRecordRepository.findPendingRecords().size
+        jpaOutboxRecordRepository.deleteByIds(emptyList())
+        val afterCount = jpaOutboxRecordRepository.findPendingRecords().size
+
+        assertThat(afterCount).isEqualTo(beforeCount)
+    }
+
+    @Test
+    fun `deletes records by ids only affects specified ids`() {
+        val aggregateId1 = UUID.randomUUID().toString()
+        val aggregateId2 = UUID.randomUUID().toString()
+        val aggregateId3 = UUID.randomUUID().toString()
+
+        val record1 =
+            OutboxRecord
+                .Builder()
+                .aggregateId(
+                    aggregateId1,
+                ).eventType("event")
+                .payload("payload")
+                .build(clock)
+        val record2 =
+            OutboxRecord
+                .Builder()
+                .aggregateId(
+                    aggregateId2,
+                ).eventType("event")
+                .payload("payload")
+                .build(clock)
+        val record3 =
+            OutboxRecord
+                .Builder()
+                .aggregateId(
+                    aggregateId3,
+                ).eventType("event")
+                .payload("payload")
+                .build(clock)
+
+        jpaOutboxRecordRepository.save(record1)
+        jpaOutboxRecordRepository.save(record2)
+        jpaOutboxRecordRepository.save(record3)
+
+        jpaOutboxRecordRepository.deleteByIds(listOf(record1.id))
+
+        assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId1)).isEmpty()
+        assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId2)).hasSize(1)
+        assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId3)).hasSize(1)
     }
 
     private fun createFailedRecords(count: Int = 3) {

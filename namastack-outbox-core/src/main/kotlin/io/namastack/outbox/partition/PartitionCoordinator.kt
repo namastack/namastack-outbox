@@ -63,7 +63,6 @@ class PartitionCoordinator(
 
         if (partitionContext.hasNoPartitionAssignments()) {
             bootstrapPartitions()
-            log.debug("Successfully bootstrapped and claimed all partitions for instance {}", currentInstanceId)
             return
         }
 
@@ -132,7 +131,9 @@ class PartitionCoordinator(
     private fun bootstrapPartitions() {
         try {
             partitionAssignmentRepository.claimAllPartitions(currentInstanceId)
+            log.debug("Successfully bootstrapped and claimed all partitions for instance {}", currentInstanceId)
         } catch (_: Exception) {
+            log.debug("Could not claim all partitions for instance {}", currentInstanceId)
         }
     }
 

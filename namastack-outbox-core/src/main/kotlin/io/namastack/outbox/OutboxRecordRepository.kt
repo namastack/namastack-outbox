@@ -122,16 +122,4 @@ interface OutboxRecordRepository {
         partition: Int,
         status: OutboxRecordStatus,
     ): Long
-
-    /**
-     * Finds all records in a specific partition.
-     *
-     * @param partition The partition number
-     * @param status The status to filter by (optional)
-     * @return List of records in the partition
-     */
-    fun findRecordsByPartition(
-        partition: Int,
-        status: OutboxRecordStatus? = null,
-    ): List<OutboxRecord>
 }

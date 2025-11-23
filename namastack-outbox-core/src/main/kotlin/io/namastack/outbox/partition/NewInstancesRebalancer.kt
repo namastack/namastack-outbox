@@ -46,12 +46,11 @@ class NewInstancesRebalancer(
                 .takeLast(partitionsToReleaseCount)
                 .toSet()
 
-        if (partitionToRelease.isEmpty()) return
-
         try {
             partitionAssignmentRepository.releasePartitions(partitionToRelease, currentInstanceId)
         } catch (_: Exception) {
-            log.warn("Could not release partitions $partitionToRelease from active instance $currentInstanceId")
+            log.debug("Could not release partitions {} from active instance {}", partitionToRelease, currentInstanceId)
+            return
         }
 
         log.debug("Successfully released {} partitions of {}", partitionsToReleaseCount, currentInstanceId)

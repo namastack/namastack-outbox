@@ -55,6 +55,19 @@ class PartitionCoordinatorTest {
     }
 
     @Test
+    fun `bootstrapPartitions ignores exception and logs debug`() {
+        every { instanceRegistry.getActiveInstanceIds() } returns setOf("current", "other")
+        every { partitionAssignmentRepository.findAll() } returns emptySet()
+        every { partitionAssignmentRepository.claimAllPartitions(any()) } throws RuntimeException("fail")
+
+        partitionCoordinator.rebalance()
+
+        verify(exactly = 1) { partitionAssignmentRepository.claimAllPartitions("current") }
+        verify(exactly = 0) { partitionAssignmentRepository.claimStalePartitions(any(), any(), any()) }
+        verify(exactly = 0) { partitionAssignmentRepository.releasePartitions(any(), any()) }
+    }
+
+    @Test
     fun `rebalance with shortage claims stale partitions`() {
         // active instances sorted => [b, c, current]; index current=2 remainder=1 -> base=85 remainder=1 => target=85
         every { instanceRegistry.getActiveInstanceIds() } returns setOf("current", "b", "c")
@@ -133,5 +146,19 @@ class PartitionCoordinatorTest {
         assertThat(stats.instanceStats["current"]).isEqualTo(1)
         assertThat(stats.instanceStats["other"]).isEqualTo(1)
         assertThat(stats.averagePartitionsPerInstance).isEqualTo(1.0)
+    }
+
+    @Test
+    fun `getAssignedPartitionNumbers caches result until rebalance`() {
+        every { partitionAssignmentRepository.findByInstanceId("current") } returns
+            setOf(
+                PartitionAssignment.create(1, "current", clock),
+                PartitionAssignment.create(2, "current", clock),
+            )
+
+        partitionCoordinator.getAssignedPartitionNumbers()
+        partitionCoordinator.getAssignedPartitionNumbers()
+
+        verify(exactly = 1) { partitionAssignmentRepository.findByInstanceId("current") }
     }
 }

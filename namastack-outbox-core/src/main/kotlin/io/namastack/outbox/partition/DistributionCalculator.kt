@@ -17,6 +17,7 @@ object DistributionCalculator {
         activeInstanceIds: Set<String>,
     ): Int {
         if (activeInstanceIds.isEmpty()) return 0
+        if (instanceId !in activeInstanceIds) return 0
 
         val sortedActiveInstanceIds = activeInstanceIds.sorted()
         val size = sortedActiveInstanceIds.size
