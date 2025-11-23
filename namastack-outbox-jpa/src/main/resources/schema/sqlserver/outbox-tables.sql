@@ -53,17 +53,3 @@ CREATE TABLE outbox_partition
         PRIMARY KEY (partition_number),
     INDEX idx_outbox_partition_instance_id (instance_id)
 );
-
-IF NOT EXISTS(SELECT *
-              FROM INFORMATION_SCHEMA.TABLES
-              WHERE TABLE_NAME = 'outbox_partition_lock')
-CREATE TABLE outbox_partition_lock
-(
-    id INT PRIMARY KEY
-);
-
-IF NOT EXISTS (SELECT 1
-               FROM outbox_partition_lock
-               WHERE id = 1)
-    INSERT INTO outbox_partition_lock (id) VALUES (1);
-

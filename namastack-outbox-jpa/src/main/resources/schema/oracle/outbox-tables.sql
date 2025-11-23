@@ -34,12 +34,6 @@ CREATE TABLE outbox_partition
     updated_at       TIMESTAMP         NOT NULL
 );
 
-CREATE TABLE outbox_partition_lock (
-    id NUMBER PRIMARY KEY
-);
-MERGE INTO outbox_partition_lock p USING (SELECT 1 AS id FROM dual) s ON (p.id = s.id)
-WHEN NOT MATCHED THEN INSERT (id) VALUES (1);
-
 CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_created
     ON outbox_record (aggregate_id, created_at);
 
