@@ -120,19 +120,14 @@ class JpaOutboxPartitionAssignmentRepositoryTest {
     }
 
     @Test
-    fun `releasePartitions ignores partitions not owned by instance`() {
+    fun `releasePartitions throws when partitions not owned by instance`() {
         partitionAssignmentRepository.claimAllPartitions("instance-1")
         val all = partitionAssignmentRepository.findAll()
         val toRelease = all.take(10).map { it.partitionNumber }.toSet()
 
-        partitionAssignmentRepository.releasePartitions(toRelease, "instance-1")
-        partitionAssignmentRepository.releasePartitions(toRelease, "instance-2")
-
-        testEntityManager.flush()
-        testEntityManager.clear()
-
-        val released = partitionAssignmentRepository.findAll().filter { toRelease.contains(it.partitionNumber) }
-        assertThat(released.map { it.instanceId }).allMatch { it == null }
+        assertThatThrownBy {
+            partitionAssignmentRepository.releasePartitions(toRelease, "instance-2")
+        }.isInstanceOf(IllegalStateException::class.java)
     }
 
     @Test
@@ -141,6 +136,9 @@ class JpaOutboxPartitionAssignmentRepositoryTest {
         val all = partitionAssignmentRepository.findAll()
         val toClaim = all.take(10).map { it.partitionNumber }.toSet()
         partitionAssignmentRepository.releasePartitions(toClaim, "instance-1")
+
+        testEntityManager.flush()
+        testEntityManager.clear()
 
         partitionAssignmentRepository.claimStalePartitions(toClaim, setOf("instance-1"), "instance-2")
 
