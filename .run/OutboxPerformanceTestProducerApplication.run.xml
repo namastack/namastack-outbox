@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="OutboxPerformanceTestProducerApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
-    <module name="namastack-outbox-performance-test.namastack-outbox-performance-test-producer.main" />
+    <module name="namastack-outbox-performance-tests.namastack-outbox-performance-test-producer.main" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="io.namastack.performance.OutboxPerformanceTestProducerApplication" />
     <extension name="coverage">
       <pattern>

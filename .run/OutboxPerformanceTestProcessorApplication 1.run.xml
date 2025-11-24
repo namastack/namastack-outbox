@@ -3,7 +3,7 @@
     <envs>
       <env name="SERVER_PORT" value="9001" />
     </envs>
-    <module name="namastack-outbox-performance-test.namastack-outbox-performance-test-processor.main" />
+    <module name="namastack-outbox-performance-tests.namastack-outbox-performance-test-processor.main" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="io.namastack.performance.OutboxPerformanceTestProcessorApplication" />
     <extension name="coverage">
       <pattern>

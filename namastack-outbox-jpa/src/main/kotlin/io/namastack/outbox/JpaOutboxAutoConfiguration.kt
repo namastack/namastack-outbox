@@ -34,7 +34,7 @@ import javax.sql.DataSource
 @AutoConfigureBefore(HibernateJpaAutoConfiguration::class)
 @AutoConfigurationPackage
 @ConditionalOnBean(annotation = [EnableOutbox::class])
-internal class JpaOutboxAutoConfiguration {
+class JpaOutboxAutoConfiguration {
     /**
      * Provides a default Clock bean if none is configured.
      *

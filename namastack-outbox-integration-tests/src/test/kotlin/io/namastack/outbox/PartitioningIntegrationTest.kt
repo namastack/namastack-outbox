@@ -4,7 +4,7 @@ import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
-import io.namastack.outbox.PartitionTest.PartitionTestConfiguration
+import io.namastack.outbox.PartitioningIntegrationTest.PartitionTestConfiguration
 import io.namastack.outbox.partition.OutboxRebalanceSignal
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit.SECONDS
     JpaOutboxAutoConfiguration::class,
 )
 @Import(PartitionTestConfiguration::class)
-class PartitionTest {
+class PartitioningIntegrationTest {
     private val clock: Clock = Clock.systemDefaultZone()
 
     @Autowired
