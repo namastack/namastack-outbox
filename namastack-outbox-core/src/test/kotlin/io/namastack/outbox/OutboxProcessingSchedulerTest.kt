@@ -70,6 +70,50 @@ class OutboxProcessingSchedulerTest {
     }
 
     @Nested
+    @DisplayName("Rebalance Signal Handling")
+    inner class RebalanceSignalHandling {
+        @Test
+        fun `triggers rebalance when signal is consumed`() {
+            val rebalanceSignal = mockk<OutboxRebalanceSignal>()
+            val partitionCoordinator = mockk<PartitionCoordinator>(relaxed = true)
+            val scheduler =
+                OutboxProcessingScheduler(
+                    recordRepository = recordRepository,
+                    recordProcessor = recordProcessor,
+                    partitionCoordinator = partitionCoordinator,
+                    retryPolicy = retryPolicy,
+                    properties = properties,
+                    taskExecutor = taskExecutor,
+                    rebalanceSignal = rebalanceSignal,
+                    clock = clock,
+                )
+            every { rebalanceSignal.consume() } returns true
+            scheduler.process()
+            verify { partitionCoordinator.rebalance() }
+        }
+
+        @Test
+        fun `does not trigger rebalance when signal is not consumed`() {
+            val rebalanceSignal = mockk<OutboxRebalanceSignal>()
+            val partitionCoordinator = mockk<PartitionCoordinator>(relaxed = true)
+            val scheduler =
+                OutboxProcessingScheduler(
+                    recordRepository = recordRepository,
+                    recordProcessor = recordProcessor,
+                    partitionCoordinator = partitionCoordinator,
+                    retryPolicy = retryPolicy,
+                    properties = properties,
+                    taskExecutor = taskExecutor,
+                    rebalanceSignal = rebalanceSignal,
+                    clock = clock,
+                )
+            every { rebalanceSignal.consume() } returns false
+            scheduler.process()
+            verify(exactly = 0) { partitionCoordinator.rebalance() }
+        }
+    }
+
+    @Nested
     @DisplayName("Partition Processing")
     inner class PartitionProcessing {
         @Test

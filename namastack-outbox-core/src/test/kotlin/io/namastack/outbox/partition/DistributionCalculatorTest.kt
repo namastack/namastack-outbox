@@ -13,6 +13,12 @@ class DistributionCalculatorTest {
     }
 
     @Test
+    fun `returns 0 when current instance not in active instances`() {
+        val count = DistributionCalculator.targetCount("current", setOf("other"))
+        assertThat(count).isEqualTo(0)
+    }
+
+    @Test
     fun `returns TOTAL_PARTITIONS when single instance`() {
         val instanceId = "i-1"
         val count = DistributionCalculator.targetCount(instanceId, setOf(instanceId))

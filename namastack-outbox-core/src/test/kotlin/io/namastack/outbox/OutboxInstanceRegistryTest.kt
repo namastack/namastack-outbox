@@ -214,6 +214,18 @@ class OutboxInstanceRegistryTest {
             verify(exactly = 0) { instanceRepository.updateStatus(any(), DEAD, any()) }
             verify(exactly = 0) { instanceRepository.deleteById(any()) }
         }
+
+        @Test
+        fun `handle exception in handleStaleInstance gracefully`() {
+            val staleInstance = createInstance("stale-instance")
+            every { instanceRepository.findInstancesWithStaleHeartbeat(any()) } returns listOf(staleInstance)
+            every { instanceRepository.deleteById("stale-instance") } throws RuntimeException("Delete error")
+
+            // Should not throw
+            registry.performHeartbeatAndCleanup()
+
+            verify(exactly = 1) { instanceRepository.deleteById("stale-instance") }
+        }
     }
 
     @Nested

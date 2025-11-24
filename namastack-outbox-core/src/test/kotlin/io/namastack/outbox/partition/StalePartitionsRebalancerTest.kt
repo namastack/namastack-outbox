@@ -1,5 +1,6 @@
 package io.namastack.outbox.partition
 
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.DisplayName
@@ -70,5 +71,23 @@ class StalePartitionsRebalancerTest {
         val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments, targetPartitionCount = 3)
         rebalancer.rebalance(ctx)
         verify(exactly = 0) { repo.claimStalePartitions(any(), any(), any()) }
+    }
+
+    /**
+     * Verifies that exceptions thrown by claimStalePartitions are caught and do not propagate.
+     */
+    @Test
+    fun `rebalance catches exception from claimStalePartitions`() {
+        val assignments =
+            setOf(
+                PartitionAssignment.create(0, "i-1", clock),
+                PartitionAssignment.create(1, "gone-1", clock),
+            )
+        val ctx = PartitionContext("i-1", setOf("i-1"), assignments, targetPartitionCount = 2)
+        every { repo.claimStalePartitions(any(), any(), any()) } throws RuntimeException("Simulated failure")
+
+        rebalancer.rebalance(ctx)
+
+        verify { repo.claimStalePartitions(any(), any(), any()) }
     }
 }

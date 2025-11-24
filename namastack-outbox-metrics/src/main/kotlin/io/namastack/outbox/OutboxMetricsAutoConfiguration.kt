@@ -51,14 +51,6 @@ internal class OutboxMetricsAutoConfiguration {
 
     @Bean
     fun outboxPartitionMetricsMeterBinder(
-        partitionMetricsProvider: ObjectProvider<OutboxPartitionMetricsProvider>,
-    ): OutboxPartitionMetricsMeterBinder {
-        val provider =
-            partitionMetricsProvider.getIfAvailable()
-                ?: throw IllegalStateException(
-                    "OutboxPartitionMetricsProvider bean is missing! The Outbox partition metrics meter binder cannot be registered.",
-                )
-
-        return OutboxPartitionMetricsMeterBinder(provider)
-    }
+        partitionMetricsProvider: OutboxPartitionMetricsProvider,
+    ): OutboxPartitionMetricsMeterBinder = OutboxPartitionMetricsMeterBinder(partitionMetricsProvider)
 }
