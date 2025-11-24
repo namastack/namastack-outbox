@@ -14,6 +14,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
@@ -257,6 +258,61 @@ class OutboxCoreAutoConfigurationTest {
                         ) as org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
                     assertThat(executor.corePoolSize).isEqualTo(7)
                     assertThat(executor.maxPoolSize).isEqualTo(15)
+                }
+        }
+    }
+
+    @Nested
+    @DisplayName("Scheduler Configuration")
+    inner class SchedulerConfiguration {
+        @Test
+        fun `creates default outboxDefaultScheduler with pool size 5`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    val scheduler =
+                        context.getBean(
+                            "outboxDefaultScheduler",
+                            ThreadPoolTaskScheduler::class.java,
+                        )
+                    assertThat(scheduler).isNotNull
+                    assertThat(scheduler.scheduledThreadPoolExecutor.corePoolSize).isEqualTo(5)
+                    assertThat(scheduler.threadNamePrefix).isEqualTo("outbox-scheduler-")
+                }
+        }
+
+        @Test
+        fun `creates default outboxHeartbeatScheduler with pool size 1`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    val scheduler =
+                        context.getBean(
+                            "outboxHeartbeatScheduler",
+                            ThreadPoolTaskScheduler::class.java,
+                        )
+                    assertThat(scheduler).isNotNull
+                    assertThat(scheduler.scheduledThreadPoolExecutor.corePoolSize).isEqualTo(1)
+                    assertThat(scheduler.threadNamePrefix).isEqualTo("outbox-heartbeat-")
+                }
+        }
+
+        @Test
+        fun `schedulers are singletons`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    val scheduler1 =
+                        context.getBean(
+                            "outboxDefaultScheduler",
+                            ThreadPoolTaskScheduler::class.java,
+                        )
+                    val scheduler2 =
+                        context.getBean(
+                            "outboxDefaultScheduler",
+                            ThreadPoolTaskScheduler::class.java,
+                        )
+                    assertThat(scheduler1).isSameAs(scheduler2)
                 }
         }
     }

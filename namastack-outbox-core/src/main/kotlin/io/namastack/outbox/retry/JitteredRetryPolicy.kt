@@ -42,7 +42,7 @@ class JitteredRetryPolicy(
         val finalDelay = baseDelay.plusMillis(jitterMillis)
 
         log.debug(
-            "🎲 Jittered retry delay calculation: retry #{} -> base delay: {}ms (from {}), jitter: +{}ms (max: {}ms), final delay: {}ms",
+            "Jittered retry delay calculation: retry #{} -> base delay: {}ms (from {}), jitter: +{}ms (max: {}ms), final delay: {}ms",
             retryCount,
             baseDelay.toMillis(),
             basePolicy.javaClass.simpleName,

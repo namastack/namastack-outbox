@@ -21,6 +21,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 @ConfigurationProperties(prefix = "outbox")
 data class OutboxProperties(
     val pollInterval: Long = 2000,
+    val rebalanceInterval: Long = 10000,
     val batchSize: Int = 10,
     val retry: Retry = Retry(),
     val processing: Processing = Processing(),

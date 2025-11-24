@@ -61,7 +61,7 @@
       "name": "outbox.rebalance-interval",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties",
-      "defaultValue": 5000,
+      "defaultValue": 10000,
       "description": "Interval in milliseconds at which partition rebalancing is triggered."
     },
     {

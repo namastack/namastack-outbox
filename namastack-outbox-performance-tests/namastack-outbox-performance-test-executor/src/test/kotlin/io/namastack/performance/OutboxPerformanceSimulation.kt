@@ -15,16 +15,15 @@ class OutboxPerformanceSimulation : Simulation() {
             .baseUrl("http://localhost:8082")
             .header("Content-Type", "application/json")
 
-    // Generate UUIDs
-    private val uuids = (1..30).map { mapOf("uuid" to UUID.randomUUID().toString()) }
-
-    // Create a random feeder from them
-    private val uuidFeeder = CoreDsl.listFeeder(uuids).random()
+    val idFeeder =
+        generateSequence {
+            mapOf("uuid" to UUID.randomUUID().toString())
+        }.iterator()
 
     val scn =
         CoreDsl
             .scenario("POST Scenario")
-            .feed(uuidFeeder)
+            .feed(idFeeder)
             .exec(
                 HttpDsl
                     .http("POST Request")
@@ -35,7 +34,7 @@ class OutboxPerformanceSimulation : Simulation() {
     init {
         setUp(
             scn.injectOpen(
-                constantUsersPerSec(2000.0).during(Duration.ofSeconds(120)),
+                constantUsersPerSec(3000.0).during(Duration.ofSeconds(120)),
             ),
         ).protocols(httpProtocol)
     }

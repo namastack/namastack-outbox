@@ -9,7 +9,6 @@ import java.time.Clock
 import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.UUID
-import kotlin.String
 
 /**
  * Registry service for managing outbox processor instances in a distributed system.
@@ -81,7 +80,7 @@ class OutboxInstanceRegistry(
 
             instanceRepository.save(instance)
 
-            log.info("📝 Registered outbox instance: {} on {}:{}", currentInstanceId, hostname, port)
+            log.info("Registered outbox instance: {} on {}:{}", currentInstanceId, hostname, port)
 
             Runtime.getRuntime().addShutdownHook(Thread { gracefulShutdown() })
         } catch (ex: Exception) {
@@ -94,7 +93,10 @@ class OutboxInstanceRegistry(
      * Periodic heartbeat + stale cleanup trigger.
      * Combines update & pruning to reduce scheduling overhead.
      */
-    @Scheduled(fixedRateString = "\${outbox.instance.heartbeat-interval-seconds:5}000")
+    @Scheduled(
+        fixedRateString = $$"${outbox.instance.heartbeat-interval-seconds:5}000",
+        scheduler = "outboxHeartbeatScheduler",
+    )
     fun performHeartbeatAndCleanup() {
         try {
             sendHeartbeat()
@@ -115,7 +117,7 @@ class OutboxInstanceRegistry(
         val success = instanceRepository.updateHeartbeat(currentInstanceId, now)
 
         if (success) {
-            log.debug("💓 Sent heartbeat for instance {}", currentInstanceId)
+            log.trace("💓 Sent heartbeat for instance {}", currentInstanceId)
         } else {
             log.warn("⚠️ Failed to send heartbeat for instance {} - re-registering", currentInstanceId)
             reregisterInstance()
@@ -149,7 +151,7 @@ class OutboxInstanceRegistry(
      */
     private fun handleStaleInstance(instance: OutboxInstance) {
         log.debug(
-            "💀 Detected stale instance: {} (last heartbeat: {})",
+            "Detected stale instance: {} (last heartbeat: {})",
             instance.instanceId,
             instance.lastHeartbeat,
         )
@@ -180,7 +182,7 @@ class OutboxInstanceRegistry(
      */
     fun gracefulShutdown() {
         try {
-            log.info("🛑 Initiating graceful shutdown for instance {}", currentInstanceId)
+            log.info("Initiating graceful shutdown for instance {}", currentInstanceId)
 
             instanceRepository.updateStatus(
                 currentInstanceId,
@@ -192,7 +194,7 @@ class OutboxInstanceRegistry(
 
             instanceRepository.deleteById(currentInstanceId)
 
-            log.info("✅ Graceful shutdown completed for instance {}", currentInstanceId)
+            log.info("Graceful shutdown completed for instance {}", currentInstanceId)
         } catch (ex: Exception) {
             log.error("Error during graceful shutdown of instance {}", currentInstanceId, ex)
         }

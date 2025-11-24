@@ -6,12 +6,18 @@ spring:
     url: jdbc:postgresql://localhost:5432/outbox_performance_test
     username: username
     password: password
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 10
+      idle-timeout: 60000
+      max-lifetime: 300000
+      connection-timeout: 30000
 
   jpa:
     properties:
       hibernate:
         jdbc:
-          batch_size: 100
+          batch_size: 200
 
 server:
   port: 8081
@@ -24,7 +30,8 @@ management:
 
 outbox:
   batch-size: 1500
-  poll-interval: 2000
+  poll-interval: 1000
+  rebalance-interval: 10000
   schema-initialization:
     enabled: true
   retry:
@@ -41,8 +48,8 @@ outbox:
     stop-on-first-failure: true
     delete-completed-records: true
     publish-after-save: false
-    executor-core-pool-size: 2
-    executor-max-pool-size: 4
+    executor-core-pool-size: 16
+    executor-max-pool-size: 32
   instance:
     graceful-shutdown-timeout-seconds: 2
     new-instance-detection-interval-seconds: 5
@@ -52,4 +59,4 @@ outbox:
 logging:
   level:
     ROOT: WARN
-    io.namastack.outbox: WARN
+    io.namastack.outbox: DEBUG

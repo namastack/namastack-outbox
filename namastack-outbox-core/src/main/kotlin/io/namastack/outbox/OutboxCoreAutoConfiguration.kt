@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import java.time.Clock
 
 /**
@@ -43,11 +44,10 @@ class OutboxCoreAutoConfiguration {
     fun clock(): Clock = Clock.systemDefaultZone()
 
     /**
-     * Provides a configurable ThreadPoolTaskExecutor for parallel processing of aggregateIds.
+     * Provides a ThreadPoolTaskExecutor for parallel processing of aggregateIds.
      *
-     * The pool size can be configured via OutboxProperties. This executor is used by the
-     * OutboxProcessingScheduler to process multiple aggregateIds in parallel while maintaining
-     * strict ordering per aggregateId.
+     * The pool size is configurable via OutboxProperties. Used by OutboxProcessingScheduler
+     * to process multiple aggregateIds in parallel while maintaining strict ordering per aggregateId.
      *
      * @param properties Outbox configuration properties
      * @return Configured ThreadPoolTaskExecutor
@@ -59,10 +59,45 @@ class OutboxCoreAutoConfiguration {
         executor.corePoolSize = properties.processing.executorCorePoolSize
         executor.maxPoolSize = properties.processing.executorMaxPoolSize
         executor.setThreadNamePrefix("outbox-proc-")
+        executor.setWaitForTasksToCompleteOnShutdown(true)
         executor.initialize()
 
         return executor
     }
+
+    /**
+     * Scheduler for general outbox tasks (e.g. batch processing).
+     *
+     * Pool size is set to 5 by default. Only used internally by the outbox library.
+     *
+     * @return ThreadPoolTaskScheduler for outbox jobs
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = ["outboxDefaultScheduler"])
+    fun outboxDefaultScheduler(): ThreadPoolTaskScheduler =
+        ThreadPoolTaskScheduler().apply {
+            poolSize = 5
+            threadNamePrefix = "outbox-scheduler-"
+            setWaitForTasksToCompleteOnShutdown(true)
+            initialize()
+        }
+
+    /**
+     * Scheduler for heartbeat and rebalance tasks.
+     *
+     * Pool size is set to 1. Used for periodic signals and partition rebalancing.
+     *
+     * @return ThreadPoolTaskScheduler for heartbeat/rebalance jobs
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = ["outboxHeartbeatScheduler"])
+    fun outboxHeartbeatScheduler(): ThreadPoolTaskScheduler =
+        ThreadPoolTaskScheduler().apply {
+            poolSize = 1
+            threadNamePrefix = "outbox-heartbeat-"
+            setWaitForTasksToCompleteOnShutdown(true)
+            initialize()
+        }
 
     /**
      * Creates a retry policy based on configuration properties.

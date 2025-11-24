@@ -16,7 +16,11 @@ class PartitionRebalanceScheduler(
      * Periodically request a deferred rebalance.
      * Executed with a fixed delay; the signal is idempotent until consumed.
      */
-    @Scheduled(initialDelayString = "0", fixedDelayString = $$"${outbox.rebalance-interval:5000}")
+    @Scheduled(
+        initialDelayString = "0",
+        fixedDelayString = $$"${outbox.rebalance-interval:10000}",
+        scheduler = "heartbeatScheduler",
+    )
     fun requestRebalance() {
         rebalanceSignal.request()
     }

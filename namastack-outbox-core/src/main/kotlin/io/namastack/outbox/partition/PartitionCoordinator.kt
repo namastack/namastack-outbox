@@ -42,7 +42,7 @@ class PartitionCoordinator(
      *  5. Invalidate cached partition list.
      */
     fun rebalance() {
-        log.debug("Starting rebalance for instance {}", currentInstanceId)
+        log.trace("Starting rebalance for instance {}", currentInstanceId)
 
         val activeInstanceIds = instanceRegistry.getActiveInstanceIds()
         if (activeInstanceIds.isEmpty()) {
@@ -131,9 +131,9 @@ class PartitionCoordinator(
     private fun bootstrapPartitions() {
         try {
             partitionAssignmentRepository.claimAllPartitions(currentInstanceId)
-            log.debug("Successfully bootstrapped and claimed all partitions for instance {}", currentInstanceId)
+            log.trace("Successfully bootstrapped and claimed all partitions for instance {}", currentInstanceId)
         } catch (_: Exception) {
-            log.debug("Could not claim all partitions for instance {}", currentInstanceId)
+            log.trace("Could not claim all partitions for instance {}", currentInstanceId)
         }
     }
 
