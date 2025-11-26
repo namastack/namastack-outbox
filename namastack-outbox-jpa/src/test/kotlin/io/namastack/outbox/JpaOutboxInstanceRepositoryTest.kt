@@ -25,9 +25,6 @@ class JpaOutboxInstanceRepositoryTest {
     @Autowired
     private lateinit var jpaOutboxInstanceRepository: JpaOutboxInstanceRepository
 
-    @Autowired
-    private lateinit var testEntityManager: TestEntityManager
-
     @Test
     fun `saves an instance`() {
         val instance = createInstance("instance-1", ACTIVE)
@@ -151,24 +148,6 @@ class JpaOutboxInstanceRepositoryTest {
     }
 
     @Test
-    fun `counts all instances`() {
-        jpaOutboxInstanceRepository.save(createInstance("instance-1", ACTIVE))
-        jpaOutboxInstanceRepository.save(createInstance("instance-2", SHUTTING_DOWN))
-        jpaOutboxInstanceRepository.save(createInstance("instance-3", DEAD))
-
-        val count = jpaOutboxInstanceRepository.count()
-
-        assertThat(count).isEqualTo(3)
-    }
-
-    @Test
-    fun `counts instances returns zero when empty`() {
-        val count = jpaOutboxInstanceRepository.count()
-
-        assertThat(count).isEqualTo(0)
-    }
-
-    @Test
     fun `counts instances by status`() {
         jpaOutboxInstanceRepository.save(createInstance("active-1", ACTIVE))
         jpaOutboxInstanceRepository.save(createInstance("active-2", ACTIVE))
@@ -254,44 +233,6 @@ class JpaOutboxInstanceRepositoryTest {
         val result = jpaOutboxInstanceRepository.deleteById("non-existent")
 
         assertThat(result).isFalse()
-    }
-
-    @Test
-    fun `deletes instances by status`() {
-        jpaOutboxInstanceRepository.save(createInstance("active-1", ACTIVE))
-        jpaOutboxInstanceRepository.save(createInstance("active-2", ACTIVE))
-        jpaOutboxInstanceRepository.save(createInstance("dead", DEAD))
-
-        val deletedCount = jpaOutboxInstanceRepository.deleteByStatus(ACTIVE)
-
-        assertThat(deletedCount).isEqualTo(2)
-        assertThat(jpaOutboxInstanceRepository.findByStatus(ACTIVE)).isEmpty()
-        assertThat(jpaOutboxInstanceRepository.findByStatus(DEAD)).hasSize(1)
-    }
-
-    @Test
-    fun `deletes stale instances`() {
-        val cutoffTime = OffsetDateTime.now(clock)
-        val staleInstance1 = createInstanceWithHeartbeat("stale-1", ACTIVE, cutoffTime.minusMinutes(1))
-        val staleInstance2 = createInstanceWithHeartbeat("stale-2", ACTIVE, cutoffTime.minusMinutes(2))
-        val activeInstance = createInstanceWithHeartbeat("active", ACTIVE, cutoffTime.plusMinutes(1))
-
-        jpaOutboxInstanceRepository.save(staleInstance1)
-        jpaOutboxInstanceRepository.save(staleInstance2)
-        jpaOutboxInstanceRepository.save(activeInstance)
-
-        testEntityManager.flush()
-        testEntityManager.clear()
-
-        val deletedCount = jpaOutboxInstanceRepository.deleteStaleInstances(cutoffTime)
-
-        testEntityManager.flush()
-        testEntityManager.clear()
-
-        assertThat(deletedCount).isEqualTo(2)
-        assertThat(jpaOutboxInstanceRepository.findById("stale-1")).isNull()
-        assertThat(jpaOutboxInstanceRepository.findById("stale-2")).isNull()
-        assertThat(jpaOutboxInstanceRepository.findById("active")).isNotNull()
     }
 
     private fun createInstance(

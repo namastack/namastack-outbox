@@ -93,29 +93,6 @@ interface OutboxInstanceRepository {
     fun deleteById(instanceId: String): Boolean
 
     /**
-     * Deletes all instances with the specified status.
-     *
-     * @param status The status of instances to delete
-     * @return The number of instances deleted
-     */
-    fun deleteByStatus(status: OutboxInstanceStatus): Int
-
-    /**
-     * Deletes instances with stale heartbeats (cleanup operation).
-     *
-     * @param cutoffTime The cutoff time for stale heartbeats
-     * @return The number of instances deleted
-     */
-    fun deleteStaleInstances(cutoffTime: OffsetDateTime): Int
-
-    /**
-     * Counts the total number of instances.
-     *
-     * @return The total count of instances
-     */
-    fun count(): Long
-
-    /**
      * Counts instances by status.
      *
      * @param status The status to count

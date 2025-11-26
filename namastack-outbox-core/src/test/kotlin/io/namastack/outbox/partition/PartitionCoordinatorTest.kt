@@ -1,5 +1,9 @@
 package io.namastack.outbox.partition
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -10,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.OffsetDateTime
 
@@ -19,10 +24,18 @@ class PartitionCoordinatorTest {
     private val partitionAssignmentRepository = mockk<PartitionAssignmentRepository>()
     private val clock = Clock.systemUTC()
 
+    private lateinit var listAppender: ListAppender<ILoggingEvent>
     private lateinit var partitionCoordinator: PartitionCoordinator
 
     @BeforeEach
     fun setUp() {
+        listAppender = ListAppender<ILoggingEvent>()
+        listAppender.start()
+
+        val logger = LoggerFactory.getLogger(PartitionCoordinator::class.java) as Logger
+        logger.addAppender(listAppender)
+        logger.level = Level.DEBUG
+
         every { instanceRegistry.getCurrentInstanceId() } returns "instance-1"
         every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
         every { partitionAssignmentRepository.findByInstanceId(any()) } returns emptySet()
@@ -211,6 +224,43 @@ class PartitionCoordinatorTest {
             partitionCoordinator.rebalance()
 
             verify(exactly = 1) { partitionAssignmentRepository.saveAll(any()) }
+        }
+
+        @Test
+        fun `bootstrap logs success message when initialized`() {
+            every { instanceRegistry.getCurrentInstanceId() } returns "i1"
+            every { instanceRegistry.getActiveInstanceIds() } returns setOf("i1")
+            every { partitionAssignmentRepository.insertIfAllAbsent(any()) } returns true
+
+            partitionCoordinator.rebalance()
+
+            val messages = listAppender.list.map { it.formattedMessage }
+            assertThat(messages).anyMatch { it.contains("Successfully bootstrapped") }
+        }
+
+        @Test
+        fun `bootstrap logs message when already initialized`() {
+            every { instanceRegistry.getCurrentInstanceId() } returns "i1"
+            every { instanceRegistry.getActiveInstanceIds() } returns setOf("i1")
+            every { partitionAssignmentRepository.insertIfAllAbsent(any()) } returns false
+
+            partitionCoordinator.rebalance()
+
+            val messages = listAppender.list.map { it.formattedMessage }
+            assertThat(messages).anyMatch { it.contains("Another instance initialized partitions, skipping bootstrap") }
+        }
+
+        @Test
+        fun `bootstrap logs warn message on error while initializing`() {
+            every { instanceRegistry.getCurrentInstanceId() } returns "i1"
+            every { instanceRegistry.getActiveInstanceIds() } returns setOf("i1")
+            every { partitionAssignmentRepository.insertIfAllAbsent(any()) } throws
+                IllegalStateException("Database error")
+
+            partitionCoordinator.rebalance()
+
+            val messages = listAppender.list.map { it.formattedMessage }
+            assertThat(messages).anyMatch { it.contains("Failed to bootstrap partitions for instance") }
         }
     }
 }
