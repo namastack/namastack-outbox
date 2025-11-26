@@ -211,6 +211,48 @@ class JpaOutboxPartitionAssignmentRepositoryTest {
         assertThat(all.map { it.partitionNumber }).containsExactlyElementsOf(0..255)
     }
 
+    @Test
+    fun `insertIfAllAbsent inserts all when none exist and returns true`() {
+        val assignments = (0..9).map { PartitionAssignment.create(it, "instance-1", clock, null) }.toSet()
+        val result = partitionAssignmentRepository.insertIfAllAbsent(assignments)
+        testEntityManager.flush()
+        testEntityManager.clear()
+        val all = partitionAssignmentRepository.findAll()
+        assertThat(result).isTrue()
+        assertThat(all).hasSize(10)
+        assertThat(all.map { it.partitionNumber }).containsExactlyElementsOf(0..9)
+    }
+
+    @Test
+    fun `insertIfAllAbsent returns false and does not insert when all already exist`() {
+        val assignments = (0..9).map { PartitionAssignment.create(it, "instance-1", clock, null) }.toSet()
+        partitionAssignmentRepository.saveAll(assignments)
+        testEntityManager.flush()
+        testEntityManager.clear()
+        val result = partitionAssignmentRepository.insertIfAllAbsent(assignments)
+        testEntityManager.flush()
+        testEntityManager.clear()
+        val all = partitionAssignmentRepository.findAll()
+        assertThat(result).isFalse()
+        assertThat(all).hasSize(10)
+    }
+
+    @Test
+    fun `insertIfAllAbsent returns false and does not insert when some already exist`() {
+        val existing = (0..4).map { PartitionAssignment.create(it, "instance-1", clock, null) }.toSet()
+        partitionAssignmentRepository.saveAll(existing)
+        testEntityManager.flush()
+        testEntityManager.clear()
+        val allAssignments = (0..9).map { PartitionAssignment.create(it, "instance-1", clock, null) }.toSet()
+        val result = partitionAssignmentRepository.insertIfAllAbsent(allAssignments)
+        testEntityManager.flush()
+        testEntityManager.clear()
+        val all = partitionAssignmentRepository.findAll()
+        assertThat(result).isFalse()
+        assertThat(all).hasSize(5)
+        assertThat(all.map { it.partitionNumber }).containsExactlyElementsOf(0..4)
+    }
+
     @EnableOutbox
     @SpringBootApplication
     class TestApplication

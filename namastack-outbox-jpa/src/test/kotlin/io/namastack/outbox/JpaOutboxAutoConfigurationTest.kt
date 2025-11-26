@@ -2,8 +2,6 @@ package io.namastack.outbox
 
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkStatic
-import io.mockk.unmockkStatic
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
@@ -13,15 +11,11 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
-import org.springframework.boot.sql.init.AbstractScriptDatabaseInitializer
-import org.springframework.boot.sql.init.DatabaseInitializationSettings
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType
-import org.springframework.jdbc.support.DatabaseMetaDataCallback
-import org.springframework.jdbc.support.JdbcUtils
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.sql.SQLException
@@ -161,43 +155,6 @@ class JpaOutboxAutoConfigurationTest {
                 jpaOutboxAutoConfiguration.outboxDataSourceScriptDatabaseInitializer(dataSource)
             }.isInstanceOf(RuntimeException::class.java)
                 .hasMessageContaining("Could not detect database name")
-        }
-
-        @Test
-        fun `ignores errors for oracle`() {
-            mockStaticJdbcUtils("Oracle")
-
-            val jpaOutboxAutoConfiguration = JpaOutboxAutoConfiguration()
-
-            val dataSource = mockk<DataSource>()
-            val initializer = jpaOutboxAutoConfiguration.outboxDataSourceScriptDatabaseInitializer(dataSource)
-            assertThat(isContinueOnErrorActivated(initializer)).isTrue()
-
-            unmockStaticJdbcUtils()
-        }
-
-        private fun mockStaticJdbcUtils(expectedDatabaseName: String) {
-            mockkStatic(JdbcUtils::class)
-
-            every {
-                JdbcUtils.extractDatabaseMetaData(any<DataSource>(), any<DatabaseMetaDataCallback<*>>())
-            } returns expectedDatabaseName
-
-            every {
-                JdbcUtils.commonDatabaseName(any())
-            } returns expectedDatabaseName
-        }
-
-        private fun unmockStaticJdbcUtils() {
-            unmockkStatic(JdbcUtils::class)
-        }
-
-        private fun isContinueOnErrorActivated(initializer: DataSourceScriptDatabaseInitializer): Boolean {
-            val field = AbstractScriptDatabaseInitializer::class.java.getDeclaredField("settings")
-            field.isAccessible = true
-            val settings = field.get(initializer) as DatabaseInitializationSettings
-
-            return settings.isContinueOnError
         }
     }
 

@@ -11,7 +11,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
 
 outbox:
   batch-size: 10
@@ -35,3 +35,8 @@ outbox:
     graceful-shutdown-timeout-seconds: 2
     heartbeat-interval-seconds: 5
     stale-instance-timeout-seconds: 10
+
+logging:
+  level:
+    root: info
+    io.namastack: debug
