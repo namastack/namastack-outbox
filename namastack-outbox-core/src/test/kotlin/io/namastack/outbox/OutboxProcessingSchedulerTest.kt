@@ -7,7 +7,6 @@ import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.OutboxRecordTestFactory.outboxRecord
-import io.namastack.outbox.partition.OutboxRebalanceSignal
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import org.assertj.core.api.Assertions.assertThat
@@ -60,7 +59,6 @@ class OutboxProcessingSchedulerTest {
                 retryPolicy = retryPolicy,
                 properties = properties,
                 taskExecutor = taskExecutor,
-                rebalanceSignal = OutboxRebalanceSignal(),
                 clock = clock,
             )
 
@@ -70,55 +68,11 @@ class OutboxProcessingSchedulerTest {
     }
 
     @Nested
-    @DisplayName("Rebalance Signal Handling")
-    inner class RebalanceSignalHandling {
-        @Test
-        fun `triggers rebalance when signal is consumed`() {
-            val rebalanceSignal = mockk<OutboxRebalanceSignal>()
-            val partitionCoordinator = mockk<PartitionCoordinator>(relaxed = true)
-            val scheduler =
-                OutboxProcessingScheduler(
-                    recordRepository = recordRepository,
-                    recordProcessor = recordProcessor,
-                    partitionCoordinator = partitionCoordinator,
-                    retryPolicy = retryPolicy,
-                    properties = properties,
-                    taskExecutor = taskExecutor,
-                    rebalanceSignal = rebalanceSignal,
-                    clock = clock,
-                )
-            every { rebalanceSignal.consume() } returns true
-            scheduler.process()
-            verify { partitionCoordinator.rebalance() }
-        }
-
-        @Test
-        fun `does not trigger rebalance when signal is not consumed`() {
-            val rebalanceSignal = mockk<OutboxRebalanceSignal>()
-            val partitionCoordinator = mockk<PartitionCoordinator>(relaxed = true)
-            val scheduler =
-                OutboxProcessingScheduler(
-                    recordRepository = recordRepository,
-                    recordProcessor = recordProcessor,
-                    partitionCoordinator = partitionCoordinator,
-                    retryPolicy = retryPolicy,
-                    properties = properties,
-                    taskExecutor = taskExecutor,
-                    rebalanceSignal = rebalanceSignal,
-                    clock = clock,
-                )
-            every { rebalanceSignal.consume() } returns false
-            scheduler.process()
-            verify(exactly = 0) { partitionCoordinator.rebalance() }
-        }
-    }
-
-    @Nested
     @DisplayName("Partition Processing")
     inner class PartitionProcessing {
         @Test
         fun `skip processing when no partitions assigned`() {
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns emptyList()
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns emptySet()
 
             scheduler.process()
 
@@ -127,14 +81,14 @@ class OutboxProcessingSchedulerTest {
 
         @Test
         fun `process records from assigned partitions`() {
-            val assignedPartitions = listOf(1, 3, 5)
+            val assignedPartitions = setOf(1, 3, 5)
 
             every { partitionCoordinator.getAssignedPartitionNumbers() } returns assignedPartitions
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1, 3, 5), NEW, 100) } returns emptyList()
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1, 3, 5), NEW, 100) } returns emptyList()
 
             scheduler.process()
 
-            verify(exactly = 1) { recordRepository.findAggregateIdsInPartitions(listOf(1, 3, 5), NEW, 100) }
+            verify(exactly = 1) { recordRepository.findAggregateIdsInPartitions(setOf(1, 3, 5), NEW, 100) }
         }
 
         @Test
@@ -148,16 +102,15 @@ class OutboxProcessingSchedulerTest {
                     taskExecutor = taskExecutor,
                     retryPolicy = retryPolicy,
                     properties = customProperties,
-                    rebalanceSignal = OutboxRebalanceSignal(),
                     clock = clock,
                 )
 
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1, 2)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1, 2), NEW, 50) } returns emptyList()
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1, 2), NEW, 50) } returns emptyList()
 
             customScheduler.process()
 
-            verify(exactly = 1) { recordRepository.findAggregateIdsInPartitions(listOf(1, 2), NEW, 50) }
+            verify(exactly = 1) { recordRepository.findAggregateIdsInPartitions(setOf(1, 2), NEW, 50) }
         }
     }
 
@@ -173,9 +126,9 @@ class OutboxProcessingSchedulerTest {
                     nextRetryAt = now.minusMinutes(1),
                 )
 
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
             every { recordRepository.save(any()) } returns record
 
             scheduler.process()
@@ -207,9 +160,9 @@ class OutboxProcessingSchedulerTest {
                     nextRetryAt = now.minusMinutes(1),
                 )
 
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } returns
                 listOf(record1, record2)
             every { recordRepository.save(any()) } returns mockk()
 
@@ -231,9 +184,9 @@ class OutboxProcessingSchedulerTest {
                     nextRetryAt = now.plusMinutes(5),
                 )
 
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(futureRecord)
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(futureRecord)
 
             scheduler.process()
 
@@ -244,9 +197,9 @@ class OutboxProcessingSchedulerTest {
 
         @Test
         fun `handle empty aggregate`() {
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns emptyList()
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } returns emptyList()
 
             scheduler.process()
 
@@ -263,9 +216,9 @@ class OutboxProcessingSchedulerTest {
         fun `mark record as completed on success`() {
             val record = outboxRecord(status = NEW, nextRetryAt = now.minusMinutes(1))
 
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
             every { recordRepository.save(any()) } returns record
 
             scheduler.process()
@@ -282,9 +235,9 @@ class OutboxProcessingSchedulerTest {
         fun `increment retry count on failure`() {
             val record = outboxRecord(status = NEW, retryCount = 0, nextRetryAt = now.minusMinutes(1))
 
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
             every { recordProcessor.process(record) } throws RuntimeException("Processing failed")
             every { recordRepository.save(any()) } returns record
 
@@ -303,9 +256,9 @@ class OutboxProcessingSchedulerTest {
         fun `mark as failed after max retries`() {
             val record = outboxRecord(status = NEW, retryCount = 3, nextRetryAt = now.minusMinutes(1))
 
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
             every { recordProcessor.process(record) } throws RuntimeException("Processing failed")
             every { recordRepository.save(any()) } returns record
 
@@ -324,9 +277,9 @@ class OutboxProcessingSchedulerTest {
             val record = outboxRecord(status = NEW, retryCount = 0, nextRetryAt = now.minusMinutes(1))
             val exception = RuntimeException("Non-retryable error")
 
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
             every { recordProcessor.process(record) } throws exception
             every { retryPolicy.shouldRetry(exception) } returns false
             every { recordRepository.save(any()) } returns record
@@ -354,13 +307,12 @@ class OutboxProcessingSchedulerTest {
                     taskExecutor = taskExecutor,
                     retryPolicy = retryPolicy,
                     properties = propertiesWithDelete,
-                    rebalanceSignal = OutboxRebalanceSignal(),
                     clock = clock,
                 )
 
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
             every { recordRepository.deleteById(record.id) } returns Unit
 
             schedulerWithDelete.process()
@@ -383,9 +335,9 @@ class OutboxProcessingSchedulerTest {
             val record1 = outboxRecord(id = "record-1", aggregateId = "aggregate-1", nextRetryAt = now.minusMinutes(1))
             val record2 = outboxRecord(id = "record-2", aggregateId = "aggregate-1", nextRetryAt = now.minusMinutes(1))
 
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } returns
                 listOf(record1, record2)
             every { recordProcessor.process(record1) } throws RuntimeException("Processing failed")
             every { recordRepository.save(any()) } returns mockk()
@@ -417,16 +369,15 @@ class OutboxProcessingSchedulerTest {
                     taskExecutor = taskExecutor,
                     retryPolicy = retryPolicy,
                     properties = propertiesNonStop,
-                    rebalanceSignal = OutboxRebalanceSignal(),
                     clock = clock,
                 )
 
             val record1 = outboxRecord(id = "record-1", aggregateId = "aggregate-1", nextRetryAt = now.minusMinutes(1))
             val record2 = outboxRecord(id = "record-2", aggregateId = "aggregate-1", nextRetryAt = now.minusMinutes(1))
 
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } returns
                 listOf(record1, record2)
             every { recordProcessor.process(record1) } throws RuntimeException("Processing failed")
             every { recordRepository.save(any()) } returns mockk()
@@ -446,9 +397,9 @@ class OutboxProcessingSchedulerTest {
             val record1 = outboxRecord(id = "record-1", aggregateId = "aggregate-1", nextRetryAt = now.minusMinutes(1))
             val record2 = outboxRecord(id = "record-2", aggregateId = "aggregate-1", nextRetryAt = now.minusMinutes(1))
 
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } returns
                 listOf(record1, record2)
             every { recordRepository.save(any()) } returns mockk()
 
@@ -478,8 +429,8 @@ class OutboxProcessingSchedulerTest {
 
         @Test
         fun `handle repository exception during aggregate lookup`() {
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } throws
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } throws
                 RuntimeException("DB error")
 
             scheduler.process()
@@ -491,9 +442,9 @@ class OutboxProcessingSchedulerTest {
 
         @Test
         fun `handle repository exception during record lookup`() {
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } throws
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } throws
                 RuntimeException("DB error")
 
             scheduler.process()
@@ -507,9 +458,9 @@ class OutboxProcessingSchedulerTest {
         fun `handle save exception gracefully`() {
             val record = outboxRecord(nextRetryAt = now.minusMinutes(1))
 
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 100) } returns listOf("aggregate-1")
-            every { recordRepository.findAllIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100) } returns listOf("aggregate-1")
+            every { recordRepository.findIncompleteRecordsByAggregateId("aggregate-1") } returns listOf(record)
             every { recordRepository.save(any()) } throws RuntimeException("Save failed")
 
             scheduler.process()

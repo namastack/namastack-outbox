@@ -1,6 +1,7 @@
-package io.namastack.outbox
+package io.namastack.outbox.instance
 
-import io.namastack.outbox.OutboxInstanceStatus.ACTIVE
+import io.namastack.outbox.OutboxProperties
+import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
@@ -95,7 +96,7 @@ class OutboxInstanceRegistry(
      */
     @Scheduled(
         fixedRateString = $$"${outbox.instance.heartbeat-interval-seconds:5}000",
-        scheduler = "outboxHeartbeatScheduler",
+        scheduler = "outboxRebalancingScheduler",
     )
     fun performHeartbeatAndCleanup() {
         try {
@@ -117,9 +118,9 @@ class OutboxInstanceRegistry(
         val success = instanceRepository.updateHeartbeat(currentInstanceId, now)
 
         if (success) {
-            log.trace("💓 Sent heartbeat for instance {}", currentInstanceId)
+            log.trace("Sent heartbeat for instance {}", currentInstanceId)
         } else {
-            log.warn("⚠️ Failed to send heartbeat for instance {} - re-registering", currentInstanceId)
+            log.warn("Failed to send heartbeat for instance {} - re-registering", currentInstanceId)
             reregisterInstance()
         }
     }

@@ -1,6 +1,8 @@
 package io.namastack.outbox
 
 import io.mockk.mockk
+import io.namastack.outbox.instance.OutboxInstanceRegistry
+import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.retry.ExponentialBackoffRetryPolicy
 import io.namastack.outbox.retry.FixedDelayRetryPolicy
@@ -282,18 +284,18 @@ class OutboxCoreAutoConfigurationTest {
         }
 
         @Test
-        fun `creates default outboxHeartbeatScheduler with pool size 1`() {
+        fun `creates default outboxRebalancingScheduler with pool size 1`() {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .run { context ->
                     val scheduler =
                         context.getBean(
-                            "outboxHeartbeatScheduler",
+                            "outboxRebalancingScheduler",
                             ThreadPoolTaskScheduler::class.java,
                         )
                     assertThat(scheduler).isNotNull
                     assertThat(scheduler.scheduledThreadPoolExecutor.corePoolSize).isEqualTo(1)
-                    assertThat(scheduler.threadNamePrefix).isEqualTo("outbox-heartbeat-")
+                    assertThat(scheduler.threadNamePrefix).isEqualTo("outbox-rebalancing-")
                 }
         }
 

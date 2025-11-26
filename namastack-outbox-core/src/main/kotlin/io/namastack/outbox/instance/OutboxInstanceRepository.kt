@@ -1,4 +1,4 @@
-package io.namastack.outbox
+package io.namastack.outbox.instance
 
 import java.time.OffsetDateTime
 

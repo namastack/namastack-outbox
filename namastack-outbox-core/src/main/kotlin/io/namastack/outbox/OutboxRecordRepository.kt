@@ -43,25 +43,39 @@ interface OutboxRecordRepository {
     fun findFailedRecords(): List<OutboxRecord>
 
     /**
-     * Finds aggregate IDs that have pending records with the specified status.
-     *
-     * @param status The status to filter by
-     * @param batchSize Maximum number of aggregate IDs to return
-     * @return List of aggregate IDs with pending records
-     */
-    fun findAggregateIdsWithPendingRecords(
-        status: OutboxRecordStatus,
-        batchSize: Int,
-    ): List<String>
-
-    /**
      * Finds all incomplete records for a specific aggregate ID.
      * Implementations **must** return records sorted by creation time ascending
      *
      * @param aggregateId The aggregate ID to search for
      * @return List of incomplete outbox records for the aggregate
      */
-    fun findAllIncompleteRecordsByAggregateId(aggregateId: String): List<OutboxRecord>
+    fun findIncompleteRecordsByAggregateId(aggregateId: String): List<OutboxRecord>
+
+    /**
+     * Finds aggregate IDs that have pending records in specific partitions.
+     *
+     * @param partitions List of partition numbers to search in
+     * @param status The status to filter by
+     * @param batchSize Maximum number of aggregate IDs to return
+     * @return List of aggregate IDs with pending records in the specified partitions
+     */
+    fun findAggregateIdsInPartitions(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+        batchSize: Int,
+    ): List<String>
+
+    /**
+     * Counts records in a specific partition by status.
+     *
+     * @param partition The partition number
+     * @param status The status to count
+     * @return Number of records in the partition with the specified status
+     */
+    fun countRecordsByPartition(
+        partition: Int,
+        status: OutboxRecordStatus,
+    ): Long
 
     /**
      * Deletes all records with the specified status.
@@ -87,39 +101,4 @@ interface OutboxRecordRepository {
      * @param id The unique identifier of the outbox record
      */
     fun deleteById(id: String)
-
-    /**
-     * Bulk delete by unique IDs.
-     * Implementations should ignore an empty collection and preferably issue a single batched statement.
-     * Order of deletion is not guaranteed.
-     *
-     * @param ids Collection of record IDs to delete; empty collection MUST be a no-op.
-     */
-    fun deleteByIds(ids: Collection<String>)
-
-    /**
-     * Finds aggregate IDs that have pending records in specific partitions.
-     *
-     * @param partitions List of partition numbers to search in
-     * @param status The status to filter by
-     * @param batchSize Maximum number of aggregate IDs to return
-     * @return List of aggregate IDs with pending records in the specified partitions
-     */
-    fun findAggregateIdsInPartitions(
-        partitions: List<Int>,
-        status: OutboxRecordStatus,
-        batchSize: Int,
-    ): List<String>
-
-    /**
-     * Counts records in a specific partition by status.
-     *
-     * @param partition The partition number
-     * @param status The status to count
-     * @return Number of records in the partition with the specified status
-     */
-    fun countRecordsByPartition(
-        partition: Int,
-        status: OutboxRecordStatus,
-    ): Long
 }

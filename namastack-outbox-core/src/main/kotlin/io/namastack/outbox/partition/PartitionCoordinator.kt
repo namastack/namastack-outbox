@@ -1,7 +1,12 @@
 package io.namastack.outbox.partition
 
-import io.namastack.outbox.OutboxInstanceRegistry
+import io.namastack.outbox.instance.OutboxInstanceRegistry
+import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
 import org.slf4j.LoggerFactory
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
+import org.springframework.scheduling.annotation.Scheduled
+import java.time.Clock
 
 /**
  * Central orchestrator for partition ownership management.
@@ -16,22 +21,32 @@ import org.slf4j.LoggerFactory
  *  - Rebalance invoked after batch completion (scheduler guarantees no overlapping processing).
  *  - Ownership changes only through this coordinator / repository layer.
  */
-class PartitionCoordinator(
+open class PartitionCoordinator(
     private val instanceRegistry: OutboxInstanceRegistry,
     private val partitionAssignmentRepository: PartitionAssignmentRepository,
-    private val stalePartitionRebalancer: StalePartitionsRebalancer =
-        StalePartitionsRebalancer(
-            partitionAssignmentRepository,
-        ),
-    private val newInstanceRebalancer: NewInstancesRebalancer =
-        NewInstancesRebalancer(
-            partitionAssignmentRepository,
-        ),
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(PartitionCoordinator::class.java)
     private val currentInstanceId = instanceRegistry.getCurrentInstanceId()
-    private var lastKnownInstanceIds: Set<String> = emptySet()
-    private var cachedAssignedPartitions: List<Int>? = null
+
+    /**
+     * Return currently owned partition numbers (cached until next rebalance).
+     * Cache is invalidated after each successful rebalance.
+     */
+    @Cacheable("partitionAssignments")
+    open fun getAssignedPartitionNumbers(): Set<Int> =
+        partitionAssignmentRepository
+            .findByInstanceId(currentInstanceId)
+            .map { it.partitionNumber }
+            .toSet()
+
+    /**
+     * Invalidates the cache for assigned partition numbers.
+     * Called after each successful rebalance to ensure fresh data is loaded on next access.
+     */
+    @CacheEvict("partitionAssignments", allEntries = true)
+    open fun evictPartitionAssignmentsCache() {
+    }
 
     /**
      * Perform a rebalance cycle:
@@ -41,106 +56,159 @@ class PartitionCoordinator(
      *  4. Claim stale partitions, then release surplus for new instances.
      *  5. Invalidate cached partition list.
      */
+    @Scheduled(
+        initialDelayString = "0",
+        fixedDelayString = $$"${outbox.rebalance-interval:10000}",
+        scheduler = "outboxRebalancingScheduler",
+    )
     fun rebalance() {
-        log.trace("Starting rebalance for instance {}", currentInstanceId)
+        log.debug("Starting rebalance for instance {}", currentInstanceId)
 
-        val activeInstanceIds = instanceRegistry.getActiveInstanceIds()
-        if (activeInstanceIds.isEmpty()) {
-            log.warn("No active instances found.")
-            return
-        }
-
-        val partitionAssignments = partitionAssignmentRepository.findAll()
-        val targetPartitionCount = DistributionCalculator.targetCount(currentInstanceId, activeInstanceIds)
-
-        val partitionContext =
-            PartitionContext(
-                currentInstanceId = currentInstanceId,
-                activeInstanceIds = activeInstanceIds,
-                partitionAssignments = partitionAssignments,
-                targetPartitionCount = targetPartitionCount,
-            )
-
+        val partitionContext = getPartitionContext()
         if (partitionContext.hasNoPartitionAssignments()) {
             bootstrapPartitions()
             return
         }
 
-        stalePartitionRebalancer.rebalance(partitionContext)
-        newInstanceRebalancer.rebalance(partitionContext, lastKnownInstanceIds)
+        claimStalePartitions(partitionContext)
+        releaseSurplusPartitions(partitionContext)
 
-        lastKnownInstanceIds = activeInstanceIds
-        cachedAssignedPartitions = null
+        evictPartitionAssignmentsCache()
     }
 
     /**
-     * Return currently owned partition numbers (cached until next rebalance).
-     * Cache is invalidated after each successful rebalance.
+     * Returns a snapshot of the current partition context, including active instance IDs and all partition assignments.
+     * Returns null if no active instances are found.
      */
-    fun getAssignedPartitionNumbers(): List<Int> =
-        cachedAssignedPartitions
-            ?: partitionAssignmentRepository
-                .findByInstanceId(currentInstanceId)
-                .map { it.partitionNumber }
-                .toList()
-                .also { cachedAssignedPartitions = it }
+    fun getPartitionContext(): PartitionContext {
+        val activeInstanceIds = instanceRegistry.getActiveInstanceIds()
+        if (activeInstanceIds.isEmpty()) {
+            throw IllegalStateException("No active instance ids found")
+        }
 
-    /**
-     * Compute distribution statistics including unassigned partitions and per-instance counts.
-     * Returned object can be used for monitoring/metrics.
-     */
-    fun getPartitionStats(): PartitionStats {
-        val allAssignments = partitionAssignmentRepository.findAll()
-        val partitionAssignments: Map<Int, String> =
-            allAssignments
-                .filter { it.instanceId != null }
-                .associate { it.partitionNumber to it.instanceId!! }
+        val partitionAssignments = partitionAssignmentRepository.findAll()
 
-        val unassignedPartitionNumbers =
-            allAssignments
-                .filter { it.instanceId == null }
-                .map { it.partitionNumber }
-                .sorted()
-
-        val instanceStats = calculateInstanceStats(partitionAssignments)
-        val totalAssignedPartitions = partitionAssignments.size
-        val totalUnassignedPartitions = unassignedPartitionNumbers.size
-        val totalPartitions = totalAssignedPartitions + totalUnassignedPartitions
-        val totalInstances = instanceStats.size
-        val avgPartitionsPerInstance =
-            if (totalInstances > 0) {
-                totalAssignedPartitions.toDouble() / totalInstances
-            } else {
-                0.0
-            }
-
-        return PartitionStats(
-            totalPartitions = totalPartitions,
-            totalInstances = totalInstances,
-            averagePartitionsPerInstance = avgPartitionsPerInstance,
-            instanceStats = instanceStats,
-            unassignedPartitionsCount = totalUnassignedPartitions,
-            unassignedPartitionNumbers = unassignedPartitionNumbers,
+        return PartitionContext(
+            currentInstanceId = currentInstanceId,
+            activeInstanceIds = activeInstanceIds,
+            partitionAssignments = partitionAssignments,
         )
     }
 
     /**
-     * Attempt to claim all partitions for this instance during initial startup.
-     * Failures are silently ignored (another instance may have bootstrapped concurrently).
+     * Attempts to claim all partitions for this instance during initial startup.
+     * If another instance bootstraps concurrently, failures are silently ignored.
      */
     private fun bootstrapPartitions() {
+        val partitionAssignments = createInitialPartitionAssignments()
+
         try {
-            partitionAssignmentRepository.claimAllPartitions(currentInstanceId)
-            log.trace("Successfully bootstrapped and claimed all partitions for instance {}", currentInstanceId)
-        } catch (_: Exception) {
-            log.trace("Could not claim all partitions for instance {}", currentInstanceId)
+            val result = partitionAssignmentRepository.insertIfAllAbsent(partitionAssignments)
+            logBootstrapResult(result)
+        } catch (e: Exception) {
+            log.warn("Failed to bootstrap partitions for instance {}: {}", currentInstanceId, e.message)
         }
     }
 
     /**
-     * Count how many partitions each instance owns.
-     * @param assignments map of partitionNumber -> instanceId
+     * Creates initial partition assignments for all partitions assigned to this instance.
      */
-    private fun calculateInstanceStats(assignments: Map<Int, String>): Map<String, Int> =
-        assignments.values.groupingBy { it }.eachCount()
+    private fun createInitialPartitionAssignments(): Set<PartitionAssignment> =
+        (0 until TOTAL_PARTITIONS)
+            .map { partitionNumber ->
+                PartitionAssignment.create(
+                    partitionNumber = partitionNumber,
+                    instanceId = currentInstanceId,
+                    clock = clock,
+                    version = null,
+                )
+            }.toSet()
+
+    /**
+     * Logs the result of the bootstrap operation.
+     *
+     * @param initialized true if this instance performed the initialization, false if another did
+     */
+    private fun logBootstrapResult(initialized: Boolean) {
+        if (initialized) {
+            log.debug(
+                "Successfully bootstrapped all {} partitions for instance {}",
+                TOTAL_PARTITIONS,
+                currentInstanceId,
+            )
+        } else {
+            log.debug(
+                "Another instance initialized partitions, skipping bootstrap for {}",
+                currentInstanceId,
+            )
+        }
+    }
+
+    /**
+     * Claims stale partitions that are currently owned by inactive instances.
+     * Only partitions that are not assigned to any active instance are considered.
+     * Updates ownership to the current instance.
+     */
+    private fun claimStalePartitions(partitionContext: PartitionContext) {
+        val partitionsToClaim = partitionContext.getPartitionAssignmentsToClaim()
+        if (partitionsToClaim.isEmpty()) return
+
+        partitionsToClaim.forEach { partitionAssignment ->
+            partitionAssignment.claim(currentInstanceId, clock)
+        }
+
+        val partitionNumbersToClaim = partitionsToClaim.map { it.partitionNumber }
+
+        try {
+            partitionAssignmentRepository.saveAll(partitionsToClaim)
+        } catch (_: Exception) {
+            log.debug(
+                "Could not claim {} partitions for instance {}: {}",
+                partitionsToClaim.size,
+                currentInstanceId,
+                partitionNumbersToClaim,
+            )
+            return
+        }
+
+        log.debug(
+            "Successfully claimed {} partitions for instance {}: {}",
+            partitionsToClaim.size,
+            currentInstanceId,
+            partitionNumbersToClaim,
+        )
+    }
+
+    /**
+     * Releases surplus partitions owned by the current instance to achieve a balanced distribution.
+     * Only partitions assigned to this instance are considered for release.
+     */
+    private fun releaseSurplusPartitions(partitionContext: PartitionContext) {
+        val partitionsToRelease = partitionContext.getPartitionAssignmentsToRelease()
+        if (partitionsToRelease.isEmpty()) return
+
+        partitionsToRelease.forEach { partitionAssignment ->
+            partitionAssignment.release(currentInstanceId, clock)
+        }
+
+        val partitionNumbersToRelease = partitionsToRelease.map { it.partitionNumber }
+
+        try {
+            partitionAssignmentRepository.saveAll(partitionsToRelease)
+        } catch (_: Exception) {
+            log.debug(
+                "Could not release partitions {} from instance {}",
+                partitionNumbersToRelease,
+                currentInstanceId,
+            )
+            return
+        }
+
+        log.debug(
+            "Successfully released {} partitions from instance {}: {}",
+            partitionsToRelease.size,
+            currentInstanceId,
+            partitionNumbersToRelease,
+        )
+    }
 }

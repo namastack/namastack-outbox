@@ -1,9 +1,9 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.partition.OutboxRebalanceSignal
+import io.namastack.outbox.instance.OutboxInstanceRegistry
+import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
-import io.namastack.outbox.partition.PartitionRebalanceScheduler
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import org.springframework.beans.factory.BeanFactory
@@ -90,11 +90,11 @@ class OutboxCoreAutoConfiguration {
      * @return ThreadPoolTaskScheduler for heartbeat/rebalance jobs
      */
     @Bean
-    @ConditionalOnMissingBean(name = ["outboxHeartbeatScheduler"])
-    fun outboxHeartbeatScheduler(): ThreadPoolTaskScheduler =
+    @ConditionalOnMissingBean(name = ["outboxRebalancingScheduler"])
+    fun outboxRebalancingScheduler(): ThreadPoolTaskScheduler =
         ThreadPoolTaskScheduler().apply {
             poolSize = 1
-            threadNamePrefix = "outbox-heartbeat-"
+            threadNamePrefix = "outbox-rebalancing-"
             setWaitForTasksToCompleteOnShutdown(true)
             initialize()
         }
@@ -129,35 +129,23 @@ class OutboxCoreAutoConfiguration {
     /**
      * Creates the partition coordinator for managing partition assignments.
      *
-     * @param instanceRegistry Registry for managing instances
-     * @return PartitionCoordinator bean
+     * @param instanceRegistry Registry for active instances and current instance identification
+     * @param partitionAssignmentRepository Repository for persisting partition assignments
+     * @param clock Clock for timestamp generation
+     * @return PartitionCoordinator bean for managing partition lifecycle
      */
     @Bean
     @ConditionalOnMissingBean
     fun partitionCoordinator(
         instanceRegistry: OutboxInstanceRegistry,
         partitionAssignmentRepository: PartitionAssignmentRepository,
-    ): PartitionCoordinator = PartitionCoordinator(instanceRegistry, partitionAssignmentRepository)
-
-    /**
-     * Creates the signal for outbox rebalance events.
-     *
-     * @return OutboxRebalanceSignal bean
-     */
-    @Bean
-    @ConditionalOnMissingBean
-    fun outboxRebalanceSignal(): OutboxRebalanceSignal = OutboxRebalanceSignal()
-
-    /**
-     * Creates the scheduler for partition rebalancing.
-     *
-     * @param signal Signal for rebalance events
-     * @return PartitionRebalanceScheduler bean
-     */
-    @Bean
-    @ConditionalOnMissingBean
-    fun partitionRebalanceScheduler(signal: OutboxRebalanceSignal): PartitionRebalanceScheduler =
-        PartitionRebalanceScheduler(signal)
+        clock: Clock,
+    ): PartitionCoordinator =
+        PartitionCoordinator(
+            instanceRegistry = instanceRegistry,
+            partitionAssignmentRepository = partitionAssignmentRepository,
+            clock = clock,
+        )
 
     /**
      * Creates the partition-aware outbox processing scheduler.
@@ -181,7 +169,6 @@ class OutboxCoreAutoConfiguration {
         properties: OutboxProperties,
         @Qualifier("outboxTaskExecutor") taskExecutor: TaskExecutor,
         clock: Clock,
-        rebalanceSignal: OutboxRebalanceSignal, // neu eingebunden
     ): OutboxProcessingScheduler =
         OutboxProcessingScheduler(
             recordRepository = recordRepository,
@@ -191,7 +178,6 @@ class OutboxCoreAutoConfiguration {
             properties = properties,
             taskExecutor = taskExecutor,
             clock = clock,
-            rebalanceSignal = rebalanceSignal,
         )
 
     /**

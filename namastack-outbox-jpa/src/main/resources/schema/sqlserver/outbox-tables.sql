@@ -48,8 +48,19 @@ CREATE TABLE outbox_partition
     partition_number INT       NOT NULL,
     instance_id      VARCHAR(255),
     version          BIGINT    NOT NULL DEFAULT 0,
-    assigned_at      DATETIME2 NOT NULL,
     updated_at       DATETIME2 NOT NULL
         PRIMARY KEY (partition_number),
     INDEX idx_outbox_partition_instance_id (instance_id)
 );
+
+IF NOT EXISTS(SELECT *
+              FROM INFORMATION_SCHEMA.TABLES
+              WHERE TABLE_NAME = 'outbox_partition_lock')
+CREATE TABLE outbox_partition_lock
+(
+    id INT NOT NULL PRIMARY KEY
+);
+
+IF NOT EXISTS (SELECT 1 FROM outbox_partition_lock WHERE id = 1)
+  INSERT INTO outbox_partition_lock(id) VALUES (1);
+

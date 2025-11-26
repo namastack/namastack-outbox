@@ -3,9 +3,12 @@ package io.namastack.outbox
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import io.namastack.outbox.OutboxInstanceStatus.ACTIVE
-import io.namastack.outbox.OutboxInstanceStatus.DEAD
-import io.namastack.outbox.OutboxInstanceStatus.SHUTTING_DOWN
+import io.namastack.outbox.instance.OutboxInstance
+import io.namastack.outbox.instance.OutboxInstanceRegistry
+import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
+import io.namastack.outbox.instance.OutboxInstanceStatus.DEAD
+import io.namastack.outbox.instance.OutboxInstanceStatus.SHUTTING_DOWN
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName

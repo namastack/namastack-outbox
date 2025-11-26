@@ -23,30 +23,13 @@ import java.time.OffsetDateTime
 @Table(name = "outbox_partition")
 internal data class OutboxPartitionAssignmentEntity(
     @Id
-    @Column(name = "partition_number")
+    @Column(name = "partition_number", nullable = false)
     val partitionNumber: Int,
     @Column(name = "instance_id", nullable = true)
     var instanceId: String?,
     @Version
-    @Column(name = "version")
-    var version: Long = 0,
-    @Column(name = "assigned_at", nullable = false)
-    var assignedAt: OffsetDateTime,
+    @Column(name = "version", nullable = false)
+    val version: Long? = null,
     @Column(name = "updated_at", nullable = false)
     var updatedAt: OffsetDateTime,
-) {
-    /**
-     * Updates the partition assignment to a new instance.
-     *
-     * @param newInstanceId The ID of the instance claiming this partition
-     * @param timestamp The timestamp of the assignment
-     */
-    fun reassignTo(
-        newInstanceId: String,
-        timestamp: OffsetDateTime,
-    ) {
-        instanceId = newInstanceId
-        assignedAt = timestamp
-        updatedAt = timestamp
-    }
-}
+)

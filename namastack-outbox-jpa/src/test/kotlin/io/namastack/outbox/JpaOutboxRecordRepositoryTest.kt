@@ -1,8 +1,12 @@
 package io.namastack.outbox
 
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.Test
@@ -10,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.OffsetDateTime
 import java.time.temporal.ChronoUnit
@@ -22,6 +27,9 @@ class JpaOutboxRecordRepositoryTest {
 
     @Autowired
     private lateinit var jpaOutboxRecordRepository: JpaOutboxRecordRepository
+
+    @Autowired
+    private lateinit var transactionTemplate: TransactionTemplate
 
     @Test
     fun `saves an entity`() {
@@ -36,7 +44,7 @@ class JpaOutboxRecordRepositoryTest {
 
         jpaOutboxRecordRepository.save(record)
 
-        val persistedRecord = jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId).first()
+        val persistedRecord = jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(aggregateId).first()
 
         assertThat(persistedRecord.aggregateId).isEqualTo(record.aggregateId)
         assertThat(persistedRecord.eventType).isEqualTo(record.eventType)
@@ -79,7 +87,7 @@ class JpaOutboxRecordRepositoryTest {
 
         val persistedUpdatedRecord =
             jpaOutboxRecordRepository
-                .findAllIncompleteRecordsByAggregateId(
+                .findIncompleteRecordsByAggregateId(
                     aggregateId,
                 ).first()
 
@@ -143,20 +151,6 @@ class JpaOutboxRecordRepositoryTest {
     }
 
     @Test
-    fun `finds aggregate ids with pending records`() {
-        val aggregateId1 = UUID.randomUUID().toString()
-        val aggregateId2 = UUID.randomUUID().toString()
-        createNewRecordsForAggregateId(3, aggregateId1, NEW)
-        createNewRecordsForAggregateId(3, aggregateId2, NEW)
-        createFailedRecords(3)
-        createCompletedRecords(3)
-
-        val aggregateIds = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
-
-        assertThat(aggregateIds).containsExactlyInAnyOrder(aggregateId1, aggregateId2)
-    }
-
-    @Test
     fun `counts records by status`() {
         createNewRecords(1)
         createCompletedRecords(2)
@@ -202,7 +196,7 @@ class JpaOutboxRecordRepositoryTest {
         createNewRecordsForAggregateId(1, aggregateId, FAILED, now.minusMinutes(2))
         createNewRecordsForAggregateId(1, "other-aggregate", NEW, now)
 
-        val records = jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId)
+        val records = jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(aggregateId)
 
         assertThat(records).hasSize(3)
         assertThat(records.map { it.createdAt }).containsExactly(
@@ -211,17 +205,6 @@ class JpaOutboxRecordRepositoryTest {
             now.minusMinutes(1),
         )
         assertThat(records.map { it.aggregateId }).allMatch { it == aggregateId }
-    }
-
-    @Test
-    fun `finds aggregate ids with pending records respects batch size`() {
-        val aggregateIds = (1..5).map { UUID.randomUUID().toString() }
-        aggregateIds.forEach { createNewRecordsForAggregateId(1, it, NEW) }
-
-        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 3)
-
-        assertThat(result).hasSize(3)
-        assertThat(result).allMatch { it in aggregateIds }
     }
 
     @Test
@@ -234,14 +217,14 @@ class JpaOutboxRecordRepositoryTest {
 
         val partition1Aggregates =
             jpaOutboxRecordRepository.findAggregateIdsInPartitions(
-                listOf(1),
+                setOf(1),
                 NEW,
                 10,
             )
 
         val partition2Aggregates =
             jpaOutboxRecordRepository.findAggregateIdsInPartitions(
-                listOf(2),
+                setOf(2),
                 NEW,
                 10,
             )
@@ -262,7 +245,7 @@ class JpaOutboxRecordRepositoryTest {
 
         val aggregateIds =
             jpaOutboxRecordRepository.findAggregateIdsInPartitions(
-                listOf(1, 2),
+                setOf(1, 2),
                 NEW,
                 10,
             )
@@ -322,7 +305,7 @@ class JpaOutboxRecordRepositoryTest {
         val aggregateId = UUID.randomUUID().toString()
         createCompletedRecordsForAggregateId(2, aggregateId)
 
-        val records = jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId)
+        val records = jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(aggregateId)
 
         assertThat(records).isEmpty()
     }
@@ -352,174 +335,8 @@ class JpaOutboxRecordRepositoryTest {
 
         jpaOutboxRecordRepository.deleteByAggregateIdAndStatus(targetAggregateId, NEW)
 
-        assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(targetAggregateId)).hasSize(1)
-        assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(otherAggregateId)).hasSize(2)
-    }
-
-    @Test
-    fun `findAggregateIdsWithPendingRecords processes oldest record when multiple NEW records exist`() {
-        val aggregateId = UUID.randomUUID().toString()
-        val now = OffsetDateTime.now(clock)
-
-        createRecordWithAggregateAndTime(aggregateId, NEW, now.minusMinutes(3))
-        createRecordWithAggregateAndTime(aggregateId, NEW, now.minusMinutes(1))
-
-        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
-
-        assertThat(result).contains(aggregateId)
-    }
-
-    @Test
-    fun `findAggregateIdsWithPendingRecords allows processing when oldest record is ready`() {
-        val aggregateId = UUID.randomUUID().toString()
-        val now = OffsetDateTime.now(clock)
-
-        createRecordWithAggregateAndTime(aggregateId, NEW, now.minusMinutes(3))
-
-        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
-
-        assertThat(result).contains(aggregateId)
-    }
-
-    @Test
-    fun `findAggregateIdsWithPendingRecords allows processing after older record completed`() {
-        val aggregateId = UUID.randomUUID().toString()
-        val now = OffsetDateTime.now(clock)
-
-        // Create an older FAILED record that blocks processing
-        val olderFailedRecord =
-            OutboxRecord.restore(
-                id = UUID.randomUUID().toString(),
-                aggregateId = aggregateId,
-                eventType = "eventType",
-                payload = "payload",
-                partition = 1,
-                createdAt = now.minusMinutes(5),
-                status = FAILED,
-                completedAt = null, // Still incomplete, blocks processing
-                retryCount = 3,
-                nextRetryAt = now.minusMinutes(5),
-            )
-        jpaOutboxRecordRepository.save(olderFailedRecord)
-
-        // Create a newer NEW record that should be blocked
-        createRecordWithAggregateAndTime(aggregateId, NEW, now.minusMinutes(1))
-
-        val result1 = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
-        assertThat(result1).doesNotContain(aggregateId)
-
-        // Complete the older record
-        val completedRecord =
-            OutboxRecord.restore(
-                id = olderFailedRecord.id,
-                aggregateId = aggregateId,
-                eventType = "eventType",
-                payload = "payload",
-                partition = 1,
-                createdAt = now.minusMinutes(5),
-                status = COMPLETED,
-                completedAt = now,
-                retryCount = 3,
-                nextRetryAt = now.minusMinutes(5),
-            )
-        jpaOutboxRecordRepository.save(completedRecord)
-
-        val result2 = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
-        assertThat(result2).contains(aggregateId)
-    }
-
-    @Test
-    fun `findAggregateIdsWithPendingRecords handles failed older records correctly`() {
-        val aggregateId = UUID.randomUUID().toString()
-        val now = OffsetDateTime.now(clock)
-
-        // Create an older FAILED record (incomplete, so blocks processing)
-        val failedRecord =
-            OutboxRecord.restore(
-                id = UUID.randomUUID().toString(),
-                aggregateId = aggregateId,
-                eventType = "eventType",
-                payload = "payload",
-                partition = 1,
-                createdAt = now.minusMinutes(5),
-                status = FAILED,
-                completedAt = null, // Still incomplete!
-                retryCount = 3,
-                nextRetryAt = now.minusMinutes(5),
-            )
-        jpaOutboxRecordRepository.save(failedRecord)
-
-        // Create a newer NEW record that should be blocked by the failed record
-        createRecordWithAggregateAndTime(aggregateId, NEW, now.minusMinutes(1))
-
-        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
-        assertThat(result).doesNotContain(aggregateId)
-    }
-
-    @Test
-    fun `findAggregateIdsWithPendingRecords respects nextRetryAt timing`() {
-        val aggregateId = UUID.randomUUID().toString()
-        val now = OffsetDateTime.now(clock)
-
-        createRecordWithRetryTime(aggregateId, NEW, now.plusMinutes(5))
-
-        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
-
-        assertThat(result).doesNotContain(aggregateId)
-    }
-
-    @Test
-    fun `findAggregateIdsWithPendingRecords allows processing when nextRetryAt is past`() {
-        val aggregateId = UUID.randomUUID().toString()
-        val now = OffsetDateTime.now(clock)
-
-        createRecordWithRetryTime(aggregateId, NEW, now.minusMinutes(1))
-
-        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
-
-        assertThat(result).contains(aggregateId)
-    }
-
-    @Test
-    fun `findAggregateIdsWithPendingRecords handles mixed aggregate scenarios correctly`() {
-        val now = OffsetDateTime.now(clock)
-
-        val readyAggregate = UUID.randomUUID().toString()
-        createRecordWithAggregateAndTime(readyAggregate, NEW, now.minusMinutes(1))
-
-        val multipleRecordsAggregate = UUID.randomUUID().toString()
-        createRecordWithAggregateAndTime(multipleRecordsAggregate, NEW, now.minusMinutes(3))
-        createRecordWithAggregateAndTime(multipleRecordsAggregate, NEW, now.minusMinutes(1))
-
-        val notReadyAggregate = UUID.randomUUID().toString()
-        createRecordWithRetryTime(notReadyAggregate, NEW, now.plusMinutes(5))
-
-        val exactlyNowAggregate = UUID.randomUUID().toString()
-        createRecordWithRetryTime(exactlyNowAggregate, NEW, now)
-
-        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
-
-        assertThat(result).contains(readyAggregate)
-        assertThat(result).contains(multipleRecordsAggregate)
-        assertThat(result).contains(exactlyNowAggregate)
-        assertThat(result).doesNotContain(notReadyAggregate)
-    }
-
-    @Test
-    fun `findAggregateIdsWithPendingRecords orders by oldest record creation time`() {
-        val now = OffsetDateTime.now(clock)
-
-        val aggregate1 = UUID.randomUUID().toString()
-        val aggregate2 = UUID.randomUUID().toString()
-        val aggregate3 = UUID.randomUUID().toString()
-
-        createRecordWithAggregateAndTime(aggregate2, NEW, now.minusMinutes(2))
-        createRecordWithAggregateAndTime(aggregate1, NEW, now.minusMinutes(3))
-        createRecordWithAggregateAndTime(aggregate3, NEW, now.minusMinutes(1))
-
-        val result = jpaOutboxRecordRepository.findAggregateIdsWithPendingRecords(NEW, 10)
-
-        assertThat(result).containsExactly(aggregate1, aggregate2, aggregate3)
+        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(targetAggregateId)).hasSize(1)
+        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(otherAggregateId)).hasSize(2)
     }
 
     @Test
@@ -530,7 +347,7 @@ class JpaOutboxRecordRepositoryTest {
         createRecordWithPartitionAndTime(aggregateId, NEW, 1, now.minusMinutes(3))
         createRecordWithPartitionAndTime(aggregateId, NEW, 1, now.minusMinutes(1))
 
-        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 10)
+        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 10)
 
         assertThat(result).contains(aggregateId)
     }
@@ -542,7 +359,7 @@ class JpaOutboxRecordRepositoryTest {
 
         createRecordWithPartitionAndTime(aggregateId, NEW, 1, now.minusMinutes(3))
 
-        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(listOf(1), NEW, 10)
+        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 10)
 
         assertThat(result).contains(aggregateId)
     }
@@ -559,7 +376,7 @@ class JpaOutboxRecordRepositoryTest {
         createRecordWithPartitionAndTime(aggregate1, NEW, 2, now.minusMinutes(3))
         createRecordWithPartitionAndTime(aggregate3, NEW, 1, now.minusMinutes(1))
 
-        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(listOf(1, 2), NEW, 10)
+        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(setOf(1, 2), NEW, 10)
 
         assertThat(result).containsExactly(aggregate1, aggregate2, aggregate3)
     }
@@ -576,108 +393,22 @@ class JpaOutboxRecordRepositoryTest {
                 .build(clock)
 
         jpaOutboxRecordRepository.save(record)
-        assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId)).hasSize(1)
+        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(aggregateId)).hasSize(1)
 
         jpaOutboxRecordRepository.deleteById(record.id)
-        assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId)).isEmpty()
+        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(aggregateId)).isEmpty()
     }
 
     @Test
-    fun `deletes multiple records by ids`() {
-        val aggregateId1 = UUID.randomUUID().toString()
-        val aggregateId2 = UUID.randomUUID().toString()
-        val aggregateId3 = UUID.randomUUID().toString()
+    fun `does not delete record by id when not existing`() {
+        val entityManager = mockk<EntityManager>(relaxed = true)
+        every { entityManager.find(OutboxRecordEntity::class.java, any()) } returns null
+        val recordRepository = JpaOutboxRecordRepository(entityManager, transactionTemplate, clock)
 
-        val record1 =
-            OutboxRecord
-                .Builder()
-                .aggregateId(
-                    aggregateId1,
-                ).eventType("event")
-                .payload("payload")
-                .build(clock)
-        val record2 =
-            OutboxRecord
-                .Builder()
-                .aggregateId(
-                    aggregateId2,
-                ).eventType("event")
-                .payload("payload")
-                .build(clock)
-        val record3 =
-            OutboxRecord
-                .Builder()
-                .aggregateId(
-                    aggregateId3,
-                ).eventType("event")
-                .payload("payload")
-                .build(clock)
+        recordRepository.deleteById(UUID.randomUUID().toString())
 
-        jpaOutboxRecordRepository.save(record1)
-        jpaOutboxRecordRepository.save(record2)
-        jpaOutboxRecordRepository.save(record3)
-
-        val allRecords = jpaOutboxRecordRepository.findPendingRecords()
-        assertThat(allRecords).hasSize(3)
-
-        jpaOutboxRecordRepository.deleteByIds(listOf(record1.id, record3.id))
-
-        val remaining = jpaOutboxRecordRepository.findPendingRecords()
-        assertThat(remaining).hasSize(1)
-        assertThat(remaining.first().aggregateId).isEqualTo(aggregateId2)
-    }
-
-    @Test
-    fun `deletes records by ids with empty list does nothing`() {
-        createNewRecords(3)
-
-        val beforeCount = jpaOutboxRecordRepository.findPendingRecords().size
-        jpaOutboxRecordRepository.deleteByIds(emptyList())
-        val afterCount = jpaOutboxRecordRepository.findPendingRecords().size
-
-        assertThat(afterCount).isEqualTo(beforeCount)
-    }
-
-    @Test
-    fun `deletes records by ids only affects specified ids`() {
-        val aggregateId1 = UUID.randomUUID().toString()
-        val aggregateId2 = UUID.randomUUID().toString()
-        val aggregateId3 = UUID.randomUUID().toString()
-
-        val record1 =
-            OutboxRecord
-                .Builder()
-                .aggregateId(
-                    aggregateId1,
-                ).eventType("event")
-                .payload("payload")
-                .build(clock)
-        val record2 =
-            OutboxRecord
-                .Builder()
-                .aggregateId(
-                    aggregateId2,
-                ).eventType("event")
-                .payload("payload")
-                .build(clock)
-        val record3 =
-            OutboxRecord
-                .Builder()
-                .aggregateId(
-                    aggregateId3,
-                ).eventType("event")
-                .payload("payload")
-                .build(clock)
-
-        jpaOutboxRecordRepository.save(record1)
-        jpaOutboxRecordRepository.save(record2)
-        jpaOutboxRecordRepository.save(record3)
-
-        jpaOutboxRecordRepository.deleteByIds(listOf(record1.id))
-
-        assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId1)).isEmpty()
-        assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId2)).hasSize(1)
-        assertThat(jpaOutboxRecordRepository.findAllIncompleteRecordsByAggregateId(aggregateId3)).hasSize(1)
+        verify(exactly = 1) { entityManager.find(OutboxRecordEntity::class.java, any()) }
+        verify(exactly = 0) { entityManager.remove(any<OutboxRecordEntity>()) }
     }
 
     private fun createFailedRecords(count: Int = 3) {
@@ -807,52 +538,6 @@ class JpaOutboxRecordRepositoryTest {
                 ),
             )
         }
-    }
-
-    private fun createRecordWithAggregateAndTime(
-        aggregateId: String,
-        status: OutboxRecordStatus,
-        createdAt: OffsetDateTime,
-    ): OutboxRecord {
-        val record =
-            OutboxRecord.restore(
-                id = UUID.randomUUID().toString(),
-                aggregateId = aggregateId,
-                eventType = "eventType",
-                payload = "payload",
-                partition = 1,
-                createdAt = createdAt,
-                status = status,
-                completedAt = null,
-                retryCount = 0,
-                nextRetryAt = createdAt,
-            )
-
-        jpaOutboxRecordRepository.save(record)
-        return record
-    }
-
-    private fun createRecordWithRetryTime(
-        aggregateId: String,
-        status: OutboxRecordStatus,
-        nextRetryAt: OffsetDateTime,
-    ): OutboxRecord {
-        val record =
-            OutboxRecord.restore(
-                id = UUID.randomUUID().toString(),
-                aggregateId = aggregateId,
-                eventType = "eventType",
-                payload = "payload",
-                partition = 1,
-                createdAt = OffsetDateTime.now(clock),
-                status = status,
-                completedAt = null,
-                retryCount = 0,
-                nextRetryAt = nextRetryAt,
-            )
-
-        jpaOutboxRecordRepository.save(record)
-        return record
     }
 
     private fun createRecordWithPartitionAndTime(

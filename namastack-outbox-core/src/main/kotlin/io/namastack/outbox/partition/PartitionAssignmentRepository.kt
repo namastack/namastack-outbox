@@ -28,50 +28,42 @@ interface PartitionAssignmentRepository {
     fun findByInstanceId(instanceId: String): Set<PartitionAssignment>
 
     /**
-     * Claims a set of stale partitions in a single atomic transaction (all-or-nothing).
+     * Saves partition assignments using optimistic locking.
      *
-     * Success conditions:
-     * - Every specified partition exists.
-     * - Each partition is either (a) unassigned (instanceId == null) OR (b) owned by one of the provided stale instance IDs.
-     * - No partition is owned by an active instance (i.e. an instance not contained in staleInstanceIds).
+     * Updates existing assignments or inserts new ones. Uses the version field
+     * to detect concurrent modifications. If a partition was modified by another
+     * instance, the operation will throw an OptimisticLockingFailureException.
      *
-     * Behavior:
-     * - If any violation occurs (missing partition, owned by a non-stale instance) an exception is thrown and the whole transaction rolls back.
-     * - After successful validation all partitions are atomically reassigned to newInstanceId.
-     * - A null or empty staleInstanceIds set means: only completely unassigned partitions may be claimed.
+     * The partition assignments must already have the desired state (e.g., new instanceId).
+     * The repository only persists them and updates the version field.
      *
-     * Concurrency:
-     * - Optimistic locking may raise exceptions under concurrent modifications (rollback). Caller can implement retry logic.
-     *
-     * @param partitionIds Set of partition numbers to claim.
-     * @param staleInstanceIds Set of stale instance IDs whose partitions may be taken over. May be null when only unassigned partitions should be claimed.
-     * @param newInstanceId The instance ID that will own these partitions after the operation.
+     * @param partitionAssignments Set of partition assignments to save
+     * @throws org.springframework.dao.OptimisticLockingFailureException if version mismatch detected (concurrent modification)
      */
-    fun claimStalePartitions(
-        partitionIds: Set<Int>,
-        staleInstanceIds: Set<String>?,
-        newInstanceId: String,
-    )
+    fun saveAll(partitionAssignments: Set<PartitionAssignment>)
 
     /**
-     * Claims all unassigned partitions for the given instance in a single atomic transaction.
+     * Inserts partition assignments only if the assignment table is empty.
      *
-     * Used during bootstrap to claim initial set of partitions.
-     * If any partition already exists, transaction fails and exception is thrown (all-or-nothing).
+     * This method is designed to be called during application startup by multiple instances
+     * concurrently. It ensures that only ONE instance will initialize the partition assignments,
+     * preventing duplicate initialization attempts.
      *
-     * @param instanceId The instance ID to claim partitions for
+     * Uses a distributed lock (pessimistic locking) to coordinate between instances:
+     * 1. Acquires an exclusive lock on a shared lock entity to serialize access
+     * 2. Checks if any partition assignments already exist
+     * 3. If table is empty, inserts all assignments atomically
+     * 4. If table is not empty, assumes another instance already initialized and returns
+     *
+     * This approach guarantees:
+     * - Only one instance can execute the insert block at a time (due to distributed lock)
+     * - Once assignments are created by one instance, all other instances will see them
+     *   and skip their initialization attempts
+     * - No duplicate data is created despite concurrent startup of multiple instances
+     * - No manual coordination or distributed consensus protocol is needed
+     *
+     * @param partitionAssignments Set of partition assignments to insert if table is empty
+     * @return true if this instance initialized the assignments, false if another instance already did
      */
-    fun claimAllPartitions(instanceId: String)
-
-    /**
-     * Releases multiple partitions owned by the given instance in a single transaction.
-     * Partitions not owned by the instance are ignored.
-     *
-     * @param partitionNumbers Partitions to release
-     * @param currentInstanceId Owning instance
-     */
-    fun releasePartitions(
-        partitionNumbers: Set<Int>,
-        currentInstanceId: String,
-    )
+    fun insertIfAllAbsent(partitionAssignments: Set<PartitionAssignment>): Boolean
 }

@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.instance.OutboxInstanceStatus
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType

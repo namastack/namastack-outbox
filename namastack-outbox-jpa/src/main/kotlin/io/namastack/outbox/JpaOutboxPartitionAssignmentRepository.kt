@@ -1,12 +1,11 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.OutboxPartitionAssignmentEntityMapper.toEntity
 import io.namastack.outbox.partition.PartitionAssignment
 import io.namastack.outbox.partition.PartitionAssignmentRepository
-import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
 import jakarta.persistence.EntityManager
+import jakarta.persistence.LockModeType.PESSIMISTIC_WRITE
 import org.springframework.transaction.support.TransactionTemplate
-import java.time.Clock
-import java.time.OffsetDateTime
 
 /**
  * JPA repository implementation for managing partition assignments.
@@ -16,7 +15,6 @@ import java.time.OffsetDateTime
  *
  * @param entityManager JPA entity manager for database operations
  * @param transactionTemplate Transaction template for programmatic transaction management
- * @param clock Clock for timestamp generation
  *
  * @author Roland Beisel
  * @since 0.4.0
@@ -24,7 +22,6 @@ import java.time.OffsetDateTime
 internal open class JpaOutboxPartitionAssignmentRepository(
     private val entityManager: EntityManager,
     private val transactionTemplate: TransactionTemplate,
-    private val clock: Clock,
 ) : PartitionAssignmentRepository {
     /**
      * Retrieves all partition assignments ordered by partition number.
@@ -67,111 +64,57 @@ internal open class JpaOutboxPartitionAssignmentRepository(
     }
 
     /**
-     * Claims stale or unassigned partitions for a new instance.
+     * Saves partition assignments using optimistic locking.
      *
-     * Uses optimistic locking to prevent race conditions. Throws IllegalStateException
-     * if a partition is missing or owned by a different instance.
+     * Updates existing assignments or inserts new ones. Uses the version field
+     * to detect concurrent modifications. If a partition was modified by another
+     * instance, merge() will throw an exception on version mismatch.
      *
-     * @param partitionIds Partition numbers to claim
-     * @param staleInstanceIds Instance IDs that owned partitions (null allows any owner)
-     * @param newInstanceId Instance ID claiming the partitions
-     * @throws IllegalStateException if partition missing or owned by different instance
-     */
-    override fun claimStalePartitions(
-        partitionIds: Set<Int>,
-        staleInstanceIds: Set<String>?,
-        newInstanceId: String,
-    ) = transactionTemplate.executeNonNull {
-        val now = OffsetDateTime.now(clock)
-
-        val entities =
-            partitionIds.map { partitionNumber ->
-                entityManager.find(OutboxPartitionAssignmentEntity::class.java, partitionNumber)
-            }
-
-        entities.forEach { entity ->
-            if (entity == null ||
-                (staleInstanceIds?.contains(entity.instanceId) != true && entity.instanceId != null)
-            ) {
-                throw IllegalStateException(
-                    "Partition cannot be claimed: either missing or owned by different instance",
-                )
-            }
-
-            entity.reassignTo(newInstanceId, now)
-            entity.let { entityManager.merge(it) }
-        }
-    }
-
-    /**
-     * Claims all partitions for an instance during bootstrap.
-     *
-     * Inserts all 256 partitions in a single transaction. Uses all-or-nothing semantics:
-     * either all 256 partitions are successfully inserted, or the transaction is rolled back.
-     *
-     * When multiple instances bootstrap concurrently, only one will succeed. The other
-     * instances will encounter SQL Error 23505 (Duplicate Key Constraint Violation) on the
-     * partition_number PRIMARY KEY. The exception is thrown and must be handled by the caller.
-     *
-     * Affected databases: H2, MariaDB, MySQL, Oracle, PostgreSQL, SQL Server
-     * Error codes: PostgreSQL=23505, MySQL/MariaDB=1062, SQL Server=2627, Oracle=ORA-00001
-     *
-     * @param instanceId Instance ID claiming all partitions
-     * @throws Exception if duplicate key or other database error occurs (handled by caller)
-     */
-    override fun claimAllPartitions(instanceId: String): Unit =
-        transactionTemplate.executeNonNull {
-            val partitionAssignmentsAlreadyExist =
-                entityManager
-                    .createQuery(
-                        "select count(p) from OutboxPartitionAssignmentEntity p",
-                        Long::class.java,
-                    ).singleResult > 0L
-
-            if (partitionAssignmentsAlreadyExist) return@executeNonNull
-
-            for (partitionNumber in 0 until TOTAL_PARTITIONS) {
-                val partition = PartitionAssignment.create(partitionNumber, instanceId, clock)
-                val entity = OutboxPartitionAssignmentEntityMapper.toEntity(partition)
-                entityManager.persist(entity)
-            }
-        }
-
-    /**
-     * Releases partitions from an instance, making them available for rebalancing.
-     *
-     * Uses optimistic locking (version field) to detect concurrent modifications.
-     * Sets instanceId to null for the released partitions. Does nothing if partition set is empty.
-     *
-     * @param partitionNumbers Partition numbers to release
-     * @param currentInstanceId Instance ID currently owning the partitions
+     * @param partitionAssignments Set of partition assignments to save
      * @throws Exception if version mismatch detected (concurrent modification)
      */
-    override fun releasePartitions(
-        partitionNumbers: Set<Int>,
-        currentInstanceId: String,
-    ) = transactionTemplate.executeNonNull {
-        if (partitionNumbers.isEmpty()) return@executeNonNull
-
-        val now = OffsetDateTime.now(clock)
-        val query = """
-            update OutboxPartitionAssignmentEntity p
-            set p.instanceId = null, p.updatedAt = :ts, p.version = p.version + 1
-            where p.instanceId = :cid and p.partitionNumber in :parts
-        """
-        val rowsUpdated =
-            entityManager
-                .createQuery(query)
-                .setParameter("ts", now)
-                .setParameter("cid", currentInstanceId)
-                .setParameter("parts", partitionNumbers)
-                .executeUpdate()
-
-        if (rowsUpdated != partitionNumbers.size) {
-            throw IllegalStateException(
-                "Expected to release ${partitionNumbers.size} partitions, but $rowsUpdated were updated. " +
-                    "Concurrent modification by another instance detected.",
-            )
+    override fun saveAll(partitionAssignments: Set<PartitionAssignment>) =
+        transactionTemplate.executeNonNull {
+            partitionAssignments.forEach { partitionAssignment ->
+                val entity = toEntity(partitionAssignment)
+                entityManager.merge(entity)
+            }
         }
-    }
+
+    /**
+     * Inserts partition assignments only if the assignment table is empty.
+     *
+     * This method is designed to be called during application startup by multiple instances
+     * concurrently. It ensures that only ONE instance will initialize the partition assignments,
+     * preventing duplicate initialization attempts.
+     *
+     * The method uses a two-phase coordination protocol:
+     * 1. Acquires a pessimistic write lock on the distributed lock entity to serialize access
+     * 2. Checks if any partition assignments already exist
+     * 3. If table is empty, inserts all assignments in a single batch
+     *
+     * This approach guarantees:
+     * - Only one instance can execute the insert block at a time (due to pessimistic lock)
+     * - Once assignments are created by one instance, all other instances will see them
+     *   and skip their initialization attempts
+     * - No duplicate data is created despite concurrent startup
+     *
+     * @param partitionAssignments Set of partition assignments to insert if table is empty
+     * @return true if this instance initialized the assignments, false if another instance already did
+     */
+    override fun insertIfAllAbsent(partitionAssignments: Set<PartitionAssignment>): Boolean =
+        transactionTemplate.executeNonNull {
+            entityManager.find(OutboxPartitionLockEntity::class.java, 1, PESSIMISTIC_WRITE)
+
+            val existing = entityManager.find(OutboxPartitionAssignmentEntity::class.java, 1)
+
+            if (existing == null) {
+                partitionAssignments.forEach { partitionAssignment ->
+                    val entity = toEntity(partitionAssignment)
+                    entityManager.persist(entity)
+                }
+                return@executeNonNull true
+            }
+            false
+        }
 }

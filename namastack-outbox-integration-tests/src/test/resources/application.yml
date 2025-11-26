@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+outbox:
+  schema-initialization:
+    enabled: true
+  instance:
+    graceful-shutdown-timeout-seconds: 0
+
+logging:
+  level:
+    root: warn
+    io.namastack.outbox: trace

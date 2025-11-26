@@ -30,9 +30,14 @@ CREATE TABLE IF NOT EXISTS outbox_partition
     partition_number INTEGER PRIMARY KEY,
     instance_id      VARCHAR(255),
     version          BIGINT                   NOT NULL DEFAULT 0,
-    assigned_at      TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at       TIMESTAMP WITH TIME ZONE NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS outbox_partition_lock
+(
+    id INT PRIMARY KEY
+);
+MERGE INTO outbox_partition_lock (id) KEY (id) VALUES ('1');
 
 CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_created
     ON outbox_record (aggregate_id, created_at);

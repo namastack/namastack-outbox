@@ -104,57 +104,12 @@ internal open class JpaOutboxRecordRepository(
     }
 
     /**
-     * Finds aggregate IDs that have pending records with the specified status.
-     *
-     * @param status The status to filter by
-     * @param batchSize Maximum number of aggregate IDs to return
-     * @return List of distinct aggregate IDs with pending records
-     */
-    override fun findAggregateIdsWithPendingRecords(
-        status: OutboxRecordStatus,
-        batchSize: Int,
-    ): List<String> {
-        val now = OffsetDateTime.now(clock)
-
-        // Same fix: Only return aggregates where the record to be processed
-        // is actually the NEXT record in sequence
-        val query = """
-            select o.aggregateId, min(o.createdAt) as minCreated
-            from OutboxRecordEntity o
-            where o.status = :status
-            and o.nextRetryAt <= :now
-            and not exists (
-                select 1 from OutboxRecordEntity older
-                where older.aggregateId = o.aggregateId
-                and older.completedAt is null
-                and older.createdAt < o.createdAt
-            )
-            group by o.aggregateId
-            order by minCreated asc
-        """
-
-        return entityManager
-            .createQuery(query)
-            .setParameter("status", status)
-            .setParameter("now", now)
-            .setMaxResults(batchSize)
-            .resultList
-            .map { result ->
-                if (result is Array<*>) {
-                    result[0] as String
-                } else {
-                    result as String
-                }
-            }
-    }
-
-    /**
      * Finds all incomplete records for a specific aggregate ID.
      *
      * @param aggregateId The aggregate ID to search for
      * @return List of incomplete outbox records for the aggregate, ordered by creation time
      */
-    override fun findAllIncompleteRecordsByAggregateId(aggregateId: String): List<OutboxRecord> {
+    override fun findIncompleteRecordsByAggregateId(aggregateId: String): List<OutboxRecord> {
         val query = """
             select o
             from OutboxRecordEntity o
@@ -241,40 +196,18 @@ internal open class JpaOutboxRecordRepository(
      */
     override fun deleteById(id: String) {
         transactionTemplate.executeNonNull {
-            val entity = entityManager.find(OutboxRecordEntity::class.java, id)
-            if (entity != null) {
-                entityManager.remove(entity)
-            }
-        }
-    }
-
-    /**
-     * Deletes records by their unique IDs.
-     *
-     * @param ids The collection of unique identifiers of the outbox records to delete
-     */
-    override fun deleteByIds(ids: Collection<String>) {
-        if (ids.isEmpty()) return
-        transactionTemplate.executeNonNull {
-            val query = """
-                delete from OutboxRecordEntity o where o.id in :ids
-            """
-            entityManager
-                .createQuery(query)
-                .setParameter("ids", ids)
-                .executeUpdate()
+            val entity = entityManager.find(OutboxRecordEntity::class.java, id) ?: return@executeNonNull
+            entityManager.remove(entity)
         }
     }
 
     override fun findAggregateIdsInPartitions(
-        partitions: List<Int>,
+        partitions: Set<Int>,
         status: OutboxRecordStatus,
         batchSize: Int,
     ): List<String> {
         val now = OffsetDateTime.now(clock)
 
-        // Critical fix: Only return aggregates where the NEW record to be processed
-        // is actually the NEXT record in sequence (no older incomplete records exist)
         val query = """
             select o.aggregateId, min(o.createdAt) as minCreated
             from OutboxRecordEntity o

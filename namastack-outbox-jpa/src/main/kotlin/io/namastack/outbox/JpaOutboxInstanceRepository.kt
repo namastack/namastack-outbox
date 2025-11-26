@@ -1,7 +1,10 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.OutboxInstanceStatus.ACTIVE
-import io.namastack.outbox.OutboxInstanceStatus.SHUTTING_DOWN
+import io.namastack.outbox.instance.OutboxInstance
+import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.instance.OutboxInstanceStatus
+import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
+import io.namastack.outbox.instance.OutboxInstanceStatus.SHUTTING_DOWN
 import jakarta.persistence.EntityManager
 import jakarta.persistence.LockModeType
 import org.springframework.transaction.support.TransactionTemplate

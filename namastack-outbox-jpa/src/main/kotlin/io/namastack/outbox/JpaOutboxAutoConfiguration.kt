@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import jakarta.persistence.EntityManager
 import org.springframework.beans.factory.annotation.Qualifier
@@ -111,8 +112,7 @@ class JpaOutboxAutoConfiguration {
     fun outboxPartitionAssignmentRepository(
         @Qualifier("outboxEntityManager") entityManager: EntityManager,
         @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
-        clock: Clock,
-    ): PartitionAssignmentRepository = JpaOutboxPartitionAssignmentRepository(entityManager, transactionTemplate, clock)
+    ): PartitionAssignmentRepository = JpaOutboxPartitionAssignmentRepository(entityManager, transactionTemplate)
 
     /**
      * Creates a database initializer for outbox schema when schema initialization is enabled.

@@ -30,8 +30,17 @@ CREATE TABLE outbox_partition
     partition_number INTEGER PRIMARY KEY,
     instance_id      VARCHAR2(255),
     version          INTEGER DEFAULT 0 NOT NULL,
-    assigned_at      TIMESTAMP         NOT NULL,
     updated_at       TIMESTAMP         NOT NULL
+);
+
+CREATE TABLE outbox_partition_lock
+(
+    id INTEGER PRIMARY KEY
+);
+INSERT INTO outbox_partition_lock(id)
+SELECT '1' FROM dual
+WHERE NOT EXISTS (
+    SELECT 1 FROM outbox_partition_lock WHERE id = '1'
 );
 
 CREATE INDEX IF NOT EXISTS idx_outbox_record_aggregate_created

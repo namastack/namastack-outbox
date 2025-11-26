@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.mockk.every
 import io.mockk.mockk
+import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.partition.PartitionStats
 import org.assertj.core.api.Assertions.assertThat
@@ -16,7 +17,7 @@ class OutboxPartitionMetricsProviderTest {
     @Test
     fun `getProcessingStats returns correct stats`() {
         every { instanceRegistry.getCurrentInstanceId() } returns "instance-1"
-        every { partitionCoordinator.getAssignedPartitionNumbers() } returns listOf(1, 2)
+        every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
         every { recordRepository.countRecordsByPartition(1, OutboxRecordStatus.NEW) } returns 5L
         every { recordRepository.countRecordsByPartition(2, OutboxRecordStatus.NEW) } returns 10L
 
@@ -40,7 +41,7 @@ class OutboxPartitionMetricsProviderTest {
                 unassignedPartitionNumbers = emptyList(),
             )
 
-        every { partitionCoordinator.getPartitionStats() } returns expectedStats
+        every { partitionCoordinator.getPartitionContext().getPartitionStats() } returns expectedStats
 
         val stats = provider.getPartitionStats()
 

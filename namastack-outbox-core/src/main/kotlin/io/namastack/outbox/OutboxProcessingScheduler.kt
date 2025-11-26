@@ -1,7 +1,6 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordStatus.NEW
-import io.namastack.outbox.partition.OutboxRebalanceSignal
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import org.slf4j.LoggerFactory
@@ -22,7 +21,6 @@ import java.util.concurrent.CountDownLatch
  * @param recordRepository Repository for accessing outbox records
  * @param recordProcessor Processor for handling individual records
  * @param partitionCoordinator Coordinator for partition assignments
- * @param rebalanceSignal Signals deferred rebalance; consumed only after a batch completes
  * @param taskExecutor TaskExecutor for parallel processing of aggregateIds
  * @param retryPolicy Policy for determining retry behavior
  * @param properties Configuration properties
@@ -35,7 +33,6 @@ class OutboxProcessingScheduler(
     private val recordRepository: OutboxRecordRepository,
     private val recordProcessor: OutboxRecordProcessor,
     private val partitionCoordinator: PartitionCoordinator,
-    private val rebalanceSignal: OutboxRebalanceSignal,
     private val taskExecutor: TaskExecutor,
     private val retryPolicy: OutboxRetryPolicy,
     private val properties: OutboxProperties,
@@ -57,11 +54,6 @@ class OutboxProcessingScheduler(
     @Scheduled(fixedDelayString = $$"${outbox.poll-interval:2000}", scheduler = "outboxDefaultScheduler")
     fun process() {
         try {
-            if (rebalanceSignal.consume()) {
-                log.trace("Executing deferred rebalance after batch completion")
-                partitionCoordinator.rebalance()
-            }
-
             val assignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
             if (assignedPartitions.isEmpty()) return
 
@@ -73,7 +65,7 @@ class OutboxProcessingScheduler(
 
             val aggregateIds =
                 recordRepository.findAggregateIdsInPartitions(
-                    partitions = assignedPartitions.toList(),
+                    partitions = assignedPartitions,
                     status = NEW,
                     batchSize = properties.batchSize,
                 )
@@ -108,7 +100,7 @@ class OutboxProcessingScheduler(
      */
     private fun processAggregate(aggregateId: String) {
         try {
-            val records = recordRepository.findAllIncompleteRecordsByAggregateId(aggregateId)
+            val records = recordRepository.findIncompleteRecordsByAggregateId(aggregateId)
 
             if (records.isEmpty()) {
                 return
@@ -126,7 +118,7 @@ class OutboxProcessingScheduler(
 
                 if (!success && properties.processing.stopOnFirstFailure) {
                     log.trace(
-                        "🛑 Stopping aggregate {} processing due to failure (stopOnFirstFailure=true)",
+                        "Stopping aggregate {} processing due to failure (stopOnFirstFailure=true)",
                         aggregateId,
                     )
                     break
