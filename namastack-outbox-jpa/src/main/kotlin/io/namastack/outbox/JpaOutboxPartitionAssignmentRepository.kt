@@ -4,7 +4,6 @@ import io.namastack.outbox.OutboxPartitionAssignmentEntityMapper.toEntity
 import io.namastack.outbox.partition.PartitionAssignment
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import jakarta.persistence.EntityManager
-import jakarta.persistence.LockModeType.PESSIMISTIC_WRITE
 import org.springframework.transaction.support.TransactionTemplate
 
 /**
@@ -70,8 +69,12 @@ internal open class JpaOutboxPartitionAssignmentRepository(
      * to detect concurrent modifications. If a partition was modified by another
      * instance, merge() will throw an exception on version mismatch.
      *
+     * Note: This method can throw a DataIntegrityViolationException (e.g. due to unique constraint violation)
+     * if there are conflicts when inserting or updating records. This is expected behavior and should be handled by the caller.
+     *
      * @param partitionAssignments Set of partition assignments to save
-     * @throws Exception if version mismatch detected (concurrent modification)
+     * @throws org.springframework.dao.DataIntegrityViolationException on insert/update conflicts (expected behavior)
+     * @throws org.springframework.dao.OptimisticLockingFailureException if version mismatch detected (concurrent modification)
      */
     override fun saveAll(partitionAssignments: Set<PartitionAssignment>) =
         transactionTemplate.executeNonNull {
@@ -79,42 +82,5 @@ internal open class JpaOutboxPartitionAssignmentRepository(
                 val entity = toEntity(partitionAssignment)
                 entityManager.merge(entity)
             }
-        }
-
-    /**
-     * Inserts partition assignments only if the assignment table is empty.
-     *
-     * This method is designed to be called during application startup by multiple instances
-     * concurrently. It ensures that only ONE instance will initialize the partition assignments,
-     * preventing duplicate initialization attempts.
-     *
-     * The method uses a two-phase coordination protocol:
-     * 1. Acquires a pessimistic write lock on the distributed lock entity to serialize access
-     * 2. Checks if any partition assignments already exist
-     * 3. If table is empty, inserts all assignments in a single batch
-     *
-     * This approach guarantees:
-     * - Only one instance can execute the insert block at a time (due to pessimistic lock)
-     * - Once assignments are created by one instance, all other instances will see them
-     *   and skip their initialization attempts
-     * - No duplicate data is created despite concurrent startup
-     *
-     * @param partitionAssignments Set of partition assignments to insert if table is empty
-     * @return true if this instance initialized the assignments, false if another instance already did
-     */
-    override fun insertIfAllAbsent(partitionAssignments: Set<PartitionAssignment>): Boolean =
-        transactionTemplate.executeNonNull {
-            entityManager.find(OutboxPartitionLockEntity::class.java, 1, PESSIMISTIC_WRITE)
-
-            val existing = entityManager.find(OutboxPartitionAssignmentEntity::class.java, 1)
-
-            if (existing == null) {
-                partitionAssignments.forEach { partitionAssignment ->
-                    val entity = toEntity(partitionAssignment)
-                    entityManager.persist(entity)
-                }
-                return@executeNonNull true
-            }
-            false
         }
 }

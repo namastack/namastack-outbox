@@ -15,6 +15,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import java.time.Clock
 import java.time.OffsetDateTime
 
@@ -129,7 +130,7 @@ class PartitionCoordinatorTest {
 
             partitionCoordinator.rebalance()
 
-            verify { partitionAssignmentRepository.insertIfAllAbsent(any()) }
+            verify { partitionAssignmentRepository.saveAll(any()) }
         }
 
         @Test
@@ -146,12 +147,12 @@ class PartitionCoordinatorTest {
         fun `handle bootstrap failure gracefully`() {
             every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1")
             every { partitionAssignmentRepository.findAll() } returns emptySet()
-            every { partitionAssignmentRepository.insertIfAllAbsent(any()) } throws
+            every { partitionAssignmentRepository.saveAll(any()) } throws
                 RuntimeException("Database error")
 
             partitionCoordinator.rebalance()
 
-            verify(exactly = 1) { partitionAssignmentRepository.insertIfAllAbsent(any()) }
+            verify(exactly = 1) { partitionAssignmentRepository.saveAll(any()) }
         }
 
         @Test
@@ -230,7 +231,7 @@ class PartitionCoordinatorTest {
         fun `bootstrap logs success message when initialized`() {
             every { instanceRegistry.getCurrentInstanceId() } returns "i1"
             every { instanceRegistry.getActiveInstanceIds() } returns setOf("i1")
-            every { partitionAssignmentRepository.insertIfAllAbsent(any()) } returns true
+            every { partitionAssignmentRepository.saveAll(any()) } returns Unit
 
             partitionCoordinator.rebalance()
 
@@ -242,7 +243,8 @@ class PartitionCoordinatorTest {
         fun `bootstrap logs message when already initialized`() {
             every { instanceRegistry.getCurrentInstanceId() } returns "i1"
             every { instanceRegistry.getActiveInstanceIds() } returns setOf("i1")
-            every { partitionAssignmentRepository.insertIfAllAbsent(any()) } returns false
+            every { partitionAssignmentRepository.saveAll(any()) } throws
+                DataIntegrityViolationException("Already initialized")
 
             partitionCoordinator.rebalance()
 
@@ -254,7 +256,7 @@ class PartitionCoordinatorTest {
         fun `bootstrap logs warn message on error while initializing`() {
             every { instanceRegistry.getCurrentInstanceId() } returns "i1"
             every { instanceRegistry.getActiveInstanceIds() } returns setOf("i1")
-            every { partitionAssignmentRepository.insertIfAllAbsent(any()) } throws
+            every { partitionAssignmentRepository.saveAll(any()) } throws
                 IllegalStateException("Database error")
 
             partitionCoordinator.rebalance()

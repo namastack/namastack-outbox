@@ -5,6 +5,7 @@ import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.scheduling.annotation.Scheduled
 import java.time.Clock
 
@@ -98,16 +99,32 @@ open class PartitionCoordinator(
     /**
      * Attempts to claim all partitions for this instance during initial startup.
      * If another instance bootstraps concurrently, failures are silently ignored.
+     *
+     * Note: If a DataIntegrityViolationException occurs (e.g. due to unique constraint violation),
+     * this is expected behavior and will be handled silently. However, Hibernate's SqlExceptionHelper
+     * will log an error statement in this case, which cannot be suppressed.
      */
     private fun bootstrapPartitions() {
         val partitionAssignments = createInitialPartitionAssignments()
 
         try {
-            val result = partitionAssignmentRepository.insertIfAllAbsent(partitionAssignments)
-            logBootstrapResult(result)
+            partitionAssignmentRepository.saveAll(partitionAssignments)
+        } catch (_: DataIntegrityViolationException) {
+            log.debug(
+                "Another instance initialized partitions, skipping bootstrap for {}",
+                currentInstanceId,
+            )
+            return
         } catch (e: Exception) {
-            log.warn("Failed to bootstrap partitions for instance {}: {}", currentInstanceId, e.message)
+            log.error("Failed to bootstrap partitions for instance {}: {}", currentInstanceId, e.message)
+            return
         }
+
+        log.debug(
+            "Successfully bootstrapped all {} partitions for instance {}",
+            TOTAL_PARTITIONS,
+            currentInstanceId,
+        )
     }
 
     /**
@@ -123,26 +140,6 @@ open class PartitionCoordinator(
                     version = null,
                 )
             }.toSet()
-
-    /**
-     * Logs the result of the bootstrap operation.
-     *
-     * @param initialized true if this instance performed the initialization, false if another did
-     */
-    private fun logBootstrapResult(initialized: Boolean) {
-        if (initialized) {
-            log.debug(
-                "Successfully bootstrapped all {} partitions for instance {}",
-                TOTAL_PARTITIONS,
-                currentInstanceId,
-            )
-        } else {
-            log.debug(
-                "Another instance initialized partitions, skipping bootstrap for {}",
-                currentInstanceId,
-            )
-        }
-    }
 
     /**
      * Claims stale partitions that are currently owned by inactive instances.

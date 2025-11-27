@@ -15,10 +15,6 @@ sealed class DatabaseType(
         schemaLocation = "classpath:schema/h2/outbox-tables.sql",
     )
 
-    data object Oracle : DatabaseType(
-        schemaLocation = "classpath:schema/oracle/outbox-tables.sql",
-    )
-
     data object MariaDB : DatabaseType(
         schemaLocation = "classpath:schema/mariadb/outbox-tables.sql",
     )
@@ -33,7 +29,6 @@ sealed class DatabaseType(
                 "postgresql" -> PostgreSQL
                 "mysql" -> MySQL
                 "h2" -> H2
-                "oracle" -> Oracle
                 "mariadb" -> MariaDB
                 "microsoft sql server" -> SQLServer
                 else -> throw IllegalArgumentException("Unsupported database type: $databaseName")
