@@ -18,7 +18,7 @@ import tools.jackson.databind.json.JsonMapper
 @AutoConfiguration
 @ConditionalOnMissingBean(OutboxEventSerializer::class)
 @AutoConfigureBefore(OutboxCoreAutoConfiguration::class)
-internal class OutboxJacksonAutoConfiguration {
+class OutboxJacksonAutoConfiguration {
     /**
      * Creates default Jackson JsonMapper for event serialization.
      *

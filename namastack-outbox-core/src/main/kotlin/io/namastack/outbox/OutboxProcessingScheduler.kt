@@ -68,6 +68,7 @@ class OutboxProcessingScheduler(
                     partitions = assignedPartitions,
                     status = NEW,
                     batchSize = properties.batchSize,
+                    ignoreAggregatesWithPreviousFailure = properties.processing.stopOnFirstFailure,
                 )
 
             if (aggregateIds.isNotEmpty()) {

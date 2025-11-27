@@ -54,15 +54,21 @@ interface OutboxRecordRepository {
     /**
      * Finds aggregate IDs that have pending records in specific partitions.
      *
+     * The query logic depends on the ignoreAggregatesWithPreviousFailure flag:
+     * - If true: only aggregate IDs with no previous open/failed event (older.completedAt is null) are returned.
+     * - If false: all aggregate IDs with pending records are returned, regardless of previous failures.
+     *
      * @param partitions List of partition numbers to search in
      * @param status The status to filter by
      * @param batchSize Maximum number of aggregate IDs to return
+     * @param ignoreAggregatesWithPreviousFailure Whether to exclude aggregates with previous open/failed events
      * @return List of aggregate IDs with pending records in the specified partitions
      */
     fun findAggregateIdsInPartitions(
         partitions: Set<Int>,
         status: OutboxRecordStatus,
         batchSize: Int,
+        ignoreAggregatesWithPreviousFailure: Boolean,
     ): List<String>
 
     /**

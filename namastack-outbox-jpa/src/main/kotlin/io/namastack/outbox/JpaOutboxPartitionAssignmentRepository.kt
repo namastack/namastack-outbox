@@ -23,19 +23,30 @@ internal open class JpaOutboxPartitionAssignmentRepository(
     private val transactionTemplate: TransactionTemplate,
 ) : PartitionAssignmentRepository {
     /**
+     * Query to select all partition assignments ordered by partition number.
+     */
+    private val findAllQuery = """
+        select p from OutboxPartitionAssignmentEntity p
+        order by p.partitionNumber asc
+    """
+
+    /**
+     * Query to select partition assignments for a specific instance.
+     */
+    private val findByInstanceIdQuery = """
+        select p from OutboxPartitionAssignmentEntity p
+        where p.instanceId = :instanceId
+    """
+
+    /**
      * Retrieves all partition assignments ordered by partition number.
      *
      * @return Set of all partition assignments
      */
     override fun findAll(): Set<PartitionAssignment> {
-        val query = """
-            select p from OutboxPartitionAssignmentEntity p
-            order by p.partitionNumber asc
-        """
-
         val entities =
             entityManager
-                .createQuery(query, OutboxPartitionAssignmentEntity::class.java)
+                .createQuery(findAllQuery, OutboxPartitionAssignmentEntity::class.java)
                 .resultList
 
         return OutboxPartitionAssignmentEntityMapper.fromEntities(entities)
@@ -48,14 +59,9 @@ internal open class JpaOutboxPartitionAssignmentRepository(
      * @return Set of partitions assigned to the instance
      */
     override fun findByInstanceId(instanceId: String): Set<PartitionAssignment> {
-        val query = """
-            select p from OutboxPartitionAssignmentEntity p
-            where p.instanceId = :instanceId
-        """
-
         val entities =
             entityManager
-                .createQuery(query, OutboxPartitionAssignmentEntity::class.java)
+                .createQuery(findByInstanceIdQuery, OutboxPartitionAssignmentEntity::class.java)
                 .setParameter("instanceId", instanceId)
                 .resultList
 

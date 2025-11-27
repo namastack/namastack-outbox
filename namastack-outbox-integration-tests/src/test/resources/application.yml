@@ -11,6 +11,10 @@ spring:
 outbox:
   schema-initialization:
     enabled: true
+  retry:
+    fixed:
+      delay: 1000
+    max-retries: 1
   instance:
     graceful-shutdown-timeout-seconds: 0
 

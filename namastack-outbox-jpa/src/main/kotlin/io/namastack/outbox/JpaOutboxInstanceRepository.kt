@@ -26,6 +26,50 @@ internal open class JpaOutboxInstanceRepository(
     private val entityManager: EntityManager,
     private val transactionTemplate: TransactionTemplate,
 ) : OutboxInstanceRepository {
+    /**
+     * Query to select all outbox instance entities ordered by creation time.
+     */
+    private val findAllQuery = """
+        select o from OutboxInstanceEntity o
+        order by o.createdAt asc
+    """
+
+    /**
+     * Query to select outbox instance entities by status ordered by last heartbeat descending.
+     */
+    private val findByStatusQuery = """
+        select o from OutboxInstanceEntity o
+        where o.status = :status
+        order by o.lastHeartbeat desc
+    """
+
+    /**
+     * Query to select outbox instance entities with stale heartbeat.
+     */
+    private val findInstancesWithStaleHeartbeatQuery = """
+        select o from OutboxInstanceEntity o
+        where o.lastHeartbeat < :cutoffTime
+        and o.status in (:activeStatuses)
+        order by o.lastHeartbeat asc
+    """
+
+    /**
+     * Query to count outbox instance entities by status.
+     */
+    private val countByStatusQuery = """
+        select count(o) from OutboxInstanceEntity o
+        where o.status = :status
+    """
+
+    /**
+     * Saves an outbox instance entity to the database.
+     *
+     * If an entity with the same instanceId exists, it is updated (merged).
+     * Otherwise, a new entity is inserted.
+     *
+     * @param instance The outbox instance to save
+     * @return The saved outbox instance
+     */
     override fun save(instance: OutboxInstance): OutboxInstance =
         transactionTemplate.executeNonNull {
             val entity = OutboxInstanceEntityMapper.toEntity(instance)
@@ -42,54 +86,64 @@ internal open class JpaOutboxInstanceRepository(
             OutboxInstanceEntityMapper.fromEntity(savedEntity)
         }
 
+    /**
+     * Finds an outbox instance entity by its unique instanceId.
+     *
+     * @param instanceId The unique identifier of the outbox instance
+     * @return The found outbox instance or null if not found
+     */
     override fun findById(instanceId: String): OutboxInstance? {
         val entity = entityManager.find(OutboxInstanceEntity::class.java, instanceId)
         return entity?.let { OutboxInstanceEntityMapper.fromEntity(it) }
     }
 
+    /**
+     * Finds all outbox instance entities ordered by creation time.
+     *
+     * @return List of all outbox instances
+     */
     override fun findAll(): List<OutboxInstance> {
-        val query = """
-            select o from OutboxInstanceEntity o
-            order by o.createdAt asc
-        """
-
         val entities =
             entityManager
-                .createQuery(query, OutboxInstanceEntity::class.java)
+                .createQuery(findAllQuery, OutboxInstanceEntity::class.java)
                 .resultList
 
         return OutboxInstanceEntityMapper.fromEntities(entities)
     }
 
+    /**
+     * Finds all outbox instance entities with the given status, ordered by last heartbeat descending.
+     *
+     * @param status The status to filter by
+     * @return List of outbox instances with the given status
+     */
     override fun findByStatus(status: OutboxInstanceStatus): List<OutboxInstance> {
-        val query = """
-            select o from OutboxInstanceEntity o
-            where o.status = :status
-            order by o.lastHeartbeat desc
-        """
-
         val entities =
             entityManager
-                .createQuery(query, OutboxInstanceEntity::class.java)
+                .createQuery(findByStatusQuery, OutboxInstanceEntity::class.java)
                 .setParameter("status", status)
                 .resultList
 
         return OutboxInstanceEntityMapper.fromEntities(entities)
     }
 
+    /**
+     * Finds all active outbox instance entities.
+     *
+     * @return List of active outbox instances
+     */
     override fun findActiveInstances(): List<OutboxInstance> = findByStatus(ACTIVE)
 
+    /**
+     * Finds all outbox instance entities with a stale heartbeat (older than cutoffTime).
+     *
+     * @param cutoffTime The cutoff time for stale heartbeat
+     * @return List of outbox instances with stale heartbeat
+     */
     override fun findInstancesWithStaleHeartbeat(cutoffTime: OffsetDateTime): List<OutboxInstance> {
-        val query = """
-            select o from OutboxInstanceEntity o
-            where o.lastHeartbeat < :cutoffTime
-            and o.status in (:activeStatuses)
-            order by o.lastHeartbeat asc
-        """
-
         val entities =
             entityManager
-                .createQuery(query, OutboxInstanceEntity::class.java)
+                .createQuery(findInstancesWithStaleHeartbeatQuery, OutboxInstanceEntity::class.java)
                 .setParameter("cutoffTime", cutoffTime)
                 .setParameter("activeStatuses", listOf(ACTIVE, SHUTTING_DOWN))
                 .resultList
@@ -97,6 +151,13 @@ internal open class JpaOutboxInstanceRepository(
         return OutboxInstanceEntityMapper.fromEntities(entities)
     }
 
+    /**
+     * Updates the heartbeat timestamp for the given instance.
+     *
+     * @param instanceId The unique identifier of the outbox instance
+     * @param timestamp The new heartbeat timestamp
+     * @return true if the update was successful, false otherwise
+     */
     override fun updateHeartbeat(
         instanceId: String,
         timestamp: OffsetDateTime,
@@ -113,6 +174,14 @@ internal open class JpaOutboxInstanceRepository(
             true
         }
 
+    /**
+     * Updates the status and timestamp for the given instance.
+     *
+     * @param instanceId The unique identifier of the outbox instance
+     * @param status The new status
+     * @param timestamp The new status timestamp
+     * @return true if the update was successful, false otherwise
+     */
     override fun updateStatus(
         instanceId: String,
         status: OutboxInstanceStatus,
@@ -130,6 +199,12 @@ internal open class JpaOutboxInstanceRepository(
             true
         }
 
+    /**
+     * Deletes an outbox instance entity by its unique instanceId.
+     *
+     * @param instanceId The unique identifier of the outbox instance
+     * @return true if the deletion was successful, false otherwise
+     */
     override fun deleteById(instanceId: String): Boolean =
         transactionTemplate.executeNonNull {
             val entity =
@@ -140,15 +215,15 @@ internal open class JpaOutboxInstanceRepository(
             true
         }
 
-    override fun countByStatus(status: OutboxInstanceStatus): Long {
-        val query = """
-            select count(o) from OutboxInstanceEntity o
-            where o.status = :status
-        """
-
-        return entityManager
-            .createQuery(query, Long::class.java)
+    /**
+     * Counts the number of outbox instance entities with the given status.
+     *
+     * @param status The status to count
+     * @return The number of outbox instances with the given status
+     */
+    override fun countByStatus(status: OutboxInstanceStatus): Long =
+        entityManager
+            .createQuery(countByStatusQuery, Long::class.java)
             .setParameter("status", status)
             .singleResult
-    }
 }

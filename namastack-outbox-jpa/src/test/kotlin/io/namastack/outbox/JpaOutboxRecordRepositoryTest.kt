@@ -193,7 +193,7 @@ class JpaOutboxRecordRepositoryTest {
 
         createNewRecordsForAggregateId(1, aggregateId, NEW, now.minusMinutes(3))
         createNewRecordsForAggregateId(1, aggregateId, NEW, now.minusMinutes(1))
-        createNewRecordsForAggregateId(1, aggregateId, FAILED, now.minusMinutes(2))
+        createNewRecordsForAggregateId(1, aggregateId, NEW, now.minusMinutes(2))
         createNewRecordsForAggregateId(1, "other-aggregate", NEW, now)
 
         val records = jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(aggregateId)
@@ -220,6 +220,7 @@ class JpaOutboxRecordRepositoryTest {
                 setOf(1),
                 NEW,
                 10,
+                true,
             )
 
         val partition2Aggregates =
@@ -227,6 +228,7 @@ class JpaOutboxRecordRepositoryTest {
                 setOf(2),
                 NEW,
                 10,
+                true,
             )
 
         assertThat(partition1Aggregates).containsExactly(partition1AggregateId)
@@ -248,6 +250,7 @@ class JpaOutboxRecordRepositoryTest {
                 setOf(1, 2),
                 NEW,
                 10,
+                true,
             )
 
         assertThat(aggregateIds).containsExactlyInAnyOrder(aggregateId1, aggregateId2)
@@ -335,8 +338,10 @@ class JpaOutboxRecordRepositoryTest {
 
         jpaOutboxRecordRepository.deleteByAggregateIdAndStatus(targetAggregateId, NEW)
 
-        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(targetAggregateId)).hasSize(1)
-        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(otherAggregateId)).hasSize(2)
+        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(targetAggregateId)).hasSize(0)
+        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(otherAggregateId)).hasSize(1)
+        assertThat(jpaOutboxRecordRepository.findFailedRecords()).hasSize(2)
+        assertThat(jpaOutboxRecordRepository.findCompletedRecords()).hasSize(0)
     }
 
     @Test
@@ -347,7 +352,7 @@ class JpaOutboxRecordRepositoryTest {
         createRecordWithPartitionAndTime(aggregateId, NEW, 1, now.minusMinutes(3))
         createRecordWithPartitionAndTime(aggregateId, NEW, 1, now.minusMinutes(1))
 
-        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 10)
+        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 10, true)
 
         assertThat(result).contains(aggregateId)
     }
@@ -359,7 +364,7 @@ class JpaOutboxRecordRepositoryTest {
 
         createRecordWithPartitionAndTime(aggregateId, NEW, 1, now.minusMinutes(3))
 
-        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 10)
+        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 10, true)
 
         assertThat(result).contains(aggregateId)
     }
@@ -376,7 +381,7 @@ class JpaOutboxRecordRepositoryTest {
         createRecordWithPartitionAndTime(aggregate1, NEW, 2, now.minusMinutes(3))
         createRecordWithPartitionAndTime(aggregate3, NEW, 1, now.minusMinutes(1))
 
-        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(setOf(1, 2), NEW, 10)
+        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(setOf(1, 2), NEW, 10, true)
 
         assertThat(result).containsExactly(aggregate1, aggregate2, aggregate3)
     }
