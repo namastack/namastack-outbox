@@ -8,4 +8,6 @@ data class PartitionStats(
     val totalInstances: Int,
     val averagePartitionsPerInstance: Double,
     val instanceStats: Map<String, Int>,
+    val unassignedPartitionsCount: Int,
+    val unassignedPartitionNumbers: List<Int>,
 )

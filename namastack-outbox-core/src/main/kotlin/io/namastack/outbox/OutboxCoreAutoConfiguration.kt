@@ -1,5 +1,8 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.instance.OutboxInstanceRegistry
+import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
@@ -14,6 +17,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import java.time.Clock
 
 /**
@@ -40,11 +44,10 @@ class OutboxCoreAutoConfiguration {
     fun clock(): Clock = Clock.systemDefaultZone()
 
     /**
-     * Provides a configurable ThreadPoolTaskExecutor for parallel processing of aggregateIds.
+     * Provides a ThreadPoolTaskExecutor for parallel processing of aggregateIds.
      *
-     * The pool size can be configured via OutboxProperties. This executor is used by the
-     * OutboxProcessingScheduler to process multiple aggregateIds in parallel while maintaining
-     * strict ordering per aggregateId.
+     * The pool size is configurable via OutboxProperties. Used by OutboxProcessingScheduler
+     * to process multiple aggregateIds in parallel while maintaining strict ordering per aggregateId.
      *
      * @param properties Outbox configuration properties
      * @return Configured ThreadPoolTaskExecutor
@@ -56,10 +59,45 @@ class OutboxCoreAutoConfiguration {
         executor.corePoolSize = properties.processing.executorCorePoolSize
         executor.maxPoolSize = properties.processing.executorMaxPoolSize
         executor.setThreadNamePrefix("outbox-proc-")
+        executor.setWaitForTasksToCompleteOnShutdown(true)
         executor.initialize()
 
         return executor
     }
+
+    /**
+     * Scheduler for general outbox tasks (e.g. batch processing).
+     *
+     * Pool size is set to 5 by default. Only used internally by the outbox library.
+     *
+     * @return ThreadPoolTaskScheduler for outbox jobs
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = ["outboxDefaultScheduler"])
+    fun outboxDefaultScheduler(): ThreadPoolTaskScheduler =
+        ThreadPoolTaskScheduler().apply {
+            poolSize = 5
+            threadNamePrefix = "outbox-scheduler-"
+            setWaitForTasksToCompleteOnShutdown(true)
+            initialize()
+        }
+
+    /**
+     * Scheduler for heartbeat and rebalance tasks.
+     *
+     * Pool size is set to 1. Used for periodic signals and partition rebalancing.
+     *
+     * @return ThreadPoolTaskScheduler for heartbeat/rebalance jobs
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = ["outboxRebalancingScheduler"])
+    fun outboxRebalancingScheduler(): ThreadPoolTaskScheduler =
+        ThreadPoolTaskScheduler().apply {
+            poolSize = 1
+            threadNamePrefix = "outbox-rebalancing-"
+            setWaitForTasksToCompleteOnShutdown(true)
+            initialize()
+        }
 
     /**
      * Creates a retry policy based on configuration properties.
@@ -91,13 +129,23 @@ class OutboxCoreAutoConfiguration {
     /**
      * Creates the partition coordinator for managing partition assignments.
      *
-     * @param instanceRegistry Registry for managing instances
-     * @return PartitionCoordinator bean
+     * @param instanceRegistry Registry for active instances and current instance identification
+     * @param partitionAssignmentRepository Repository for persisting partition assignments
+     * @param clock Clock for timestamp generation
+     * @return PartitionCoordinator bean for managing partition lifecycle
      */
     @Bean
     @ConditionalOnMissingBean
-    fun partitionCoordinator(instanceRegistry: OutboxInstanceRegistry): PartitionCoordinator =
-        PartitionCoordinator(instanceRegistry)
+    fun partitionCoordinator(
+        instanceRegistry: OutboxInstanceRegistry,
+        partitionAssignmentRepository: PartitionAssignmentRepository,
+        clock: Clock,
+    ): PartitionCoordinator =
+        PartitionCoordinator(
+            instanceRegistry = instanceRegistry,
+            partitionAssignmentRepository = partitionAssignmentRepository,
+            clock = clock,
+        )
 
     /**
      * Creates the partition-aware outbox processing scheduler.
@@ -105,7 +153,6 @@ class OutboxCoreAutoConfiguration {
      * @param recordRepository Repository for accessing outbox records
      * @param recordProcessor Processor for handling individual records
      * @param partitionCoordinator Coordinator for partition assignments
-     * @param instanceRegistry Registry for instance management
      * @param taskExecutor TaskExecutor for parallel processing of aggregateIds
      * @param retryPolicy Policy for determining retry behavior
      * @param properties Configuration properties
@@ -118,18 +165,15 @@ class OutboxCoreAutoConfiguration {
         recordRepository: OutboxRecordRepository,
         recordProcessor: OutboxRecordProcessor,
         partitionCoordinator: PartitionCoordinator,
-        instanceRegistry: OutboxInstanceRegistry,
         retryPolicy: OutboxRetryPolicy,
         properties: OutboxProperties,
-        @Qualifier("outboxTaskExecutor")
-        taskExecutor: TaskExecutor,
+        @Qualifier("outboxTaskExecutor") taskExecutor: TaskExecutor,
         clock: Clock,
     ): OutboxProcessingScheduler =
         OutboxProcessingScheduler(
             recordRepository = recordRepository,
             recordProcessor = recordProcessor,
             partitionCoordinator = partitionCoordinator,
-            instanceRegistry = instanceRegistry,
             retryPolicy = retryPolicy,
             properties = properties,
             taskExecutor = taskExecutor,

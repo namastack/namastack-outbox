@@ -1,6 +1,9 @@
 package io.namastack.outbox
 
 import io.mockk.mockk
+import io.namastack.outbox.instance.OutboxInstanceRegistry
+import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.retry.ExponentialBackoffRetryPolicy
 import io.namastack.outbox.retry.FixedDelayRetryPolicy
 import io.namastack.outbox.retry.JitteredRetryPolicy
@@ -13,6 +16,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
@@ -260,11 +264,69 @@ class OutboxCoreAutoConfigurationTest {
         }
     }
 
+    @Nested
+    @DisplayName("Scheduler Configuration")
+    inner class SchedulerConfiguration {
+        @Test
+        fun `creates default outboxDefaultScheduler with pool size 5`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    val scheduler =
+                        context.getBean(
+                            "outboxDefaultScheduler",
+                            ThreadPoolTaskScheduler::class.java,
+                        )
+                    assertThat(scheduler).isNotNull
+                    assertThat(scheduler.scheduledThreadPoolExecutor.corePoolSize).isEqualTo(5)
+                    assertThat(scheduler.threadNamePrefix).isEqualTo("outbox-scheduler-")
+                }
+        }
+
+        @Test
+        fun `creates default outboxRebalancingScheduler with pool size 1`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    val scheduler =
+                        context.getBean(
+                            "outboxRebalancingScheduler",
+                            ThreadPoolTaskScheduler::class.java,
+                        )
+                    assertThat(scheduler).isNotNull
+                    assertThat(scheduler.scheduledThreadPoolExecutor.corePoolSize).isEqualTo(1)
+                    assertThat(scheduler.threadNamePrefix).isEqualTo("outbox-rebalancing-")
+                }
+        }
+
+        @Test
+        fun `schedulers are singletons`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    val scheduler1 =
+                        context.getBean(
+                            "outboxDefaultScheduler",
+                            ThreadPoolTaskScheduler::class.java,
+                        )
+                    val scheduler2 =
+                        context.getBean(
+                            "outboxDefaultScheduler",
+                            ThreadPoolTaskScheduler::class.java,
+                        )
+                    assertThat(scheduler1).isSameAs(scheduler2)
+                }
+        }
+    }
+
     @EnableOutbox
     @Configuration
     private class MinimalTestConfig {
         @Bean
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
+
+        @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
 
         @Bean
         fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
@@ -284,6 +346,9 @@ class OutboxCoreAutoConfigurationTest {
 
         @Bean
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
+
+        @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
 
         @Bean
         fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
@@ -306,6 +371,9 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
 
         @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
+
+        @Bean
         fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
 
         @Bean
@@ -323,6 +391,9 @@ class OutboxCoreAutoConfigurationTest {
     private class ConfigWithCustomRetryPolicy {
         @Bean
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
+
+        @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
 
         @Bean
         fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
@@ -344,6 +415,9 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
 
         @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
+
+        @Bean
         fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
 
         @Bean
@@ -357,6 +431,9 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
 
         @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
+
+        @Bean
         fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
 
         @Bean
@@ -368,6 +445,9 @@ class OutboxCoreAutoConfigurationTest {
     private class ConfigWithoutSerializer {
         @Bean
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
+
+        @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
 
         @Bean
         fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)

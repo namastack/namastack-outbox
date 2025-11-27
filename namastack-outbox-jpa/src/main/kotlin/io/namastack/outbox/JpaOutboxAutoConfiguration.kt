@@ -1,5 +1,7 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.partition.PartitionAssignmentRepository
 import jakarta.persistence.EntityManager
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -33,7 +35,7 @@ import javax.sql.DataSource
 @AutoConfigureBefore(HibernateJpaAutoConfiguration::class)
 @AutoConfigurationPackage
 @ConditionalOnBean(annotation = [EnableOutbox::class])
-internal class JpaOutboxAutoConfiguration {
+class JpaOutboxAutoConfiguration {
     /**
      * Provides a default Clock bean if none is configured.
      *
@@ -96,6 +98,21 @@ internal class JpaOutboxAutoConfiguration {
         @Qualifier("outboxEntityManager") entityManager: EntityManager,
         @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
     ): OutboxInstanceRepository = JpaOutboxInstanceRepository(entityManager, transactionTemplate)
+
+    /**
+     * Creates a JPA-based outbox partition repository.
+     *
+     * @param entityManager JPA entity manager
+     * @param transactionTemplate Transaction template for programmatic transaction management
+     * @param clock Clock for time-based operations
+     * @return JPA outbox partition repository implementation
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxPartitionAssignmentRepository(
+        @Qualifier("outboxEntityManager") entityManager: EntityManager,
+        @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
+    ): PartitionAssignmentRepository = JpaOutboxPartitionAssignmentRepository(entityManager, transactionTemplate)
 
     /**
      * Creates a database initializer for outbox schema when schema initialization is enabled.

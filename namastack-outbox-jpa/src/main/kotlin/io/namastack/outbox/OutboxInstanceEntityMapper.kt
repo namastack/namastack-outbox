@@ -1,5 +1,7 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.instance.OutboxInstance
+
 /**
  * Mapper between OutboxInstance domain objects and OutboxInstanceEntity JPA entities.
  *

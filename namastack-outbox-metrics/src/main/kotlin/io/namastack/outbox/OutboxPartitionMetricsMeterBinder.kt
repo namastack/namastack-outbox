@@ -3,6 +3,7 @@ package io.namastack.outbox
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.binder.MeterBinder
+import io.namastack.outbox.partition.PartitionHasher
 
 /**
  * Micrometer meter binder for outbox partition metrics.
@@ -76,5 +77,22 @@ class OutboxPartitionMetricsMeterBinder(
                 partitionMetricsProvider.getPartitionStats().averagePartitionsPerInstance
             }.description("Average number of partitions assigned per instance")
             .register(meterRegistry)
+
+        Gauge
+            .builder("outbox.cluster.partitions.unassigned.count") {
+                partitionMetricsProvider.getPartitionStats().unassignedPartitionsCount.toDouble()
+            }.description("Number of partitions currently unassigned (no instance owner)")
+            .register(meterRegistry)
+
+        // Per-partition unassigned flag (1 = unassigned, 0 = assigned)
+        for (partition in 0 until PartitionHasher.TOTAL_PARTITIONS) {
+            Gauge
+                .builder("outbox.cluster.partitions.unassigned.flag") {
+                    val stats = partitionMetricsProvider.getPartitionStats()
+                    if (stats.unassignedPartitionNumbers.contains(partition)) 1.0 else 0.0
+                }.tag("partition", partition.toString())
+                .description("1 if partition is currently unassigned, else 0")
+                .register(meterRegistry)
+        }
     }
 }

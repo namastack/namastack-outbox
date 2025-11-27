@@ -31,14 +31,6 @@ class DatabaseTypeTest {
     }
 
     @Nested
-    inner class OracleTest {
-        @Test
-        fun `has correct schema location`() {
-            assertThat(DatabaseType.Oracle.schemaLocation).isEqualTo("classpath:schema/oracle/outbox-tables.sql")
-        }
-    }
-
-    @Nested
     inner class MariaDBTest {
         @Test
         fun `has correct schema location`() {
@@ -74,13 +66,6 @@ class DatabaseTypeTest {
         fun `returns H2 type for h2 input`() {
             assertThat(DatabaseType.from("h2")).isEqualTo(DatabaseType.H2)
             assertThat(DatabaseType.from("H2")).isEqualTo(DatabaseType.H2)
-        }
-
-        @Test
-        fun `returns Oracle type for oracle input`() {
-            assertThat(DatabaseType.from("oracle")).isEqualTo(DatabaseType.Oracle)
-            assertThat(DatabaseType.from("ORACLE")).isEqualTo(DatabaseType.Oracle)
-            assertThat(DatabaseType.from("Oracle")).isEqualTo(DatabaseType.Oracle)
         }
 
         @Test

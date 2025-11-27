@@ -1,7 +1,10 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.OutboxInstanceStatus.ACTIVE
-import io.namastack.outbox.OutboxInstanceStatus.SHUTTING_DOWN
+import io.namastack.outbox.instance.OutboxInstance
+import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.instance.OutboxInstanceStatus
+import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
+import io.namastack.outbox.instance.OutboxInstanceStatus.SHUTTING_DOWN
 import jakarta.persistence.EntityManager
 import jakarta.persistence.LockModeType
 import org.springframework.transaction.support.TransactionTemplate
@@ -136,40 +139,6 @@ internal open class JpaOutboxInstanceRepository(
             entityManager.remove(entity)
             true
         }
-
-    override fun deleteByStatus(status: OutboxInstanceStatus): Int =
-        transactionTemplate.executeNonNull {
-            val query = """
-            delete from OutboxInstanceEntity o
-            where o.status = :status
-        """
-
-            entityManager
-                .createQuery(query)
-                .setParameter("status", status)
-                .executeUpdate()
-        }
-
-    override fun deleteStaleInstances(cutoffTime: OffsetDateTime): Int =
-        transactionTemplate.executeNonNull {
-            val query = """
-            delete from OutboxInstanceEntity o
-            where o.lastHeartbeat < :cutoffTime
-        """
-
-            entityManager
-                .createQuery(query)
-                .setParameter("cutoffTime", cutoffTime)
-                .executeUpdate()
-        }
-
-    override fun count(): Long {
-        val query = "select count(o) from OutboxInstanceEntity o"
-
-        return entityManager
-            .createQuery(query, Long::class.java)
-            .singleResult
-    }
 
     override fun countByStatus(status: OutboxInstanceStatus): Long {
         val query = """

@@ -32,3 +32,12 @@ CREATE TABLE IF NOT EXISTS outbox_instance
     INDEX idx_outbox_instance_last_heartbeat (last_heartbeat),
     INDEX idx_outbox_instance_status (status)
 ) ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS outbox_partition
+(
+    partition_number INT PRIMARY KEY,
+    instance_id      VARCHAR(255),
+    version          BIGINT    NOT NULL DEFAULT 0,
+    updated_at       TIMESTAMP NOT NULL,
+    INDEX idx_outbox_partition_instance_id (instance_id)
+) ENGINE = InnoDB;

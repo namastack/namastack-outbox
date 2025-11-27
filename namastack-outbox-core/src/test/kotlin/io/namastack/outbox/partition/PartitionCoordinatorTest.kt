@@ -1,319 +1,268 @@
 package io.namastack.outbox.partition
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import io.mockk.every
 import io.mockk.mockk
-import io.namastack.outbox.OutboxInstanceRegistry
+import io.mockk.verify
+import io.namastack.outbox.instance.OutboxInstanceRegistry
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
+import java.time.Clock
+import java.time.OffsetDateTime
 
+@DisplayName("PartitionCoordinator")
 class PartitionCoordinatorTest {
     private val instanceRegistry = mockk<OutboxInstanceRegistry>()
+    private val partitionAssignmentRepository = mockk<PartitionAssignmentRepository>()
+    private val clock = Clock.systemUTC()
+
+    private lateinit var listAppender: ListAppender<ILoggingEvent>
     private lateinit var partitionCoordinator: PartitionCoordinator
 
     @BeforeEach
     fun setUp() {
-        partitionCoordinator = PartitionCoordinator(instanceRegistry)
+        listAppender = ListAppender<ILoggingEvent>()
+        listAppender.start()
+
+        val logger = LoggerFactory.getLogger(PartitionCoordinator::class.java) as Logger
+        logger.addAppender(listAppender)
+        logger.level = Level.DEBUG
+
+        every { instanceRegistry.getCurrentInstanceId() } returns "instance-1"
+        every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
+        every { partitionAssignmentRepository.findByInstanceId(any()) } returns emptySet()
+        every { partitionAssignmentRepository.findAll() } returns emptySet()
+        every { partitionAssignmentRepository.saveAll(any()) } returns Unit
+
+        partitionCoordinator =
+            PartitionCoordinator(
+                instanceRegistry = instanceRegistry,
+                partitionAssignmentRepository = partitionAssignmentRepository,
+                clock = clock,
+            )
     }
 
     @Nested
-    inner class GetAssignedPartitions {
+    @DisplayName("Get Assigned Partition Numbers")
+    inner class GetAssignedPartitionNumbers {
         @Test
-        fun `should return empty list when no instances are active`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns emptySet()
+        fun `return assigned partition numbers for current instance`() {
+            val assignment1 = PartitionAssignment(0, "instance-1", OffsetDateTime.now())
+            val assignment2 = PartitionAssignment(1, "instance-1", OffsetDateTime.now())
 
-            val result = partitionCoordinator.getAssignedPartitions("instance-1")
+            every {
+                partitionAssignmentRepository.findByInstanceId("instance-1")
+            } returns setOf(assignment1, assignment2)
+
+            val result = partitionCoordinator.getAssignedPartitionNumbers()
+
+            assertThat(result).containsExactlyInAnyOrder(0, 1)
+            verify(exactly = 1) { partitionAssignmentRepository.findByInstanceId("instance-1") }
+        }
+
+        @Test
+        fun `return empty set when no partitions assigned`() {
+            every { partitionAssignmentRepository.findByInstanceId("instance-1") } returns emptySet()
+
+            val result = partitionCoordinator.getAssignedPartitionNumbers()
 
             assertThat(result).isEmpty()
         }
-
-        @Test
-        fun `should return empty list for unknown instance`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
-
-            val result = partitionCoordinator.getAssignedPartitions("unknown-instance")
-
-            assertThat(result).isEmpty()
-        }
-
-        @Test
-        fun `should distribute partitions evenly across multiple instances`() {
-            val instances = setOf("instance-1", "instance-2", "instance-3")
-            every { instanceRegistry.getActiveInstanceIds() } returns instances
-
-            val partitions1 = partitionCoordinator.getAssignedPartitions("instance-1")
-            val partitions2 = partitionCoordinator.getAssignedPartitions("instance-2")
-            val partitions3 = partitionCoordinator.getAssignedPartitions("instance-3")
-
-            assertThat(partitions1).isNotEmpty()
-            assertThat(partitions2).isNotEmpty()
-            assertThat(partitions3).isNotEmpty()
-
-            val allPartitions = (partitions1 + partitions2 + partitions3).toSet()
-            assertThat(allPartitions).hasSize(PartitionHasher.TOTAL_PARTITIONS)
-
-            val instanceCounts = listOf(partitions1.size, partitions2.size, partitions3.size)
-            val expectedSize = PartitionHasher.TOTAL_PARTITIONS / 3
-            instanceCounts.forEach { count ->
-                assertThat(count).isBetween(expectedSize - 1, expectedSize + 1)
-            }
-        }
-
-        @Test
-        fun `should assign all partitions to single instance`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("only-instance")
-
-            val partitions = partitionCoordinator.getAssignedPartitions("only-instance")
-
-            assertThat(partitions).hasSize(PartitionHasher.TOTAL_PARTITIONS)
-            assertThat(partitions).containsExactlyElementsOf(0 until PartitionHasher.TOTAL_PARTITIONS)
-        }
-
-        @Test
-        fun `should return partitions in sorted order`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
-
-            val partitions = partitionCoordinator.getAssignedPartitions("instance-1")
-
-            assertThat(partitions).isSorted()
-        }
-
-        @Test
-        fun `should maintain consistent assignments across calls`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
-
-            val firstCall = partitionCoordinator.getAssignedPartitions("instance-1")
-            val secondCall = partitionCoordinator.getAssignedPartitions("instance-1")
-
-            assertThat(firstCall).isEqualTo(secondCall)
-        }
     }
 
     @Nested
-    inner class GetCurrentAssignments {
+    @DisplayName("Get Partition Context")
+    inner class GetPartitionContextTests {
         @Test
-        fun `should return empty map when no instances are active`() {
+        fun `return partition context with active instances and assignments`() {
+            val assignment1 = PartitionAssignment(0, "instance-1", OffsetDateTime.now())
+            val assignment2 = PartitionAssignment(1, "instance-2", OffsetDateTime.now())
+
+            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
+            every { partitionAssignmentRepository.findAll() } returns setOf(assignment1, assignment2)
+
+            val context = partitionCoordinator.getPartitionContext()
+
+            assertThat(context).isNotNull
+            assertThat(context.currentInstanceId).isEqualTo("instance-1")
+            assertThat(context.activeInstanceIds).containsExactly("instance-1", "instance-2")
+            assertThat(context.partitionAssignments).containsExactly(assignment1, assignment2)
+        }
+
+        @Test
+        fun `throw exception when no active instances`() {
             every { instanceRegistry.getActiveInstanceIds() } returns emptySet()
 
-            val assignments = partitionCoordinator.getCurrentAssignments()
-
-            assertThat(assignments).isEmpty()
+            assertThatThrownBy {
+                partitionCoordinator.getPartitionContext()
+            }.isInstanceOf(IllegalStateException::class.java)
+                .hasMessage("No active instance ids found")
         }
 
         @Test
-        fun `should return all partition assignments for active instances`() {
+        fun `return context with empty assignments when no assignments exist`() {
             every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
+            every { partitionAssignmentRepository.findAll() } returns emptySet()
 
-            val assignments = partitionCoordinator.getCurrentAssignments()
+            val context = partitionCoordinator.getPartitionContext()
 
-            assertThat(assignments).hasSize(PartitionHasher.TOTAL_PARTITIONS)
-            assertThat(assignments.keys).containsExactlyElementsOf(0 until PartitionHasher.TOTAL_PARTITIONS)
-            assertThat(assignments.values).allMatch { it in setOf("instance-1", "instance-2") }
-        }
-
-        @Test
-        fun `should return copy of assignments not affecting internal state`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1")
-
-            val assignments = partitionCoordinator.getCurrentAssignments().toMutableMap()
-            assignments.clear()
-
-            val newAssignments = partitionCoordinator.getCurrentAssignments()
-            assertThat(newAssignments).hasSize(PartitionHasher.TOTAL_PARTITIONS)
+            assertThat(context).isNotNull
+            assertThat(context.partitionAssignments).isEmpty()
         }
     }
 
     @Nested
-    inner class GetInstanceForPartition {
+    @DisplayName("Rebalance")
+    inner class RebalanceTests {
         @Test
-        fun `should return null for invalid partition when no instances`() {
+        fun `bootstrap all partitions when no assignments exist`() {
+            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1")
+            every { partitionAssignmentRepository.findAll() } returns emptySet()
+
+            partitionCoordinator.rebalance()
+
+            verify { partitionAssignmentRepository.saveAll(any()) }
+        }
+
+        @Test
+        fun `throw exception when no active instances during rebalance`() {
             every { instanceRegistry.getActiveInstanceIds() } returns emptySet()
 
-            val result = partitionCoordinator.getInstanceForPartition(0)
-
-            assertThat(result).isNull()
+            assertThatThrownBy {
+                partitionCoordinator.rebalance()
+            }.isInstanceOf(IllegalStateException::class.java)
+                .hasMessage("No active instance ids found")
         }
 
         @Test
-        fun `should return correct instance for valid partition`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
-
-            val instance = partitionCoordinator.getInstanceForPartition(0)
-
-            assertThat(instance).isIn("instance-1", "instance-2")
-        }
-
-        @Test
-        fun `should return consistent instance for same partition`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
-
-            val firstCall = partitionCoordinator.getInstanceForPartition(42)
-            val secondCall = partitionCoordinator.getInstanceForPartition(42)
-
-            assertThat(firstCall).isEqualTo(secondCall)
-        }
-
-        @Test
-        fun `should handle all valid partition numbers`() {
+        fun `handle bootstrap failure gracefully`() {
             every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1")
+            every { partitionAssignmentRepository.findAll() } returns emptySet()
+            every { partitionAssignmentRepository.saveAll(any()) } throws
+                RuntimeException("Database error")
 
-            for (partition in 0 until PartitionHasher.TOTAL_PARTITIONS) {
-                val instance = partitionCoordinator.getInstanceForPartition(partition)
-                assertThat(instance).isEqualTo("instance-1")
-            }
-        }
-    }
+            partitionCoordinator.rebalance()
 
-    @Nested
-    inner class GetPartitionStats {
-        @Test
-        fun `should return empty stats when no instances are active`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns emptySet()
-
-            val stats = partitionCoordinator.getPartitionStats()
-
-            assertThat(stats.totalPartitions).isZero()
-            assertThat(stats.totalInstances).isZero()
-            assertThat(stats.averagePartitionsPerInstance).isZero()
-            assertThat(stats.instanceStats).isEmpty()
+            verify(exactly = 1) { partitionAssignmentRepository.saveAll(any()) }
         }
 
         @Test
-        fun `should calculate correct stats for single instance`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1")
-
-            val stats = partitionCoordinator.getPartitionStats()
-
-            assertThat(stats.totalPartitions).isEqualTo(PartitionHasher.TOTAL_PARTITIONS)
-            assertThat(stats.totalInstances).isEqualTo(1)
-            assertThat(stats.averagePartitionsPerInstance).isEqualTo(PartitionHasher.TOTAL_PARTITIONS.toDouble())
-            assertThat(stats.instanceStats).containsEntry("instance-1", PartitionHasher.TOTAL_PARTITIONS)
-        }
-
-        @Test
-        fun `should calculate correct stats for multiple instances`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2", "instance-3")
-
-            val stats = partitionCoordinator.getPartitionStats()
-
-            assertThat(stats.totalPartitions).isEqualTo(PartitionHasher.TOTAL_PARTITIONS)
-            assertThat(stats.totalInstances).isEqualTo(3)
-            assertThat(stats.averagePartitionsPerInstance)
-                .isCloseTo(
-                    PartitionHasher.TOTAL_PARTITIONS / 3.0,
-                    org.assertj.core.data.Offset
-                        .offset(0.5),
-                )
-            assertThat(stats.instanceStats).hasSize(3)
-            assertThat(stats.instanceStats.values.sum()).isEqualTo(PartitionHasher.TOTAL_PARTITIONS)
-        }
-
-        @Test
-        fun `should show balanced distribution across instances`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2", "instance-4")
-
-            val stats = partitionCoordinator.getPartitionStats()
-
-            val expectedPerInstance = PartitionHasher.TOTAL_PARTITIONS / 3
-            stats.instanceStats.values.forEach { count ->
-                assertThat(count).isBetween(expectedPerInstance - 1, expectedPerInstance + 1)
-            }
-        }
-    }
-
-    @Nested
-    inner class RebalancingBehavior {
-        @Test
-        fun `should handle instance changes correctly`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
-
-            partitionCoordinator.getCurrentAssignments()
-
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2", "instance-3")
-            partitionCoordinator.checkForRebalancing()
-
-            val newAssignments = partitionCoordinator.getCurrentAssignments()
-
-            assertThat(newAssignments).hasSize(PartitionHasher.TOTAL_PARTITIONS)
-            assertThat(newAssignments.values).allMatch { it in setOf("instance-1", "instance-2", "instance-3") }
-            assertThat(newAssignments.values.toSet()).hasSize(3)
-        }
-
-        @Test
-        fun `should maintain partition assignments when instances unchanged`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
-
-            val initialAssignments = partitionCoordinator.getCurrentAssignments()
-            partitionCoordinator.checkForRebalancing()
-            val unchangedAssignments = partitionCoordinator.getCurrentAssignments()
-
-            assertThat(unchangedAssignments).isEqualTo(initialAssignments)
-        }
-
-        @Test
-        fun `should clear assignments when all instances are removed`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1")
-            partitionCoordinator.getCurrentAssignments()
-            partitionCoordinator.checkForRebalancing()
-
-            every { instanceRegistry.getActiveInstanceIds() } returns emptySet()
-            partitionCoordinator.checkForRebalancing()
-
-            val assignments = partitionCoordinator.getCurrentAssignments()
-            assertThat(assignments).isEmpty()
-        }
-
-        @Test
-        fun `should redistribute when instance is removed`() {
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2", "instance-3")
-            val threeInstanceAssignments = partitionCoordinator.getCurrentAssignments()
+        fun `claim stale partitions when owned less than target`() {
+            val ownedAssignment = PartitionAssignment(0, "instance-1", OffsetDateTime.now())
+            val staleAssignments =
+                (1..150)
+                    .map { partitionNumber ->
+                        PartitionAssignment(partitionNumber, "instance-old", OffsetDateTime.now())
+                    }.toSet()
+            val allAssignments = setOf(ownedAssignment) + staleAssignments
 
             every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
-            partitionCoordinator.checkForRebalancing()
+            every { partitionAssignmentRepository.findAll() } returns allAssignments
 
-            val twoInstanceAssignments = partitionCoordinator.getCurrentAssignments()
+            partitionCoordinator.rebalance()
 
-            assertThat(twoInstanceAssignments).hasSize(PartitionHasher.TOTAL_PARTITIONS)
-            assertThat(twoInstanceAssignments.values).allMatch { it in setOf("instance-1", "instance-2") }
-            assertThat(twoInstanceAssignments.values.toSet()).hasSize(2)
-            assertThat(twoInstanceAssignments).isNotEqualTo(threeInstanceAssignments)
-        }
-    }
-
-    @Nested
-    inner class EdgeCases {
-        @Test
-        fun `should handle very long instance IDs`() {
-            val longInstanceId = "instance-" + "a".repeat(1000)
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf(longInstanceId)
-
-            val partitions = partitionCoordinator.getAssignedPartitions(longInstanceId)
-
-            assertThat(partitions).hasSize(PartitionHasher.TOTAL_PARTITIONS)
+            verify { partitionAssignmentRepository.saveAll(any()) }
         }
 
         @Test
-        fun `should handle special characters in instance IDs`() {
-            val specialInstanceId = "instance-@#$%^&*()_+-={}[]|\\:;\"'<>,.?/"
-            every { instanceRegistry.getActiveInstanceIds() } returns setOf(specialInstanceId)
+        fun `release surplus partitions when owned more than target`() {
+            val assignments =
+                (0..150)
+                    .map { partitionNumber ->
+                        PartitionAssignment(partitionNumber, "instance-1", OffsetDateTime.now())
+                    }.toSet()
 
-            val partitions = partitionCoordinator.getAssignedPartitions(specialInstanceId)
+            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
+            every { partitionAssignmentRepository.findAll() } returns assignments
 
-            assertThat(partitions).hasSize(PartitionHasher.TOTAL_PARTITIONS)
+            partitionCoordinator.rebalance()
+
+            verify { partitionAssignmentRepository.saveAll(any()) }
         }
 
         @Test
-        fun `should maintain deterministic assignment with same instance set`() {
-            val instances = setOf("zebra-instance", "alpha-instance", "beta-instance")
-            every { instanceRegistry.getActiveInstanceIds() } returns instances
+        fun `handle claim stale partitions failure gracefully`() {
+            val ownedAssignment = PartitionAssignment(0, "instance-1", OffsetDateTime.now())
+            val staleAssignments =
+                (1..150)
+                    .map { partitionNumber ->
+                        PartitionAssignment(partitionNumber, "instance-old", OffsetDateTime.now())
+                    }.toSet()
+            val allAssignments = setOf(ownedAssignment) + staleAssignments
 
-            val firstAssignment = partitionCoordinator.getCurrentAssignments()
+            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
+            every { partitionAssignmentRepository.findAll() } returns allAssignments
+            every { partitionAssignmentRepository.saveAll(any()) } throws
+                RuntimeException("Database error")
 
-            val newCoordinator = PartitionCoordinator(instanceRegistry)
-            val secondAssignment = newCoordinator.getCurrentAssignments()
+            partitionCoordinator.rebalance()
 
-            assertThat(secondAssignment).isEqualTo(firstAssignment)
+            verify(exactly = 1) { partitionAssignmentRepository.saveAll(any()) }
+        }
+
+        @Test
+        fun `handle release surplus partitions failure gracefully`() {
+            val assignments =
+                (0..150)
+                    .map { partitionNumber ->
+                        PartitionAssignment(partitionNumber, "instance-1", OffsetDateTime.now())
+                    }.toSet()
+
+            every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
+            every { partitionAssignmentRepository.findAll() } returns assignments
+            every { partitionAssignmentRepository.saveAll(any()) } throws
+                RuntimeException("Database error")
+
+            partitionCoordinator.rebalance()
+
+            verify(exactly = 1) { partitionAssignmentRepository.saveAll(any()) }
+        }
+
+        @Test
+        fun `bootstrap logs success message when initialized`() {
+            every { instanceRegistry.getCurrentInstanceId() } returns "i1"
+            every { instanceRegistry.getActiveInstanceIds() } returns setOf("i1")
+            every { partitionAssignmentRepository.saveAll(any()) } returns Unit
+
+            partitionCoordinator.rebalance()
+
+            val messages = listAppender.list.map { it.formattedMessage }
+            assertThat(messages).anyMatch { it.contains("Successfully bootstrapped") }
+        }
+
+        @Test
+        fun `bootstrap logs message when already initialized`() {
+            every { instanceRegistry.getCurrentInstanceId() } returns "i1"
+            every { instanceRegistry.getActiveInstanceIds() } returns setOf("i1")
+            every { partitionAssignmentRepository.saveAll(any()) } throws
+                DataIntegrityViolationException("Already initialized")
+
+            partitionCoordinator.rebalance()
+
+            val messages = listAppender.list.map { it.formattedMessage }
+            assertThat(messages).anyMatch { it.contains("Another instance initialized partitions, skipping bootstrap") }
+        }
+
+        @Test
+        fun `bootstrap logs warn message on error while initializing`() {
+            every { instanceRegistry.getCurrentInstanceId() } returns "i1"
+            every { instanceRegistry.getActiveInstanceIds() } returns setOf("i1")
+            every { partitionAssignmentRepository.saveAll(any()) } throws
+                IllegalStateException("Database error")
+
+            partitionCoordinator.rebalance()
+
+            val messages = listAppender.list.map { it.formattedMessage }
+            assertThat(messages).anyMatch { it.contains("Failed to bootstrap partitions for instance") }
         }
     }
 }

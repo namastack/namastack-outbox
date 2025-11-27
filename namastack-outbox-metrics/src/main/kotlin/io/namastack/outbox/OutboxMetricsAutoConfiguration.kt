@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionCoordinator
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -51,14 +52,6 @@ internal class OutboxMetricsAutoConfiguration {
 
     @Bean
     fun outboxPartitionMetricsMeterBinder(
-        partitionMetricsProvider: ObjectProvider<OutboxPartitionMetricsProvider>,
-    ): OutboxPartitionMetricsMeterBinder {
-        val provider =
-            partitionMetricsProvider.getIfAvailable()
-                ?: throw IllegalStateException(
-                    "OutboxPartitionMetricsProvider bean is missing! The Outbox partition metrics meter binder cannot be registered.",
-                )
-
-        return OutboxPartitionMetricsMeterBinder(provider)
-    }
+        partitionMetricsProvider: OutboxPartitionMetricsProvider,
+    ): OutboxPartitionMetricsMeterBinder = OutboxPartitionMetricsMeterBinder(partitionMetricsProvider)
 }

@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: namastack-outbox-performance-test-processor
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/outbox_performance_test
+    username: username
+    password: password
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 10
+      idle-timeout: 60000
+      max-lifetime: 300000
+      connection-timeout: 30000
+
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 200
+
+server:
+  port: 8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+
+outbox:
+  batch-size: 1500
+  poll-interval: 1000
+  rebalance-interval: 10000
+  schema-initialization:
+    enabled: true
+  retry:
+    policy: jittered
+    max-retries: 3
+    jittered:
+      base-policy: exponential
+      jitter: 1000
+    exponential:
+      initial-delay: 1000
+      max-delay: 60000
+      multiplier: 2.0
+  processing:
+    stop-on-first-failure: true
+    delete-completed-records: true
+    publish-after-save: false
+    executor-core-pool-size: 16
+    executor-max-pool-size: 32
+  instance:
+    graceful-shutdown-timeout-seconds: 2
+    new-instance-detection-interval-seconds: 5
+    stale-instance-timeout-seconds: 10
+    heartbeat-interval-seconds: 5
+
+logging:
+  level:
+    ROOT: WARN
+    io.namastack.outbox: DEBUG

@@ -3,11 +3,14 @@ package io.namastack.demo.customer
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import java.util.UUID
 
 @Entity(name = "customer")
 data class Customer(
     @Id
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     val id: UUID,
     @Column(nullable = false)
     val firstname: String,

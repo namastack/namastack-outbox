@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.partition.PartitionProcessingStats
 
@@ -30,7 +31,7 @@ class OutboxPartitionMetricsProvider(
      */
     fun getProcessingStats(): PartitionProcessingStats {
         val myInstanceId = instanceRegistry.getCurrentInstanceId()
-        val assignedPartitions = partitionCoordinator.getAssignedPartitions(myInstanceId)
+        val assignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
 
         val pendingRecordsPerPartition =
             assignedPartitions.associateWith { partition ->
@@ -41,7 +42,7 @@ class OutboxPartitionMetricsProvider(
 
         return PartitionProcessingStats(
             instanceId = myInstanceId,
-            assignedPartitions = assignedPartitions,
+            assignedPartitions = assignedPartitions.sorted(),
             pendingRecordsPerPartition = pendingRecordsPerPartition,
             totalPendingRecords = totalPendingRecords,
         )
@@ -52,5 +53,5 @@ class OutboxPartitionMetricsProvider(
      *
      * @return Statistics about partition distribution across all instances
      */
-    fun getPartitionStats() = partitionCoordinator.getPartitionStats()
+    fun getPartitionStats() = partitionCoordinator.getPartitionContext().getPartitionStats()
 }

@@ -37,6 +37,8 @@ class OutboxPartitionMetricsMeterBinderTest {
                 every { totalInstances } returns 2
                 every { totalPartitions } returns 256
                 every { averagePartitionsPerInstance } returns 128.0
+                every { unassignedPartitionsCount } returns 5
+                every { unassignedPartitionNumbers } returns listOf(7, 9, 11, 13, 15)
             }
 
         meterBinder.bindTo(meterRegistry)
@@ -50,6 +52,23 @@ class OutboxPartitionMetricsMeterBinderTest {
         assertThat(meterRegistry.get("outbox.cluster.instances.total").gauge().value()).isEqualTo(2.0)
         assertThat(meterRegistry.get("outbox.cluster.partitions.total").gauge().value()).isEqualTo(256.0)
         assertThat(meterRegistry.get("outbox.cluster.partitions.avg_per_instance").gauge().value()).isEqualTo(128.0)
+        assertThat(meterRegistry.get("outbox.cluster.partitions.unassigned.count").gauge().value()).isEqualTo(5.0)
+        // Check one flag gauge (partition 7 unassigned)
+        assertThat(
+            meterRegistry
+                .get("outbox.cluster.partitions.unassigned.flag")
+                .tag("partition", "7")
+                .gauge()
+                .value(),
+        ).isEqualTo(1.0)
+        // Check a partition not in list (e.g. 8) -> 0.0
+        assertThat(
+            meterRegistry
+                .get("outbox.cluster.partitions.unassigned.flag")
+                .tag("partition", "8")
+                .gauge()
+                .value(),
+        ).isEqualTo(0.0)
     }
 
     @Test
@@ -68,6 +87,8 @@ class OutboxPartitionMetricsMeterBinderTest {
                 every { totalInstances } returns 0
                 every { totalPartitions } returns 256
                 every { averagePartitionsPerInstance } returns 0.0
+                every { unassignedPartitionsCount } returns 256
+                every { unassignedPartitionNumbers } returns (0 until 256).toList()
             }
 
         meterBinder.bindTo(meterRegistry)
@@ -79,6 +100,14 @@ class OutboxPartitionMetricsMeterBinderTest {
         assertThat(meterRegistry.get("outbox.cluster.instances.total").gauge().value()).isEqualTo(0.0)
         assertThat(meterRegistry.get("outbox.cluster.partitions.total").gauge().value()).isEqualTo(256.0)
         assertThat(meterRegistry.get("outbox.cluster.partitions.avg_per_instance").gauge().value()).isEqualTo(0.0)
+        assertThat(meterRegistry.get("outbox.cluster.partitions.unassigned.count").gauge().value()).isEqualTo(256.0)
+        assertThat(
+            meterRegistry
+                .get("outbox.cluster.partitions.unassigned.flag")
+                .tag("partition", "0")
+                .gauge()
+                .value(),
+        ).isEqualTo(1.0)
     }
 
     @Test
@@ -97,6 +126,8 @@ class OutboxPartitionMetricsMeterBinderTest {
                 every { totalInstances } returns 1
                 every { totalPartitions } returns 256
                 every { averagePartitionsPerInstance } returns 256.0
+                every { unassignedPartitionsCount } returns 255
+                every { unassignedPartitionNumbers } returns (0 until 256).filter { it != 7 }
             }
 
         meterBinder.bindTo(meterRegistry)
@@ -108,6 +139,14 @@ class OutboxPartitionMetricsMeterBinderTest {
         assertThat(meterRegistry.get("outbox.cluster.instances.total").gauge().value()).isEqualTo(1.0)
         assertThat(meterRegistry.get("outbox.cluster.partitions.total").gauge().value()).isEqualTo(256.0)
         assertThat(meterRegistry.get("outbox.cluster.partitions.avg_per_instance").gauge().value()).isEqualTo(256.0)
+        assertThat(meterRegistry.get("outbox.cluster.partitions.unassigned.count").gauge().value()).isEqualTo(255.0)
+        assertThat(
+            meterRegistry
+                .get("outbox.cluster.partitions.unassigned.flag")
+                .tag("partition", "7")
+                .gauge()
+                .value(),
+        ).isEqualTo(0.0)
     }
 
     @Test
@@ -126,6 +165,8 @@ class OutboxPartitionMetricsMeterBinderTest {
                 every { totalInstances } returns 3
                 every { totalPartitions } returns 256
                 every { averagePartitionsPerInstance } returns 85.33
+                every { unassignedPartitionsCount } returns 250
+                every { unassignedPartitionNumbers } returns (0 until 256).filter { it !in listOf(1, 2, 3, 4, 5, 6) }
             }
 
         meterBinder.bindTo(meterRegistry)
@@ -137,5 +178,6 @@ class OutboxPartitionMetricsMeterBinderTest {
         assertThat(meterRegistry.get("outbox.cluster.instances.total").gauge().value()).isEqualTo(3.0)
         assertThat(meterRegistry.get("outbox.cluster.partitions.total").gauge().value()).isEqualTo(256.0)
         assertThat(meterRegistry.get("outbox.cluster.partitions.avg_per_instance").gauge().value()).isEqualTo(85.33)
+        assertThat(meterRegistry.get("outbox.cluster.partitions.unassigned.count").gauge().value()).isEqualTo(250.0)
     }
 }

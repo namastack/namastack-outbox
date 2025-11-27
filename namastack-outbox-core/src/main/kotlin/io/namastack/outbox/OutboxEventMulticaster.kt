@@ -69,11 +69,13 @@ class OutboxEventMulticaster(
                 eventType,
             )
 
-        log.debug("Saving @OutboxEvent to outbox: ${payload::class.simpleName}")
+        val classSimpleName = payload::class.simpleName
+
+        log.debug("Saving @OutboxEvent to outbox: $classSimpleName")
         saveOutboxRecord(payload, annotation)
 
         if (outboxProperties.processing.publishAfterSave) {
-            log.debug("Publishing @OutboxEvent to listeners: ${payload::class.simpleName}")
+            log.debug("Publishing @OutboxEvent to listeners: $classSimpleName")
             delegateEventMulticaster.multicastEvent(event, eventType)
         }
     }

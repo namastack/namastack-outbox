@@ -1,8 +1,9 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.OutboxInstanceStatus.ACTIVE
-import io.namastack.outbox.OutboxInstanceStatus.DEAD
-import io.namastack.outbox.OutboxInstanceStatus.SHUTTING_DOWN
+import io.namastack.outbox.instance.OutboxInstance
+import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
+import io.namastack.outbox.instance.OutboxInstanceStatus.DEAD
+import io.namastack.outbox.instance.OutboxInstanceStatus.SHUTTING_DOWN
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.OffsetDateTime

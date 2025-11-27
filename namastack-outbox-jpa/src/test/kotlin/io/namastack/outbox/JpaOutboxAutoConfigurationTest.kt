@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.mockk.every
 import io.mockk.mockk
+import io.namastack.outbox.instance.OutboxInstanceRepository
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -42,11 +43,14 @@ class JpaOutboxAutoConfigurationTest {
                     assertThat(context).hasSingleBean(Clock::class.java)
                     assertThat(context).hasBean("outboxTransactionTemplate")
                     assertThat(context).hasBean("outboxEntityManager")
+                    assertThat(context).hasBean("outboxPartitionAssignmentRepository")
 
-                    assertThat(context.getBean(OutboxRecordRepository::class.java))
+                    assertThat(context.getBean("outboxRecordRepository"))
                         .isInstanceOf(JpaOutboxRecordRepository::class.java)
-                    assertThat(context.getBean(OutboxInstanceRepository::class.java))
+                    assertThat(context.getBean("outboxInstanceRepository"))
                         .isInstanceOf(JpaOutboxInstanceRepository::class.java)
+                    assertThat(context.getBean("outboxPartitionAssignmentRepository"))
+                        .isInstanceOf(JpaOutboxPartitionAssignmentRepository::class.java)
                 }
         }
 
