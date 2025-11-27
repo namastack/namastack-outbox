@@ -18,10 +18,10 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("io.namastack:namastack-outbox-starter-jpa:0.3.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jpa:0.4.0-SNAPSHOT")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
-    runtimeOnly("org.postgresql:postgresql:42.7.4")
+    runtimeOnly("org.postgresql:postgresql:42.7.7")
 }
 
 allOpen {

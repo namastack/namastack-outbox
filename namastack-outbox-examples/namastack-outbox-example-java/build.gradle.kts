@@ -1,13 +1,18 @@
 plugins {
-    id("org.springframework.boot") version "3.5.7"
+    java
+    id("org.springframework.boot") version "3.5.8"
     id("io.spring.dependency-management") version "1.1.7"
-    id("org.jetbrains.kotlin.plugin.jpa") version "2.2.20"
-    kotlin("jvm") version "2.2.20"
-    kotlin("plugin.spring") version "2.2.20"
 }
 
 group = "io.namastack"
-version = "0.1.0"
+version = "0.0.1-SNAPSHOT"
+description = "namastack-outbox-example-java"
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
 
 repositories {
     mavenLocal()
@@ -15,7 +20,6 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("io.namastack:namastack-outbox-starter-jpa:0.4.0-SNAPSHOT")
@@ -25,8 +29,6 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-allOpen {
-    annotation("jakarta.persistence.Entity")
-    annotation("jakarta.persistence.MappedSuperclass")
-    annotation("jakarta.persistence.Embeddable")
+tasks.withType<Test> {
+    useJUnitPlatform()
 }

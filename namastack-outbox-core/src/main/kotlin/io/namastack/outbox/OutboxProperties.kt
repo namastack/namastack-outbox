@@ -9,6 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  * including retry policies, processing behavior, and instance management.
  *
  * @param pollInterval Interval in milliseconds at which the outbox is polled
+ * @param rebalanceInterval Interval in milliseconds at which partition rebalancing is performed
  * @param batchSize Maximum number of records to process in a single batch
  * @param retry Configuration for retry mechanisms
  * @param processing Configuration for record processing behavior
@@ -20,76 +21,29 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  */
 @ConfigurationProperties(prefix = "outbox")
 data class OutboxProperties(
-    val pollInterval: Long = 2000,
-    val rebalanceInterval: Long = 10000,
-    val batchSize: Int = 10,
-    val retry: Retry = Retry(),
-    val processing: Processing = Processing(),
-    val instance: Instance = Instance(),
-    val schemaInitialization: SchemaInitialization = SchemaInitialization(),
+    var pollInterval: Long = 2000,
+    var rebalanceInterval: Long = 10000,
+    var batchSize: Int = 10,
+    var retry: Retry = Retry(),
+    var processing: Processing = Processing(),
+    var instance: Instance = Instance(),
+    var schemaInitialization: SchemaInitialization = SchemaInitialization(),
 ) {
-    /**
-     * Configuration for retry policies and behavior.
-     *
-     * @param maxRetries Maximum number of retry attempts
-     * @param policy Name of the retry policy to use ("exponential", "fixed", "jittered")
-     * @param exponential Configuration for exponential backoff retry
-     * @param fixed Configuration for fixed delay retry
-     * @param jittered Configuration for jittered retry
-     */
-    data class Retry(
-        val maxRetries: Int = 3,
-        val policy: String = "exponential",
-        val exponential: ExponentialRetry = ExponentialRetry(),
-        val fixed: FixedRetry = FixedRetry(),
-        val jittered: JitteredRetry = JitteredRetry(),
-    ) {
-        /**
-         * Configuration for exponential backoff retry policy.
-         *
-         * @param initialDelay Initial delay in milliseconds
-         * @param maxDelay Maximum delay in milliseconds
-         * @param multiplier Multiplier for exponential backoff
-         */
-        data class ExponentialRetry(
-            val initialDelay: Long = 2000,
-            val maxDelay: Long = 60000,
-            val multiplier: Double = 2.0,
-        )
-
-        /**
-         * Configuration for fixed delay retry policy.
-         *
-         * @param delay Fixed delay in milliseconds between retries
-         */
-        data class FixedRetry(
-            val delay: Long = 5000,
-        )
-
-        /**
-         * Configuration for jittered retry policy.
-         *
-         * @param basePolicy Base retry policy to apply jitter to
-         * @param jitter Maximum jitter amount in milliseconds
-         */
-        data class JitteredRetry(
-            val basePolicy: String = "exponential",
-            val jitter: Long = 500,
-        )
-    }
-
     /**
      * Configuration for outbox record processing behavior.
      *
      * @param stopOnFirstFailure Whether to stop processing on the first failure
      * @param publishAfterSave Whether to publish events to listeners after saving to outbox
+     * @param deleteCompletedRecords Whether to delete completed records after processing
+     * @param executorCorePoolSize Core pool size for the processing executor
+     * @param executorMaxPoolSize Maximum pool size for the processing executor
      */
     data class Processing(
-        val stopOnFirstFailure: Boolean = true,
-        val publishAfterSave: Boolean = true,
-        val deleteCompletedRecords: Boolean = false,
-        val executorCorePoolSize: Int = 4,
-        val executorMaxPoolSize: Int = 8,
+        var stopOnFirstFailure: Boolean = true,
+        var publishAfterSave: Boolean = true,
+        var deleteCompletedRecords: Boolean = false,
+        var executorCorePoolSize: Int = 4,
+        var executorMaxPoolSize: Int = 8,
     )
 
     /**
@@ -101,10 +55,10 @@ data class OutboxProperties(
      * @param newInstanceDetectionIntervalSeconds Interval in seconds for detecting new instances
      */
     data class Instance(
-        val gracefulShutdownTimeoutSeconds: Long = 15,
-        val staleInstanceTimeoutSeconds: Long = 30,
-        val heartbeatIntervalSeconds: Long = 5,
-        val newInstanceDetectionIntervalSeconds: Long = 10,
+        var gracefulShutdownTimeoutSeconds: Long = 15,
+        var staleInstanceTimeoutSeconds: Long = 30,
+        var heartbeatIntervalSeconds: Long = 5,
+        var newInstanceDetectionIntervalSeconds: Long = 10,
     )
 
     /**
@@ -113,6 +67,56 @@ data class OutboxProperties(
      * @param enabled Whether to enable automatic schema initialization
      */
     data class SchemaInitialization(
-        val enabled: Boolean = true,
+        var enabled: Boolean = true,
     )
+
+    /**
+     * Configuration for retry policies and behavior.
+     *
+     * @param maxRetries Maximum number of retry attempts
+     * @param policy Name of the retry policy to use ("exponential", "fixed", "jittered")
+     * @param exponential Configuration for exponential backoff retry
+     * @param fixed Configuration for fixed delay retry
+     * @param jittered Configuration for jittered retry
+     */
+    data class Retry(
+        var maxRetries: Int = 3,
+        var policy: String = "exponential",
+        var exponential: ExponentialRetry = ExponentialRetry(),
+        var fixed: FixedRetry = FixedRetry(),
+        var jittered: JitteredRetry = JitteredRetry(),
+    ) {
+        /**
+         * Configuration for exponential backoff retry policy.
+         *
+         * @param initialDelay Initial delay in milliseconds
+         * @param maxDelay Maximum delay in milliseconds
+         * @param multiplier Multiplier for exponential backoff
+         */
+        data class ExponentialRetry(
+            var initialDelay: Long = 2000,
+            var maxDelay: Long = 60000,
+            var multiplier: Double = 2.0,
+        )
+
+        /**
+         * Configuration for fixed delay retry policy.
+         *
+         * @param delay Fixed delay in milliseconds between retries
+         */
+        data class FixedRetry(
+            var delay: Long = 5000,
+        )
+
+        /**
+         * Configuration for jittered retry policy.
+         *
+         * @param basePolicy Base retry policy to apply jitter to
+         * @param jitter Maximum jitter amount in milliseconds
+         */
+        data class JitteredRetry(
+            var basePolicy: String = "exponential",
+            var jitter: Long = 500,
+        )
+    }
 }
