@@ -38,3 +38,8 @@ outbox:
     heartbeat-interval-seconds: 5
     stale-instance-timeout-seconds: 5
     new-instance-detection-interval-seconds: 5
+
+logging:
+  level:
+    root: warn
+    io.namastack: debug

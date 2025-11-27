@@ -3,6 +3,7 @@ package io.namastack.outbox.instance
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
 import jakarta.annotation.PostConstruct
+import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import java.net.InetAddress
@@ -82,8 +83,6 @@ class OutboxInstanceRegistry(
             instanceRepository.save(instance)
 
             log.info("Registered outbox instance: {} on {}:{}", currentInstanceId, hostname, port)
-
-            Runtime.getRuntime().addShutdownHook(Thread { gracefulShutdown() })
         } catch (ex: Exception) {
             log.error("Failed to register instance {}", currentInstanceId, ex)
             throw ex
@@ -181,6 +180,7 @@ class OutboxInstanceRegistry(
      * to notice the status change, then removes it completely. This allows other instances
      * to redistribute work before shutdown completes.
      */
+    @PreDestroy
     fun gracefulShutdown() {
         try {
             log.info("Initiating graceful shutdown for instance {}", currentInstanceId)
