@@ -178,9 +178,10 @@ class OutboxProcessingScheduler(
     ) {
         log.debug("Failed {} for {}: {}", record.eventType, record.aggregateId, ex.message)
 
-        record.incrementRetryCount()
-        if (record.retriesExhausted(properties.retry.maxRetries) || !retryPolicy.shouldRetry(ex)) {
+        val retriesExhausted = record.retriesExhausted(properties.retry.maxRetries)
+        if (retriesExhausted || !retryPolicy.shouldRetry(ex)) {
             record.markFailed()
+
             log.warn(
                 "Record {} for aggregate {} marked as FAILED after {} retries",
                 record.id,
@@ -190,6 +191,8 @@ class OutboxProcessingScheduler(
         } else {
             val delay = retryPolicy.nextDelay(record.retryCount)
             record.scheduleNextRetry(delay, clock)
+            record.incrementRetryCount()
+
             log.debug(
                 "Scheduled retry #{} for record {} in {}",
                 record.retryCount,

@@ -248,6 +248,27 @@ class OutboxRecordTest {
     }
 
     @Test
+    fun `retriesExhausted should return true when retry count equals max retries`() {
+        val record =
+            OutboxRecord.restore(
+                id = "test-id",
+                aggregateId = "test-aggregate",
+                eventType = "TestEvent",
+                payload = "test-payload",
+                partition = 1,
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                retryCount = 3,
+                nextRetryAt = now,
+            )
+
+        val result = record.retriesExhausted(3)
+
+        assertThat(result).isTrue()
+    }
+
+    @Test
     fun `retriesExhausted should return true when retry count exceeds max retries`() {
         val record =
             OutboxRecord.restore(

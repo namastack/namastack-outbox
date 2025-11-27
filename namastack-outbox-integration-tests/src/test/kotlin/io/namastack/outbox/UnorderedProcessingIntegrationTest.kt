@@ -14,6 +14,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
 import org.springframework.context.annotation.Import
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.stereotype.Component
+import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.context.TestPropertySource
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
@@ -30,6 +31,7 @@ import kotlin.test.Test
  * - Verifies that only the first (failure) is processed and the others remain unprocessed.
  */
 @DataJpaTest(showSql = false)
+@DirtiesContext
 @ImportAutoConfiguration(
     OutboxCoreAutoConfiguration::class,
     JpaOutboxAutoConfiguration::class,
@@ -76,6 +78,7 @@ class UnorderedProcessingIntegrationTest {
             entityManager.createQuery("DELETE FROM OutboxInstanceEntity").executeUpdate()
             entityManager.createQuery("DELETE FROM OutboxPartitionAssignmentEntity ").executeUpdate()
             entityManager.flush()
+            entityManager.clear()
         }
     }
 

@@ -108,7 +108,7 @@ class OutboxRecord internal constructor(
      * @param maxRetries Maximum allowed number of retries
      * @return true if retries are exhausted, false otherwise
      */
-    internal fun retriesExhausted(maxRetries: Int): Boolean = retryCount > maxRetries
+    internal fun retriesExhausted(maxRetries: Int): Boolean = retryCount >= maxRetries
 
     /**
      * Schedules the next retry attempt.

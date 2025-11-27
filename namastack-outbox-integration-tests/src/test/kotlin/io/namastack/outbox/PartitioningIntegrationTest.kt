@@ -15,6 +15,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
+import org.springframework.test.annotation.DirtiesContext
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
@@ -24,6 +25,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit.SECONDS
 
 @DataJpaTest(showSql = false)
+@DirtiesContext
 @ImportAutoConfiguration(JpaOutboxAutoConfiguration::class)
 @EnableConfigurationProperties(OutboxProperties::class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -46,9 +48,7 @@ class PartitioningIntegrationTest {
     private lateinit var outboxProperties: OutboxProperties
 
     @AfterEach
-    fun setUp() {
-        cleanupTables()
-    }
+    fun cleanup() = cleanupTables()
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -159,6 +159,7 @@ class PartitioningIntegrationTest {
             entityManager.createQuery("DELETE FROM OutboxInstanceEntity").executeUpdate()
             entityManager.createQuery("DELETE FROM OutboxPartitionAssignmentEntity ").executeUpdate()
             entityManager.flush()
+            entityManager.clear()
         }
     }
 

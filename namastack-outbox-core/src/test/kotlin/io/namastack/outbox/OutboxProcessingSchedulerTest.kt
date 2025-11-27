@@ -316,7 +316,7 @@ class OutboxProcessingSchedulerTest {
             await()
                 .atMost(2, TimeUnit.SECONDS)
                 .untilAsserted {
-                    assertThat(record.retryCount).isEqualTo(4)
+                    assertThat(record.retryCount).isEqualTo(3)
                     assertThat(record.status).isEqualTo(FAILED)
                 }
         }
@@ -345,7 +345,7 @@ class OutboxProcessingSchedulerTest {
             await()
                 .atMost(2, TimeUnit.SECONDS)
                 .untilAsserted {
-                    assertThat(record.retryCount).isEqualTo(1)
+                    assertThat(record.retryCount).isEqualTo(0)
                     assertThat(record.status).isEqualTo(FAILED)
                 }
         }
