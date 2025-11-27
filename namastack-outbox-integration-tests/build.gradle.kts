@@ -9,6 +9,7 @@ description = "namastack-outbox-integration-tests"
 
 dependencies {
     testImplementation(project(":namastack-outbox-core"))
+    testImplementation(project(":namastack-outbox-jackson"))
     testImplementation(project(":namastack-outbox-jpa"))
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.boot.starter.data.jpa)
