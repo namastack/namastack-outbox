@@ -8,9 +8,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @EnableOutbox
@@ -34,18 +32,9 @@ public class DemoApplication implements CommandLineRunner {
   public void run(String... args) {
     logger.info("Starting Namastack Outbox Demo Application");
 
+    String aggregateId = UUID.randomUUID().toString();
     eventPublisher.publishEvent(
-        new CustomerRegisteredEvent(UUID.randomUUID().toString(), "John", "Jones",
+        new CustomerRegisteredEvent(aggregateId, "John", "Jones",
             "john.jones@test.de"));
-  }
-
-  @Component
-  static
-  class TestListener {
-
-    @EventListener
-    public void onEvent(CustomerRegisteredEvent event) {
-      System.out.println(event);
-    }
   }
 }

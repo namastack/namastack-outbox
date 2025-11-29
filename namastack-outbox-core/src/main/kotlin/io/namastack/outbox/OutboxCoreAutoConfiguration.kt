@@ -12,6 +12,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.event.SimpleApplicationEventMulticaster
@@ -183,6 +184,10 @@ class OutboxCoreAutoConfiguration {
     /**
      * Creates the custom application event multicaster for @OutboxEvent handling.
      *
+     * This multicaster is only registered if 'outbox.multicaster.enabled' is true (default).
+     * If enabled, the OutboxEventMulticaster bean is provided and events annotated with @OutboxEvent
+     * are published via the outbox mechanism. If disabled, the default Spring multicaster is used.
+     *
      * @param beanFactory Factory for creating nested beans
      * @param outboxRecordRepository Repository for persisting outbox records
      * @param outboxEventSerializer Serializer for event payloads
@@ -192,6 +197,7 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean(name = ["applicationEventMulticaster"])
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(name = ["outbox.multicaster.enabled"], havingValue = "true", matchIfMissing = true)
     fun outboxApplicationEventMulticaster(
         beanFactory: BeanFactory,
         outboxRecordRepository: OutboxRecordRepository,

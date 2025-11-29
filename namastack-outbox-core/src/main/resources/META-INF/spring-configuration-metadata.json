@@ -182,6 +182,13 @@
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
       "defaultValue": 10,
       "description": "Interval in seconds for detecting new instances that have joined the cluster"
+    },
+    {
+      "name": "outbox.multicaster.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "defaultValue": true,
+      "description": "Enable or disable the custom application event multicaster for @OutboxEvent handling. If true, the OutboxEventMulticaster bean is registered."
     }
   ]
 }

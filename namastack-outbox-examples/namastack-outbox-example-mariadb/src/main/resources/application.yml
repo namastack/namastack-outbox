@@ -3,7 +3,7 @@ spring:
     name: namastack-outbox-basic-example
 
   datasource:
-    url: jdbc:mariadb://localhost:3306/outbox_example
+    url: jdbc:mariadb://localhost:33306/outbox_example
     username: username
     password: password
 
@@ -12,26 +12,8 @@ spring:
       ddl-auto: validate
 
 outbox:
-  batch-size: 10
-  poll-interval: 2000
   schema-initialization:
     enabled: true
-  retry:
-    policy: jittered
-    max-retries: 3
-    jittered:
-      base-policy: exponential
-      jitter: 1000
-    exponential:
-      initial-delay: 1000
-      max-delay: 60000
-      multiplier: 2.0
-  processing:
-    stop-on-first-failure: true
-  instance:
-    graceful-shutdown-timeout-seconds: 2
-    heartbeat-interval-seconds: 5
-    stale-instance-timeout-seconds: 10
 
 logging:
   level:

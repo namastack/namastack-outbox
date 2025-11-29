@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Examples Run" type="CompoundRunConfigurationType">
+    <toRun name="DemoApplication H2" type="SpringBootApplicationConfigurationType" />
+    <toRun name="DemoApplication Java" type="SpringBootApplicationConfigurationType" />
+    <toRun name="DemoApplication MariaDB" type="SpringBootApplicationConfigurationType" />
+    <toRun name="DemoApplication Microsoft SQL Server" type="SpringBootApplicationConfigurationType" />
+    <toRun name="DemoApplication Multicaster" type="SpringBootApplicationConfigurationType" />
+    <toRun name="DemoApplication MySQL" type="SpringBootApplicationConfigurationType" />
+    <toRun name="DemoApplication PostgreSQL" type="SpringBootApplicationConfigurationType" />
+    <method v="2" />
+  </configuration>
+</component>

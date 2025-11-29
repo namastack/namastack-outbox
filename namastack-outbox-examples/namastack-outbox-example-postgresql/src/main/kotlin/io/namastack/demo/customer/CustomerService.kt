@@ -1,6 +1,6 @@
 package io.namastack.demo.customer
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import io.namastack.outbox.OutboxEventSerializer
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import jakarta.transaction.Transactional
@@ -11,6 +11,7 @@ import java.time.Clock
 class CustomerService(
     private val customerRepository: CustomerRepository,
     private val outboxRecordRepository: OutboxRecordRepository,
+    private val outboxEventSerializer: OutboxEventSerializer,
     private val clock: Clock,
 ) {
     @Transactional
@@ -34,7 +35,7 @@ class CustomerService(
                     .Builder()
                     .aggregateId(aggregateId = customer.id.toString())
                     .eventType(eventType = CustomerRegisteredEvent::class.simpleName!!)
-                    .payload(payload = ObjectMapper().writeValueAsString(customerRegisteredEvent))
+                    .payload(payload = outboxEventSerializer.serialize(customerRegisteredEvent))
                     .build(clock),
         )
 
