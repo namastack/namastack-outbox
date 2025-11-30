@@ -33,7 +33,7 @@ class OutboxActuatorAutoConfigurationTest {
             contextRunner()
                 .withUserConfiguration(EmptyConfig::class.java)
                 .run { context ->
-                    assertThat(context.startupFailure.message).contains("OutboxRecordRepository")
+                    assertThat(context.startupFailure?.message).contains("OutboxRecordRepository")
                 }
         }
     }

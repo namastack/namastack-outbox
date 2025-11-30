@@ -9,8 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.EnableConfigurationProperties
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.context.annotation.Import
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.stereotype.Component
@@ -73,7 +73,7 @@ class OrderedProcessingIntegrationTest {
     }
 
     private fun cleanupTables() {
-        transactionTemplate.executeNonNull {
+        transactionTemplate.executeWithoutResult {
             entityManager.createQuery("DELETE FROM OutboxRecordEntity").executeUpdate()
             entityManager.createQuery("DELETE FROM OutboxInstanceEntity").executeUpdate()
             entityManager.createQuery("DELETE FROM OutboxPartitionAssignmentEntity ").executeUpdate()

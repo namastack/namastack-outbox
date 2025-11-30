@@ -1,7 +1,7 @@
 [versions]
 # Kotlin and Plugin versions
 kotlin = "2.2.21"
-springBoot = "3.5.7"
+springBoot = "4.0.0"
 dependencyManagement = "1.1.7"
 ktlint = "14.0.1"
 dokka = "2.1.0"
@@ -9,8 +9,8 @@ publish = "0.35.0"
 
 # Dependency versions
 hibernate = "7.1.10.Final"
-springOrm = "6.2.12"
-springTx = "6.2.12"
+springOrm = "7.0.1"
+springTx = "7.0.1"
 h2 = "2.4.240"
 mockk = "1.14.6"
 assertj = "3.27.6"
@@ -24,9 +24,11 @@ junit = "6.0.1"
 # Spring Boot dependencies
 spring-boot = { module = "org.springframework.boot:spring-boot", version.ref = "springBoot" }
 spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure", version.ref = "springBoot" }
+spring-boot-hibernate = { module = "org.springframework.boot:spring-boot-hibernate", version.ref = "springBoot" }
 spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-starter-logging", version.ref = "springBoot" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBoot" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa", version.ref = "springBoot" }
+spring-boot-starter-data-jpa-test = { module = "org.springframework.boot:spring-boot-starter-data-jpa-test", version.ref = "springBoot" }
 spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator", version.ref = "springBoot" }
 spring-tx = { module = "org.springframework:spring-tx", version.ref = "springTx" }
 

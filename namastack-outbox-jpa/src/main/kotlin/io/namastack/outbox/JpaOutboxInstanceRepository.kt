@@ -71,7 +71,7 @@ internal open class JpaOutboxInstanceRepository(
      * @return The saved outbox instance
      */
     override fun save(instance: OutboxInstance): OutboxInstance =
-        transactionTemplate.executeNonNull {
+        transactionTemplate.execute {
             val entity = OutboxInstanceEntityMapper.toEntity(instance)
             val existingEntity = entityManager.find(OutboxInstanceEntity::class.java, entity.instanceId)
 
@@ -162,13 +162,13 @@ internal open class JpaOutboxInstanceRepository(
         instanceId: String,
         timestamp: OffsetDateTime,
     ): Boolean =
-        transactionTemplate.executeNonNull {
+        transactionTemplate.execute {
             val entity =
                 entityManager.find(
                     OutboxInstanceEntity::class.java,
                     instanceId,
                     LockModeType.PESSIMISTIC_WRITE,
-                ) ?: return@executeNonNull false
+                ) ?: return@execute false
 
             entity.updateHeartbeat(timestamp)
             true
@@ -187,13 +187,13 @@ internal open class JpaOutboxInstanceRepository(
         status: OutboxInstanceStatus,
         timestamp: OffsetDateTime,
     ): Boolean =
-        transactionTemplate.executeNonNull {
+        transactionTemplate.execute {
             val entity =
                 entityManager.find(
                     OutboxInstanceEntity::class.java,
                     instanceId,
                     LockModeType.PESSIMISTIC_WRITE,
-                ) ?: return@executeNonNull false
+                ) ?: return@execute false
 
             entity.updateStatus(status, timestamp)
             true
@@ -206,10 +206,10 @@ internal open class JpaOutboxInstanceRepository(
      * @return true if the deletion was successful, false otherwise
      */
     override fun deleteById(instanceId: String): Boolean =
-        transactionTemplate.executeNonNull {
+        transactionTemplate.execute {
             val entity =
                 entityManager.find(OutboxInstanceEntity::class.java, instanceId)
-                    ?: return@executeNonNull false
+                    ?: return@execute false
 
             entityManager.remove(entity)
             true

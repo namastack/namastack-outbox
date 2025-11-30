@@ -146,7 +146,7 @@ internal open class JpaOutboxRecordRepository(
      * @return The saved outbox record
      */
     override fun save(record: OutboxRecord): OutboxRecord =
-        transactionTemplate.executeNonNull {
+        transactionTemplate.execute {
             val entity = map(record)
             val existingEntity = entityManager.find(OutboxRecordEntity::class.java, entity.id)
             if (existingEntity != null) {
@@ -242,7 +242,7 @@ internal open class JpaOutboxRecordRepository(
      * @param status The status of records to delete
      */
     override fun deleteByStatus(status: OutboxRecordStatus) {
-        transactionTemplate.executeNonNull {
+        transactionTemplate.execute {
             entityManager
                 .createQuery(deleteByStatusQuery)
                 .setParameter("status", status)
@@ -260,7 +260,7 @@ internal open class JpaOutboxRecordRepository(
         aggregateId: String,
         status: OutboxRecordStatus,
     ) {
-        transactionTemplate.executeNonNull {
+        transactionTemplate.execute {
             entityManager
                 .createQuery(deleteByAggregateIdAndStatusQuery)
                 .setParameter("status", status)
@@ -275,9 +275,11 @@ internal open class JpaOutboxRecordRepository(
      * @param id The unique identifier of the outbox record
      */
     override fun deleteById(id: String) {
-        transactionTemplate.executeNonNull {
-            val entity = entityManager.find(OutboxRecordEntity::class.java, id) ?: return@executeNonNull
-            entityManager.remove(entity)
+        transactionTemplate.executeWithoutResult {
+            val entity = entityManager.find(OutboxRecordEntity::class.java, id)
+            if (entity != null) {
+                entityManager.remove(entity)
+            }
         }
     }
 

@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.OffsetDateTime

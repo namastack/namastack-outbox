@@ -83,7 +83,7 @@ internal open class JpaOutboxPartitionAssignmentRepository(
      * @throws org.springframework.dao.OptimisticLockingFailureException if version mismatch detected (concurrent modification)
      */
     override fun saveAll(partitionAssignments: Set<PartitionAssignment>) =
-        transactionTemplate.executeNonNull {
+        transactionTemplate.execute {
             partitionAssignments.forEach { partitionAssignment ->
                 val entity = toEntity(partitionAssignment)
                 entityManager.merge(entity)
