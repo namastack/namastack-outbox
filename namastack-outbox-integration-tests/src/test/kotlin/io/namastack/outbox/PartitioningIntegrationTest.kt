@@ -13,8 +13,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.EnableConfigurationProperties
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
@@ -154,7 +154,7 @@ class PartitioningIntegrationTest {
     }
 
     private fun cleanupTables() {
-        transactionTemplate.executeNonNull {
+        transactionTemplate.executeWithoutResult {
             entityManager.createQuery("DELETE FROM OutboxRecordEntity").executeUpdate()
             entityManager.createQuery("DELETE FROM OutboxInstanceEntity").executeUpdate()
             entityManager.createQuery("DELETE FROM OutboxPartitionAssignmentEntity ").executeUpdate()

@@ -26,7 +26,7 @@ class DemoApplication(
         }
     }
 
-    override fun run(vararg args: String?) {
+    override fun run(vararg args: String) {
         logger.info("Starting Namastack Outbox Demo Application")
 
         val customer1 = Customer.register(firstname = "John", lastname = "Wayne", email = "john.wayne@example.com")

@@ -1,7 +1,7 @@
 [versions]
 # Kotlin and Plugin versions
-kotlin = "2.2.20"
-springBoot = "3.5.7"
+kotlin = "2.2.21"
+springBoot = "4.0.0"
 dependencyManagement = "1.1.7"
 dokka = "2.1.0"
 
@@ -10,6 +10,8 @@ postgresql = "42.7.4"
 postgresR2dbc = "1.0.8.RELEASE"
 micrometer = "1.15.5"
 gatling = "3.14.6"
+jackson = "3.0.2"
+commons = "1.20.0"
 
 [libraries]
 # Kotlin dependencies
@@ -26,8 +28,8 @@ spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-s
 spring-boot-starter-data-r2dbc = { module = "org.springframework.boot:spring-boot-starter-data-r2dbc", version.ref = "springBoot" }
 
 # Common dependencies
-jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin", version = "3.0.2" }
-commons-codec = { module = "commons-codec:commons-codec", version = "1.20.0" }
+jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin", version.ref = "jackson" }
+commons-codec = { module = "commons-codec:commons-codec", version.ref = "commons" }
 
 # JPA and Database dependencies
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }

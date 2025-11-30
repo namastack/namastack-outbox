@@ -3,6 +3,7 @@ package io.namastack.outbox
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import jakarta.persistence.EntityManager
+import jakarta.persistence.EntityManagerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
@@ -10,12 +11,13 @@ import org.springframework.boot.autoconfigure.AutoConfigureBefore
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
 import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
 import org.springframework.boot.sql.init.DatabaseInitializationMode
 import org.springframework.boot.sql.init.DatabaseInitializationSettings
 import org.springframework.context.annotation.Bean
 import org.springframework.jdbc.support.JdbcUtils
+import org.springframework.orm.jpa.SharedEntityManagerCreator
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.sql.DatabaseMetaData
@@ -48,15 +50,17 @@ class JpaOutboxAutoConfiguration {
     /**
      * Creates a named EntityManager for outbox operations.
      *
-     * This bean uses the primary EntityManager by default, but can be overridden
-     * to use a specific EntityManager for multi-database scenarios.
+     * This creates a shared, transaction-aware EntityManager proxy that automatically
+     * participates in Spring-managed transactions. Users can override this by providing
+     * their own "outboxEntityManager" bean.
      *
-     * @param entityManager Primary JPA entity manager
-     * @return Named entity manager for outbox operations
+     * @param entityManagerFactory Primary JPA entity manager factory
+     * @return Shared, transaction-aware entity manager for outbox operations
      */
     @Bean("outboxEntityManager")
     @ConditionalOnMissingBean(name = ["outboxEntityManager"])
-    fun outboxEntityManager(entityManager: EntityManager): EntityManager = entityManager
+    fun outboxEntityManager(entityManagerFactory: EntityManagerFactory): EntityManager =
+        SharedEntityManagerCreator.createSharedEntityManager(entityManagerFactory)
 
     /**
      * Creates a transaction template for outbox operations.
@@ -138,7 +142,7 @@ class JpaOutboxAutoConfiguration {
     private fun detectDatabaseName(dataSource: DataSource): String =
         try {
             val metadata = JdbcUtils.extractDatabaseMetaData(dataSource, DatabaseMetaData::getDatabaseProductName)
-            JdbcUtils.commonDatabaseName(metadata)
+            JdbcUtils.commonDatabaseName(metadata) ?: throw RuntimeException("Could not detect database name")
         } catch (e: Exception) {
             throw RuntimeException("Could not detect database name", e)
         }

@@ -78,7 +78,7 @@ class OutboxCoreAutoConfiguration {
     fun outboxDefaultScheduler(): ThreadPoolTaskScheduler =
         ThreadPoolTaskScheduler().apply {
             poolSize = 5
-            threadNamePrefix = "outbox-scheduler-"
+            setThreadNamePrefix("outbox-scheduler-")
             setWaitForTasksToCompleteOnShutdown(true)
             initialize()
         }
@@ -95,7 +95,7 @@ class OutboxCoreAutoConfiguration {
     fun outboxRebalancingScheduler(): ThreadPoolTaskScheduler =
         ThreadPoolTaskScheduler().apply {
             poolSize = 1
-            threadNamePrefix = "outbox-rebalancing-"
+            setThreadNamePrefix("outbox-rebalancing-")
             setWaitForTasksToCompleteOnShutdown(true)
             initialize()
         }

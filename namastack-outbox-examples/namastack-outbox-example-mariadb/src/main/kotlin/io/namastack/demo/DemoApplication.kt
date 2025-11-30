@@ -23,7 +23,7 @@ class DemoApplication(
         }
     }
 
-    override fun run(vararg args: String?) {
+    override fun run(vararg args: String) {
         logger.info("Starting Namastack Outbox Demo Application")
         customerService.registerNew(firstname = "John", lastname = "Wayne", email = "john.wayne@example.com")
         customerService.registerNew(firstname = "Macy", lastname = "Grey", email = "macy.grey@example.com")
