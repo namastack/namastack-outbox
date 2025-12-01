@@ -14,22 +14,23 @@ import java.util.UUID
  * are not lost even if the message publishing fails.
  *
  * @param id Unique identifier for the outbox record
- * @param aggregateId Identifier of the aggregate that produced this event
- * @param eventType Type/name of the event
+ * @param recordKey Identifier of the logical group or entity for this outbox record
+ * @param recordType Type/name of the event
  * @param payload Event payload in serialized form (typically JSON)
  * @param createdAt Timestamp when the record was created
  * @param status Current processing status of the record
  * @param completedAt Timestamp when processing was completed (null if not completed)
  * @param retryCount Number of retry attempts made
  * @param nextRetryAt Timestamp for the next retry attempt
+ * @param processorName Name of the processor that should handle this record
  *
  * @author Roland Beisel
  * @since 0.1.0
  */
 class OutboxRecord internal constructor(
     val id: String,
-    val aggregateId: String,
-    val eventType: String,
+    val recordKey: String,
+    val recordType: String,
     val payload: String,
     val createdAt: OffsetDateTime,
     val partition: Int,
@@ -37,6 +38,7 @@ class OutboxRecord internal constructor(
     completedAt: OffsetDateTime?,
     retryCount: Int,
     nextRetryAt: OffsetDateTime,
+    processorName: String,
 ) {
     /**
      * Current processing status of this outbox record.
@@ -61,6 +63,12 @@ class OutboxRecord internal constructor(
      * Timestamp when the next retry attempt should be made.
      */
     var nextRetryAt: OffsetDateTime = nextRetryAt
+        internal set
+
+    /**
+     * Processor bean name for this outbox record.
+     */
+    var processorName: String = processorName
         internal set
 
     /**
@@ -127,25 +135,26 @@ class OutboxRecord internal constructor(
      * Builder class for creating new OutboxRecord instances.
      */
     class Builder {
-        private lateinit var aggregateId: String
-        private lateinit var eventType: String
+        private lateinit var recordKey: String
+        private lateinit var recordType: String
         private lateinit var payload: String
+        private lateinit var processorName: String
 
         /**
-         * Sets the aggregate ID for the outbox record.
+         * Sets the record key for the outbox record.
          *
-         * @param aggregateId Identifier of the aggregate
+         * @param recordKey Key that uniquely identifies the logical group for this outbox record
          * @return this Builder instance for method chaining
          */
-        fun aggregateId(aggregateId: String) = apply { this.aggregateId = aggregateId }
+        fun recordKey(recordKey: String) = apply { this.recordKey = recordKey }
 
         /**
-         * Sets the event type for the outbox record.
+         * Sets the record type for the outbox record.
          *
-         * @param eventType Type/name of the event
+         * @param recordType Type/name of the event
          * @return this Builder instance for method chaining
          */
-        fun eventType(eventType: String) = apply { this.eventType = eventType }
+        fun recordType(recordType: String) = apply { this.recordType = recordType }
 
         /**
          * Sets the payload for the outbox record.
@@ -156,6 +165,14 @@ class OutboxRecord internal constructor(
         fun payload(payload: String) = apply { this.payload = payload }
 
         /**
+         * Sets the processor bean name for the outbox record.
+         *
+         * @param processorName Name of the processor bean
+         * @return this Builder instance for method chaining
+         */
+        fun processorName(processorName: String) = apply { this.processorName = processorName }
+
+        /**
          * Builds the OutboxRecord with the configured values.
          *
          * @param clock Clock to use for timestamps (defaults to system UTC)
@@ -163,19 +180,20 @@ class OutboxRecord internal constructor(
          */
         fun build(clock: Clock): OutboxRecord {
             val now = OffsetDateTime.now(clock)
-            val partition = PartitionHasher.getPartitionForAggregate(aggregateId)
+            val partition = PartitionHasher.getPartitionForKey(recordKey)
 
             return OutboxRecord(
                 id = UUID.randomUUID().toString(),
                 status = OutboxRecordStatus.NEW,
-                aggregateId = aggregateId,
-                eventType = eventType,
+                recordKey = recordKey,
+                recordType = recordType,
                 payload = payload,
                 partition = partition,
                 createdAt = now,
                 completedAt = null,
                 retryCount = 0,
                 nextRetryAt = now,
+                processorName = processorName,
             )
         }
     }
@@ -187,8 +205,8 @@ class OutboxRecord internal constructor(
          * This method is used when loading records from the database.
          *
          * @param id Unique identifier
-         * @param aggregateId Aggregate identifier
-         * @param eventType Event type
+         * @param recordKey Logical group identifier
+         * @param recordType Event type
          * @param payload Event payload
          * @param partition Partition for this record
          * @param createdAt Creation timestamp
@@ -196,12 +214,13 @@ class OutboxRecord internal constructor(
          * @param completedAt Completion timestamp
          * @param retryCount Number of retries
          * @param nextRetryAt Next retry timestamp
+         * @param processorName Processor bean name
          * @return Restored OutboxRecord instance
          */
         fun restore(
             id: String,
-            aggregateId: String,
-            eventType: String,
+            recordKey: String,
+            recordType: String,
             payload: String,
             createdAt: OffsetDateTime,
             status: OutboxRecordStatus,
@@ -209,11 +228,12 @@ class OutboxRecord internal constructor(
             retryCount: Int,
             partition: Int,
             nextRetryAt: OffsetDateTime,
+            processorName: String,
         ): OutboxRecord =
             OutboxRecord(
                 id = id,
-                aggregateId = aggregateId,
-                eventType = eventType,
+                recordKey = recordKey,
+                recordType = recordType,
                 payload = payload,
                 partition = partition,
                 createdAt = createdAt,
@@ -221,6 +241,7 @@ class OutboxRecord internal constructor(
                 completedAt = completedAt,
                 retryCount = retryCount,
                 nextRetryAt = nextRetryAt,
+                processorName = processorName,
             )
     }
 }

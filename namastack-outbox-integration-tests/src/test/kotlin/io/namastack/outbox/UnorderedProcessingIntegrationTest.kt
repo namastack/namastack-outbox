@@ -59,10 +59,10 @@ class UnorderedProcessingIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `should process remaining records in case of a failure`() {
-        val aggregateId = "aggregate-1"
-        createRecord(aggregateId, "failure")
-        createRecord(aggregateId, "success")
-        createRecord(aggregateId, "success")
+        val recordKey = "record-key"
+        createRecord(recordKey, "failure")
+        createRecord(recordKey, "success")
+        createRecord(recordKey, "success")
 
         await()
             .atMost(10, SECONDS)
@@ -83,22 +83,23 @@ class UnorderedProcessingIntegrationTest {
     }
 
     private fun createRecord(
-        aggregateId: String,
+        recordKey: String,
         payload: String,
     ): OutboxRecord =
         outboxRecordRepository.save(
             OutboxRecord
                 .Builder()
-                .aggregateId(aggregateId)
+                .recordKey(recordKey)
+                .recordType("eventType")
                 .payload(payload)
-                .eventType("eventType")
+                .processorName("testProcessor")
                 .build(clock),
         )
 
     /**
      * Test processor that throws an exception for records with payload "failure".
      */
-    @Component
+    @Component("testProcessor")
     class TestProcessor : OutboxRecordProcessor {
         override fun process(record: OutboxRecord) {
             if (record.payload == "failure") {

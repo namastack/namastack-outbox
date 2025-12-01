@@ -129,19 +129,9 @@ class OutboxCoreAutoConfigurationTest {
                 contextRunner
                     .withUserConfiguration(MinimalTestConfig::class.java)
                     .run { context ->
-                        assertThat(context).hasSingleBean(OutboxRecordProcessor::class.java)
+                        assertThat(context).hasBean("delegatingOutboxRecordProcessor")
+                        assertThat(context).hasBean("outboxRecordProcessor")
                         assertThat(context).hasSingleBean(OutboxProcessingScheduler::class.java)
-                    }
-            }
-
-            @Test
-            fun `fails when processor is missing`() {
-                contextRunner
-                    .withUserConfiguration(ConfigWithoutProcessor::class.java)
-                    .run { context ->
-                        assertThat(context).hasFailed()
-                        assertThat(context.getStartupFailure())
-                            .hasMessageContaining("OutboxRecordProcessor")
                     }
             }
         }

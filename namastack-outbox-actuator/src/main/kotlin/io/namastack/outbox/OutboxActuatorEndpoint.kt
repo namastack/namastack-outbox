@@ -30,7 +30,7 @@ class OutboxActuatorEndpoint(
         @Selector aggregateId: String,
         @Selector status: OutboxRecordStatus,
     ) {
-        outboxRecordRepository.deleteByAggregateIdAndStatus(aggregateId, status)
+        outboxRecordRepository.deleteByRecordKeyAndStatus(aggregateId, status)
     }
 
     /**

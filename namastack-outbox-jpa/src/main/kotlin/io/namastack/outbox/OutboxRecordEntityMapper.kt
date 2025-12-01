@@ -20,14 +20,15 @@ internal object OutboxRecordEntityMapper {
         OutboxRecordEntity(
             id = record.id,
             status = record.status,
-            aggregateId = record.aggregateId,
-            eventType = record.eventType,
+            recordKey = record.recordKey,
+            recordType = record.recordType,
             payload = record.payload,
             partitionNo = record.partition,
             createdAt = record.createdAt,
             completedAt = record.completedAt,
             retryCount = record.retryCount,
             nextRetryAt = record.nextRetryAt,
+            processorName = record.processorName,
         )
 
     /**
@@ -39,8 +40,8 @@ internal object OutboxRecordEntityMapper {
     fun map(entity: OutboxRecordEntity): OutboxRecord =
         OutboxRecord.restore(
             id = entity.id,
-            aggregateId = entity.aggregateId,
-            eventType = entity.eventType,
+            recordKey = entity.recordKey,
+            recordType = entity.recordType,
             payload = entity.payload,
             partition = entity.partitionNo,
             createdAt = entity.createdAt,
@@ -48,5 +49,6 @@ internal object OutboxRecordEntityMapper {
             completedAt = entity.completedAt,
             retryCount = entity.retryCount,
             nextRetryAt = entity.nextRetryAt,
+            processorName = entity.processorName,
         )
 }

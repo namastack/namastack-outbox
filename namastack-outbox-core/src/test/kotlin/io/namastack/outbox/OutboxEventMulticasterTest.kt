@@ -20,6 +20,7 @@ import java.time.ZoneId
 open class OutboxEventMulticasterTest {
     private var delegateEventMulticaster = mockk<SimpleApplicationEventMulticaster>()
     private var outboxRecordRepository = mockk<OutboxRecordRepository>()
+    private var outboxRecordProcessorRegistry = mockk<OutboxRecordProcessorRegistry>()
     private var outboxEventSerializer = mockk<OutboxEventSerializer>()
     private var outboxProperties = OutboxProperties(processing = OutboxProperties.Processing(publishAfterSave = true))
     private val clock: Clock = Clock.fixed(Instant.now(), ZoneId.of("UTC"))
@@ -34,12 +35,20 @@ open class OutboxEventMulticasterTest {
             OutboxEventMulticaster(
                 delegateEventMulticaster = delegateEventMulticaster,
                 outboxRecordRepository = outboxRecordRepository,
+                outboxRecordProcessorRegistry = outboxRecordProcessorRegistry,
                 outboxEventSerializer = outboxEventSerializer,
                 outboxProperties = outboxProperties,
                 clock = clock,
             )
 
         every { delegateEventMulticaster.multicastEvent(any(), any()) } answers { }
+        every { outboxRecordProcessorRegistry.getAllProcessors() } returns
+            mapOf(
+                Pair(
+                    "testProcessor",
+                    mockk<OutboxRecordProcessor>(),
+                ),
+            )
     }
 
     @AfterEach
@@ -84,11 +93,11 @@ open class OutboxEventMulticasterTest {
         verify(exactly = 1) {
             outboxRecordRepository.save(
                 withArg<OutboxRecord> { record ->
-                    assertThat(record.aggregateId).isEqualTo("agg-1")
+                    assertThat(record.recordKey).isEqualTo("agg-1")
                     assertThat(record.payload).isEqualTo(serializedPayload)
                     assertThat(record.createdAt.toInstant()).isEqualTo(clock.instant())
                     assertThat(
-                        record.eventType,
+                        record.recordType,
                     ).isEqualTo("io.namastack.outbox.OutboxEventMulticasterTest.AnnotatedTestEvent")
                 },
             )
@@ -121,6 +130,7 @@ open class OutboxEventMulticasterTest {
             OutboxEventMulticaster(
                 delegateEventMulticaster = delegateEventMulticaster,
                 outboxRecordRepository = outboxRecordRepository,
+                outboxRecordProcessorRegistry = outboxRecordProcessorRegistry,
                 outboxEventSerializer = outboxEventSerializer,
                 outboxProperties = localProperties,
                 clock = clock,
@@ -150,7 +160,7 @@ open class OutboxEventMulticasterTest {
         verify(exactly = 1) {
             outboxRecordRepository.save(
                 match { record ->
-                    record.aggregateId == "agg-1"
+                    record.recordKey == "agg-1"
                 },
             )
         }
@@ -175,7 +185,7 @@ open class OutboxEventMulticasterTest {
         assertThatThrownBy {
             eventMulticaster.multicastEvent(event)
         }.isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessage("Failed to resolve aggregateId from SpEL: 'id'. Valid examples: 'id', '#this.id', '#root.id'")
+            .hasMessage("Failed to resolve record key from SpEL: 'id'. Valid examples: 'id', '#this.id', '#root.id'")
     }
 
     @Test
@@ -186,7 +196,7 @@ open class OutboxEventMulticasterTest {
         assertThatThrownBy {
             eventMulticaster.multicastEvent(event)
         }.isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessage("Failed to resolve aggregateId from SpEL: 'id'. Valid examples: 'id', '#this.id', '#root.id'")
+            .hasMessage("Failed to resolve record key from SpEL: 'id'. Valid examples: 'id', '#this.id', '#root.id'")
     }
 
     @Test
@@ -203,7 +213,7 @@ open class OutboxEventMulticasterTest {
             outboxRecordRepository.save(
                 withArg<OutboxRecord> { record ->
                     assertThat(
-                        record.eventType,
+                        record.recordType,
                     ).isEqualTo("io.namastack.outbox.OutboxEventMulticasterTest.DefaultEventTypeTest")
                 },
             )
@@ -223,28 +233,28 @@ open class OutboxEventMulticasterTest {
         verify(exactly = 1) {
             outboxRecordRepository.save(
                 withArg<OutboxRecord> { record ->
-                    assertThat(record.eventType).isEqualTo("custom.event.type")
+                    assertThat(record.recordType).isEqualTo("custom.event.type")
                 },
             )
         }
     }
 
-    @OutboxEvent(aggregateId = "#this.customId")
+    @OutboxEvent(key = "#this.customId")
     data class SpELAnnotatedTestEvent(
         val customId: String,
     )
 
-    @OutboxEvent(aggregateId = "id")
+    @OutboxEvent(key = "id")
     data class AnnotatedTestEvent(
         val id: String,
     )
 
-    @OutboxEvent(aggregateId = "id")
+    @OutboxEvent(key = "id")
     data class AnnotatedWithNullableTestEvent(
         val id: String? = null,
     )
 
-    @OutboxEvent(aggregateId = "id")
+    @OutboxEvent(key = "id")
     data class NonStringIdEvent(
         val id: Int,
     )
@@ -253,12 +263,12 @@ open class OutboxEventMulticasterTest {
         val id: String,
     )
 
-    @OutboxEvent(aggregateId = "id")
+    @OutboxEvent(key = "id")
     data class DefaultEventTypeTest(
         val id: String,
     )
 
-    @OutboxEvent(aggregateId = "id", eventType = "custom.event.type")
+    @OutboxEvent(key = "id", eventType = "custom.event.type")
     data class CustomEventTypeTest(
         val id: String,
     )

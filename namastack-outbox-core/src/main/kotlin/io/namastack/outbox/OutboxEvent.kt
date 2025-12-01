@@ -37,9 +37,9 @@ package io.namastack.outbox
  * }
  * ```
  *
- * @param aggregateId SpEL expression to extract the aggregate root ID from the event.
- *                    Examples: "id", "#this.id", "order.customerId"
- *                    Must evaluate to a String value.
+ * @param key SpEL expression to extract the (record) key from the event.
+ *            Examples: "id", "#this.id", "order.customerId"
+ *            Must evaluate to a String value.
  *
  * @author Roland Beisel
  * @since 0.3.0
@@ -47,6 +47,6 @@ package io.namastack.outbox
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class OutboxEvent(
-    val aggregateId: String,
+    val key: String,
     val eventType: String = "",
 )

@@ -26,36 +26,36 @@ internal open class JpaOutboxRecordRepository(
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
     /**
-     * Query to select aggregate IDs with no previous open/failed event (older.completedAt is null).
-     * Used when ignoreAggregatesWithPreviousFailure is true.
+     * Query to select record keys with no previous open/failed record (older.completedAt is null).
+     * Used when ignoreRecordsWithPreviousFailure is true.
      */
-    private val aggregateIdsQueryWithPreviousFailureFilter = """
-        select o.aggregateId, min(o.createdAt) as minCreated
+    private val recordKeysQueryWithPreviousFailureFilter = """
+        select o.recordKey, min(o.createdAt) as minCreated
         from OutboxRecordEntity o
         where o.partitionNo in :partitions
         and o.status = :status
         and o.nextRetryAt <= :now
         and not exists (
             select 1 from OutboxRecordEntity older
-            where older.aggregateId = o.aggregateId
+            where older.recordKey = o.recordKey
             and older.completedAt is null
             and older.createdAt < o.createdAt
         )
-        group by o.aggregateId
+        group by o.recordKey
         order by minCreated asc
     """
 
     /**
-     * Query to select all aggregate IDs with pending records, regardless of previous failures.
-     * Used when ignoreAggregatesWithPreviousFailure is false.
+     * Query to select all record keys with pending records, regardless of previous failures.
+     * Used when ignoreRecordsWithPreviousFailure is false.
      */
-    private val aggregateIdsQueryWithoutPreviousFailureFilter = """
-        select o.aggregateId, min(o.createdAt) as minCreated
+    private val recordKeysQueryWithoutPreviousFailureFilter = """
+        select o.recordKey, min(o.createdAt) as minCreated
         from OutboxRecordEntity o
         where o.partitionNo in :partitions
         and o.status = :status
         and o.nextRetryAt <= :now
-        group by o.aggregateId
+        group by o.recordKey
         order by minCreated asc
     """
 
@@ -90,12 +90,12 @@ internal open class JpaOutboxRecordRepository(
     """
 
     /**
-     * Query to select all incomplete records for a specific aggregate ID ordered by creation time.
+     * Query to select all incomplete records for a specific record key ordered by creation time.
      */
-    private val findIncompleteRecordsByAggregateIdQuery = """
+    private val findIncompleteRecordsByRecordKeyQuery = """
         select o
         from OutboxRecordEntity o
-        where o.aggregateId = :aggregateId
+        where o.recordKey = :recordKey
         and o.status = :status
         order by o.createdAt asc
     """
@@ -118,12 +118,12 @@ internal open class JpaOutboxRecordRepository(
     """
 
     /**
-     * Query to delete records for a specific aggregate ID and status.
+     * Query to delete records for a specific record key and status.
      */
-    private val deleteByAggregateIdAndStatusQuery = """
+    private val deleteByRecordKeyAndStatusQuery = """
         delete from OutboxRecordEntity o
         where o.status = :status
-        and o.aggregateId = :aggregateId
+        and o.recordKey = :recordKey
     """
 
     /**
@@ -194,15 +194,15 @@ internal open class JpaOutboxRecordRepository(
             .map { map(it) }
 
     /**
-     * Finds all incomplete records for a specific aggregate ID.
+     * Finds all incomplete records for a specific record key.
      *
-     * @param aggregateId The aggregate ID to search for
-     * @return List of pending outbox records for the aggregate, ordered by creation time
+     * @param recordKey The record key to search for
+     * @return List of pending outbox records for the record key, ordered by creation time
      */
-    override fun findIncompleteRecordsByAggregateId(aggregateId: String): List<OutboxRecord> =
+    override fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord> =
         entityManager
-            .createQuery(findIncompleteRecordsByAggregateIdQuery, OutboxRecordEntity::class.java)
-            .setParameter("aggregateId", aggregateId)
+            .createQuery(findIncompleteRecordsByRecordKeyQuery, OutboxRecordEntity::class.java)
+            .setParameter("recordKey", recordKey)
             .setParameter("status", OutboxRecordStatus.NEW)
             .resultList
             .map { map(it) }
@@ -251,20 +251,20 @@ internal open class JpaOutboxRecordRepository(
     }
 
     /**
-     * Deletes records for a specific aggregate ID and status.
+     * Deletes records for a specific record key and status.
      *
-     * @param aggregateId The aggregate ID
+     * @param recordKey The record key
      * @param status The status of records to delete
      */
-    override fun deleteByAggregateIdAndStatus(
-        aggregateId: String,
+    override fun deleteByRecordKeyAndStatus(
+        recordKey: String,
         status: OutboxRecordStatus,
     ) {
         transactionTemplate.execute {
             entityManager
-                .createQuery(deleteByAggregateIdAndStatusQuery)
+                .createQuery(deleteByRecordKeyAndStatusQuery)
                 .setParameter("status", status)
-                .setParameter("aggregateId", aggregateId)
+                .setParameter("recordKey", recordKey)
                 .executeUpdate()
         }
     }
@@ -284,30 +284,30 @@ internal open class JpaOutboxRecordRepository(
     }
 
     /**
-     * Finds aggregate IDs in the given partitions with pending records.
+     * Finds record keys in the given partitions with pending records.
      *
-     * The query logic depends on the ignoreAggregatesWithPreviousFailure flag:
-     * - If true: only aggregate IDs with no previous open/failed event (older.completedAt is null) are returned.
-     * - If false: all aggregate IDs with pending records are returned, regardless of previous failures.
+     * The query logic depends on the ignoreRecordsWithPreviousFailure flag:
+     * - If true: only record keys with no previous open/failed records (older.completedAt is null) are returned.
+     * - If false: all record keys with pending records are returned, regardless of previous failures.
      *
      * @param partitions List of partition numbers to search in
      * @param status The status to filter by
-     * @param batchSize Maximum number of aggregate IDs to return
-     * @param ignoreAggregatesWithPreviousFailure Whether to exclude aggregates with previous open/failed events
-     * @return List of aggregate IDs with pending records in the specified partitions
+     * @param batchSize Maximum number of record keys to return
+     * @param ignoreRecordsWithPreviousFailure Whether to exclude record keys with previous open/failed records
+     * @return List of record keys with pending records in the specified partitions
      */
-    override fun findAggregateIdsInPartitions(
+    override fun findRecordKeysInPartitions(
         partitions: Set<Int>,
         status: OutboxRecordStatus,
         batchSize: Int,
-        ignoreAggregatesWithPreviousFailure: Boolean,
+        ignoreRecordsWithPreviousFailure: Boolean,
     ): List<String> {
         val now = OffsetDateTime.now(clock)
         val query =
-            if (ignoreAggregatesWithPreviousFailure) {
-                aggregateIdsQueryWithPreviousFailureFilter
+            if (ignoreRecordsWithPreviousFailure) {
+                recordKeysQueryWithPreviousFailureFilter
             } else {
-                aggregateIdsQueryWithoutPreviousFailureFilter
+                recordKeysQueryWithoutPreviousFailureFilter
             }
 
         return entityManager

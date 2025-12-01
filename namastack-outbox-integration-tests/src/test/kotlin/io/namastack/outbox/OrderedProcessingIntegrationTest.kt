@@ -89,16 +89,17 @@ class OrderedProcessingIntegrationTest {
         outboxRecordRepository.save(
             OutboxRecord
                 .Builder()
-                .aggregateId(aggregateId)
+                .recordKey(aggregateId)
+                .recordType("eventType")
                 .payload(payload)
-                .eventType("eventType")
+                .processorName("testProcessor")
                 .build(clock),
         )
 
     /**
      * Test processor that throws an exception for records with payload "failure".
      */
-    @Component
+    @Component("testProcessor")
     class TestProcessor : OutboxRecordProcessor {
         override fun process(record: OutboxRecord) {
             if (record.payload == "failure") {

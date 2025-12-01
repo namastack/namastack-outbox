@@ -37,17 +37,18 @@ class JpaOutboxRecordRepositoryTest {
         val record =
             OutboxRecord
                 .Builder()
-                .aggregateId(aggregateId)
-                .eventType("eventType")
+                .recordKey(aggregateId)
+                .recordType("eventType")
                 .payload("payload")
+                .processorName("testProcessor")
                 .build(clock)
 
         jpaOutboxRecordRepository.save(record)
 
-        val persistedRecord = jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(aggregateId).first()
+        val persistedRecord = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(aggregateId).first()
 
-        assertThat(persistedRecord.aggregateId).isEqualTo(record.aggregateId)
-        assertThat(persistedRecord.eventType).isEqualTo(record.eventType)
+        assertThat(persistedRecord.recordKey).isEqualTo(record.recordKey)
+        assertThat(persistedRecord.recordType).isEqualTo(record.recordType)
         assertThat(persistedRecord.payload).isEqualTo(record.payload)
         assertThat(persistedRecord.status).isEqualTo(record.status)
         assertThat(persistedRecord.retryCount).isEqualTo(record.retryCount)
@@ -62,9 +63,10 @@ class JpaOutboxRecordRepositoryTest {
         val record =
             OutboxRecord
                 .Builder()
-                .aggregateId(aggregateId)
-                .eventType("eventType")
+                .recordKey(aggregateId)
+                .recordType("eventType")
                 .payload("payload")
+                .processorName("testProcessor")
                 .build(clock)
 
         jpaOutboxRecordRepository.save(record)
@@ -72,8 +74,8 @@ class JpaOutboxRecordRepositoryTest {
         val updatedRecord =
             OutboxRecord.restore(
                 id = record.id,
-                aggregateId = record.aggregateId,
-                eventType = record.eventType,
+                recordKey = record.recordKey,
+                recordType = record.recordType,
                 payload = record.payload,
                 partition = 1,
                 createdAt = record.createdAt,
@@ -81,13 +83,14 @@ class JpaOutboxRecordRepositoryTest {
                 completedAt = record.completedAt,
                 retryCount = record.retryCount + 1,
                 nextRetryAt = record.nextRetryAt,
+                processorName = "testProcessor",
             )
 
         jpaOutboxRecordRepository.save(updatedRecord)
 
         val persistedUpdatedRecord =
             jpaOutboxRecordRepository
-                .findIncompleteRecordsByAggregateId(
+                .findIncompleteRecordsByRecordKey(
                     aggregateId,
                 ).first()
 
@@ -180,7 +183,7 @@ class JpaOutboxRecordRepositoryTest {
         createNewRecordsForAggregateId(1, aggregateId2, NEW)
         createNewRecordsForAggregateId(1, aggregateId2, FAILED)
 
-        jpaOutboxRecordRepository.deleteByAggregateIdAndStatus(aggregateId1, FAILED)
+        jpaOutboxRecordRepository.deleteByRecordKeyAndStatus(aggregateId1, FAILED)
 
         assertThat(jpaOutboxRecordRepository.findPendingRecords()).hasSize(2)
         assertThat(jpaOutboxRecordRepository.findFailedRecords()).hasSize(1)
@@ -196,7 +199,7 @@ class JpaOutboxRecordRepositoryTest {
         createNewRecordsForAggregateId(1, aggregateId, NEW, now.minusMinutes(2))
         createNewRecordsForAggregateId(1, "other-aggregate", NEW, now)
 
-        val records = jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(aggregateId)
+        val records = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(aggregateId)
 
         assertThat(records).hasSize(3)
         assertThat(records.map { it.createdAt }).containsExactly(
@@ -204,7 +207,7 @@ class JpaOutboxRecordRepositoryTest {
             now.minusMinutes(2),
             now.minusMinutes(1),
         )
-        assertThat(records.map { it.aggregateId }).allMatch { it == aggregateId }
+        assertThat(records.map { it.recordKey }).allMatch { it == aggregateId }
     }
 
     @Test
@@ -216,7 +219,7 @@ class JpaOutboxRecordRepositoryTest {
         createRecordWithPartition(partition2AggregateId, NEW, 2)
 
         val partition1Aggregates =
-            jpaOutboxRecordRepository.findAggregateIdsInPartitions(
+            jpaOutboxRecordRepository.findRecordKeysInPartitions(
                 setOf(1),
                 NEW,
                 10,
@@ -224,7 +227,7 @@ class JpaOutboxRecordRepositoryTest {
             )
 
         val partition2Aggregates =
-            jpaOutboxRecordRepository.findAggregateIdsInPartitions(
+            jpaOutboxRecordRepository.findRecordKeysInPartitions(
                 setOf(2),
                 NEW,
                 10,
@@ -246,7 +249,7 @@ class JpaOutboxRecordRepositoryTest {
         createRecordWithPartition(aggregateId3, NEW, 3)
 
         val aggregateIds =
-            jpaOutboxRecordRepository.findAggregateIdsInPartitions(
+            jpaOutboxRecordRepository.findRecordKeysInPartitions(
                 setOf(1, 2),
                 NEW,
                 10,
@@ -308,7 +311,7 @@ class JpaOutboxRecordRepositoryTest {
         val aggregateId = UUID.randomUUID().toString()
         createCompletedRecordsForAggregateId(2, aggregateId)
 
-        val records = jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(aggregateId)
+        val records = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(aggregateId)
 
         assertThat(records).isEmpty()
     }
@@ -336,10 +339,10 @@ class JpaOutboxRecordRepositoryTest {
         createNewRecordsForAggregateId(1, otherAggregateId, NEW)
         createNewRecordsForAggregateId(1, otherAggregateId, FAILED)
 
-        jpaOutboxRecordRepository.deleteByAggregateIdAndStatus(targetAggregateId, NEW)
+        jpaOutboxRecordRepository.deleteByRecordKeyAndStatus(targetAggregateId, NEW)
 
-        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(targetAggregateId)).hasSize(0)
-        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(otherAggregateId)).hasSize(1)
+        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(targetAggregateId)).hasSize(0)
+        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(otherAggregateId)).hasSize(1)
         assertThat(jpaOutboxRecordRepository.findFailedRecords()).hasSize(2)
         assertThat(jpaOutboxRecordRepository.findCompletedRecords()).hasSize(0)
     }
@@ -352,7 +355,7 @@ class JpaOutboxRecordRepositoryTest {
         createRecordWithPartitionAndTime(aggregateId, NEW, 1, now.minusMinutes(3))
         createRecordWithPartitionAndTime(aggregateId, NEW, 1, now.minusMinutes(1))
 
-        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 10, true)
+        val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
 
         assertThat(result).contains(aggregateId)
     }
@@ -364,7 +367,7 @@ class JpaOutboxRecordRepositoryTest {
 
         createRecordWithPartitionAndTime(aggregateId, NEW, 1, now.minusMinutes(3))
 
-        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 10, true)
+        val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
 
         assertThat(result).contains(aggregateId)
     }
@@ -381,7 +384,7 @@ class JpaOutboxRecordRepositoryTest {
         createRecordWithPartitionAndTime(aggregate1, NEW, 2, now.minusMinutes(3))
         createRecordWithPartitionAndTime(aggregate3, NEW, 1, now.minusMinutes(1))
 
-        val result = jpaOutboxRecordRepository.findAggregateIdsInPartitions(setOf(1, 2), NEW, 10, true)
+        val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1, 2), NEW, 10, true)
 
         assertThat(result).containsExactly(aggregate1, aggregate2, aggregate3)
     }
@@ -392,16 +395,17 @@ class JpaOutboxRecordRepositoryTest {
         val record =
             OutboxRecord
                 .Builder()
-                .aggregateId(aggregateId)
-                .eventType("eventType")
+                .recordKey(aggregateId)
+                .recordType("eventType")
                 .payload("payload")
+                .processorName("testProcessor")
                 .build(clock)
 
         jpaOutboxRecordRepository.save(record)
-        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(aggregateId)).hasSize(1)
+        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(aggregateId)).hasSize(1)
 
         jpaOutboxRecordRepository.deleteById(record.id)
-        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByAggregateId(aggregateId)).isEmpty()
+        assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(aggregateId)).isEmpty()
     }
 
     @Test
@@ -422,8 +426,8 @@ class JpaOutboxRecordRepositoryTest {
             jpaOutboxRecordRepository.save(
                 OutboxRecord.restore(
                     id = UUID.randomUUID().toString(),
-                    aggregateId = UUID.randomUUID().toString(),
-                    eventType = "eventType",
+                    recordKey = UUID.randomUUID().toString(),
+                    recordType = "eventType",
                     payload = "payload",
                     partition = 1,
                     createdAt = now,
@@ -431,6 +435,7 @@ class JpaOutboxRecordRepositoryTest {
                     completedAt = null,
                     retryCount = 3,
                     nextRetryAt = now,
+                    processorName = "testProcessor",
                 ),
             )
         }
@@ -442,8 +447,8 @@ class JpaOutboxRecordRepositoryTest {
             jpaOutboxRecordRepository.save(
                 OutboxRecord.restore(
                     id = UUID.randomUUID().toString(),
-                    aggregateId = UUID.randomUUID().toString(),
-                    eventType = "eventType",
+                    recordKey = UUID.randomUUID().toString(),
+                    recordType = "eventType",
                     payload = "payload",
                     partition = 1,
                     createdAt = now,
@@ -451,6 +456,7 @@ class JpaOutboxRecordRepositoryTest {
                     completedAt = now,
                     retryCount = 0,
                     nextRetryAt = now,
+                    processorName = "testProcessor",
                 ),
             )
         }
@@ -462,8 +468,8 @@ class JpaOutboxRecordRepositoryTest {
             jpaOutboxRecordRepository.save(
                 OutboxRecord.restore(
                     id = UUID.randomUUID().toString(),
-                    aggregateId = UUID.randomUUID().toString(),
-                    eventType = "eventType",
+                    recordKey = UUID.randomUUID().toString(),
+                    recordType = "eventType",
                     payload = "payload",
                     partition = 1,
                     createdAt = now,
@@ -471,6 +477,7 @@ class JpaOutboxRecordRepositoryTest {
                     completedAt = null,
                     retryCount = 0,
                     nextRetryAt = now,
+                    processorName = "testProcessor",
                 ),
             )
         }
@@ -486,8 +493,8 @@ class JpaOutboxRecordRepositoryTest {
             jpaOutboxRecordRepository.save(
                 OutboxRecord.restore(
                     id = UUID.randomUUID().toString(),
-                    aggregateId = aggregateId,
-                    eventType = "eventType",
+                    recordKey = aggregateId,
+                    recordType = "eventType",
                     payload = "payload",
                     partition = 1,
                     createdAt = createdAt,
@@ -495,6 +502,7 @@ class JpaOutboxRecordRepositoryTest {
                     completedAt = null,
                     retryCount = 0,
                     nextRetryAt = createdAt,
+                    processorName = "testProcessor",
                 ),
             )
         }
@@ -509,8 +517,8 @@ class JpaOutboxRecordRepositoryTest {
         jpaOutboxRecordRepository.save(
             OutboxRecord.restore(
                 id = UUID.randomUUID().toString(),
-                aggregateId = aggregateId,
-                eventType = "TestEvent",
+                recordKey = aggregateId,
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = partition,
                 createdAt = createdAt,
@@ -518,6 +526,7 @@ class JpaOutboxRecordRepositoryTest {
                 completedAt = if (status == COMPLETED) createdAt else null,
                 retryCount = 0,
                 nextRetryAt = createdAt,
+                processorName = "testProcessor",
             ),
         )
     }
@@ -531,8 +540,8 @@ class JpaOutboxRecordRepositoryTest {
             jpaOutboxRecordRepository.save(
                 OutboxRecord.restore(
                     id = UUID.randomUUID().toString(),
-                    aggregateId = aggregateId,
-                    eventType = "TestEvent",
+                    recordKey = aggregateId,
+                    recordType = "TestEvent",
                     payload = "test-payload",
                     partition = 1,
                     createdAt = createdAt,
@@ -540,6 +549,7 @@ class JpaOutboxRecordRepositoryTest {
                     completedAt = createdAt,
                     retryCount = 0,
                     nextRetryAt = createdAt,
+                    processorName = "testProcessor",
                 ),
             )
         }
@@ -554,8 +564,8 @@ class JpaOutboxRecordRepositoryTest {
         val record =
             OutboxRecord.restore(
                 id = UUID.randomUUID().toString(),
-                aggregateId = aggregateId,
-                eventType = "eventType",
+                recordKey = aggregateId,
+                recordType = "eventType",
                 payload = "payload",
                 partition = partition,
                 createdAt = createdAt,
@@ -563,6 +573,7 @@ class JpaOutboxRecordRepositoryTest {
                 completedAt = null,
                 retryCount = 0,
                 nextRetryAt = createdAt,
+                processorName = "testProcessor",
             )
 
         jpaOutboxRecordRepository.save(record)

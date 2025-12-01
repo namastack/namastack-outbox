@@ -64,11 +64,11 @@ class OutboxProcessingScheduler(
             )
 
             val aggregateIds =
-                recordRepository.findAggregateIdsInPartitions(
+                recordRepository.findRecordKeysInPartitions(
                     partitions = assignedPartitions,
                     status = NEW,
                     batchSize = properties.batchSize,
-                    ignoreAggregatesWithPreviousFailure = properties.processing.stopOnFirstFailure,
+                    ignoreRecordsWithPreviousFailure = properties.processing.stopOnFirstFailure,
                 )
 
             if (aggregateIds.isNotEmpty()) {
@@ -101,7 +101,7 @@ class OutboxProcessingScheduler(
      */
     private fun processAggregate(aggregateId: String) {
         try {
-            val records = recordRepository.findIncompleteRecordsByAggregateId(aggregateId)
+            val records = recordRepository.findIncompleteRecordsByRecordKey(aggregateId)
 
             if (records.isEmpty()) {
                 return
@@ -140,8 +140,8 @@ class OutboxProcessingScheduler(
         try {
             log.trace(
                 "Processing {} for {} (partition {})",
-                record.eventType,
-                record.aggregateId,
+                record.recordType,
+                record.recordKey,
                 record.partition,
             )
 
@@ -159,7 +159,7 @@ class OutboxProcessingScheduler(
                 recordRepository.save(record)
             }
 
-            log.trace("Successfully processed {} for {}", record.eventType, record.aggregateId)
+            log.trace("Successfully processed {} for {}", record.recordType, record.recordKey)
             true
         } catch (ex: Exception) {
             handleFailure(record, ex)
@@ -176,7 +176,7 @@ class OutboxProcessingScheduler(
         record: OutboxRecord,
         ex: Exception,
     ) {
-        log.debug("Failed {} for {}: {}", record.eventType, record.aggregateId, ex.message)
+        log.debug("Failed {} for {}: {}", record.recordType, record.recordKey, ex.message)
 
         val retriesExhausted = record.retriesExhausted(properties.retry.maxRetries)
         if (retriesExhausted || !retryPolicy.shouldRetry(ex)) {
@@ -185,7 +185,7 @@ class OutboxProcessingScheduler(
             log.warn(
                 "Record {} for aggregate {} marked as FAILED after {} retries",
                 record.id,
-                record.aggregateId,
+                record.recordKey,
                 record.retryCount,
             )
         } else {

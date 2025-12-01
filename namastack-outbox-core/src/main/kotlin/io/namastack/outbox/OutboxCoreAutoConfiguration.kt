@@ -14,6 +14,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.core.task.TaskExecutor
@@ -164,7 +165,7 @@ class OutboxCoreAutoConfiguration {
     @ConditionalOnMissingBean
     fun partitionAwareOutboxProcessingScheduler(
         recordRepository: OutboxRecordRepository,
-        recordProcessor: OutboxRecordProcessor,
+        @Qualifier("delegatingOutboxRecordProcessor") recordProcessor: OutboxRecordProcessor,
         partitionCoordinator: PartitionCoordinator,
         retryPolicy: OutboxRetryPolicy,
         properties: OutboxProperties,
@@ -180,6 +181,49 @@ class OutboxCoreAutoConfiguration {
             taskExecutor = taskExecutor,
             clock = clock,
         )
+
+    @Bean(name = ["delegatingOutboxRecordProcessor"])
+    fun outboxRecordProcessor(processorRegistry: OutboxRecordProcessorRegistry): OutboxRecordProcessor =
+        DelegatingOutboxRecordProcessor(processorRegistry)
+
+    /**
+     * Creates the OutboxRecordProcessorRegistry bean and registers all OutboxRecordProcessor implementations.
+     *
+     * This registry collects all beans of type OutboxRecordProcessor from the Spring context using their bean names as keys.
+     * It enables dynamic lookup and delegation to multiple processors, supporting flexible event processing and migration scenarios.
+     * All processors available in the context at initialization time are included.
+     *
+     * @param applicationContext Spring application context used to discover processor beans
+     * @return OutboxRecordProcessorRegistry containing all registered processors
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxRecordProcessorRegistry(applicationContext: ApplicationContext): OutboxRecordProcessorRegistry {
+        val processors: Map<String, OutboxRecordProcessor> =
+            applicationContext.getBeansOfType(OutboxRecordProcessor::class.java)
+
+        return OutboxRecordProcessorRegistry(processors)
+    }
+
+    /**
+     * Creates the Outbox bean for scheduling outbox records to all registered processors.
+     *
+     * This bean provides the main entry point for scheduling events in the outbox pattern.
+     * It uses the OutboxRecordProcessorRegistry to discover all available processors and
+     * creates a separate OutboxRecord for each processor, setting the processorBeanName accordingly.
+     * Each record is then persisted via the OutboxRecordRepository.
+     *
+     * @param recordRepository Repository for persisting outbox records
+     * @param recordProcessorRegistry Registry for discovering all registered processors
+     * @return Outbox service instance
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun outbox(
+        recordRepository: OutboxRecordRepository,
+        recordProcessorRegistry: OutboxRecordProcessorRegistry,
+        clock: Clock,
+    ): OutboxService = OutboxService(recordRepository, recordProcessorRegistry, clock)
 
     /**
      * Creates the custom application event multicaster for @OutboxEvent handling.
@@ -201,6 +245,7 @@ class OutboxCoreAutoConfiguration {
     fun outboxApplicationEventMulticaster(
         beanFactory: BeanFactory,
         outboxRecordRepository: OutboxRecordRepository,
+        outboxRecordProcessorRegistry: OutboxRecordProcessorRegistry,
         outboxEventSerializer: OutboxEventSerializer,
         outboxProperties: OutboxProperties,
         clock: Clock,
@@ -208,6 +253,7 @@ class OutboxCoreAutoConfiguration {
         OutboxEventMulticaster(
             delegateEventMulticaster = SimpleApplicationEventMulticaster(beanFactory),
             outboxRecordRepository = outboxRecordRepository,
+            outboxRecordProcessorRegistry = outboxRecordProcessorRegistry,
             outboxEventSerializer = outboxEventSerializer,
             outboxProperties = outboxProperties,
             clock = clock,

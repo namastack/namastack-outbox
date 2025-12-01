@@ -18,8 +18,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -27,6 +27,7 @@ class OutboxRecordTest {
                 completedAt = null,
                 retryCount = 0,
                 nextRetryAt = now,
+                processorName = "test-processor",
             )
 
         record.markCompleted(clock)
@@ -41,8 +42,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -50,6 +51,7 @@ class OutboxRecordTest {
                 completedAt = completedAt,
                 retryCount = 0,
                 nextRetryAt = now,
+                processorName = "test-processor",
             )
 
         record.markCompleted(clock)
@@ -63,8 +65,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -72,6 +74,7 @@ class OutboxRecordTest {
                 completedAt = null,
                 retryCount = 0,
                 nextRetryAt = now.plusMinutes(5),
+                processorName = "test-processor",
             )
 
         record.markFailed()
@@ -84,8 +87,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -93,6 +96,7 @@ class OutboxRecordTest {
                 completedAt = null,
                 retryCount = 2,
                 nextRetryAt = now.plusMinutes(5),
+                processorName = "test-processor",
             )
 
         record.markFailed()
@@ -105,8 +109,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -114,6 +118,7 @@ class OutboxRecordTest {
                 completedAt = now.minusMinutes(5),
                 retryCount = 0,
                 nextRetryAt = now.plusMinutes(5),
+                processorName = "test-processor",
             )
 
         record.markFailed()
@@ -126,8 +131,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -135,6 +140,7 @@ class OutboxRecordTest {
                 completedAt = null,
                 retryCount = 2,
                 nextRetryAt = now,
+                processorName = "test-processor",
             )
 
         record.incrementRetryCount()
@@ -147,8 +153,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -156,6 +162,7 @@ class OutboxRecordTest {
                 completedAt = null,
                 retryCount = 0,
                 nextRetryAt = now,
+                processorName = "test-processor",
             )
 
         record.incrementRetryCount()
@@ -168,8 +175,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -177,6 +184,7 @@ class OutboxRecordTest {
                 completedAt = null,
                 retryCount = 0,
                 nextRetryAt = now.minusMinutes(1), // in the past
+                processorName = "test-processor",
             )
 
         val result = record.canBeRetried(clock)
@@ -189,8 +197,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -198,6 +206,7 @@ class OutboxRecordTest {
                 completedAt = null,
                 retryCount = 0,
                 nextRetryAt = now.plusMinutes(1), // in the future
+                processorName = "test-processor",
             )
 
         val result = record.canBeRetried(clock)
@@ -210,8 +219,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -219,6 +228,7 @@ class OutboxRecordTest {
                 completedAt = now.minusMinutes(5),
                 retryCount = 0,
                 nextRetryAt = now.minusMinutes(1), // in the past
+                processorName = "test-processor",
             )
 
         val result = record.canBeRetried(clock)
@@ -231,8 +241,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -240,6 +250,7 @@ class OutboxRecordTest {
                 completedAt = null,
                 retryCount = 0,
                 nextRetryAt = now, // exactly now
+                processorName = "test-processor",
             )
 
         val result = record.canBeRetried(clock)
@@ -252,8 +263,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -261,6 +272,7 @@ class OutboxRecordTest {
                 completedAt = null,
                 retryCount = 3,
                 nextRetryAt = now,
+                processorName = "test-processor",
             )
 
         val result = record.retriesExhausted(3)
@@ -273,8 +285,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -282,6 +294,7 @@ class OutboxRecordTest {
                 completedAt = null,
                 retryCount = 5,
                 nextRetryAt = now,
+                processorName = "test-processor",
             )
 
         val result = record.retriesExhausted(3)
@@ -294,8 +307,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -303,6 +316,7 @@ class OutboxRecordTest {
                 completedAt = null,
                 retryCount = 2,
                 nextRetryAt = now,
+                processorName = "test-processor",
             )
 
         val result = record.retriesExhausted(3)
@@ -315,8 +329,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
@@ -324,6 +338,7 @@ class OutboxRecordTest {
                 completedAt = null,
                 retryCount = 0,
                 nextRetryAt = now,
+                processorName = "test-processor",
             )
 
         val delay = Duration.of(5, ChronoUnit.SECONDS)
@@ -338,8 +353,8 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "custom-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-aggregate",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusHours(1),
@@ -347,12 +362,13 @@ class OutboxRecordTest {
                 completedAt = now.minusMinutes(30),
                 retryCount = 2,
                 nextRetryAt = now.plusMinutes(10),
+                processorName = "test-processor",
             )
 
         assertThat(record.id).isEqualTo("custom-id")
         assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
-        assertThat(record.aggregateId).isEqualTo("test-aggregate")
-        assertThat(record.eventType).isEqualTo("TestEvent")
+        assertThat(record.recordKey).isEqualTo("test-aggregate")
+        assertThat(record.recordType).isEqualTo("TestEvent")
         assertThat(record.payload).isEqualTo("test-payload")
         assertThat(record.createdAt).isEqualTo(now.minusHours(1))
         assertThat(record.completedAt).isEqualTo(now.minusMinutes(30))
@@ -365,15 +381,16 @@ class OutboxRecordTest {
         val record =
             OutboxRecord
                 .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
+                .recordKey("test-aggregate")
+                .recordType("TestEvent")
                 .payload("test-payload")
+                .processorName("testProcessor")
                 .build(clock)
 
         assertThat(record.id).isNotEmpty()
         assertThat(record.status).isEqualTo(OutboxRecordStatus.NEW)
-        assertThat(record.aggregateId).isEqualTo("test-aggregate")
-        assertThat(record.eventType).isEqualTo("TestEvent")
+        assertThat(record.recordKey).isEqualTo("test-aggregate")
+        assertThat(record.recordType).isEqualTo("TestEvent")
         assertThat(record.payload).isEqualTo("test-payload")
         assertThat(record.partition).isNotNull()
         assertThat(record.createdAt).isNotNull()

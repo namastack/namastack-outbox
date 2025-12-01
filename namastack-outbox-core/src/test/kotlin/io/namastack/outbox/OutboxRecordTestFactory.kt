@@ -19,8 +19,8 @@ object OutboxRecordTestFactory {
     ): OutboxRecord =
         OutboxRecord.restore(
             id = id,
-            aggregateId = aggregateId,
-            eventType = eventType,
+            recordKey = aggregateId,
+            recordType = eventType,
             payload = payload,
             partition = partition,
             createdAt = createdAt,
@@ -28,5 +28,6 @@ object OutboxRecordTestFactory {
             completedAt = completedAt,
             nextRetryAt = nextRetryAt,
             retryCount = retryCount,
+            processorName = "test-processor",
         )
 }

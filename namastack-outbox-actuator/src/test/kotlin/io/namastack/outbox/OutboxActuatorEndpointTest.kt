@@ -20,7 +20,7 @@ class OutboxActuatorEndpointTest {
         actuatorEndpoint.deleteOutboxRecords("test-aggregate", OutboxRecordStatus.COMPLETED)
 
         verify(exactly = 1) {
-            outboxRecordRepository.deleteByAggregateIdAndStatus("test-aggregate", OutboxRecordStatus.COMPLETED)
+            outboxRecordRepository.deleteByRecordKeyAndStatus("test-aggregate", OutboxRecordStatus.COMPLETED)
         }
     }
 
