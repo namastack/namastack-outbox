@@ -14,6 +14,12 @@ in distributed systems — built and maintained by [Namastack](https://outbox.na
 This library ensures that domain events are published reliably, even in the face of system failures,
 by using transactional guarantees and hash-based partitioning.
 
+## Disclaimer
+
+**This project is currently undergoing significant changes.**
+The next release (0.4.0) will introduce breaking changes.
+Please note that existing integrations will need to be updated once the release is published.
+
 ## Features
 
 - 🔄 **Transactional Outbox Pattern**: Ensures events are never lost
