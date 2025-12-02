@@ -3,7 +3,9 @@ package io.namastack.outbox
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import io.namastack.outbox.OutboxRecordStatus.*
+import io.namastack.outbox.OutboxRecordStatus.COMPLETED
+import io.namastack.outbox.OutboxRecordStatus.FAILED
+import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.OutboxRecordTestFactory.outboxRecord
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
@@ -16,7 +18,11 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
-import java.time.*
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.util.concurrent.TimeUnit
 
 @DisplayName("OutboxProcessingScheduler")

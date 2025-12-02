@@ -1,6 +1,6 @@
 package io.namastack.outbox
 
-import java.util.*
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicInteger
