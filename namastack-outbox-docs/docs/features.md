@@ -287,9 +287,9 @@ class CustomRetryPolicy : OutboxRetryPolicy {
         return exception !is IllegalArgumentException
     }
 
-    override fun nextDelay(retryCount: Int): Duration {
+    override fun nextDelay(failureCount: Int): Duration {
         // Exponential backoff: 1s → 2s → 4s → 8s (capped at 60s)
-        val delay = 1000L * (1L shl retryCount)
+        val delay = 1000L * (1L shl failureCount)
         return Duration.ofMillis(minOf(delay, 60000L))
     }
 }

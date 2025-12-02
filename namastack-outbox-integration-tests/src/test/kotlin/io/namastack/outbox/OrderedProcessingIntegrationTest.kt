@@ -27,7 +27,7 @@ import kotlin.test.Test
  * Integration test for ordered outbox processing with stop-on-first-failure enabled.
  *
  * Scenario:
- * - Inserts three records for the same aggregate: [failure, success, success]
+ * - Inserts three records for the same record key: [failure, success, success]
  * - Verifies that only the first (failure) is processed and the others remain unprocessed.
  */
 @DataJpaTest(showSql = false)
@@ -59,10 +59,10 @@ class OrderedProcessingIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `should process only first record and stop on failure`() {
-        val aggregateId = "aggregate-1"
-        createRecord(aggregateId, "failure")
-        createRecord(aggregateId, "success")
-        createRecord(aggregateId, "success")
+        val recordKey = "record-key-1"
+        createRecord(recordKey, "failure")
+        createRecord(recordKey, "success")
+        createRecord(recordKey, "success")
 
         await()
             .atMost(10, SECONDS)
@@ -83,15 +83,15 @@ class OrderedProcessingIntegrationTest {
     }
 
     private fun createRecord(
-        aggregateId: String,
+        recordKey: String,
         payload: String,
     ): OutboxRecord =
         outboxRecordRepository.save(
             OutboxRecord
                 .Builder()
-                .aggregateId(aggregateId)
+                .recordKey(recordKey)
                 .payload(payload)
-                .eventType("eventType")
+                .recordType("recordType")
                 .build(clock),
         )
 

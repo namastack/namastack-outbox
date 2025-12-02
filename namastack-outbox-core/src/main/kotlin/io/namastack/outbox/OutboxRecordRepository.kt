@@ -43,32 +43,32 @@ interface OutboxRecordRepository {
     fun findFailedRecords(): List<OutboxRecord>
 
     /**
-     * Finds all incomplete records for a specific aggregate ID.
+     * Finds all incomplete records for a specific record key.
      * Implementations **must** return records sorted by creation time ascending
      *
-     * @param aggregateId The aggregate ID to search for
-     * @return List of incomplete outbox records for the aggregate
+     * @param recordKey The record key to search for
+     * @return List of incomplete outbox records for the given record key
      */
-    fun findIncompleteRecordsByAggregateId(aggregateId: String): List<OutboxRecord>
+    fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord>
 
     /**
-     * Finds aggregate IDs that have pending records in specific partitions.
+     * Finds record keys that have pending records in specific partitions.
      *
-     * The query logic depends on the ignoreAggregatesWithPreviousFailure flag:
-     * - If true: only aggregate IDs with no previous open/failed event (older.completedAt is null) are returned.
-     * - If false: all aggregate IDs with pending records are returned, regardless of previous failures.
+     * The query logic depends on the ignoreRecordKeysWithPreviousFailure flag:
+     * - If true: only record keys with no previous open/failed record (older.completedAt is null) are returned.
+     * - If false: all record keys with pending records are returned, regardless of previous failures.
      *
      * @param partitions List of partition numbers to search in
      * @param status The status to filter by
-     * @param batchSize Maximum number of aggregate IDs to return
-     * @param ignoreAggregatesWithPreviousFailure Whether to exclude aggregates with previous open/failed events
-     * @return List of aggregate IDs with pending records in the specified partitions
+     * @param batchSize Maximum number of record keys to return
+     * @param ignoreRecordKeysWithPreviousFailure Whether to exclude record keys with previous open/failed records
+     * @return List of record keys with pending records in the specified partitions
      */
-    fun findAggregateIdsInPartitions(
+    fun findRecordKeysInPartitions(
         partitions: Set<Int>,
         status: OutboxRecordStatus,
         batchSize: Int,
-        ignoreAggregatesWithPreviousFailure: Boolean,
+        ignoreRecordKeysWithPreviousFailure: Boolean,
     ): List<String>
 
     /**
@@ -91,13 +91,13 @@ interface OutboxRecordRepository {
     fun deleteByStatus(status: OutboxRecordStatus)
 
     /**
-     * Deletes records for a specific aggregate ID and status.
+     * Deletes records for a specific record key and status.
      *
-     * @param aggregateId The aggregate ID
+     * @param recordKey The record key
      * @param status The status of records to delete
      */
-    fun deleteByAggregateIdAndStatus(
-        aggregateId: String,
+    fun deleteByRecordKeyAndStatus(
+        recordKey: String,
         status: OutboxRecordStatus,
     )
 

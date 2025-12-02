@@ -18,14 +18,14 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
-                retryCount = 0,
+                failureCount = 0,
                 nextRetryAt = now,
             )
 
@@ -41,14 +41,14 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.COMPLETED,
                 completedAt = completedAt,
-                retryCount = 0,
+                failureCount = 0,
                 nextRetryAt = now,
             )
 
@@ -63,14 +63,14 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
-                retryCount = 0,
+                failureCount = 0,
                 nextRetryAt = now.plusMinutes(5),
             )
 
@@ -84,14 +84,14 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.FAILED,
                 completedAt = null,
-                retryCount = 2,
+                failureCount = 2,
                 nextRetryAt = now.plusMinutes(5),
             )
 
@@ -105,14 +105,14 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.COMPLETED,
                 completedAt = now.minusMinutes(5),
-                retryCount = 0,
+                failureCount = 0,
                 nextRetryAt = now.plusMinutes(5),
             )
 
@@ -122,45 +122,45 @@ class OutboxRecordTest {
     }
 
     @Test
-    fun `incrementRetryCount should increase retry count by one`() {
+    fun `incrementFailureCount should increase failure count by one`() {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
-                retryCount = 2,
+                failureCount = 2,
                 nextRetryAt = now,
             )
 
-        record.incrementRetryCount()
+        record.incrementFailureCount()
 
-        assertThat(record.retryCount).isEqualTo(3)
+        assertThat(record.failureCount).isEqualTo(3)
     }
 
     @Test
-    fun `incrementRetryCount should work from zero`() {
+    fun `incrementFailureCount should work from zero`() {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
-                retryCount = 0,
+                failureCount = 0,
                 nextRetryAt = now,
             )
 
-        record.incrementRetryCount()
+        record.incrementFailureCount()
 
-        assertThat(record.retryCount).isEqualTo(1)
+        assertThat(record.failureCount).isEqualTo(1)
     }
 
     @Test
@@ -168,14 +168,14 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
-                retryCount = 0,
+                failureCount = 0,
                 nextRetryAt = now.minusMinutes(1), // in the past
             )
 
@@ -189,14 +189,14 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
-                retryCount = 0,
+                failureCount = 0,
                 nextRetryAt = now.plusMinutes(1), // in the future
             )
 
@@ -210,14 +210,14 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.COMPLETED,
                 completedAt = now.minusMinutes(5),
-                retryCount = 0,
+                failureCount = 0,
                 nextRetryAt = now.minusMinutes(1), // in the past
             )
 
@@ -231,14 +231,14 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
-                retryCount = 0,
+                failureCount = 0,
                 nextRetryAt = now, // exactly now
             )
 
@@ -248,18 +248,39 @@ class OutboxRecordTest {
     }
 
     @Test
-    fun `retriesExhausted should return true when retry count equals max retries`() {
+    fun `retriesExhausted should return false when failure count equals max retries`() {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
-                retryCount = 3,
+                failureCount = 3,
+                nextRetryAt = now,
+            )
+
+        val result = record.retriesExhausted(3)
+
+        assertThat(result).isFalse()
+    }
+
+    @Test
+    fun `retriesExhausted should return true when failure count exceeds max retries`() {
+        val record =
+            OutboxRecord.restore(
+                id = "test-id",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
+                payload = "test-payload",
+                partition = 1,
+                createdAt = now.minusMinutes(10),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                failureCount = 4,
                 nextRetryAt = now,
             )
 
@@ -269,39 +290,18 @@ class OutboxRecordTest {
     }
 
     @Test
-    fun `retriesExhausted should return true when retry count exceeds max retries`() {
+    fun `retriesExhausted should return false when failure count is less than max retries`() {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
-                retryCount = 5,
-                nextRetryAt = now,
-            )
-
-        val result = record.retriesExhausted(3)
-
-        assertThat(result).isTrue()
-    }
-
-    @Test
-    fun `retriesExhausted should return false when retry count is less than max retries`() {
-        val record =
-            OutboxRecord.restore(
-                id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
-                payload = "test-payload",
-                partition = 1,
-                createdAt = now.minusMinutes(10),
-                status = OutboxRecordStatus.NEW,
-                completedAt = null,
-                retryCount = 2,
+                failureCount = 2,
                 nextRetryAt = now,
             )
 
@@ -315,14 +315,14 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "test-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusMinutes(10),
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
-                retryCount = 0,
+                failureCount = 0,
                 nextRetryAt = now,
             )
 
@@ -338,25 +338,25 @@ class OutboxRecordTest {
         val record =
             OutboxRecord.restore(
                 id = "custom-id",
-                aggregateId = "test-aggregate",
-                eventType = "TestEvent",
+                recordKey = "test-record-key",
+                recordType = "TestEvent",
                 payload = "test-payload",
                 partition = 1,
                 createdAt = now.minusHours(1),
                 status = OutboxRecordStatus.COMPLETED,
                 completedAt = now.minusMinutes(30),
-                retryCount = 2,
+                failureCount = 2,
                 nextRetryAt = now.plusMinutes(10),
             )
 
         assertThat(record.id).isEqualTo("custom-id")
         assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
-        assertThat(record.aggregateId).isEqualTo("test-aggregate")
-        assertThat(record.eventType).isEqualTo("TestEvent")
+        assertThat(record.recordKey).isEqualTo("test-record-key")
+        assertThat(record.recordType).isEqualTo("TestEvent")
         assertThat(record.payload).isEqualTo("test-payload")
         assertThat(record.createdAt).isEqualTo(now.minusHours(1))
         assertThat(record.completedAt).isEqualTo(now.minusMinutes(30))
-        assertThat(record.retryCount).isEqualTo(2)
+        assertThat(record.failureCount).isEqualTo(2)
         assertThat(record.nextRetryAt).isEqualTo(now.plusMinutes(10))
     }
 
@@ -365,20 +365,20 @@ class OutboxRecordTest {
         val record =
             OutboxRecord
                 .Builder()
-                .aggregateId("test-aggregate")
-                .eventType("TestEvent")
+                .recordKey("test-record-key")
+                .recordType("TestEvent")
                 .payload("test-payload")
                 .build(clock)
 
         assertThat(record.id).isNotEmpty()
         assertThat(record.status).isEqualTo(OutboxRecordStatus.NEW)
-        assertThat(record.aggregateId).isEqualTo("test-aggregate")
-        assertThat(record.eventType).isEqualTo("TestEvent")
+        assertThat(record.recordKey).isEqualTo("test-record-key")
+        assertThat(record.recordType).isEqualTo("TestEvent")
         assertThat(record.payload).isEqualTo("test-payload")
         assertThat(record.partition).isNotNull()
         assertThat(record.createdAt).isNotNull()
         assertThat(record.completedAt).isNull()
-        assertThat(record.retryCount).isEqualTo(0)
+        assertThat(record.failureCount).isEqualTo(0)
         assertThat(record.nextRetryAt).isNotNull()
     }
 }

@@ -26,13 +26,13 @@ data class OutboxRecord(
             .randomUUID()
             .toString(),
     val status: String = "NEW",
-    val aggregateId: String,
-    val eventType: String,
+    val recordKey: String,
+    val recordType: String,
     val payload: String,
     val partitionNo: Int,
     val createdAt: OffsetDateTime,
     val completedAt: OffsetDateTime? = null,
-    val retryCount: Int = 0,
+    val failureCount: Int = 0,
     val nextRetryAt: OffsetDateTime,
 ) : Persistable<String> {
     override fun getId(): String = entityId

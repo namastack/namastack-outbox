@@ -45,10 +45,10 @@ class OutboxCoreAutoConfiguration {
     fun clock(): Clock = Clock.systemDefaultZone()
 
     /**
-     * Provides a ThreadPoolTaskExecutor for parallel processing of aggregateIds.
+     * Provides a ThreadPoolTaskExecutor for parallel processing batches per record key.
      *
      * The pool size is configurable via OutboxProperties. Used by OutboxProcessingScheduler
-     * to process multiple aggregateIds in parallel while maintaining strict ordering per aggregateId.
+     * to process multiple record keys in parallel while maintaining strict ordering per record key.
      *
      * @param properties Outbox configuration properties
      * @return Configured ThreadPoolTaskExecutor
@@ -154,7 +154,7 @@ class OutboxCoreAutoConfiguration {
      * @param recordRepository Repository for accessing outbox records
      * @param recordProcessor Processor for handling individual records
      * @param partitionCoordinator Coordinator for partition assignments
-     * @param taskExecutor TaskExecutor for parallel processing of aggregateIds
+     * @param taskExecutor TaskExecutor for parallel processing of record keys
      * @param retryPolicy Policy for determining retry behavior
      * @param properties Configuration properties
      * @param clock Clock for time-based operations

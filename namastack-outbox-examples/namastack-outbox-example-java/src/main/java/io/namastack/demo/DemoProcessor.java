@@ -14,7 +14,7 @@ public class DemoProcessor implements OutboxRecordProcessor {
 
   @Override
   public void process(@NotNull OutboxRecord record) {
-    logger.info("Processing {} for aggregate {}", record.getEventType(), record.getAggregateId());
+    logger.info("Processing {} for recordKey {}", record.getRecordType(), record.getRecordKey());
     simulateExternalServiceCall();
   }
 

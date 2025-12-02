@@ -9,18 +9,17 @@ import java.util.UUID
 /**
  * Represents an outbox record for implementing the transactional outbox pattern.
  *
- * An outbox record stores event information that needs to be published reliably
- * after a database transaction has been committed. This ensures that domain events
- * are not lost even if the message publishing fails.
+ * An outbox record stores information that needs to be published reliably
+ * after a database transaction has been committed.
  *
  * @param id Unique identifier for the outbox record
- * @param aggregateId Identifier of the aggregate that produced this event
- * @param eventType Type/name of the event
- * @param payload Event payload in serialized form (typically JSON)
+ * @param recordKey Logical group identifier for this record
+ * @param recordType Type/name of the record
+ * @param payload Payload in serialized form (typically JSON)
  * @param createdAt Timestamp when the record was created
  * @param status Current processing status of the record
  * @param completedAt Timestamp when processing was completed (null if not completed)
- * @param retryCount Number of retry attempts made
+ * @param failureCount Number of times this record has failed processing
  * @param nextRetryAt Timestamp for the next retry attempt
  *
  * @author Roland Beisel
@@ -28,14 +27,14 @@ import java.util.UUID
  */
 class OutboxRecord internal constructor(
     val id: String,
-    val aggregateId: String,
-    val eventType: String,
+    val recordKey: String,
+    val recordType: String,
     val payload: String,
     val createdAt: OffsetDateTime,
     val partition: Int,
     status: OutboxRecordStatus,
     completedAt: OffsetDateTime?,
-    retryCount: Int,
+    failureCount: Int,
     nextRetryAt: OffsetDateTime,
 ) {
     /**
@@ -52,9 +51,10 @@ class OutboxRecord internal constructor(
         internal set
 
     /**
-     * Number of retry attempts made for processing this record.
+     * Number of times this record has failed processing.
+     * Incremented each time processing fails and a retry is scheduled.
      */
-    var retryCount: Int = retryCount
+    var failureCount: Int = failureCount
         internal set
 
     /**
@@ -87,10 +87,10 @@ class OutboxRecord internal constructor(
     }
 
     /**
-     * Increments the retry count for this record.
+     * Increments the failure count for this record.
      */
-    internal fun incrementRetryCount() {
-        retryCount++
+    internal fun incrementFailureCount() {
+        failureCount++
     }
 
     /**
@@ -108,7 +108,7 @@ class OutboxRecord internal constructor(
      * @param maxRetries Maximum allowed number of retries
      * @return true if retries are exhausted, false otherwise
      */
-    internal fun retriesExhausted(maxRetries: Int): Boolean = retryCount >= maxRetries
+    internal fun retriesExhausted(maxRetries: Int): Boolean = failureCount > maxRetries
 
     /**
      * Schedules the next retry attempt.
@@ -127,30 +127,30 @@ class OutboxRecord internal constructor(
      * Builder class for creating new OutboxRecord instances.
      */
     class Builder {
-        private lateinit var aggregateId: String
-        private lateinit var eventType: String
+        private lateinit var recordKey: String
+        private lateinit var recordType: String
         private lateinit var payload: String
 
         /**
-         * Sets the aggregate ID for the outbox record.
+         * Sets the record key for the outbox record.
          *
-         * @param aggregateId Identifier of the aggregate
+         * @param recordKey Identifier of the logical group of the record
          * @return this Builder instance for method chaining
          */
-        fun aggregateId(aggregateId: String) = apply { this.aggregateId = aggregateId }
+        fun recordKey(recordKey: String) = apply { this.recordKey = recordKey }
 
         /**
-         * Sets the event type for the outbox record.
+         * Sets the record type for the outbox record.
          *
-         * @param eventType Type/name of the event
+         * @param recordType Type/name of the record
          * @return this Builder instance for method chaining
          */
-        fun eventType(eventType: String) = apply { this.eventType = eventType }
+        fun recordType(recordType: String) = apply { this.recordType = recordType }
 
         /**
          * Sets the payload for the outbox record.
          *
-         * @param payload Event payload in serialized form
+         * @param payload Record payload in serialized form
          * @return this Builder instance for method chaining
          */
         fun payload(payload: String) = apply { this.payload = payload }
@@ -163,18 +163,18 @@ class OutboxRecord internal constructor(
          */
         fun build(clock: Clock): OutboxRecord {
             val now = OffsetDateTime.now(clock)
-            val partition = PartitionHasher.getPartitionForAggregate(aggregateId)
+            val partition = PartitionHasher.getPartitionForRecordKey(recordKey)
 
             return OutboxRecord(
                 id = UUID.randomUUID().toString(),
                 status = OutboxRecordStatus.NEW,
-                aggregateId = aggregateId,
-                eventType = eventType,
+                recordKey = recordKey,
+                recordType = recordType,
                 payload = payload,
                 partition = partition,
                 createdAt = now,
                 completedAt = null,
-                retryCount = 0,
+                failureCount = 0,
                 nextRetryAt = now,
             )
         }
@@ -187,39 +187,39 @@ class OutboxRecord internal constructor(
          * This method is used when loading records from the database.
          *
          * @param id Unique identifier
-         * @param aggregateId Aggregate identifier
-         * @param eventType Event type
-         * @param payload Event payload
+         * @param recordKey Record key
+         * @param recordType Record type
+         * @param payload Payload
          * @param partition Partition for this record
          * @param createdAt Creation timestamp
          * @param status Current status
          * @param completedAt Completion timestamp
-         * @param retryCount Number of retries
+         * @param failureCount Number of failures
          * @param nextRetryAt Next retry timestamp
          * @return Restored OutboxRecord instance
          */
         fun restore(
             id: String,
-            aggregateId: String,
-            eventType: String,
+            recordKey: String,
+            recordType: String,
             payload: String,
             createdAt: OffsetDateTime,
             status: OutboxRecordStatus,
             completedAt: OffsetDateTime?,
-            retryCount: Int,
+            failureCount: Int,
             partition: Int,
             nextRetryAt: OffsetDateTime,
         ): OutboxRecord =
             OutboxRecord(
                 id = id,
-                aggregateId = aggregateId,
-                eventType = eventType,
+                recordKey = recordKey,
+                recordType = recordType,
                 payload = payload,
                 partition = partition,
                 createdAt = createdAt,
                 status = status,
                 completedAt = completedAt,
-                retryCount = retryCount,
+                failureCount = failureCount,
                 nextRetryAt = nextRetryAt,
             )
     }

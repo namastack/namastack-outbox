@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * Key Features:
  * - Automatic detection of @OutboxEvent annotations
- * - SpEL-based aggregateId extraction from event properties
+ * - SpEL-based key extraction from event properties
  * - Expression caching for performance optimization
  * - Configurable publishing behavior (publishAfterSave flag)
  *
@@ -113,7 +113,7 @@ class OutboxEventMulticaster(
      * Persists an event payload to the outbox database.
      *
      * Creates an OutboxRecord from the event, extracting:
-     * - aggregateId: Extracted via SpEL expression from event payload
+     * - key: Extracted via SpEL expression from event payload
      * - eventType: Simple class name of the event
      * - payload: Serialized event object (via OutboxEventSerializer)
      * - timestamp: Current clock time
@@ -128,26 +128,26 @@ class OutboxEventMulticaster(
             throw IllegalStateException("OutboxEvent requires an active transaction")
         }
 
-        val aggregateId = resolveAggregateId(payload, annotation)
+        val key = resolveEventKey(payload, annotation)
         val eventType = annotation.eventType.takeIf { it.isNotEmpty() } ?: payload::class.qualifiedName!!
 
         outboxRecordRepository.save(
             record =
                 OutboxRecord
                     .Builder()
-                    .aggregateId(aggregateId)
-                    .eventType(eventType)
+                    .recordKey(key)
+                    .recordType(eventType)
                     .payload(outboxEventSerializer.serialize(payload))
                     .build(clock),
         )
     }
 
     /**
-     * Resolves the aggregateId from the event payload using SpEL expression.
+     * Resolves the key from the event payload using SpEL expression.
      *
-     * The aggregateId is extracted from the @OutboxEvent annotation's aggregateId parameter,
+     * The key is extracted from the @OutboxEvent annotation's key parameter,
      * which contains a SpEL expression. The expression is evaluated against the event payload
-     * to extract the actual aggregate ID value.
+     * to extract the actual key value.
      *
      * Expression caching:
      * Parsed SpEL expressions are cached to avoid re-parsing the same expression
@@ -161,16 +161,16 @@ class OutboxEventMulticaster(
      * - "order.id" - nested property access
      *
      * @param payload The event payload object
-     * @return The resolved aggregateId as a String
+     * @return The resolved key as a String
      * @throws IllegalStateException if @OutboxEvent annotation is not found
      * @throws IllegalArgumentException if SpEL expression evaluation fails or returns non-String
      */
-    private fun resolveAggregateId(
+    private fun resolveEventKey(
         payload: Any,
         annotation: OutboxEvent,
     ): String =
         try {
-            val spelExpression = annotation.aggregateId
+            val spelExpression = annotation.key
 
             val expression =
                 expressionCache.computeIfAbsent(spelExpression) {
@@ -190,7 +190,7 @@ class OutboxEventMulticaster(
             }
         } catch (e: Exception) {
             throw IllegalArgumentException(
-                "Failed to resolve aggregateId from SpEL: '${annotation.aggregateId}'. " +
+                "Failed to resolve key from SpEL: '${annotation.key}'. " +
                     "Valid examples: 'id', '#this.id', '#root.id'",
                 e,
             )

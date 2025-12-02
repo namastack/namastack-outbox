@@ -16,7 +16,7 @@ import java.time.Clock
  *  - Bootstrap: claim all partitions if none exist yet.
  *  - Rebalance: reclaim stale partitions and release surplus when topology changes.
  *  - Caching: memorizes owned partition numbers until next rebalance.
- *  - Stats: provides aggregated partition distribution metrics.
+ *  - Stats: provides record key partition distribution metrics.
  *
  * Concurrency assumptions:
  *  - Rebalance invoked after batch completion (scheduler guarantees no overlapping processing).

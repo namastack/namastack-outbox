@@ -20,17 +20,17 @@ class OutboxActuatorEndpoint(
     private val outboxRecordRepository: OutboxRecordRepository,
 ) {
     /**
-     * Deletes outbox records for a specific aggregate ID and status.
+     * Deletes outbox records for a specific record key and status.
      *
-     * @param aggregateId The aggregate ID to delete records for
+     * @param recordKey The record key to delete records for
      * @param status The status of records to delete
      */
     @DeleteOperation
     fun deleteOutboxRecords(
-        @Selector aggregateId: String,
+        @Selector recordKey: String,
         @Selector status: OutboxRecordStatus,
     ) {
-        outboxRecordRepository.deleteByAggregateIdAndStatus(aggregateId, status)
+        outboxRecordRepository.deleteByRecordKeyAndStatus(recordKey, status)
     }
 
     /**

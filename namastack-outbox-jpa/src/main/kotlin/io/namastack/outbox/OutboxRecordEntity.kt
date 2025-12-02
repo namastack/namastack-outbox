@@ -24,12 +24,12 @@ internal data class OutboxRecordEntity(
     val id: String,
     @Enumerated(EnumType.STRING)
     val status: OutboxRecordStatus,
-    val aggregateId: String,
-    val eventType: String,
+    val recordKey: String,
+    val recordType: String,
     val payload: String,
     val partitionNo: Int,
     val createdAt: OffsetDateTime,
     val completedAt: OffsetDateTime?,
-    val retryCount: Int,
+    val failureCount: Int,
     val nextRetryAt: OffsetDateTime,
 )

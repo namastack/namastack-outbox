@@ -5,20 +5,20 @@ CREATE TABLE outbox_record
 (
     id            VARCHAR(255) NOT NULL,
     status        VARCHAR(20)  NOT NULL,
-    aggregate_id  VARCHAR(255) NOT NULL,
-    event_type    VARCHAR(255) NOT NULL,
+    record_key    VARCHAR(255) NOT NULL,
+    record_type   VARCHAR(255) NOT NULL,
     payload       VARCHAR(MAX) NOT NULL,
     created_at    DATETIME2    NOT NULL,
     completed_at  DATETIME2    NULL,
-    retry_count   INT          NOT NULL,
+    failure_count INT          NOT NULL,
     next_retry_at DATETIME2    NOT NULL,
     partition_no  INT          NOT NULL
         PRIMARY KEY (id),
-    INDEX idx_outbox_record_aggregate_created (aggregate_id, created_at),
+    INDEX idx_outbox_record_record_key_created (record_key, created_at),
     INDEX idx_outbox_record_partition_status_retry (partition_no, status, next_retry_at),
     INDEX idx_outbox_record_status_retry (status, next_retry_at),
     INDEX idx_outbox_record_status (status),
-    INDEX idx_outbox_record_aggregate_completed_created (aggregate_id, completed_at, created_at)
+    INDEX idx_outbox_record_record_key_completed_created (record_key, completed_at, created_at)
 );
 
 IF NOT EXISTS(SELECT *

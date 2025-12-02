@@ -33,17 +33,17 @@ class JitteredRetryPolicy(
     /**
      * Calculates the next delay by adding random jitter to the base policy's delay.
      *
-     * @param retryCount The current retry count
+     * @param failureCount The number of failures that have occurred
      * @return Base delay plus random jitter
      */
-    override fun nextDelay(retryCount: Int): Duration {
-        val baseDelay = basePolicy.nextDelay(retryCount)
+    override fun nextDelay(failureCount: Int): Duration {
+        val baseDelay = basePolicy.nextDelay(failureCount)
         val jitterMillis = (Math.random() * jitter.toMillis()).toLong()
         val finalDelay = baseDelay.plusMillis(jitterMillis)
 
         log.debug(
             "Jittered retry delay calculation: retry #{} -> base delay: {}ms (from {}), jitter: +{}ms (max: {}ms), final delay: {}ms",
-            retryCount,
+            failureCount,
             baseDelay.toMillis(),
             basePolicy.javaClass.simpleName,
             jitterMillis,
