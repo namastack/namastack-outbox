@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.annotation.Scheduled
 import java.time.Clock
-import java.util.concurrent.CountDownLatch
 
 /**
  * Scheduler for processing outbox records.
@@ -41,53 +40,64 @@ class OutboxProcessingScheduler(
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
     /**
-     * Scheduled entry point:
-     * 1. Consume a pending rebalance signal (rebalance only AFTER previous batch finished).
-     * 2. Fetch currently owned partitions (cached via coordinator).
-     * 3. Query distinct aggregate IDs with NEW records in those partitions (bounded by batchSize).
-     * 4. Process aggregates in parallel using a CountDownLatch to wait until all tasks finish before next cycle.
+     * Scheduled method to process outbox records assigned to this instance.
      *
-     * Notes:
-     * - Empty partition set => fast exit.
-     * - Rebalance never interleaves with in-flight aggregate processing.
+     * Steps:
+     * 1. Checks for assigned partitions and exits early if none.
+     * 2. Iteratively fetches and processes aggregate IDs with NEW records in assigned partitions.
+     * 3. Uses a limiter and TaskExecutor to process aggregates in parallel, ensuring ordering per aggregateId.
+     * 4. Handles rebalancing and waits for all tasks to complete before finishing.
      */
     @Scheduled(fixedDelayString = $$"${outbox.poll-interval:2000}", scheduler = "outboxDefaultScheduler")
     fun process() {
         try {
-            val assignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
-            if (assignedPartitions.isEmpty()) return
+            var previouslyAssignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
+            if (previouslyAssignedPartitions.isEmpty()) return
 
             log.debug(
                 "Processing {} partitions: {}",
-                assignedPartitions.size,
-                assignedPartitions.sorted(),
+                previouslyAssignedPartitions.size,
+                previouslyAssignedPartitions.sorted(),
             )
 
-            val aggregateIds =
-                recordRepository.findAggregateIdsInPartitions(
-                    partitions = assignedPartitions,
-                    status = NEW,
-                    batchSize = properties.batchSize,
-                    ignoreAggregatesWithPreviousFailure = properties.processing.stopOnFirstFailure,
-                )
+            val limiter = OutboxProcessingLimiter(properties.batchSize)
 
-            if (aggregateIds.isNotEmpty()) {
-                log.debug("Found {} aggregates to process", aggregateIds.size)
+            while (true) {
+                val assignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
+                if (assignedPartitions.isEmpty()) return
+                if (assignedPartitions != previouslyAssignedPartitions) break
 
-                val latch = CountDownLatch(aggregateIds.size)
-                aggregateIds.forEach { aggregateId ->
+                val unprocessedAggregateIds = limiter.getUnprocessedIds()
+                val aggregateIds =
+                    recordRepository.findAggregateIdsInPartitions(
+                        partitions = assignedPartitions,
+                        status = NEW,
+                        batchSize = properties.batchSize * 2, // Fetch extra to account for unprocessed
+                        ignoreAggregatesWithPreviousFailure = properties.processing.stopOnFirstFailure,
+                    )
+                val nextAggregateIds = aggregateIds - unprocessedAggregateIds
+                if (nextAggregateIds.isEmpty()) break
+
+                log.debug("Found {} aggregates to process", nextAggregateIds.size)
+
+                nextAggregateIds.forEach { aggregateId ->
+                    limiter.acquire(aggregateId)
                     taskExecutor.execute {
                         try {
                             processAggregate(aggregateId)
                         } finally {
-                            latch.countDown()
+                            limiter.release(aggregateId)
                         }
                     }
                 }
 
-                latch.await()
-                log.debug("Finished processing {} aggregates", aggregateIds.size)
+                if (nextAggregateIds.size <= properties.batchSize) break
+
+                previouslyAssignedPartitions = assignedPartitions
             }
+
+            limiter.awaitAll()
+            log.debug("Finished processing {} aggregates", limiter.getProcessedCount())
         } catch (ex: Exception) {
             log.error("Error during partition-aware outbox processing", ex)
         }

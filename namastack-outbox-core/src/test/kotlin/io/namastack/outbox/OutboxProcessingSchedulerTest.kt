@@ -15,6 +15,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import java.time.Clock
 import java.time.Duration
@@ -84,11 +86,11 @@ class OutboxProcessingSchedulerTest {
             val assignedPartitions = setOf(1, 3, 5)
 
             every { partitionCoordinator.getAssignedPartitionNumbers() } returns assignedPartitions
-            every { recordRepository.findAggregateIdsInPartitions(setOf(1, 3, 5), NEW, 100, true) } returns emptyList()
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1, 3, 5), NEW, 200, true) } returns emptyList()
 
             scheduler.process()
 
-            verify(exactly = 1) { recordRepository.findAggregateIdsInPartitions(setOf(1, 3, 5), NEW, 100, true) }
+            verify(exactly = 1) { recordRepository.findAggregateIdsInPartitions(setOf(1, 3, 5), NEW, 200, true) }
         }
 
         @Test
@@ -106,11 +108,88 @@ class OutboxProcessingSchedulerTest {
                 )
 
             every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
-            every { recordRepository.findAggregateIdsInPartitions(setOf(1, 2), NEW, 50, true) } returns emptyList()
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1, 2), NEW, 100, true) } returns emptyList()
 
             customScheduler.process()
 
-            verify(exactly = 1) { recordRepository.findAggregateIdsInPartitions(setOf(1, 2), NEW, 50, true) }
+            verify(exactly = 1) { recordRepository.findAggregateIdsInPartitions(setOf(1, 2), NEW, 100, true) }
+        }
+    }
+
+    @Nested
+    @DisplayName("Processing Limiter")
+    inner class ProcessingLimiter {
+
+        @BeforeEach
+        fun setUp() {
+            val customProperties = properties.copy(batchSize = 2)
+            scheduler =
+                OutboxProcessingScheduler(
+                    recordRepository = recordRepository,
+                    recordProcessor = recordProcessor,
+                    partitionCoordinator = partitionCoordinator,
+                    taskExecutor = taskExecutor,
+                    retryPolicy = retryPolicy,
+                    properties = customProperties,
+                    clock = clock,
+                )
+        }
+
+        @ParameterizedTest
+        @CsvSource(
+            value = [
+                "0,  ,  ,  ,  ,  ,  ",
+                "1, 0, 1,  ,  ,  ,  ",
+                "2, 0, 2,  ,  ,  ,  ",
+                "3, 0, 3, 2, 3,  ,  ",
+                "4, 0, 4, 2, 4,  ,  ",
+                "5, 0, 4, 2, 5, 4, 5",
+                "6, 0, 4, 2, 6, 4, 6",
+            ]
+        )
+        fun `process multiple batches`(
+            aggregateCount: Int,
+            batch1Start: Int?, batch1End: Int?,
+            batch2Start: Int?, batch2End: Int?,
+            batch3Start: Int?, batch3End: Int?,
+        ) {
+            val aggregates = (1..aggregateCount).map {
+                "aggregate-$it"
+            }
+            val records = (1..aggregateCount).map {
+                outboxRecord(
+                    id = "record-$it",
+                    aggregateId = "aggregate-$it",
+                    status = NEW,
+                    nextRetryAt = now.minusMinutes(1),
+                )
+            }
+
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every {
+                recordRepository.findAggregateIdsInPartitions(
+                    setOf(1),
+                    NEW,
+                    4,
+                    true,
+                )
+            } returns
+                aggregates.subList(batch1Start ?: aggregates.size, batch1End ?: aggregates.size) andThen
+                aggregates.subList(batch2Start ?: aggregates.size, batch2End ?: aggregates.size) andThen
+                aggregates.subList(batch3Start ?: aggregates.size, batch3End ?: aggregates.size)
+            aggregates.forEach { aggregateId ->
+                every { recordRepository.findIncompleteRecordsByAggregateId(aggregateId) } returns
+                    records.filter { it.aggregateId == aggregateId }
+            }
+            every { recordRepository.save(any()) } returns mockk()
+
+            scheduler.process()
+
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    verify(exactly = aggregateCount) { recordProcessor.process(any()) }
+                }
         }
     }
 
@@ -131,7 +210,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("aggregate-1")
@@ -172,7 +251,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("aggregate-1")
@@ -203,7 +282,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("aggregate-1")
@@ -223,7 +302,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("aggregate-1")
@@ -249,7 +328,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("aggregate-1")
@@ -275,7 +354,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("aggregate-1")
@@ -303,7 +382,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("aggregate-1")
@@ -331,7 +410,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("aggregate-1")
@@ -371,7 +450,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("aggregate-1")
@@ -403,7 +482,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("aggregate-1")
@@ -450,7 +529,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     false,
                 )
             } returns listOf("aggregate-1")
@@ -479,7 +558,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("aggregate-1")
@@ -514,7 +593,7 @@ class OutboxProcessingSchedulerTest {
         @Test
         fun `handle repository exception during aggregate lookup`() {
             every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
-            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 100, true) } throws
+            every { recordRepository.findAggregateIdsInPartitions(setOf(1), NEW, 200, true) } throws
                 RuntimeException("DB error")
 
             scheduler.process()
@@ -531,7 +610,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("aggregate-1")
@@ -554,7 +633,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findAggregateIdsInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("aggregate-1")
