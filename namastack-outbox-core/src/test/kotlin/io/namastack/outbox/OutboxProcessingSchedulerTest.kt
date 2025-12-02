@@ -3,9 +3,7 @@ package io.namastack.outbox
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import io.namastack.outbox.OutboxRecordStatus.COMPLETED
-import io.namastack.outbox.OutboxRecordStatus.FAILED
-import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.OutboxRecordStatus.*
 import io.namastack.outbox.OutboxRecordTestFactory.outboxRecord
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
@@ -18,11 +16,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
-import java.time.Clock
-import java.time.Duration
-import java.time.Instant
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
+import java.time.*
 import java.util.concurrent.TimeUnit
 
 @DisplayName("OutboxProcessingScheduler")
@@ -137,13 +131,15 @@ class OutboxProcessingSchedulerTest {
         @ParameterizedTest
         @CsvSource(
             value = [
-                "0,  ,  ,  ,  ,  ,  ",
-                "1, 0, 1,  ,  ,  ,  ",
-                "2, 0, 2,  ,  ,  ,  ",
-                "3, 0, 3, 2, 3,  ,  ",
-                "4, 0, 4, 2, 4,  ,  ",
-                "5, 0, 4, 2, 5, 4, 5",
-                "6, 0, 4, 2, 6, 4, 6",
+                "0,  ,  ,  ,  ,  ,  ,  ,  ",
+                "1, 0, 1,  ,  ,  ,  ,  ,  ",
+                "2, 0, 2,  ,  ,  ,  ,  ,  ",
+                "3, 0, 3, 2, 3,  ,  ,  ,  ",
+                "4, 0, 4, 2, 4,  ,  ,  ,  ",
+                "5, 0, 4, 2, 5, 4, 5,  ,  ",
+                "6, 0, 4, 2, 6, 4, 6,  ,  ",
+                "7, 0, 4, 2, 6, 4, 7, 6, 7",
+                "8, 0, 4, 2, 6, 4, 8, 6, 8",
             ],
         )
         fun `process multiple batches`(
@@ -154,6 +150,8 @@ class OutboxProcessingSchedulerTest {
             batch2End: Int?,
             batch3Start: Int?,
             batch3End: Int?,
+            batch4Start: Int?,
+            batch4End: Int?,
         ) {
             val aggregates =
                 (1..aggregateCount).map {
@@ -180,11 +178,13 @@ class OutboxProcessingSchedulerTest {
             } returns
                 aggregates.subList(batch1Start ?: aggregates.size, batch1End ?: aggregates.size) andThen
                 aggregates.subList(batch2Start ?: aggregates.size, batch2End ?: aggregates.size) andThen
-                aggregates.subList(batch3Start ?: aggregates.size, batch3End ?: aggregates.size)
+                aggregates.subList(batch3Start ?: aggregates.size, batch3End ?: aggregates.size) andThen
+                aggregates.subList(batch4Start ?: aggregates.size, batch4End ?: aggregates.size)
             aggregates.forEach { aggregateId ->
                 every { recordRepository.findIncompleteRecordsByAggregateId(aggregateId) } returns
                     records.filter { it.aggregateId == aggregateId }
             }
+            every { recordProcessor.process(any()) } answers { Thread.sleep(50) }
             every { recordRepository.save(any()) } returns mockk()
 
             scheduler.process()

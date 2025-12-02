@@ -29,7 +29,7 @@ class OutboxProcessingLimiterTest {
                 taskExecutor.execute {
                     try {
                         assertThat(counter.incrementAndGet()).isLessThanOrEqualTo(limit)
-                        Thread.sleep(100)
+                        Thread.sleep(50)
                     } finally {
                         counter.decrementAndGet()
                         limiter.release(id)

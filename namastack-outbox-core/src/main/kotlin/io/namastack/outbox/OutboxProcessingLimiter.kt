@@ -1,6 +1,6 @@
 package io.namastack.outbox
 
-import java.util.Collections
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicInteger
@@ -40,8 +40,8 @@ class OutboxProcessingLimiter(
      * @param id The unique identifier for the task to acquire.
      */
     fun acquire(id: String) {
-        processingIds.add(id)
         semaphore.acquire()
+        processingIds.add(id)
     }
 
     /**

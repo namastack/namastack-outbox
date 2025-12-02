@@ -91,7 +91,7 @@ class OutboxProcessingScheduler(
                     }
                 }
 
-                if (nextAggregateIds.size <= properties.batchSize) break
+                if (nextAggregateIds.size < properties.batchSize) break
 
                 previouslyAssignedPartitions = assignedPartitions
             }
