@@ -14,7 +14,6 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @DisplayName("OutboxProcessingLimiter")
 class OutboxProcessingLimiterTest {
-
     @Test
     fun `acquire and release allows processing up to limit concurrently`() {
         val limit = 4
@@ -88,7 +87,6 @@ class OutboxProcessingLimiterTest {
             .untilAsserted {
                 assertThat(finishFlag.get()).isTrue()
             }
-
     }
 
     @Test
@@ -187,4 +185,3 @@ class OutboxProcessingLimiterTest {
         assertThat(limiter.getProcessedCount()).isEqualTo(2)
     }
 }
-

@@ -119,7 +119,6 @@ class OutboxProcessingSchedulerTest {
     @Nested
     @DisplayName("Processing Limiter")
     inner class ProcessingLimiter {
-
         @BeforeEach
         fun setUp() {
             val customProperties = properties.copy(batchSize = 2)
@@ -145,25 +144,30 @@ class OutboxProcessingSchedulerTest {
                 "4, 0, 4, 2, 4,  ,  ",
                 "5, 0, 4, 2, 5, 4, 5",
                 "6, 0, 4, 2, 6, 4, 6",
-            ]
+            ],
         )
         fun `process multiple batches`(
             aggregateCount: Int,
-            batch1Start: Int?, batch1End: Int?,
-            batch2Start: Int?, batch2End: Int?,
-            batch3Start: Int?, batch3End: Int?,
+            batch1Start: Int?,
+            batch1End: Int?,
+            batch2Start: Int?,
+            batch2End: Int?,
+            batch3Start: Int?,
+            batch3End: Int?,
         ) {
-            val aggregates = (1..aggregateCount).map {
-                "aggregate-$it"
-            }
-            val records = (1..aggregateCount).map {
-                outboxRecord(
-                    id = "record-$it",
-                    aggregateId = "aggregate-$it",
-                    status = NEW,
-                    nextRetryAt = now.minusMinutes(1),
-                )
-            }
+            val aggregates =
+                (1..aggregateCount).map {
+                    "aggregate-$it"
+                }
+            val records =
+                (1..aggregateCount).map {
+                    outboxRecord(
+                        id = "record-$it",
+                        aggregateId = "aggregate-$it",
+                        status = NEW,
+                        nextRetryAt = now.minusMinutes(1),
+                    )
+                }
 
             every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
             every {
