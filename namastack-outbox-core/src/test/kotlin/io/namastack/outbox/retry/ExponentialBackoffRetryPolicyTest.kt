@@ -29,7 +29,7 @@ class ExponentialBackoffRetryPolicyTest {
                 backoffMultiplier = 2.0,
             )
 
-        val delay = policy.nextDelay(0)
+        val delay = policy.nextDelay(1)
         assertThat(delay).isEqualTo(initialDelay)
     }
 
@@ -43,11 +43,10 @@ class ExponentialBackoffRetryPolicyTest {
                 backoffMultiplier = 2.0,
             )
 
-        assertThat(policy.nextDelay(0)).isEqualTo(Duration.ofMillis(100)) // 100 * 2^0 = 100
-        assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofMillis(200)) // 100 * 2^1 = 200
-        assertThat(policy.nextDelay(2)).isEqualTo(Duration.ofMillis(400)) // 100 * 2^2 = 400
-        assertThat(policy.nextDelay(3)).isEqualTo(Duration.ofMillis(800)) // 100 * 2^3 = 800
-        assertThat(policy.nextDelay(4)).isEqualTo(Duration.ofMillis(1600)) // 100 * 2^4 = 1600
+        assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofMillis(100))
+        assertThat(policy.nextDelay(2)).isEqualTo(Duration.ofMillis(200))
+        assertThat(policy.nextDelay(3)).isEqualTo(Duration.ofMillis(400))
+        assertThat(policy.nextDelay(4)).isEqualTo(Duration.ofMillis(800))
     }
 
     @Test
@@ -61,12 +60,11 @@ class ExponentialBackoffRetryPolicyTest {
                 backoffMultiplier = 2.0,
             )
 
-        assertThat(policy.nextDelay(0)).isEqualTo(Duration.ofMillis(100)) // 100 * 2^0 = 100
-        assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofMillis(200)) // 100 * 2^1 = 200
-        assertThat(policy.nextDelay(2)).isEqualTo(Duration.ofMillis(400)) // 100 * 2^2 = 400
-        assertThat(policy.nextDelay(3)).isEqualTo(Duration.ofMillis(500)) // 100 * 2^3 = 800, capped at 500
-        assertThat(policy.nextDelay(4)).isEqualTo(Duration.ofMillis(500)) // 100 * 2^4 = 1600, capped at 500
-        assertThat(policy.nextDelay(10)).isEqualTo(Duration.ofMillis(500)) // Very high retry count, still capped
+        assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofMillis(100))
+        assertThat(policy.nextDelay(2)).isEqualTo(Duration.ofMillis(200))
+        assertThat(policy.nextDelay(3)).isEqualTo(Duration.ofMillis(400))
+        assertThat(policy.nextDelay(4)).isEqualTo(Duration.ofMillis(500))
+        assertThat(policy.nextDelay(10)).isEqualTo(Duration.ofMillis(500))
     }
 
     @Test
@@ -96,10 +94,9 @@ class ExponentialBackoffRetryPolicyTest {
                 backoffMultiplier = 2.0,
             )
 
-        assertThat(policy.nextDelay(0)).isEqualTo(Duration.ofSeconds(1)) // 1 * 2^0 = 1
-        assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofSeconds(2)) // 1 * 2^1 = 2
-        assertThat(policy.nextDelay(2)).isEqualTo(Duration.ofSeconds(4)) // 1 * 2^2 = 4
-        assertThat(policy.nextDelay(3)).isEqualTo(Duration.ofSeconds(8)) // 1 * 2^3 = 8
+        assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofSeconds(1))
+        assertThat(policy.nextDelay(2)).isEqualTo(Duration.ofSeconds(2))
+        assertThat(policy.nextDelay(3)).isEqualTo(Duration.ofSeconds(4))
     }
 
     @Test
@@ -126,8 +123,8 @@ class ExponentialBackoffRetryPolicyTest {
                 backoffMultiplier = 2.0,
             )
 
-        assertThat(policy.nextDelay(0)).isEqualTo(delay)
-        assertThat(policy.nextDelay(1)).isEqualTo(delay) // Would be 400, but capped at 200
-        assertThat(policy.nextDelay(5)).isEqualTo(delay) // Would be much higher, but capped at 200
+        assertThat(policy.nextDelay(1)).isEqualTo(delay)
+        assertThat(policy.nextDelay(2)).isEqualTo(delay)
+        assertThat(policy.nextDelay(5)).isEqualTo(delay)
     }
 }

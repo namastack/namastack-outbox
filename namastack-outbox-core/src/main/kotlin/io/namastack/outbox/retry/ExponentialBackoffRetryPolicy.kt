@@ -40,7 +40,7 @@ class ExponentialBackoffRetryPolicy(
      * @return Calculated delay duration, capped at maxDelay
      */
     override fun nextDelay(failureCount: Int): Duration {
-        val delayMillis = (initialDelay.toMillis() * backoffMultiplier.pow(failureCount.toDouble())).toLong()
+        val delayMillis = (initialDelay.toMillis() * backoffMultiplier.pow(failureCount - 1)).toLong()
 
         return Duration.ofMillis(minOf(delayMillis, maxDelay.toMillis()))
     }
