@@ -23,8 +23,8 @@ interface OutboxRetryPolicy {
     /**
      * Calculates the delay before the next retry attempt.
      *
-     * @param retryCount The number of retries already attempted (starting from 1)
+     * @param failureCount The number of failures occurred (starting from 1)
      * @return Duration to wait before the next retry attempt
      */
-    fun nextDelay(retryCount: Int): Duration
+    fun nextDelay(failureCount: Int): Duration
 }

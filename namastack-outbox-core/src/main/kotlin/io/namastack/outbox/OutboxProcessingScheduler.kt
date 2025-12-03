@@ -15,13 +15,13 @@ import java.util.concurrent.CountDownLatch
  * This scheduler coordinates with the partition coordinator to only process
  * records assigned to the current instance, enabling horizontal scaling
  * across multiple application instances. It uses a configurable TaskExecutor
- * to enable parallel processing of multiple aggregateIds, while still
- * guaranteeing strict ordering per aggregateId.
+ * to enable parallel processing of multiple record keys, while still
+ * guaranteeing strict ordering per record key.
  *
  * @param recordRepository Repository for accessing outbox records
  * @param recordProcessor Processor for handling individual records
  * @param partitionCoordinator Coordinator for partition assignments
- * @param taskExecutor TaskExecutor for parallel processing of aggregateIds
+ * @param taskExecutor TaskExecutor for parallel processing of batches per record key
  * @param retryPolicy Policy for determining retry behavior
  * @param properties Configuration properties
  * @param clock Clock for time-based operations
@@ -44,12 +44,12 @@ class OutboxProcessingScheduler(
      * Scheduled entry point:
      * 1. Consume a pending rebalance signal (rebalance only AFTER previous batch finished).
      * 2. Fetch currently owned partitions (cached via coordinator).
-     * 3. Query distinct aggregate IDs with NEW records in those partitions (bounded by batchSize).
-     * 4. Process aggregates in parallel using a CountDownLatch to wait until all tasks finish before next cycle.
+     * 3. Query distinct record keys with NEW records in those partitions (bounded by batchSize).
+     * 4. Process batches per record key in parallel using a CountDownLatch to wait until all tasks finish before next cycle.
      *
      * Notes:
      * - Empty partition set => fast exit.
-     * - Rebalance never interleaves with in-flight aggregate processing.
+     * - Rebalance never interleaves with in-flight processing.
      */
     @Scheduled(fixedDelayString = $$"${outbox.poll-interval:2000}", scheduler = "outboxDefaultScheduler")
     fun process() {
@@ -63,22 +63,22 @@ class OutboxProcessingScheduler(
                 assignedPartitions.sorted(),
             )
 
-            val aggregateIds =
-                recordRepository.findAggregateIdsInPartitions(
+            val recordKeys =
+                recordRepository.findRecordKeysInPartitions(
                     partitions = assignedPartitions,
                     status = NEW,
                     batchSize = properties.batchSize,
-                    ignoreAggregatesWithPreviousFailure = properties.processing.stopOnFirstFailure,
+                    ignoreRecordKeysWithPreviousFailure = properties.processing.stopOnFirstFailure,
                 )
 
-            if (aggregateIds.isNotEmpty()) {
-                log.debug("Found {} aggregates to process", aggregateIds.size)
+            if (recordKeys.isNotEmpty()) {
+                log.debug("Found {} record keys to process", recordKeys.size)
 
-                val latch = CountDownLatch(aggregateIds.size)
-                aggregateIds.forEach { aggregateId ->
+                val latch = CountDownLatch(recordKeys.size)
+                recordKeys.forEach { recordKey ->
                     taskExecutor.execute {
                         try {
-                            processAggregate(aggregateId)
+                            processRecordKey(recordKey)
                         } finally {
                             latch.countDown()
                         }
@@ -86,7 +86,7 @@ class OutboxProcessingScheduler(
                 }
 
                 latch.await()
-                log.debug("Finished processing {} aggregates", aggregateIds.size)
+                log.debug("Finished processing {} record keys", recordKeys.size)
             }
         } catch (ex: Exception) {
             log.error("Error during partition-aware outbox processing", ex)
@@ -94,20 +94,20 @@ class OutboxProcessingScheduler(
     }
 
     /**
-     * Process all incomplete records for one aggregate in creation order.
+     * Process all incomplete records for one record key in creation order.
      * Stops early when:
      *  - First non-retriable (future retry time) record encountered (maintains ordering gap).
      *  - A failure occurs and stopOnFirstFailure is enabled.
      */
-    private fun processAggregate(aggregateId: String) {
+    private fun processRecordKey(recordKey: String) {
         try {
-            val records = recordRepository.findIncompleteRecordsByAggregateId(aggregateId)
+            val records = recordRepository.findIncompleteRecordsByRecordKey(recordKey)
 
             if (records.isEmpty()) {
                 return
             }
 
-            log.trace("Processing {} records for aggregate {}", records.size, aggregateId)
+            log.trace("Processing {} records for record key {}", records.size, recordKey)
 
             for (record in records) {
                 if (!record.canBeRetried(clock)) {
@@ -119,14 +119,14 @@ class OutboxProcessingScheduler(
 
                 if (!success && properties.processing.stopOnFirstFailure) {
                     log.trace(
-                        "Stopping aggregate {} processing due to failure (stopOnFirstFailure=true)",
-                        aggregateId,
+                        "Stopping record key {} processing due to failure (stopOnFirstFailure=true)",
+                        recordKey,
                     )
                     break
                 }
             }
         } catch (ex: Exception) {
-            log.error("Error processing aggregate {}", aggregateId, ex)
+            log.error("Error processing record key {}", recordKey, ex)
         }
     }
 
@@ -140,8 +140,8 @@ class OutboxProcessingScheduler(
         try {
             log.trace(
                 "Processing {} for {} (partition {})",
-                record.eventType,
-                record.aggregateId,
+                record.recordType,
+                record.recordKey,
                 record.partition,
             )
 
@@ -159,11 +159,11 @@ class OutboxProcessingScheduler(
                 recordRepository.save(record)
             }
 
-            log.trace("Successfully processed {} for {}", record.eventType, record.aggregateId)
+            log.trace("Successfully processed {} for {}", record.recordType, record.recordKey)
             true
         } catch (ex: Exception) {
             handleFailure(record, ex)
-            false // single false (removed duplicate)
+            false
         }
 
     /**
@@ -176,26 +176,27 @@ class OutboxProcessingScheduler(
         record: OutboxRecord,
         ex: Exception,
     ) {
-        log.debug("Failed {} for {}: {}", record.eventType, record.aggregateId, ex.message)
+        log.debug("Failed {} for {}: {}", record.recordType, record.recordKey, ex.message)
+
+        record.incrementFailureCount()
 
         val retriesExhausted = record.retriesExhausted(properties.retry.maxRetries)
         if (retriesExhausted || !retryPolicy.shouldRetry(ex)) {
             record.markFailed()
 
             log.warn(
-                "Record {} for aggregate {} marked as FAILED after {} retries",
+                "Record {} for record key {} marked as FAILED after {} failures",
                 record.id,
-                record.aggregateId,
-                record.retryCount,
+                record.recordKey,
+                record.failureCount,
             )
         } else {
-            val delay = retryPolicy.nextDelay(record.retryCount)
+            val delay = retryPolicy.nextDelay(record.failureCount)
             record.scheduleNextRetry(delay, clock)
-            record.incrementRetryCount()
 
             log.debug(
                 "Scheduled retry #{} for record {} in {}",
-                record.retryCount,
+                record.failureCount,
                 record.id,
                 delay,
             )

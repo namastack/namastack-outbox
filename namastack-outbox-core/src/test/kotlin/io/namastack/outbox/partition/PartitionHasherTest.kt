@@ -5,29 +5,29 @@ import org.junit.jupiter.api.Test
 
 class PartitionHasherTest {
     @Test
-    fun `should return consistent partition for same aggregate ID`() {
-        val aggregateId = "customer-123"
+    fun `should return consistent partition for same record key`() {
+        val recordKey = "customer-123"
 
-        val partition1 = PartitionHasher.getPartitionForAggregate(aggregateId)
-        val partition2 = PartitionHasher.getPartitionForAggregate(aggregateId)
+        val partition1 = PartitionHasher.getPartitionForRecordKey(recordKey)
+        val partition2 = PartitionHasher.getPartitionForRecordKey(recordKey)
 
         assertThat(partition1).isEqualTo(partition2)
     }
 
     @Test
-    fun `should return different partitions for different aggregate IDs`() {
-        val aggregateId1 = "customer-123"
-        val aggregateId2 = "customer-456"
+    fun `should return different partitions for different record keys`() {
+        val recordKey1 = "customer-123"
+        val recordKey2 = "customer-456"
 
-        val partition1 = PartitionHasher.getPartitionForAggregate(aggregateId1)
-        val partition2 = PartitionHasher.getPartitionForAggregate(aggregateId2)
+        val partition1 = PartitionHasher.getPartitionForRecordKey(recordKey1)
+        val partition2 = PartitionHasher.getPartitionForRecordKey(recordKey2)
 
         assertThat(partition1).isNotEqualTo(partition2)
     }
 
     @Test
-    fun `should return partition within valid range for various IDs`() {
-        val testAggregateIds =
+    fun `should return partition within valid range for various record keys`() {
+        val testRecordKeys =
             listOf(
                 "customer-1",
                 "order-abc123",
@@ -36,8 +36,8 @@ class PartitionHasherTest {
                 "invoice-ghi789",
             )
 
-        testAggregateIds.forEach { aggregateId ->
-            val partition = PartitionHasher.getPartitionForAggregate(aggregateId)
+        testRecordKeys.forEach { recordKey ->
+            val partition = PartitionHasher.getPartitionForRecordKey(recordKey)
             assertThat(partition)
                 .isGreaterThanOrEqualTo(0)
                 .isLessThan(PartitionHasher.TOTAL_PARTITIONS)
@@ -46,7 +46,7 @@ class PartitionHasherTest {
 
     @Test
     fun `should handle empty string gracefully`() {
-        val partition = PartitionHasher.getPartitionForAggregate("")
+        val partition = PartitionHasher.getPartitionForRecordKey("")
 
         assertThat(partition)
             .isGreaterThanOrEqualTo(0)
@@ -64,8 +64,8 @@ class PartitionHasherTest {
                 "invoice-with-äöü-umlauts",
             )
 
-        specialCharacterIds.forEach { aggregateId ->
-            val partition = PartitionHasher.getPartitionForAggregate(aggregateId)
+        specialCharacterIds.forEach { recordKey ->
+            val partition = PartitionHasher.getPartitionForRecordKey(recordKey)
             assertThat(partition)
                 .isGreaterThanOrEqualTo(0)
                 .isLessThan(PartitionHasher.TOTAL_PARTITIONS)
@@ -73,12 +73,12 @@ class PartitionHasherTest {
     }
 
     @Test
-    fun `should handle large number of different aggregate IDs`() {
-        // Test with many IDs to verify no edge cases break the hash function
-        val manyAggregateIds = (1..1000).map { "aggregate-$it" }
+    fun `should handle large number of different record keys`() {
+        // Test with many record keys to verify no edge cases break the hash function
+        val manyRecordKeys = (1..1000).map { "record-key-$it" }
 
-        manyAggregateIds.forEach { aggregateId ->
-            val partition = PartitionHasher.getPartitionForAggregate(aggregateId)
+        manyRecordKeys.forEach { recordKey ->
+            val partition = PartitionHasher.getPartitionForRecordKey(recordKey)
             assertThat(partition)
                 .isGreaterThanOrEqualTo(0)
                 .isLessThan(PartitionHasher.TOTAL_PARTITIONS)
@@ -86,9 +86,9 @@ class PartitionHasherTest {
     }
 
     @Test
-    fun `should distribute aggregates well across partitions`() {
-        val manyAggregateIds = (1..1000).map { "aggregate-$it" }
-        val partitions = manyAggregateIds.map { PartitionHasher.getPartitionForAggregate(it) }
+    fun `should distribute record keys well across partitions`() {
+        val manyRecordKeys = (1..1000).map { "record-key-$it" }
+        val partitions = manyRecordKeys.map { PartitionHasher.getPartitionForRecordKey(it) }
         val uniquePartitions = partitions.toSet()
 
         // Expect good distribution - at least 20% of total partitions used
@@ -102,14 +102,14 @@ class PartitionHasherTest {
     }
 
     @Test
-    fun `should be case sensitive for aggregate IDs`() {
+    fun `should be case sensitive for record keys`() {
         val lowerCaseId = "customer-abc"
         val upperCaseId = "CUSTOMER-ABC"
         val mixedCaseId = "Customer-Abc"
 
-        val lowerPartition = PartitionHasher.getPartitionForAggregate(lowerCaseId)
-        val upperPartition = PartitionHasher.getPartitionForAggregate(upperCaseId)
-        val mixedPartition = PartitionHasher.getPartitionForAggregate(mixedCaseId)
+        val lowerPartition = PartitionHasher.getPartitionForRecordKey(lowerCaseId)
+        val upperPartition = PartitionHasher.getPartitionForRecordKey(upperCaseId)
+        val mixedPartition = PartitionHasher.getPartitionForRecordKey(mixedCaseId)
 
         // Different cases should likely produce different partitions
         val partitions = setOf(lowerPartition, upperPartition, mixedPartition)
@@ -117,10 +117,10 @@ class PartitionHasherTest {
     }
 
     @Test
-    fun `should handle very long aggregate IDs`() {
-        val longAggregateId = "customer-" + "a".repeat(1000)
+    fun `should handle very long record keys`() {
+        val longRecordKey = "customer-" + "a".repeat(1000)
 
-        val partition = PartitionHasher.getPartitionForAggregate(longAggregateId)
+        val partition = PartitionHasher.getPartitionForRecordKey(longRecordKey)
 
         assertThat(partition)
             .isGreaterThanOrEqualTo(0)
@@ -143,15 +143,15 @@ class PartitionHasherTest {
             )
 
         // All UUIDs should map to valid partitions
-        uuidLikeIds.forEach { aggregateId ->
-            val partition = PartitionHasher.getPartitionForAggregate(aggregateId)
+        uuidLikeIds.forEach { recordKey ->
+            val partition = PartitionHasher.getPartitionForRecordKey(recordKey)
             assertThat(partition)
                 .isGreaterThanOrEqualTo(0)
                 .isLessThan(PartitionHasher.TOTAL_PARTITIONS)
         }
 
         // UUIDs should map to different partitions (very likely)
-        val partitions = uuidLikeIds.map { PartitionHasher.getPartitionForAggregate(it) }
+        val partitions = uuidLikeIds.map { PartitionHasher.getPartitionForRecordKey(it) }
         val uniquePartitions = partitions.toSet()
         assertThat(uniquePartitions.size).isEqualTo(uuidLikeIds.size)
     }

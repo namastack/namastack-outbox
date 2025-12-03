@@ -27,8 +27,8 @@ class FixedDelayRetryPolicy(
     /**
      * Returns the fixed delay duration for all retry attempts.
      *
-     * @param retryCount The current retry count (ignored)
+     * @param failureCount The number of failures that have occurred (ignored)
      * @return The fixed delay duration
      */
-    override fun nextDelay(retryCount: Int): Duration = delay
+    override fun nextDelay(failureCount: Int): Duration = delay
 }

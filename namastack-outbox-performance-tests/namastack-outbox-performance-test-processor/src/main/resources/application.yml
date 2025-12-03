@@ -29,7 +29,7 @@ management:
         include: health, info, metrics, prometheus
 
 outbox:
-  batch-size: 1500
+  batch-size: 1200
   poll-interval: 1000
   rebalance-interval: 10000
   schema-initialization:

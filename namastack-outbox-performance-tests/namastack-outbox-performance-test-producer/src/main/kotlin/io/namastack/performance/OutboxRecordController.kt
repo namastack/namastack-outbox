@@ -13,24 +13,24 @@ class OutboxRecordController(
     private val outboxRecordRepository: OutboxRecordRepository,
     private val clock: Clock,
 ) {
-    @PostMapping("/outbox/record/{aggregateId}")
+    @PostMapping("/outbox/record/{recordKey}")
     fun createOutboxRecord(
-        @PathVariable("aggregateId") aggregateId: String,
+        @PathVariable("recordKey") recordKey: String,
     ): Mono<OutboxRecord> {
         val now = OffsetDateTime.now(clock)
-        val partition = PartitionHasher.getPartitionForAggregate(aggregateId)
+        val partition = PartitionHasher.getPartitionForRecordKey(recordKey)
 
         return outboxRecordRepository.save(
             OutboxRecord(
                 entityId = UUID.randomUUID().toString(),
                 status = "NEW",
-                aggregateId = aggregateId,
-                eventType = "eventType",
+                recordKey = recordKey,
+                recordType = "eventType",
                 payload = "payload".repeat(30),
                 partitionNo = partition,
                 createdAt = now,
                 completedAt = null,
-                retryCount = 0,
+                failureCount = 0,
                 nextRetryAt = now,
             ),
         )

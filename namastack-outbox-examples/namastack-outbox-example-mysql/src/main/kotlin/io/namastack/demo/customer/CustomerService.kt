@@ -33,8 +33,8 @@ class CustomerService(
             record =
                 OutboxRecord
                     .Builder()
-                    .aggregateId(aggregateId = customer.id.toString())
-                    .eventType(eventType = CustomerRegisteredEvent::class.simpleName!!)
+                    .recordKey(recordKey = customer.id.toString())
+                    .recordType(recordType = CustomerRegisteredEvent::class.simpleName!!)
                     .payload(payload = outboxEventSerializer.serialize(customerRegisteredEvent))
                     .build(clock),
         )

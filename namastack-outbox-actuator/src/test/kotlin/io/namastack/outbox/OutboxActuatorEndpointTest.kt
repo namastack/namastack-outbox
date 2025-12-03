@@ -16,11 +16,11 @@ class OutboxActuatorEndpointTest {
     }
 
     @Test
-    fun `deletes outbox records for specific aggregate and status`() {
-        actuatorEndpoint.deleteOutboxRecords("test-aggregate", OutboxRecordStatus.COMPLETED)
+    fun `deletes outbox records for specific record key and status`() {
+        actuatorEndpoint.deleteOutboxRecords("test-record-key", OutboxRecordStatus.COMPLETED)
 
         verify(exactly = 1) {
-            outboxRecordRepository.deleteByAggregateIdAndStatus("test-aggregate", OutboxRecordStatus.COMPLETED)
+            outboxRecordRepository.deleteByRecordKeyAndStatus("test-record-key", OutboxRecordStatus.COMPLETED)
         }
     }
 

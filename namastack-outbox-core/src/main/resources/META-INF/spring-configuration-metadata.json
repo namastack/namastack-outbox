@@ -55,7 +55,7 @@
       "type": "java.lang.Integer",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "defaultValue": 10,
-      "description": "Maximum number of aggregate IDs to process in a single batch"
+      "description": "Maximum number of record keys to process in a single batch"
     },
     {
       "name": "outbox.rebalance-interval",
@@ -69,7 +69,7 @@
       "type": "java.lang.Integer",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "defaultValue": 3,
-      "description": "Maximum number of retry attempts for failed outbox events"
+      "description": "Maximum number of retry attempts for failed outbox records"
     },
     {
       "name": "outbox.retry.policy",
@@ -125,14 +125,14 @@
       "type": "java.lang.Boolean",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": true,
-      "description": "Whether to stop processing remaining events in an aggregate when one event fails. If true (default), processing stops on first failure to maintain strict ordering. If false, continues processing other events allowing failed events to be retried later."
+      "description": "Whether to stop processing remaining records for a record key when one record fails. If true (default), processing stops on first failure to maintain strict ordering. If false, continues processing other records allowing failed records to be retried later."
     },
     {
       "name": "outbox.processing.publish-after-save",
       "type": "java.lang.Boolean",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": true,
-      "description": "Whether to publish events to listeners after saving them to the outbox. If true (default), events are published to listeners and saved to outbox for durability. If false, events are only saved to outbox and not published immediately."
+      "description": "Whether to publish records to listeners after saving them to the outbox. If true (default), records are published to listeners and saved to outbox for durability. If false, records are only saved to outbox and not published immediately."
     },
     {
       "name": "outbox.processing.delete-completed-records",
@@ -146,14 +146,14 @@
       "type": "java.lang.Integer",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": 4,
-      "description": "Core pool size for the ThreadPoolTaskExecutor used for parallel processing of aggregateIds. Default: 4."
+      "description": "Core pool size for the ThreadPoolTaskExecutor used for parallel processing of record keys. Default: 4."
     },
     {
       "name": "outbox.processing.executor-max-pool-size",
       "type": "java.lang.Integer",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": 8,
-      "description": "Maximum pool size for the ThreadPoolTaskExecutor used for parallel processing of aggregateIds. Default: 8."
+      "description": "Maximum pool size for the ThreadPoolTaskExecutor used for parallel processing of record keys. Default: 8."
     },
     {
       "name": "outbox.instance.graceful-shutdown-timeout-seconds",

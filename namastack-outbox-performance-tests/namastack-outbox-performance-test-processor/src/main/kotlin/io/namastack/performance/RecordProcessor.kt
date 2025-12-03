@@ -13,6 +13,6 @@ class RecordProcessor : OutboxRecordProcessor {
 //        if (Math.random() < 0.6) { // 10% failure rate
 //            throw RuntimeException("Simulated failure")
 //        }
-        logger.info("📝 Processing record ${record.id} for aggregate: ${record.aggregateId}")
+        logger.info("📝 Processing record ${record.id} for record key: ${record.recordKey}")
     }
 }

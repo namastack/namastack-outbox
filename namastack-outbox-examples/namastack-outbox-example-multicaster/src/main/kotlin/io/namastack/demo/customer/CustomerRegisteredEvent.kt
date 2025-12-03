@@ -4,7 +4,7 @@ import io.namastack.outbox.OutboxEvent
 import java.util.UUID
 
 @OutboxEvent(
-    aggregateId = "#root.id.toString()",
+    key = "#root.id.toString()",
     eventType = "CustomerRegisteredEvent",
 )
 data class CustomerRegisteredEvent(

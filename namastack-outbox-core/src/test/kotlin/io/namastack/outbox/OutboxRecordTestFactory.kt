@@ -7,26 +7,26 @@ import java.util.UUID
 object OutboxRecordTestFactory {
     fun outboxRecord(
         id: String = UUID.randomUUID().toString(),
-        aggregateId: String = UUID.randomUUID().toString(),
-        eventType: String = "CreatedEvent",
+        recordKey: String = UUID.randomUUID().toString(),
+        recordType: String = "CreatedEvent",
         payload: String = "payload",
         partition: Int = 1,
         createdAt: OffsetDateTime = OffsetDateTime.now(),
         status: OutboxRecordStatus = NEW,
         completedAt: OffsetDateTime? = OffsetDateTime.now(),
-        retryCount: Int = 0,
+        failureCount: Int = 0,
         nextRetryAt: OffsetDateTime = OffsetDateTime.now(),
     ): OutboxRecord =
         OutboxRecord.restore(
             id = id,
-            aggregateId = aggregateId,
-            eventType = eventType,
+            recordKey = recordKey,
+            recordType = recordType,
             payload = payload,
             partition = partition,
             createdAt = createdAt,
             status = status,
             completedAt = completedAt,
             nextRetryAt = nextRetryAt,
-            retryCount = retryCount,
+            failureCount = failureCount,
         )
 }

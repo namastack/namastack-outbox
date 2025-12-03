@@ -48,7 +48,7 @@ class JitteredRetryPolicyTest {
         val result = jitteredPolicy.nextDelay(1)
 
         verify { basePolicy.nextDelay(1) }
-        // Result should be between baseDelay and baseDelay + jitter
+
         assertThat(result).isBetween(baseDelay, baseDelay.plus(jitter))
     }
 
@@ -75,7 +75,6 @@ class JitteredRetryPolicyTest {
 
         every { basePolicy.nextDelay(any()) } returns baseDelay
 
-        // Test multiple calls to ensure jitter is applied consistently
         repeat(10) {
             val result = jitteredPolicy.nextDelay(1)
             assertThat(result).isBetween(baseDelay, baseDelay.plus(jitter))
@@ -162,16 +161,13 @@ class JitteredRetryPolicyTest {
             results.add(jitteredPolicy.nextDelay(1))
         }
 
-        // All results should be within the expected range
         results.forEach { result ->
             assertThat(result).isBetween(baseDelay, baseDelay.plus(jitter))
         }
 
-        // With 100 samples, we should see some variation
         val minResult = results.minOrNull()!!
         val maxResult = results.maxOrNull()!!
 
-        // The range should be non-zero (showing actual jitter)
         assertThat(maxResult).isGreaterThan(minResult)
     }
 
@@ -181,11 +177,9 @@ class JitteredRetryPolicyTest {
         val jitter = Duration.ofMillis(500)
         val jitteredPolicy = JitteredRetryPolicy(basePolicy, jitter)
 
-        // Test shouldRetry - should always return true for FixedDelayRetryPolicy
         assertThat(jitteredPolicy.shouldRetry(RuntimeException())).isTrue()
         assertThat(jitteredPolicy.shouldRetry(IllegalStateException())).isTrue()
 
-        // Test nextDelay - should add jitter to fixed delay
         val result = jitteredPolicy.nextDelay(5)
         assertThat(result).isBetween(Duration.ofSeconds(3), Duration.ofSeconds(3).plus(jitter))
     }
@@ -201,17 +195,14 @@ class JitteredRetryPolicyTest {
         val jitter = Duration.ofMillis(200)
         val jitteredPolicy = JitteredRetryPolicy(basePolicy, jitter)
 
-        // Test shouldRetry
         assertThat(jitteredPolicy.shouldRetry(RuntimeException())).isTrue()
 
-        // Test nextDelay with exponential backoff + jitter
-        val result0 = jitteredPolicy.nextDelay(0)
         val result1 = jitteredPolicy.nextDelay(1)
         val result2 = jitteredPolicy.nextDelay(2)
+        val result3 = jitteredPolicy.nextDelay(3)
 
-        // Should be exponential base delays + jitter
-        assertThat(result0).isBetween(Duration.ofSeconds(1), Duration.ofSeconds(1).plus(jitter))
-        assertThat(result1).isBetween(Duration.ofSeconds(2), Duration.ofSeconds(2).plus(jitter))
-        assertThat(result2).isBetween(Duration.ofSeconds(4), Duration.ofSeconds(4).plus(jitter))
+        assertThat(result1).isBetween(Duration.ofSeconds(1), Duration.ofSeconds(1).plus(jitter))
+        assertThat(result2).isBetween(Duration.ofSeconds(2), Duration.ofSeconds(2).plus(jitter))
+        assertThat(result3).isBetween(Duration.ofSeconds(4), Duration.ofSeconds(4).plus(jitter))
     }
 }

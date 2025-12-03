@@ -84,11 +84,11 @@ open class OutboxEventMulticasterTest {
         verify(exactly = 1) {
             outboxRecordRepository.save(
                 withArg<OutboxRecord> { record ->
-                    assertThat(record.aggregateId).isEqualTo("agg-1")
+                    assertThat(record.recordKey).isEqualTo("agg-1")
                     assertThat(record.payload).isEqualTo(serializedPayload)
                     assertThat(record.createdAt.toInstant()).isEqualTo(clock.instant())
                     assertThat(
-                        record.eventType,
+                        record.recordType,
                     ).isEqualTo("io.namastack.outbox.OutboxEventMulticasterTest.AnnotatedTestEvent")
                 },
             )
@@ -139,7 +139,7 @@ open class OutboxEventMulticasterTest {
     }
 
     @Test
-    fun `resolves spel expression for aggregateId`() {
+    fun `resolves spel expression for record key`() {
         val event = PayloadApplicationEvent(this, SpELAnnotatedTestEvent(customId = "agg-1"))
 
         every { outboxEventSerializer.serialize(event.payload) } returns "serialized"
@@ -150,7 +150,7 @@ open class OutboxEventMulticasterTest {
         verify(exactly = 1) {
             outboxRecordRepository.save(
                 match { record ->
-                    record.aggregateId == "agg-1"
+                    record.recordKey == "agg-1"
                 },
             )
         }
@@ -175,7 +175,7 @@ open class OutboxEventMulticasterTest {
         assertThatThrownBy {
             eventMulticaster.multicastEvent(event)
         }.isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessage("Failed to resolve aggregateId from SpEL: 'id'. Valid examples: 'id', '#this.id', '#root.id'")
+            .hasMessage("Failed to resolve key from SpEL: 'id'. Valid examples: 'id', '#this.id', '#root.id'")
     }
 
     @Test
@@ -186,7 +186,7 @@ open class OutboxEventMulticasterTest {
         assertThatThrownBy {
             eventMulticaster.multicastEvent(event)
         }.isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessage("Failed to resolve aggregateId from SpEL: 'id'. Valid examples: 'id', '#this.id', '#root.id'")
+            .hasMessage("Failed to resolve key from SpEL: 'id'. Valid examples: 'id', '#this.id', '#root.id'")
     }
 
     @Test
@@ -203,7 +203,7 @@ open class OutboxEventMulticasterTest {
             outboxRecordRepository.save(
                 withArg<OutboxRecord> { record ->
                     assertThat(
-                        record.eventType,
+                        record.recordType,
                     ).isEqualTo("io.namastack.outbox.OutboxEventMulticasterTest.DefaultEventTypeTest")
                 },
             )
@@ -223,28 +223,28 @@ open class OutboxEventMulticasterTest {
         verify(exactly = 1) {
             outboxRecordRepository.save(
                 withArg<OutboxRecord> { record ->
-                    assertThat(record.eventType).isEqualTo("custom.event.type")
+                    assertThat(record.recordType).isEqualTo("custom.event.type")
                 },
             )
         }
     }
 
-    @OutboxEvent(aggregateId = "#this.customId")
+    @OutboxEvent(key = "#this.customId")
     data class SpELAnnotatedTestEvent(
         val customId: String,
     )
 
-    @OutboxEvent(aggregateId = "id")
+    @OutboxEvent(key = "id")
     data class AnnotatedTestEvent(
         val id: String,
     )
 
-    @OutboxEvent(aggregateId = "id")
+    @OutboxEvent(key = "id")
     data class AnnotatedWithNullableTestEvent(
         val id: String? = null,
     )
 
-    @OutboxEvent(aggregateId = "id")
+    @OutboxEvent(key = "id")
     data class NonStringIdEvent(
         val id: Int,
     )
@@ -253,12 +253,12 @@ open class OutboxEventMulticasterTest {
         val id: String,
     )
 
-    @OutboxEvent(aggregateId = "id")
+    @OutboxEvent(key = "id")
     data class DefaultEventTypeTest(
         val id: String,
     )
 
-    @OutboxEvent(aggregateId = "id", eventType = "custom.event.type")
+    @OutboxEvent(key = "id", eventType = "custom.event.type")
     data class CustomEventTypeTest(
         val id: String,
     )

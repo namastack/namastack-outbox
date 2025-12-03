@@ -24,11 +24,11 @@ import java.util.concurrent.TimeUnit.SECONDS
 import kotlin.test.Test
 
 /**
- * Integration test for ordered outbox processing with stop-on-first-failure enabled.
+ * Integration test for unordered outbox processing with stop-on-first-failure disabled.
  *
  * Scenario:
- * - Inserts three records for the same aggregate: [failure, success, success]
- * - Verifies that only the first (failure) is processed and the others remain unprocessed.
+ * - Inserts three records for the same record key: [failure, success, success]
+ * - Verifies that all records are processed despite the first one failing.
  */
 @DataJpaTest(showSql = false)
 @DirtiesContext
@@ -56,22 +56,6 @@ class UnorderedProcessingIntegrationTest {
     @AfterEach
     fun cleanup() = cleanupTables()
 
-    @Test
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    fun `should process remaining records in case of a failure`() {
-        val aggregateId = "aggregate-1"
-        createRecord(aggregateId, "failure")
-        createRecord(aggregateId, "success")
-        createRecord(aggregateId, "success")
-
-        await()
-            .atMost(10, SECONDS)
-            .untilAsserted {
-                assertThat(outboxRecordRepository.findCompletedRecords().size).isEqualTo(2)
-                assertThat(outboxRecordRepository.findFailedRecords()).hasSize(1)
-            }
-    }
-
     private fun cleanupTables() {
         transactionTemplate.executeWithoutResult {
             entityManager.createQuery("DELETE FROM OutboxRecordEntity").executeUpdate()
@@ -82,16 +66,34 @@ class UnorderedProcessingIntegrationTest {
         }
     }
 
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `should process remaining records in case of a failure`() {
+        val recordKey = "record-key-1"
+        createRecord(recordKey, "failure")
+        createRecord(recordKey, "success")
+        createRecord(recordKey, "success")
+
+        await()
+            .atMost(10, SECONDS)
+            .untilAsserted {
+                assertThat(outboxRecordRepository.findCompletedRecords().size).isEqualTo(2)
+                assertThat(outboxRecordRepository.findFailedRecords()).hasSize(1)
+            }
+    }
+
+    // ...existing code...
+
     private fun createRecord(
-        aggregateId: String,
+        recordKey: String,
         payload: String,
     ): OutboxRecord =
         outboxRecordRepository.save(
             OutboxRecord
                 .Builder()
-                .aggregateId(aggregateId)
+                .recordKey(recordKey)
                 .payload(payload)
-                .eventType("eventType")
+                .recordType("recordType")
                 .build(clock),
         )
 
