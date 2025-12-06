@@ -1,26 +1,26 @@
 package io.namastack.demo;
 
-import io.namastack.outbox.EnableOutbox;
-import java.util.UUID;
+import io.namastack.demo.customer.CustomerService;
+import io.namastack.outbox.annotation.EnableOutbox;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.transaction.annotation.Transactional;
 
 @EnableOutbox
 @EnableScheduling
 @SpringBootApplication
 public class DemoApplication implements CommandLineRunner {
 
-  private final Logger logger = LoggerFactory.getLogger(DemoApplication.class);
-  private final ApplicationEventPublisher eventPublisher;
+  private static final Logger logger = LoggerFactory.getLogger(DemoApplication.class);
 
-  public DemoApplication(ApplicationEventPublisher eventPublisher) {
-    this.eventPublisher = eventPublisher;
+  private final CustomerService service;
+
+  public DemoApplication(CustomerService service) {
+    this.service = service;
   }
 
   static void main(String[] args) {
@@ -28,13 +28,24 @@ public class DemoApplication implements CommandLineRunner {
   }
 
   @Override
-  @Transactional
-  public void run(String... args) {
-    logger.info("Starting Namastack Outbox Demo Application");
+  public void run(@NotNull String... args) throws Exception {
+    logger.info("=== Namastack Outbox Demo ===");
 
-    String aggregateId = UUID.randomUUID().toString();
-    eventPublisher.publishEvent(
-        new CustomerRegisteredEvent(aggregateId, "John", "Jones",
-            "john.jones@test.de"));
+    logger.info("Register: John Wayne");
+    var customer1 = service.register("John", "Wayne", "john.wayne@example.com");
+
+    logger.info("Register: Macy Grey");
+    var customer2 = service.register("Macy", "Grey", "macy.grey@example.com");
+
+    logger.info("Waiting for processing...");
+    Thread.sleep(2000);
+
+    logger.info("Remove: {}", customer1.getId());
+    service.remove(customer1.getId());
+
+    logger.info("Remove: {}", customer2.getId());
+    service.remove(customer2.getId());
+
+    logger.info("=== Demo Complete ===");
   }
 }
