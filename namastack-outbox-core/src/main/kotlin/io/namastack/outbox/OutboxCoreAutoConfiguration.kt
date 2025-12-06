@@ -63,10 +63,6 @@ import java.time.Clock
 @ConditionalOnBean(annotation = [EnableOutbox::class])
 @EnableConfigurationProperties(OutboxProperties::class)
 class OutboxCoreAutoConfiguration {
-    // ============================================================
-    // INFRASTRUCTURE BEANS
-    // ============================================================
-
     /**
      * Provides a default Clock bean if none is configured.
      *
@@ -139,10 +135,6 @@ class OutboxCoreAutoConfiguration {
             initialize()
         }
 
-    // ============================================================
-    // RETRY & FAILURE HANDLING
-    // ============================================================
-
     /**
      * Creates the retry policy for failed record processing.
      *
@@ -159,10 +151,6 @@ class OutboxCoreAutoConfiguration {
     fun retryPolicy(properties: OutboxProperties): OutboxRetryPolicy =
         OutboxRetryPolicyFactory.create(name = properties.retry.policy, retryProperties = properties.retry)
 
-    // ============================================================
-    // HANDLER DISCOVERY & DISPATCHING
-    // ============================================================
-
     /**
      * Dispatcher that invokes the appropriate handler for each record.
      *
@@ -176,10 +164,6 @@ class OutboxCoreAutoConfiguration {
     @ConditionalOnMissingBean
     fun outboxHandlerInvoker(outboxHandlerRegistry: OutboxHandlerRegistry): OutboxHandlerInvoker =
         OutboxHandlerInvoker(outboxHandlerRegistry)
-
-    // ============================================================
-    // CORE OUTBOX SERVICE
-    // ============================================================
 
     /**
      * Creates the public Outbox API for scheduling records.
@@ -206,10 +190,6 @@ class OutboxCoreAutoConfiguration {
             outboxRecordRepository = recordRepository,
             clock = clock,
         )
-
-    // ============================================================
-    // DISTRIBUTED COORDINATION
-    // ============================================================
 
     /**
      * Registry for managing active instances in a distributed deployment.
@@ -255,10 +235,6 @@ class OutboxCoreAutoConfiguration {
             partitionAssignmentRepository = partitionAssignmentRepository,
             clock = clock,
         )
-
-    // ============================================================
-    // RECORD PROCESSING
-    // ============================================================
 
     /**
      * Main scheduler for processing outbox records.
@@ -315,10 +291,6 @@ class OutboxCoreAutoConfiguration {
             taskExecutor = taskExecutor,
             clock = clock,
         )
-
-    // ============================================================
-    // EVENT PUBLISHING (OPTIONAL)
-    // ============================================================
 
     /**
      * Custom ApplicationEventMulticaster for @OutboxEvent handling.

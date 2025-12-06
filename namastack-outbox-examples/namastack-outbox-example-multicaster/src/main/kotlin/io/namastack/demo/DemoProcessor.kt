@@ -1,16 +1,20 @@
 package io.namastack.demo
 
-import io.namastack.outbox.OutboxRecord
-import io.namastack.outbox.OutboxRecordProcessor
+import io.namastack.outbox.annotation.OutboxHandler
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 @Component
-class DemoProcessor : OutboxRecordProcessor {
+class DemoProcessor {
     private val logger = LoggerFactory.getLogger(DemoProcessor::class.java)
 
-    override fun process(record: OutboxRecord) {
-        logger.info("Processing record ${record.id} for recordKey ${record.recordKey}")
+    @OutboxHandler
+    fun handle(
+        payload: Any,
+        metadata: OutboxRecordMetadata,
+    ) {
+        logger.info("Processing payload $payload for recordKey ${metadata.key}")
         simulateExternalServiceCall()
     }
 
