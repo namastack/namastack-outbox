@@ -85,8 +85,6 @@ class UnorderedProcessingIntegrationTest {
             }
     }
 
-    // ...existing code...
-
     private fun createRecord(
         recordKey: String,
         payload: String,
@@ -111,7 +109,7 @@ class UnorderedProcessingIntegrationTest {
             payload: Any,
             metadata: OutboxRecordMetadata,
         ) {
-            if ((payload as String) == "failure") {
+            if (payload == "failure") {
                 throw RuntimeException("failure")
             }
         }

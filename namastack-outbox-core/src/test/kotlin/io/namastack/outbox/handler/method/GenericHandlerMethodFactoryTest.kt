@@ -377,13 +377,13 @@ class GenericHandlerMethodFactoryTest {
         }
     }
 
-    // Test implementations
     class TestHandler {
         @Suppress("unused")
         fun handleGeneric(
             payload: Any,
             metadata: OutboxRecordMetadata,
         ) {
+            println(payload)
         }
 
         @Suppress("unused")
@@ -391,14 +391,17 @@ class GenericHandlerMethodFactoryTest {
             payload: Any,
             metadata: OutboxRecordMetadata,
         ) {
+            println(payload)
         }
 
         @Suppress("unused")
         fun handleNoParams() {
+            println("no params")
         }
 
         @Suppress("unused")
         fun handleSingleParam(payload: String) {
+            println(payload)
         }
 
         @Suppress("unused")
@@ -406,6 +409,7 @@ class GenericHandlerMethodFactoryTest {
             payload: String,
             metadata: OutboxRecordMetadata,
         ) {
+            println(payload)
         }
 
         @Suppress("unused")
@@ -413,6 +417,7 @@ class GenericHandlerMethodFactoryTest {
             payload: Any,
             extra: String,
         ) {
+            println(payload)
         }
 
         @Suppress("unused")
@@ -421,6 +426,7 @@ class GenericHandlerMethodFactoryTest {
             metadata: OutboxRecordMetadata,
             extra: String,
         ) {
+            println(payload)
         }
     }
 
@@ -429,7 +435,7 @@ class GenericHandlerMethodFactoryTest {
             payload: Any,
             metadata: OutboxRecordMetadata,
         ) {
-            // Implementation
+            println(payload)
         }
     }
 
@@ -438,7 +444,7 @@ class GenericHandlerMethodFactoryTest {
             payload: Any,
             metadata: OutboxRecordMetadata,
         ) {
-            // Implementation
+            println(payload)
         }
     }
 

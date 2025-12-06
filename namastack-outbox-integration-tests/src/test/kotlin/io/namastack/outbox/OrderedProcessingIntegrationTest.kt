@@ -109,7 +109,7 @@ class OrderedProcessingIntegrationTest {
             payload: Any,
             metadata: OutboxRecordMetadata,
         ) {
-            if ((payload as String) == "failure") {
+            if (payload == "failure") {
                 throw RuntimeException("failure")
             }
         }

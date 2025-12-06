@@ -141,7 +141,7 @@ class OutboxCoreAutoConfigurationTest {
                     .withUserConfiguration(ConfigWithoutRepository::class.java)
                     .run { context ->
                         assertThat(context).hasFailed()
-                        assertThat(context.getStartupFailure())
+                        assertThat(context.startupFailure)
                             .hasMessageContaining("OutboxRecordRepository")
                     }
             }
@@ -286,7 +286,7 @@ class OutboxCoreAutoConfigurationTest {
     @Configuration
     private class ConfigWithCustomClock {
         @Bean
-        fun clock() = Clock.fixed(Instant.parse("2020-02-02T00:00:00Z"), ZoneId.systemDefault())
+        fun clock(): Clock = Clock.fixed(Instant.parse("2020-02-02T00:00:00Z"), ZoneId.systemDefault())
 
         @Bean
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
@@ -332,19 +332,6 @@ class OutboxCoreAutoConfigurationTest {
 
         @Bean
         fun retryPolicy() = FixedDelayRetryPolicy(java.time.Duration.ofSeconds(1))
-    }
-
-    @EnableOutbox
-    @Configuration
-    private class ConfigWithoutProcessor {
-        @Bean
-        fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
-
-        @Bean
-        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
-
-        @Bean
-        fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
     }
 
     @EnableOutbox

@@ -252,26 +252,30 @@ class TypedHandlerMethodFactoryTest {
         }
     }
 
-    // Test implementations
     class TestHandler {
         @Suppress("unused")
         fun handleString(payload: String) {
+            println(payload)
         }
 
         @Suppress("unused")
         fun handleInt(payload: Int) {
+            println(payload)
         }
 
         @Suppress("unused")
         fun handlePayload(payload: TestPayload) {
+            println(payload)
         }
 
         @Suppress("unused")
         fun handleAny(payload: Any) {
+            println(payload)
         }
 
         @Suppress("unused")
         fun handleNoParams() {
+            println("no params")
         }
 
         @Suppress("unused")
@@ -279,24 +283,25 @@ class TypedHandlerMethodFactoryTest {
             payload: String,
             extra: Int,
         ) {
+            println(payload)
         }
     }
 
     class StringHandlerImpl : OutboxTypedHandler<String> {
         override fun handle(payload: String) {
-            // Implementation
+            println(payload)
         }
     }
 
     class PayloadHandlerImpl : OutboxTypedHandler<TestPayload> {
         override fun handle(payload: TestPayload) {
-            // Implementation
+            println(payload)
         }
     }
 
     class IntHandlerImpl : OutboxTypedHandler<Int> {
         override fun handle(payload: Int) {
-            // Implementation
+            println(payload)
         }
     }
 
