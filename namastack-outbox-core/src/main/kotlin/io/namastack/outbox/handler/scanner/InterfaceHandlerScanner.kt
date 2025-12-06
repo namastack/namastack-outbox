@@ -10,7 +10,7 @@ import io.namastack.outbox.handler.method.TypedHandlerMethodFactory
  * Scanner that discovers handler implementations via interface inheritance.
  *
  * Finds beans that implement:
- * - [OutboxTypedHandler<T>]: Typed handler for a specific payload type T
+ * - [OutboxTypedHandler]: Typed handler for a specific payload type T
  * - [OutboxHandler]: Generic handler for any payload type
  *
  * This scanner complements [AnnotatedHandlerScanner] for handlers that use
