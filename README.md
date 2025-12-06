@@ -461,51 +461,6 @@ outbox:
 
 ---
 
-## Testing
-
-### Unit Testing Handlers
-
-```kotlin
-@Test
-fun `OrderHandler processes OrderCreatedPayload`() {
-    val handler = OrderCreatedHandler()
-    val payload = OrderCreatedPayload(orderId = "123", customerId = "456")
-    
-    handler.handle(payload)  // Test directly
-    
-    // Verify side effects
-    verify(eventPublisher).publish(payload)
-}
-```
-
-### Integration Testing
-
-```kotlin
-@SpringBootTest
-@DirtiesContext
-class OrderServiceTest {
-    @Autowired
-    private lateinit var orderService: OrderService
-    
-    @Autowired
-    private lateinit var outboxRepository: OutboxRecordRepository
-    
-    @Test
-    @Transactional
-    fun `createOrder saves record to outbox`() {
-        val command = CreateOrderCommand(customerId = "123", amount = 100.0)
-        
-        orderService.createOrder(command)
-        
-        val records = outboxRepository.findPendingRecords()
-        assertThat(records).hasSize(1)
-        assertThat(records[0].payload).isInstanceOf(OrderCreatedPayload::class.java)
-    }
-}
-```
-
----
-
 ## Common Patterns
 
 ### Idempotent Handler (Recommended)
