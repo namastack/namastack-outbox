@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.method
 
+import io.namastack.outbox.handler.OutboxHandlerRegistry
 import java.lang.reflect.Method
 
 /**
@@ -28,6 +29,13 @@ sealed class OutboxHandlerMethod(
      * Example: `com.example.OrderHandler#handle(com.example.OrderCreated)`
      */
     val id: String = buildId()
+
+    /**
+     * Registers this handler method with the given registry.
+     *
+     * @param registry The handler registry to register with
+     */
+    abstract fun register(registry: OutboxHandlerRegistry)
 
     /**
      * Builds a unique identifier for this handler method.

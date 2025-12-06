@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.method
 
+import io.namastack.outbox.handler.OutboxHandlerRegistry
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import java.lang.reflect.Method
 
@@ -45,5 +46,16 @@ class GenericHandlerMethod(
         }
 
         method.invoke(bean, payload, metadata)
+    }
+
+    /**
+     * Registers this generic handler with the given registry.
+     *
+     * The registry will route all records to this handler regardless of payload type.
+     *
+     * @param registry The handler registry to register with
+     */
+    override fun register(registry: OutboxHandlerRegistry) {
+        registry.registerGenericHandler(handlerMethod = this)
     }
 }

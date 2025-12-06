@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.method
 
+import io.namastack.outbox.handler.OutboxHandlerRegistry
 import java.lang.reflect.Method
 import kotlin.reflect.KClass
 
@@ -39,14 +40,24 @@ class TypedHandlerMethod(
      * handler.invoke(OrderCreated(orderId = "123"))
      * ```
      *
-     * @param payload The record payload of type [paramType]
+     * @param payload The record payload to process
      * @throws Exception if the handler method throws (will trigger retries)
      */
     fun invoke(payload: Any) {
-        require(method.parameterCount == 1) {
-            "Typed handler method must have exactly one parameter: $method"
-        }
-
         method.invoke(bean, payload)
+    }
+
+    /**
+     * Registers this typed handler with the given registry.
+     *
+     * The registry will route records with matching payload types to this handler.
+     *
+     * @param registry The handler registry to register with
+     */
+    override fun register(registry: OutboxHandlerRegistry) {
+        registry.registerTypedHandler(
+            handlerMethod = this,
+            paramType = paramType,
+        )
     }
 }

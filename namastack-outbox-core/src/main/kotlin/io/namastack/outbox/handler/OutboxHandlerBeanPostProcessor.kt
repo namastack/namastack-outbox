@@ -1,8 +1,6 @@
 package io.namastack.outbox.handler
 
-import io.namastack.outbox.handler.method.GenericHandlerMethod
 import io.namastack.outbox.handler.method.GenericHandlerMethodFactory
-import io.namastack.outbox.handler.method.TypedHandlerMethod
 import io.namastack.outbox.handler.method.TypedHandlerMethodFactory
 import io.namastack.outbox.handler.scanner.AnnotatedHandlerScanner
 import io.namastack.outbox.handler.scanner.InterfaceHandlerScanner
@@ -70,10 +68,9 @@ internal class OutboxHandlerBeanPostProcessor(
      * Processes a bean after Spring instantiation.
      *
      * Algorithm:
-     * 1. For each scanner in the list:
-     *    a. Scan the bean for handlers
-     *    b. Register each discovered handler based on its type
-     * 2. Return the bean unchanged (just registering side effects)
+     * 1. Scan the bean using all configured scanners
+     * 2. Register each discovered handler
+     * 3. Return the bean unchanged (just registering side effects)
      *
      * @param bean The newly instantiated bean
      * @param beanName The name of the bean in the Spring context
@@ -83,24 +80,9 @@ internal class OutboxHandlerBeanPostProcessor(
         bean: Any,
         beanName: String,
     ): Any {
-        // Scan for handlers using all configured scanners
-        scanners.forEach { scanner ->
-            scanner.scan(bean).forEach { handlerMethod ->
-                // Register handler based on its type
-                when (handlerMethod) {
-                    is TypedHandlerMethod -> {
-                        registry.registerTypedHandler(
-                            handlerMethod = handlerMethod,
-                            paramType = handlerMethod.paramType,
-                        )
-                    }
-
-                    is GenericHandlerMethod -> {
-                        registry.registerGenericHandler(handlerMethod = handlerMethod)
-                    }
-                }
-            }
-        }
+        scanners
+            .flatMap { it.scan(bean) }
+            .forEach { handlerMethod -> handlerMethod.register(registry) }
 
         return bean
     }
