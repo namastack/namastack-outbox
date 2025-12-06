@@ -6,8 +6,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 @Component
-class DemoProcessor {
-    private val logger = LoggerFactory.getLogger(DemoProcessor::class.java)
+class DemoOutboxHandler {
+    private val logger = LoggerFactory.getLogger(DemoOutboxHandler::class.java)
 
     @OutboxHandler
     fun handle(
@@ -25,7 +25,7 @@ class DemoProcessor {
         // Occasionally simulate failures for retry demonstration
         if (Math.random() < 0.3) { // 30% failure rate
             logger.warn("❌ Service temporarily unavailable - will retry")
-            throw RuntimeException("Simulated failure in DemoProcessor")
+            throw RuntimeException("Simulated failure in DemoOutboxHandler")
         }
 
         logger.info("✅ Processing completed")
