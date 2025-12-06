@@ -12,10 +12,10 @@ dependencies {
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.boot.starter.data.jpa.test)
     testImplementation(libs.jackson.module.kotlin)
-    testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.assertj.core)
     testImplementation(libs.mockk)
     testImplementation(libs.h2)
+    testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

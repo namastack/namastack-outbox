@@ -7,6 +7,7 @@ import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.context.annotation.Import
@@ -18,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.util.concurrent.TimeUnit.SECONDS
-import kotlin.test.Test
 
 /**
  * Integration test for ordered outbox processing with stop-on-first-failure enabled.
