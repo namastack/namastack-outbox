@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.mockk.every
 import io.mockk.mockk
+import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
@@ -39,19 +40,13 @@ class JpaOutboxAutoConfigurationTest {
                 .withUserConfiguration(CompleteConfiguration::class.java)
                 .run { context ->
                     assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(Clock::class.java)
+                    assertThat(context).hasBean("outboxEntityManager")
+                    assertThat(context).hasBean("outboxTransactionTemplate")
+                    assertThat(context).hasSingleBean(OutboxRecordEntityMapper::class.java)
                     assertThat(context).hasSingleBean(OutboxRecordRepository::class.java)
                     assertThat(context).hasSingleBean(OutboxInstanceRepository::class.java)
-                    assertThat(context).hasSingleBean(Clock::class.java)
-                    assertThat(context).hasBean("outboxTransactionTemplate")
-                    assertThat(context).hasBean("outboxEntityManager")
-                    assertThat(context).hasBean("outboxPartitionAssignmentRepository")
-
-                    assertThat(context.getBean("outboxRecordRepository"))
-                        .isInstanceOf(JpaOutboxRecordRepository::class.java)
-                    assertThat(context.getBean("outboxInstanceRepository"))
-                        .isInstanceOf(JpaOutboxInstanceRepository::class.java)
-                    assertThat(context.getBean("outboxPartitionAssignmentRepository"))
-                        .isInstanceOf(JpaOutboxPartitionAssignmentRepository::class.java)
+                    assertThat(context).hasSingleBean(JpaOutboxPartitionAssignmentRepository::class.java)
                 }
         }
 
@@ -270,6 +265,9 @@ class JpaOutboxAutoConfigurationTest {
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
 
         @Bean
+        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+
+        @Bean
         fun clock(): Clock = Clock.systemUTC()
 
         @Bean
@@ -284,6 +282,9 @@ class JpaOutboxAutoConfigurationTest {
     private class ConfigurationWithRealDataSource {
         @Bean
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
+
+        @Bean
+        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
 
         @Bean
         fun dataSource(): DataSource =
@@ -302,6 +303,9 @@ class JpaOutboxAutoConfigurationTest {
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
 
         @Bean
+        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+
+        @Bean
         fun dataSource(): DataSource = mockk(relaxed = true)
 
         @Bean
@@ -313,6 +317,9 @@ class JpaOutboxAutoConfigurationTest {
     private class ConfigurationWithCustomClock {
         @Bean
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
+
+        @Bean
+        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
 
         @Bean
         fun dataSource(): DataSource = mockk(relaxed = true)
@@ -331,6 +338,9 @@ class JpaOutboxAutoConfigurationTest {
         fun clock(): Clock = Clock.systemUTC()
 
         @Bean
+        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+
+        @Bean
         fun dataSource(): DataSource = mockk(relaxed = true)
 
         @Bean
@@ -342,6 +352,9 @@ class JpaOutboxAutoConfigurationTest {
     private class ConfigurationWithoutDataSource {
         @Bean
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
+
+        @Bean
+        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
 
         @Bean
         fun clock(): Clock = Clock.systemUTC()
@@ -357,6 +370,9 @@ class JpaOutboxAutoConfigurationTest {
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
 
         @Bean
+        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+
+        @Bean
         fun clock(): Clock = Clock.systemUTC()
 
         @Bean
@@ -368,6 +384,9 @@ class JpaOutboxAutoConfigurationTest {
     private class ConfigurationWithCustomTransactionTemplate {
         @Bean
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
+
+        @Bean
+        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
 
         @Bean
         fun clock(): Clock = Clock.systemUTC()
@@ -389,6 +408,9 @@ class JpaOutboxAutoConfigurationTest {
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
 
         @Bean
+        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+
+        @Bean
         fun clock(): Clock = Clock.systemUTC()
 
         @Bean
@@ -408,6 +430,9 @@ class JpaOutboxAutoConfigurationTest {
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
 
         @Bean
+        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+
+        @Bean
         fun clock(): Clock = Clock.systemUTC()
 
         @Bean
@@ -424,6 +449,9 @@ class JpaOutboxAutoConfigurationTest {
     private class ConfigurationWithoutEnableOutbox {
         @Bean
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
+
+        @Bean
+        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
 
         @Bean
         fun clock(): Clock = Clock.systemUTC()

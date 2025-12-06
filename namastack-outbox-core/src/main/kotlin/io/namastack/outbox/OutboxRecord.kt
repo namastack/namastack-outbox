@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionHasher
 import java.time.Clock
 import java.time.Duration
@@ -9,13 +10,14 @@ import java.util.UUID
 /**
  * Represents an outbox record for implementing the transactional outbox pattern.
  *
- * An outbox record stores information that needs to be published reliably
- * after a database transaction has been committed.
+ * Stores information that needs to be published reliably after a database transaction
+ * has been committed. Tracks processing status and manages retry behavior through
+ * failure count and scheduled retry times.
  *
+ * @param T Type of the payload
  * @param id Unique identifier for the outbox record
- * @param recordKey Logical group identifier for this record
- * @param recordType Type/name of the record
- * @param payload Payload in serialized form (typically JSON)
+ * @param key Logical group identifier for this record
+ * @param payload Payload data
  * @param createdAt Timestamp when the record was created
  * @param status Current processing status of the record
  * @param completedAt Timestamp when processing was completed (null if not completed)
@@ -25,13 +27,13 @@ import java.util.UUID
  * @author Roland Beisel
  * @since 0.1.0
  */
-class OutboxRecord internal constructor(
+class OutboxRecord<T> internal constructor(
     val id: String,
-    val recordKey: String,
-    val recordType: String,
-    val payload: String,
-    val createdAt: OffsetDateTime,
+    val key: String,
+    val payload: T,
     val partition: Int,
+    val createdAt: OffsetDateTime,
+    val handlerId: String,
     status: OutboxRecordStatus,
     completedAt: OffsetDateTime?,
     failureCount: Int,
@@ -99,8 +101,7 @@ class OutboxRecord internal constructor(
      * @param clock Clock to use for determining the current time
      * @return true if the record can be retried, false otherwise
      */
-    internal fun canBeRetried(clock: Clock): Boolean =
-        nextRetryAt.isBefore(OffsetDateTime.now(clock)) && status == OutboxRecordStatus.NEW
+    internal fun canBeRetried(clock: Clock): Boolean = nextRetryAt.isBefore(OffsetDateTime.now(clock)) && status == NEW
 
     /**
      * Checks if the maximum number of retries has been exhausted.
@@ -126,34 +127,28 @@ class OutboxRecord internal constructor(
     /**
      * Builder class for creating new OutboxRecord instances.
      */
-    class Builder {
-        private lateinit var recordKey: String
-        private lateinit var recordType: String
-        private lateinit var payload: String
+    class Builder<T> {
+        private var key: String? = null
+        private var payload: T? = null
+        private var handlerId: String? = null
 
         /**
          * Sets the record key for the outbox record.
          *
-         * @param recordKey Identifier of the logical group of the record
+         * @param key Identifier of the logical group of the record
          * @return this Builder instance for method chaining
          */
-        fun recordKey(recordKey: String) = apply { this.recordKey = recordKey }
-
-        /**
-         * Sets the record type for the outbox record.
-         *
-         * @param recordType Type/name of the record
-         * @return this Builder instance for method chaining
-         */
-        fun recordType(recordType: String) = apply { this.recordType = recordType }
+        fun key(key: String) = apply { this.key = key }
 
         /**
          * Sets the payload for the outbox record.
          *
-         * @param payload Record payload in serialized form
+         * @param payload Record payload
          * @return this Builder instance for method chaining
          */
-        fun payload(payload: String) = apply { this.payload = payload }
+        fun payload(payload: T) = apply { this.payload = payload }
+
+        fun handlerId(handlerId: String) = apply { this.handlerId = handlerId }
 
         /**
          * Builds the OutboxRecord with the configured values.
@@ -161,21 +156,26 @@ class OutboxRecord internal constructor(
          * @param clock Clock to use for timestamps (defaults to system UTC)
          * @return A new OutboxRecord instance
          */
-        fun build(clock: Clock): OutboxRecord {
+        fun build(clock: Clock): OutboxRecord<T> {
+            val id = UUID.randomUUID().toString()
+            val rk = key ?: id
+            val pl = payload ?: error("payload must be set")
+            val hId = handlerId ?: error("handlerId must be set")
+
             val now = OffsetDateTime.now(clock)
-            val partition = PartitionHasher.getPartitionForRecordKey(recordKey)
+            val partition = PartitionHasher.getPartitionForRecordKey(rk)
 
             return OutboxRecord(
-                id = UUID.randomUUID().toString(),
-                status = OutboxRecordStatus.NEW,
-                recordKey = recordKey,
-                recordType = recordType,
-                payload = payload,
+                id = id,
+                status = NEW,
+                key = rk,
+                payload = pl,
                 partition = partition,
                 createdAt = now,
                 completedAt = null,
                 failureCount = 0,
                 nextRetryAt = now,
+                handlerId = hId,
             )
         }
     }
@@ -186,9 +186,9 @@ class OutboxRecord internal constructor(
          *
          * This method is used when loading records from the database.
          *
+         * @param T Type of the payload
          * @param id Unique identifier
          * @param recordKey Record key
-         * @param recordType Record type
          * @param payload Payload
          * @param partition Partition for this record
          * @param createdAt Creation timestamp
@@ -198,22 +198,22 @@ class OutboxRecord internal constructor(
          * @param nextRetryAt Next retry timestamp
          * @return Restored OutboxRecord instance
          */
-        fun restore(
+        @JvmStatic
+        fun <T> restore(
             id: String,
             recordKey: String,
-            recordType: String,
-            payload: String,
+            payload: T,
             createdAt: OffsetDateTime,
             status: OutboxRecordStatus,
             completedAt: OffsetDateTime?,
             failureCount: Int,
             partition: Int,
             nextRetryAt: OffsetDateTime,
-        ): OutboxRecord =
+            handlerId: String,
+        ): OutboxRecord<T> =
             OutboxRecord(
                 id = id,
-                recordKey = recordKey,
-                recordType = recordType,
+                key = recordKey,
                 payload = payload,
                 partition = partition,
                 createdAt = createdAt,
@@ -221,6 +221,7 @@ class OutboxRecord internal constructor(
                 completedAt = completedAt,
                 failureCount = failureCount,
                 nextRetryAt = nextRetryAt,
+                handlerId = handlerId,
             )
     }
 }

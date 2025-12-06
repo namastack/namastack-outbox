@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.annotation.EnableOutbox
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean

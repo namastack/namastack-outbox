@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import io.mockk.mockk
+import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
@@ -122,31 +123,6 @@ class OutboxCoreAutoConfigurationTest {
     @DisplayName("Required Dependencies")
     inner class RequiredDependencies {
         @Nested
-        @DisplayName("OutboxRecordProcessor")
-        inner class ProcessorDependency {
-            @Test
-            fun `creates scheduler when processor exists`() {
-                contextRunner
-                    .withUserConfiguration(MinimalTestConfig::class.java)
-                    .run { context ->
-                        assertThat(context).hasSingleBean(OutboxRecordProcessor::class.java)
-                        assertThat(context).hasSingleBean(OutboxProcessingScheduler::class.java)
-                    }
-            }
-
-            @Test
-            fun `fails when processor is missing`() {
-                contextRunner
-                    .withUserConfiguration(ConfigWithoutProcessor::class.java)
-                    .run { context ->
-                        assertThat(context).hasFailed()
-                        assertThat(context.getStartupFailure())
-                            .hasMessageContaining("OutboxRecordProcessor")
-                    }
-            }
-        }
-
-        @Nested
         @DisplayName("OutboxRecordRepository")
         inner class RepositoryDependency {
             @Test
@@ -165,34 +141,8 @@ class OutboxCoreAutoConfigurationTest {
                     .withUserConfiguration(ConfigWithoutRepository::class.java)
                     .run { context ->
                         assertThat(context).hasFailed()
-                        assertThat(context.getStartupFailure())
+                        assertThat(context.startupFailure)
                             .hasMessageContaining("OutboxRecordRepository")
-                    }
-            }
-        }
-
-        @Nested
-        @DisplayName("OutboxEventMulticaster")
-        inner class MulticasterDependency {
-            @Test
-            fun `creates multicaster when serializer exists`() {
-                contextRunner
-                    .withUserConfiguration(MinimalTestConfig::class.java)
-                    .run { context ->
-                        assertThat(context).hasSingleBean(OutboxEventMulticaster::class.java)
-                        val bean = context.getBean("applicationEventMulticaster")
-                        assertThat(bean).isInstanceOf(OutboxEventMulticaster::class.java)
-                    }
-            }
-
-            @Test
-            fun `fails when serializer is missing`() {
-                contextRunner
-                    .withUserConfiguration(ConfigWithoutSerializer::class.java)
-                    .run { context ->
-                        assertThat(context).hasFailed()
-                        assertThat(context.getStartupFailure())
-                            .hasMessageContaining("OutboxEventSerializer")
                     }
             }
         }
@@ -329,20 +279,14 @@ class OutboxCoreAutoConfigurationTest {
         fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
 
         @Bean
-        fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
-
-        @Bean
         fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
-
-        @Bean
-        fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
     }
 
     @EnableOutbox
     @Configuration
     private class ConfigWithCustomClock {
         @Bean
-        fun clock() = Clock.fixed(Instant.parse("2020-02-02T00:00:00Z"), ZoneId.systemDefault())
+        fun clock(): Clock = Clock.fixed(Instant.parse("2020-02-02T00:00:00Z"), ZoneId.systemDefault())
 
         @Bean
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
@@ -351,13 +295,7 @@ class OutboxCoreAutoConfigurationTest {
         fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
 
         @Bean
-        fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
-
-        @Bean
         fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
-
-        @Bean
-        fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
     }
 
     @EnableOutbox
@@ -374,13 +312,7 @@ class OutboxCoreAutoConfigurationTest {
         fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
 
         @Bean
-        fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
-
-        @Bean
         fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
-
-        @Bean
-        fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
 
         @Bean
         fun outboxInstanceRegistry() = instanceRegistry
@@ -396,13 +328,7 @@ class OutboxCoreAutoConfigurationTest {
         fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
 
         @Bean
-        fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
-
-        @Bean
         fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
-
-        @Bean
-        fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
 
         @Bean
         fun retryPolicy() = FixedDelayRetryPolicy(java.time.Duration.ofSeconds(1))
@@ -410,47 +336,9 @@ class OutboxCoreAutoConfigurationTest {
 
     @EnableOutbox
     @Configuration
-    private class ConfigWithoutProcessor {
-        @Bean
-        fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
-
-        @Bean
-        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
-
-        @Bean
-        fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
-
-        @Bean
-        fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
-    }
-
-    @EnableOutbox
-    @Configuration
     private class ConfigWithoutRepository {
         @Bean
-        fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
-
-        @Bean
         fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
-
-        @Bean
-        fun outboxEventSerializer() = mockk<OutboxEventSerializer>(relaxed = true)
-
-        @Bean
-        fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
-    }
-
-    @EnableOutbox
-    @Configuration
-    private class ConfigWithoutSerializer {
-        @Bean
-        fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
-
-        @Bean
-        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
-
-        @Bean
-        fun outboxRecordProcessor() = mockk<OutboxRecordProcessor>(relaxed = true)
 
         @Bean
         fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)

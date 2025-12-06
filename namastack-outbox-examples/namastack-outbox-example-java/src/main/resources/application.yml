@@ -16,6 +16,9 @@ spring:
 outbox:
   schema-initialization:
     enabled: true
+  poll-interval: 1000
+  instance:
+    graceful-shutdown-timeout-seconds: 2
 
 logging:
   level:

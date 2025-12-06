@@ -6,6 +6,7 @@ import io.mockk.verify
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.annotation.EnableOutbox
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.within
@@ -21,7 +22,7 @@ import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 @DataJpaTest
-@ImportAutoConfiguration(JpaOutboxAutoConfiguration::class)
+@ImportAutoConfiguration(JpaOutboxAutoConfiguration::class, OutboxJacksonAutoConfiguration::class)
 class JpaOutboxRecordRepositoryTest {
     private val clock: Clock = Clock.systemDefaultZone()
 
@@ -36,24 +37,24 @@ class JpaOutboxRecordRepositoryTest {
         val recordKey = UUID.randomUUID().toString()
         val record =
             OutboxRecord
-                .Builder()
-                .recordKey(recordKey)
-                .recordType("recordType")
+                .Builder<String>()
+                .key(recordKey)
                 .payload("payload")
+                .handlerId("handlerId")
                 .build(clock)
 
         jpaOutboxRecordRepository.save(record)
 
         val persistedRecord = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey).first()
 
-        assertThat(persistedRecord.recordKey).isEqualTo(record.recordKey)
-        assertThat(persistedRecord.recordType).isEqualTo(record.recordType)
+        assertThat(persistedRecord.key).isEqualTo(record.key)
         assertThat(persistedRecord.payload).isEqualTo(record.payload)
         assertThat(persistedRecord.status).isEqualTo(record.status)
         assertThat(persistedRecord.failureCount).isEqualTo(record.failureCount)
         assertThat(persistedRecord.completedAt).isNull()
         assertThat(persistedRecord.createdAt).isCloseTo(record.createdAt, within(1, ChronoUnit.MILLIS))
         assertThat(persistedRecord.nextRetryAt).isCloseTo(record.nextRetryAt, within(1, ChronoUnit.MILLIS))
+        assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
     }
 
     @Test
@@ -61,10 +62,10 @@ class JpaOutboxRecordRepositoryTest {
         val recordKey = UUID.randomUUID().toString()
         val record =
             OutboxRecord
-                .Builder()
-                .recordKey(recordKey)
-                .recordType("recordType")
+                .Builder<String>()
+                .key(recordKey)
                 .payload("payload")
+                .handlerId("handlerId")
                 .build(clock)
 
         jpaOutboxRecordRepository.save(record)
@@ -72,8 +73,7 @@ class JpaOutboxRecordRepositoryTest {
         val updatedRecord =
             OutboxRecord.restore(
                 id = record.id,
-                recordKey = record.recordKey,
-                recordType = record.recordType,
+                recordKey = record.key,
                 payload = record.payload,
                 partition = 1,
                 createdAt = record.createdAt,
@@ -81,6 +81,7 @@ class JpaOutboxRecordRepositoryTest {
                 completedAt = record.completedAt,
                 failureCount = record.failureCount + 1,
                 nextRetryAt = record.nextRetryAt,
+                handlerId = record.handlerId,
             )
 
         jpaOutboxRecordRepository.save(updatedRecord)
@@ -200,7 +201,7 @@ class JpaOutboxRecordRepositoryTest {
             now.minusMinutes(2),
             now.minusMinutes(1),
         )
-        assertThat(records.map { it.recordKey }).allMatch { it == recordKey }
+        assertThat(records.map { it.key }).allMatch { it == recordKey }
     }
 
     @Test
@@ -387,10 +388,10 @@ class JpaOutboxRecordRepositoryTest {
         val recordKey = UUID.randomUUID().toString()
         val record =
             OutboxRecord
-                .Builder()
-                .recordKey(recordKey)
-                .recordType("recordType")
+                .Builder<String>()
+                .key(recordKey)
                 .payload("payload")
+                .handlerId("handlerId")
                 .build(clock)
 
         jpaOutboxRecordRepository.save(record)
@@ -403,8 +404,9 @@ class JpaOutboxRecordRepositoryTest {
     @Test
     fun `does not delete record by id when not existing`() {
         val entityManager = mockk<EntityManager>(relaxed = true)
+        val entityMapper = mockk<OutboxRecordEntityMapper>(relaxed = true)
         every { entityManager.find(OutboxRecordEntity::class.java, any()) } returns null
-        val recordRepository = JpaOutboxRecordRepository(entityManager, transactionTemplate, clock)
+        val recordRepository = JpaOutboxRecordRepository(entityManager, transactionTemplate, entityMapper, clock)
 
         recordRepository.deleteById(UUID.randomUUID().toString())
 
@@ -419,7 +421,6 @@ class JpaOutboxRecordRepositoryTest {
                 OutboxRecord.restore(
                     id = UUID.randomUUID().toString(),
                     recordKey = UUID.randomUUID().toString(),
-                    recordType = "recordType",
                     payload = "payload",
                     partition = 1,
                     createdAt = now,
@@ -427,6 +428,7 @@ class JpaOutboxRecordRepositoryTest {
                     completedAt = null,
                     failureCount = 3,
                     nextRetryAt = now,
+                    handlerId = "handlerId",
                 ),
             )
         }
@@ -439,7 +441,6 @@ class JpaOutboxRecordRepositoryTest {
                 OutboxRecord.restore(
                     id = UUID.randomUUID().toString(),
                     recordKey = UUID.randomUUID().toString(),
-                    recordType = "recordType",
                     payload = "payload",
                     partition = 1,
                     createdAt = now,
@@ -447,6 +448,7 @@ class JpaOutboxRecordRepositoryTest {
                     completedAt = now,
                     failureCount = 0,
                     nextRetryAt = now,
+                    handlerId = "handlerId",
                 ),
             )
         }
@@ -459,7 +461,6 @@ class JpaOutboxRecordRepositoryTest {
                 OutboxRecord.restore(
                     id = UUID.randomUUID().toString(),
                     recordKey = UUID.randomUUID().toString(),
-                    recordType = "recordType",
                     payload = "payload",
                     partition = 1,
                     createdAt = now,
@@ -467,6 +468,7 @@ class JpaOutboxRecordRepositoryTest {
                     completedAt = null,
                     failureCount = 0,
                     nextRetryAt = now,
+                    handlerId = "handlerId",
                 ),
             )
         }
@@ -483,7 +485,6 @@ class JpaOutboxRecordRepositoryTest {
                 OutboxRecord.restore(
                     id = UUID.randomUUID().toString(),
                     recordKey = recordKey,
-                    recordType = "recordType",
                     payload = "payload",
                     partition = 1,
                     createdAt = createdAt,
@@ -491,6 +492,7 @@ class JpaOutboxRecordRepositoryTest {
                     completedAt = null,
                     failureCount = 0,
                     nextRetryAt = createdAt,
+                    handlerId = "handlerId",
                 ),
             )
         }
@@ -506,7 +508,6 @@ class JpaOutboxRecordRepositoryTest {
             OutboxRecord.restore(
                 id = UUID.randomUUID().toString(),
                 recordKey = recordKey,
-                recordType = "RecordType",
                 payload = "test-payload",
                 partition = partition,
                 createdAt = createdAt,
@@ -514,6 +515,7 @@ class JpaOutboxRecordRepositoryTest {
                 completedAt = if (status == COMPLETED) createdAt else null,
                 failureCount = 0,
                 nextRetryAt = createdAt,
+                handlerId = "handlerId",
             ),
         )
     }
@@ -528,7 +530,6 @@ class JpaOutboxRecordRepositoryTest {
                 OutboxRecord.restore(
                     id = UUID.randomUUID().toString(),
                     recordKey = recordKey,
-                    recordType = "RecordType",
                     payload = "test-payload",
                     partition = 1,
                     createdAt = createdAt,
@@ -536,6 +537,7 @@ class JpaOutboxRecordRepositoryTest {
                     completedAt = createdAt,
                     failureCount = 0,
                     nextRetryAt = createdAt,
+                    handlerId = "handlerId",
                 ),
             )
         }
@@ -546,12 +548,11 @@ class JpaOutboxRecordRepositoryTest {
         status: OutboxRecordStatus,
         partition: Int,
         createdAt: OffsetDateTime,
-    ): OutboxRecord {
+    ): OutboxRecord<String> {
         val record =
             OutboxRecord.restore(
                 id = UUID.randomUUID().toString(),
                 recordKey = recordKey,
-                recordType = "RecordType",
                 payload = "payload",
                 partition = partition,
                 createdAt = createdAt,
@@ -559,6 +560,7 @@ class JpaOutboxRecordRepositoryTest {
                 completedAt = null,
                 failureCount = 0,
                 nextRetryAt = createdAt,
+                handlerId = "handlerId",
             )
 
         jpaOutboxRecordRepository.save(record)

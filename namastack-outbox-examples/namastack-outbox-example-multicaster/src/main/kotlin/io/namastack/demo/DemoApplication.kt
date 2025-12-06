@@ -2,7 +2,7 @@ package io.namastack.demo
 
 import io.namastack.demo.customer.Customer
 import io.namastack.demo.customer.CustomerRepository
-import io.namastack.outbox.EnableOutbox
+import io.namastack.outbox.annotation.EnableOutbox
 import org.slf4j.LoggerFactory
 import org.springframework.boot.CommandLineRunner
 import org.springframework.boot.SpringApplication
