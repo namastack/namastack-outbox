@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.partition.PartitionAssignment
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
@@ -14,7 +15,7 @@ import java.time.Clock
 import java.time.OffsetDateTime
 
 @DataJpaTest
-@ImportAutoConfiguration(JpaOutboxAutoConfiguration::class)
+@ImportAutoConfiguration(JpaOutboxAutoConfiguration::class, OutboxJacksonAutoConfiguration::class)
 class JpaOutboxPartitionAssignmentRepositoryTest {
     @Autowired
     private lateinit var partitionAssignmentRepository: PartitionAssignmentRepository

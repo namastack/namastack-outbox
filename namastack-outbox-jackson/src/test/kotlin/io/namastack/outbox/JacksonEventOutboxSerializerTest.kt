@@ -1,98 +1,93 @@
 package io.namastack.outbox
 
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
-import tools.jackson.databind.json.JsonMapper
+import tools.jackson.module.kotlin.jsonMapper
+import tools.jackson.module.kotlin.kotlinModule
 
 class JacksonEventOutboxSerializerTest {
-    private val mapper = mockk<JsonMapper>()
-    private val serializer = JacksonEventOutboxSerializer(mapper)
+    private val mapper = jsonMapper { addModule(kotlinModule()) }
+    private val serializer = JacksonOutboxPayloadSerializer(mapper)
 
     @Test
-    fun `serialize delegates to mapper writeValueAsString`() {
-        val event = Any()
-        val expectedJson = "{\"test\":\"value\"}"
-        every { mapper.writeValueAsString(event) } returns expectedJson
+    fun `serialize converts object to json string`() {
+        val event = TestEvent(id = "123", name = "test")
 
         val result = serializer.serialize(event)
 
-        assertThat(result).isEqualTo(expectedJson)
-        verify { mapper.writeValueAsString(event) }
+        assertThat(result).contains("123").contains("test")
     }
 
     @Test
-    fun `serialize returns mapper result`() {
+    fun `serialize handles strings`() {
         val event = "test-event"
-        val json = "\"test-event\""
-        every { mapper.writeValueAsString(event) } returns json
 
         val result = serializer.serialize(event)
 
-        assertThat(result).isEqualTo(json)
+        assertThat(result).isEqualTo("\"test-event\"")
     }
 
     @Test
-    fun `serialize throws exception when mapper fails`() {
-        val event = Any()
-        every { mapper.writeValueAsString(event) } throws RuntimeException("Serialization failed")
+    fun `serialize handles numbers`() {
+        val event = 42
+
+        val result = serializer.serialize(event)
+
+        assertThat(result).isEqualTo("42")
+    }
+
+    @Test
+    fun `deserialize converts json string back to object`() {
+        val json = """{"id":"123","name":"test"}"""
+
+        val result = serializer.deserialize(json, TestEvent::class.java)
+
+        assertThat(result).isInstanceOf(TestEvent::class.java)
+        assertThat(result.id).isEqualTo("123")
+        assertThat(result.name).isEqualTo("test")
+    }
+
+    @Test
+    fun `deserialize handles strings`() {
+        val json = "\"test-value\""
+
+        val result = serializer.deserialize(json, String::class.java)
+
+        assertThat(result).isEqualTo("test-value")
+    }
+
+    @Test
+    fun `deserialize handles numbers`() {
+        val json = "42"
+
+        val result = serializer.deserialize(json, Int::class.java)
+
+        assertThat(result).isEqualTo(42)
+    }
+
+    @Test
+    fun `deserialize throws exception on invalid json`() {
+        val invalidJson = "invalid json"
 
         assertThatThrownBy {
-            serializer.serialize(event)
-        }.isInstanceOf(RuntimeException::class.java).hasMessage("Serialization failed")
+            serializer.deserialize(invalidJson, TestEvent::class.java)
+        }.isInstanceOf(Exception::class.java)
     }
 
     @Test
-    fun `deserialize delegates to mapper readValue`() {
-        val json = "{\"id\":\"123\"}"
-        val targetType = String::class.java
-        val expected = "deserialized"
-        every { mapper.readValue(json, targetType) } returns expected
+    fun `roundtrip serialization and deserialization`() {
+        val originalEvent = TestEvent(id = "456", name = "roundtrip")
 
-        val result = serializer.deserialize(json, targetType)
+        val serialized = serializer.serialize(originalEvent)
+        val deserialized = serializer.deserialize(serialized, TestEvent::class.java)
 
-        assertThat(result).isEqualTo(expected)
-        verify { mapper.readValue(json, targetType) }
+        assertThat(deserialized.id).isEqualTo(originalEvent.id)
+        assertThat(deserialized.name).isEqualTo(originalEvent.name)
     }
 
-    @Test
-    fun `deserialize returns mapper result`() {
-        val json = "[1,2,3]"
-        val targetType = List::class.java
-        val expected = listOf(1, 2, 3)
-        every { mapper.readValue(json, targetType) } returns expected
-
-        val result = serializer.deserialize(json, targetType)
-
-        assertThat(result).isEqualTo(expected)
-    }
-
-    @Test
-    fun `deserialize throws exception when mapper fails`() {
-        val json = "invalid"
-        val targetType = String::class.java
-        every { mapper.readValue(json, targetType) } throws RuntimeException("Deserialization failed")
-
-        assertThatThrownBy {
-            serializer.deserialize(json, targetType)
-        }.isInstanceOf(RuntimeException::class.java).hasMessage("Deserialization failed")
-    }
-
-    @Test
-    fun `deserialize with different types`() {
-        val json1 = "{\"name\":\"test\"}"
-        val json2 = "[1,2,3]"
-
-        every { mapper.readValue(json1, String::class.java) } returns "result1"
-        every { mapper.readValue(json2, List::class.java) } returns listOf(1, 2, 3)
-
-        val result1 = serializer.deserialize(json1, String::class.java)
-        val result2 = serializer.deserialize(json2, List::class.java)
-
-        assertThat(result1).isEqualTo("result1")
-        assertThat(result2).isEqualTo(listOf(1, 2, 3))
-    }
+    private data class TestEvent(
+        val id: String,
+        val name: String,
+    )
 }

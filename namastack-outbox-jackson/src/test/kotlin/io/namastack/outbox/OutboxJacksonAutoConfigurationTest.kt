@@ -10,12 +10,14 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import tools.jackson.databind.json.JsonMapper
+import tools.jackson.module.kotlin.jsonMapper
 
 @DisplayName("OutboxJacksonAutoConfiguration")
 class OutboxJacksonAutoConfigurationTest {
     private fun contextRunner() =
         ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(OutboxJacksonAutoConfiguration::class.java))
+            .withUserConfiguration(TestConfiguration::class.java)
 
     @Nested
     @DisplayName("JsonMapper Bean")
@@ -39,15 +41,15 @@ class OutboxJacksonAutoConfigurationTest {
     }
 
     @Nested
-    @DisplayName("OutboxEventSerializer Bean")
+    @DisplayName("OutboxPayloadSerializer Bean")
     inner class OutboxEventSerializerBean {
         @Test
         fun `creates JacksonEventOutboxSerializer bean`() {
             contextRunner()
                 .run { context ->
-                    assertThat(context).hasSingleBean(OutboxEventSerializer::class.java)
-                    assertThat(context.getBean(OutboxEventSerializer::class.java))
-                        .isInstanceOf(JacksonEventOutboxSerializer::class.java)
+                    assertThat(context).hasSingleBean(OutboxPayloadSerializer::class.java)
+                    assertThat(context.getBean(OutboxPayloadSerializer::class.java))
+                        .isInstanceOf(JacksonOutboxPayloadSerializer::class.java)
                 }
         }
 
@@ -56,9 +58,9 @@ class OutboxJacksonAutoConfigurationTest {
             contextRunner()
                 .withUserConfiguration(ConfigWithCustomSerializer::class.java)
                 .run { context ->
-                    assertThat(context).hasSingleBean(OutboxEventSerializer::class.java)
-                    assertThat(context.getBean(OutboxEventSerializer::class.java))
-                        .isInstanceOf(CustomEventSerializer::class.java)
+                    assertThat(context).hasSingleBean(OutboxPayloadSerializer::class.java)
+                    assertThat(context.getBean(OutboxPayloadSerializer::class.java))
+                        .isInstanceOf(CustomPayloadSerializer::class.java)
                 }
         }
 
@@ -66,7 +68,10 @@ class OutboxJacksonAutoConfigurationTest {
         fun `serializer is injected with JsonMapper`() {
             contextRunner()
                 .run { context ->
-                    val serializer = context.getBean(OutboxEventSerializer::class.java) as JacksonEventOutboxSerializer
+                    val serializer =
+                        context.getBean(
+                            OutboxPayloadSerializer::class.java,
+                        ) as JacksonOutboxPayloadSerializer
                     assertThat(serializer).isNotNull()
                 }
         }
@@ -81,7 +86,7 @@ class OutboxJacksonAutoConfigurationTest {
                 .run { context ->
                     assertThat(context).hasNotFailed()
                     assertThat(context).hasSingleBean(JsonMapper::class.java)
-                    assertThat(context).hasSingleBean(OutboxEventSerializer::class.java)
+                    assertThat(context).hasSingleBean(OutboxPayloadSerializer::class.java)
                 }
         }
 
@@ -90,7 +95,7 @@ class OutboxJacksonAutoConfigurationTest {
             contextRunner()
                 .run { context ->
                     val mapper = context.getBean(JsonMapper::class.java)
-                    val serializer = context.getBean(OutboxEventSerializer::class.java)
+                    val serializer = context.getBean(OutboxPayloadSerializer::class.java)
                     assertThat(mapper).isNotNull()
                     assertThat(serializer).isNotNull()
                 }
@@ -98,13 +103,19 @@ class OutboxJacksonAutoConfigurationTest {
     }
 
     @Configuration
-    private class ConfigWithCustomSerializer {
+    private class TestConfiguration {
         @Bean
-        fun outboxEventSerializer(): OutboxEventSerializer = CustomEventSerializer()
+        fun outboxJsonMapper(): JsonMapper = jsonMapper()
     }
 
-    private class CustomEventSerializer : OutboxEventSerializer {
-        override fun serialize(outboxEvent: Any): String = ""
+    @Configuration
+    private class ConfigWithCustomSerializer {
+        @Bean
+        fun outboxEventSerializer(): OutboxPayloadSerializer = CustomPayloadSerializer()
+    }
+
+    private class CustomPayloadSerializer : OutboxPayloadSerializer {
+        override fun serialize(payload: Any): String = ""
 
         override fun <T> deserialize(
             serialized: String,

@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import io.mockk.mockk
+import io.namastack.outbox.annotation.EnableOutbox
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested

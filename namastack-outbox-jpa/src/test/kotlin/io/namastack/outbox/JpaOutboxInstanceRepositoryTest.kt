@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceStatus
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
@@ -17,7 +18,7 @@ import java.time.OffsetDateTime
 import java.time.temporal.ChronoUnit
 
 @DataJpaTest
-@ImportAutoConfiguration(JpaOutboxAutoConfiguration::class)
+@ImportAutoConfiguration(JpaOutboxAutoConfiguration::class, OutboxJacksonAutoConfiguration::class)
 class JpaOutboxInstanceRepositoryTest {
     private val clock: Clock = Clock.systemDefaultZone()
 
