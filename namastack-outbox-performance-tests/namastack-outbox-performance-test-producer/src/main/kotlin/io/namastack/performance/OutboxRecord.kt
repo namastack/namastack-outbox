@@ -34,6 +34,7 @@ data class OutboxRecord(
     val completedAt: OffsetDateTime? = null,
     val failureCount: Int = 0,
     val nextRetryAt: OffsetDateTime,
+    val handlerId: String,
 ) : Persistable<String> {
     override fun getId(): String = entityId
 

@@ -1,6 +1,6 @@
 package io.namastack.performance
 
-import io.namastack.outbox.EnableOutbox
+import io.namastack.outbox.annotation.EnableOutbox
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.scheduling.annotation.EnableScheduling
