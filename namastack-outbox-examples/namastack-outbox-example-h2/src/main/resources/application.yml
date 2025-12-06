@@ -16,8 +16,10 @@ spring:
 outbox:
   schema-initialization:
     enabled: true
+  instance:
+    graceful-shutdown-timeout-seconds: 2
 
 logging:
   level:
-    root: info
-    io.namastack: debug
+    root: warn
+    io.namastack.demo: debug

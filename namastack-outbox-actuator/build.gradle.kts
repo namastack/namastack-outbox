@@ -7,6 +7,7 @@ plugins {
 description = "namastack-outbox-actuator"
 
 dependencies {
+    implementation(project(":namastack-outbox-api"))
     implementation(project(":namastack-outbox-core"))
     implementation(libs.spring.boot.autoconfigure)
     implementation(libs.spring.boot.actuator)

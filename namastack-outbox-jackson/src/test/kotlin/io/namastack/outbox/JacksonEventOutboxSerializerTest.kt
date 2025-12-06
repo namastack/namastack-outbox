@@ -10,7 +10,7 @@ import tools.jackson.databind.json.JsonMapper
 
 class JacksonEventOutboxSerializerTest {
     private val mapper = mockk<JsonMapper>()
-    private val serializer = JacksonEventOutboxSerializer(mapper)
+    private val serializer = JacksonOutboxPayloadSerializer(mapper)
 
     @Test
     fun `serialize delegates to mapper writeValueAsString`() {

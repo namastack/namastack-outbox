@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.annotation.OutboxEvent
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEvent
 import org.springframework.context.PayloadApplicationEvent
@@ -10,36 +11,45 @@ import org.springframework.expression.Expression
 import org.springframework.expression.spel.standard.SpelExpressionParser
 import org.springframework.expression.spel.support.StandardEvaluationContext
 import org.springframework.transaction.support.TransactionSynchronizationManager
-import java.time.Clock
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Custom application event multicaster that intercepts @OutboxEvent annotated events.
  *
- * This class extends Spring's SimpleApplicationEventMulticaster to provide automatic
- * outbox persistence for domain events. When an event marked with @OutboxEvent is
- * published, it is automatically saved to the outbox database.
+ * Provides automatic outbox persistence for Spring domain events. When an event marked
+ * with @OutboxEvent is published within a transaction, it is automatically saved to the
+ * outbox database and asynchronously processed by registered handlers.
  *
- * Key Features:
- * - Automatic detection of @OutboxEvent annotations
- * - SpEL-based key extraction from event properties
- * - Expression caching for performance optimization
- * - Configurable publishing behavior (publishAfterSave flag)
+ * ## Key Features
  *
- * SpEL Expression Caching:
- * Parsed SpEL expressions are cached in a ConcurrentHashMap to avoid reparsing
- * the same expressions for every event. This significantly improves performance
- * for high-volume event processing.
+ * - **Automatic Detection**: Identifies events with @OutboxEvent annotation
+ * - **SpEL Key Resolution**: Extracts record key via Spring Expression Language
+ * - **Expression Caching**: Caches parsed SpEL expressions for performance
+ * - **Configurable Publishing**: Controls whether to notify in-process listeners
+ * - **Transaction Awareness**: Ensures events are saved within active transaction
+ *
+ * ## Processing Flow
+ *
+ * 1. Event published via ApplicationEventPublisher.publishEvent()
+ * 2. multicastEvent() intercepts and checks for @OutboxEvent annotation
+ * 3. If annotated: Extract payload and save to outbox database
+ * 4. If publishAfterSave=true: Also notify in-process listeners
+ * 5. If not annotated: Delegate to standard Spring event processing
+ *
+ * ## Expression Caching Performance
+ *
+ * Parsed SpEL expressions are cached in ConcurrentHashMap to avoid reparsing
+ * identical expressions for every event of the same type. This is critical for
+ * high-volume event processing scenarios.
  *
  * @author Roland Beisel
  * @since 0.3.0
  */
 class OutboxEventMulticaster(
-    private val delegateEventMulticaster: SimpleApplicationEventMulticaster,
-    private val outboxRecordRepository: OutboxRecordRepository,
-    private val outboxEventSerializer: OutboxEventSerializer,
+    private val outbox: Outbox,
     private val outboxProperties: OutboxProperties,
-    private val clock: Clock,
+    private val delegateEventMulticaster: SimpleApplicationEventMulticaster,
 ) : ApplicationEventMulticaster by delegateEventMulticaster {
     companion object {
         private val log = LoggerFactory.getLogger(OutboxEventMulticaster::class.java)
@@ -48,16 +58,32 @@ class OutboxEventMulticaster(
     }
 
     /**
-     * Intercepts and processes application events.
+     * Main entry point for event multicasting with full type information.
      *
-     * Processing flow:
-     * 1. Extracts payload if event is marked with @OutboxEvent
-     * 2. Saves event to outbox database (synchronized with transaction)
-     * 3. Optionally publishes to listeners (controlled by publishAfterSave config)
-     * 4. Handles non-outbox events normally
+     * Intercepts all events published through Spring's event system and routes them:
+     * - @OutboxEvent marked events: Save to outbox and optionally publish to listeners
+     * - Other events: Delegate to standard Spring event processing
+     *
+     * ## Processing Flow
+     *
+     * 1. Extract payload and @OutboxEvent annotation (if present)
+     * 2. If no annotation found: Delegate to standard processing
+     * 3. If annotation found:
+     *    a. Validate active transaction (throws if missing)
+     *    b. Resolve record key using SpEL expression from annotation
+     *    c. Schedule event for asynchronous processing
+     *    d. Optionally publish to in-process listeners (publishAfterSave)
+     *
+     * ## Transaction Requirement
+     *
+     * Must be called within an active database transaction. Spring's TransactionSynchronization
+     * mechanism ensures the outbox record is persisted atomically with other business data.
+     * Throws IllegalStateException if called outside transaction context.
      *
      * @param event The application event to process
-     * @param eventType The resolved event type
+     * @param eventType The resolved generic type of the event
+     * @throws IllegalStateException if @OutboxEvent is present but no active transaction
+     * @throws IllegalArgumentException if SpEL key expression evaluation fails
      */
     override fun multicastEvent(
         event: ApplicationEvent,
@@ -81,10 +107,15 @@ class OutboxEventMulticaster(
     }
 
     /**
-     * Convenience override that resolves the event type automatically.
+     * Convenience overload that automatically resolves the event type.
      *
      * Delegates to the full multicastEvent(ApplicationEvent, ResolvableType) method
-     * with the event type resolved from the event instance.
+     * after resolving the event type from the event instance.
+     *
+     * ## Usage
+     *
+     * Used by Spring framework internally when type information is not available
+     * at the call site.
      *
      * @param event The application event to process
      */
@@ -93,13 +124,21 @@ class OutboxEventMulticaster(
     }
 
     /**
-     * Extracts the event payload from a Spring ApplicationEvent if it's marked with @OutboxEvent.
+     * Extracts the event payload from a Spring ApplicationEvent if marked with @OutboxEvent.
      *
-     * Checks if the event is a PayloadApplicationEvent and if its payload class
-     * has the @OutboxEvent annotation. Returns the payload only if both conditions are met.
+     * Validates both:
+     * 1. Event is a PayloadApplicationEvent (contains actual domain object)
+     * 2. Payload class has @OutboxEvent annotation
+     *
+     * Returns the payload object and annotation as a Pair, or null if either check fails.
+     *
+     * ## Return Value
+     *
+     * - **Pair<Any, OutboxEvent>**: Event payload and its annotation (both conditions met)
+     * - **null**: Event is not PayloadApplicationEvent OR payload lacks @OutboxEvent annotation
      *
      * @param event The application event to check
-     * @return The payload object if @OutboxEvent annotation is present, null otherwise
+     * @return Pair of (payload, annotation) if @OutboxEvent present, null otherwise
      */
     private fun extractEventPayload(event: ApplicationEvent): Pair<Any, OutboxEvent>? {
         if (event !is PayloadApplicationEvent<*>) return null
@@ -110,15 +149,28 @@ class OutboxEventMulticaster(
     }
 
     /**
-     * Persists an event payload to the outbox database.
+     * Persists an event payload to the outbox database for asynchronous processing.
      *
-     * Creates an OutboxRecord from the event, extracting:
-     * - key: Extracted via SpEL expression from event payload
-     * - eventType: Simple class name of the event
-     * - payload: Serialized event object (via OutboxEventSerializer)
-     * - timestamp: Current clock time
+     * Validates active transaction and schedules the event for processing:
+     * - Resolves the record key using SpEL expression from @OutboxEvent annotation
+     * - Schedules event via Outbox service (atomically persisted with business transaction)
+     * - Records will later be processed by registered handlers
+     *
+     * ## Transaction Context
+     *
+     * Uses Spring's TransactionSynchronizationManager to verify active transaction.
+     * This ensures the outbox record is persisted atomically with business operations
+     * (e.g., Order creation + OrderCreated event).
+     *
+     * ## Key Resolution
+     *
+     * Key is extracted from @OutboxEvent.key SpEL expression. If empty, defaults to null
+     * (outbox will auto-generate key for load distribution).
      *
      * @param payload The event payload to persist
+     * @param annotation The @OutboxEvent annotation containing configuration
+     * @throws IllegalStateException if called outside an active transaction
+     * @throws IllegalArgumentException if key resolution fails
      */
     private fun saveOutboxRecord(
         payload: Any,
@@ -128,55 +180,72 @@ class OutboxEventMulticaster(
             throw IllegalStateException("OutboxEvent requires an active transaction")
         }
 
-        val key = resolveEventKey(payload, annotation)
-        val eventType = annotation.eventType.takeIf { it.isNotEmpty() } ?: payload::class.qualifiedName!!
-
-        outboxRecordRepository.save(
-            record =
-                OutboxRecord
-                    .Builder()
-                    .recordKey(key)
-                    .recordType(eventType)
-                    .payload(outboxEventSerializer.serialize(payload))
-                    .build(clock),
-        )
+        val key = resolveEventKey(payload, annotation) ?: UUID.randomUUID().toString()
+        outbox.schedule(payload, key)
     }
 
     /**
-     * Resolves the key from the event payload using SpEL expression.
+     * Resolves the record key from the event payload using Spring Expression Language.
      *
-     * The key is extracted from the @OutboxEvent annotation's key parameter,
-     * which contains a SpEL expression. The expression is evaluated against the event payload
-     * to extract the actual key value.
+     * Extracts a key identifier from the event payload by evaluating the SpEL expression
+     * stored in @OutboxEvent.key annotation. The expression is evaluated against the
+     * payload object as the root context.
      *
-     * Expression caching:
-     * Parsed SpEL expressions are cached to avoid re-parsing the same expression
-     * for every event of the same type. The cache uses computeIfAbsent for thread-safe
-     * lazy initialization.
+     * ## Expression Caching Strategy
      *
-     * Supported SpEL expressions:
-     * - "id" - direct field access
-     * - "#this.id" - explicit this reference
-     * - "#root.customerId" - explicit root reference
-     * - "order.id" - nested property access
+     * Parsed SpEL expressions are cached per unique expression string using ConcurrentHashMap.
+     * The cache uses computeIfAbsent for thread-safe lazy initialization:
+     * - First event of a type: Parses and caches the expression
+     * - Subsequent events: Retrieves from cache (no reparsing overhead)
      *
-     * @param payload The event payload object
-     * @return The resolved key as a String
-     * @throws IllegalStateException if @OutboxEvent annotation is not found
-     * @throws IllegalArgumentException if SpEL expression evaluation fails or returns non-String
+     * Critical for performance in high-volume scenarios where the same event types
+     * are published repeatedly.
+     *
+     * ## Supported SpEL Expressions
+     *
+     * Examples with an OrderCreatedEvent payload:
+     * ```kotlin
+     * @OutboxEvent(key = "id")              // Direct field: payload.id
+     * @OutboxEvent(key = "#this.id")        // Explicit this: same as above
+     * @OutboxEvent(key = "order.id")        // Nested access: payload.order.id
+     * @OutboxEvent(key = "#root.customerId") // Root reference
+     * @OutboxEvent(key = "")                // Empty: returns null (auto-generated key)
+     * ```
+     *
+     * ## Return Value
+     *
+     * - **String**: Resolved key from SpEL expression
+     * - **null**: Key annotation was empty (outbox will generate auto-key)
+     *
+     * ## Error Handling
+     *
+     * Throws IllegalArgumentException with helpful context if:
+     * - SpEL expression syntax is invalid
+     * - Expression returns null
+     * - Expression returns non-String value
+     * - Evaluation fails with any other exception
+     *
+     * @param payload The event payload object (used as SpEL root context)
+     * @param annotation The @OutboxEvent annotation with key expression
+     * @return Resolved string key, or null if annotation.key was empty
+     * @throws IllegalArgumentException if key resolution fails
      */
     private fun resolveEventKey(
         payload: Any,
         annotation: OutboxEvent,
-    ): String =
-        try {
+    ): String? {
+        if (annotation.key.isEmpty()) return null
+
+        return try {
             val spelExpression = annotation.key
 
+            // Get cached expression or parse and cache if not present
             val expression =
                 expressionCache.computeIfAbsent(spelExpression) {
                     spelParser.parseExpression(it)
                 }
 
+            // Evaluate expression with payload as root context
             val context = StandardEvaluationContext(payload)
 
             when (val result = expression.getValue(context)) {
@@ -195,4 +264,5 @@ class OutboxEventMulticaster(
                 e,
             )
         }
+    }
 }

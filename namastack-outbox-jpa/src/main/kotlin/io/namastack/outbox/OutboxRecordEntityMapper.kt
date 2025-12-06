@@ -9,26 +9,35 @@ package io.namastack.outbox
  * @author Roland Beisel
  * @since 0.1.0
  */
-internal object OutboxRecordEntityMapper {
+internal class OutboxRecordEntityMapper(
+    private val serializer: OutboxPayloadSerializer,
+) {
     /**
      * Maps an OutboxRecord domain object to an OutboxRecordEntity JPA entity.
      *
      * @param record The domain object to convert
      * @return Corresponding JPA entity
      */
-    fun map(record: OutboxRecord): OutboxRecordEntity =
-        OutboxRecordEntity(
+    fun map(record: OutboxRecord<*>): OutboxRecordEntity {
+        val payload = record.payload ?: throw IllegalArgumentException("record payload cannot be null")
+
+        val serializedPayload = serializer.serialize(payload)
+        val recordType = payload.javaClass.name
+
+        return OutboxRecordEntity(
             id = record.id,
             status = record.status,
-            recordKey = record.recordKey,
-            recordType = record.recordType,
-            payload = record.payload,
+            recordKey = record.key,
+            recordType = recordType,
+            payload = serializedPayload,
             partitionNo = record.partition,
             createdAt = record.createdAt,
             completedAt = record.completedAt,
             failureCount = record.failureCount,
             nextRetryAt = record.nextRetryAt,
+            handlerId = record.handlerId,
         )
+    }
 
     /**
      * Maps an OutboxRecordEntity JPA entity to an OutboxRecord domain object.
@@ -36,17 +45,27 @@ internal object OutboxRecordEntityMapper {
      * @param entity The JPA entity to convert
      * @return Corresponding domain object
      */
-    fun map(entity: OutboxRecordEntity): OutboxRecord =
-        OutboxRecord.restore(
+    fun map(entity: OutboxRecordEntity): OutboxRecord<*> {
+        val clazz =
+            try {
+                Class.forName(entity.recordType)
+            } catch (ex: ClassNotFoundException) {
+                throw IllegalStateException("Cannot find class for record type ${entity.recordType}", ex)
+            }
+
+        val payload = serializer.deserialize(entity.payload, clazz)
+
+        return OutboxRecord.restore(
             id = entity.id,
             recordKey = entity.recordKey,
-            recordType = entity.recordType,
-            payload = entity.payload,
+            payload = payload,
             partition = entity.partitionNo,
             createdAt = entity.createdAt,
             status = entity.status,
             completedAt = entity.completedAt,
             failureCount = entity.failureCount,
             nextRetryAt = entity.nextRetryAt,
+            handlerId = entity.handlerId,
         )
+    }
 }

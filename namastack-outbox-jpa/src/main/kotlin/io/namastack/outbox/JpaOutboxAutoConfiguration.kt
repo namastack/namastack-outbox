@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import jakarta.persistence.EntityManager
@@ -59,7 +60,7 @@ class JpaOutboxAutoConfiguration {
      */
     @Bean("outboxEntityManager")
     @ConditionalOnMissingBean(name = ["outboxEntityManager"])
-    fun outboxEntityManager(entityManagerFactory: EntityManagerFactory): EntityManager =
+    internal fun outboxEntityManager(entityManagerFactory: EntityManagerFactory): EntityManager =
         SharedEntityManagerCreator.createSharedEntityManager(entityManagerFactory)
 
     /**
@@ -70,7 +71,7 @@ class JpaOutboxAutoConfiguration {
      */
     @Bean("outboxTransactionTemplate")
     @ConditionalOnMissingBean(name = ["outboxTransactionTemplate"])
-    fun outboxTransactionTemplate(transactionManager: PlatformTransactionManager): TransactionTemplate =
+    internal fun outboxTransactionTemplate(transactionManager: PlatformTransactionManager): TransactionTemplate =
         TransactionTemplate(transactionManager)
 
     /**
@@ -83,11 +84,18 @@ class JpaOutboxAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    fun outboxRecordRepository(
+    internal fun outboxRecordRepository(
         @Qualifier("outboxEntityManager") entityManager: EntityManager,
         @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
+        outboxRecordEntityMapper: OutboxRecordEntityMapper,
         clock: Clock,
-    ): OutboxRecordRepository = JpaOutboxRecordRepository(entityManager, transactionTemplate, clock)
+    ): OutboxRecordRepository =
+        JpaOutboxRecordRepository(entityManager, transactionTemplate, outboxRecordEntityMapper, clock)
+
+    @Bean
+    @ConditionalOnMissingBean
+    internal fun outboxRecordEntityMapper(recordSerializer: OutboxPayloadSerializer): OutboxRecordEntityMapper =
+        OutboxRecordEntityMapper(recordSerializer)
 
     /**
      * Creates a JPA-based outbox instance repository.
@@ -98,7 +106,7 @@ class JpaOutboxAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    fun outboxInstanceRepository(
+    internal fun outboxInstanceRepository(
         @Qualifier("outboxEntityManager") entityManager: EntityManager,
         @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
     ): OutboxInstanceRepository = JpaOutboxInstanceRepository(entityManager, transactionTemplate)
@@ -108,12 +116,11 @@ class JpaOutboxAutoConfiguration {
      *
      * @param entityManager JPA entity manager
      * @param transactionTemplate Transaction template for programmatic transaction management
-     * @param clock Clock for time-based operations
      * @return JPA outbox partition repository implementation
      */
     @Bean
     @ConditionalOnMissingBean
-    fun outboxPartitionAssignmentRepository(
+    internal fun outboxPartitionAssignmentRepository(
         @Qualifier("outboxEntityManager") entityManager: EntityManager,
         @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
     ): PartitionAssignmentRepository = JpaOutboxPartitionAssignmentRepository(entityManager, transactionTemplate)
@@ -128,7 +135,9 @@ class JpaOutboxAutoConfiguration {
      */
     @Bean
     @ConditionalOnProperty(name = ["outbox.schema-initialization.enabled"], havingValue = "true")
-    fun outboxDataSourceScriptDatabaseInitializer(dataSource: DataSource): DataSourceScriptDatabaseInitializer {
+    internal fun outboxDataSourceScriptDatabaseInitializer(
+        dataSource: DataSource,
+    ): DataSourceScriptDatabaseInitializer {
         val databaseName = detectDatabaseName(dataSource)
         val databaseType = DatabaseType.from(databaseName)
 

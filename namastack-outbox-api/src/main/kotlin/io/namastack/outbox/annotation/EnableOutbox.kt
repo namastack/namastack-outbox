@@ -1,4 +1,4 @@
-package io.namastack.outbox
+package io.namastack.outbox.annotation
 
 /**
  * Enables Outbox functionality in the application.

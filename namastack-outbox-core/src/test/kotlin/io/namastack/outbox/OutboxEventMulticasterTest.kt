@@ -3,7 +3,7 @@ package io.namastack.outbox
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import org.assertj.core.api.Assertions.assertThat
+import io.namastack.outbox.annotation.OutboxEvent
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -13,16 +13,11 @@ import org.springframework.context.PayloadApplicationEvent
 import org.springframework.context.event.ContextRefreshedEvent
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.transaction.support.TransactionSynchronizationManager
-import java.time.Clock
-import java.time.Instant
-import java.time.ZoneId
 
 open class OutboxEventMulticasterTest {
-    private var delegateEventMulticaster = mockk<SimpleApplicationEventMulticaster>()
-    private var outboxRecordRepository = mockk<OutboxRecordRepository>()
-    private var outboxEventSerializer = mockk<OutboxEventSerializer>()
+    private var outbox = mockk<Outbox>(relaxed = true)
     private var outboxProperties = OutboxProperties(processing = OutboxProperties.Processing(publishAfterSave = true))
-    private val clock: Clock = Clock.fixed(Instant.now(), ZoneId.of("UTC"))
+    private var delegateEventMulticaster = mockk<SimpleApplicationEventMulticaster>()
 
     private lateinit var eventMulticaster: OutboxEventMulticaster
 
@@ -32,11 +27,9 @@ open class OutboxEventMulticasterTest {
 
         eventMulticaster =
             OutboxEventMulticaster(
-                delegateEventMulticaster = delegateEventMulticaster,
-                outboxRecordRepository = outboxRecordRepository,
-                outboxEventSerializer = outboxEventSerializer,
+                outbox = outbox,
                 outboxProperties = outboxProperties,
-                clock = clock,
+                delegateEventMulticaster = delegateEventMulticaster,
             )
 
         every { delegateEventMulticaster.multicastEvent(any(), any()) } answers { }
@@ -73,26 +66,13 @@ open class OutboxEventMulticasterTest {
     open fun `stores annotated events in outbox when transaction is active`() {
         TransactionSynchronizationManager.setActualTransactionActive(true)
 
-        val event = PayloadApplicationEvent(this, AnnotatedTestEvent(id = "agg-1"))
-        val serializedPayload = "serialized"
-
-        every { outboxEventSerializer.serialize(event.payload) } returns serializedPayload
-        every { outboxRecordRepository.save(any()) } answers { firstArg() }
+        val payload = AnnotatedTestEvent(id = "agg-1")
+        val event = PayloadApplicationEvent(this, payload)
 
         eventMulticaster.multicastEvent(event)
 
-        verify(exactly = 1) {
-            outboxRecordRepository.save(
-                withArg<OutboxRecord> { record ->
-                    assertThat(record.recordKey).isEqualTo("agg-1")
-                    assertThat(record.payload).isEqualTo(serializedPayload)
-                    assertThat(record.createdAt.toInstant()).isEqualTo(clock.instant())
-                    assertThat(
-                        record.recordType,
-                    ).isEqualTo("io.namastack.outbox.OutboxEventMulticasterTest.AnnotatedTestEvent")
-                },
-            )
-        }
+        verify(exactly = 1) { outbox.schedule(payload, "agg-1") }
+
         verify(exactly = 1) {
             delegateEventMulticaster.multicastEvent(any<PayloadApplicationEvent<*>>(), any())
         }
@@ -103,10 +83,6 @@ open class OutboxEventMulticasterTest {
         TransactionSynchronizationManager.setActualTransactionActive(false)
 
         val event = PayloadApplicationEvent(this, AnnotatedTestEvent(id = "agg-1"))
-        val serializedPayload = "serialized"
-
-        every { outboxEventSerializer.serialize(event.payload) } returns serializedPayload
-        every { outboxRecordRepository.save(any()) } answers { firstArg() }
 
         assertThatThrownBy {
             eventMulticaster.multicastEvent(event)
@@ -119,17 +95,12 @@ open class OutboxEventMulticasterTest {
         val localProperties = OutboxProperties(processing = OutboxProperties.Processing(publishAfterSave = false))
         val localMulticaster =
             OutboxEventMulticaster(
-                delegateEventMulticaster = delegateEventMulticaster,
-                outboxRecordRepository = outboxRecordRepository,
-                outboxEventSerializer = outboxEventSerializer,
+                outbox = outbox,
                 outboxProperties = localProperties,
-                clock = clock,
+                delegateEventMulticaster = delegateEventMulticaster,
             )
 
         val event = PayloadApplicationEvent(this, AnnotatedTestEvent(id = "agg-1"))
-
-        every { outboxEventSerializer.serialize(event.payload) } returns "serialized"
-        every { outboxRecordRepository.save(any()) } answers { firstArg() }
 
         localMulticaster.multicastEvent(event)
 
@@ -142,35 +113,14 @@ open class OutboxEventMulticasterTest {
     fun `resolves spel expression for record key`() {
         val event = PayloadApplicationEvent(this, SpELAnnotatedTestEvent(customId = "agg-1"))
 
-        every { outboxEventSerializer.serialize(event.payload) } returns "serialized"
-        every { outboxRecordRepository.save(any()) } answers { firstArg() }
-
         eventMulticaster.multicastEvent(event)
 
-        verify(exactly = 1) {
-            outboxRecordRepository.save(
-                match { record ->
-                    record.recordKey == "agg-1"
-                },
-            )
-        }
-    }
-
-    @Test
-    fun `throws exception when serialization fails`() {
-        val event = PayloadApplicationEvent(this, AnnotatedTestEvent(id = "agg-1"))
-
-        every { outboxEventSerializer.serialize(event.payload) } throws RuntimeException("Serialization failed")
-
-        assertThatThrownBy {
-            eventMulticaster.multicastEvent(event)
-        }.isInstanceOf(RuntimeException::class.java)
+        verify(exactly = 1) { outbox.schedule(any(), "agg-1") }
     }
 
     @Test
     fun `throws exception when spel expression returns non string value`() {
         val event = PayloadApplicationEvent(this, NonStringIdEvent(id = 42))
-        every { outboxEventSerializer.serialize(any()) } returns "serialized"
 
         assertThatThrownBy {
             eventMulticaster.multicastEvent(event)
@@ -179,54 +129,41 @@ open class OutboxEventMulticasterTest {
     }
 
     @Test
-    fun `throws exception when spel expression result is null`() {
-        val event = PayloadApplicationEvent(this, AnnotatedWithNullableTestEvent(id = null))
-        every { outboxEventSerializer.serialize(any()) } returns "serialized"
+    fun `generates UUID key when key annotation is empty`() {
+        val event = PayloadApplicationEvent(this, EmptyKeyAnnotatedEvent(id = "agg-1"))
+
+        eventMulticaster.multicastEvent(event)
+
+        verify(exactly = 1) { outbox.schedule(any(), any()) }
+    }
+
+    @Test
+    fun `generates unique UUIDs for different events with empty key`() {
+        val event1 = PayloadApplicationEvent(this, EmptyKeyAnnotatedEvent(id = "agg-1"))
+        val event2 = PayloadApplicationEvent(this, EmptyKeyAnnotatedEvent(id = "agg-2"))
+        val keys = mutableListOf<String>()
+
+        every { outbox.schedule(any(), any()) } answers {
+            keys.add(secondArg())
+        }
+
+        eventMulticaster.multicastEvent(event1)
+        eventMulticaster.multicastEvent(event2)
+
+        verify(exactly = 2) { outbox.schedule(any(), any()) }
+        assert(keys.size == 2 && keys[0] != keys[1]) {
+            "Expected unique UUIDs but got: ${keys[0]} and ${keys[1]}"
+        }
+    }
+
+    @Test
+    fun `throws exception when SpEL expression returns null`() {
+        val event = PayloadApplicationEvent(this, NullableKeyEvent(id = "agg-1", optionalKey = null))
 
         assertThatThrownBy {
             eventMulticaster.multicastEvent(event)
         }.isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessage("Failed to resolve key from SpEL: 'id'. Valid examples: 'id', '#this.id', '#root.id'")
-    }
-
-    @Test
-    fun `uses qualified class name as event type when not specified`() {
-        val event = PayloadApplicationEvent(this, DefaultEventTypeTest(id = "agg-1"))
-        val serializedPayload = "serialized"
-
-        every { outboxEventSerializer.serialize(event.payload) } returns serializedPayload
-        every { outboxRecordRepository.save(any()) } answers { firstArg() }
-
-        eventMulticaster.multicastEvent(event)
-
-        verify(exactly = 1) {
-            outboxRecordRepository.save(
-                withArg<OutboxRecord> { record ->
-                    assertThat(
-                        record.recordType,
-                    ).isEqualTo("io.namastack.outbox.OutboxEventMulticasterTest.DefaultEventTypeTest")
-                },
-            )
-        }
-    }
-
-    @Test
-    fun `uses custom event type when specified`() {
-        val event = PayloadApplicationEvent(this, CustomEventTypeTest(id = "agg-1"))
-        val serializedPayload = "serialized"
-
-        every { outboxEventSerializer.serialize(event.payload) } returns serializedPayload
-        every { outboxRecordRepository.save(any()) } answers { firstArg() }
-
-        eventMulticaster.multicastEvent(event)
-
-        verify(exactly = 1) {
-            outboxRecordRepository.save(
-                withArg<OutboxRecord> { record ->
-                    assertThat(record.recordType).isEqualTo("custom.event.type")
-                },
-            )
-        }
+            .hasMessageContaining("Failed to resolve key from SpEL")
     }
 
     @OutboxEvent(key = "#this.customId")
@@ -240,11 +177,6 @@ open class OutboxEventMulticasterTest {
     )
 
     @OutboxEvent(key = "id")
-    data class AnnotatedWithNullableTestEvent(
-        val id: String? = null,
-    )
-
-    @OutboxEvent(key = "id")
     data class NonStringIdEvent(
         val id: Int,
     )
@@ -253,13 +185,14 @@ open class OutboxEventMulticasterTest {
         val id: String,
     )
 
-    @OutboxEvent(key = "id")
-    data class DefaultEventTypeTest(
+    @OutboxEvent(key = "")
+    data class EmptyKeyAnnotatedEvent(
         val id: String,
     )
 
-    @OutboxEvent(key = "id", eventType = "custom.event.type")
-    data class CustomEventTypeTest(
+    @OutboxEvent(key = "#this.optionalKey")
+    data class NullableKeyEvent(
         val id: String,
+        val optionalKey: String?,
     )
 }

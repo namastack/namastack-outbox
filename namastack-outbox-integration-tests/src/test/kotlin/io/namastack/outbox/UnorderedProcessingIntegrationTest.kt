@@ -1,6 +1,9 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.OrderedProcessingIntegrationTest.TestProcessor
+import io.namastack.outbox.annotation.EnableOutbox
+import io.namastack.outbox.handler.OutboxHandler
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
@@ -87,23 +90,28 @@ class UnorderedProcessingIntegrationTest {
     private fun createRecord(
         recordKey: String,
         payload: String,
-    ): OutboxRecord =
+    ): OutboxRecord<String> =
         outboxRecordRepository.save(
             OutboxRecord
-                .Builder()
-                .recordKey(recordKey)
+                .Builder<String>()
+                .key(recordKey)
                 .payload(payload)
-                .recordType("recordType")
-                .build(clock),
+                .handlerId(
+                    @Suppress("ktlint:standard:max-line-length")
+                    $$"io.namastack.outbox.OrderedProcessingIntegrationTest$TestProcessor#handle(java.lang.Object,io.namastack.outbox.handler.OutboxRecordMetadata)",
+                ).build(clock),
         )
 
     /**
      * Test processor that throws an exception for records with payload "failure".
      */
     @Component
-    class TestProcessor : OutboxRecordProcessor {
-        override fun process(record: OutboxRecord) {
-            if (record.payload == "failure") {
+    class TestProcessor : OutboxHandler {
+        override fun handle(
+            payload: Any,
+            metadata: OutboxRecordMetadata,
+        ) {
+            if ((payload as String) == "failure") {
                 throw RuntimeException("failure")
             }
         }

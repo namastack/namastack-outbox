@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionCoordinator
 import org.springframework.beans.factory.ObjectProvider

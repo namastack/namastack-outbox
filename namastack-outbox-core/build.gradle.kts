@@ -13,6 +13,8 @@ dependencies {
     implementation(libs.spring.tx)
     implementation(libs.commons.codec)
     implementation(libs.jakarta.annotation.api)
+    implementation(libs.kotlin.reflect)
+    implementation(project(":namastack-outbox-api"))
 
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.kotlin.test.junit5)

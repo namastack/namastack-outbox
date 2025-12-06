@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.OutboxRecordEntityMapper.map
 import jakarta.persistence.EntityManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
@@ -22,6 +21,7 @@ import java.time.OffsetDateTime
 internal open class JpaOutboxRecordRepository(
     private val entityManager: EntityManager,
     private val transactionTemplate: TransactionTemplate,
+    private val entityMapper: OutboxRecordEntityMapper,
     private val clock: Clock,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
@@ -145,9 +145,9 @@ internal open class JpaOutboxRecordRepository(
      * @param record The outbox record to save
      * @return The saved outbox record
      */
-    override fun save(record: OutboxRecord): OutboxRecord =
+    override fun <T> save(record: OutboxRecord<T>): OutboxRecord<T> =
         transactionTemplate.execute {
-            val entity = map(record)
+            val entity = entityMapper.map(record)
             val existingEntity = entityManager.find(OutboxRecordEntity::class.java, entity.id)
             if (existingEntity != null) {
                 entityManager.merge(entity)
@@ -162,36 +162,36 @@ internal open class JpaOutboxRecordRepository(
      *
      * @return List of pending outbox records ordered by creation time
      */
-    override fun findPendingRecords(): List<OutboxRecord> =
+    override fun findPendingRecords(): List<OutboxRecord<*>> =
         entityManager
             .createQuery(findPendingRecordsQuery, OutboxRecordEntity::class.java)
             .setParameter("status", OutboxRecordStatus.NEW)
             .resultList
-            .map { map(it) }
+            .map { entityMapper.map(it) }
 
     /**
      * Finds all completed outbox records.
      *
      * @return List of completed outbox records ordered by creation time
      */
-    override fun findCompletedRecords(): List<OutboxRecord> =
+    override fun findCompletedRecords(): List<OutboxRecord<*>> =
         entityManager
             .createQuery(findCompletedRecordsQuery, OutboxRecordEntity::class.java)
             .setParameter("status", OutboxRecordStatus.COMPLETED)
             .resultList
-            .map { map(it) }
+            .map { entityMapper.map(it) }
 
     /**
      * Finds all failed outbox records.
      *
      * @return List of failed outbox records ordered by creation time
      */
-    override fun findFailedRecords(): List<OutboxRecord> =
+    override fun findFailedRecords(): List<OutboxRecord<*>> =
         entityManager
             .createQuery(findFailedRecordsQuery, OutboxRecordEntity::class.java)
             .setParameter("status", OutboxRecordStatus.FAILED)
             .resultList
-            .map { map(it) }
+            .map { entityMapper.map(it) }
 
     /**
      * Finds all incomplete records for a specific record key.
@@ -199,13 +199,13 @@ internal open class JpaOutboxRecordRepository(
      * @param recordKey The record key to search for
      * @return List of pending outbox records for the record key, ordered by creation time
      */
-    override fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord> =
+    override fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord<*>> =
         entityManager
             .createQuery(findIncompleteRecordsByRecordKeyQuery, OutboxRecordEntity::class.java)
             .setParameter("recordKey", recordKey)
             .setParameter("status", OutboxRecordStatus.NEW)
             .resultList
-            .map { map(it) }
+            .map { entityMapper.map(it) }
 
     /**
      * Counts the number of outbox records with the specified status.

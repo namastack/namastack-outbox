@@ -1,4 +1,4 @@
-package io.namastack.outbox
+package io.namastack.outbox.annotation
 
 /**
  * Marks an event class for automatic outbox persistence.
@@ -6,8 +6,7 @@ package io.namastack.outbox
  * When an event annotated with @OutboxEvent is published via Spring's ApplicationEventPublisher,
  * it will be automatically persisted to the outbox database before being delivered to event listeners.
  *
- * @param key SpEL expression to extract the record key from the event. Must evaluate to a String value.
- * @param eventType Optional event type identifier.
+ * @param key Optional SpEL expression to extract the record key from the event. Must evaluate to a String value.
  *
  * @author Roland Beisel
  * @since 0.3.0
@@ -15,6 +14,5 @@ package io.namastack.outbox
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class OutboxEvent(
-    val key: String,
-    val eventType: String = "",
+    val key: String = "",
 )

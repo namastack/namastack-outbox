@@ -16,7 +16,7 @@ interface OutboxRecordRepository {
      * @param record The outbox record to save
      * @return The saved outbox record
      */
-    fun save(record: OutboxRecord): OutboxRecord
+    fun <T> save(record: OutboxRecord<T>): OutboxRecord<T>
 
     /**
      * Finds all pending outbox records that are ready for processing.
@@ -24,7 +24,7 @@ interface OutboxRecordRepository {
      *
      * @return List of pending outbox records
      */
-    fun findPendingRecords(): List<OutboxRecord>
+    fun findPendingRecords(): List<OutboxRecord<*>>
 
     /**
      * Finds all completed outbox records.
@@ -32,7 +32,7 @@ interface OutboxRecordRepository {
      *
      * @return List of completed outbox records
      */
-    fun findCompletedRecords(): List<OutboxRecord>
+    fun findCompletedRecords(): List<OutboxRecord<*>>
 
     /**
      * Finds all failed outbox records.
@@ -40,7 +40,7 @@ interface OutboxRecordRepository {
      *
      * @return List of failed outbox records
      */
-    fun findFailedRecords(): List<OutboxRecord>
+    fun findFailedRecords(): List<OutboxRecord<*>>
 
     /**
      * Finds all incomplete records for a specific record key.
@@ -49,7 +49,7 @@ interface OutboxRecordRepository {
      * @param recordKey The record key to search for
      * @return List of incomplete outbox records for the given record key
      */
-    fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord>
+    fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord<*>>
 
     /**
      * Finds record keys that have pending records in specific partitions.

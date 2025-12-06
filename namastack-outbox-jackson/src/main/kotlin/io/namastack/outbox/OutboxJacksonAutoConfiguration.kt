@@ -9,14 +9,14 @@ import tools.jackson.databind.json.JsonMapper
 /**
  * Spring Boot auto-configuration for Jackson-based event serialization.
  *
- * Provides JsonMapper and OutboxEventSerializer beans for outbox event persistence.
+ * Provides JsonMapper and OutboxPayloadSerializer beans for outbox event persistence.
  * Loads before OutboxCoreAutoConfiguration to ensure serializer is available.
  *
  * @author Roland Beisel
  * @since 0.3.0
  */
 @AutoConfiguration
-@ConditionalOnMissingBean(OutboxEventSerializer::class)
+@ConditionalOnMissingBean(OutboxPayloadSerializer::class)
 @AutoConfigureBefore(OutboxCoreAutoConfiguration::class)
 class OutboxJacksonAutoConfiguration {
     /**
@@ -28,11 +28,12 @@ class OutboxJacksonAutoConfiguration {
     fun jsonMapper(): JsonMapper = JsonMapper.builder().build()
 
     /**
-     * Creates OutboxEventSerializer bean using Jackson.
+     * Creates OutboxPayloadSerializer bean using Jackson.
      *
      * @param jsonMapper Jackson mapper for serialization operations
-     * @return JacksonEventOutboxSerializer instance
+     * @return JacksonOutboxPayloadSerializer instance
      */
     @Bean
-    fun outboxEventSerializer(jsonMapper: JsonMapper): OutboxEventSerializer = JacksonEventOutboxSerializer(jsonMapper)
+    fun outboxEventSerializer(jsonMapper: JsonMapper): OutboxPayloadSerializer =
+        JacksonOutboxPayloadSerializer(jsonMapper)
 }
