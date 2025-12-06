@@ -359,7 +359,6 @@ outbox.partitions.pending.records.max
 - ✅ MySQL / MariaDB
 - ✅ PostgreSQL
 - ✅ SQL Server
-- ✅ Oracle
 
 ---
 
