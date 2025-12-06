@@ -14,7 +14,7 @@ handling and outbox pattern implementations in modern applications.
 The project is part of a broader open-source initiative and welcomes contributions, feedback, and
 voluntary donations to support its development and sustainability.
 
-_Last updated: February 2025_
+_Last updated: December 2025_
 
 ---
 
