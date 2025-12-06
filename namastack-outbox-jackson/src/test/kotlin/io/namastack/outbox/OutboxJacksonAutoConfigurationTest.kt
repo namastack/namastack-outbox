@@ -10,12 +10,14 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import tools.jackson.databind.json.JsonMapper
+import tools.jackson.module.kotlin.jsonMapper
 
 @DisplayName("OutboxJacksonAutoConfiguration")
 class OutboxJacksonAutoConfigurationTest {
     private fun contextRunner() =
         ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(OutboxJacksonAutoConfiguration::class.java))
+            .withUserConfiguration(TestConfiguration::class.java)
 
     @Nested
     @DisplayName("JsonMapper Bean")
@@ -98,6 +100,12 @@ class OutboxJacksonAutoConfigurationTest {
                     assertThat(serializer).isNotNull()
                 }
         }
+    }
+
+    @Configuration
+    private class TestConfiguration {
+        @Bean
+        fun outboxJsonMapper(): JsonMapper = jsonMapper()
     }
 
     @Configuration

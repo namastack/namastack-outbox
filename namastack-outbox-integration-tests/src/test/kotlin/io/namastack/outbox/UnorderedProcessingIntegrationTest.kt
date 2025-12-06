@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.OrderedProcessingIntegrationTest.TestProcessor
 import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
@@ -9,15 +8,10 @@ import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
-import org.springframework.boot.context.properties.EnableConfigurationProperties
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.context.annotation.Import
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.stereotype.Component
-import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.context.TestPropertySource
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
@@ -33,16 +27,8 @@ import kotlin.test.Test
  * - Inserts three records for the same record key: [failure, success, success]
  * - Verifies that all records are processed despite the first one failing.
  */
-@DataJpaTest(showSql = false)
-@DirtiesContext
-@ImportAutoConfiguration(
-    OutboxCoreAutoConfiguration::class,
-    JpaOutboxAutoConfiguration::class,
-    OutboxJacksonAutoConfiguration::class,
-)
-@Import(TestProcessor::class)
-@EnableConfigurationProperties(OutboxProperties::class)
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@OutboxIntegrationTest
+@Import(UnorderedProcessingIntegrationTest.TestProcessor::class)
 @TestPropertySource(properties = ["outbox.processing.stop-on-first-failure=false"])
 class UnorderedProcessingIntegrationTest {
     private val clock: Clock = Clock.systemDefaultZone()
@@ -96,7 +82,7 @@ class UnorderedProcessingIntegrationTest {
                 .payload(payload)
                 .handlerId(
                     @Suppress("ktlint:standard:max-line-length")
-                    $$"io.namastack.outbox.OrderedProcessingIntegrationTest$TestProcessor#handle(java.lang.Object,io.namastack.outbox.handler.OutboxRecordMetadata)",
+                    $$"io.namastack.outbox.UnorderedProcessingIntegrationTest$TestProcessor#handle(java.lang.Object,io.namastack.outbox.handler.OutboxRecordMetadata)",
                 ).build(clock),
         )
 

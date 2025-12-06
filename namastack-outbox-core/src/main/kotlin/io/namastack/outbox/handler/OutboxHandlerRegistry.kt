@@ -56,7 +56,8 @@ class OutboxHandlerRegistry {
      * @param type The payload type to search for
      * @return List of TypedHandlerMethods for this type (empty if none)
      */
-    fun getHandlersForPayloadType(type: KClass<*>): List<TypedHandlerMethod> = typedHandlers[type] ?: emptyList()
+    fun getHandlersForPayloadType(type: KClass<*>): List<TypedHandlerMethod> =
+        typedHandlers[type]?.toList() ?: emptyList()
 
     /**
      * Retrieves all registered generic handlers.
@@ -112,8 +113,8 @@ class OutboxHandlerRegistry {
      * @throws IllegalStateException if a handler with the same ID is already registered
      */
     private fun registerInAllHandlers(handlerMethod: OutboxHandlerMethod) {
-        if (handlersById.putIfAbsent(handlerMethod.id, handlerMethod) != null) {
-            throw IllegalStateException("Duplicate handler ID detected: ${handlerMethod.id}")
+        check(handlersById.putIfAbsent(handlerMethod.id, handlerMethod) == null) {
+            "Duplicate handler ID detected: ${handlerMethod.id}"
         }
     }
 }

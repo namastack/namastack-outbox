@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigureBefore
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -9,31 +10,30 @@ import tools.jackson.databind.json.JsonMapper
 /**
  * Spring Boot auto-configuration for Jackson-based event serialization.
  *
- * Provides JsonMapper and OutboxPayloadSerializer beans for outbox event persistence.
+ * Provides OutboxPayloadSerializer bean for outbox event persistence.
+ * Uses an existing JsonMapper bean if available, otherwise creates a default one.
  * Loads before OutboxCoreAutoConfiguration to ensure serializer is available.
  *
  * @author Roland Beisel
  * @since 0.3.0
  */
 @AutoConfiguration
-@ConditionalOnMissingBean(OutboxPayloadSerializer::class)
 @AutoConfigureBefore(OutboxCoreAutoConfiguration::class)
 class OutboxJacksonAutoConfiguration {
     /**
-     * Creates default Jackson JsonMapper for event serialization.
-     *
-     * @return Configured JsonMapper instance
-     */
-    @Bean
-    fun jsonMapper(): JsonMapper = JsonMapper.builder().build()
-
-    /**
      * Creates OutboxPayloadSerializer bean using Jackson.
      *
-     * @param jsonMapper Jackson mapper for serialization operations
+     * Uses an existing JsonMapper bean if available in the application context.
+     * If no JsonMapper bean exists, creates a default one.
+     *
+     * @param jsonMapperProvider Optional provider for custom JsonMapper bean
      * @return JacksonOutboxPayloadSerializer instance
      */
     @Bean
-    fun outboxEventSerializer(jsonMapper: JsonMapper): OutboxPayloadSerializer =
-        JacksonOutboxPayloadSerializer(jsonMapper)
+    @ConditionalOnMissingBean(OutboxPayloadSerializer::class)
+    fun outboxPayloadSerializer(jsonMapperProvider: ObjectProvider<JsonMapper>): OutboxPayloadSerializer {
+        val mapper = jsonMapperProvider.getIfAvailable { JsonMapper.builder().build() }
+
+        return JacksonOutboxPayloadSerializer(mapper = mapper)
+    }
 }
