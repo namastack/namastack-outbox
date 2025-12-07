@@ -115,6 +115,19 @@ class OutboxProcessingSchedulerTest {
 
             verify(exactly = 1) { recordRepository.findRecordKeysInPartitions(setOf(1, 2), NEW, 100, true) }
         }
+
+        @Test
+        fun `stop processing records if assigned partitions changes`() {
+            val assignedPartitions = setOf(1, 3, 5)
+
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns
+                assignedPartitions andThen
+                assignedPartitions + 7
+
+            scheduler.process()
+
+            verify(exactly = 0) { recordRepository.findRecordKeysInPartitions(any(), any(), any(), true) }
+        }
     }
 
     @Nested
@@ -200,6 +213,62 @@ class OutboxProcessingSchedulerTest {
                 .atMost(2, TimeUnit.SECONDS)
                 .untilAsserted {
                     verify(exactly = recordKeyCount) { dispatcher.dispatch(any(), any()) }
+                }
+        }
+
+        @Test
+        fun `stop processing records if assigned partitions changes`() {
+            val assignedPartitions = setOf(1, 3, 5)
+
+            scheduler.process()
+
+            verify(exactly = 0) { recordRepository.findRecordKeysInPartitions(any(), any(), any(), true) }
+
+            val recordKeys =
+                (1..4).map {
+                    "record-key-$it"
+                }
+            val records =
+                (1..4).map {
+                    outboxRecord(
+                        id = "record-$it",
+                        recordKey = "record-key-$it",
+                        status = NEW,
+                        nextRetryAt = now.minusMinutes(1),
+                    )
+                }
+
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns
+                assignedPartitions andThen
+                assignedPartitions andThen
+                assignedPartitions + 7
+            every {
+                recordRepository.findRecordKeysInPartitions(
+                    assignedPartitions,
+                    NEW,
+                    4,
+                    true,
+                )
+            } returns recordKeys
+            recordKeys.forEach { recordKey ->
+                every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } returns
+                    records.filter { it.key == recordKey }
+            }
+            every { recordRepository.save<Any>(any()) } returns mockk()
+
+            scheduler.process()
+
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    verify(exactly = 1) {
+                        recordRepository.findRecordKeysInPartitions(
+                            any(),
+                            any(),
+                            any(),
+                            any(),
+                        )
+                    }
                 }
         }
     }

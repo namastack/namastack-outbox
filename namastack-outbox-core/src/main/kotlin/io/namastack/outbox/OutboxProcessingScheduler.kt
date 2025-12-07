@@ -112,7 +112,6 @@ class OutboxProcessingScheduler(
 
             while (true) {
                 val assignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
-                if (assignedPartitions.isEmpty()) return
                 if (assignedPartitions != initialAssignedPartitions) break
 
                 val unprocessedRecordKeys = limiter.getUnprocessedIds()
