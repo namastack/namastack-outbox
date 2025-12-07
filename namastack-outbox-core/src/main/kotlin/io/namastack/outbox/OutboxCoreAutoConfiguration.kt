@@ -111,7 +111,7 @@ class OutboxCoreAutoConfiguration {
     @ConditionalOnMissingBean(name = ["outboxDefaultScheduler"])
     fun outboxDefaultScheduler(): ThreadPoolTaskScheduler =
         ThreadPoolTaskScheduler().apply {
-            poolSize = 5
+            poolSize = 1
             setThreadNamePrefix("outbox-scheduler-")
             setWaitForTasksToCompleteOnShutdown(true)
             initialize()

@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.annotation.Scheduled
 import java.time.Clock
-import java.util.concurrent.CountDownLatch
 
 /**
  * Scheduler for processing outbox records with partition-aware distribution.
@@ -69,16 +68,19 @@ class OutboxProcessingScheduler(
      * 2. **Batch Loading**: Load up to batchSize distinct record keys with NEW records
      *    - Honors [stopOnFirstFailure] setting (may skip keys with previous failures)
      * 3. **Parallel Dispatch**: Submit each record key to TaskExecutor as separate task
-     * 4. **Synchronization**: Wait for all tasks to complete using CountDownLatch
+     * 4. **Concurrency Limiting**: Uses OutboxProcessingLimiter to ensure no more than
+     *    batchSize concurrent tasks are processed at the same time
+     * 5. **Synchronization**: Wait for all tasks to complete using OutboxProcessingLimiter
      *    - Ensures one processing cycle finishes before next begins
-     * 5. **Error Handling**: Catches and logs any exceptions without propagating
+     * 6. **Error Handling**: Catches and logs any exceptions without propagating
      *
-     * ## CountDownLatch Pattern
+     * ## OutboxProcessingLimiter
      *
-     * Used to synchronize batch completion:
-     * - Main thread creates latch with count = number of record keys
-     * - Each key processing task decrements latch on completion (finally block)
-     * - Main thread blocks on latch.await() until all tasks finish
+     * Used to limit the number of concurrent record key processing tasks to batchSize:
+     * - Main thread creates limiter with max permits = batchSize
+     * - Each key processing task acquires a permit before processing
+     * - Each key processing task releases permit on completion (finally block)
+     * - Main thread blocks on limiter.awaitAll() until all tasks finish
      * - Prevents next scheduling cycle until current batch is done
      *
      * Benefits:
@@ -97,45 +99,58 @@ class OutboxProcessingScheduler(
     @Scheduled(fixedDelayString = "\${outbox.poll-interval:2000}", scheduler = "outboxDefaultScheduler")
     fun process() {
         try {
-            val assignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
-            if (assignedPartitions.isEmpty()) return
+            val initialAssignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
+            if (initialAssignedPartitions.isEmpty()) return
 
             log.debug(
                 "Processing {} partitions: {}",
-                assignedPartitions.size,
-                assignedPartitions.sorted(),
+                initialAssignedPartitions.size,
+                initialAssignedPartitions.sorted(),
             )
 
-            val recordKeys =
-                recordRepository.findRecordKeysInPartitions(
-                    partitions = assignedPartitions,
-                    status = NEW,
-                    batchSize = properties.batchSize,
-                    ignoreRecordKeysWithPreviousFailure = properties.processing.stopOnFirstFailure,
-                )
+            val limiter = OutboxProcessingLimiter(properties.batchSize)
 
-            if (recordKeys.isNotEmpty()) {
-                log.debug("Found {} record keys to process", recordKeys.size)
+            while (true) {
+                val assignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
+                if (assignedPartitions.isEmpty()) return
+                if (assignedPartitions != initialAssignedPartitions) break
 
-                // Synchronization mechanism for batch processing
-                val latch = CountDownLatch(recordKeys.size)
-                recordKeys.forEach { recordKey ->
+                val unprocessedRecordKeys = limiter.getUnprocessedIds()
+                // Fetch 2x batchSize to ensure we get enough new records even when some are still being processed
+                val recordKeys =
+                    recordRepository.findRecordKeysInPartitions(
+                        partitions = assignedPartitions,
+                        status = NEW,
+                        batchSize = properties.batchSize * 2,
+                        ignoreRecordKeysWithPreviousFailure = properties.processing.stopOnFirstFailure,
+                    )
+                val nextRecordKeys = recordKeys - unprocessedRecordKeys
+                if (nextRecordKeys.isEmpty()) break
+
+                log.debug("Found {} record keys to process", nextRecordKeys.size)
+
+                nextRecordKeys.forEach { recordKey ->
+                    // Synchronization mechanism for batch processing.
+                    // Up to the batchSize concurrent tasks can be processed at the same time.
+                    limiter.acquire(recordKey)
                     taskExecutor.execute {
                         try {
                             processRecordKey(recordKey)
                         } finally {
-                            // Decrement latch regardless of success/failure
+                            // Release regardless of success/failure
                             // Ensures main thread is notified even if task throws
-                            latch.countDown()
+                            limiter.release(recordKey)
                         }
                     }
                 }
 
-                // Block main thread until all record keys are processed
-                // Prevents overlapping batches
-                latch.await()
-                log.debug("Finished processing {} record keys", recordKeys.size)
+                if (nextRecordKeys.size < properties.batchSize) break
             }
+
+            // Block main thread until all record keys are processed
+            // Prevents overlapping batches
+            limiter.awaitAll()
+            log.debug("Finished processing {} record keys", limiter.getProcessedCount())
         } catch (ex: Exception) {
             log.error("Error during partition-aware outbox processing", ex)
         }

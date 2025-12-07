@@ -16,6 +16,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import java.time.Clock
 import java.time.Duration
@@ -85,11 +87,11 @@ class OutboxProcessingSchedulerTest {
             val assignedPartitions = setOf(1, 3, 5)
 
             every { partitionCoordinator.getAssignedPartitionNumbers() } returns assignedPartitions
-            every { recordRepository.findRecordKeysInPartitions(setOf(1, 3, 5), NEW, 100, true) } returns emptyList()
+            every { recordRepository.findRecordKeysInPartitions(setOf(1, 3, 5), NEW, 200, true) } returns emptyList()
 
             scheduler.process()
 
-            verify(exactly = 1) { recordRepository.findRecordKeysInPartitions(setOf(1, 3, 5), NEW, 100, true) }
+            verify(exactly = 1) { recordRepository.findRecordKeysInPartitions(setOf(1, 3, 5), NEW, 200, true) }
         }
 
         @Test
@@ -107,11 +109,98 @@ class OutboxProcessingSchedulerTest {
                 )
 
             every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
-            every { recordRepository.findRecordKeysInPartitions(setOf(1, 2), NEW, 50, true) } returns emptyList()
+            every { recordRepository.findRecordKeysInPartitions(setOf(1, 2), NEW, 100, true) } returns emptyList()
 
             customScheduler.process()
 
-            verify(exactly = 1) { recordRepository.findRecordKeysInPartitions(setOf(1, 2), NEW, 50, true) }
+            verify(exactly = 1) { recordRepository.findRecordKeysInPartitions(setOf(1, 2), NEW, 100, true) }
+        }
+    }
+
+    @Nested
+    @DisplayName("Processing Limiter")
+    inner class ProcessingLimiter {
+        @BeforeEach
+        fun setUp() {
+            val customProperties = properties.copy(batchSize = 2)
+            scheduler =
+                OutboxProcessingScheduler(
+                    recordRepository = recordRepository,
+                    handlerInvoker = dispatcher,
+                    partitionCoordinator = partitionCoordinator,
+                    taskExecutor = taskExecutor,
+                    retryPolicy = retryPolicy,
+                    properties = customProperties,
+                    clock = clock,
+                )
+        }
+
+        @ParameterizedTest
+        @CsvSource(
+            value = [
+                "0,  ,  ,  ,  ,  ,  ,  ,  ",
+                "1, 0, 1,  ,  ,  ,  ,  ,  ",
+                "2, 0, 2,  ,  ,  ,  ,  ,  ",
+                "3, 0, 3, 2, 3,  ,  ,  ,  ",
+                "4, 0, 4, 2, 4,  ,  ,  ,  ",
+                "5, 0, 4, 2, 5, 4, 5,  ,  ",
+                "6, 0, 4, 2, 6, 4, 6,  ,  ",
+                "7, 0, 4, 2, 6, 4, 7, 6, 7",
+                "8, 0, 4, 2, 6, 4, 8, 6, 8",
+            ],
+        )
+        fun `process multiple batches`(
+            recordKeyCount: Int,
+            batch1Start: Int?,
+            batch1End: Int?,
+            batch2Start: Int?,
+            batch2End: Int?,
+            batch3Start: Int?,
+            batch3End: Int?,
+            batch4Start: Int?,
+            batch4End: Int?,
+        ) {
+            val recordKeys =
+                (1..recordKeyCount).map {
+                    "record-key-$it"
+                }
+            val records =
+                (1..recordKeyCount).map {
+                    outboxRecord(
+                        id = "record-$it",
+                        recordKey = "record-key-$it",
+                        status = NEW,
+                        nextRetryAt = now.minusMinutes(1),
+                    )
+                }
+
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+            every {
+                recordRepository.findRecordKeysInPartitions(
+                    setOf(1),
+                    NEW,
+                    4,
+                    true,
+                )
+            } returns
+                recordKeys.subList(batch1Start ?: recordKeys.size, batch1End ?: recordKeys.size) andThen
+                recordKeys.subList(batch2Start ?: recordKeys.size, batch2End ?: recordKeys.size) andThen
+                recordKeys.subList(batch3Start ?: recordKeys.size, batch3End ?: recordKeys.size) andThen
+                recordKeys.subList(batch4Start ?: recordKeys.size, batch4End ?: recordKeys.size)
+            recordKeys.forEach { recordKey ->
+                every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } returns
+                    records.filter { it.key == recordKey }
+            }
+            every { dispatcher.dispatch(any(), any()) } answers { Thread.sleep(50) }
+            every { recordRepository.save<Any>(any()) } returns mockk()
+
+            scheduler.process()
+
+            await()
+                .atMost(2, TimeUnit.SECONDS)
+                .untilAsserted {
+                    verify(exactly = recordKeyCount) { dispatcher.dispatch(any(), any()) }
+                }
         }
     }
 
@@ -132,7 +221,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("record-1")
@@ -174,7 +263,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("record-key-1")
@@ -206,7 +295,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("record-key-1")
@@ -227,7 +316,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("record-key-1")
@@ -253,7 +342,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("record-1")
@@ -280,7 +369,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("record-1")
@@ -309,7 +398,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("record-1")
@@ -338,7 +427,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("record-1")
@@ -379,7 +468,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("record-1")
@@ -412,7 +501,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("record-key-1")
@@ -459,7 +548,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     false,
                 )
             } returns listOf("record-key-1")
@@ -488,7 +577,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("record-key-1")
@@ -523,7 +612,7 @@ class OutboxProcessingSchedulerTest {
         @Test
         fun `handle repository exception during record key lookup`() {
             every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
-            every { recordRepository.findRecordKeysInPartitions(setOf(1), NEW, 100, true) } throws
+            every { recordRepository.findRecordKeysInPartitions(setOf(1), NEW, 200, true) } throws
                 RuntimeException("DB error")
 
             scheduler.process()
@@ -540,7 +629,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     setOf(1),
                     NEW,
-                    100,
+                    200,
                     true,
                 )
             } returns listOf("record-key-1")
@@ -564,7 +653,7 @@ class OutboxProcessingSchedulerTest {
                 recordRepository.findRecordKeysInPartitions(
                     partitions = setOf(1),
                     status = NEW,
-                    batchSize = 100,
+                    batchSize = 200,
                     ignoreRecordKeysWithPreviousFailure = true,
                 )
             } returns listOf("record-key-1")
