@@ -484,6 +484,8 @@ class OrderHandler : OutboxTypedHandler<OrderCreatedPayload> {
 
 ### Error Handling & Retries
 
+**Automatic Retry on Exception:**
+
 ```kotlin
 @Component
 class PaymentHandler : OutboxTypedHandler<PaymentProcessedPayload> {
@@ -491,16 +493,47 @@ class PaymentHandler : OutboxTypedHandler<PaymentProcessedPayload> {
         try {
             paymentGateway.confirmPayment(payload.transactionId)
         } catch (e: TemporaryNetworkException) {
-            // Will be automatically retried
+            // Throwing exception → Record scheduled for retry
             throw e
-        } catch (e: PaymentDeclinedException) {
-            // Don't retry - mark as failed manually
-            logger.error("Payment declined: ${payload.transactionId}")
-            throw IllegalStateException("Unrecoverable error", e)
+        } catch (e: PermanentPaymentFailureException) {
+            // Not throwing exception → Handler completes successfully, no retry
+            logger.error("Permanent failure for transaction ${payload.transactionId}", e)
         }
     }
 }
 ```
+
+**Custom Retry Policy (Fail-Fast on Specific Exceptions):**
+
+```kotlin
+// 1. Define the custom retry policy
+class CustomRetryPolicy : OutboxRetryPolicy {
+    override fun shouldRetry(exception: Throwable): Boolean {
+        return when (exception) {
+            is InvalidCredentialsException -> false      // Don't retry auth errors
+            is PermanentFailureException -> false        // Don't retry permanent failures
+            is TemporaryNetworkException -> true         // Retry network errors
+            else -> true                                 // Default: retry
+        }
+    }
+
+    override fun nextDelay(exception: Throwable): Duration {
+        return when (exception) {
+            is TemporaryNetworkException -> Duration.ofSeconds(5)
+            else -> Duration.ofSeconds(1)
+        }
+    }
+}
+
+// 2. Register the bean via configuration
+@Configuration
+class OutboxConfiguration {
+    @Bean
+    fun customRetryPolicy(): OutboxRetryPolicy = CustomRetryPolicy()
+}
+```
+
+The custom `OutboxRetryPolicy` bean is automatically detected and used by the framework.
 
 ---
 
