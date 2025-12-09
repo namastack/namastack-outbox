@@ -19,6 +19,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.task.ThreadPoolTaskExecutorBuilder
+import org.springframework.boot.task.ThreadPoolTaskSchedulerBuilder
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Role
 import org.springframework.context.event.SimpleApplicationEventMulticaster
@@ -88,16 +90,15 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean("outboxTaskExecutor")
     @ConditionalOnMissingBean(name = ["outboxTaskExecutor"])
-    fun outboxTaskExecutor(properties: OutboxProperties): ThreadPoolTaskExecutor {
-        val executor = ThreadPoolTaskExecutor()
-        executor.corePoolSize = properties.processing.executorCorePoolSize
-        executor.maxPoolSize = properties.processing.executorMaxPoolSize
-        executor.setThreadNamePrefix("outbox-proc-")
-        executor.setWaitForTasksToCompleteOnShutdown(true)
-        executor.initialize()
-
-        return executor
-    }
+    fun outboxTaskExecutor(
+        builder: ThreadPoolTaskExecutorBuilder,
+        properties: OutboxProperties,
+    ): ThreadPoolTaskExecutor =
+        builder
+            .corePoolSize(properties.processing.executorCorePoolSize)
+            .maxPoolSize(properties.processing.executorMaxPoolSize)
+            .threadNamePrefix("outbox-proc-")
+            .build()
 
     /**
      * Scheduler for general outbox batch processing tasks.
@@ -109,13 +110,11 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean("outboxDefaultScheduler")
     @ConditionalOnMissingBean(name = ["outboxDefaultScheduler"])
-    fun outboxDefaultScheduler(): ThreadPoolTaskScheduler =
-        ThreadPoolTaskScheduler().apply {
-            poolSize = 5
-            setThreadNamePrefix("outbox-scheduler-")
-            setWaitForTasksToCompleteOnShutdown(true)
-            initialize()
-        }
+    fun outboxDefaultScheduler(builder: ThreadPoolTaskSchedulerBuilder): ThreadPoolTaskScheduler =
+        builder
+            .poolSize(5)
+            .threadNamePrefix("outbox-scheduler-")
+            .build()
 
     /**
      * Scheduler for partition rebalancing and heartbeat signals.
@@ -127,13 +126,11 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean("outboxRebalancingScheduler")
     @ConditionalOnMissingBean(name = ["outboxRebalancingScheduler"])
-    fun outboxRebalancingScheduler(): ThreadPoolTaskScheduler =
-        ThreadPoolTaskScheduler().apply {
-            poolSize = 1
-            setThreadNamePrefix("outbox-rebalancing-")
-            setWaitForTasksToCompleteOnShutdown(true)
-            initialize()
-        }
+    fun outboxRebalancingScheduler(builder: ThreadPoolTaskSchedulerBuilder): ThreadPoolTaskScheduler =
+        builder
+            .poolSize(1)
+            .threadNamePrefix("outbox-rebalancing-")
+            .build()
 
     /**
      * Creates the retry policy for failed record processing.

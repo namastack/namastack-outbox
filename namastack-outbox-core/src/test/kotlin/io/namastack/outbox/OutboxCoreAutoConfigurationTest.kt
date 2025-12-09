@@ -14,6 +14,8 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.AutoConfigurations
+import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration
+import org.springframework.boot.autoconfigure.task.TaskSchedulingAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -26,8 +28,13 @@ import java.time.ZoneId
 class OutboxCoreAutoConfigurationTest {
     private val contextRunner =
         ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(OutboxCoreAutoConfiguration::class.java))
-            .withPropertyValues("outbox.instance.graceful-shutdown-timeout-seconds=0")
+            .withConfiguration(
+                AutoConfigurations.of(
+                    TaskExecutionAutoConfiguration::class.java,
+                    TaskSchedulingAutoConfiguration::class.java,
+                    OutboxCoreAutoConfiguration::class.java,
+                ),
+            ).withPropertyValues("outbox.instance.graceful-shutdown-timeout-seconds=0")
 
     @Nested
     @DisplayName("Core Beans")
