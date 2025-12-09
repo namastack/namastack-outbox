@@ -1,6 +1,8 @@
 package io.namastack.outbox
 
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
+import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration
+import org.springframework.boot.autoconfigure.task.TaskSchedulingAutoConfiguration
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
@@ -27,6 +29,8 @@ import org.springframework.test.annotation.DirtiesContext
 @DataJpaTest(showSql = false)
 @DirtiesContext
 @ImportAutoConfiguration(
+    TaskExecutionAutoConfiguration::class,
+    TaskSchedulingAutoConfiguration::class,
     OutboxCoreAutoConfiguration::class,
     JpaOutboxAutoConfiguration::class,
     OutboxJacksonAutoConfiguration::class,
