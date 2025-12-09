@@ -1,6 +1,7 @@
 package io.namastack.outbox.handler.method
 
 import io.namastack.outbox.handler.OutboxTypedHandler
+import org.springframework.aop.support.AopUtils
 import java.lang.reflect.Method
 import kotlin.reflect.KClass
 
@@ -87,7 +88,7 @@ class TypedHandlerMethodFactory : OutboxHandlerMethodFactory {
      */
     fun createFromInterface(bean: OutboxTypedHandler<*>): TypedHandlerMethod {
         val payloadType =
-            bean::class
+            getClass(bean)
                 .supertypes
                 .first { it.classifier == OutboxTypedHandler::class }
                 .arguments
@@ -100,4 +101,20 @@ class TypedHandlerMethodFactory : OutboxHandlerMethodFactory {
 
         return TypedHandlerMethod(bean, method, payloadType)
     }
+
+    /**
+     * Resolves the Kotlin class (`KClass<*>`) of the given bean.
+     *
+     * If the bean is an AOP proxy, retrieves the target class behind the proxy.
+     * Otherwise, returns the bean's own class.
+     *
+     * @param bean The object instance whose class is to be resolved
+     * @return The resolved `KClass<*>` of the bean or its target class
+     */
+    private fun getClass(bean: Any): KClass<*> =
+        if (AopUtils.isAopProxy(bean)) {
+            AopUtils.getTargetClass(bean).kotlin
+        } else {
+            bean::class
+        }
 }
