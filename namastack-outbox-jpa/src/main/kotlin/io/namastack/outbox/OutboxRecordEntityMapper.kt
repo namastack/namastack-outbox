@@ -46,13 +46,7 @@ internal class OutboxRecordEntityMapper(
      * @return Corresponding domain object
      */
     fun map(entity: OutboxRecordEntity): OutboxRecord<*> {
-        val clazz =
-            try {
-                Class.forName(entity.recordType)
-            } catch (ex: ClassNotFoundException) {
-                throw IllegalStateException("Cannot find class for record type ${entity.recordType}", ex)
-            }
-
+        val clazz = resolveClass(entity.recordType)
         val payload = serializer.deserialize(entity.payload, clazz)
 
         return OutboxRecord.restore(
@@ -68,4 +62,18 @@ internal class OutboxRecordEntityMapper(
             handlerId = entity.handlerId,
         )
     }
+
+    /**
+     * Resolves a class by name using the current thread's context ClassLoader.
+     *
+     * @param className The fully qualified class name
+     * @return The resolved Class object
+     * @throws IllegalStateException if the class cannot be found
+     */
+    private fun resolveClass(className: String): Class<*> =
+        try {
+            Thread.currentThread().contextClassLoader.loadClass(className)
+        } catch (ex: ClassNotFoundException) {
+            throw IllegalStateException("Cannot find class for record type $className", ex)
+        }
 }
