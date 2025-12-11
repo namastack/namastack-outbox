@@ -44,7 +44,7 @@ Quick links:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jpa:0.4.0")
+    implementation("io.namastack:namastack-outbox-starter-jpa:0.4.1")
 }
 ```
 
