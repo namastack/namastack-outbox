@@ -9,7 +9,7 @@ publish = "0.35.0"
 
 # Dependency versions
 hibernate = "7.1.11.Final"
-springOrm = "7.0.1"
+springOrm = "7.0.2"
 springTx = "7.0.2"
 h2 = "2.4.240"
 mockk = "1.14.7"
