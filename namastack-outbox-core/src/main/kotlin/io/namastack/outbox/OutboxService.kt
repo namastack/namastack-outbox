@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.namastack.outbox.handler.OutboxHandlerRegistry
 import io.namastack.outbox.handler.method.OutboxHandlerMethod
+import io.namastack.outbox.interceptor.OutboxCreationInterceptorChain
 import java.time.Clock
 import java.util.UUID
 import kotlin.reflect.KClass
@@ -61,6 +62,7 @@ import kotlin.reflect.KClass
  * @since 0.4.0
  */
 class OutboxService(
+    private val creationInterceptor: OutboxCreationInterceptorChain,
     private val handlerRegistry: OutboxHandlerRegistry,
     private val outboxRecordRepository: OutboxRecordRepository,
     private val clock: Clock,
@@ -106,6 +108,9 @@ class OutboxService(
         payload: Any,
         key: String,
     ) {
+        val attributes: MutableMap<String, String> = mutableMapOf()
+        creationInterceptor.applyBeforePersist(attributes)
+
         // Discover all applicable handlers for this payload type
         val handlerIds = collectHandlers(payload).map { it.id }.toSet()
 
@@ -117,6 +122,7 @@ class OutboxService(
                     .Builder<Any>()
                     .key(key)
                     .payload(payload)
+                    .attributes(attributes)
                     .handlerId(handlerId)
                     .build(clock)
 

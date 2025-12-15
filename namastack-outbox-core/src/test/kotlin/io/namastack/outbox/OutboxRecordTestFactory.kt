@@ -6,22 +6,22 @@ import java.util.UUID
 
 object OutboxRecordTestFactory {
     fun outboxRecord(
-        id: String = UUID.randomUUID().toString(),
-        recordKey: String = "test-record-key",
-        payload: CreatedEvent = CreatedEvent(),
-        partition: Int = 1,
-        createdAt: OffsetDateTime = OffsetDateTime.now(),
-        status: OutboxRecordStatus = NEW,
-        completedAt: OffsetDateTime? = OffsetDateTime.now(),
-        failureCount: Int = 0,
-        nextRetryAt: OffsetDateTime = OffsetDateTime.now(),
-        handlerId: String = @Suppress("ktlint:standard:max-line-length")
-        $$"io.namastack.outbox.OutboxRecordTestFactory$CreatedEventHandler#handle(io.namastack.outbox.OutboxRecordTestFactory$CreatedEvent)",
+        id: String? = null,
+        recordKey: String? = null,
+        attributes: Map<String, String>? = null,
+        partition: Int? = null,
+        createdAt: OffsetDateTime? = null,
+        status: OutboxRecordStatus? = null,
+        completedAt: OffsetDateTime? = null,
+        failureCount: Int? = null,
+        nextRetryAt: OffsetDateTime? = null,
+        handlerId: String? = null,
     ): OutboxRecord<CreatedEvent> =
-        OutboxRecord.restore(
+        outboxRecord(
+            payload = CreatedEvent(),
             id = id,
             recordKey = recordKey,
-            payload = payload,
+            attributes = attributes,
             partition = partition,
             createdAt = createdAt,
             status = status,
@@ -29,6 +29,36 @@ object OutboxRecordTestFactory {
             nextRetryAt = nextRetryAt,
             failureCount = failureCount,
             handlerId = handlerId,
+        )
+
+    @Suppress("ktlint:standard:max-line-length")
+    fun <T> outboxRecord(
+        payload: T,
+        id: String? = null,
+        recordKey: String? = null,
+        attributes: Map<String, String>? = null,
+        partition: Int? = null,
+        createdAt: OffsetDateTime? = null,
+        status: OutboxRecordStatus? = null,
+        completedAt: OffsetDateTime? = null,
+        failureCount: Int? = null,
+        nextRetryAt: OffsetDateTime? = null,
+        handlerId: String? = null,
+    ): OutboxRecord<T> =
+        OutboxRecord.restore(
+            id = id ?: UUID.randomUUID().toString(),
+            recordKey = recordKey ?: "test-record-key",
+            payload = payload,
+            attributes = attributes ?: emptyMap(),
+            partition = partition ?: 1,
+            createdAt = createdAt ?: OffsetDateTime.now(),
+            status = status ?: NEW,
+            completedAt = completedAt ?: OffsetDateTime.now(),
+            nextRetryAt = nextRetryAt ?: OffsetDateTime.now(),
+            failureCount = failureCount ?: 0,
+            handlerId =
+                handlerId
+                    ?: $$"io.namastack.outbox.OutboxRecordTestFactory$CreatedEventHandler#handle(io.namastack.outbox.OutboxRecordTestFactory$CreatedEvent)",
         )
 
     data class CreatedEvent(

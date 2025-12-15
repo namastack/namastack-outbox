@@ -14,6 +14,17 @@ class MicrometerContextTaskDecorator(
         }
 
         val newSpan = tracer.nextSpan()
+
+        val stackTrace = Thread.currentThread().stackTrace
+        val callerClassName = stackTrace
+            .firstOrNull {
+                it.className != this::class.java.name
+                    && !it.className.startsWith("java.lang.Thread")
+                    && !it.className.startsWith("org.springframework")
+            }
+            ?.className
+
+        newSpan.name("AsyncTask#$callerClassName")
         return Runnable {
             tracer.withSpan(newSpan.start()).use { _ ->
                 try {

@@ -23,13 +23,14 @@ dependencies {
     jacocoAggregation(project(":namastack-outbox-jackson"))
     jacocoAggregation(project(":namastack-outbox-jpa"))
     jacocoAggregation(project(":namastack-outbox-metrics"))
+    jacocoAggregation(project(":namastack-outbox-tracing"))
 }
 
 val isRelease = project.hasProperty("release") && project.property("release") == "true"
 
 allprojects {
     group = "io.namastack"
-    version = "0.4.1" + if (!isRelease) "-SNAPSHOT" else ""
+    version = "0.5.0" + if (!isRelease) "-SNAPSHOT" else ""
 
     repositories {
         mavenLocal()

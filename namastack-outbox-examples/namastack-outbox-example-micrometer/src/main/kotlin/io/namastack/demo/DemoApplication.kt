@@ -24,22 +24,26 @@ class DemoApplication(
     }
 
     override fun run(vararg args: String) {
-        logger.info("=== Namastack Outbox Demo ===")
-        logger.info("Register: John Wayne")
-        val customer1 = service.register(firstname = "John", lastname = "Wayne", email = "john.wayne@example.com")
-
-        logger.info("Register: Macy Grey")
-        val customer2 = service.register(firstname = "Macy", lastname = "Grey", email = "macy.grey@example.com")
-
-        logger.info("Waiting for processing...")
-        Thread.sleep(2000)
-
-        logger.info("Remove: {}", customer1.id)
-        service.remove(customer1.id)
-
-        logger.info("Remove: {}", customer2.id)
-        service.remove(customer2.id)
-
-        logger.info("=== Demo Complete ===")
+//        logger.info("=== Namastack Outbox Demo ===")
+//        logger.info("Register: John Wayne")
+//        val customer1 = service.register(firstname = "John", lastname = "Wayne", email = "john.wayne@example.com")
+//
+//        logger.info("Register: Macy Grey")
+//        val customer2 = service.register(firstname = "Macy", lastname = "Grey", email = "macy.grey@example.com")
+//
+//        logger.info("Waiting for processing...")
+//        Thread.sleep(2000)
+//
+//        logger.info("Remove: {}", customer1.id)
+//        service.remove(customer1.id)
+//
+//        logger.info("Remove: {}", customer2.id)
+//        service.remove(customer2.id)
+//
+//        logger.info("=== Demo Complete ===")
+//
+//        service.retry()
+//
+//        service.async()
     }
 }

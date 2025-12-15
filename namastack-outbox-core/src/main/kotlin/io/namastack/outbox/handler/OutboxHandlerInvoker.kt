@@ -1,7 +1,11 @@
 package io.namastack.outbox.handler
 
+import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.method.GenericHandlerMethod
+import io.namastack.outbox.handler.method.OutboxHandlerMethod
 import io.namastack.outbox.handler.method.TypedHandlerMethod
+import io.namastack.outbox.interceptor.OutboxDeliveryInterceptorChain
+import io.namastack.outbox.interceptor.OutboxDeliveryInterceptorContext
 
 /**
  * Invokes the appropriate handler for a given record.
@@ -16,6 +20,7 @@ import io.namastack.outbox.handler.method.TypedHandlerMethod
  */
 class OutboxHandlerInvoker(
     private val handlerRegistry: OutboxHandlerRegistry,
+    private val interceptor: OutboxDeliveryInterceptorChain,
 ) {
     /**
      * Dispatches a record to its registered handler.
@@ -42,20 +47,49 @@ class OutboxHandlerInvoker(
      * @throws IllegalStateException if no handler with the given ID exists
      * @throws Exception if the handler method throws (will trigger retries)
      */
-    fun dispatch(
-        payload: Any?,
-        metadata: OutboxRecordMetadata,
-    ) {
-        if (payload == null) return
-
+    fun dispatch(record: OutboxRecord<*>) {
+        val payload: Any = record.payload ?: return
+        val metadata = createMetadata(record)
         val handler =
-            handlerRegistry.getHandlerById(metadata.handlerId)
-                ?: throw IllegalStateException("No handler with id ${metadata.handlerId}")
+            handlerRegistry.getHandlerById(record.handlerId)
+                ?: throw IllegalStateException("No handler with id ${record.handlerId}")
+        val context = createDeliveryInterceptorContext(record, handler)
 
-        // Invoke handler based on type (typed vs generic)
-        when (handler) {
-            is TypedHandlerMethod -> handler.invoke(payload)
-            is GenericHandlerMethod -> handler.invoke(payload, metadata)
+        try {
+            interceptor.applyBeforeHandler(context)
+            // Invoke handler based on type (typed vs generic)
+            when (handler) {
+                is TypedHandlerMethod -> handler.invoke(payload)
+                is GenericHandlerMethod -> handler.invoke(payload, metadata)
+            }
+            interceptor.applyAfterHandler(context)
+        } catch (ex: Exception) {
+            interceptor.applyOnError(context, ex)
+            // Rethrow to trigger retry logic in caller
+            throw ex
+        } finally {
+            interceptor.applyAfterCompletion(context)
         }
     }
+
+    private fun createMetadata(record: OutboxRecord<*>): OutboxRecordMetadata =
+        OutboxRecordMetadata(
+            key = record.key,
+            handlerId = record.handlerId,
+            createdAt = record.createdAt,
+        )
+
+    fun createDeliveryInterceptorContext(
+        record: OutboxRecord<*>,
+        handler: OutboxHandlerMethod,
+    ): OutboxDeliveryInterceptorContext =
+        OutboxDeliveryInterceptorContext(
+            key = record.key,
+            attributes = record.attributes,
+            handlerId = record.handlerId,
+            handlerClass = handler.bean::class.java,
+            handlerMethod = handler.method,
+            failureCount = record.failureCount,
+            createdAt = record.createdAt,
+        )
 }

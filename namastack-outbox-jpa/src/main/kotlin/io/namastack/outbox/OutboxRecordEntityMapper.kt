@@ -22,6 +22,10 @@ internal class OutboxRecordEntityMapper(
         val payload = record.payload ?: throw IllegalArgumentException("record payload cannot be null")
 
         val serializedPayload = serializer.serialize(payload)
+        val serializedAttributes =
+            record.attributes
+                .takeIf { it.isNotEmpty() }
+                ?.let { serializer.serialize(it) }
         val recordType = payload.javaClass.name
 
         return OutboxRecordEntity(
@@ -30,6 +34,7 @@ internal class OutboxRecordEntityMapper(
             recordKey = record.key,
             recordType = recordType,
             payload = serializedPayload,
+            attributes = serializedAttributes,
             partitionNo = record.partition,
             createdAt = record.createdAt,
             completedAt = record.completedAt,
@@ -49,10 +54,17 @@ internal class OutboxRecordEntityMapper(
         val clazz = resolveClass(entity.recordType)
         val payload = serializer.deserialize(entity.payload, clazz)
 
+        @Suppress("UNCHECKED_CAST")
+        val attributes =
+            entity.attributes
+                ?.let { serializer.deserialize(it, Map::class.java as Class<Map<String, String>>) }
+                ?: emptyMap()
+
         return OutboxRecord.restore(
             id = entity.id,
             recordKey = entity.recordKey,
             payload = payload,
+            attributes = attributes,
             partition = entity.partitionNo,
             createdAt = entity.createdAt,
             status = entity.status,

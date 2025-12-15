@@ -19,7 +19,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-flyway")
-    implementation("io.namastack:namastack-outbox-starter-jpa:0.4.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jpa:0.5.0-SNAPSHOT")
     implementation("org.flywaydb:flyway-mysql")
     runtimeOnly("org.mariadb.jdbc:mariadb-java-client")
 }

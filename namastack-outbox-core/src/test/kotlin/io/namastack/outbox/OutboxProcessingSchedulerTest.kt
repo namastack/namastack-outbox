@@ -63,7 +63,7 @@ class OutboxProcessingSchedulerTest {
                 clock = clock,
             )
 
-        every { dispatcher.dispatch(any(), any()) } returns Unit
+        every { dispatcher.dispatch(any()) } returns Unit
         every { retryPolicy.shouldRetry(any()) } returns true
         every { retryPolicy.nextDelay(any()) } returns Duration.ofSeconds(10)
     }
@@ -145,7 +145,7 @@ class OutboxProcessingSchedulerTest {
             await()
                 .atMost(2, TimeUnit.SECONDS)
                 .untilAsserted {
-                    verify(exactly = 1) { dispatcher.dispatch(record.payload, any()) }
+                    verify(exactly = 1) { dispatcher.dispatch(record) }
                     verify(exactly = 1) { recordRepository.save(record) }
                     assertThat(record.status).isEqualTo(COMPLETED)
                     assertThat(record.completedAt).isNotNull()
@@ -188,8 +188,8 @@ class OutboxProcessingSchedulerTest {
             await()
                 .atMost(2, TimeUnit.SECONDS)
                 .untilAsserted {
-                    verify(exactly = 1) { dispatcher.dispatch(record1.payload, any()) }
-                    verify(exactly = 1) { dispatcher.dispatch(record2.payload, any()) }
+                    verify(exactly = 1) { dispatcher.dispatch(record1) }
+                    verify(exactly = 1) { dispatcher.dispatch(record2) }
                 }
         }
 
@@ -216,7 +216,7 @@ class OutboxProcessingSchedulerTest {
             scheduler.process()
 
             await().during(1, TimeUnit.SECONDS).untilAsserted {
-                verify(exactly = 0) { dispatcher.dispatch(any(), any()) }
+                verify(exactly = 0) { dispatcher.dispatch(any()) }
             }
         }
 
@@ -236,7 +236,7 @@ class OutboxProcessingSchedulerTest {
             scheduler.process()
 
             await().during(1, TimeUnit.SECONDS).untilAsserted {
-                verify(exactly = 0) { dispatcher.dispatch(any(), any()) }
+                verify(exactly = 0) { dispatcher.dispatch(any()) }
             }
         }
     }
@@ -286,7 +286,7 @@ class OutboxProcessingSchedulerTest {
             } returns listOf("record-1")
             every { recordRepository.findIncompleteRecordsByRecordKey("record-1") } returns
                 listOf(record)
-            every { dispatcher.dispatch(record.payload, any()) } throws RuntimeException("Processing failed")
+            every { dispatcher.dispatch(record) } throws RuntimeException("Processing failed")
             every { recordRepository.save<OutboxRecordTestFactory.CreatedEvent>(any()) } returns record
 
             scheduler.process()
@@ -315,7 +315,7 @@ class OutboxProcessingSchedulerTest {
             } returns listOf("record-1")
             every { recordRepository.findIncompleteRecordsByRecordKey("record-1") } returns
                 listOf(record)
-            every { dispatcher.dispatch(record.payload, any()) } throws RuntimeException("Processing failed")
+            every { dispatcher.dispatch(record) } throws RuntimeException("Processing failed")
             every { recordRepository.save<OutboxRecordTestFactory.CreatedEvent>(any()) } returns record
 
             scheduler.process()
@@ -344,7 +344,7 @@ class OutboxProcessingSchedulerTest {
             } returns listOf("record-1")
             every { recordRepository.findIncompleteRecordsByRecordKey("record-1") } returns
                 listOf(record)
-            every { dispatcher.dispatch(record.payload, any()) } throws exception
+            every { dispatcher.dispatch(record) } throws exception
             every { retryPolicy.shouldRetry(exception) } returns false
             every { recordRepository.save<OutboxRecordTestFactory.CreatedEvent>(any()) } returns record
 
@@ -392,7 +392,7 @@ class OutboxProcessingSchedulerTest {
             await()
                 .atMost(2, TimeUnit.SECONDS)
                 .untilAsserted {
-                    verify(exactly = 1) { dispatcher.dispatch(record.payload, any()) }
+                    verify(exactly = 1) { dispatcher.dispatch(record) }
                     verify(exactly = 1) { recordRepository.deleteById(record.id) }
                     verify(exactly = 0) { recordRepository.save<OutboxRecordTestFactory.CreatedEvent>(any()) }
                 }
@@ -418,7 +418,7 @@ class OutboxProcessingSchedulerTest {
             } returns listOf("record-key-1")
             every { recordRepository.findIncompleteRecordsByRecordKey("record-key-1") } returns
                 listOf(record1, record2)
-            every { dispatcher.dispatch(record1.payload, any()) } throws RuntimeException("Processing failed")
+            every { dispatcher.dispatch(record1) } throws RuntimeException("Processing failed")
             every { recordRepository.save(any() as OutboxRecord<Any>) } returns mockk()
 
             scheduler.process()
@@ -426,11 +426,11 @@ class OutboxProcessingSchedulerTest {
             await()
                 .atMost(2, TimeUnit.SECONDS)
                 .untilAsserted {
-                    verify(exactly = 1) { dispatcher.dispatch(record1.payload, any()) }
+                    verify(exactly = 1) { dispatcher.dispatch(record1) }
                 }
 
             await().during(1, TimeUnit.SECONDS).untilAsserted {
-                verify(exactly = 0) { dispatcher.dispatch(record2.payload, any()) }
+                verify(exactly = 0) { dispatcher.dispatch(record2) }
             }
         }
 
@@ -465,7 +465,7 @@ class OutboxProcessingSchedulerTest {
             } returns listOf("record-key-1")
             every { recordRepository.findIncompleteRecordsByRecordKey("record-key-1") } returns
                 listOf(record1, record2)
-            every { dispatcher.dispatch(record1.payload, any()) } throws RuntimeException("Processing failed")
+            every { dispatcher.dispatch(record1) } throws RuntimeException("Processing failed")
             every { recordRepository.save<OutboxRecordTestFactory.CreatedEvent>(any()) } returns mockk()
 
             schedulerNonStop.process()
@@ -473,8 +473,8 @@ class OutboxProcessingSchedulerTest {
             await()
                 .atMost(2, TimeUnit.SECONDS)
                 .untilAsserted {
-                    verify(exactly = 1) { dispatcher.dispatch(record1.payload, any()) }
-                    verify(exactly = 1) { dispatcher.dispatch(record2.payload, any()) }
+                    verify(exactly = 1) { dispatcher.dispatch(record1) }
+                    verify(exactly = 1) { dispatcher.dispatch(record2) }
                 }
         }
 
@@ -501,8 +501,8 @@ class OutboxProcessingSchedulerTest {
             await()
                 .atMost(2, TimeUnit.SECONDS)
                 .untilAsserted {
-                    verify(exactly = 1) { dispatcher.dispatch(record1.payload, any()) }
-                    verify(exactly = 1) { dispatcher.dispatch(record2.payload, any()) }
+                    verify(exactly = 1) { dispatcher.dispatch(record1) }
+                    verify(exactly = 1) { dispatcher.dispatch(record2) }
                 }
         }
     }
@@ -529,7 +529,7 @@ class OutboxProcessingSchedulerTest {
             scheduler.process()
 
             await().during(1, TimeUnit.SECONDS).untilAsserted {
-                verify(exactly = 0) { dispatcher.dispatch(any(), any()) }
+                verify(exactly = 0) { dispatcher.dispatch(any()) }
             }
         }
 
@@ -551,7 +551,7 @@ class OutboxProcessingSchedulerTest {
             scheduler.process()
 
             await().during(1, TimeUnit.SECONDS).untilAsserted {
-                verify(exactly = 0) { dispatcher.dispatch(any(), any()) }
+                verify(exactly = 0) { dispatcher.dispatch(any()) }
             }
         }
 
@@ -577,7 +577,7 @@ class OutboxProcessingSchedulerTest {
             await()
                 .atMost(2, TimeUnit.SECONDS)
                 .untilAsserted {
-                    verify(exactly = 1) { dispatcher.dispatch(record.payload, any()) }
+                    verify(exactly = 1) { dispatcher.dispatch(record) }
                 }
         }
     }

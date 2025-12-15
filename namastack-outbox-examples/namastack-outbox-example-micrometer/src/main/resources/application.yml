@@ -1,3 +1,6 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: namastack-outbox-basic-example
@@ -17,6 +20,15 @@ management:
   observations:
     annotations:
       enabled: true
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: http://localhost:4317/v1/traces
+          transport: grpc
+  tracing:
+    sampling:
+      probability: 1.0
 
 outbox:
   schema-initialization:

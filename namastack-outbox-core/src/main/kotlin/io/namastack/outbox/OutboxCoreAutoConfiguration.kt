@@ -6,6 +6,10 @@ import io.namastack.outbox.handler.OutboxHandlerInvoker
 import io.namastack.outbox.handler.OutboxHandlerRegistry
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.interceptor.OutboxCreationInterceptor
+import io.namastack.outbox.interceptor.OutboxCreationInterceptorChain
+import io.namastack.outbox.interceptor.OutboxDeliveryInterceptor
+import io.namastack.outbox.interceptor.OutboxDeliveryInterceptorChain
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
@@ -159,8 +163,21 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    fun outboxHandlerInvoker(outboxHandlerRegistry: OutboxHandlerRegistry): OutboxHandlerInvoker =
-        OutboxHandlerInvoker(outboxHandlerRegistry)
+    fun outboxHandlerInvoker(
+        outboxHandlerRegistry: OutboxHandlerRegistry,
+        outboxDeliveryInterceptorChain: OutboxDeliveryInterceptorChain,
+    ): OutboxHandlerInvoker =
+        OutboxHandlerInvoker(
+            handlerRegistry = outboxHandlerRegistry,
+            interceptor = outboxDeliveryInterceptorChain,
+        )
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxDeliveryInterceptorChain(interceptors: List<OutboxDeliveryInterceptor>): OutboxDeliveryInterceptorChain =
+        OutboxDeliveryInterceptorChain(
+            interceptors = interceptors,
+        )
 
     /**
      * Creates the public Outbox API for scheduling records.
@@ -178,15 +195,26 @@ class OutboxCoreAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     internal fun outbox(
+        outboxCreationInterceptorChain: OutboxCreationInterceptorChain,
         handlerRegistry: OutboxHandlerRegistry,
         recordRepository: OutboxRecordRepository,
         clock: Clock,
     ): Outbox =
         OutboxService(
+            creationInterceptor = outboxCreationInterceptorChain,
             handlerRegistry = handlerRegistry,
             outboxRecordRepository = recordRepository,
             clock = clock,
         )
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxCreationInterceptorChain(interceptors: List<OutboxCreationInterceptor>): OutboxCreationInterceptorChain {
+        println("Configuring OutboxCreationInterceptorChain with ${interceptors.size} interceptors")
+        return OutboxCreationInterceptorChain(
+            interceptors = interceptors,
+        )
+    }
 
     /**
      * Registry for managing active instances in a distributed deployment.

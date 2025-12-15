@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS outbox_record
     record_key    VARCHAR(255)           NOT NULL,
     record_type   VARCHAR(255)           NOT NULL,
     payload       TEXT                   NOT NULL,
+    attributes    TEXT DEFAULT NULL      NULL,
     created_at    TIMESTAMP              NOT NULL,
     completed_at  TIMESTAMP DEFAULT NULL NULL,
     failure_count INT                    NOT NULL,

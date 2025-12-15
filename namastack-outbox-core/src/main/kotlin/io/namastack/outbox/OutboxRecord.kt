@@ -31,6 +31,7 @@ class OutboxRecord<T> internal constructor(
     val id: String,
     val key: String,
     val payload: T,
+    val attributes: Map<String, String>,
     val partition: Int,
     val createdAt: OffsetDateTime,
     val handlerId: String,
@@ -130,6 +131,7 @@ class OutboxRecord<T> internal constructor(
     class Builder<T> {
         private var key: String? = null
         private var payload: T? = null
+        private var attributes: Map<String, String>? = null
         private var handlerId: String? = null
 
         /**
@@ -148,6 +150,8 @@ class OutboxRecord<T> internal constructor(
          */
         fun payload(payload: T) = apply { this.payload = payload }
 
+        fun attributes(attributes: Map<String, String>) = apply { this.attributes = attributes }
+
         fun handlerId(handlerId: String) = apply { this.handlerId = handlerId }
 
         /**
@@ -160,6 +164,7 @@ class OutboxRecord<T> internal constructor(
             val id = UUID.randomUUID().toString()
             val rk = key ?: id
             val pl = payload ?: error("payload must be set")
+            val att = attributes ?: emptyMap()
             val hId = handlerId ?: error("handlerId must be set")
 
             val now = OffsetDateTime.now(clock)
@@ -170,6 +175,7 @@ class OutboxRecord<T> internal constructor(
                 status = NEW,
                 key = rk,
                 payload = pl,
+                attributes = att,
                 partition = partition,
                 createdAt = now,
                 completedAt = null,
@@ -203,6 +209,7 @@ class OutboxRecord<T> internal constructor(
             id: String,
             recordKey: String,
             payload: T,
+            attributes: Map<String, String>,
             createdAt: OffsetDateTime,
             status: OutboxRecordStatus,
             completedAt: OffsetDateTime?,
@@ -215,6 +222,7 @@ class OutboxRecord<T> internal constructor(
                 id = id,
                 key = recordKey,
                 payload = payload,
+                attributes = attributes,
                 partition = partition,
                 createdAt = createdAt,
                 status = status,
