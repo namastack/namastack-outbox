@@ -20,9 +20,10 @@ internal class OutboxRecordEntityMapper(
      */
     fun map(record: OutboxRecord<*>): OutboxRecordEntity {
         val payload = record.payload ?: throw IllegalArgumentException("record payload cannot be null")
+        val recordType = payload.javaClass.name
 
         val serializedPayload = serializer.serialize(payload)
-        val recordType = payload.javaClass.name
+        val serializedContext = record.context.takeIf { it.isNotEmpty() }?.let { serializer.serialize(it) }
 
         return OutboxRecordEntity(
             id = record.id,
@@ -36,6 +37,7 @@ internal class OutboxRecordEntityMapper(
             failureCount = record.failureCount,
             nextRetryAt = record.nextRetryAt,
             handlerId = record.handlerId,
+            context = serializedContext,
         )
     }
 
@@ -49,6 +51,12 @@ internal class OutboxRecordEntityMapper(
         val clazz = resolveClass(entity.recordType)
         val payload = serializer.deserialize(entity.payload, clazz)
 
+        @Suppress("UNCHECKED_CAST")
+        val context =
+            entity.context
+                ?.let { serializer.deserialize(it, Map::class.java) as Map<String, String> }
+                ?: emptyMap()
+
         return OutboxRecord.restore(
             id = entity.id,
             recordKey = entity.recordKey,
@@ -60,6 +68,7 @@ internal class OutboxRecordEntityMapper(
             failureCount = entity.failureCount,
             nextRetryAt = entity.nextRetryAt,
             handlerId = entity.handlerId,
+            context = context,
         )
     }
 

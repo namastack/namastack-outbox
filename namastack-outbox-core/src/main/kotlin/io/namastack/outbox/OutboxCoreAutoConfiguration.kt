@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.annotation.EnableOutbox
+import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
 import io.namastack.outbox.handler.OutboxHandlerInvoker
 import io.namastack.outbox.handler.OutboxHandlerRegistry
@@ -168,10 +169,12 @@ class OutboxCoreAutoConfiguration {
      * Responsible for:
      * - Storing records atomically with business transactions
      * - Selecting appropriate handler and storing handler ID
+     * - Collecting context from registered providers
      * - Triggering immediate processing if configured
      *
      * @param handlerRegistry Registry for handler lookup and ID assignment
      * @param recordRepository Repository for persisting records
+     * @param contextProviders List of context providers for metadata collection
      * @param clock Clock for timestamp generation
      * @return OutboxService implementing the Outbox interface
      */
@@ -180,11 +183,13 @@ class OutboxCoreAutoConfiguration {
     internal fun outbox(
         handlerRegistry: OutboxHandlerRegistry,
         recordRepository: OutboxRecordRepository,
+        contextProviders: List<OutboxContextProvider>,
         clock: Clock,
     ): Outbox =
         OutboxService(
             handlerRegistry = handlerRegistry,
             outboxRecordRepository = recordRepository,
+            contextProviders = contextProviders,
             clock = clock,
         )
 
@@ -292,19 +297,16 @@ class OutboxCoreAutoConfiguration {
     /**
      * Custom ApplicationEventMulticaster for @OutboxEvent handling.
      *
-     * Intercepts events annotated with @OutboxEvent and routes them through
-     * the outbox system instead of direct in-process publishing.
+     * Intercepts payloads annotated with @OutboxEvent and persists them to the outbox
+     * database for reliable asynchronous processing. Collects context from specified
+     * or all registered providers.
      *
-     * ## Configuration
+     * Enabled by default. Disable with: `outbox.multicaster.enabled=false`
      *
-     * Enabled by default. To disable:
-     * ```properties
-     * outbox.multicaster.enabled=false
-     * ```
-     *
-     * @param outbox Outbox service for scheduling events
-     * @param beanFactory Factory for creating the delegate multicaster
+     * @param outbox Outbox service for scheduling records
+     * @param beanFactory Factory for delegate multicaster and bean lookup
      * @param outboxProperties Configuration properties
+     * @param contextProviders List of context providers for metadata collection
      * @return OutboxEventMulticaster as the applicationEventMulticaster bean
      */
     @Bean(name = ["applicationEventMulticaster"])
@@ -314,11 +316,14 @@ class OutboxCoreAutoConfiguration {
         outbox: Outbox,
         beanFactory: BeanFactory,
         outboxProperties: OutboxProperties,
+        contextProviders: List<OutboxContextProvider>,
     ): OutboxEventMulticaster =
         OutboxEventMulticaster(
             outbox = outbox,
             outboxProperties = outboxProperties,
             delegateEventMulticaster = SimpleApplicationEventMulticaster(beanFactory),
+            contextProviders = contextProviders,
+            beanFactory = beanFactory,
         )
 
     companion object {

@@ -1,7 +1,9 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.handler.OutboxHandlerRegistry
 import io.namastack.outbox.handler.method.OutboxHandlerMethod
+import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.util.UUID
 import kotlin.reflect.KClass
@@ -9,52 +11,22 @@ import kotlin.reflect.KClass
 /**
  * Service for scheduling outbox records with intelligent handler discovery.
  *
- * Automatically discovers all applicable handlers for a given payload and creates
- * separate records for each handler. This enables:
+ * Automatically discovers applicable handlers for a given payload and creates
+ * separate records for each handler, enabling:
  * - Type hierarchy matching (handlers for superclasses also apply)
- * - Interface implementation matching (handlers for implemented interfaces)
- * - Generic fallback handlers (process any payload type)
- * - Independent retry logic per handler (if handler A fails, handler B still processes)
+ * - Interface implementation matching
+ * - Generic fallback handlers
+ * - Independent retry logic per handler
  *
  * ## Handler Discovery Algorithm
- *
- * For a given payload, discovers handlers in this order:
- * 1. **Exact Type Match**: Handlers registered for the payload's exact type
- * 2. **Superclass Handlers**: Handlers for parent classes (inheritance)
- * 3. **Interface Handlers**: Handlers for implemented interfaces (composition)
- * 4. **Generic Handlers**: Fallback handlers accepting Any payload type
- *
- * All discovered handlers are assigned to separate records, maintaining
- * independent processing state and retry counters per handler.
- *
- * ## Key Features
- *
- * - **Recursive Class Hierarchy**: Traverses entire class/interface tree
- * - **Infinite Recursion Prevention**: Visited-set prevents circular hierarchies
- * - **Deterministic Ordering**: LinkedHashSet maintains consistent order
- * - **Deduplication**: Handlers appearing multiple times in hierarchy registered once
- *
- * ## Example
- *
- * Given handlers:
- * ```kotlin
- * @OutboxHandler
- * fun handleOrderEvent(event: OrderEvent) { ... }  // Exact type
- *
- * @OutboxHandler
- * fun handleDomainEvent(event: DomainEvent) { ... }  // Superclass
- *
- * @OutboxHandler
- * fun handleAnyEvent(payload: Any, metadata: OutboxRecordMetadata) { ... }  // Generic
- * ```
- *
- * When scheduling `OrderCreatedEvent extends OrderEvent extends DomainEvent`:
- * - Creates 3 separate records (one per handler)
- * - Each record has independent retry state
- * - All handlers will be invoked (if enabled)
+ * 1. Exact Type Match - Handlers for payload's exact type
+ * 2. Superclass Handlers - Handlers for parent classes
+ * 3. Interface Handlers - Handlers for implemented interfaces
+ * 4. Generic Handlers - Fallback handlers accepting Any
  *
  * @param handlerRegistry Registry of all discovered handler methods
  * @param outboxRecordRepository Repository for persisting records
+ * @param contextProviders List of context providers for metadata collection
  * @param clock Clock for timestamp generation
  *
  * @author Roland Beisel
@@ -63,8 +35,11 @@ import kotlin.reflect.KClass
 class OutboxService(
     private val handlerRegistry: OutboxHandlerRegistry,
     private val outboxRecordRepository: OutboxRecordRepository,
+    private val contextProviders: List<OutboxContextProvider>,
     private val clock: Clock,
 ) : Outbox {
+    private val log = LoggerFactory.getLogger(OutboxService::class.java)
+
     /**
      * Schedules a payload for processing by all applicable handlers.
      *
@@ -106,6 +81,17 @@ class OutboxService(
         payload: Any,
         key: String,
     ) {
+        schedule(payload, key, emptyMap())
+    }
+
+    override fun schedule(
+        payload: Any,
+        key: String,
+        additionalContext: Map<String, String>,
+    ) {
+        // Collect context from providers and merge with additional context
+        val context = collectContext(additionalContext)
+
         // Discover all applicable handlers for this payload type
         val handlerIds = collectHandlers(payload).map { it.id }.toSet()
 
@@ -118,6 +104,7 @@ class OutboxService(
                     .key(key)
                     .payload(payload)
                     .handlerId(handlerId)
+                    .context(context)
                     .build(clock)
 
             outboxRecordRepository.save(outboxRecord)
@@ -125,46 +112,28 @@ class OutboxService(
     }
 
     /**
-     * Schedules a payload with auto-generated UUID key for processing.
+     * Schedules a payload with auto-generated UUID key.
      *
-     * Convenience method for independent payloads that don't require strict ordering.
-     * Automatically generates a unique UUID key internally, distributing records
-     * evenly across partitions in distributed deployments.
+     * Use for independent payloads that don't require ordering.
+     * UUID key distributes load evenly across partitions.
      *
-     * ## When to Use
-     *
-     * Use this method when event ordering is not required:
-     * - Independent audit/analytics events
-     * - Notifications with no order dependencies
-     * - Events that don't share business logic
-     *
-     * For related events requiring sequential processing, use `schedule(payload, key)`
-     * and provide a meaningful grouping key.
-     *
-     * ## Processing Behavior
-     *
-     * 1. Generates UUID key via `UUID.randomUUID().toString()`
-     * 2. Delegates to `schedule(payload, key)` for handler discovery
-     * 3. Creates separate record for each applicable handler
-     * 4. Persists atomically within the current transaction
-     *
-     * @param payload Domain object to be processed. Handlers are discovered
-     *                based on payload type (including inheritance and interfaces).
-     *
-     * @example
-     * ```kotlin
-     * @Transactional
-     * fun logAuditEvent(event: AuditEvent) {
-     *     auditRepository.save(event)
-     *     // No ordering needed - each audit event is independent
-     *     outbox.schedule(event)
-     * }
-     * ```
-     *
-     * @see schedule(payload: Any, key: String)
+     * @param payload Domain object to schedule
      */
     override fun schedule(payload: Any) {
-        schedule(payload = payload, key = UUID.randomUUID().toString())
+        schedule(payload, UUID.randomUUID().toString(), emptyMap())
+    }
+
+    /**
+     * Schedules a payload with auto-generated UUID key and additional context.
+     *
+     * @param payload Domain object to schedule
+     * @param additionalContext Additional context data for this record
+     */
+    override fun schedule(
+        payload: Any,
+        additionalContext: Map<String, String>,
+    ) {
+        schedule(payload, UUID.randomUUID().toString(), additionalContext)
     }
 
     /**
@@ -239,5 +208,39 @@ class OutboxService(
         collected += handlerRegistry.getGenericHandlers()
 
         return collected.toList()
+    }
+
+    /**
+     * Collects context from all registered context providers and merges with additional context.
+     *
+     * ## Merging Order
+     * 1. Global [OutboxContextProvider] beans (for cross-cutting concerns)
+     * 2. Additional context passed to schedule() (overrides provider context on conflicts)
+     *
+     * If a provider throws an exception, it is logged and skipped to ensure
+     * that context collection failures don't break the scheduling process.
+     *
+     * @param additionalContext Additional context to merge (takes precedence)
+     * @return Merged context map (empty if no providers and no additional context)
+     */
+    private fun collectContext(additionalContext: Map<String, String>): Map<String, String> {
+        if (contextProviders.isEmpty() && additionalContext.isEmpty()) {
+            return emptyMap()
+        }
+
+        // Collect from global providers
+        val providerContext =
+            contextProviders
+                .flatMap { provider ->
+                    try {
+                        provider.provide().entries
+                    } catch (ex: Exception) {
+                        log.warn("Context provider {} failed: {}", provider::class.simpleName, ex.message, ex)
+                        emptyList()
+                    }
+                }.associate { it.key to it.value }
+
+        // Merge: additional context overrides provider context
+        return providerContext + additionalContext
     }
 }

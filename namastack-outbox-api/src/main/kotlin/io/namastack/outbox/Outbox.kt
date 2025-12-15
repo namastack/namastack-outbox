@@ -52,11 +52,11 @@ interface Outbox {
      *
      * Records with the same key are processed sequentially (e.g., "order-123" ensures
      * all order events are processed in strict order). Use a meaningful key to group
-     * related events for ordered processing.
+     * related records for ordered processing.
      *
      * @param payload Domain object to be processed. Type determines which handlers
      *                are invoked (inheritance and interfaces supported).
-     * @param key Logical grouping key for ordered processing. Related events should
+     * @param key Logical grouping key for ordered processing. Related records should
      *            use the same key to ensure sequential processing.
      *
      * @throws IllegalStateException if called outside a transaction context
@@ -77,13 +77,52 @@ interface Outbox {
     )
 
     /**
+     * Schedules a record with explicit key and additional context for processing.
+     *
+     * Like [schedule(payload, key)], but allows passing additional context data
+     * that will be stored with the record. This context is merged with context
+     * from registered [io.namastack.outbox.context.OutboxContextProvider] beans.
+     *
+     * ## Context Merging
+     *
+     * Context is collected and merged in this order:
+     * 1. Global [io.namastack.outbox.context.OutboxContextProvider] beans (e.g., tracing, tenant)
+     * 2. Additional context passed here (overrides global on key conflicts)
+     *
+     * @param payload Domain object to be processed
+     * @param key Logical grouping key for ordered processing
+     * @param additionalContext Additional context data specific to this record
+     *
+     * @example
+     * ```kotlin
+     * @Transactional
+     * fun createOrder(order: Order) {
+     *     orderRepository.save(order)
+     *     outbox.schedule(
+     *         payload = OrderCreatedEvent(order.id),
+     *         key = "order-${order.id}",
+     *         additionalContext = mapOf(
+     *             "orderPriority" to order.priority.name,
+     *             "orderType" to order.type.name
+     *         )
+     *     )
+     * }
+     * ```
+     */
+    fun schedule(
+        payload: Any,
+        key: String,
+        additionalContext: Map<String, String>,
+    )
+
+    /**
      * Schedules a record with auto-generated UUID key for processing.
      *
      * Convenience method for independent payloads that don't require strict ordering.
      * Generates a unique UUID key internally, distributing load evenly across
      * partitions in distributed deployments.
      *
-     * Use this when event ordering is not required (e.g., independent audit events,
+     * Use this when record ordering is not required (e.g., independent audit events,
      * notifications, or analytics events).
      *
      * @param payload Domain object to be processed
@@ -99,4 +138,29 @@ interface Outbox {
      * ```
      */
     fun schedule(payload: Any)
+
+    /**
+     * Schedules a record with auto-generated UUID key and additional context.
+     *
+     * Like [schedule(payload)], but allows passing additional context data.
+     *
+     * @param payload Domain object to be processed
+     * @param additionalContext Additional context data specific to this record
+     *
+     * @example
+     * ```kotlin
+     * @Transactional
+     * fun logEvent(event: AuditEvent) {
+     *     auditRepository.save(event)
+     *     outbox.schedule(
+     *         payload = event,
+     *         additionalContext = mapOf("severity" to event.severity.name)
+     *     )
+     * }
+     * ```
+     */
+    fun schedule(
+        payload: Any,
+        additionalContext: Map<String, String>,
+    )
 }

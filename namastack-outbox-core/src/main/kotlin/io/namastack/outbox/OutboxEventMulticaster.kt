@@ -1,7 +1,9 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.annotation.OutboxEvent
+import io.namastack.outbox.context.OutboxContextProvider
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.BeanFactory
 import org.springframework.context.ApplicationEvent
 import org.springframework.context.PayloadApplicationEvent
 import org.springframework.context.event.ApplicationEventMulticaster
@@ -50,6 +52,8 @@ class OutboxEventMulticaster(
     private val outbox: Outbox,
     private val outboxProperties: OutboxProperties,
     private val delegateEventMulticaster: SimpleApplicationEventMulticaster,
+    private val contextProviders: List<OutboxContextProvider>,
+    private val beanFactory: BeanFactory,
 ) : ApplicationEventMulticaster by delegateEventMulticaster {
     companion object {
         private val log = LoggerFactory.getLogger(OutboxEventMulticaster::class.java)
@@ -181,54 +185,62 @@ class OutboxEventMulticaster(
         }
 
         val key = resolveEventKey(payload, annotation) ?: UUID.randomUUID().toString()
-        outbox.schedule(payload, key)
+        val context = collectContext(annotation)
+        outbox.schedule(payload, key, context)
     }
 
     /**
-     * Resolves the record key from the event payload using Spring Expression Language.
+     * Collects context from specified or all providers.
      *
-     * Extracts a key identifier from the event payload by evaluating the SpEL expression
-     * stored in @OutboxEvent.key annotation. The expression is evaluated against the
-     * payload object as the root context.
+     * If annotation.contextProviders is empty, all registered providers are used.
+     * If specified, only those providers (by bean name) are used.
      *
-     * ## Expression Caching Strategy
+     * @param annotation The @OutboxEvent annotation with optional provider names
+     * @return Merged context map from all applicable providers
+     */
+    private fun collectContext(annotation: OutboxEvent): Map<String, String> {
+        val providerNames = annotation.contextProviders
+
+        // If no specific providers specified, use all
+        val selectedProviders =
+            if (providerNames.isEmpty()) {
+                contextProviders
+            } else {
+                // Filter providers by bean name
+                providerNames.mapNotNull { beanName ->
+                    try {
+                        beanFactory.getBean(beanName, OutboxContextProvider::class.java)
+                    } catch (_: Exception) {
+                        log.warn("Context provider bean '{}' not found, skipping", beanName)
+                        null
+                    }
+                }
+            }
+
+        // Collect context from all selected providers
+        return selectedProviders
+            .flatMap { provider ->
+                try {
+                    provider.provide().entries
+                } catch (ex: Exception) {
+                    log.warn("Context provider {} failed: {}", provider::class.simpleName, ex.message, ex)
+                    emptyList()
+                }
+            }.associate { it.key to it.value }
+    }
+
+    /**
+     * Resolves record key from payload using SpEL expression.
      *
-     * Parsed SpEL expressions are cached per unique expression string using ConcurrentHashMap.
-     * The cache uses computeIfAbsent for thread-safe lazy initialization:
-     * - First event of a type: Parses and caches the expression
-     * - Subsequent events: Retrieves from cache (no reparsing overhead)
+     * Evaluates the SpEL expression from [annotation.key] against the payload.
+     * Parsed expressions are cached for performance.
      *
-     * Critical for performance in high-volume scenarios where the same event types
-     * are published repeatedly.
+     * Supported expressions: "id", "#this.id", "order.id", "#root.customerId"
      *
-     * ## Supported SpEL Expressions
-     *
-     * Examples with an OrderCreatedEvent payload:
-     * ```kotlin
-     * @OutboxEvent(key = "id")              // Direct field: payload.id
-     * @OutboxEvent(key = "#this.id")        // Explicit this: same as above
-     * @OutboxEvent(key = "order.id")        // Nested access: payload.order.id
-     * @OutboxEvent(key = "#root.customerId") // Root reference
-     * @OutboxEvent(key = "")                // Empty: returns null (auto-generated key)
-     * ```
-     *
-     * ## Return Value
-     *
-     * - **String**: Resolved key from SpEL expression
-     * - **null**: Key annotation was empty (outbox will generate auto-key)
-     *
-     * ## Error Handling
-     *
-     * Throws IllegalArgumentException with helpful context if:
-     * - SpEL expression syntax is invalid
-     * - Expression returns null
-     * - Expression returns non-String value
-     * - Evaluation fails with any other exception
-     *
-     * @param payload The event payload object (used as SpEL root context)
+     * @param payload The payload object (SpEL root context)
      * @param annotation The @OutboxEvent annotation with key expression
-     * @return Resolved string key, or null if annotation.key was empty
-     * @throws IllegalArgumentException if key resolution fails
+     * @return Resolved string key, or null if annotation.key is empty
+     * @throws IllegalArgumentException if expression is invalid or returns non-String
      */
     private fun resolveEventKey(
         payload: Any,

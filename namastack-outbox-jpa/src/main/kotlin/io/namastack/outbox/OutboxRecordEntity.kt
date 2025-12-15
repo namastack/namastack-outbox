@@ -33,4 +33,5 @@ internal data class OutboxRecordEntity(
     val failureCount: Int,
     val nextRetryAt: OffsetDateTime,
     val handlerId: String,
+    val context: String?,
 )

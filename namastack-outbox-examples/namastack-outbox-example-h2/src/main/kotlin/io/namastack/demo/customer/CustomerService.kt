@@ -35,6 +35,7 @@ class CustomerService(
                     email = customer.email,
                 ),
             key = customerId.toString(),
+            additionalContext = mapOf(Pair("test", "test")),
         )
         logger.info("[Service] Scheduled to Outbox: {}", customerId)
 

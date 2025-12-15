@@ -34,6 +34,7 @@ class OutboxRecord<T> internal constructor(
     val partition: Int,
     val createdAt: OffsetDateTime,
     val handlerId: String,
+    val context: Map<String, String>,
     status: OutboxRecordStatus,
     completedAt: OffsetDateTime?,
     failureCount: Int,
@@ -131,6 +132,7 @@ class OutboxRecord<T> internal constructor(
         private var key: String? = null
         private var payload: T? = null
         private var handlerId: String? = null
+        private var context: Map<String, String> = emptyMap()
 
         /**
          * Sets the record key for the outbox record.
@@ -151,6 +153,14 @@ class OutboxRecord<T> internal constructor(
         fun handlerId(handlerId: String) = apply { this.handlerId = handlerId }
 
         /**
+         * Sets the context map for the outbox record.
+         *
+         * @param context Context metadata (e.g., tracing IDs, tenant IDs)
+         * @return this Builder instance for method chaining
+         */
+        fun context(context: Map<String, String>) = apply { this.context = context }
+
+        /**
          * Builds the OutboxRecord with the configured values.
          *
          * @param clock Clock to use for timestamps (defaults to system UTC)
@@ -167,15 +177,16 @@ class OutboxRecord<T> internal constructor(
 
             return OutboxRecord(
                 id = id,
-                status = NEW,
                 key = rk,
                 payload = pl,
                 partition = partition,
                 createdAt = now,
+                handlerId = hId,
+                context = context,
+                status = NEW,
                 completedAt = null,
                 failureCount = 0,
                 nextRetryAt = now,
-                handlerId = hId,
             )
         }
     }
@@ -210,6 +221,7 @@ class OutboxRecord<T> internal constructor(
             partition: Int,
             nextRetryAt: OffsetDateTime,
             handlerId: String,
+            context: Map<String, String> = emptyMap(),
         ): OutboxRecord<T> =
             OutboxRecord(
                 id = id,
@@ -217,11 +229,12 @@ class OutboxRecord<T> internal constructor(
                 payload = payload,
                 partition = partition,
                 createdAt = createdAt,
+                handlerId = handlerId,
+                context = context,
                 status = status,
                 completedAt = completedAt,
                 failureCount = failureCount,
                 nextRetryAt = nextRetryAt,
-                handlerId = handlerId,
             )
     }
 }
