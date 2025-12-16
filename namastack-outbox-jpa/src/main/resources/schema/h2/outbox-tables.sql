@@ -5,13 +5,13 @@ CREATE TABLE IF NOT EXISTS outbox_record
     record_key    VARCHAR(255)             NOT NULL,
     record_type   VARCHAR(255)             NOT NULL,
     payload       TEXT                     NOT NULL,
-    attributes    TEXT,
     created_at    TIMESTAMP WITH TIME ZONE NOT NULL,
     completed_at  TIMESTAMP WITH TIME ZONE,
     failure_count INT                      NOT NULL,
     next_retry_at TIMESTAMP WITH TIME ZONE NOT NULL,
     partition_no  INTEGER                  NOT NULL,
     handler_id    VARCHAR(1000)            NOT NULL,
+    context       TEXT,
     PRIMARY KEY (id)
 );
 

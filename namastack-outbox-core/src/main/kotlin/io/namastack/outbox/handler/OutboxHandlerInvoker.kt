@@ -1,11 +1,10 @@
 package io.namastack.outbox.handler
 
 import io.namastack.outbox.OutboxRecord
+import io.namastack.outbox.context.OutboxContextPropagator
+import io.namastack.outbox.context.OutboxContextPropagator.Scope
 import io.namastack.outbox.handler.method.GenericHandlerMethod
-import io.namastack.outbox.handler.method.OutboxHandlerMethod
 import io.namastack.outbox.handler.method.TypedHandlerMethod
-import io.namastack.outbox.interceptor.OutboxDeliveryInterceptorChain
-import io.namastack.outbox.interceptor.OutboxDeliveryInterceptorContext
 
 /**
  * Invokes the appropriate handler for a given record.
@@ -20,7 +19,7 @@ import io.namastack.outbox.interceptor.OutboxDeliveryInterceptorContext
  */
 class OutboxHandlerInvoker(
     private val handlerRegistry: OutboxHandlerRegistry,
-    private val interceptor: OutboxDeliveryInterceptorChain,
+    private val propagators: List<OutboxContextPropagator>,
 ) {
     /**
      * Dispatches a record to its registered handler.
@@ -50,25 +49,24 @@ class OutboxHandlerInvoker(
     fun dispatch(record: OutboxRecord<*>) {
         val payload: Any = record.payload ?: return
         val metadata = createMetadata(record)
+        val scopes = openScopes(record)
         val handler =
             handlerRegistry.getHandlerById(record.handlerId)
                 ?: throw IllegalStateException("No handler with id ${record.handlerId}")
-        val context = createDeliveryInterceptorContext(record, handler)
 
         try {
-            interceptor.applyBeforeHandler(context)
             // Invoke handler based on type (typed vs generic)
             when (handler) {
                 is TypedHandlerMethod -> handler.invoke(payload)
                 is GenericHandlerMethod -> handler.invoke(payload, metadata)
             }
-            interceptor.applyAfterHandler(context)
+            scopes.onSuccess()
         } catch (ex: Exception) {
-            interceptor.applyOnError(context, ex)
+            scopes.onError(ex)
             // Rethrow to trigger retry logic in caller
             throw ex
         } finally {
-            interceptor.applyAfterCompletion(context)
+            scopes.close()
         }
     }
 
@@ -79,17 +77,29 @@ class OutboxHandlerInvoker(
             createdAt = record.createdAt,
         )
 
-    fun createDeliveryInterceptorContext(
-        record: OutboxRecord<*>,
-        handler: OutboxHandlerMethod,
-    ): OutboxDeliveryInterceptorContext =
-        OutboxDeliveryInterceptorContext(
-            key = record.key,
-            attributes = record.attributes,
-            handlerId = record.handlerId,
-            handlerClass = handler.bean::class.java,
-            handlerMethod = handler.method,
-            failureCount = record.failureCount,
-            createdAt = record.createdAt,
-        )
+    fun openScopes(record: OutboxRecord<*>): Scope {
+        val scopes = ArrayDeque<Scope>()
+        try {
+            propagators.forEach { p ->
+                scopes.addFirst(p.openScope(record))
+            }
+        } catch (ex: Exception) {
+            scopes.forEach { scope -> runCatching { scope.onError(ex) } }
+            throw ex
+        }
+
+        return object : Scope {
+            override fun onSuccess() {
+                scopes.forEach { scope -> runCatching { scope.onSuccess() } }
+            }
+
+            override fun onError(error: Exception) {
+                scopes.forEach { scope -> runCatching { scope.onError(error) } }
+            }
+
+            override fun close() {
+                scopes.forEach { scope -> runCatching { scope.close() } }
+            }
+        }
+    }
 }

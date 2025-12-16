@@ -1,15 +1,14 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.annotation.EnableOutbox
+import io.namastack.outbox.context.OutboxContextCollector
+import io.namastack.outbox.context.OutboxContextPropagator
+import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
 import io.namastack.outbox.handler.OutboxHandlerInvoker
 import io.namastack.outbox.handler.OutboxHandlerRegistry
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
-import io.namastack.outbox.interceptor.OutboxCreationInterceptor
-import io.namastack.outbox.interceptor.OutboxCreationInterceptorChain
-import io.namastack.outbox.interceptor.OutboxDeliveryInterceptor
-import io.namastack.outbox.interceptor.OutboxDeliveryInterceptorChain
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
@@ -165,19 +164,14 @@ class OutboxCoreAutoConfiguration {
     @ConditionalOnMissingBean
     fun outboxHandlerInvoker(
         outboxHandlerRegistry: OutboxHandlerRegistry,
-        outboxDeliveryInterceptorChain: OutboxDeliveryInterceptorChain,
-    ): OutboxHandlerInvoker =
-        OutboxHandlerInvoker(
+        propagators: List<OutboxContextPropagator>,
+    ): OutboxHandlerInvoker {
+        println("Configuring OutboxHandlerInvoker with ${propagators.size} context propagators")
+        return OutboxHandlerInvoker(
             handlerRegistry = outboxHandlerRegistry,
-            interceptor = outboxDeliveryInterceptorChain,
+            propagators = propagators,
         )
-
-    @Bean
-    @ConditionalOnMissingBean
-    fun outboxDeliveryInterceptorChain(interceptors: List<OutboxDeliveryInterceptor>): OutboxDeliveryInterceptorChain =
-        OutboxDeliveryInterceptorChain(
-            interceptors = interceptors,
-        )
+    }
 
     /**
      * Creates the public Outbox API for scheduling records.
@@ -195,24 +189,24 @@ class OutboxCoreAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     internal fun outbox(
-        outboxCreationInterceptorChain: OutboxCreationInterceptorChain,
         handlerRegistry: OutboxHandlerRegistry,
+        outboxContextCollector: OutboxContextCollector,
         recordRepository: OutboxRecordRepository,
         clock: Clock,
     ): Outbox =
         OutboxService(
-            creationInterceptor = outboxCreationInterceptorChain,
             handlerRegistry = handlerRegistry,
+            contextCollector = outboxContextCollector,
             outboxRecordRepository = recordRepository,
             clock = clock,
         )
 
     @Bean
     @ConditionalOnMissingBean
-    fun outboxCreationInterceptorChain(interceptors: List<OutboxCreationInterceptor>): OutboxCreationInterceptorChain {
-        println("Configuring OutboxCreationInterceptorChain with ${interceptors.size} interceptors")
-        return OutboxCreationInterceptorChain(
-            interceptors = interceptors,
+    fun outboxContextCollector(providers: List<OutboxContextProvider>): OutboxContextCollector {
+        println("Configuring OutboxCreationInterceptorChain with ${providers.size} providers")
+        return OutboxContextCollector(
+            providers = providers,
         )
     }
 

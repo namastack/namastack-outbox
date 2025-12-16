@@ -6,9 +6,9 @@ import io.mockk.slot
 import io.mockk.verify
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordTestFactory.outboxRecord
+import io.namastack.outbox.context.OutboxContextPropagator
 import io.namastack.outbox.handler.method.GenericHandlerMethod
 import io.namastack.outbox.handler.method.TypedHandlerMethod
-import io.namastack.outbox.interceptor.OutboxDeliveryInterceptorChain
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -23,12 +23,12 @@ import java.time.ZoneOffset
 @DisplayName("OutboxHandlerInvoker")
 class OutboxHandlerInvokerTest {
     private val handlerRegistry = mockk<OutboxHandlerRegistry>()
-    private val interceptor = mockk<OutboxDeliveryInterceptorChain>()
+    private val propagators: List<OutboxContextPropagator> = emptyList()
     private lateinit var invoker: OutboxHandlerInvoker
 
     @BeforeEach
     fun setUp() {
-        invoker = OutboxHandlerInvoker(handlerRegistry, interceptor)
+        invoker = OutboxHandlerInvoker(handlerRegistry, propagators)
     }
 
     @Nested

@@ -4,10 +4,10 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.handler.OutboxHandlerRegistry
 import io.namastack.outbox.handler.method.GenericHandlerMethod
 import io.namastack.outbox.handler.method.TypedHandlerMethod
-import io.namastack.outbox.interceptor.OutboxCreationInterceptorChain
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -23,15 +23,15 @@ class OutboxServiceTest {
     private val clock = Clock.fixed(Instant.parse("2025-09-25T10:00:00Z"), ZoneOffset.UTC)
     private val now = OffsetDateTime.now(clock)
 
-    private val creationInterceptor = mockk<OutboxCreationInterceptorChain>(relaxed = true)
     private val handlerRegistry = mockk<OutboxHandlerRegistry>(relaxed = true)
+    private val contextCollector = mockk<OutboxContextCollector>(relaxed = true)
     private val outboxRecordRepository = mockk<OutboxRecordRepository>(relaxed = true)
 
     private lateinit var outboxService: OutboxService
 
     @BeforeEach
     fun setUp() {
-        outboxService = OutboxService(creationInterceptor, handlerRegistry, outboxRecordRepository, clock)
+        outboxService = OutboxService(handlerRegistry, contextCollector, outboxRecordRepository, clock)
     }
 
     @Nested

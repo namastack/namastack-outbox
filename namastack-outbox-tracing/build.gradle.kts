@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":namastack-outbox-api"))
     implementation(project(":namastack-outbox-core"))
     implementation(libs.spring.boot.autoconfigure)
+    implementation(libs.spring.boot.tracing)
     implementation(libs.micrometer.tracing)
     implementation(libs.slf4j.api)
 

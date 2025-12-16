@@ -27,7 +27,7 @@ internal data class OutboxRecordEntity(
     val recordKey: String,
     val recordType: String,
     val payload: String,
-    val attributes: String?,
+    val context: String?,
     val partitionNo: Int,
     val createdAt: OffsetDateTime,
     val completedAt: OffsetDateTime?,

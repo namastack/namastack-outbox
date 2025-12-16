@@ -31,10 +31,10 @@ class OutboxRecord<T> internal constructor(
     val id: String,
     val key: String,
     val payload: T,
-    val attributes: Map<String, String>,
     val partition: Int,
     val createdAt: OffsetDateTime,
     val handlerId: String,
+    val context: Map<String, String>,
     status: OutboxRecordStatus,
     completedAt: OffsetDateTime?,
     failureCount: Int,
@@ -131,8 +131,8 @@ class OutboxRecord<T> internal constructor(
     class Builder<T> {
         private var key: String? = null
         private var payload: T? = null
-        private var attributes: Map<String, String>? = null
         private var handlerId: String? = null
+        private var context: Map<String, String>? = null
 
         /**
          * Sets the record key for the outbox record.
@@ -150,9 +150,9 @@ class OutboxRecord<T> internal constructor(
          */
         fun payload(payload: T) = apply { this.payload = payload }
 
-        fun attributes(attributes: Map<String, String>) = apply { this.attributes = attributes }
-
         fun handlerId(handlerId: String) = apply { this.handlerId = handlerId }
+
+        fun context(context: Map<String, String>) = apply { this.context = context }
 
         /**
          * Builds the OutboxRecord with the configured values.
@@ -164,7 +164,7 @@ class OutboxRecord<T> internal constructor(
             val id = UUID.randomUUID().toString()
             val rk = key ?: id
             val pl = payload ?: error("payload must be set")
-            val att = attributes ?: emptyMap()
+            val ctx = context ?: emptyMap()
             val hId = handlerId ?: error("handlerId must be set")
 
             val now = OffsetDateTime.now(clock)
@@ -175,13 +175,13 @@ class OutboxRecord<T> internal constructor(
                 status = NEW,
                 key = rk,
                 payload = pl,
-                attributes = att,
                 partition = partition,
                 createdAt = now,
                 completedAt = null,
                 failureCount = 0,
                 nextRetryAt = now,
                 handlerId = hId,
+                context = ctx,
             )
         }
     }
@@ -209,7 +209,7 @@ class OutboxRecord<T> internal constructor(
             id: String,
             recordKey: String,
             payload: T,
-            attributes: Map<String, String>,
+            context: Map<String, String>,
             createdAt: OffsetDateTime,
             status: OutboxRecordStatus,
             completedAt: OffsetDateTime?,
@@ -222,7 +222,6 @@ class OutboxRecord<T> internal constructor(
                 id = id,
                 key = recordKey,
                 payload = payload,
-                attributes = attributes,
                 partition = partition,
                 createdAt = createdAt,
                 status = status,
@@ -230,6 +229,7 @@ class OutboxRecord<T> internal constructor(
                 failureCount = failureCount,
                 nextRetryAt = nextRetryAt,
                 handlerId = handlerId,
+                context = context,
             )
     }
 }

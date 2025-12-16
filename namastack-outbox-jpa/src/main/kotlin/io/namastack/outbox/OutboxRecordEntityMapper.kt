@@ -22,11 +22,11 @@ internal class OutboxRecordEntityMapper(
         val payload = record.payload ?: throw IllegalArgumentException("record payload cannot be null")
 
         val serializedPayload = serializer.serialize(payload)
-        val serializedAttributes =
-            record.attributes
+        val recordType = payload.javaClass.name
+        val serializedContext =
+            record.context
                 .takeIf { it.isNotEmpty() }
                 ?.let { serializer.serialize(it) }
-        val recordType = payload.javaClass.name
 
         return OutboxRecordEntity(
             id = record.id,
@@ -34,13 +34,13 @@ internal class OutboxRecordEntityMapper(
             recordKey = record.key,
             recordType = recordType,
             payload = serializedPayload,
-            attributes = serializedAttributes,
             partitionNo = record.partition,
             createdAt = record.createdAt,
             completedAt = record.completedAt,
             failureCount = record.failureCount,
             nextRetryAt = record.nextRetryAt,
             handlerId = record.handlerId,
+            context = serializedContext,
         )
     }
 
@@ -55,8 +55,8 @@ internal class OutboxRecordEntityMapper(
         val payload = serializer.deserialize(entity.payload, clazz)
 
         @Suppress("UNCHECKED_CAST")
-        val attributes =
-            entity.attributes
+        val context =
+            entity.context
                 ?.let { serializer.deserialize(it, Map::class.java as Class<Map<String, String>>) }
                 ?: emptyMap()
 
@@ -64,7 +64,6 @@ internal class OutboxRecordEntityMapper(
             id = entity.id,
             recordKey = entity.recordKey,
             payload = payload,
-            attributes = attributes,
             partition = entity.partitionNo,
             createdAt = entity.createdAt,
             status = entity.status,
@@ -72,6 +71,7 @@ internal class OutboxRecordEntityMapper(
             failureCount = entity.failureCount,
             nextRetryAt = entity.nextRetryAt,
             handlerId = entity.handlerId,
+            context = context,
         )
     }
 

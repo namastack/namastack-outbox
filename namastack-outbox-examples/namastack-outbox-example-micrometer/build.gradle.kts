@@ -22,7 +22,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-flyway")
     implementation("org.springframework.boot:spring-boot-starter-restclient")
     implementation("io.namastack:namastack-outbox-starter-jpa:0.5.0-SNAPSHOT")
-//    implementation("io.namastack:namastack-outbox-tracing:0.5.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-tracing:0.5.0-SNAPSHOT")
     implementation("org.springframework.boot:spring-boot-opentelemetry")
     implementation("org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry")
     runtimeOnly("io.micrometer:micrometer-tracing-bridge-otel")

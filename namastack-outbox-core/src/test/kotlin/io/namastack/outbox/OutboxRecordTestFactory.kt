@@ -49,7 +49,7 @@ object OutboxRecordTestFactory {
             id = id ?: UUID.randomUUID().toString(),
             recordKey = recordKey ?: "test-record-key",
             payload = payload,
-            attributes = attributes ?: emptyMap(),
+            context = attributes ?: emptyMap(),
             partition = partition ?: 1,
             createdAt = createdAt ?: OffsetDateTime.now(),
             status = status ?: NEW,

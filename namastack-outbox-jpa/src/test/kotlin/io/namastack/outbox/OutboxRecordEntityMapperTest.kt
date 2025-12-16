@@ -32,7 +32,7 @@ class OutboxRecordEntityMapperTest {
                 id = "test-id",
                 recordKey = "record-123",
                 payload = event,
-                attributes = mapOf("a" to "b", "x" to "y"),
+                context = mapOf("a" to "b", "x" to "y"),
                 partition = 1,
                 createdAt = now,
                 status = OutboxRecordStatus.NEW,
@@ -49,7 +49,7 @@ class OutboxRecordEntityMapperTest {
         assertThat(entity.recordKey).isEqualTo("record-123")
         assertThat(entity.recordType).isEqualTo("io.namastack.outbox.OutboxRecordEntityMapperTest\$OrderCreatedEvent")
         assertThat(entity.payload).contains("orderId", "123", "100.5")
-        assertThat(entity.attributes).contains("a", "b", "x", "y")
+        assertThat(entity.context).contains("a", "b", "x", "y")
         assertThat(entity.createdAt).isEqualTo(now)
         assertThat(entity.completedAt).isEqualTo(completedAt)
         assertThat(entity.failureCount).isEqualTo(3)
@@ -66,7 +66,7 @@ class OutboxRecordEntityMapperTest {
                 id = "test-id-2",
                 recordKey = "record-456",
                 payload = event,
-                attributes = mapOf("a" to "b", "x" to "y"),
+                context = mapOf("a" to "b", "x" to "y"),
                 partition = 1,
                 createdAt = now,
                 status = OutboxRecordStatus.NEW,
@@ -85,7 +85,7 @@ class OutboxRecordEntityMapperTest {
             entity.recordType,
         ).isEqualTo("io.namastack.outbox.OutboxRecordEntityMapperTest\$PaymentProcessedEvent")
         assertThat(entity.payload).contains("pay-456", "completed")
-        assertThat(entity.attributes).contains("a", "b", "x", "y")
+        assertThat(entity.context).contains("a", "b", "x", "y")
         assertThat(entity.createdAt).isEqualTo(now)
         assertThat(entity.completedAt).isNull()
         assertThat(entity.failureCount).isEqualTo(0)
@@ -101,7 +101,7 @@ class OutboxRecordEntityMapperTest {
                 id = UUID.randomUUID().toString(),
                 recordKey = "failed-record",
                 payload = event,
-                attributes = mapOf("a" to "b", "x" to "y"),
+                context = mapOf("a" to "b", "x" to "y"),
                 partition = 1,
                 createdAt = now,
                 status = OutboxRecordStatus.FAILED,
@@ -132,7 +132,7 @@ class OutboxRecordEntityMapperTest {
                 id = "order-test",
                 recordKey = "order-key",
                 payload = orderEvent,
-                attributes = mapOf("a" to "b"),
+                context = mapOf("a" to "b"),
                 partition = 1,
                 createdAt = now,
                 status = OutboxRecordStatus.NEW,
@@ -147,7 +147,7 @@ class OutboxRecordEntityMapperTest {
                 id = "payment-test",
                 recordKey = "payment-key",
                 payload = paymentEvent,
-                attributes = mapOf("x" to "y"),
+                context = mapOf("x" to "y"),
                 partition = 1,
                 createdAt = now,
                 status = OutboxRecordStatus.NEW,
@@ -181,7 +181,7 @@ class OutboxRecordEntityMapperTest {
                     id = "status-test-${status.name}",
                     recordKey = "status-record",
                     payload = event,
-                    attributes = mapOf("a" to "b", "x" to "y"),
+                    context = mapOf("a" to "b", "x" to "y"),
                     partition = 1,
                     createdAt = now,
                     status = status,
