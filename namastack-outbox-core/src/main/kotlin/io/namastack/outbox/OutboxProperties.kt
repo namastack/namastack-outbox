@@ -75,6 +75,8 @@ data class OutboxProperties(
      *
      * @param maxRetries Maximum number of retry attempts
      * @param policy Name of the retry policy to use ("exponential", "fixed", "jittered")
+     * @param includeExceptions Fully qualified class names of exceptions to retry on
+     * @param excludeExceptions Fully qualified class names of exceptions to exclude from retry
      * @param exponential Configuration for exponential backoff retry
      * @param fixed Configuration for fixed delay retry
      * @param jittered Configuration for jittered retry
@@ -82,6 +84,8 @@ data class OutboxProperties(
     data class Retry(
         var maxRetries: Int = 3,
         var policy: String = "exponential",
+        var includeExceptions: Set<String> = emptySet(),
+        var excludeExceptions: Set<String> = emptySet(),
         var exponential: ExponentialRetry = ExponentialRetry(),
         var fixed: FixedRetry = FixedRetry(),
         var jittered: JitteredRetry = JitteredRetry(),

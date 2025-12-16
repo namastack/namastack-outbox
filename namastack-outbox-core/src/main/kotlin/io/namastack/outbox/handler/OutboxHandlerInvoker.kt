@@ -30,6 +30,10 @@ class OutboxHandlerInvoker(
      * The handler ID comes from metadata.handlerId, which was stored when
      * the record was originally scheduled.
      *
+     * If a handler method throws an exception, the original exception is automatically
+     * unwrapped from InvocationTargetException (reflection wrapper) and rethrown.
+     * This ensures retry policies can match against the actual exception types.
+     *
      * Example:
      * ```kotlin
      * val invoker = OutboxHandlerInvoker(registry)
@@ -40,7 +44,7 @@ class OutboxHandlerInvoker(
      * @param payload The record payload to process
      * @param metadata Record metadata containing handler ID and context
      * @throws IllegalStateException if no handler with the given ID exists
-     * @throws Exception if the handler method throws (will trigger retries)
+     * @throws Exception the original exception thrown by the handler (will trigger retries)
      */
     fun dispatch(
         payload: Any?,

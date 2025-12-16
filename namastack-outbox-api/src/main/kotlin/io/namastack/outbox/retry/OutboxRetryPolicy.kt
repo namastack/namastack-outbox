@@ -27,4 +27,14 @@ interface OutboxRetryPolicy {
      * @return Duration to wait before the next retry attempt
      */
     fun nextDelay(failureCount: Int): Duration
+
+    /**
+     * Returns the maximum number of retry attempts allowed.
+     *
+     * After this many failures, the record will be marked as FAILED
+     * and no further retry attempts will be made.
+     *
+     * @return Maximum number of retry attempts
+     */
+    fun maxRetries(): Int
 }

@@ -345,17 +345,13 @@ class OutboxProcessingScheduler(
     ) {
         log.debug("Failed processing record {} for key {}: {}", record.id, record.key, ex.message)
 
-        // Increment failure counter before any checks
         record.incrementFailureCount()
         record.updateFailureReason(ex.message)
 
-        // Resolve handler-specific retry policy from registry
         val retryPolicy = retryPolicyRegistry.getByHandlerId(record.handlerId)
 
-        // Determine if we should retry or mark as failed
-        val retriesExhausted = record.retriesExhausted(properties.retry.maxRetries)
+        val retriesExhausted = record.retriesExhausted(retryPolicy.maxRetries())
         if (retriesExhausted || !retryPolicy.shouldRetry(ex)) {
-            // Mark as FAILED and stop retrying
             record.markFailed()
 
             log.warn(
@@ -366,7 +362,6 @@ class OutboxProcessingScheduler(
                 if (retriesExhausted) " (retries exhausted)" else " (non-retryable exception)",
             )
         } else {
-            // Calculate next retry delay and schedule
             val delay = retryPolicy.nextDelay(record.failureCount)
             record.scheduleNextRetry(delay, clock)
 
@@ -378,7 +373,6 @@ class OutboxProcessingScheduler(
             )
         }
 
-        // Persist updated state
         recordRepository.save(record)
     }
 }

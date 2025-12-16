@@ -4,8 +4,7 @@ import io.namastack.outbox.annotation.OutboxHandler
 import io.namastack.outbox.handler.method.OutboxHandlerMethod
 import io.namastack.outbox.handler.method.OutboxHandlerMethodFactory
 import org.springframework.aop.support.AopUtils
-import java.lang.reflect.Method
-import kotlin.reflect.KClass
+import org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation
 
 /**
  * Scanner that discovers @OutboxHandler annotated methods in beans.
@@ -25,16 +24,32 @@ class AnnotatedHandlerScanner(
     /**
      * Scans a bean for @OutboxHandler annotated methods.
      *
-     * Processes all methods in the bean's class, filters those with @OutboxHandler annotation,
-     * and uses the appropriate factory to create OutboxHandlerMethod instances.
+     * Discovers handler methods by scanning the bean's class methods and searching
+     * for @OutboxHandler annotations in the method hierarchy (class, interfaces, superclasses).
      *
      * Algorithm:
      * 1. Get all methods from bean's class
-     * 2. Filter methods that have @OutboxHandler annotation
-     * 3. For each annotated method:
+     * 2. Filter out bridge methods (synthetic methods for generics)
+     * 3. Filter methods that have @OutboxHandler annotation (searches in hierarchy)
+     * 4. For each annotated method:
      *    a. Find the first factory that supports this method's signature
      *    b. Use the factory to create an OutboxHandlerMethod
-     * 4. Return all discovered handler methods
+     * 5. Return all discovered handler methods
+     *
+     * Bridge methods are excluded to ensure we register the concrete implementation
+     * (e.g., `handle(RegisterUserEvent)`) instead of the generic bridge method
+     * (e.g., `handle(HttpEvent)`) when implementing generic interfaces.
+     *
+     * Uses Spring's AnnotatedElementUtils to find annotations in the method hierarchy,
+     * including interfaces and superclasses. This correctly handles:
+     * - Annotations on overridden interface methods
+     * - Annotations on overridden superclass methods
+     * - Meta-annotations
+     * - Generic interfaces with type erasure
+     *
+     * Limitation: Does not discover Kotlin default interface methods that are not
+     * overridden in the implementing class. Workaround: Add an empty override that
+     * delegates to the interface default implementation.
      *
      * If a method's signature doesn't match any factory's supports() check,
      * it is skipped (mapNotNull behavior).
@@ -45,7 +60,8 @@ class AnnotatedHandlerScanner(
     override fun scan(bean: Any): List<OutboxHandlerMethod> =
         getClass(bean)
             .methods
-            .filter { hasAnnotationInHierarchy(it, OutboxHandler::class) }
+            .filterNot { it.isBridge }
+            .filter { findMergedAnnotation(it, OutboxHandler::class.java) != null }
             .mapNotNull { method ->
                 factories.firstOrNull { it.supports(method) }?.create(bean, method)
             }
@@ -65,45 +81,4 @@ class AnnotatedHandlerScanner(
         } else {
             bean::class.java
         }
-
-    /**
-     * Checks if the given method or any method with the same signature in its interfaces or superclass
-     * is annotated with the specified annotation.
-     *
-     * @param method The Java reflection Method to check for the annotation
-     * @param annotationClass The KClass of the annotation to look for
-     * @return `true` if the annotation is present in the method hierarchy, `false` otherwise
-     */
-    private fun <A : Annotation> hasAnnotationInHierarchy(
-        method: Method,
-        annotationClass: KClass<A>,
-    ): Boolean {
-        // Check the method itself
-        if (method.isAnnotationPresent(annotationClass.java)) return true
-
-        val name = method.name
-        val parameterTypes = method.parameterTypes
-
-        // Check interfaces
-        method.declaringClass.interfaces.forEach { iface ->
-            try {
-                val ifaceMethod = iface.getMethod(name, *parameterTypes)
-                if (ifaceMethod.isAnnotationPresent(annotationClass.java)) return true
-            } catch (_: NoSuchMethodException) {
-                // Method not found in this interface, continue
-            }
-        }
-
-        // Check superclass
-        method.declaringClass.superclass?.let { superClass ->
-            try {
-                val superMethod = superClass.getMethod(name, *parameterTypes)
-                if (superMethod.isAnnotationPresent(annotationClass.java)) return true
-            } catch (_: NoSuchMethodException) {
-                // Method not found in superclass, continue
-            }
-        }
-
-        return false
-    }
 }

@@ -87,7 +87,8 @@ sealed class OutboxHandlerMethod(
      * Uses a cascading resolution strategy with the following priority:
      *
      * 1. **@OutboxRetryable annotation**: If present on the method, loads the
-     *    retry policy bean with the specified name from Spring context.
+     *    retry policy bean by class (if specified) or name (if specified) from Spring context.
+     *    Class-based lookup takes precedence over name-based lookup.
      *
      * 2. **OutboxRetryAware interface**: If the bean implements this interface,
      *    uses the policy returned by `getRetryPolicy()`.
@@ -99,10 +100,18 @@ sealed class OutboxHandlerMethod(
      * @throws IllegalStateException if a referenced policy bean is not found
      */
     protected fun resolveRetryPolicy(registry: OutboxRetryPolicyRegistry): OutboxRetryPolicy {
-        val annotation = AnnotatedElementUtils.findMergedAnnotation(method, OutboxRetryable::class.java)
-        if (annotation != null) {
-            return registry.loadRetryPolicyBean(annotation.value)
-        }
+        AnnotatedElementUtils
+            .findMergedAnnotation(
+                method,
+                OutboxRetryable::class.java,
+            )?.let { annotation ->
+                if (annotation.value != OutboxRetryPolicy::class) {
+                    return registry.getRetryPolicy(annotation.value)
+                }
+                if (annotation.name.isNotBlank()) {
+                    return registry.getRetryPolicy(annotation.name)
+                }
+            }
 
         if (bean is OutboxRetryAware) {
             return bean.getRetryPolicy()

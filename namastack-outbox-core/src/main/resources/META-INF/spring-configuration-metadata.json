@@ -79,6 +79,18 @@
       "description": "Retry policy strategy. Options: 'fixed', 'exponential', 'jittered'"
     },
     {
+      "name": "outbox.retry.include-exceptions",
+      "type": "java.util.Set<kotlin.reflect.KClass<? extends java.lang.Throwable>>",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
+      "description": "Whitelist of exception types that should trigger retries. Only exceptions matching these types (including subclasses) will be retried. Cannot be combined with exclude-exceptions. Example: [java.io.IOException, java.net.SocketTimeoutException]"
+    },
+    {
+      "name": "outbox.retry.exclude-exceptions",
+      "type": "java.util.Set<kotlin.reflect.KClass<? extends java.lang.Throwable>>",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
+      "description": "Blacklist of exception types that should NOT trigger retries. All exceptions except these types (and their subclasses) will be retried. Cannot be combined with include-exceptions. Example: [java.lang.IllegalArgumentException, javax.validation.ValidationException]"
+    },
+    {
       "name": "outbox.retry.exponential.initial-delay",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$ExponentialRetry",

@@ -37,6 +37,19 @@ class JitteredRetryPolicyTest {
     }
 
     @Test
+    fun `maxRetries delegates to base policy`() {
+        val basePolicy = mockk<OutboxRetryPolicy>()
+        val jitteredPolicy = JitteredRetryPolicy(basePolicy, Duration.ofSeconds(1))
+
+        every { basePolicy.maxRetries() } returns 5
+
+        val result = jitteredPolicy.maxRetries()
+
+        assertThat(result).isEqualTo(5)
+        verify { basePolicy.maxRetries() }
+    }
+
+    @Test
     fun `nextDelay adds jitter to base delay`() {
         val basePolicy = mockk<OutboxRetryPolicy>()
         val baseDelay = Duration.ofSeconds(5)
@@ -173,7 +186,11 @@ class JitteredRetryPolicyTest {
 
     @Test
     fun `integration test with real retry policies`() {
-        val basePolicy = FixedDelayRetryPolicy(Duration.ofSeconds(3))
+        val basePolicy =
+            FixedDelayRetryPolicy(
+                delay = Duration.ofSeconds(3),
+                maxRetries = 5,
+            )
         val jitter = Duration.ofMillis(500)
         val jitteredPolicy = JitteredRetryPolicy(basePolicy, jitter)
 
@@ -191,6 +208,7 @@ class JitteredRetryPolicyTest {
                 initialDelay = Duration.ofSeconds(1),
                 maxDelay = Duration.ofMinutes(5),
                 backoffMultiplier = 2.0,
+                maxRetries = 5,
             )
         val jitter = Duration.ofMillis(200)
         val jitteredPolicy = JitteredRetryPolicy(basePolicy, jitter)

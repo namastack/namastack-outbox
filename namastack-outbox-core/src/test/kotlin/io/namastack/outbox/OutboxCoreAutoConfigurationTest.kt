@@ -21,6 +21,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 
@@ -100,7 +101,7 @@ class OutboxCoreAutoConfigurationTest {
         }
 
         @Test
-        fun `uses custom retry policy when provided`() {
+        fun `uses custom default retry policy when provided`() {
             contextRunner
                 .withUserConfiguration(ConfigWithCustomRetryPolicy::class.java)
                 .run { context ->
@@ -338,7 +339,7 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
 
         @Bean
-        fun retryPolicy() = FixedDelayRetryPolicy(java.time.Duration.ofSeconds(1))
+        fun outboxRetryPolicy() = FixedDelayRetryPolicy(delay = Duration.ofSeconds(1), maxRetries = 3)
     }
 
     @EnableOutbox

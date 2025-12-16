@@ -34,6 +34,9 @@ class TypedHandlerMethod(
      * Safely invokes the underlying method via reflection, passing the payload
      * as the single parameter.
      *
+     * If the handler method throws an exception, the original exception is unwrapped
+     * from the InvocationTargetException and rethrown.
+     *
      * Example:
      * ```kotlin
      * val handler = TypedHandlerMethod(myBean, myHandleMethod, OrderCreatedEvent::class)
@@ -41,10 +44,14 @@ class TypedHandlerMethod(
      * ```
      *
      * @param payload The record payload to process
-     * @throws Exception if the handler method throws (will trigger retries)
+     * @throws Exception the original exception thrown by the handler method (will trigger retries)
      */
     fun invoke(payload: Any) {
-        method.invoke(bean, payload)
+        try {
+            method.invoke(bean, payload)
+        } catch (ex: java.lang.reflect.InvocationTargetException) {
+            throw ex.targetException
+        }
     }
 
     /**

@@ -2,6 +2,9 @@ package io.namastack.outbox.retry
 
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.ListableBeanFactory
+import org.springframework.beans.factory.getBean
+import org.springframework.beans.factory.getBeansOfType
+import kotlin.reflect.KClass
 
 /**
  * Registry that manages retry policies for outbox handler methods.
@@ -11,11 +14,11 @@ import org.springframework.beans.factory.ListableBeanFactory
  * for all retry policies in the outbox system.
  *
  * Retry policies are resolved during handler registration (startup) using:
- * 1. @OutboxRetryable annotation → loads Spring bean by name
+ * 1. @OutboxRetryable annotation → loads Spring bean by name or class
  * 2. OutboxRetryAware interface → uses policy from handler
  * 3. Default policy from configuration
  *
- * @param beanFactory Spring bean factory for loading policy beans by name
+ * @param beanFactory Spring bean factory for loading policy beans by name or class
  * @param defaultRetryPolicy The default retry policy used as fallback
  *
  * @author Roland Beisel
@@ -69,9 +72,9 @@ class OutboxRetryPolicyRegistry(
     fun getDefaultRetryPolicy(): OutboxRetryPolicy = defaultRetryPolicy
 
     /**
-     * Loads a retry policy bean from the Spring context by name.
+     * Retrieves a retry policy bean from the Spring context by name.
      *
-     * Used when a handler specifies a policy via @OutboxRetryable annotation.
+     * Used when a handler specifies a policy via @OutboxRetryable annotation with name.
      * If the bean is not found, throws an exception with a helpful message
      * listing all available retry policy beans.
      *
@@ -79,20 +82,48 @@ class OutboxRetryPolicyRegistry(
      * @return The loaded OutboxRetryPolicy bean
      * @throws IllegalStateException if the bean is not found or has wrong type
      */
-    fun loadRetryPolicyBean(beanName: String): OutboxRetryPolicy =
+    fun getRetryPolicy(beanName: String): OutboxRetryPolicy =
         try {
-            beanFactory.getBean(beanName, OutboxRetryPolicy::class.java)
+            beanFactory.getBean<OutboxRetryPolicy>(beanName)
         } catch (ex: Exception) {
-            // List available policies for better error messages
             val available =
                 if (beanFactory is ListableBeanFactory) {
-                    beanFactory.getBeansOfType(OutboxRetryPolicy::class.java).keys.sorted()
+                    beanFactory.getBeansOfType<OutboxRetryPolicy>().keys.sorted()
                 } else {
                     emptyList()
                 }
 
             throw IllegalStateException(
                 "Retry policy bean '$beanName' not found. Available: $available",
+                ex,
+            )
+        }
+
+    /**
+     * Retrieves a retry policy bean from the Spring context by type.
+     *
+     * Used when a handler specifies a policy via @OutboxRetryable annotation with class.
+     * If the bean is not found or multiple beans of the same type exist,
+     * throws an exception with a helpful message.
+     *
+     * @param policyClass The retry policy class to look up
+     * @return The loaded OutboxRetryPolicy bean
+     * @throws IllegalStateException if the bean is not found, multiple beans exist, or has wrong type
+     */
+    fun getRetryPolicy(policyClass: KClass<out OutboxRetryPolicy>): OutboxRetryPolicy =
+        try {
+            beanFactory.getBean(policyClass.java)
+        } catch (ex: Exception) {
+            val available =
+                if (beanFactory is ListableBeanFactory) {
+                    beanFactory.getBeansOfType<OutboxRetryPolicy>().mapValues { it.value::class.simpleName }
+                } else {
+                    emptyMap()
+                }
+
+            throw IllegalStateException(
+                "Retry policy bean of type '${policyClass.simpleName}' not found. " +
+                    "Available: ${available.entries.joinToString { "${it.key} (${it.value})" }}",
                 ex,
             )
         }
