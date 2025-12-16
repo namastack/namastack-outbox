@@ -142,21 +142,21 @@ class OutboxHandlerMethodRetryPolicyTest {
         @OutboxRetryable(TestRetryPolicy::class)
         fun handle(
             @Suppress("UNUSED_PARAMETER") p: String,
-        ) {}
+        ) = Unit
     }
 
     class HandlerWithNameAnnotation {
         @OutboxRetryable(name = "customPolicy")
         fun handle(
             @Suppress("UNUSED_PARAMETER") p: String,
-        ) {}
+        ) = Unit
     }
 
     class HandlerWithBothClassAndName {
         @OutboxRetryable(value = TestRetryPolicy::class, name = "namePolicy")
         fun handle(
             @Suppress("UNUSED_PARAMETER") p: String,
-        ) {}
+        ) = Unit
     }
 
     class HandlerWithRetryAware(
@@ -166,7 +166,7 @@ class OutboxHandlerMethodRetryPolicyTest {
 
         fun handle(
             @Suppress("UNUSED_PARAMETER") p: String,
-        ) {}
+        ) = Unit
     }
 
     class HandlerWithBothAnnotationAndInterface(
@@ -177,19 +177,19 @@ class OutboxHandlerMethodRetryPolicyTest {
         @OutboxRetryable(name = "annotationPolicy")
         fun handle(
             @Suppress("UNUSED_PARAMETER") p: String,
-        ) {}
+        ) = Unit
     }
 
     class HandlerWithoutConfiguration {
         fun handle(
             @Suppress("UNUSED_PARAMETER") p: String,
-        ) {}
+        ) = Unit
     }
 
     class HandlerWithEmptyAnnotation {
         @OutboxRetryable
         fun handle(
             @Suppress("UNUSED_PARAMETER") p: String,
-        ) {}
+        ) = Unit
     }
 }

@@ -55,8 +55,9 @@ sealed class OutboxHandlerMethod(
      * @param retryPolicyRegistry The retry policy registry to register with
      */
     fun registerRetryPolicy(retryPolicyRegistry: OutboxRetryPolicyRegistry) {
-        val policy = resolveRetryPolicy(retryPolicyRegistry)
-        retryPolicyRegistry.register(id, policy)
+        resolveRetryPolicy(retryPolicyRegistry)?.let {
+            retryPolicyRegistry.register(id, it)
+        }
     }
 
     /**
@@ -99,7 +100,7 @@ sealed class OutboxHandlerMethod(
      * @return The resolved OutboxRetryPolicy for this handler
      * @throws IllegalStateException if a referenced policy bean is not found
      */
-    protected fun resolveRetryPolicy(registry: OutboxRetryPolicyRegistry): OutboxRetryPolicy {
+    protected fun resolveRetryPolicy(registry: OutboxRetryPolicyRegistry): OutboxRetryPolicy? {
         AnnotatedElementUtils
             .findMergedAnnotation(
                 method,
@@ -117,6 +118,6 @@ sealed class OutboxHandlerMethod(
             return bean.getRetryPolicy()
         }
 
-        return registry.getDefaultRetryPolicy()
+        return null
     }
 }
