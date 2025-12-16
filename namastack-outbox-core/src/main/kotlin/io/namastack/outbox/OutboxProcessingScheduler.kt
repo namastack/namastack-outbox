@@ -4,7 +4,7 @@ import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.handler.OutboxHandlerInvoker
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.partition.PartitionCoordinator
-import io.namastack.outbox.retry.OutboxRetryPolicy
+import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.annotation.Scheduled
@@ -18,7 +18,7 @@ import java.util.concurrent.CountDownLatch
  * - Coordinating with PartitionCoordinator to process only assigned partitions
  * - Loading record keys in batches from assigned partitions
  * - Processing records in parallel (per key) while maintaining order within each key
- * - Implementing retry logic with configurable backoff strategies
+ * - Implementing handler-specific retry logic with configurable backoff strategies
  * - Handling failures gracefully with optional deletion of completed records
  *
  * ## Concurrency Model
@@ -32,13 +32,23 @@ import java.util.concurrent.CountDownLatch
  * - **At-least-once**: Records may be processed multiple times (idempotent handlers required)
  * - **Ordering per Key**: Records with same key processed in creation order
  * - **Partition Safety**: No instance processes same partition concurrently
- * - **Failure Resilience**: Failures trigger retries with exponential backoff
+ * - **Failure Resilience**: Failures trigger retries with handler-specific policies
+ *
+ * ## Handler-Specific Retry Policies
+ *
+ * Each handler can define its own retry policy via:
+ * - @OutboxRetryable annotation on the handler method
+ * - OutboxRetryAware interface implementation
+ * - Default policy from configuration as fallback
+ *
+ * Policies are resolved during handler registration at application startup and
+ * stored in the retry policy registry for efficient runtime lookup.
  *
  * @param recordRepository Repository for accessing and updating outbox records
  * @param handlerInvoker Handler dispatcher that invokes appropriate handlers
  * @param partitionCoordinator Coordinator that manages partition assignments
  * @param taskExecutor TaskExecutor for parallel processing of record keys
- * @param retryPolicy Policy for determining retry delays and behavior
+ * @param retryPolicyRegistry Registry for handler-specific retry policies
  * @param properties Configuration properties (batch size, retry config, etc.)
  * @param clock Clock for timestamp generation and timeout calculations
  *
@@ -50,7 +60,7 @@ class OutboxProcessingScheduler(
     private val handlerInvoker: OutboxHandlerInvoker,
     private val partitionCoordinator: PartitionCoordinator,
     private val taskExecutor: TaskExecutor,
-    private val retryPolicy: OutboxRetryPolicy,
+    private val retryPolicyRegistry: OutboxRetryPolicyRegistry,
     private val properties: OutboxProperties,
     private val clock: Clock,
 ) {
@@ -277,24 +287,34 @@ class OutboxProcessingScheduler(
      * ## Failure Handling Logic
      *
      * 1. **Increment Counter**: Increment failureCount to track attempts
-     * 2. **Exhaustion Check**: Check if retries are exhausted
+     * 2. **Policy Resolution**: Load handler-specific retry policy from registry
+     *    - Each handler has its own policy resolved during registration
+     *    - Policies defined via @OutboxRetryable, OutboxRetryAware, or default
+     * 3. **Exhaustion Check**: Check if retries are exhausted
      *    - maxRetries defines max number of attempts (default 3)
      *    - failureCount >= maxRetries means no more retries
-     * 3. **Policy Check**: Ask retryPolicy if exception is retryable
+     * 4. **Policy Check**: Ask handler's retry policy if exception is retryable
      *    - Some exceptions (e.g., validation errors) should not be retried
      *    - Policy can implement custom logic (e.g., only retry transient errors)
-     * 4. **Mark Failed**: If exhausted or non-retryable
+     * 5. **Mark Failed**: If exhausted or non-retryable
      *    - Set status to FAILED
      *    - Log warning with attempt count
-     * 5. **Schedule Retry**: If retries remaining and retryable
-     *    - Calculate delay using retryPolicy.nextDelay(failureCount)
+     * 6. **Schedule Retry**: If retries remaining and retryable
+     *    - Calculate delay using handler's retryPolicy.nextDelay(failureCount)
      *    - Update nextRetryTime on record
      *    - Log debug message with retry number and delay
-     * 6. **Persist**: Save updated record state to database
+     * 7. **Persist**: Save updated record state to database
+     *
+     * ## Handler-Specific Retry Policies
+     *
+     * Different handlers can have different retry behaviors:
+     * - Critical payment handlers: aggressive retries (1s, 3s, 9s...)
+     * - Notification handlers: gentle retries (1m, 2m, 4m...)
+     * - Audit handlers: custom exception-based logic
      *
      * ## Retry Delay Calculation
      *
-     * Delays are calculated based on failureCount and configured retry policy:
+     * Delays are calculated based on failureCount and the handler's retry policy:
      * - Exponential: delay = initialDelay * (backoffMultiplier ^ failureCount)
      * - Fixed: delay = constant regardless of attempt count
      * - Linear: delay = initialDelay * (failureCount + 1)
@@ -328,6 +348,9 @@ class OutboxProcessingScheduler(
         // Increment failure counter before any checks
         record.incrementFailureCount()
         record.updateFailureReason(ex.message)
+
+        // Resolve handler-specific retry policy from registry
+        val retryPolicy = retryPolicyRegistry.getByHandlerId(record.handlerId)
 
         // Determine if we should retry or mark as failed
         val retriesExhausted = record.retriesExhausted(properties.retry.maxRetries)
