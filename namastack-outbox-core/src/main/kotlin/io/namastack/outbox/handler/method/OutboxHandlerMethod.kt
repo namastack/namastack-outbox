@@ -2,7 +2,7 @@ package io.namastack.outbox.handler.method
 
 import io.namastack.outbox.annotation.OutboxRetryable
 import io.namastack.outbox.handler.OutboxHandlerRegistry
-import io.namastack.outbox.handler.OutboxRetryAware
+import io.namastack.outbox.retry.OutboxRetryAware
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.springframework.core.annotation.AnnotatedElementUtils

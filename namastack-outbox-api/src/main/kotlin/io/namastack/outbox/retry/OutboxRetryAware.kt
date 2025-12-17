@@ -1,6 +1,4 @@
-package io.namastack.outbox.handler
-
-import io.namastack.outbox.retry.OutboxRetryPolicy
+package io.namastack.outbox.retry
 
 /**
  * Interface for handlers that want to specify their retry policy programmatically.
