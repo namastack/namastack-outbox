@@ -22,7 +22,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-opentelemetry")
     implementation("org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry")
     runtimeOnly("io.micrometer:micrometer-tracing-bridge-otel")
-    implementation("io.namastack:namastack-outbox-starter-jpa:0.4.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jpa:0.5.0-SNAPSHOT")
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
