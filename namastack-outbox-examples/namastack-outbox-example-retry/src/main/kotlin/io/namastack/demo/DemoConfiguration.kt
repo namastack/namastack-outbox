@@ -3,16 +3,20 @@ package io.namastack.demo
 import io.namastack.outbox.retry.ExponentialBackoffRetryPolicy
 import io.namastack.outbox.retry.FixedDelayRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicy
+import org.springframework.beans.factory.config.BeanDefinition
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Role
 import java.time.Duration
 
 @Configuration
+@Role(BeanDefinition.ROLE_INFRASTRUCTURE)
 class DemoConfiguration {
     /**
      * Override for default outbox retry policy
      */
     @Bean
+    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
     fun outboxRetryPolicy(): OutboxRetryPolicy =
         FixedDelayRetryPolicy
             .builder()
@@ -25,6 +29,7 @@ class DemoConfiguration {
      * Custom outbox retry policy
      */
     @Bean
+    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
     fun customOutboxRetryPolicy(): OutboxRetryPolicy =
         ExponentialBackoffRetryPolicy
             .builder()

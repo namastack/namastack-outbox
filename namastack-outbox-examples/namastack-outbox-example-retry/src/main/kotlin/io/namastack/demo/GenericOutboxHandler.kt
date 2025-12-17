@@ -2,7 +2,7 @@ package io.namastack.demo
 
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
-import io.namastack.outbox.handler.OutboxRetryAware
+import io.namastack.outbox.retry.OutboxRetryAware
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
