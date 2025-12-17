@@ -37,6 +37,7 @@ class OutboxRecordEntityMapperTest {
                 status = OutboxRecordStatus.NEW,
                 completedAt = completedAt,
                 failureCount = 3,
+                failureReason = null,
                 nextRetryAt = nextRetryAt,
                 handlerId = "handlerId",
             )
@@ -69,6 +70,7 @@ class OutboxRecordEntityMapperTest {
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
                 failureCount = 0,
+                failureReason = null,
                 nextRetryAt = now,
                 handlerId = "handlerId",
             )
@@ -102,6 +104,7 @@ class OutboxRecordEntityMapperTest {
                 status = OutboxRecordStatus.FAILED,
                 completedAt = null,
                 failureCount = 5,
+                failureReason = "Processing error",
                 nextRetryAt = now,
                 handlerId = "handlerId",
             )
@@ -110,6 +113,7 @@ class OutboxRecordEntityMapperTest {
 
         assertThat(entity.status).isEqualTo(OutboxRecordStatus.FAILED)
         assertThat(entity.failureCount).isEqualTo(5)
+        assertThat(entity.failureReason).isEqualTo("Processing error")
         assertThat(entity.recordKey).isEqualTo("failed-record")
         assertThat(entity.recordType).isEqualTo("io.namastack.outbox.OutboxRecordEntityMapperTest\$OrderCreatedEvent")
     }
@@ -132,6 +136,7 @@ class OutboxRecordEntityMapperTest {
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
                 failureCount = 0,
+                failureReason = null,
                 nextRetryAt = now,
                 handlerId = "handlerId",
             )
@@ -146,6 +151,7 @@ class OutboxRecordEntityMapperTest {
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
                 failureCount = 0,
+                failureReason = null,
                 nextRetryAt = now,
                 handlerId = "handlerId",
             )
@@ -179,6 +185,7 @@ class OutboxRecordEntityMapperTest {
                     status = status,
                     completedAt = null,
                     failureCount = 0,
+                    failureReason = null,
                     nextRetryAt = now,
                     handlerId = "handlerId",
                 )

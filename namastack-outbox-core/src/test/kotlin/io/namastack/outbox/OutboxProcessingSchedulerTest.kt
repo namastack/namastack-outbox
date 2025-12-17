@@ -324,6 +324,7 @@ class OutboxProcessingSchedulerTest {
                 .atMost(2, TimeUnit.SECONDS)
                 .untilAsserted {
                     assertThat(record.failureCount).isEqualTo(4)
+                    assertThat(record.failureReason).isEqualTo("Processing failed")
                     assertThat(record.status).isEqualTo(FAILED)
                 }
         }
@@ -354,6 +355,7 @@ class OutboxProcessingSchedulerTest {
                 .atMost(2, TimeUnit.SECONDS)
                 .untilAsserted {
                     assertThat(record.failureCount).isEqualTo(1)
+                    assertThat(record.failureReason).isEqualTo("Non-retryable error")
                     assertThat(record.status).isEqualTo(FAILED)
                 }
         }
