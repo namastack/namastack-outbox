@@ -33,6 +33,7 @@ data class OutboxRecord(
     val createdAt: OffsetDateTime,
     val completedAt: OffsetDateTime? = null,
     val failureCount: Int = 0,
+    val failureReason: String? = null,
     val nextRetryAt: OffsetDateTime,
     val handlerId: String,
 ) : Persistable<String> {

@@ -37,6 +37,7 @@ class OutboxRecord<T> internal constructor(
     status: OutboxRecordStatus,
     completedAt: OffsetDateTime?,
     failureCount: Int,
+    failureReason: String?,
     nextRetryAt: OffsetDateTime,
 ) {
     /**
@@ -63,6 +64,13 @@ class OutboxRecord<T> internal constructor(
      * Timestamp when the next retry attempt should be made.
      */
     var nextRetryAt: OffsetDateTime = nextRetryAt
+        internal set
+
+    /**
+     * Reason for the last failure, if any.
+     * This can be used to store error messages or other diagnostic information.
+     */
+    var failureReason: String? = failureReason
         internal set
 
     /**
@@ -125,6 +133,25 @@ class OutboxRecord<T> internal constructor(
     }
 
     /**
+     * Updates the failure reason for this record.
+     * This can be used to store error messages or other diagnostic information
+     * about why the record processing has failed.
+     *
+     * @param rawMessage The raw failure message
+     * @param maxLength The maximum length of the failure reason string
+     */
+    internal fun updateFailureReason(
+        rawMessage: String?,
+        maxLength: Int = 1000,
+    ) {
+        failureReason =
+            rawMessage
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { if (it.length <= maxLength) it else it.substring(0, maxLength) }
+    }
+
+    /**
      * Builder class for creating new OutboxRecord instances.
      */
     class Builder<T> {
@@ -148,6 +175,12 @@ class OutboxRecord<T> internal constructor(
          */
         fun payload(payload: T) = apply { this.payload = payload }
 
+        /**
+         * Sets the handler ID for the outbox record.
+         *
+         * @param handlerId Identifier of the handler responsible for processing the record
+         * @return this Builder instance for method chaining
+         */
         fun handlerId(handlerId: String) = apply { this.handlerId = handlerId }
 
         /**
@@ -174,6 +207,7 @@ class OutboxRecord<T> internal constructor(
                 createdAt = now,
                 completedAt = null,
                 failureCount = 0,
+                failureReason = null,
                 nextRetryAt = now,
                 handlerId = hId,
             )
@@ -210,6 +244,7 @@ class OutboxRecord<T> internal constructor(
             partition: Int,
             nextRetryAt: OffsetDateTime,
             handlerId: String,
+            failureReason: String?,
         ): OutboxRecord<T> =
             OutboxRecord(
                 id = id,
@@ -220,6 +255,7 @@ class OutboxRecord<T> internal constructor(
                 status = status,
                 completedAt = completedAt,
                 failureCount = failureCount,
+                failureReason = failureReason,
                 nextRetryAt = nextRetryAt,
                 handlerId = handlerId,
             )

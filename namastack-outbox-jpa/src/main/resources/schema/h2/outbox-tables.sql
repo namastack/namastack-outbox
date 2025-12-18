@@ -1,16 +1,17 @@
 CREATE TABLE IF NOT EXISTS outbox_record
 (
-    id            VARCHAR(255)             NOT NULL,
-    status        VARCHAR(20)              NOT NULL,
-    record_key    VARCHAR(255)             NOT NULL,
-    record_type   VARCHAR(255)             NOT NULL,
-    payload       TEXT                     NOT NULL,
-    created_at    TIMESTAMP WITH TIME ZONE NOT NULL,
-    completed_at  TIMESTAMP WITH TIME ZONE,
-    failure_count INT                      NOT NULL,
-    next_retry_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    partition_no  INTEGER                  NOT NULL,
-    handler_id    VARCHAR(1000)            NOT NULL,
+    id             VARCHAR(255)             NOT NULL,
+    status         VARCHAR(20)              NOT NULL,
+    record_key     VARCHAR(255)             NOT NULL,
+    record_type    VARCHAR(255)             NOT NULL,
+    payload        TEXT                     NOT NULL,
+    created_at     TIMESTAMP WITH TIME ZONE NOT NULL,
+    completed_at   TIMESTAMP WITH TIME ZONE,
+    failure_count  INT                      NOT NULL,
+    failure_reason VARCHAR(1000),
+    next_retry_at  TIMESTAMP WITH TIME ZONE NOT NULL,
+    partition_no   INTEGER                  NOT NULL,
+    handler_id     VARCHAR(1000)            NOT NULL,
     PRIMARY KEY (id)
 );
 

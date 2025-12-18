@@ -36,6 +36,7 @@ internal class OutboxRecordEntityMapper(
             failureCount = record.failureCount,
             nextRetryAt = record.nextRetryAt,
             handlerId = record.handlerId,
+            failureReason = record.failureReason,
         )
     }
 
@@ -60,6 +61,7 @@ internal class OutboxRecordEntityMapper(
             failureCount = entity.failureCount,
             nextRetryAt = entity.nextRetryAt,
             handlerId = entity.handlerId,
+            failureReason = entity.failureReason,
         )
     }
 

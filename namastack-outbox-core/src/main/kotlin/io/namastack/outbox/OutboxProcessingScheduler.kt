@@ -327,6 +327,7 @@ class OutboxProcessingScheduler(
 
         // Increment failure counter before any checks
         record.incrementFailureCount()
+        record.updateFailureReason(ex.message)
 
         // Determine if we should retry or mark as failed
         val retriesExhausted = record.retriesExhausted(properties.retry.maxRetries)
