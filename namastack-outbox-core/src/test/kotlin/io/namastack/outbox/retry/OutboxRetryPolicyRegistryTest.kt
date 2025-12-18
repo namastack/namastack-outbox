@@ -23,9 +23,12 @@ class OutboxRetryPolicyRegistryTest {
 
     @BeforeEach
     fun setUp() {
-        beanFactory = mockk<ListableBeanFactory>()
         defaultRetryPolicy = createMockRetryPolicy("default-policy")
-        registry = OutboxRetryPolicyRegistry(beanFactory, defaultRetryPolicy)
+        beanFactory =
+            mockk<ListableBeanFactory> {
+                every { getBean<OutboxRetryPolicy>("outboxRetryPolicy") } returns defaultRetryPolicy
+            }
+        registry = OutboxRetryPolicyRegistry(beanFactory)
     }
 
     @Nested
@@ -97,17 +100,9 @@ class OutboxRetryPolicyRegistryTest {
     inner class GetDefaultRetryPolicyTests {
         @Test
         fun `should return default retry policy`() {
-            val result = registry.getDefaultRetryPolicy()
+            val result = registry.getByHandlerId("any-handler")
 
             assertThat(result).isEqualTo(defaultRetryPolicy)
-        }
-
-        @Test
-        fun `should return same instance on multiple calls`() {
-            val result1 = registry.getDefaultRetryPolicy()
-            val result2 = registry.getDefaultRetryPolicy()
-
-            assertThat(result1).isSameAs(result2)
         }
     }
 
@@ -135,7 +130,7 @@ class OutboxRetryPolicyRegistryTest {
                     "policy2" to createMockRetryPolicy("p2"),
                 )
 
-            val registry = OutboxRetryPolicyRegistry(beanFactory, defaultRetryPolicy)
+            val registry = OutboxRetryPolicyRegistry(beanFactory)
 
             assertThatThrownBy {
                 registry.getRetryPolicy("unknownPolicy")
@@ -151,7 +146,7 @@ class OutboxRetryPolicyRegistryTest {
                 NoSuchBeanDefinitionException("unknownPolicy")
             every { beanFactory.getBeansOfType<OutboxRetryPolicy>() } returns emptyMap()
 
-            val registry = OutboxRetryPolicyRegistry(beanFactory, defaultRetryPolicy)
+            val registry = OutboxRetryPolicyRegistry(beanFactory)
 
             assertThatThrownBy {
                 registry.getRetryPolicy("unknownPolicy")
@@ -165,7 +160,7 @@ class OutboxRetryPolicyRegistryTest {
             every { simpleBeanFactory.getBean<OutboxRetryPolicy>("unknownPolicy") } throws
                 NoSuchBeanDefinitionException("unknownPolicy")
 
-            val registry = OutboxRetryPolicyRegistry(simpleBeanFactory, defaultRetryPolicy)
+            val registry = OutboxRetryPolicyRegistry(simpleBeanFactory)
 
             assertThatThrownBy {
                 registry.getRetryPolicy("unknownPolicy")
@@ -198,7 +193,7 @@ class OutboxRetryPolicyRegistryTest {
                     "defaultPolicy" to createMockRetryPolicy("default"),
                 )
 
-            val registry = OutboxRetryPolicyRegistry(beanFactory, defaultRetryPolicy)
+            val registry = OutboxRetryPolicyRegistry(beanFactory)
 
             assertThatThrownBy {
                 registry.getRetryPolicy(AggressiveRetryPolicy::class)
@@ -214,7 +209,7 @@ class OutboxRetryPolicyRegistryTest {
             every { beanFactory.getBean(AggressiveRetryPolicy::class.java) } throws
                 IllegalStateException("Multiple beans found")
 
-            val registry = OutboxRetryPolicyRegistry(beanFactory, defaultRetryPolicy)
+            val registry = OutboxRetryPolicyRegistry(beanFactory)
 
             assertThatThrownBy {
                 registry.getRetryPolicy(AggressiveRetryPolicy::class)
@@ -227,7 +222,7 @@ class OutboxRetryPolicyRegistryTest {
             every { simpleBeanFactory.getBean(AggressiveRetryPolicy::class.java) } throws
                 NoSuchBeanDefinitionException(AggressiveRetryPolicy::class.java, "Not found")
 
-            val registry = OutboxRetryPolicyRegistry(simpleBeanFactory, defaultRetryPolicy)
+            val registry = OutboxRetryPolicyRegistry(simpleBeanFactory)
 
             assertThatThrownBy {
                 registry.getRetryPolicy(AggressiveRetryPolicy::class)

@@ -364,17 +364,14 @@ class OutboxCoreAutoConfiguration {
          * 3. Default retry policy as fallback
          *
          * @param beanFactory Spring bean factory for loading policy beans by name
-         * @param defaultRetryPolicy Default policy when no specific policy is configured
          * @return OutboxRetryPolicyRegistry for managing handler-specific policies
          */
         @Bean
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
-        internal fun outboxRetryPolicyRegistry(
-            beanFactory: BeanFactory,
-            @Qualifier("outboxRetryPolicy") defaultRetryPolicy: OutboxRetryPolicy,
-        ): OutboxRetryPolicyRegistry = OutboxRetryPolicyRegistry(beanFactory, defaultRetryPolicy)
+        internal fun outboxRetryPolicyRegistry(beanFactory: BeanFactory): OutboxRetryPolicyRegistry =
+            OutboxRetryPolicyRegistry(beanFactory)
 
         /**
          * BeanPostProcessor that discovers and registers handler methods.

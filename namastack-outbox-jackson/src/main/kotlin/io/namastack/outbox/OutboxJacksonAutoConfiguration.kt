@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.AutoConfigureBefore
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import tools.jackson.databind.json.JsonMapper
+import tools.jackson.module.kotlin.kotlinModule
 
 /**
  * Spring Boot auto-configuration for Jackson-based event serialization.
@@ -32,8 +33,30 @@ class OutboxJacksonAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(OutboxPayloadSerializer::class)
     fun outboxPayloadSerializer(jsonMapperProvider: ObjectProvider<JsonMapper>): OutboxPayloadSerializer {
-        val mapper = jsonMapperProvider.getIfAvailable { JsonMapper.builder().build() }
+        val mapper =
+            jsonMapperProvider.getIfAvailable {
+                val builder = JsonMapper.builder()
+
+                if (isKotlinModulePresent()) {
+                    builder.addModule(kotlinModule())
+                }
+
+                builder.build()
+            }
 
         return JacksonOutboxPayloadSerializer(mapper = mapper)
     }
+
+    /**
+     * Checks if jackson-module-kotlin is present on the classpath.
+     *
+     * @return true if KotlinModule is available, false otherwise
+     */
+    private fun isKotlinModulePresent(): Boolean =
+        try {
+            Class.forName("tools.jackson.module.kotlin.KotlinModule")
+            true
+        } catch (_: ClassNotFoundException) {
+            false
+        }
 }

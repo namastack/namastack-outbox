@@ -10,6 +10,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.BeanFactory
+import org.springframework.beans.factory.getBean
 import java.time.Duration
 
 @DisplayName("OutboxHandlerMethod - registerRetryPolicy()")
@@ -82,7 +83,7 @@ class OutboxHandlerMethodRetryPolicyTest {
         val interfacePolicy = mockk<OutboxRetryPolicy>()
         val beanFactory =
             mockk<BeanFactory> {
-                every { getBean("annotationPolicy", OutboxRetryPolicy::class.java) } returns annotationPolicy
+                every { getBean<OutboxRetryPolicy>("annotationPolicy") } returns annotationPolicy
             }
         val registry = createRegistry(beanFactory)
 
@@ -96,7 +97,11 @@ class OutboxHandlerMethodRetryPolicyTest {
     @Test
     fun `should use default policy when no configuration`() {
         val defaultPolicy = TestRetryPolicy()
-        val registry = createRegistry(defaultPolicy = defaultPolicy)
+        val beanFactory =
+            mockk<BeanFactory> {
+                every { getBean<OutboxRetryPolicy>("outboxRetryPolicy") } returns defaultPolicy
+            }
+        val registry = createRegistry(beanFactory)
 
         val handler = createHandler(HandlerWithoutConfiguration())
         handler.registerRetryPolicy(registry)
@@ -108,7 +113,11 @@ class OutboxHandlerMethodRetryPolicyTest {
     @Test
     fun `should use default policy when annotation is empty`() {
         val defaultPolicy = TestRetryPolicy()
-        val registry = createRegistry(defaultPolicy = defaultPolicy)
+        val beanFactory =
+            mockk<BeanFactory> {
+                every { getBean<OutboxRetryPolicy>("outboxRetryPolicy") } returns defaultPolicy
+            }
+        val registry = createRegistry(beanFactory)
 
         val handler = createHandler(HandlerWithEmptyAnnotation())
         handler.registerRetryPolicy(registry)
@@ -123,10 +132,8 @@ class OutboxHandlerMethodRetryPolicyTest {
         return TypedHandlerMethod(bean, method, String::class)
     }
 
-    private fun createRegistry(
-        beanFactory: BeanFactory = mockk(relaxed = true),
-        defaultPolicy: OutboxRetryPolicy = mockk(relaxed = true),
-    ): OutboxRetryPolicyRegistry = OutboxRetryPolicyRegistry(beanFactory, defaultPolicy)
+    private fun createRegistry(beanFactory: BeanFactory = mockk(relaxed = true)): OutboxRetryPolicyRegistry =
+        OutboxRetryPolicyRegistry(beanFactory)
 
     // Test policy
     class TestRetryPolicy : OutboxRetryPolicy {

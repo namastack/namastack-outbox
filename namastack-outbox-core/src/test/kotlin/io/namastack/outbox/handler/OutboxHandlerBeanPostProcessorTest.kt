@@ -1,8 +1,10 @@
 package io.namastack.outbox.handler
 
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
 import io.namastack.outbox.annotation.OutboxHandler
+import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.aopalliance.intercept.MethodInterceptor
 import org.aopalliance.intercept.MethodInvocation
@@ -16,15 +18,20 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.springframework.aop.framework.ProxyFactory
+import org.springframework.beans.factory.BeanFactory
+import org.springframework.beans.factory.getBean
 
 @DisplayName("OutboxHandlerBeanPostProcessor")
 class OutboxHandlerBeanPostProcessorTest {
+    private val beanFactory = mockk<BeanFactory>(relaxed = true)
     private val handlerRegistry = spyk(OutboxHandlerRegistry())
-    private val retryPolicyRegistry = spyk(OutboxRetryPolicyRegistry(mockk(relaxed = true), mockk(relaxed = true)))
+    private val retryPolicyRegistry = spyk(OutboxRetryPolicyRegistry(beanFactory))
     private lateinit var beanPostProcessor: OutboxHandlerBeanPostProcessor
 
     @BeforeEach
     fun setUp() {
+        every { beanFactory.getBean<OutboxRetryPolicy>("outboxRetryPolicy") } returns
+            mockk<OutboxRetryPolicy>(relaxed = true)
         beanPostProcessor = OutboxHandlerBeanPostProcessor(handlerRegistry, retryPolicyRegistry)
     }
 
@@ -33,7 +40,7 @@ class OutboxHandlerBeanPostProcessorTest {
     inner class PostProcessAfterInitializationTests {
         @Test
         fun `should return bean unchanged`() {
-            val bean = Object()
+            val bean = Any()
 
             val result = beanPostProcessor.postProcessAfterInitialization(bean, "testBean")
 
@@ -42,7 +49,7 @@ class OutboxHandlerBeanPostProcessorTest {
 
         @Test
         fun `should handle bean with no handlers gracefully`() {
-            val bean = Object()
+            val bean = Any()
 
             val result = beanPostProcessor.postProcessAfterInitialization(bean, "emptyBean")
 
@@ -51,8 +58,8 @@ class OutboxHandlerBeanPostProcessorTest {
 
         @Test
         fun `should process multiple beans sequentially`() {
-            val bean1 = Object()
-            val bean2 = Object()
+            val bean1 = Any()
+            val bean2 = Any()
 
             val result1 = beanPostProcessor.postProcessAfterInitialization(bean1, "bean1")
             val result2 = beanPostProcessor.postProcessAfterInitialization(bean2, "bean2")
@@ -239,7 +246,7 @@ class OutboxHandlerBeanPostProcessorTest {
 
         @Test
         fun `should have postProcessBeforeInitialization method`() {
-            val bean = Object()
+            val bean = Any()
             val result = beanPostProcessor.postProcessBeforeInitialization(bean, "test")
             assertThat(result).isSameAs(bean)
         }

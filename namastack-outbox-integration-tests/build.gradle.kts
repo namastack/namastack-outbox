@@ -8,10 +8,11 @@ plugins {
 description = "namastack-outbox-integration-tests"
 
 dependencies {
+    testImplementation(libs.jackson.module.kotlin)
     testImplementation(project(":namastack-outbox-starter-jpa"))
+    testImplementation(libs.kotlin.reflect)
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.boot.starter.data.jpa.test)
-    testImplementation(libs.jackson.module.kotlin)
     testImplementation(libs.assertj.core)
     testImplementation(libs.mockk)
     testImplementation(libs.h2)

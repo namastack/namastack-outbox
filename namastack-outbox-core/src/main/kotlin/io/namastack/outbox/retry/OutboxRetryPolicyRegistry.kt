@@ -19,20 +19,28 @@ import kotlin.reflect.KClass
  * 3. Default policy from configuration
  *
  * @param beanFactory Spring bean factory for loading policy beans by name or class
- * @param defaultRetryPolicy The default retry policy used as fallback
  *
  * @author Roland Beisel
  * @since 0.5.0
  */
 class OutboxRetryPolicyRegistry(
     private val beanFactory: BeanFactory,
-    private val defaultRetryPolicy: OutboxRetryPolicy,
 ) {
     /**
      * Map of retry policies indexed by handler method ID.
      * Populated during handler registration at application startup.
      */
     private val policiesById = mutableMapOf<String, OutboxRetryPolicy>()
+
+    /**
+     * Used as fallback during policy resolution when no specific policy
+     * is configured via annotation or interface.
+     *
+     * Only loaded when first accessed, avoiding eager dependency loading during BeanPostProcessor initialization.
+     */
+    private val defaultRetryPolicy: OutboxRetryPolicy by lazy {
+        beanFactory.getBean<OutboxRetryPolicy>("outboxRetryPolicy")
+    }
 
     /**
      * Registers a retry policy for a specific handler method.
@@ -60,16 +68,6 @@ class OutboxRetryPolicyRegistry(
      * @return The retry policy for this handler, or default if not found
      */
     fun getByHandlerId(handlerId: String): OutboxRetryPolicy = policiesById[handlerId] ?: defaultRetryPolicy
-
-    /**
-     * Returns the default retry policy.
-     *
-     * Used as fallback during policy resolution when no specific policy
-     * is configured via annotation or interface.
-     *
-     * @return The default retry policy from configuration
-     */
-    fun getDefaultRetryPolicy(): OutboxRetryPolicy = defaultRetryPolicy
 
     /**
      * Retrieves a retry policy bean from the Spring context by name.
