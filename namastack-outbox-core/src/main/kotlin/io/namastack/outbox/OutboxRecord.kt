@@ -140,7 +140,10 @@ class OutboxRecord<T> internal constructor(
      * @param rawMessage The raw failure message
      * @param maxLength The maximum length of the failure reason string
      */
-    internal fun updateFailureReason(rawMessage: String?, maxLength: Int = 1000) {
+    internal fun updateFailureReason(
+        rawMessage: String?,
+        maxLength: Int = 1000,
+    ) {
         failureReason =
             rawMessage
                 ?.trim()
