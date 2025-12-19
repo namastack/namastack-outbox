@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.annotation.EnableOutbox
+import io.namastack.outbox.context.OutboxContextPropagator
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
 import io.namastack.outbox.handler.OutboxHandlerInvoker
 import io.namastack.outbox.handler.OutboxHandlerRegistry
@@ -163,8 +164,16 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    fun outboxHandlerInvoker(outboxHandlerRegistry: OutboxHandlerRegistry): OutboxHandlerInvoker =
-        OutboxHandlerInvoker(outboxHandlerRegistry)
+    fun outboxHandlerInvoker(
+        outboxHandlerRegistry: OutboxHandlerRegistry,
+        propagators: List<OutboxContextPropagator>,
+    ): OutboxHandlerInvoker {
+        println("Configuring OutboxHandlerInvoker with ${propagators.size} context propagators")
+        return OutboxHandlerInvoker(
+            handlerRegistry = outboxHandlerRegistry,
+            propagators = propagators,
+        )
+    }
 
     /**
      * Creates the public Outbox API for scheduling records.
