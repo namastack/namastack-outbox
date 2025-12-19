@@ -34,14 +34,14 @@ internal class OutboxRecordEntityMapper(
             recordKey = record.key,
             recordType = recordType,
             payload = serializedPayload,
+            context = serializedContext,
             partitionNo = record.partition,
             createdAt = record.createdAt,
             completedAt = record.completedAt,
             failureCount = record.failureCount,
+            failureReason = record.failureReason,
             nextRetryAt = record.nextRetryAt,
             handlerId = record.handlerId,
-            failureReason = record.failureReason,
-            context = serializedContext,
         )
     }
 
@@ -65,15 +65,15 @@ internal class OutboxRecordEntityMapper(
             id = entity.id,
             recordKey = entity.recordKey,
             payload = payload,
+            context = context,
             partition = entity.partitionNo,
             createdAt = entity.createdAt,
             status = entity.status,
             completedAt = entity.completedAt,
             failureCount = entity.failureCount,
+            failureReason = entity.failureReason,
             nextRetryAt = entity.nextRetryAt,
             handlerId = entity.handlerId,
-            failureReason = entity.failureReason,
-            context = context,
         )
     }
 
