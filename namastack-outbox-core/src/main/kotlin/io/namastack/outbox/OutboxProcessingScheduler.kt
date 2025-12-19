@@ -2,7 +2,6 @@ package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.handler.OutboxHandlerInvoker
-import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.slf4j.LoggerFactory
@@ -255,11 +254,8 @@ class OutboxProcessingScheduler(
                 record.partition,
             )
 
-            // Create metadata context for handler
-            val metadata = OutboxRecordMetadata(record.key, record.handlerId, record.createdAt)
-
             // Dispatch to appropriate handler based on handlerId
-            handlerInvoker.dispatch(record.payload, metadata)
+            handlerInvoker.dispatch(record)
 
             // Post-processing: delete or mark completed
             if (properties.processing.deleteCompletedRecords) {
