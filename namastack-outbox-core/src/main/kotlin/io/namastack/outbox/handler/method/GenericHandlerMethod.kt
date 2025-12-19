@@ -27,6 +27,9 @@ class GenericHandlerMethod(
      * Safely invokes the underlying method via reflection, passing both parameters
      * in the correct order.
      *
+     * If the handler method throws an exception, the original exception is unwrapped
+     * from the InvocationTargetException and rethrown.
+     *
      * Example:
      * ```kotlin
      * val handler = GenericHandlerMethod(myBean, myHandleMethod)
@@ -35,7 +38,7 @@ class GenericHandlerMethod(
      *
      * @param payload The record payload (any type)
      * @param metadata Record metadata with context information
-     * @throws Exception if the handler method throws (will trigger retries)
+     * @throws Exception the original exception thrown by the handler method (will trigger retries)
      */
     fun invoke(
         payload: Any,
@@ -45,7 +48,11 @@ class GenericHandlerMethod(
             "Generic handler method must have exactly two parameters: $method"
         }
 
-        method.invoke(bean, payload, metadata)
+        try {
+            method.invoke(bean, payload, metadata)
+        } catch (ex: java.lang.reflect.InvocationTargetException) {
+            throw ex.targetException
+        }
     }
 
     /**

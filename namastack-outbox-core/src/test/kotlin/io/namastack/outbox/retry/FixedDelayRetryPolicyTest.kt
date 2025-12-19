@@ -1,85 +1,258 @@
 package io.namastack.outbox.retry
 
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.io.IOException
+import java.net.SocketTimeoutException
 import java.time.Duration
 
+@DisplayName("FixedDelayRetryPolicy")
 class FixedDelayRetryPolicyTest {
-    @Test
-    fun `shouldRetry always returns true`() {
-        val policy = FixedDelayRetryPolicy(Duration.ofSeconds(1))
+    @Nested
+    @DisplayName("nextDelay()")
+    inner class NextDelayTests {
+        @Test
+        fun `should return same delay regardless of retry count`() {
+            val policy =
+                FixedDelayRetryPolicy(
+                    delay = Duration.ofSeconds(5),
+                    maxRetries = 3,
+                )
 
-        assertThat(policy.shouldRetry(RuntimeException("Test exception"))).isTrue()
-        assertThat(policy.shouldRetry(IllegalStateException("Another exception"))).isTrue()
-        assertThat(policy.shouldRetry(Exception("Generic exception"))).isTrue()
+            assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofSeconds(5))
+            assertThat(policy.nextDelay(2)).isEqualTo(Duration.ofSeconds(5))
+            assertThat(policy.nextDelay(10)).isEqualTo(Duration.ofSeconds(5))
+            assertThat(policy.nextDelay(100)).isEqualTo(Duration.ofSeconds(5))
+        }
+
+        @Test
+        fun `should work with milliseconds`() {
+            val policy =
+                FixedDelayRetryPolicy(
+                    delay = Duration.ofMillis(500),
+                    maxRetries = 3,
+                )
+
+            assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofMillis(500))
+        }
+
+        @Test
+        fun `should work with zero delay`() {
+            val policy =
+                FixedDelayRetryPolicy(
+                    delay = Duration.ZERO,
+                    maxRetries = 3,
+                )
+
+            assertThat(policy.nextDelay(1)).isEqualTo(Duration.ZERO)
+        }
     }
 
-    @Test
-    fun `nextDelay returns fixed delay regardless of retry count`() {
-        val fixedDelay = Duration.ofSeconds(5)
-        val policy = FixedDelayRetryPolicy(fixedDelay)
+    @Nested
+    @DisplayName("maxRetries()")
+    inner class MaxRetriesTests {
+        @Test
+        fun `should return configured max retries`() {
+            val policy =
+                FixedDelayRetryPolicy(
+                    delay = Duration.ofSeconds(5),
+                    maxRetries = 7,
+                )
 
-        assertThat(policy.nextDelay(0)).isEqualTo(fixedDelay)
-        assertThat(policy.nextDelay(1)).isEqualTo(fixedDelay)
-        assertThat(policy.nextDelay(5)).isEqualTo(fixedDelay)
-        assertThat(policy.nextDelay(100)).isEqualTo(fixedDelay)
+            assertThat(policy.maxRetries()).isEqualTo(7)
+        }
     }
 
-    @Test
-    fun `nextDelay works with different time units`() {
-        val millisDelay = Duration.ofMillis(500)
-        val millisPolicy = FixedDelayRetryPolicy(millisDelay)
+    @Nested
+    @DisplayName("shouldRetry() - No Exception Filtering")
+    inner class ShouldRetryDefaultTests {
+        @Test
+        fun `should retry all exceptions when no filtering configured`() {
+            val policy =
+                FixedDelayRetryPolicy(
+                    delay = Duration.ofSeconds(5),
+                    maxRetries = 3,
+                )
 
-        assertThat(millisPolicy.nextDelay(0)).isEqualTo(millisDelay)
-        assertThat(millisPolicy.nextDelay(10)).isEqualTo(millisDelay)
-
-        val minutesDelay = Duration.ofMinutes(2)
-        val minutesPolicy = FixedDelayRetryPolicy(minutesDelay)
-
-        assertThat(minutesPolicy.nextDelay(0)).isEqualTo(minutesDelay)
-        assertThat(minutesPolicy.nextDelay(10)).isEqualTo(minutesDelay)
+            assertThat(policy.shouldRetry(RuntimeException())).isTrue()
+            assertThat(policy.shouldRetry(IOException())).isTrue()
+            assertThat(policy.shouldRetry(IllegalArgumentException())).isTrue()
+        }
     }
 
-    @Test
-    fun `nextDelay works with zero delay`() {
-        val policy = FixedDelayRetryPolicy(Duration.ZERO)
+    @Nested
+    @DisplayName("shouldRetry() - includeExceptions")
+    inner class ShouldRetryIncludeTests {
+        @Test
+        fun `should only retry included exception types`() {
+            val policy =
+                FixedDelayRetryPolicy(
+                    delay = Duration.ofSeconds(5),
+                    maxRetries = 3,
+                    includeExceptions = setOf(IOException::class, SocketTimeoutException::class),
+                )
 
-        assertThat(policy.nextDelay(0)).isEqualTo(Duration.ZERO)
-        assertThat(policy.nextDelay(1)).isEqualTo(Duration.ZERO)
-        assertThat(policy.nextDelay(100)).isEqualTo(Duration.ZERO)
+            assertThat(policy.shouldRetry(IOException())).isTrue()
+            assertThat(policy.shouldRetry(SocketTimeoutException())).isTrue()
+            assertThat(policy.shouldRetry(IllegalArgumentException())).isFalse()
+            assertThat(policy.shouldRetry(RuntimeException())).isFalse()
+        }
+
+        @Test
+        fun `should match subclasses when using includeExceptions`() {
+            val policy =
+                FixedDelayRetryPolicy(
+                    delay = Duration.ofSeconds(5),
+                    maxRetries = 3,
+                    includeExceptions = setOf(IOException::class),
+                )
+
+            assertThat(policy.shouldRetry(SocketTimeoutException())).isTrue()
+        }
     }
 
-    @Test
-    fun `nextDelay works with very small delay`() {
-        val tinyDelay = Duration.ofNanos(1)
-        val policy = FixedDelayRetryPolicy(tinyDelay)
+    @Nested
+    @DisplayName("shouldRetry() - excludeExceptions")
+    inner class ShouldRetryExcludeTests {
+        @Test
+        fun `should not retry excluded exception types`() {
+            val policy =
+                FixedDelayRetryPolicy(
+                    delay = Duration.ofSeconds(5),
+                    maxRetries = 3,
+                    excludeExceptions = setOf(IllegalArgumentException::class, IllegalStateException::class),
+                )
 
-        assertThat(policy.nextDelay(0)).isEqualTo(tinyDelay)
-        assertThat(policy.nextDelay(50)).isEqualTo(tinyDelay)
+            assertThat(policy.shouldRetry(IllegalArgumentException())).isFalse()
+            assertThat(policy.shouldRetry(IllegalStateException())).isFalse()
+            assertThat(policy.shouldRetry(IOException())).isTrue()
+            assertThat(policy.shouldRetry(RuntimeException())).isTrue()
+        }
+
+        @Test
+        fun `should match subclasses when using excludeExceptions`() {
+            val policy =
+                FixedDelayRetryPolicy(
+                    delay = Duration.ofSeconds(5),
+                    maxRetries = 3,
+                    excludeExceptions = setOf(IllegalArgumentException::class),
+                )
+
+            assertThat(policy.shouldRetry(IllegalArgumentException())).isFalse()
+            assertThat(policy.shouldRetry(IOException())).isTrue()
+        }
     }
 
-    @Test
-    fun `nextDelay works with very large delay`() {
-        val largeDelay = Duration.ofDays(1)
-        val policy = FixedDelayRetryPolicy(largeDelay)
+    @Nested
+    @DisplayName("Builder")
+    inner class BuilderTests {
+        @Test
+        fun `should build policy with default values`() {
+            val policy = FixedDelayRetryPolicy.builder().build()
 
-        assertThat(policy.nextDelay(0)).isEqualTo(largeDelay)
-        assertThat(policy.nextDelay(1000)).isEqualTo(largeDelay)
-    }
+            assertThat(policy).isNotNull()
+            assertThat(policy.maxRetries()).isEqualTo(3)
+            assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofSeconds(5))
+        }
 
-    @Test
-    fun `policy maintains consistency across multiple calls`() {
-        val delay = Duration.ofSeconds(3)
-        val policy = FixedDelayRetryPolicy(delay)
+        @Test
+        fun `should build policy with custom values`() {
+            val policy =
+                FixedDelayRetryPolicy
+                    .builder()
+                    .delay(Duration.ofSeconds(10))
+                    .maxRetries(5)
+                    .build()
 
-        // Call multiple times with same retry count
-        assertThat(policy.nextDelay(5)).isEqualTo(delay)
-        assertThat(policy.nextDelay(5)).isEqualTo(delay)
-        assertThat(policy.nextDelay(5)).isEqualTo(delay)
+            assertThat(policy.maxRetries()).isEqualTo(5)
+            assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofSeconds(10))
+        }
 
-        // Call with different retry counts
-        assertThat(policy.nextDelay(1)).isEqualTo(delay)
-        assertThat(policy.nextDelay(10)).isEqualTo(delay)
-        assertThat(policy.nextDelay(0)).isEqualTo(delay)
+        @Test
+        fun `should build policy with includeExceptions`() {
+            val policy =
+                FixedDelayRetryPolicy
+                    .builder()
+                    .includeException(IOException::class)
+                    .includeException(SocketTimeoutException::class)
+                    .build()
+
+            assertThat(policy.shouldRetry(IOException())).isTrue()
+            assertThat(policy.shouldRetry(IllegalArgumentException())).isFalse()
+        }
+
+        @Test
+        fun `should build policy with excludeExceptions`() {
+            val policy =
+                FixedDelayRetryPolicy
+                    .builder()
+                    .excludeException(IllegalArgumentException::class)
+                    .build()
+
+            assertThat(policy.shouldRetry(IOException())).isTrue()
+            assertThat(policy.shouldRetry(IllegalArgumentException())).isFalse()
+        }
+
+        @Test
+        fun `should throw when both include and exclude are specified`() {
+            assertThatThrownBy {
+                FixedDelayRetryPolicy
+                    .builder()
+                    .includeException(IOException::class)
+                    .excludeException(IllegalArgumentException::class)
+                    .build()
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("Cannot specify both includeExceptions and excludeExceptions")
+        }
+
+        @Test
+        fun `should wrap in JitteredRetryPolicy when jitter is configured`() {
+            val policy =
+                FixedDelayRetryPolicy
+                    .builder()
+                    .delay(Duration.ofSeconds(5))
+                    .jitter(Duration.ofMillis(500))
+                    .build()
+
+            assertThat(policy).isInstanceOf(JitteredRetryPolicy::class.java)
+        }
+
+        @Test
+        fun `should not wrap when jitter is not configured`() {
+            val policy =
+                FixedDelayRetryPolicy
+                    .builder()
+                    .delay(Duration.ofSeconds(5))
+                    .build()
+
+            assertThat(policy).isInstanceOf(FixedDelayRetryPolicy::class.java)
+        }
+
+        @Test
+        fun `should support vararg includeExceptions`() {
+            val policy =
+                FixedDelayRetryPolicy
+                    .builder()
+                    .includeExceptions(IOException::class, SocketTimeoutException::class)
+                    .build()
+
+            assertThat(policy.shouldRetry(IOException())).isTrue()
+            assertThat(policy.shouldRetry(SocketTimeoutException())).isTrue()
+        }
+
+        @Test
+        fun `should support vararg excludeExceptions`() {
+            val policy =
+                FixedDelayRetryPolicy
+                    .builder()
+                    .excludeExceptions(IllegalArgumentException::class, IllegalStateException::class)
+                    .build()
+
+            assertThat(policy.shouldRetry(IllegalArgumentException())).isFalse()
+            assertThat(policy.shouldRetry(IllegalStateException())).isFalse()
+        }
     }
 }

@@ -10,6 +10,7 @@ import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
+import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.config.BeanDefinition
@@ -132,21 +133,24 @@ class OutboxCoreAutoConfiguration {
             .threadNamePrefix("outbox-rebalancing-")
             .build()
 
-    /**
-     * Creates the retry policy for failed record processing.
+    /** Creates the default retry policy for failed record processing.
      *
+     * This is the fallback policy used when handlers don't specify their own.
      * Policy type is configurable via outbox.retry.policy:
      * - exponential: Exponential backoff with jitter
      * - fixed: Fixed delay between retries
      * - linear: Linear backoff
      *
+     * Handlers can override this by using @OutboxRetryable annotation or
+     * implementing OutboxRetryAware interface.
+     *
      * @param properties Outbox configuration including retry settings
-     * @return Configured OutboxRetryPolicy
+     * @return Default configured OutboxRetryPolicy
      */
-    @Bean
-    @ConditionalOnMissingBean
-    fun retryPolicy(properties: OutboxProperties): OutboxRetryPolicy =
-        OutboxRetryPolicyFactory.create(name = properties.retry.policy, retryProperties = properties.retry)
+    @Bean("outboxRetryPolicy")
+    @ConditionalOnMissingBean(name = ["outboxRetryPolicy"])
+    fun defaultOutboxRetryPolicy(properties: OutboxProperties): OutboxRetryPolicy =
+        OutboxRetryPolicyFactory.createDefault(name = properties.retry.policy, retryProperties = properties.retry)
 
     /**
      * Dispatcher that invokes the appropriate handler for each record.
@@ -239,7 +243,7 @@ class OutboxCoreAutoConfiguration {
      * Responsibilities:
      * - Discovers pending records by partition
      * - Routes records to handlers via OutboxHandlerInvoker
-     * - Implements retry logic with configurable backoff
+     * - Implements handler-specific retry logic with configurable backoff
      * - Marks records as completed or failed
      * - Supports ordered processing per record key (partition-based)
      *
@@ -250,7 +254,7 @@ class OutboxCoreAutoConfiguration {
      * 3. For each record key:
      *    a. Load all incomplete records in order
      *    b. Dispatch each to the handler
-     *    c. On failure: Apply retry logic (delay + increment counter)
+     *    c. On failure: Apply handler-specific retry logic (delay + increment counter)
      *    d. On success: Mark completed and optionally delete
      *
      * ## Concurrency
@@ -259,10 +263,17 @@ class OutboxCoreAutoConfiguration {
      * - Records within same key are processed sequentially (ordering guarantee)
      * - One instance processes one partition (no concurrent access)
      *
+     * ## Handler-Specific Retry Policies
+     *
+     * Each handler can define its own retry policy via:
+     * - @OutboxRetryable annotation
+     * - OutboxRetryAware interface
+     * - Default policy as fallback
+     *
      * @param recordRepository Repository for accessing/updating records
      * @param dispatcher Dispatcher that invokes handlers
      * @param partitionCoordinator Coordinator for partition assignments
-     * @param retryPolicy Policy for determining retry behavior
+     * @param retryPolicyRegistry Registry for handler-specific retry policies
      * @param properties Configuration properties
      * @param taskExecutor TaskExecutor for parallel key processing
      * @param clock Clock for time-based calculations
@@ -274,7 +285,7 @@ class OutboxCoreAutoConfiguration {
         recordRepository: OutboxRecordRepository,
         dispatcher: OutboxHandlerInvoker,
         partitionCoordinator: PartitionCoordinator,
-        retryPolicy: OutboxRetryPolicy,
+        retryPolicyRegistry: OutboxRetryPolicyRegistry,
         properties: OutboxProperties,
         @Qualifier("outboxTaskExecutor") taskExecutor: TaskExecutor,
         clock: Clock,
@@ -283,9 +294,9 @@ class OutboxCoreAutoConfiguration {
             recordRepository = recordRepository,
             handlerInvoker = dispatcher,
             partitionCoordinator = partitionCoordinator,
-            retryPolicy = retryPolicy,
-            properties = properties,
             taskExecutor = taskExecutor,
+            retryPolicyRegistry = retryPolicyRegistry,
+            properties = properties,
             clock = clock,
         )
 
@@ -344,25 +355,51 @@ class OutboxCoreAutoConfiguration {
         internal fun outboxHandlerRegistry(): OutboxHandlerRegistry = OutboxHandlerRegistry()
 
         /**
+         * Registry for handler-specific retry policies.
+         *
+         * Manages the retry policy for each handler method. Policies are resolved
+         * during handler registration using:
+         * 1. @OutboxRetryable annotation (loads policy bean by name)
+         * 2. OutboxRetryAware interface (uses policy from handler)
+         * 3. Default retry policy as fallback
+         *
+         * @param beanFactory Spring bean factory for loading policy beans by name
+         * @return OutboxRetryPolicyRegistry for managing handler-specific policies
+         */
+        @Bean
+        @ConditionalOnMissingBean
+        @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+        @JvmStatic
+        internal fun outboxRetryPolicyRegistry(beanFactory: BeanFactory): OutboxRetryPolicyRegistry =
+            OutboxRetryPolicyRegistry(beanFactory)
+
+        /**
          * BeanPostProcessor that discovers and registers handler methods.
          *
          * Scans each bean for:
          * 1. @OutboxHandler annotated methods
          * 2. OutboxHandler/OutboxTypedHandler<T> interface implementations
          *
+         * For each discovered handler, registers both:
+         * - The handler method itself in the handler registry
+         * - The handler's retry policy in the retry policy registry
+         *
          * Supports both typed and generic handler signatures.
          *
          * Marked as ROLE_INFRASTRUCTURE to prevent circular dependency issues.
          * This ensures the AutoConfiguration bean is not processed by this BeanPostProcessor.
          *
-         * @param registry The handler registry to populate
+         * @param handlerRegistry The handler registry to populate
+         * @param retryPolicyRegistry The retry policy registry to populate
          * @return OutboxHandlerBeanPostProcessor bean
          */
         @Bean
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
-        internal fun outboxHandlerBeanPostProcessor(registry: OutboxHandlerRegistry): OutboxHandlerBeanPostProcessor =
-            OutboxHandlerBeanPostProcessor(registry)
+        internal fun outboxHandlerBeanPostProcessor(
+            handlerRegistry: OutboxHandlerRegistry,
+            retryPolicyRegistry: OutboxRetryPolicyRegistry,
+        ): OutboxHandlerBeanPostProcessor = OutboxHandlerBeanPostProcessor(handlerRegistry, retryPolicyRegistry)
     }
 }

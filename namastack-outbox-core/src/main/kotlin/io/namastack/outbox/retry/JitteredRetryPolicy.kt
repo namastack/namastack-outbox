@@ -53,4 +53,11 @@ class JitteredRetryPolicy(
 
         return finalDelay
     }
+
+    /**
+     * Returns the maximum number of retry attempts.
+     *
+     * @return Maximum retry attempts configured for this policy
+     */
+    override fun maxRetries(): Int = basePolicy.maxRetries()
 }

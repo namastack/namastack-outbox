@@ -9,7 +9,9 @@ import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.OutboxRecordTestFactory.outboxRecord
 import io.namastack.outbox.handler.OutboxHandlerInvoker
 import io.namastack.outbox.partition.PartitionCoordinator
+import io.namastack.outbox.retry.FixedDelayRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicy
+import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.BeforeEach
@@ -28,11 +30,12 @@ import java.util.concurrent.TimeUnit
 class OutboxProcessingSchedulerTest {
     private val clock = Clock.fixed(Instant.parse("2025-09-25T10:00:00Z"), ZoneOffset.UTC)
     private val now = OffsetDateTime.now(clock)
+    private val retryPolicy = FixedDelayRetryPolicy(delay = Duration.ofSeconds(10), maxRetries = 3)
 
     private val recordRepository = mockk<OutboxRecordRepository>()
     private val dispatcher = mockk<OutboxHandlerInvoker>()
     private val partitionCoordinator = mockk<PartitionCoordinator>()
-    private val retryPolicy = mockk<OutboxRetryPolicy>()
+    private val retryPolicyRegistry = mockk<OutboxRetryPolicyRegistry>(relaxed = true)
 
     private val properties =
         OutboxProperties(
@@ -57,15 +60,14 @@ class OutboxProcessingSchedulerTest {
                 recordRepository = recordRepository,
                 handlerInvoker = dispatcher,
                 partitionCoordinator = partitionCoordinator,
-                retryPolicy = retryPolicy,
+                retryPolicyRegistry = retryPolicyRegistry,
                 properties = properties,
                 taskExecutor = taskExecutor,
                 clock = clock,
             )
 
         every { dispatcher.dispatch(any(), any()) } returns Unit
-        every { retryPolicy.shouldRetry(any()) } returns true
-        every { retryPolicy.nextDelay(any()) } returns Duration.ofSeconds(10)
+        every { retryPolicyRegistry.getByHandlerId(any()) } returns retryPolicy
     }
 
     @Nested
@@ -101,7 +103,7 @@ class OutboxProcessingSchedulerTest {
                     handlerInvoker = dispatcher,
                     partitionCoordinator = partitionCoordinator,
                     taskExecutor = taskExecutor,
-                    retryPolicy = retryPolicy,
+                    retryPolicyRegistry = retryPolicyRegistry,
                     properties = customProperties,
                     clock = clock,
                 )
@@ -333,6 +335,7 @@ class OutboxProcessingSchedulerTest {
         fun `mark as failed when retry policy rejects`() {
             val record = outboxRecord(status = NEW, failureCount = 0, nextRetryAt = now.minusMinutes(1))
             val exception = RuntimeException("Non-retryable error")
+            val retryPolicy = mockk<OutboxRetryPolicy>(relaxed = true)
 
             every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
             every {
@@ -346,7 +349,8 @@ class OutboxProcessingSchedulerTest {
             every { recordRepository.findIncompleteRecordsByRecordKey("record-1") } returns
                 listOf(record)
             every { dispatcher.dispatch(record.payload, any()) } throws exception
-            every { retryPolicy.shouldRetry(exception) } returns false
+            every { retryPolicy.shouldRetry(any()) } returns false
+            every { retryPolicyRegistry.getByHandlerId(any()) } returns retryPolicy
             every { recordRepository.save<OutboxRecordTestFactory.CreatedEvent>(any()) } returns record
 
             scheduler.process()
@@ -371,7 +375,7 @@ class OutboxProcessingSchedulerTest {
                     handlerInvoker = dispatcher,
                     partitionCoordinator = partitionCoordinator,
                     taskExecutor = taskExecutor,
-                    retryPolicy = retryPolicy,
+                    retryPolicyRegistry = retryPolicyRegistry,
                     properties = propertiesWithDelete,
                     clock = clock,
                 )
@@ -448,7 +452,7 @@ class OutboxProcessingSchedulerTest {
                     handlerInvoker = dispatcher,
                     partitionCoordinator = partitionCoordinator,
                     taskExecutor = taskExecutor,
-                    retryPolicy = retryPolicy,
+                    retryPolicyRegistry = retryPolicyRegistry,
                     properties = propertiesNonStop,
                     clock = clock,
                 )

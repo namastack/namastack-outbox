@@ -2,6 +2,7 @@ package io.namastack.outbox.retry
 
 import io.namastack.outbox.OutboxProperties
 import java.time.Duration
+import kotlin.reflect.KClass
 
 /**
  * Factory for creating retry policy instances based on configuration.
@@ -12,7 +13,7 @@ import java.time.Duration
  * @author Roland Beisel
  * @since 0.1.0
  */
-object OutboxRetryPolicyFactory {
+internal object OutboxRetryPolicyFactory {
     /**
      * Creates a retry policy instance based on the given name and properties.
      *
@@ -21,19 +22,30 @@ object OutboxRetryPolicyFactory {
      * @return A configured retry policy instance
      * @throws IllegalStateException if the policy name is unsupported or configuration is invalid
      */
-    fun create(
+    fun createDefault(
         name: String,
         retryProperties: OutboxProperties.Retry,
     ): OutboxRetryPolicy =
         when (name.lowercase()) {
-            "fixed" -> FixedDelayRetryPolicy(Duration.ofMillis(retryProperties.fixed.delay))
+            "fixed" -> {
+                FixedDelayRetryPolicy(
+                    delay = Duration.ofMillis(retryProperties.fixed.delay),
+                    maxRetries = retryProperties.maxRetries,
+                    includeExceptions = convertExceptionNames(retryProperties.includeExceptions),
+                    excludeExceptions = convertExceptionNames(retryProperties.excludeExceptions),
+                )
+            }
 
-            "exponential" ->
+            "exponential" -> {
                 ExponentialBackoffRetryPolicy(
                     initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
                     maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
                     backoffMultiplier = retryProperties.exponential.multiplier,
+                    maxRetries = retryProperties.maxRetries,
+                    includeExceptions = convertExceptionNames(retryProperties.includeExceptions),
+                    excludeExceptions = convertExceptionNames(retryProperties.excludeExceptions),
                 )
+            }
 
             "jittered" -> {
                 val basePolicy = retryProperties.jittered.basePolicy
@@ -43,11 +55,26 @@ object OutboxRetryPolicyFactory {
                 }
 
                 JitteredRetryPolicy(
-                    basePolicy = create(name = basePolicy, retryProperties = retryProperties),
+                    basePolicy = createDefault(name = basePolicy, retryProperties = retryProperties),
                     jitter = Duration.ofMillis(retryProperties.jittered.jitter),
                 )
             }
 
-            else -> error("Unsupported retry-policy: $name")
+            else -> {
+                error("Unsupported retry-policy: $name")
+            }
         }
+
+    private fun convertExceptionNames(exceptionNames: Set<String>): Set<KClass<out Throwable>> =
+        exceptionNames
+            .map { className ->
+                try {
+                    @Suppress("UNCHECKED_CAST")
+                    Class.forName(className).kotlin as KClass<out Throwable>
+                } catch (_: ClassNotFoundException) {
+                    error("Exception class not found: $className")
+                } catch (_: ClassCastException) {
+                    error("Class $className is not a Throwable")
+                }
+            }.toSet()
 }

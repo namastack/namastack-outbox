@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.test.annotation.DirtiesContext
+import org.springframework.test.annotation.DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD
 
 /**
  * Annotation for integration tests that use JPA with the Outbox framework.
@@ -27,7 +28,7 @@ import org.springframework.test.annotation.DirtiesContext
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
 @DataJpaTest(showSql = false)
-@DirtiesContext
+@DirtiesContext(classMode = BEFORE_EACH_TEST_METHOD)
 @ImportAutoConfiguration(
     TaskExecutionAutoConfiguration::class,
     TaskSchedulingAutoConfiguration::class,

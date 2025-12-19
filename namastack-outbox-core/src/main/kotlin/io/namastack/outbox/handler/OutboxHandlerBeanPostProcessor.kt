@@ -4,6 +4,7 @@ import io.namastack.outbox.handler.method.GenericHandlerMethodFactory
 import io.namastack.outbox.handler.method.TypedHandlerMethodFactory
 import io.namastack.outbox.handler.scanner.AnnotatedHandlerScanner
 import io.namastack.outbox.handler.scanner.InterfaceHandlerScanner
+import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.springframework.beans.factory.config.BeanPostProcessor
 
 /**
@@ -14,8 +15,9 @@ import org.springframework.beans.factory.config.BeanPostProcessor
  * 1. Annotation-based: Methods marked with @OutboxHandler
  * 2. Interface-based: Beans implementing OutboxHandler or OutboxTypedHandler<T>
  *
- * Discovered handlers are registered in the OutboxHandlerRegistry for later
- * invocation during record processing.
+ * For each discovered handler, registers both:
+ * - The handler method in the handler registry
+ * - The handler's retry policy in the retry policy registry
  *
  * ## Timing
  *
@@ -46,13 +48,15 @@ import org.springframework.beans.factory.config.BeanPostProcessor
  *   }
  *   ```
  *
- * @param registry The handler registry to store discovered handlers
+ * @param handlerRegistry The handler registry to store discovered handlers
+ * @param retryPolicyRegistry The retry policy registry to store handler-specific retry policies
  *
  * @author Roland Beisel
  * @since 0.4.0
  */
 internal class OutboxHandlerBeanPostProcessor(
-    private val registry: OutboxHandlerRegistry,
+    private val handlerRegistry: OutboxHandlerRegistry,
+    private val retryPolicyRegistry: OutboxRetryPolicyRegistry,
 ) : BeanPostProcessor {
     /**
      * List of scanners that discover handlers in different ways.
@@ -69,7 +73,9 @@ internal class OutboxHandlerBeanPostProcessor(
      *
      * Algorithm:
      * 1. Scan the bean using all configured scanners
-     * 2. Register each discovered handler
+     * 2. For each discovered handler:
+     *    a. Register the handler method in the handler registry
+     *    b. Register the handler's retry policy in the retry policy registry
      * 3. Return the bean unchanged (just registering side effects)
      *
      * @param bean The newly instantiated bean
@@ -82,7 +88,10 @@ internal class OutboxHandlerBeanPostProcessor(
     ): Any {
         scanners
             .flatMap { it.scan(bean) }
-            .forEach { handlerMethod -> handlerMethod.register(registry) }
+            .forEach { handlerMethod ->
+                handlerMethod.register(handlerRegistry)
+                handlerMethod.registerRetryPolicy(retryPolicyRegistry)
+            }
 
         return bean
     }

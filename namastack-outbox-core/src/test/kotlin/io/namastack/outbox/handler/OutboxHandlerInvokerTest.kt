@@ -95,6 +95,38 @@ class OutboxHandlerInvokerTest {
             }.isInstanceOf(RuntimeException::class.java)
                 .hasMessage("Handler error")
         }
+
+        @Test
+        fun `should propagate original exception from typed handler`() {
+            val payload = "test-payload"
+            val metadata = OutboxRecordMetadata("test-key", "failing-handler", now)
+            val typedHandler = mockk<TypedHandlerMethod>()
+            val originalException = IllegalArgumentException("Invalid argument")
+
+            every { handlerRegistry.getHandlerById("failing-handler") } returns typedHandler
+            every { typedHandler.invoke(payload) } throws originalException
+
+            assertThatThrownBy {
+                invoker.dispatch(payload, metadata)
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessage("Invalid argument")
+        }
+
+        @Test
+        fun `should propagate original exception from generic handler`() {
+            val payload: Any = "test-payload"
+            val metadata = OutboxRecordMetadata("test-key", "failing-handler", now)
+            val genericHandler = mockk<GenericHandlerMethod>()
+            val originalException = IllegalStateException("Invalid state")
+
+            every { handlerRegistry.getHandlerById("failing-handler") } returns genericHandler
+            every { genericHandler.invoke(payload, metadata) } throws originalException
+
+            assertThatThrownBy {
+                invoker.dispatch(payload, metadata)
+            }.isInstanceOf(IllegalStateException::class.java)
+                .hasMessage("Invalid state")
+        }
     }
 
     @Nested
@@ -215,6 +247,49 @@ class OutboxHandlerInvokerTest {
     }
 
     @Nested
+    @DisplayName("Exception Unwrapping")
+    inner class ExceptionUnwrappingTests {
+        private val now = OffsetDateTime.now(ZoneOffset.UTC)
+
+        @Test
+        fun `should unwrap InvocationTargetException from typed handler`() {
+            val bean = TestTypedHandlerForUnwrapping()
+            val method = bean::class.java.getMethod("handleWithException", String::class.java)
+            val typedHandler = TypedHandlerMethod(bean, method, String::class)
+            val metadata = OutboxRecordMetadata("test-key", "handler-1", now)
+
+            every { handlerRegistry.getHandlerById("handler-1") } returns typedHandler
+
+            assertThatThrownBy {
+                invoker.dispatch("test-payload", metadata)
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("Original exception from typed handler")
+                .hasMessageContaining("test-payload")
+        }
+
+        @Test
+        fun `should unwrap InvocationTargetException from generic handler`() {
+            val bean = TestGenericHandlerForUnwrapping()
+            val method =
+                bean::class.java.getMethod(
+                    "handleWithException",
+                    Any::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
+            val genericHandler = GenericHandlerMethod(bean, method)
+            val metadata = OutboxRecordMetadata("test-key", "handler-2", now)
+
+            every { handlerRegistry.getHandlerById("handler-2") } returns genericHandler
+
+            assertThatThrownBy {
+                invoker.dispatch("test-payload", metadata)
+            }.isInstanceOf(IllegalStateException::class.java)
+                .hasMessageContaining("Original exception from generic handler")
+                .hasMessageContaining("test-key")
+        }
+    }
+
+    @Nested
     @DisplayName("Edge Cases")
     inner class EdgeCasesTests {
         private val now = OffsetDateTime.now(ZoneOffset.UTC)
@@ -268,4 +343,16 @@ class OutboxHandlerInvokerTest {
         val id: String,
         val data: Map<String, Any>,
     )
+
+    class TestTypedHandlerForUnwrapping {
+        fun handleWithException(payload: String): Unit =
+            throw IllegalArgumentException("Original exception from typed handler: $payload")
+    }
+
+    class TestGenericHandlerForUnwrapping {
+        fun handleWithException(
+            payload: Any,
+            metadata: OutboxRecordMetadata,
+        ): Unit = throw IllegalStateException("Original exception from generic handler: ${metadata.key}")
+    }
 }
