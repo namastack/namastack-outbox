@@ -23,7 +23,7 @@ public class DemoApplication implements CommandLineRunner {
     this.service = service;
   }
 
-  static void main(String[] args) {
+  public static void main(String[] args) {
     SpringApplication.run(DemoApplication.class, args);
   }
 
