@@ -34,6 +34,7 @@ class OutboxRecord<T> internal constructor(
     val partition: Int,
     val createdAt: OffsetDateTime,
     val handlerId: String,
+    val context: Map<String, String>,
     status: OutboxRecordStatus,
     completedAt: OffsetDateTime?,
     failureCount: Int,
@@ -158,6 +159,7 @@ class OutboxRecord<T> internal constructor(
         private var key: String? = null
         private var payload: T? = null
         private var handlerId: String? = null
+        private var context: Map<String, String>? = null
 
         /**
          * Sets the record key for the outbox record.
@@ -183,6 +185,8 @@ class OutboxRecord<T> internal constructor(
          */
         fun handlerId(handlerId: String) = apply { this.handlerId = handlerId }
 
+        fun context(context: Map<String, String>) = apply { this.context = context }
+
         /**
          * Builds the OutboxRecord with the configured values.
          *
@@ -193,6 +197,7 @@ class OutboxRecord<T> internal constructor(
             val id = UUID.randomUUID().toString()
             val rk = key ?: id
             val pl = payload ?: error("payload must be set")
+            val ctx = context ?: emptyMap()
             val hId = handlerId ?: error("handlerId must be set")
 
             val now = OffsetDateTime.now(clock)
@@ -210,6 +215,7 @@ class OutboxRecord<T> internal constructor(
                 failureReason = null,
                 nextRetryAt = now,
                 handlerId = hId,
+                context = ctx,
             )
         }
     }
@@ -241,10 +247,11 @@ class OutboxRecord<T> internal constructor(
             status: OutboxRecordStatus,
             completedAt: OffsetDateTime?,
             failureCount: Int,
+            failureReason: String?,
             partition: Int,
             nextRetryAt: OffsetDateTime,
             handlerId: String,
-            failureReason: String?,
+            context: Map<String, String>,
         ): OutboxRecord<T> =
             OutboxRecord(
                 id = id,
@@ -258,6 +265,7 @@ class OutboxRecord<T> internal constructor(
                 failureReason = failureReason,
                 nextRetryAt = nextRetryAt,
                 handlerId = handlerId,
+                context = context,
             )
     }
 }

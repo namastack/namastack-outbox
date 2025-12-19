@@ -1,6 +1,8 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.annotation.EnableOutbox
+import io.namastack.outbox.context.OutboxContextCollector
+import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
 import io.namastack.outbox.handler.OutboxHandlerInvoker
 import io.namastack.outbox.handler.OutboxHandlerRegistry
@@ -183,14 +185,25 @@ class OutboxCoreAutoConfiguration {
     @ConditionalOnMissingBean
     internal fun outbox(
         handlerRegistry: OutboxHandlerRegistry,
+        outboxContextCollector: OutboxContextCollector,
         recordRepository: OutboxRecordRepository,
         clock: Clock,
     ): Outbox =
         OutboxService(
             handlerRegistry = handlerRegistry,
+            contextCollector = outboxContextCollector,
             outboxRecordRepository = recordRepository,
             clock = clock,
         )
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxContextCollector(providers: List<OutboxContextProvider>): OutboxContextCollector {
+        println("Configuring OutboxCreationInterceptorChain with ${providers.size} providers")
+        return OutboxContextCollector(
+            providers = providers,
+        )
+    }
 
     /**
      * Registry for managing active instances in a distributed deployment.

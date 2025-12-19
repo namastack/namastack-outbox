@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.handler.OutboxHandlerRegistry
 import io.namastack.outbox.handler.method.OutboxHandlerMethod
 import java.time.Clock
@@ -62,6 +63,7 @@ import kotlin.reflect.KClass
  */
 class OutboxService(
     private val handlerRegistry: OutboxHandlerRegistry,
+    private val contextCollector: OutboxContextCollector,
     private val outboxRecordRepository: OutboxRecordRepository,
     private val clock: Clock,
 ) : Outbox {
@@ -109,6 +111,8 @@ class OutboxService(
         // Discover all applicable handlers for this payload type
         val handlerIds = collectHandlers(payload).map { it.id }.toSet()
 
+        val context = contextCollector.collectContext()
+
         // Create separate record for each handler
         // Each record has independent retry/processing state
         handlerIds.forEach { handlerId ->
@@ -118,6 +122,7 @@ class OutboxService(
                     .key(key)
                     .payload(payload)
                     .handlerId(handlerId)
+                    .context(context)
                     .build(clock)
 
             outboxRecordRepository.save(outboxRecord)

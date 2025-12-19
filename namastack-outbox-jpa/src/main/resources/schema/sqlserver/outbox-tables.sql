@@ -15,6 +15,7 @@ CREATE TABLE outbox_record
     next_retry_at  DATETIME2     NOT NULL,
     partition_no   INT           NOT NULL,
     handler_id     VARCHAR(1000) NOT NULL
+    context        VARCHAR(MAX)  NULL,
         PRIMARY KEY (id),
     INDEX idx_outbox_record_record_key_created (record_key, created_at),
     INDEX idx_outbox_record_partition_status_retry (partition_no, status, next_retry_at),
