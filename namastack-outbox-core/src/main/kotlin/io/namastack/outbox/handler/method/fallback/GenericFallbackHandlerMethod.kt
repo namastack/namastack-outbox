@@ -12,7 +12,7 @@ import java.lang.reflect.Method
  * @param bean Bean containing the fallback handler method
  * @param method Handler method (must have Any + metadata + context parameters)
  * @author Roland Beisel
- * @since 0.6.0
+ * @since 0.5.0
  */
 class GenericFallbackHandlerMethod(
     bean: Any,

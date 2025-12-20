@@ -13,7 +13,7 @@ import io.namastack.outbox.handler.method.fallback.OutboxFallbackHandlerMethod
  * 2. OutboxHandlerWithFallback/OutboxTypedHandlerWithFallback interface implementations (discovered by InterfaceFallbackHandlerScanner)
  *
  * @author Roland Beisel
- * @since 0.6.0
+ * @since 0.5.0
  */
 class OutboxFallbackHandlerRegistry {
     /**

@@ -94,7 +94,7 @@ package io.namastack.outbox.annotation
  * @see io.namastack.outbox.annotation.OutboxHandler
  * @see io.namastack.outbox.handler.OutboxFailureContext
  * @author Roland Beisel
- * @since 0.6.0
+ * @since 0.5.0
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)

@@ -35,7 +35,7 @@ package io.namastack.outbox.handler
  * @property nonRetryableException True if the record failed due to a non-retryable exception
  *
  * @author Roland Beisel
- * @since 0.6.0
+ * @since 0.5.0
  */
 data class OutboxFailureContext(
     val recordId: String,

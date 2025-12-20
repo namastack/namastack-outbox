@@ -14,7 +14,7 @@ import java.lang.reflect.Method
  * Signature: `fun handleFailure(payload: Any, metadata: OutboxRecordMetadata, context: OutboxFailureContext)`
  *
  * @author Roland Beisel
- * @since 0.6.0
+ * @since 0.5.0
  */
 class GenericFallbackHandlerMethodFactory : OutboxFallbackHandlerMethodFactory {
     /**

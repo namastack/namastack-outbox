@@ -12,7 +12,7 @@ import java.lang.reflect.Method
  * - Finding methods with specific signatures
  *
  * @author Roland Beisel
- * @since 0.6.0
+ * @since 0.5.0
  */
 internal object ReflectionUtils {
     /**

@@ -38,7 +38,7 @@ package io.namastack.outbox.handler
  * are logged but do not trigger retries.
  *
  * @author Roland Beisel
- * @since 0.6.0
+ * @since 0.5.0
  */
 interface OutboxHandlerWithFallback : OutboxHandler {
     /**

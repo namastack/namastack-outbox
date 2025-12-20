@@ -34,7 +34,7 @@ package io.namastack.outbox.handler
  * @param T The type of the payload this handler processes
  *
  * @author Roland Beisel
- * @since 0.6.0
+ * @since 0.5.0
  */
 interface OutboxTypedHandlerWithFallback<T> : OutboxTypedHandler<T> {
     /**
