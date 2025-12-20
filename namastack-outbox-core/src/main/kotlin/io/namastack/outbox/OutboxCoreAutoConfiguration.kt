@@ -1,6 +1,8 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.annotation.EnableOutbox
+import io.namastack.outbox.context.OutboxContextCollector
+import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
 import io.namastack.outbox.handler.OutboxHandlerInvoker
 import io.namastack.outbox.handler.OutboxHandlerRegistry
@@ -171,9 +173,11 @@ class OutboxCoreAutoConfiguration {
      *
      * Responsible for:
      * - Storing records atomically with business transactions
+     * - Collecting context via OutboxContextCollector and storing it
      * - Selecting appropriate handler and storing handler ID
      * - Triggering immediate processing if configured
      *
+     * @param outboxContextCollector Collector that gathers context from all registered providers
      * @param handlerRegistry Registry for handler lookup and ID assignment
      * @param recordRepository Repository for persisting records
      * @param clock Clock for timestamp generation
@@ -182,14 +186,36 @@ class OutboxCoreAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     internal fun outbox(
+        outboxContextCollector: OutboxContextCollector,
         handlerRegistry: OutboxHandlerRegistry,
         recordRepository: OutboxRecordRepository,
         clock: Clock,
     ): Outbox =
         OutboxService(
+            contextCollector = outboxContextCollector,
             handlerRegistry = handlerRegistry,
             outboxRecordRepository = recordRepository,
             clock = clock,
+        )
+
+    /**
+     * Creates the context collector for gathering outbox context during record creation.
+     *
+     * The collector aggregates context from all registered OutboxContextProvider beans.
+     * Context can include tracing information, user identity, tenant data, or any custom
+     * metadata that should be captured when scheduling outbox records.
+     *
+     * Providers are automatically discovered and injected by Spring. The collected context
+     * is stored with each outbox record for use during processing.
+     *
+     * @param providers List of all OutboxContextProvider beans available in the application context
+     * @return OutboxContextCollector that aggregates context from all providers
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxContextCollector(providers: List<OutboxContextProvider>): OutboxContextCollector =
+        OutboxContextCollector(
+            providers = providers,
         )
 
     /**
