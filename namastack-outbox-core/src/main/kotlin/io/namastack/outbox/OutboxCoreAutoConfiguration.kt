@@ -5,7 +5,8 @@ import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
 import io.namastack.outbox.handler.OutboxHandlerInvoker
-import io.namastack.outbox.handler.OutboxHandlerRegistry
+import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
+import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
@@ -327,10 +328,10 @@ class OutboxCoreAutoConfiguration {
         )
 
     /**
-     * Custom ApplicationEventMulticaster for @OutboxEvent handling.
+     * Custom ApplicationEventMulticaster for outbox event handling.
      *
-     * Intercepts events annotated with @OutboxEvent and routes them through
-     * the outbox system instead of direct in-process publishing.
+     * Intercepts specific events and routes them through the outbox system
+     * instead of direct in-process publishing.
      *
      * ## Configuration
      *
@@ -381,6 +382,22 @@ class OutboxCoreAutoConfiguration {
         internal fun outboxHandlerRegistry(): OutboxHandlerRegistry = OutboxHandlerRegistry()
 
         /**
+         * Registry for fallback handlers with 1:1 mapping to their handlers.
+         *
+         * Each handler can have at most one fallback handler. Fallback handlers are invoked
+         * when the main handler fails after all retries are exhausted or on non-retryable exceptions.
+         *
+         * Populated during bean post-processing.
+         *
+         * @return Empty OutboxFallbackHandlerRegistry (populated during bean post-processing)
+         */
+        @Bean
+        @ConditionalOnMissingBean
+        @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+        @JvmStatic
+        internal fun outboxFallbackHandlerRegistry(): OutboxFallbackHandlerRegistry = OutboxFallbackHandlerRegistry()
+
+        /**
          * Registry for handler-specific retry policies.
          *
          * Manages the retry policy for each handler method. Policies are resolved
@@ -400,23 +417,14 @@ class OutboxCoreAutoConfiguration {
             OutboxRetryPolicyRegistry(beanFactory)
 
         /**
-         * BeanPostProcessor that discovers and registers handler methods.
+         * BeanPostProcessor that discovers and registers handlers and fallbacks.
          *
-         * Scans each bean for:
-         * 1. @OutboxHandler annotated methods
-         * 2. OutboxHandler/OutboxTypedHandler<T> interface implementations
+         * Scans for @OutboxHandler/@OutboxFallbackHandler annotations and interface implementations.
+         * Registers handlers, fallbacks, and retry policies during bean initialization.
          *
-         * For each discovered handler, registers both:
-         * - The handler method itself in the handler registry
-         * - The handler's retry policy in the retry policy registry
-         *
-         * Supports both typed and generic handler signatures.
-         *
-         * Marked as ROLE_INFRASTRUCTURE to prevent circular dependency issues.
-         * This ensures the AutoConfiguration bean is not processed by this BeanPostProcessor.
-         *
-         * @param handlerRegistry The handler registry to populate
-         * @param retryPolicyRegistry The retry policy registry to populate
+         * @param handlerRegistry Handler registry to populate
+         * @param fallbackHandlerRegistry Fallback handler registry to populate
+         * @param retryPolicyRegistry Retry policy registry to populate
          * @return OutboxHandlerBeanPostProcessor bean
          */
         @Bean
@@ -425,7 +433,9 @@ class OutboxCoreAutoConfiguration {
         @JvmStatic
         internal fun outboxHandlerBeanPostProcessor(
             handlerRegistry: OutboxHandlerRegistry,
+            fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
             retryPolicyRegistry: OutboxRetryPolicyRegistry,
-        ): OutboxHandlerBeanPostProcessor = OutboxHandlerBeanPostProcessor(handlerRegistry, retryPolicyRegistry)
+        ): OutboxHandlerBeanPostProcessor =
+            OutboxHandlerBeanPostProcessor(handlerRegistry, fallbackHandlerRegistry, retryPolicyRegistry)
     }
 }

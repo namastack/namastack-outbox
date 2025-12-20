@@ -1,7 +1,8 @@
-package io.namastack.outbox.handler.method
+package io.namastack.outbox.handler.method.handler.factory
 
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach

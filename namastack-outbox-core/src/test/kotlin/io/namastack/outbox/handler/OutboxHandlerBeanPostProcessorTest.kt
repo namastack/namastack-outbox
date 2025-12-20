@@ -4,6 +4,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
 import io.namastack.outbox.annotation.OutboxHandler
+import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
+import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.aopalliance.intercept.MethodInterceptor
@@ -25,6 +27,7 @@ import org.springframework.beans.factory.getBean
 class OutboxHandlerBeanPostProcessorTest {
     private val beanFactory = mockk<BeanFactory>(relaxed = true)
     private val handlerRegistry = spyk(OutboxHandlerRegistry())
+    private val fallbackHandlerRegistry = spyk(OutboxFallbackHandlerRegistry())
     private val retryPolicyRegistry = spyk(OutboxRetryPolicyRegistry(beanFactory))
     private lateinit var beanPostProcessor: OutboxHandlerBeanPostProcessor
 
@@ -32,7 +35,8 @@ class OutboxHandlerBeanPostProcessorTest {
     fun setUp() {
         every { beanFactory.getBean<OutboxRetryPolicy>("outboxRetryPolicy") } returns
             mockk<OutboxRetryPolicy>(relaxed = true)
-        beanPostProcessor = OutboxHandlerBeanPostProcessor(handlerRegistry, retryPolicyRegistry)
+        beanPostProcessor =
+            OutboxHandlerBeanPostProcessor(handlerRegistry, fallbackHandlerRegistry, retryPolicyRegistry)
     }
 
     @Nested

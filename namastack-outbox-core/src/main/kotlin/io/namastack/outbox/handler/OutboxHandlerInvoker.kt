@@ -1,7 +1,8 @@
 package io.namastack.outbox.handler
 
-import io.namastack.outbox.handler.method.GenericHandlerMethod
-import io.namastack.outbox.handler.method.TypedHandlerMethod
+import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
+import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
+import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 
 /**
  * Invokes the appropriate handler for a given record.

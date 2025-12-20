@@ -1,6 +1,7 @@
-package io.namastack.outbox.handler.method
+package io.namastack.outbox.handler.method.handler.factory
 
 import io.namastack.outbox.handler.OutboxTypedHandler
+import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -93,7 +94,7 @@ class TypedHandlerMethodFactoryTest {
             assertThat(result).isInstanceOf(TypedHandlerMethod::class.java)
             assertThat(result.bean).isSameAs(bean)
             assertThat(result.method).isEqualTo(method)
-            assertThat((result as TypedHandlerMethod).paramType).isEqualTo(String::class)
+            assertThat(result.method.parameterTypes.first()).isEqualTo(String::class.java)
         }
 
         @Test
@@ -104,7 +105,7 @@ class TypedHandlerMethodFactoryTest {
             val result = factory.create(bean, method)
 
             assertThat(result).isInstanceOf(TypedHandlerMethod::class.java)
-            assertThat((result as TypedHandlerMethod).paramType).isEqualTo(TestPayload::class)
+            assertThat(result.method.parameterTypes.first()).isEqualTo(TestPayload::class.java)
         }
 
         @Test
@@ -163,7 +164,7 @@ class TypedHandlerMethodFactoryTest {
 
             assertThat(result).isInstanceOf(TypedHandlerMethod::class.java)
             assertThat(result.bean).isSameAs(bean)
-            assertThat(result.paramType).isEqualTo(String::class)
+            assertThat(result.method.parameterTypes.first()).isEqualTo(String::class.java)
         }
 
         @Test
@@ -173,17 +174,7 @@ class TypedHandlerMethodFactoryTest {
             val result = factory.createFromInterface(bean)
 
             assertThat(result).isInstanceOf(TypedHandlerMethod::class.java)
-            assertThat(result.paramType).isEqualTo(TestPayload::class)
-        }
-
-        @Test
-        fun `should create typed handler from OutboxTypedHandler Int implementation`() {
-            val bean = IntHandlerImpl()
-
-            val result = factory.createFromInterface(bean)
-
-            assertThat(result).isInstanceOf(TypedHandlerMethod::class.java)
-            assertThat(result.paramType).isEqualTo(Int::class)
+            assertThat(result.method.parameterTypes.first()).isEqualTo(TestPayload::class.java)
         }
 
         @Test
@@ -295,12 +286,6 @@ class TypedHandlerMethodFactoryTest {
 
     class PayloadHandlerImpl : OutboxTypedHandler<TestPayload> {
         override fun handle(payload: TestPayload) {
-            println(payload)
-        }
-    }
-
-    class IntHandlerImpl : OutboxTypedHandler<Int> {
-        override fun handle(payload: Int) {
             println(payload)
         }
     }

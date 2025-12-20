@@ -1,8 +1,8 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.context.OutboxContextCollector
-import io.namastack.outbox.handler.OutboxHandlerRegistry
-import io.namastack.outbox.handler.method.OutboxHandlerMethod
+import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
+import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import java.time.Clock
 import java.util.UUID
 import kotlin.reflect.KClass
@@ -392,8 +392,6 @@ class OutboxService(
      *
      * @param payload Domain object to be processed. Handlers are discovered
      *                based on payload type (including inheritance and interfaces).
-     * @param additionalContext Event-specific context metadata to be stored with the record.
-     *                          This is merged with global context from OutboxContextProvider beans.
      *
      * @throws IllegalStateException if called outside a transaction context
      *

@@ -4,8 +4,9 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
-import io.namastack.outbox.handler.method.GenericHandlerMethod
-import io.namastack.outbox.handler.method.TypedHandlerMethod
+import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
+import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
+import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -255,7 +256,7 @@ class OutboxHandlerInvokerTest {
         fun `should unwrap InvocationTargetException from typed handler`() {
             val bean = TestTypedHandlerForUnwrapping()
             val method = bean::class.java.getMethod("handleWithException", String::class.java)
-            val typedHandler = TypedHandlerMethod(bean, method, String::class)
+            val typedHandler = TypedHandlerMethod(bean, method)
             val metadata = OutboxRecordMetadata("test-key", "handler-1", now)
 
             every { handlerRegistry.getHandlerById("handler-1") } returns typedHandler

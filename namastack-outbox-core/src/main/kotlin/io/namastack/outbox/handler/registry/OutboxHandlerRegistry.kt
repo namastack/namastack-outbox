@@ -1,8 +1,8 @@
-package io.namastack.outbox.handler
+package io.namastack.outbox.handler.registry
 
-import io.namastack.outbox.handler.method.GenericHandlerMethod
-import io.namastack.outbox.handler.method.OutboxHandlerMethod
-import io.namastack.outbox.handler.method.TypedHandlerMethod
+import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
+import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
+import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import kotlin.reflect.KClass
 
 /**
@@ -70,35 +70,29 @@ class OutboxHandlerRegistry {
     fun getGenericHandlers(): List<GenericHandlerMethod> = genericHandlers.toList()
 
     /**
-     * Registers a typed handler for a specific payload type.
+     * Registers a handler method.
+     *
+     * Automatically routes to the appropriate internal registration based on handler type:
+     * - TypedHandlerMethod: Registers for specific payload type
+     * - GenericHandlerMethod: Registers as fallback for all types
      *
      * Also adds the handler to the global handlers map for ID-based lookup.
      *
-     * @param handlerMethod The typed handler method to register
-     * @param paramType The payload type this handler processes
+     * @param handlerMethod The handler method to register
      * @throws IllegalStateException if a handler with the same ID already exists
      */
-    internal fun registerTypedHandler(
-        handlerMethod: TypedHandlerMethod,
-        paramType: KClass<*>,
-    ) {
-        typedHandlers
-            .computeIfAbsent(paramType) { mutableListOf() }
-            .add(handlerMethod)
+    internal fun register(handlerMethod: OutboxHandlerMethod) {
+        when (handlerMethod) {
+            is TypedHandlerMethod -> {
+                typedHandlers
+                    .computeIfAbsent(handlerMethod.paramType) { mutableListOf() }
+                    .add(handlerMethod)
+            }
 
-        registerInAllHandlers(handlerMethod)
-    }
-
-    /**
-     * Registers a generic handler.
-     *
-     * Also adds the handler to the global handlers map for ID-based lookup.
-     *
-     * @param handlerMethod The generic handler method to register
-     * @throws IllegalStateException if a handler with the same ID already exists
-     */
-    internal fun registerGenericHandler(handlerMethod: GenericHandlerMethod) {
-        genericHandlers.add(handlerMethod)
+            is GenericHandlerMethod -> {
+                genericHandlers.add(handlerMethod)
+            }
+        }
 
         registerInAllHandlers(handlerMethod)
     }

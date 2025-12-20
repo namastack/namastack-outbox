@@ -1,97 +1,87 @@
 package io.namastack.outbox.handler
 
-import io.namastack.outbox.handler.method.GenericHandlerMethodFactory
-import io.namastack.outbox.handler.method.TypedHandlerMethodFactory
-import io.namastack.outbox.handler.scanner.AnnotatedHandlerScanner
-import io.namastack.outbox.handler.scanner.InterfaceHandlerScanner
+import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
+import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
+import io.namastack.outbox.handler.scanner.RetryPolicyScanner
+import io.namastack.outbox.handler.scanner.handler.AnnotatedHandlerScanner
+import io.namastack.outbox.handler.scanner.handler.InterfaceHandlerScanner
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.springframework.beans.factory.config.BeanPostProcessor
 
 /**
- * Spring BeanPostProcessor that discovers and registers handler methods.
+ * Spring BeanPostProcessor that discovers and registers handlers with their fallbacks.
  *
- * Called for each bean after Spring instantiates it. Scans for handlers using
- * multiple strategies:
- * 1. Annotation-based: Methods marked with @OutboxHandler
- * 2. Interface-based: Beans implementing OutboxHandler or OutboxTypedHandler<T>
+ * Called for each bean after Spring instantiates it. Uses scanners to discover handlers:
+ * - AnnotatedHandlerScanner: Finds @OutboxHandler annotated methods
+ * - InterfaceHandlerScanner: Finds OutboxHandler/OutboxTypedHandler interface implementations
  *
- * For each discovered handler, registers both:
- * - The handler method in the handler registry
- * - The handler's retry policy in the retry policy registry
+ * Each scanner discovers both the handler and its associated fallback (if present).
  *
- * ## Timing
+ * Registration per handler:
+ * 1. Register handler in handler registry
+ * 2. Register fallback (if present) with handler.id as key
+ * 3. Register retry policy for handler
  *
- * Runs in the post-initialization phase (after Constructor + Dependency Injection).
- * This ensures:
- * - Bean is fully instantiated and initialized
- * - All dependencies are injected
- * - The bean is ready to handle invocations
- *
- * ## Handler Types Supported
- *
- * - **Typed Handlers**: Single parameter with specific payload type
- *   ```kotlin
- *   @OutboxHandler
- *   fun handle(payload: OrderCreatedEvent) { ... }
- *   ```
- *
- * - **Generic Handlers**: Two parameters (Any + OutboxRecordMetadata)
- *   ```kotlin
- *   @OutboxHandler
- *   fun handle(payload: Any, metadata: OutboxRecordMetadata) { ... }
- *   ```
- *
- * - **Interface Implementations**:
- *   ```kotlin
- *   class MyHandler : OutboxTypedHandler<OrderCreatedEvent> {
- *       override fun handle(payload: OrderCreatedEvent) { ... }
- *   }
- *   ```
- *
- * @param handlerRegistry The handler registry to store discovered handlers
- * @param retryPolicyRegistry The retry policy registry to store handler-specific retry policies
+ * @param handlerRegistry Handler registry for discovered handlers
+ * @param fallbackHandlerRegistry Fallback registry for discovered fallbacks
+ * @param retryPolicyRegistry Retry policy registry for handler-specific policies
  *
  * @author Roland Beisel
  * @since 0.4.0
  */
 internal class OutboxHandlerBeanPostProcessor(
     private val handlerRegistry: OutboxHandlerRegistry,
+    private val fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
     private val retryPolicyRegistry: OutboxRetryPolicyRegistry,
 ) : BeanPostProcessor {
     /**
-     * List of scanners that discover handlers in different ways.
-     * Each scanner uses a different strategy (annotations vs interfaces).
+     * Scanners that discover handlers with their associated fallbacks.
+     * Each scanner returns HandlerScanResult containing handler + optional fallback.
      */
-    private val scanners =
-        listOf(
-            AnnotatedHandlerScanner(factories = listOf(TypedHandlerMethodFactory(), GenericHandlerMethodFactory())),
-            InterfaceHandlerScanner(),
-        )
+    private val handlerScanners = listOf(AnnotatedHandlerScanner(), InterfaceHandlerScanner())
+
+    /**
+     * Scanners that extract retry policies from handlers.
+     */
+    private val retryPolicyScanners = listOf(RetryPolicyScanner(retryPolicyRegistry))
 
     /**
      * Processes a bean after Spring instantiation.
      *
-     * Algorithm:
-     * 1. Scan the bean using all configured scanners
-     * 2. For each discovered handler:
-     *    a. Register the handler method in the handler registry
-     *    b. Register the handler's retry policy in the retry policy registry
-     * 3. Return the bean unchanged (just registering side effects)
+     * Scans for handlers and their fallbacks, then registers them:
+     * 1. Scan bean for handlers using all scanners
+     * 2. Register handler in handler registry
+     * 3. Register fallback (if present) with handler.id
+     * 4. Register retry policy for handler
      *
      * @param bean The newly instantiated bean
-     * @param beanName The name of the bean in the Spring context
+     * @param beanName The bean name in Spring context
      * @return The original bean unchanged
      */
     override fun postProcessAfterInitialization(
         bean: Any,
         beanName: String,
     ): Any {
-        scanners
-            .flatMap { it.scan(bean) }
-            .forEach { handlerMethod ->
-                handlerMethod.register(handlerRegistry)
-                handlerMethod.registerRetryPolicy(retryPolicyRegistry)
+        // 1. Scan for all handlers (and their fallbacks) in this bean
+        val scanResults = handlerScanners.flatMap { it.scan(bean) }
+
+        // 2. For each result: register handler + fallback + retry policy
+        scanResults.forEach { result ->
+            // a. Register handler
+            handlerRegistry.register(result.handler)
+
+            // b. Register fallback if present (1:1 mapping)
+            result.fallback?.let { fallback ->
+                fallbackHandlerRegistry.register(result.handler.id, fallback)
             }
+
+            // c. Register retry policy for this handler
+            retryPolicyScanners
+                .mapNotNull { it.scan(result.handler) }
+                .forEach { policy ->
+                    retryPolicyRegistry.register(result.handler.id, policy)
+                }
+        }
 
         return bean
     }
