@@ -4,7 +4,8 @@ import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
-import io.namastack.outbox.handler.OutboxHandlerInvoker
+import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
+import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.instance.OutboxInstanceRegistry
@@ -36,30 +37,9 @@ import java.time.Clock
 /**
  * Auto-configuration class for Outbox core functionality.
  *
- * Activated when @EnableOutbox annotation is present. Provides all necessary beans
- * for the outbox pattern implementation including:
- * - Handler discovery and registration (BeanPostProcessor)
- * - Partition-aware processing scheduling
- * - Retry policies and recovery strategies
- * - Instance coordination for distributed deployments
- * - Event multicasting for @OutboxEvent annotated events
- *
- * ## Bean Groups
- *
- * **Core Infrastructure:**
- * - clock, task executors, schedulers
- *
- * **Handler Management:**
- * - OutboxHandlerRegistry, OutboxHandlerBeanPostProcessor
- * - OutboxHandlerInvoker for dispatching to handlers
- *
- * **Record Processing:**
- * - OutboxProcessingScheduler (partition-aware)
- * - PartitionCoordinator for distributed coordination
- * - OutboxRetryPolicy for failure handling
- *
- * **Event Publishing (Optional):**
- * - OutboxEventMulticaster (if outbox.multicaster.enabled=true)
+ * Activated when @EnableOutbox annotation is present. Configures handler discovery
+ * and registration, partition-aware processing scheduling, retry policies, instance
+ * coordination for distributed deployments, and optional event multicasting.
  *
  * @author Roland Beisel
  * @since 0.1.0
@@ -170,6 +150,21 @@ class OutboxCoreAutoConfiguration {
         OutboxHandlerInvoker(outboxHandlerRegistry)
 
     /**
+     * Invoker for fallback handlers when record processing permanently fails.
+     *
+     * Routes failed records to their registered fallback handlers based on handler ID.
+     * If no fallback is registered for a handler, returns silently without error.
+     *
+     * @param outboxFallbackHandlerRegistry Registry of registered fallback handlers
+     * @return OutboxFallbackHandlerInvoker for fallback dispatching
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxFallbackHandlerInvoker(
+        outboxFallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
+    ): OutboxFallbackHandlerInvoker = OutboxFallbackHandlerInvoker(outboxFallbackHandlerRegistry)
+
+    /**
      * Creates the public Outbox API for scheduling records.
      *
      * Responsible for:
@@ -265,64 +260,66 @@ class OutboxCoreAutoConfiguration {
         )
 
     /**
-     * Main scheduler for processing outbox records.
+     * Processor for individual outbox record lifecycle.
      *
-     * Responsibilities:
-     * - Discovers pending records by partition
-     * - Routes records to handlers via OutboxHandlerInvoker
-     * - Implements handler-specific retry logic with configurable backoff
-     * - Marks records as completed or failed
-     * - Supports ordered processing per record key (partition-based)
+     * Handles dispatching to handlers, retry logic, and fallback invocation.
      *
-     * ## Processing Flow
-     *
-     * 1. Get assigned partitions from PartitionCoordinator
-     * 2. Load pending record keys from each partition
-     * 3. For each record key:
-     *    a. Load all incomplete records in order
-     *    b. Dispatch each to the handler
-     *    c. On failure: Apply handler-specific retry logic (delay + increment counter)
-     *    d. On success: Mark completed and optionally delete
-     *
-     * ## Concurrency
-     *
-     * - Multiple record keys are processed in parallel (via taskExecutor)
-     * - Records within same key are processed sequentially (ordering guarantee)
-     * - One instance processes one partition (no concurrent access)
-     *
-     * ## Handler-Specific Retry Policies
-     *
-     * Each handler can define its own retry policy via:
-     * - @OutboxRetryable annotation
-     * - OutboxRetryAware interface
-     * - Default policy as fallback
-     *
-     * @param recordRepository Repository for accessing/updating records
-     * @param dispatcher Dispatcher that invokes handlers
-     * @param partitionCoordinator Coordinator for partition assignments
+     * @param recordRepository Repository for persisting record state
+     * @param handlerInvoker Dispatcher for normal handlers
+     * @param fallbackHandlerInvoker Dispatcher for fallback handlers
      * @param retryPolicyRegistry Registry for handler-specific retry policies
      * @param properties Configuration properties
-     * @param taskExecutor TaskExecutor for parallel key processing
-     * @param clock Clock for time-based calculations
-     * @return OutboxProcessingScheduler for orchestrating record processing
+     * @param clock Clock for time calculations
+     * @return OutboxRecordProcessor for record processing
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxRecordProcessor(
+        recordRepository: OutboxRecordRepository,
+        handlerInvoker: OutboxHandlerInvoker,
+        fallbackHandlerInvoker: OutboxFallbackHandlerInvoker,
+        retryPolicyRegistry: OutboxRetryPolicyRegistry,
+        properties: OutboxProperties,
+        clock: Clock,
+    ): OutboxRecordProcessor =
+        OutboxRecordProcessor(
+            recordRepository = recordRepository,
+            handlerInvoker = handlerInvoker,
+            fallbackHandlerInvoker = fallbackHandlerInvoker,
+            retryPolicyRegistry = retryPolicyRegistry,
+            properties = properties,
+            clock = clock,
+        )
+
+    /**
+     * Scheduler for outbox record processing with partition coordination.
+     *
+     * Loads record keys from assigned partitions in batches and dispatches them
+     * for parallel processing. Record processing logic is delegated to OutboxRecordProcessor.
+     *
+     * @param recordRepository Repository for loading records
+     * @param recordProcessor Processor for individual record lifecycle
+     * @param partitionCoordinator Coordinator for partition assignments
+     * @param properties Configuration properties
+     * @param taskExecutor TaskExecutor for parallel processing
+     * @param clock Clock for time calculations
+     * @return OutboxProcessingScheduler for coordinated processing
      */
     @Bean
     @ConditionalOnMissingBean
     fun outboxProcessingScheduler(
         recordRepository: OutboxRecordRepository,
-        dispatcher: OutboxHandlerInvoker,
+        recordProcessor: OutboxRecordProcessor,
         partitionCoordinator: PartitionCoordinator,
-        retryPolicyRegistry: OutboxRetryPolicyRegistry,
         properties: OutboxProperties,
         @Qualifier("outboxTaskExecutor") taskExecutor: TaskExecutor,
         clock: Clock,
     ): OutboxProcessingScheduler =
         OutboxProcessingScheduler(
             recordRepository = recordRepository,
-            handlerInvoker = dispatcher,
+            recordProcessor = recordProcessor,
             partitionCoordinator = partitionCoordinator,
             taskExecutor = taskExecutor,
-            retryPolicyRegistry = retryPolicyRegistry,
             properties = properties,
             clock = clock,
         )

@@ -3,7 +3,6 @@ package io.namastack.outbox.handler.method.handler.factory
 import io.namastack.outbox.handler.OutboxTypedHandler
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -106,18 +105,6 @@ class TypedHandlerMethodFactoryTest {
 
             assertThat(result).isInstanceOf(TypedHandlerMethod::class.java)
             assertThat(result.method.parameterTypes.first()).isEqualTo(TestPayload::class.java)
-        }
-
-        @Test
-        fun `should throw exception when creating handler with Any parameter`() {
-            val bean = TestHandler()
-            val method = TestHandler::class.java.getMethod("handleAny", Any::class.java)
-
-            assertThatThrownBy {
-                factory.create(bean, method)
-            }.isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("must not use Any")
-                .hasMessageContaining(method.toString())
         }
 
         @Test

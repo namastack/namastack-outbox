@@ -62,24 +62,27 @@ internal class OutboxHandlerBeanPostProcessor(
         bean: Any,
         beanName: String,
     ): Any {
-        // 1. Scan for all handlers (and their fallbacks) in this bean
+        // 1. Scan for all handlers and their fallbacks in this bean
         val scanResults = handlerScanners.flatMap { it.scan(bean) }
 
         // 2. For each result: register handler + fallback + retry policy
         scanResults.forEach { result ->
+            val handler = result.handler
+            val handlerId = handler.id
+
             // a. Register handler
-            handlerRegistry.register(result.handler)
+            handlerRegistry.register(handler)
 
             // b. Register fallback if present (1:1 mapping)
-            result.fallback?.let { fallback ->
-                fallbackHandlerRegistry.register(result.handler.id, fallback)
+            result.fallback?.let { fallbackHandlerMethod ->
+                fallbackHandlerRegistry.register(handlerId, fallbackHandlerMethod)
             }
 
             // c. Register retry policy for this handler
             retryPolicyScanners
-                .mapNotNull { it.scan(result.handler) }
+                .mapNotNull { it.scan(handler) }
                 .forEach { policy ->
-                    retryPolicyRegistry.register(result.handler.id, policy)
+                    retryPolicyRegistry.register(handlerId, policy)
                 }
         }
 

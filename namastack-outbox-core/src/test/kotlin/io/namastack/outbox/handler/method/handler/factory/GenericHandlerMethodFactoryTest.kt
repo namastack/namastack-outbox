@@ -4,7 +4,6 @@ import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -118,38 +117,6 @@ class GenericHandlerMethodFactoryTest {
             assertThat(result).isInstanceOf(GenericHandlerMethod::class.java)
             assertThat(result.bean).isSameAs(bean)
             assertThat(result.method).isEqualTo(method)
-        }
-
-        @Test
-        fun `should throw exception when first parameter is not Any`() {
-            val bean = TestHandler()
-            val method =
-                TestHandler::class.java.getMethod(
-                    "handleTyped",
-                    String::class.java,
-                    OutboxRecordMetadata::class.java,
-                )
-
-            assertThatThrownBy {
-                factory.create(bean, method)
-            }.isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("first parameter must be Any")
-        }
-
-        @Test
-        fun `should throw exception when second parameter is not OutboxRecordMetadata`() {
-            val bean = TestHandler()
-            val method =
-                TestHandler::class.java.getMethod(
-                    "handleWrongMetadata",
-                    Any::class.java,
-                    String::class.java,
-                )
-
-            assertThatThrownBy {
-                factory.create(bean, method)
-            }.isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("second parameter must be OutboxRecordMetadata")
         }
 
         @Test

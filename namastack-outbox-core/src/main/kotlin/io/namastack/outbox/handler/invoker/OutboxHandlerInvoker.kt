@@ -1,5 +1,6 @@
-package io.namastack.outbox.handler
+package io.namastack.outbox.handler.invoker
 
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
@@ -57,7 +58,6 @@ class OutboxHandlerInvoker(
             handlerRegistry.getHandlerById(metadata.handlerId)
                 ?: throw IllegalStateException("No handler with id ${metadata.handlerId}")
 
-        // Invoke handler based on type (typed vs generic)
         when (handler) {
             is TypedHandlerMethod -> handler.invoke(payload)
             is GenericHandlerMethod -> handler.invoke(payload, metadata)

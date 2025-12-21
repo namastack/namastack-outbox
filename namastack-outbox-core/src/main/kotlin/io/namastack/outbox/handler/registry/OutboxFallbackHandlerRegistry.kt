@@ -35,7 +35,7 @@ class OutboxFallbackHandlerRegistry {
      * @param id The unique handler ID (from metadata.handlerId)
      * @return The fallback handler for this handler, or null if no fallback is registered
      */
-    fun getHandlerById(id: String): OutboxFallbackHandlerMethod? = fallbackHandlersByHandlerId[id]
+    fun getByHandlerId(id: String): OutboxFallbackHandlerMethod? = fallbackHandlersByHandlerId[id]
 
     /**
      * Registers a fallback handler for a specific handler.

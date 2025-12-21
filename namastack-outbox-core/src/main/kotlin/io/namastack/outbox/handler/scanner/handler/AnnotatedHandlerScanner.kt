@@ -13,8 +13,6 @@ import io.namastack.outbox.handler.scanner.HandlerScanResult
 import org.slf4j.LoggerFactory
 import java.lang.reflect.Method
 
-private val log = LoggerFactory.getLogger(AnnotatedHandlerScanner::class.java)
-
 /**
  * Scanner that discovers @OutboxHandler annotated methods with their @OutboxFallbackHandler methods.
  *
@@ -42,6 +40,8 @@ private val log = LoggerFactory.getLogger(AnnotatedHandlerScanner::class.java)
  * @since 0.4.0
  */
 class AnnotatedHandlerScanner : HandlerScanner {
+    private val log = LoggerFactory.getLogger(AnnotatedHandlerScanner::class.java)
+
     private val handlerFactories: List<OutboxHandlerMethodFactory> =
         listOf(
             TypedHandlerMethodFactory(),
