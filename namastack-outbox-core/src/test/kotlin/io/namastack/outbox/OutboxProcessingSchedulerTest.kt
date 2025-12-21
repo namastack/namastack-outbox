@@ -5,6 +5,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.OutboxRecordTestFactory.outboxRecord
 import io.namastack.outbox.partition.PartitionCoordinator
+import io.namastack.outbox.processor.OutboxRecordProcessor
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.BeforeEach
@@ -45,7 +46,7 @@ class OutboxProcessingSchedulerTest {
         scheduler =
             OutboxProcessingScheduler(
                 recordRepository = recordRepository,
-                recordProcessor = recordProcessor,
+                recordProcessorChain = recordProcessor,
                 partitionCoordinator = partitionCoordinator,
                 taskExecutor = SyncTaskExecutor(),
                 properties = properties,
@@ -155,7 +156,7 @@ class OutboxProcessingSchedulerTest {
 
         setupBasicMocks(recordKeys = listOf(recordKey))
         every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } returns listOf(record)
-        every { recordProcessor.processRecord(any()) } returns true
+        every { recordProcessor.handle(any()) } returns true
 
         scheduler.process()
 
@@ -180,11 +181,11 @@ class OutboxProcessingSchedulerTest {
 
         setupBasicMocks(recordKeys = listOf(recordKey))
         every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } returns listOf(record1, record2)
-        every { recordProcessor.processRecord(any()) } returns true
+        every { recordProcessor.handle(any()) } returns true
 
         scheduler.process()
 
-        verify(exactly = 2) { recordProcessor.processRecord(any()) }
+        verify(exactly = 2) { recordProcessor.handle(any()) }
     }
 
     @Test
@@ -203,7 +204,7 @@ class OutboxProcessingSchedulerTest {
 
         scheduler.process()
 
-        verify(exactly = 0) { recordProcessor.processRecord(any()) }
+        verify(exactly = 0) { recordProcessor.handle(any()) }
     }
 
     @Test
@@ -232,12 +233,12 @@ class OutboxProcessingSchedulerTest {
 
         setupBasicMocks(recordKeys = listOf(recordKey))
         every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } returns listOf(record1, record2, record3)
-        every { recordProcessor.processRecord(record1) } returns true
-        every { recordProcessor.processRecord(record2) } returns false
+        every { recordProcessor.handle(record1) } returns true
+        every { recordProcessor.handle(record2) } returns false
 
         scheduler.process()
 
-        verify(exactly = 2) { recordProcessor.processRecord(any()) }
+        verify(exactly = 2) { recordProcessor.handle(any()) }
     }
 
     @Test
@@ -264,13 +265,13 @@ class OutboxProcessingSchedulerTest {
 
         setupBasicMocks(recordKeys = listOf(recordKey))
         every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } returns listOf(record1, record2, record3)
-        every { recordProcessor.processRecord(record1) } returns true
-        every { recordProcessor.processRecord(record2) } returns false
-        every { recordProcessor.processRecord(record3) } returns true
+        every { recordProcessor.handle(record1) } returns true
+        every { recordProcessor.handle(record2) } returns false
+        every { recordProcessor.handle(record3) } returns true
 
         scheduler.process()
 
-        verify(exactly = 3) { recordProcessor.processRecord(any()) }
+        verify(exactly = 3) { recordProcessor.handle(any()) }
     }
 
     @Test
@@ -340,7 +341,7 @@ class OutboxProcessingSchedulerTest {
         scheduler.process()
 
         verify { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
-        verify(exactly = 0) { recordProcessor.processRecord(any()) }
+        verify(exactly = 0) { recordProcessor.handle(any()) }
     }
 
     @Test
@@ -368,13 +369,13 @@ class OutboxProcessingSchedulerTest {
 
         setupBasicMocks(recordKeys = listOf(recordKey))
         every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } returns listOf(record1, record2, record3)
-        every { recordProcessor.processRecord(record1) } returns true
+        every { recordProcessor.handle(record1) } returns true
 
         scheduler.process()
 
-        verify { recordProcessor.processRecord(record1) }
-        verify(exactly = 0) { recordProcessor.processRecord(record2) }
-        verify(exactly = 0) { recordProcessor.processRecord(record3) }
+        verify { recordProcessor.handle(record1) }
+        verify(exactly = 0) { recordProcessor.handle(record2) }
+        verify(exactly = 0) { recordProcessor.handle(record3) }
     }
 
     private fun createAsyncScheduler(threadCount: Int): Pair<OutboxProcessingScheduler, ThreadPoolTaskExecutor> {
@@ -390,7 +391,7 @@ class OutboxProcessingSchedulerTest {
         val scheduler =
             OutboxProcessingScheduler(
                 recordRepository = recordRepository,
-                recordProcessor = recordProcessor,
+                recordProcessorChain = recordProcessor,
                 partitionCoordinator = partitionCoordinator,
                 taskExecutor = taskExecutor,
                 properties = properties,

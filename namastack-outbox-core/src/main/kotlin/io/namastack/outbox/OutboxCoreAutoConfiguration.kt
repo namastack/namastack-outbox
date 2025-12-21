@@ -12,6 +12,11 @@ import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
+import io.namastack.outbox.processor.FallbackOutboxRecordProcessor
+import io.namastack.outbox.processor.OutboxRecordProcessor
+import io.namastack.outbox.processor.PermanentFailureOutboxRecordProcessor
+import io.namastack.outbox.processor.PrimaryOutboxRecordProcessor
+import io.namastack.outbox.processor.RetryOutboxRecordProcessor
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
@@ -260,45 +265,68 @@ class OutboxCoreAutoConfiguration {
         )
 
     /**
-     * Processor for individual outbox record lifecycle.
+     * Creates the processor chain for handling outbox records.
      *
-     * Handles dispatching to handlers, retry logic, and fallback invocation.
+     * Chain order:
+     * 1. Primary: Dispatches records to their handlers
+     * 2. Retry: Schedules retries for retryable failures
+     * 3. Fallback: Invokes fallback handlers for permanent failures
+     * 4. PermanentFailure: Marks records as FAILED when all else fails
      *
-     * @param recordRepository Repository for persisting record state
-     * @param handlerInvoker Dispatcher for normal handlers
+     * Each processor can handle the record or pass it to the next processor in the chain.
+     *
+     * @param handlerInvoker Dispatcher for handlers
      * @param fallbackHandlerInvoker Dispatcher for fallback handlers
-     * @param retryPolicyRegistry Registry for handler-specific retry policies
+     * @param recordRepository Repository for persisting record state
+     * @param retryPolicyRegistry Registry for retry policies
      * @param properties Configuration properties
      * @param clock Clock for time calculations
-     * @return OutboxRecordProcessor for record processing
+     * @return Root processor of the chain (PrimaryOutboxRecordProcessor)
      */
     @Bean
     @ConditionalOnMissingBean
-    fun outboxRecordProcessor(
-        recordRepository: OutboxRecordRepository,
+    fun outboxRecordProcessorChain(
         handlerInvoker: OutboxHandlerInvoker,
         fallbackHandlerInvoker: OutboxFallbackHandlerInvoker,
+        recordRepository: OutboxRecordRepository,
         retryPolicyRegistry: OutboxRetryPolicyRegistry,
         properties: OutboxProperties,
         clock: Clock,
-    ): OutboxRecordProcessor =
-        OutboxRecordProcessor(
-            recordRepository = recordRepository,
-            handlerInvoker = handlerInvoker,
-            fallbackHandlerInvoker = fallbackHandlerInvoker,
-            retryPolicyRegistry = retryPolicyRegistry,
-            properties = properties,
-            clock = clock,
-        )
+    ): OutboxRecordProcessor {
+        val primary = PrimaryOutboxRecordProcessor(handlerInvoker, recordRepository, properties, clock)
+        val retry = RetryOutboxRecordProcessor(retryPolicyRegistry, recordRepository, clock)
+        val fallback =
+            FallbackOutboxRecordProcessor(
+                recordRepository = recordRepository,
+                fallbackHandlerInvoker = fallbackHandlerInvoker,
+                retryPolicyRegistry = retryPolicyRegistry,
+                properties = properties,
+                clock = clock,
+            )
+        val permanentFailure = PermanentFailureOutboxRecordProcessor(recordRepository)
+
+        return primary.apply {
+            setNext(
+                retry.apply {
+                    setNext(
+                        fallback.apply {
+                            setNext(permanentFailure)
+                        },
+                    )
+                },
+            )
+        }
+    }
 
     /**
      * Scheduler for outbox record processing with partition coordination.
      *
      * Loads record keys from assigned partitions in batches and dispatches them
-     * for parallel processing. Record processing logic is delegated to OutboxRecordProcessor.
+     * for parallel processing. Each record is processed through the processor chain
+     * which handles dispatching, retry logic, fallback invocation, and failure marking.
      *
      * @param recordRepository Repository for loading records
-     * @param recordProcessor Processor for individual record lifecycle
+     * @param recordProcessorChain Root processor of the chain (PrimaryOutboxRecordProcessor)
      * @param partitionCoordinator Coordinator for partition assignments
      * @param properties Configuration properties
      * @param taskExecutor TaskExecutor for parallel processing
@@ -309,7 +337,7 @@ class OutboxCoreAutoConfiguration {
     @ConditionalOnMissingBean
     fun outboxProcessingScheduler(
         recordRepository: OutboxRecordRepository,
-        recordProcessor: OutboxRecordProcessor,
+        recordProcessorChain: OutboxRecordProcessor,
         partitionCoordinator: PartitionCoordinator,
         properties: OutboxProperties,
         @Qualifier("outboxTaskExecutor") taskExecutor: TaskExecutor,
@@ -317,7 +345,7 @@ class OutboxCoreAutoConfiguration {
     ): OutboxProcessingScheduler =
         OutboxProcessingScheduler(
             recordRepository = recordRepository,
-            recordProcessor = recordProcessor,
+            recordProcessorChain = recordProcessorChain,
             partitionCoordinator = partitionCoordinator,
             taskExecutor = taskExecutor,
             properties = properties,

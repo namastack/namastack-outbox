@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionCoordinator
+import io.namastack.outbox.processor.OutboxRecordProcessor
 import org.slf4j.LoggerFactory
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.annotation.Scheduled
@@ -12,13 +13,13 @@ import java.util.concurrent.CountDownLatch
  * Scheduler for processing outbox records with partition-aware distribution.
  *
  * Loads record keys from assigned partitions in batches, dispatches them to TaskExecutor
- * for parallel processing, coordinates with PartitionCoordinator for partition assignment,
- * and synchronizes batch completion with CountDownLatch.
+ * for parallel processing, and coordinates with PartitionCoordinator for partition assignment.
  *
- * Record processing logic is delegated to OutboxRecordProcessor.
+ * Record processing is delegated to a chain of processors that handle the complete
+ * record lifecycle (dispatch to handler, retry logic, fallback invocation, failure marking).
  *
  * @param recordRepository Repository for loading records
- * @param recordProcessor Processor that handles individual record lifecycle
+ * @param recordProcessorChain Root processor of the chain (typically PrimaryOutboxRecordProcessor)
  * @param partitionCoordinator Coordinator for partition assignments
  * @param taskExecutor Executor for parallel key processing
  * @param properties Configuration properties
@@ -29,7 +30,7 @@ import java.util.concurrent.CountDownLatch
  */
 class OutboxProcessingScheduler(
     private val recordRepository: OutboxRecordRepository,
-    private val recordProcessor: OutboxRecordProcessor,
+    private val recordProcessorChain: OutboxRecordProcessor,
     private val partitionCoordinator: PartitionCoordinator,
     private val taskExecutor: TaskExecutor,
     private val properties: OutboxProperties,
@@ -43,8 +44,11 @@ class OutboxProcessingScheduler(
      * Steps:
      * 1. Get assigned partitions
      * 2. Load record keys in batch
-     * 3. Submit each key to TaskExecutor
+     * 3. Submit each key to TaskExecutor for parallel processing
      * 4. Wait for all tasks to complete
+     *
+     * Each record is processed through the processor chain which handles
+     * dispatching, retry logic, fallback invocation, and failure marking.
      */
     @Scheduled(fixedDelayString = "\${outbox.poll-interval:2000}", scheduler = "outboxDefaultScheduler")
     fun process() {
@@ -96,8 +100,9 @@ class OutboxProcessingScheduler(
     /**
      * Processes all records for a single key sequentially.
      *
-     * Maintains ordering within key. Stops early if record not ready for retry
-     * or if previous record failed and stopOnFirstFailure is true.
+     * Maintains ordering within key. Each record is passed through the processor chain.
+     * Stops early if record not ready for retry or if processor chain returns false
+     * and stopOnFirstFailure is enabled.
      */
     private fun processRecordKey(recordKey: String) {
         try {
@@ -112,7 +117,7 @@ class OutboxProcessingScheduler(
                     break
                 }
 
-                val success = recordProcessor.processRecord(record)
+                val success = recordProcessorChain.handle(record)
 
                 if (!success && properties.processing.stopOnFirstFailure) {
                     log.trace("Stopping key {} processing (stopOnFirstFailure=true)", recordKey)

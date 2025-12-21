@@ -1,7 +1,6 @@
 package io.namastack.outbox.handler.method.fallback
 
 import io.namastack.outbox.handler.OutboxFailureContext
-import io.namastack.outbox.handler.OutboxRecordMetadata
 import java.lang.reflect.Method
 
 /**
@@ -23,15 +22,13 @@ class TypedFallbackHandlerMethod(
      * Exceptions in fallback handlers are logged but don't trigger retries.
      *
      * @param payload Record payload matching paramType
-     * @param metadata Record context
      * @param context Failure details (exception, attempt count, etc.)
      * @throws Throwable Original exception from fallback handler
      */
     override fun invoke(
         payload: Any,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
-        invokeMethod(payload, metadata, context)
+        invokeMethod(payload, context)
     }
 }

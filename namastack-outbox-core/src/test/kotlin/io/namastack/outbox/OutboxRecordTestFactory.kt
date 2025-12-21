@@ -19,6 +19,7 @@ object OutboxRecordTestFactory {
         nextRetryAt: OffsetDateTime = OffsetDateTime.now(),
         handlerId: String = @Suppress("ktlint:standard:max-line-length")
         $$"io.namastack.outbox.OutboxRecordTestFactory$CreatedEventHandler#handle(io.namastack.outbox.OutboxRecordTestFactory$CreatedEvent)",
+        failureException: Throwable? = null,
     ): OutboxRecord<CreatedEvent> =
         OutboxRecord.restore(
             id = id,
@@ -33,6 +34,7 @@ object OutboxRecordTestFactory {
             failureCount = failureCount,
             failureReason = failureReason,
             handlerId = handlerId,
+            failureException = failureException,
         )
 
     data class CreatedEvent(

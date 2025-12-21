@@ -1,7 +1,6 @@
 package io.namastack.outbox.handler.method.fallback
 
 import io.namastack.outbox.handler.OutboxFailureContext
-import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.BaseHandlerMethod
 import java.lang.reflect.Method
 
@@ -29,13 +28,11 @@ sealed class OutboxFallbackHandlerMethod(
      * Invokes fallback handler with payload, metadata, and failure details.
      *
      * @param payload Record payload
-     * @param metadata Record context
      * @param context Failure details (exception, attempt count, etc.)
      * @throws Throwable Original exception from fallback handler
      */
     abstract fun invoke(
         payload: Any,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     )
 }

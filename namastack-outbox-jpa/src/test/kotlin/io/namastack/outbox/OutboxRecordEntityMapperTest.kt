@@ -49,6 +49,7 @@ class OutboxRecordEntityMapperTest {
                     failureReason = null,
                     nextRetryAt = nextRetryAt,
                     handlerId = "handlerId",
+                    failureException = null,
                 )
 
             val entity = mapper.map(record)
@@ -88,6 +89,7 @@ class OutboxRecordEntityMapperTest {
                     failureReason = null,
                     nextRetryAt = nextRetryAt,
                     handlerId = "handlerId",
+                    failureException = null,
                 )
 
             val entity = mapper.map(record)
@@ -115,6 +117,7 @@ class OutboxRecordEntityMapperTest {
                     failureReason = null,
                     nextRetryAt = now,
                     handlerId = "handlerId",
+                    failureException = null,
                 )
 
             val entity = mapper.map(record)
@@ -150,6 +153,7 @@ class OutboxRecordEntityMapperTest {
                     failureReason = "Processing error",
                     nextRetryAt = now,
                     handlerId = "handlerId",
+                    failureException = null,
                 )
 
             val entity = mapper.map(record)
@@ -183,6 +187,7 @@ class OutboxRecordEntityMapperTest {
                     failureReason = null,
                     nextRetryAt = now,
                     handlerId = "handlerId",
+                    failureException = null,
                 )
 
             val paymentRecord =
@@ -199,6 +204,7 @@ class OutboxRecordEntityMapperTest {
                     failureReason = null,
                     nextRetryAt = now,
                     handlerId = "handlerId",
+                    failureException = null,
                 )
 
             val orderEntity = mapper.map(orderRecord)
@@ -234,6 +240,7 @@ class OutboxRecordEntityMapperTest {
                         failureReason = null,
                         nextRetryAt = now,
                         handlerId = "handlerId",
+                        failureException = null,
                     )
 
                 val entity = mapper.map(record)

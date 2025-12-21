@@ -1,7 +1,6 @@
 package io.namastack.outbox.handler.invoker
 
 import io.namastack.outbox.handler.OutboxFailureContext
-import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import org.slf4j.LoggerFactory
 
@@ -27,23 +26,21 @@ class OutboxFallbackHandlerInvoker(
      * and failure context. If no fallback is registered, logs debug and returns.
      *
      * @param payload Record payload
-     * @param metadata Record metadata with handler ID
      * @param context Failure details
      */
     fun dispatch(
         payload: Any?,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ): Boolean {
         if (payload == null) return false
 
         val fallbackHandler =
-            fallbackHandlerRegistry.getByHandlerId(metadata.handlerId) ?: run {
-                log.debug("No fallback handler registered for handlerId: {}", metadata.handlerId)
+            fallbackHandlerRegistry.getByHandlerId(context.handlerId) ?: run {
+                log.debug("No fallback handler registered for handlerId: {}", context.handlerId)
                 return false
             }
 
-        fallbackHandler.invoke(payload, metadata, context)
+        fallbackHandler.invoke(payload, context)
 
         return true
     }
