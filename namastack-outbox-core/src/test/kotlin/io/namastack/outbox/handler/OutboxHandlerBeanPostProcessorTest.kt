@@ -2,444 +2,275 @@ package io.namastack.outbox.handler
 
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.spyk
-import io.namastack.outbox.annotation.OutboxHandler
+import io.mockk.verify
+import io.namastack.outbox.CustomerOutboxRetryPolicy
+import io.namastack.outbox.HandlerBeanFactory
+import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
+import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
+import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
-import org.aopalliance.intercept.MethodInterceptor
-import org.aopalliance.intercept.MethodInvocation
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Named
-import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.Arguments
-import org.junit.jupiter.params.provider.MethodSource
-import org.springframework.aop.framework.ProxyFactory
-import org.springframework.beans.factory.BeanFactory
-import org.springframework.beans.factory.getBean
+import kotlin.reflect.KClass
 
 @DisplayName("OutboxHandlerBeanPostProcessor")
 class OutboxHandlerBeanPostProcessorTest {
-    private val beanFactory = mockk<BeanFactory>(relaxed = true)
-    private val handlerRegistry = spyk(OutboxHandlerRegistry())
-    private val retryPolicyRegistry = spyk(OutboxRetryPolicyRegistry(beanFactory))
+    private val handlerRegistry = mockk<OutboxHandlerRegistry>(relaxed = true)
+    private val fallbackHandlerRegistry = mockk<OutboxFallbackHandlerRegistry>(relaxed = true)
+    private val retryPolicyRegistry = mockk<OutboxRetryPolicyRegistry>(relaxed = true)
+
     private lateinit var beanPostProcessor: OutboxHandlerBeanPostProcessor
 
     @BeforeEach
     fun setUp() {
-        every { beanFactory.getBean<OutboxRetryPolicy>("outboxRetryPolicy") } returns
-            mockk<OutboxRetryPolicy>(relaxed = true)
-        beanPostProcessor = OutboxHandlerBeanPostProcessor(handlerRegistry, retryPolicyRegistry)
+        beanPostProcessor =
+            OutboxHandlerBeanPostProcessor(handlerRegistry, fallbackHandlerRegistry, retryPolicyRegistry)
     }
 
-    @Nested
-    @DisplayName("postProcessAfterInitialization()")
-    inner class PostProcessAfterInitializationTests {
-        @Test
-        fun `should return bean unchanged`() {
-            val bean = Any()
+    @Test
+    fun `does nothing when no handlers found and just returns bean`() {
+        val bean = mockk<Any>()
+        val result = beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-            val result = beanPostProcessor.postProcessAfterInitialization(bean, "testBean")
+        verify(exactly = 0) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
 
-            assertThat(result).isSameAs(bean)
-        }
-
-        @Test
-        fun `should handle bean with no handlers gracefully`() {
-            val bean = Any()
-
-            val result = beanPostProcessor.postProcessAfterInitialization(bean, "emptyBean")
-
-            assertThat(result).isSameAs(bean)
-        }
-
-        @Test
-        fun `should process multiple beans sequentially`() {
-            val bean1 = Any()
-            val bean2 = Any()
-
-            val result1 = beanPostProcessor.postProcessAfterInitialization(bean1, "bean1")
-            val result2 = beanPostProcessor.postProcessAfterInitialization(bean2, "bean2")
-
-            assertThat(result1).isSameAs(bean1)
-            assertThat(result2).isSameAs(bean2)
-        }
+        assertThat(result).isEqualTo(bean)
     }
 
-    @Nested
-    @DisplayName("Handler Discovery")
-    inner class HandlerDiscoveryTests {
-        @ParameterizedTest
-        @MethodSource("io.namastack.outbox.handler.OutboxHandlerBeanPostProcessorTest#typedHandlerBeans")
-        fun `should discover typed handlers from @OutboxHandler annotated methods`(bean: Any) {
-            beanPostProcessor.postProcessAfterInitialization(bean, "typedHandler")
+    @Test
+    fun `registers typed handler bean when implementing OutboxTypedHandler`() {
+        val bean = HandlerBeanFactory.createTypedInterfaceHandler()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-            // Verify typed handler was registered in registry
-            val handlers = handlerRegistry.getHandlersForPayloadType(String::class)
-            assertThat(handlers).isNotEmpty()
-        }
-
-        @ParameterizedTest
-        @MethodSource("io.namastack.outbox.handler.OutboxHandlerBeanPostProcessorTest#genericHandlerBeans")
-        fun `should discover generic handlers from @OutboxHandler annotated methods`(bean: Any) {
-            beanPostProcessor.postProcessAfterInitialization(bean, "genericHandler")
-
-            // Verify generic handler was registered
-            val genericHandlers = handlerRegistry.getGenericHandlers()
-            assertThat(genericHandlers).isNotEmpty()
-        }
-
-        //
-        @ParameterizedTest
-        @MethodSource("io.namastack.outbox.handler.OutboxHandlerBeanPostProcessorTest#multiHandlerBeans")
-        fun `should discover multiple handlers from same bean`(bean: Any) {
-            beanPostProcessor.postProcessAfterInitialization(bean, "multiHandler")
-
-            // Verify multiple handlers were registered
-            val stringHandlers = handlerRegistry.getHandlersForPayloadType(String::class)
-            val intHandlers = handlerRegistry.getHandlersForPayloadType(Int::class)
-
-            assertThat(stringHandlers).isNotEmpty()
-            assertThat(intHandlers).isNotEmpty()
-        }
+        verify(exactly = 1) { handlerRegistry.register(any(TypedHandlerMethod::class)) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    @Nested
-    @DisplayName("Interface-based Handler Discovery")
-    inner class InterfaceHandlerDiscoveryTests {
-        @Test
-        fun `should discover typed handlers from OutboxTypedHandler interface implementation`() {
-            val bean = TypedHandlerInterfaceImpl()
+    @Test
+    fun `registers generic handler bean when implementing OutboxHandler`() {
+        val bean = HandlerBeanFactory.createGenericInterfaceHandler()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-            beanPostProcessor.postProcessAfterInitialization(bean, "typedInterfaceHandler")
-
-            // Verify typed handler was registered
-            val handlers = handlerRegistry.getHandlersForPayloadType(String::class)
-            assertThat(handlers).isNotEmpty()
-        }
-
-        @Test
-        fun `should discover typed handlers from OutboxTypedHandler interface implementation with proxy`() {
-            val bean = TypedHandlerInterfaceImpl()
-            val proxy = createProxy(bean)
-
-            beanPostProcessor.postProcessAfterInitialization(proxy, "typedInterfaceHandler")
-
-            // Verify typed handler was registered
-            val handlers = handlerRegistry.getHandlersForPayloadType(String::class)
-            assertThat(handlers).isNotEmpty()
-        }
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    @Nested
-    @DisplayName("Retry Policy Registration")
-    inner class RetryPolicyRegistrationTests {
-        @Test
-        fun `should register retry policy for typed handler`() {
-            val bean = TypedHandlerBean()
+    @Test
+    fun `registers typed handler bean when method annotated with @OutboxHandler`() {
+        val bean = HandlerBeanFactory.createAnnotatedTypedHandler()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-            beanPostProcessor.postProcessAfterInitialization(bean, "typedHandler")
-
-            // Verify retry policy was registered
-            val handlers = handlerRegistry.getHandlersForPayloadType(String::class)
-            assertThat(handlers).isNotEmpty()
-
-            val handlerId = handlers.first().id
-            val policy = retryPolicyRegistry.getByHandlerId(handlerId)
-            assertThat(policy).isNotNull()
-        }
-
-        @Test
-        fun `should register retry policy for generic handler`() {
-            val bean = GenericHandlerBean()
-
-            beanPostProcessor.postProcessAfterInitialization(bean, "genericHandler")
-
-            // Verify retry policy was registered
-            val handlers = handlerRegistry.getGenericHandlers()
-            assertThat(handlers).isNotEmpty()
-
-            val handlerId = handlers.first().id
-            val policy = retryPolicyRegistry.getByHandlerId(handlerId)
-            assertThat(policy).isNotNull()
-        }
-
-        @Test
-        fun `should register retry policy for each handler in multi-handler bean`() {
-            val bean = MultiHandlerBean()
-
-            beanPostProcessor.postProcessAfterInitialization(bean, "multiHandler")
-
-            // Verify retry policies were registered for all handlers
-            val stringHandlers = handlerRegistry.getHandlersForPayloadType(String::class)
-            val intHandlers = handlerRegistry.getHandlersForPayloadType(Int::class)
-
-            assertThat(stringHandlers).isNotEmpty()
-            assertThat(intHandlers).isNotEmpty()
-
-            stringHandlers.forEach { handler ->
-                val policy = retryPolicyRegistry.getByHandlerId(handler.id)
-                assertThat(policy).isNotNull()
-            }
-
-            intHandlers.forEach { handler ->
-                val policy = retryPolicyRegistry.getByHandlerId(handler.id)
-                assertThat(policy).isNotNull()
-            }
-        }
-
-        @Test
-        fun `should register retry policy for interface-based handler`() {
-            val bean = TypedHandlerInterfaceImpl()
-
-            beanPostProcessor.postProcessAfterInitialization(bean, "interfaceHandler")
-
-            // Verify retry policy was registered
-            val handlers = handlerRegistry.getHandlersForPayloadType(String::class)
-            assertThat(handlers).isNotEmpty()
-
-            val handlerId = handlers.first().id
-            val policy = retryPolicyRegistry.getByHandlerId(handlerId)
-            assertThat(policy).isNotNull()
-        }
-
-        @Test
-        fun `should register retry policy for proxied handler`() {
-            val bean = TypedHandlerBean()
-            val proxy = createProxy(bean)
-
-            beanPostProcessor.postProcessAfterInitialization(proxy, "proxiedHandler")
-
-            // Verify retry policy was registered even for proxy
-            val handlers = handlerRegistry.getHandlersForPayloadType(String::class)
-            assertThat(handlers).isNotEmpty()
-
-            val handlerId = handlers.first().id
-            val policy = retryPolicyRegistry.getByHandlerId(handlerId)
-            assertThat(policy).isNotNull()
-        }
-
-        @Test
-        fun `should not fail when bean has no handlers`() {
-            val bean = UnknownBeanType()
-
-            // Should not throw exception
-            beanPostProcessor.postProcessAfterInitialization(bean, "noHandlers")
-
-            // No handlers, no policies registered - just verify it doesn't crash
-            assertThat(handlerRegistry.getGenericHandlers()).isEmpty()
-        }
+        verify(exactly = 1) { handlerRegistry.register(any(TypedHandlerMethod::class)) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    @Nested
-    @DisplayName("BeanPostProcessor Lifecycle")
-    inner class BeanPostProcessorLifecycleTests {
-        @Test
-        fun `should implement BeanPostProcessor interface`() {
-            assertThat(
-                beanPostProcessor,
-            ).isInstanceOf(org.springframework.beans.factory.config.BeanPostProcessor::class.java)
-        }
+    @Test
+    fun `registers generic handler when method annotated with @OutboxHandler`() {
+        val bean = HandlerBeanFactory.createAnnotatedGenericHandler()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        @Test
-        fun `should have postProcessBeforeInitialization method`() {
-            val bean = Any()
-            val result = beanPostProcessor.postProcessBeforeInitialization(bean, "test")
-            assertThat(result).isSameAs(bean)
-        }
-
-        @Test
-        fun `should not throw exception when processing unknown bean types`() {
-            val bean = UnknownBeanType()
-
-            val result = beanPostProcessor.postProcessAfterInitialization(bean, "unknownBean")
-
-            assertThat(result).isSameAs(bean)
-        }
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    companion object {
-        @JvmStatic
-        fun typedHandlerBeans() =
-            listOf(
-                beanWithProxy("Bean", TypedHandlerBean()),
-                beanWithProxy("Inherited bean", TypedHandlerBeanInherited()),
-                beanWithProxy("Overridden inherited bean", TypedHandlerBeanInheritedOverridden()),
-                // Interface bean without override not supported - requires explicit override
-                beanWithProxy("Overridden interface bean", TypedHandlerBeanImplementedOverridden()),
-            ).flatten()
+    @Test
+    fun `registers multiple handlers from same bean`() {
+        val bean = HandlerBeanFactory.createMultiAnnotatedHandlerBean()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        @JvmStatic
-        fun genericHandlerBeans() =
-            listOf(
-                beanWithProxy("Bean", GenericHandlerBean()),
-                beanWithProxy("Inherited bean", GenericHandlerBeanInherited()),
-                beanWithProxy("Overridden inherited bean", GenericHandlerBeanInheritedOverridden()),
-                // Interface bean without override not supported - requires explicit override
-                beanWithProxy("Overridden interface bean", GenericHandlerBeanImplementedOverridden()),
-            ).flatten()
-
-        @JvmStatic
-        fun multiHandlerBeans() =
-            listOf(
-                beanWithProxy("Bean", MultiHandlerBean()),
-                beanWithProxy("Inherited bean", MultiHandlerBeanInherited()),
-                beanWithProxy("Overridden inherited bean", MultiHandlerBeanInheritedOverridden()),
-                // Interface bean without override not supported - requires explicit override
-                beanWithProxy("Overridden interface bean", MultiHandlerBeanImplementedOverridden()),
-            ).flatten()
-
-        private fun beanWithProxy(
-            name: String,
-            bean: Any,
-        ) = listOf(
-            Arguments.of(Named.of(name, bean)),
-            Arguments.of(Named.of("$name Proxy", createProxy(bean))),
-        )
-
-        private fun createProxy(target: Any): Any {
-            val proxyFactory = ProxyFactory(target)
-            proxyFactory.addAdvice(CustomAdvice())
-            return proxyFactory.proxy
-        }
+        verify(exactly = 2) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    // Test bean implementations
-    open class TypedHandlerBean {
-        @OutboxHandler
-        @Suppress("unused")
-        open fun handleString(payload: String) {
-            // Typed handler for String payload
-        }
+    @Test
+    fun `registers typed handler with fallback when implementing OutboxTypedHandlerWithFallback`() {
+        val bean = HandlerBeanFactory.createTypedInterfaceHandlerWithFallback()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    open class TypedHandlerBeanInherited : TypedHandlerBean()
+    @Test
+    fun `registers generic handler with fallback when implementing OutboxHandlerWithFallback`() {
+        val bean = HandlerBeanFactory.createGenericInterfaceHandlerWithFallback()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-    open class TypedHandlerBeanInheritedOverridden : TypedHandlerBean() {
-        override fun handleString(payload: String) {
-            super.handleString(payload)
-        }
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    interface TypedHandlerBeanInterface {
-        @OutboxHandler
-        fun handleString(payload: String) {
-            // Typed handler for String payload in interface class
-        }
+    @Test
+    fun `registers typed handler with fallback when annotated with OutboxFallbackHandler`() {
+        val bean = HandlerBeanFactory.createAnnotatedTypedHandlerWithFallback()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    open class TypedHandlerBeanImplementedOverridden : TypedHandlerBeanInterface {
-        override fun handleString(payload: String) {
-            // Typed handler for String payload in implemented class
-        }
+    @Test
+    fun `registers multiple typed handlers with one fallback for each`() {
+        val bean = HandlerBeanFactory.createMultipleAnnotatedTypedHandlersWithMultipleFallbacks()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 2) { handlerRegistry.register(any()) }
+        verify(exactly = 2) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    open class GenericHandlerBean {
-        @OutboxHandler
-        @Suppress("unused")
-        open fun handleAny(
-            payload: Any,
-            metadata: OutboxRecordMetadata,
-        ) {
-            // Generic handler for any payload
-        }
+    @Test
+    fun `does not register fallback when fallback signature does not match`() {
+        val bean = HandlerBeanFactory.createAnnotatedHandlerBeanWithNonMatchingFallback()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    open class GenericHandlerBeanInherited : GenericHandlerBean()
+    @Test
+    fun `does not register generic fallback for typed handler`() {
+        val bean = HandlerBeanFactory.createAnnotatedTypedHandlerWithGenericFallback()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-    open class GenericHandlerBeanInheritedOverridden : GenericHandlerBean() {
-        override fun handleAny(
-            payload: Any,
-            metadata: OutboxRecordMetadata,
-        ) {
-            super.handleAny(payload, metadata)
-        }
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    interface GenericHandlerBeanInterface {
-        @OutboxHandler
-        fun handleAny(
-            payload: Any,
-            metadata: OutboxRecordMetadata,
-        ) {
-            // Generic handler for any payload in interface class
-        }
+    @Test
+    fun `registers generic handler with fallback when annotated with OutboxFallbackHandler`() {
+        val bean = HandlerBeanFactory.createAnnotatedGenericHandlerWithFallback()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    open class GenericHandlerBeanImplementedOverridden : GenericHandlerBeanInterface {
-        override fun handleAny(
-            payload: Any,
-            metadata: OutboxRecordMetadata,
-        ) {
-            // Generic handler for any payload in implemented class
-        }
+    @Test
+    fun `does not register fallback when fallback signature invalid`() {
+        val bean = HandlerBeanFactory.createAnnotatedHandlerBeanWithInvalidFallbackSignature()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    open class MultiHandlerBean {
-        @OutboxHandler
-        @Suppress("unused")
-        open fun handleString(payload: String) {
-            // Handler for String
-        }
+    @Test
+    fun `registers handlers from inherited class`() {
+        val bean = HandlerBeanFactory.createInheritedHandler()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        @OutboxHandler
-        @Suppress("unused")
-        open fun handleInt(payload: Int) {
-            // Handler for Int
-        }
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    open class MultiHandlerBeanInherited : MultiHandlerBean()
+    @Test
+    fun `does not register annotated handler method with wrong signature`() {
+        val bean = HandlerBeanFactory.createAnnotatedHandlerBeanWithWrongSignature()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-    open class MultiHandlerBeanInheritedOverridden : MultiHandlerBean() {
-        override fun handleString(payload: String) {
-            super.handleString(payload)
-        }
-
-        override fun handleInt(payload: Int) {
-            super.handleInt(payload)
-        }
+        verify(exactly = 0) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    interface MultiHandlerBeanInterfaceA {
-        @OutboxHandler
-        fun handleString(payload: String) {
-            // Typed handler for String payload in interface class
-        }
+    @Test
+    fun `registers only one fallback handler when multiple match for the same handler`() {
+        val bean = HandlerBeanFactory.createAnnotatedHandlerBeanWithMultipleMatchingFallbacks()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    interface MultiHandlerBeanInterfaceB {
-        @OutboxHandler
-        fun handleInt(payload: Int) {
-            // Typed handler for Int payload in interface class
-        }
+    @Test
+    fun `registers generic handler with retry policy when implementing OutboxRetryAware`() {
+        val bean = HandlerBeanFactory.createGenericInterfaceHandlerWithRetryPolicy()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    open class MultiHandlerBeanImplementedOverridden :
-        MultiHandlerBeanInterfaceA,
-        MultiHandlerBeanInterfaceB {
-        override fun handleString(payload: String) {
-            // Typed handler for String payload in implemented class
-        }
+    @Test
+    fun `registers typed handler with retry policy when implementing OutboxRetryAware`() {
+        val bean = HandlerBeanFactory.createTypedInterfaceHandlerWithRetryPolicy()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        override fun handleInt(payload: Int) {
-            // Typed handler for String payload in implemented class
-        }
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    class UnknownBeanType
+    @Test
+    fun `registers generic handler with retry policy when annotated with OutboxRetryAware and class ref`() {
+        every { retryPolicyRegistry.getRetryPolicy(any<KClass<out OutboxRetryPolicy>>()) } returns
+            CustomerOutboxRetryPolicy()
 
-    // Interface-based test beans
-    class TypedHandlerInterfaceImpl : OutboxTypedHandler<String> {
-        override fun handle(payload: String) {
-            // Typed handler implementation for String
-        }
+        val bean = HandlerBeanFactory.createGenericAnnotatedHandlerWithRetryPolicyByClass()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
     }
 
-    class CustomAdvice : MethodInterceptor {
-        override fun invoke(invocation: MethodInvocation) = invocation.proceed()
+    @Test
+    fun `registers typed handler with retry policy when annotated with OutboxRetryAware and class ref`() {
+        every { retryPolicyRegistry.getRetryPolicy(any<KClass<out OutboxRetryPolicy>>()) } returns
+            CustomerOutboxRetryPolicy()
+
+        val bean = HandlerBeanFactory.createTypedAnnotatedHandlerWithRetryPolicyByClass()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
+    }
+
+    @Test
+    fun `registers generic handler with retry policy when annotated with OutboxRetryAware and name ref`() {
+        every { retryPolicyRegistry.getRetryPolicy(any<String>()) } returns
+            CustomerOutboxRetryPolicy()
+
+        val bean = HandlerBeanFactory.createGenericAnnotatedHandlerWithRetryPolicyByName()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
+    }
+
+    @Test
+    fun `registers typed handler with retry policy when annotated with OutboxRetryAware and name ref`() {
+        every { retryPolicyRegistry.getRetryPolicy(any<String>()) } returns
+            CustomerOutboxRetryPolicy()
+
+        val bean = HandlerBeanFactory.createTypedAnnotatedHandlerWithRetryPolicyByName()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
     }
 }

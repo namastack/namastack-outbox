@@ -38,6 +38,7 @@ class OutboxRecord<T> internal constructor(
     status: OutboxRecordStatus,
     completedAt: OffsetDateTime?,
     failureCount: Int,
+    failureException: Throwable?,
     failureReason: String?,
     nextRetryAt: OffsetDateTime,
 ) {
@@ -65,6 +66,12 @@ class OutboxRecord<T> internal constructor(
      * Timestamp when the next retry attempt should be made.
      */
     var nextRetryAt: OffsetDateTime = nextRetryAt
+        internal set
+
+    /**
+     * Exception from the last failure, if any.
+     */
+    var failureException: Throwable? = failureException
         internal set
 
     /**
@@ -153,6 +160,16 @@ class OutboxRecord<T> internal constructor(
     }
 
     /**
+     * Updates the failure exception for this record.
+     *
+     * @param exception The exception that caused the failure
+     */
+    internal fun updateFailureException(exception: Throwable?) {
+        failureException = exception
+        updateFailureReason(exception?.message)
+    }
+
+    /**
      * Builder class for creating new OutboxRecord instances.
      */
     class Builder<T> {
@@ -219,6 +236,7 @@ class OutboxRecord<T> internal constructor(
                 createdAt = now,
                 completedAt = null,
                 failureCount = 0,
+                failureException = null,
                 failureReason = null,
                 nextRetryAt = now,
                 handlerId = hId,
@@ -254,6 +272,7 @@ class OutboxRecord<T> internal constructor(
             status: OutboxRecordStatus,
             completedAt: OffsetDateTime?,
             failureCount: Int,
+            failureException: Throwable?,
             failureReason: String?,
             partition: Int,
             nextRetryAt: OffsetDateTime,
@@ -269,6 +288,7 @@ class OutboxRecord<T> internal constructor(
                 status = status,
                 completedAt = completedAt,
                 failureCount = failureCount,
+                failureException = failureException,
                 failureReason = failureReason,
                 nextRetryAt = nextRetryAt,
                 handlerId = handlerId,

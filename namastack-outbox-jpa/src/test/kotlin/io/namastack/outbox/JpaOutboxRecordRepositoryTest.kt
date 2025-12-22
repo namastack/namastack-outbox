@@ -84,6 +84,7 @@ class JpaOutboxRecordRepositoryTest {
                 failureReason = record.failureReason,
                 nextRetryAt = record.nextRetryAt,
                 handlerId = record.handlerId,
+                failureException = null,
             )
 
         jpaOutboxRecordRepository.save(updatedRecord)
@@ -433,6 +434,7 @@ class JpaOutboxRecordRepositoryTest {
                     failureReason = "Processing failed",
                     nextRetryAt = now,
                     handlerId = "handlerId",
+                    failureException = null,
                 ),
             )
         }
@@ -455,6 +457,7 @@ class JpaOutboxRecordRepositoryTest {
                     failureReason = null,
                     nextRetryAt = now,
                     handlerId = "handlerId",
+                    failureException = null,
                 ),
             )
         }
@@ -477,6 +480,7 @@ class JpaOutboxRecordRepositoryTest {
                     failureReason = null,
                     nextRetryAt = now,
                     handlerId = "handlerId",
+                    failureException = null,
                 ),
             )
         }
@@ -503,6 +507,7 @@ class JpaOutboxRecordRepositoryTest {
                     failureReason = null,
                     nextRetryAt = createdAt,
                     handlerId = "handlerId",
+                    failureException = null,
                 ),
             )
         }
@@ -528,6 +533,7 @@ class JpaOutboxRecordRepositoryTest {
                 failureReason = null,
                 nextRetryAt = createdAt,
                 handlerId = "handlerId",
+                failureException = null,
             ),
         )
     }
@@ -552,6 +558,7 @@ class JpaOutboxRecordRepositoryTest {
                     failureReason = null,
                     nextRetryAt = createdAt,
                     handlerId = "handlerId",
+                    failureException = null,
                 ),
             )
         }
@@ -577,6 +584,7 @@ class JpaOutboxRecordRepositoryTest {
                 failureReason = null,
                 nextRetryAt = createdAt,
                 handlerId = "handlerId",
+                failureException = null,
             )
 
         jpaOutboxRecordRepository.save(record)

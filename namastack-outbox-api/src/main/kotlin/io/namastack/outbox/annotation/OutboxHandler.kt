@@ -5,21 +5,18 @@ package io.namastack.outbox.annotation
  *
  * Supports two distinct handler signatures:
  *
- * **Typed Handler (1 parameter):**
+ * Typed Handler (1 parameter):
  * ```kotlin
  * @OutboxHandler
  * fun handle(payload: OrderCreatedEvent) {
- *     // Handle specific event type
  *     eventBus.publish(payload)
  * }
  * ```
- * Records with matching payload type are routed to this handler.
  *
- * **Generic Handler (2 parameters):**
+ * Generic Handler (2 parameters):
  * ```kotlin
  * @OutboxHandler
  * fun handle(payload: Any, metadata: OutboxRecordMetadata) {
- *     // Handle any payload type
  *     when (payload) {
  *         is OrderCreated -> handleOrder(payload)
  *         is PaymentProcessed -> handlePayment(payload)
@@ -27,7 +24,6 @@ package io.namastack.outbox.annotation
  *     }
  * }
  * ```
- * Receives all records regardless of payload type, with full metadata context.
  *
  * ## Invocation Order
  *
@@ -38,8 +34,19 @@ package io.namastack.outbox.annotation
  * ## Exception Handling
  *
  * Exceptions thrown from handlers trigger automatic retries based on the configured
- * retry policy. Successfully completing (no exception) marks the record as processed.
+ * retry policy. Successfully completing marks the record as processed.
  *
+ * ## Important: Do NOT mix with Interface-based Handlers
+ *
+ * Do not combine @OutboxHandler annotations with interface-based handlers
+ * in the same bean. This can lead to unexpected behavior such as incorrect
+ * fallback matching and ambiguous handler registration.
+ *
+ * Use EITHER annotations OR interfaces per bean, not both.
+ *
+ * @see io.namastack.outbox.annotation.OutboxFallbackHandler
+ * @see io.namastack.outbox.handler.OutboxTypedHandler
+ * @see io.namastack.outbox.handler.OutboxHandler
  * @author Roland Beisel
  * @since 0.4.0
  */

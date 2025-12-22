@@ -74,6 +74,7 @@ internal class OutboxRecordEntityMapper(
             failureReason = entity.failureReason,
             nextRetryAt = entity.nextRetryAt,
             handlerId = entity.handlerId,
+            failureException = null,
         )
     }
 

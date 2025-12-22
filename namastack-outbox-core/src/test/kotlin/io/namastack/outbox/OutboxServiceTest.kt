@@ -5,9 +5,9 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import io.namastack.outbox.context.OutboxContextCollector
-import io.namastack.outbox.handler.OutboxHandlerRegistry
-import io.namastack.outbox.handler.method.GenericHandlerMethod
-import io.namastack.outbox.handler.method.TypedHandlerMethod
+import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
+import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
+import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName

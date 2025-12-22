@@ -12,9 +12,10 @@ outbox:
   schema-initialization:
     enabled: true
   retry:
+    policy: "fixed"
     fixed:
       delay: 1000
-    max-retries: 1
+    max-retries: 2
   instance:
     graceful-shutdown-timeout-seconds: 0
 
