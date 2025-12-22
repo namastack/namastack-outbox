@@ -1,7 +1,6 @@
 package io.namastack.outbox.handler.method.fallback.factory
 
 import io.namastack.outbox.handler.OutboxFailureContext
-import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandlerWithFallback
 import io.namastack.outbox.handler.method.fallback.TypedFallbackHandlerMethod
 import org.assertj.core.api.Assertions.assertThat
@@ -19,13 +18,12 @@ class TypedFallbackHandlerMethodFactoryTest {
     }
 
     @Test
-    fun `supports returns true for typed fallback signature with specific type, metadata, context`() {
+    fun `supports returns true for typed fallback signature with specific type and context`() {
         val bean = TestTypedFallbackHandler()
         val method =
             bean::class.java.getMethod(
                 "handleFailure",
                 String::class.java,
-                OutboxRecordMetadata::class.java,
                 OutboxFailureContext::class.java,
             )
 
@@ -51,8 +49,22 @@ class TypedFallbackHandlerMethodFactoryTest {
             bean::class.java.getMethod(
                 "handleFailure",
                 Any::class.java,
-                OutboxRecordMetadata::class.java,
                 OutboxFailureContext::class.java,
+            )
+
+        val result = factory.supports(method)
+
+        assertThat(result).isFalse()
+    }
+
+    @Test
+    fun `supports returns false for method with wrong context type`() {
+        val bean = TestWrongContextFallbackHandler()
+        val method =
+            bean::class.java.getMethod(
+                "handleFailure",
+                String::class.java,
+                String::class.java,
             )
 
         val result = factory.supports(method)
@@ -67,7 +79,6 @@ class TypedFallbackHandlerMethodFactoryTest {
             bean1::class.java.getMethod(
                 "handleFailure",
                 Int::class.java,
-                OutboxRecordMetadata::class.java,
                 OutboxFailureContext::class.java,
             )
 
@@ -76,7 +87,6 @@ class TypedFallbackHandlerMethodFactoryTest {
             bean2::class.java.getMethod(
                 "handleFailure",
                 List::class.java,
-                OutboxRecordMetadata::class.java,
                 OutboxFailureContext::class.java,
             )
 
@@ -91,7 +101,6 @@ class TypedFallbackHandlerMethodFactoryTest {
             bean::class.java.getMethod(
                 "handleFailure",
                 String::class.java,
-                OutboxRecordMetadata::class.java,
                 OutboxFailureContext::class.java,
             )
 
@@ -114,7 +123,6 @@ class TypedFallbackHandlerMethodFactoryTest {
     class TestTypedFallbackHandler {
         fun handleFailure(
             payload: String,
-            metadata: OutboxRecordMetadata,
             context: OutboxFailureContext,
         ) {
         }
@@ -124,7 +132,6 @@ class TypedFallbackHandlerMethodFactoryTest {
     class TestIntFallbackHandler {
         fun handleFailure(
             payload: Int,
-            metadata: OutboxRecordMetadata,
             context: OutboxFailureContext,
         ) {
         }
@@ -134,7 +141,6 @@ class TypedFallbackHandlerMethodFactoryTest {
     class TestListFallbackHandler {
         fun handleFailure(
             payload: List<*>,
-            metadata: OutboxRecordMetadata,
             context: OutboxFailureContext,
         ) {
         }
@@ -144,7 +150,6 @@ class TypedFallbackHandlerMethodFactoryTest {
     class TestGenericFallbackHandler {
         fun handleFailure(
             payload: Any,
-            metadata: OutboxRecordMetadata,
             context: OutboxFailureContext,
         ) {
         }
@@ -156,13 +161,21 @@ class TypedFallbackHandlerMethodFactoryTest {
         }
     }
 
+    @Suppress("UNUSED_PARAMETER")
+    class TestWrongContextFallbackHandler {
+        fun handleFailure(
+            payload: String,
+            context: String,
+        ) {
+        }
+    }
+
     class TestOutboxTypedHandlerWithFallback : OutboxTypedHandlerWithFallback<String> {
         override fun handle(payload: String) {
         }
 
         override fun handleFailure(
             payload: String,
-            metadata: OutboxRecordMetadata,
             context: OutboxFailureContext,
         ) {
         }

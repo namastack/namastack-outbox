@@ -6,10 +6,10 @@ import java.lang.reflect.Method
 /**
  * Generic fallback handler for failures with any payload type. Uses runtime type checking.
  *
- * Signature: `fun handleFailure(payload: Any, metadata: ..., context: ...)`
+ * Signature: `fun handleFailure(payload: Any, context: OutboxFailureContext)`
  *
  * @param bean Bean containing the fallback handler method
- * @param method Handler method (must have Any + metadata + context parameters)
+ * @param method Handler method (must have Any + context parameters)
  * @author Roland Beisel
  * @since 0.5.0
  */

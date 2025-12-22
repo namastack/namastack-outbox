@@ -2,7 +2,6 @@ package io.namastack.outbox.handler.method.fallback.factory
 
 import io.namastack.outbox.handler.OutboxFailureContext
 import io.namastack.outbox.handler.OutboxHandlerWithFallback
-import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.fallback.GenericFallbackHandlerMethod
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -19,13 +18,12 @@ class GenericFallbackHandlerMethodFactoryTest {
     }
 
     @Test
-    fun `supports returns true for generic fallback signature with Any, metadata, context`() {
+    fun `supports returns true for generic fallback signature with Any and context`() {
         val bean = TestGenericFallbackHandler()
         val method =
             bean::class.java.getMethod(
                 "handleFailure",
                 Any::class.java,
-                OutboxRecordMetadata::class.java,
                 OutboxFailureContext::class.java,
             )
 
@@ -51,23 +49,6 @@ class GenericFallbackHandlerMethodFactoryTest {
             bean::class.java.getMethod(
                 "handleFailure",
                 String::class.java,
-                OutboxRecordMetadata::class.java,
-                OutboxFailureContext::class.java,
-            )
-
-        val result = factory.supports(method)
-
-        assertThat(result).isFalse()
-    }
-
-    @Test
-    fun `supports returns false for method with wrong metadata type`() {
-        val bean = TestWrongMetadataFallbackHandler()
-        val method =
-            bean::class.java.getMethod(
-                "handleFailure",
-                Any::class.java,
-                String::class.java,
                 OutboxFailureContext::class.java,
             )
 
@@ -83,7 +64,6 @@ class GenericFallbackHandlerMethodFactoryTest {
             bean::class.java.getMethod(
                 "handleFailure",
                 Any::class.java,
-                OutboxRecordMetadata::class.java,
                 String::class.java,
             )
 
@@ -99,7 +79,6 @@ class GenericFallbackHandlerMethodFactoryTest {
             bean::class.java.getMethod(
                 "handleFailure",
                 Any::class.java,
-                OutboxRecordMetadata::class.java,
                 OutboxFailureContext::class.java,
             )
 
@@ -122,7 +101,6 @@ class GenericFallbackHandlerMethodFactoryTest {
     class TestGenericFallbackHandler {
         fun handleFailure(
             payload: Any,
-            metadata: OutboxRecordMetadata,
             context: OutboxFailureContext,
         ) {
         }
@@ -132,7 +110,6 @@ class GenericFallbackHandlerMethodFactoryTest {
     class TestTypedFallbackHandler {
         fun handleFailure(
             payload: String,
-            metadata: OutboxRecordMetadata,
             context: OutboxFailureContext,
         ) {
         }
@@ -145,20 +122,9 @@ class GenericFallbackHandlerMethodFactoryTest {
     }
 
     @Suppress("UNUSED_PARAMETER")
-    class TestWrongMetadataFallbackHandler {
-        fun handleFailure(
-            payload: Any,
-            metadata: String,
-            context: OutboxFailureContext,
-        ) {
-        }
-    }
-
-    @Suppress("UNUSED_PARAMETER")
     class TestWrongContextFallbackHandler {
         fun handleFailure(
             payload: Any,
-            metadata: OutboxRecordMetadata,
             context: String,
         ) {
         }
@@ -167,13 +133,12 @@ class GenericFallbackHandlerMethodFactoryTest {
     class TestOutboxHandlerWithFallback : OutboxHandlerWithFallback {
         override fun handle(
             payload: Any,
-            metadata: OutboxRecordMetadata,
+            metadata: io.namastack.outbox.handler.OutboxRecordMetadata,
         ) {
         }
 
         override fun handleFailure(
             payload: Any,
-            metadata: OutboxRecordMetadata,
             context: OutboxFailureContext,
         ) {
         }

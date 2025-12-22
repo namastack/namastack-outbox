@@ -22,8 +22,8 @@ class OutboxFallbackHandlerInvoker(
     /**
      * Invokes the fallback handler for a failed record.
      *
-     * Looks up fallback handler by handlerId and invokes it with payload, metadata,
-     * and failure context. If no fallback is registered, logs debug and returns.
+     * Looks up fallback handler by handlerId and invokes it with payload and
+     * failure context. If no fallback is registered, logs debug and returns.
      *
      * @param payload Record payload
      * @param context Failure details

@@ -10,7 +10,7 @@ import java.lang.reflect.Method
  * Subclasses: [TypedFallbackHandlerMethod] for specific types, [GenericFallbackHandlerMethod] for any type.
  *
  * @param bean Bean containing the fallback handler method
- * @param method Handler method (must have 3 parameters: payload, metadata, context)
+ * @param method Handler method (must have 2 parameters: payload, context)
  * @author Roland Beisel
  * @since 0.5.0
  */
@@ -19,13 +19,13 @@ sealed class OutboxFallbackHandlerMethod(
     method: Method,
 ) : BaseHandlerMethod(bean, method) {
     init {
-        require(method.parameterCount == 3) {
-            "Fallback handler must have 3 parameters (payload, metadata, context): $method"
+        require(method.parameterCount == 2) {
+            "Fallback handler must have 2 parameters (payload, context): $method"
         }
     }
 
     /**
-     * Invokes fallback handler with payload, metadata, and failure details.
+     * Invokes fallback handler with payload and failure details.
      *
      * @param payload Record payload
      * @param context Failure details (exception, attempt count, etc.)

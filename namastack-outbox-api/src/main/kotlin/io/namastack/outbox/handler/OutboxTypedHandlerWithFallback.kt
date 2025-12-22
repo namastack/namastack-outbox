@@ -18,7 +18,6 @@ package io.namastack.outbox.handler
  *
  *     override fun handleFailure(
  *         payload: OrderCreatedEvent,
- *         metadata: OutboxRecordMetadata,
  *         context: OutboxFailureContext
  *     ) {
  *         deadLetterQueue.publish(payload)
@@ -46,12 +45,10 @@ interface OutboxTypedHandlerWithFallback<T> : OutboxTypedHandler<T> {
      * Exceptions thrown from this method are logged but do not trigger retries.
      *
      * @param payload The record payload of type [T]
-     * @param metadata Record metadata
      * @param context Failure context with details about the failure
      */
     fun handleFailure(
         payload: T,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     )
 }

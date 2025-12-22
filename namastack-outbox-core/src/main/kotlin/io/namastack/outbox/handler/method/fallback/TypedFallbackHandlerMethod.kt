@@ -6,10 +6,10 @@ import java.lang.reflect.Method
 /**
  * Typed fallback handler for failures with specific payload type. Provides type-safe error handling.
  *
- * Example: `fun handleFailure(payload: OrderEvent, metadata: ..., context: ...)`
+ * Example: `fun handleFailure(payload: OrderEvent, context: OutboxFailureContext)`
  *
  * @param bean Bean containing the fallback handler method
- * @param method Handler method (must have typed payload + metadata + context parameters)
+ * @param method Handler method (must have typed payload + context parameters)
  * @author Roland Beisel
  * @since 0.5.0
  */

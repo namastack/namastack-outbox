@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.method.fallback.factory
 
+import io.namastack.outbox.handler.OutboxFailureContext
 import io.namastack.outbox.handler.OutboxTypedHandlerWithFallback
 import io.namastack.outbox.handler.method.fallback.OutboxFallbackHandlerMethod
 import io.namastack.outbox.handler.method.fallback.TypedFallbackHandlerMethod
@@ -9,18 +10,23 @@ import java.lang.reflect.Method
 /**
  * Factory for creating typed fallback handler methods.
  *
- * Signature: `fun handleFailure(payload: T, metadata: OutboxRecordMetadata, context: OutboxFailureContext)`
+ * Signature: `fun handleFailure(payload: T, context: OutboxFailureContext)`
  *
  * @author Roland Beisel
  * @since 0.5.0
  */
 class TypedFallbackHandlerMethodFactory : OutboxFallbackHandlerMethodFactory {
     /**
-     * Checks if method matches typed fallback signature (3 params, first NOT Any).
+     * Checks if method matches typed fallback signature (2 params: typed payload, context).
      */
     override fun supports(method: Method): Boolean {
-        if (method.parameterCount != 3) return false
-        return method.parameterTypes.first().kotlin != Any::class
+        if (method.parameterCount != 2) return false
+
+        val payloadType = method.parameterTypes[0].kotlin
+        val failureContext = method.parameterTypes[1].kotlin
+
+        return payloadType != Any::class &&
+            failureContext == OutboxFailureContext::class
     }
 
     /**
@@ -36,7 +42,7 @@ class TypedFallbackHandlerMethodFactory : OutboxFallbackHandlerMethodFactory {
      * Creates typed fallback handler from OutboxTypedHandlerWithFallback interface.
      */
     fun createFromInterface(bean: OutboxTypedHandlerWithFallback<*>): TypedFallbackHandlerMethod {
-        val method = ReflectionUtils.findMethod(bean, "handleFailure", 3)
+        val method = ReflectionUtils.findMethod(bean, "handleFailure", 2)
         return TypedFallbackHandlerMethod(bean, method)
     }
 }

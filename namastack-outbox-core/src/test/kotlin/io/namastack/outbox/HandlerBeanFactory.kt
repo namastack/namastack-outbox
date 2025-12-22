@@ -91,7 +91,6 @@ class GenericInterfaceHandlerWithFallback : OutboxHandlerWithFallback {
 
     override fun handleFailure(
         payload: Any,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
     }
@@ -106,7 +105,6 @@ class TypedInterfaceHandlerWithFallback : OutboxTypedHandlerWithFallback<String>
 
     override fun handleFailure(
         payload: String,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
     }
@@ -138,7 +136,6 @@ class AnnotatedTypedHandlerWithFallback {
     @OutboxFallbackHandler
     fun handleFailure(
         payload: String,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
     }
@@ -157,7 +154,6 @@ class MultipleAnnotatedTypedHandlersWithMultipleFallbacks {
     @OutboxFallbackHandler
     fun handleFailure(
         payload: String,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
     }
@@ -165,7 +161,6 @@ class MultipleAnnotatedTypedHandlersWithMultipleFallbacks {
     @OutboxFallbackHandler
     fun handleFailure(
         payload: Int,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
     }
@@ -180,7 +175,6 @@ class AnnotatedTypedHandlerWithGenericFallback {
     @OutboxFallbackHandler
     fun handleFailure(
         payload: Any,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
     }
@@ -198,7 +192,6 @@ class AnnotatedGenericHandlerWithFallback {
     @OutboxFallbackHandler
     fun handleFailure(
         payload: Any,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
     }
@@ -231,7 +224,6 @@ class AnnotatedHandlerBeanWithNonMatchingFallback {
     @OutboxFallbackHandler
     fun handleFailure(
         payload: Int,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
     }
@@ -257,7 +249,6 @@ class AnnotatedHandlerBeanWithMultipleMatchingFallbacks {
     @OutboxFallbackHandler
     fun handleFailure1(
         payload: String,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
     }
@@ -265,7 +256,6 @@ class AnnotatedHandlerBeanWithMultipleMatchingFallbacks {
     @OutboxFallbackHandler
     fun handleFailure2(
         payload: String,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
     }

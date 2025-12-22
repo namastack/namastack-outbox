@@ -143,12 +143,12 @@ class OutboxHandlerBeanPostProcessorTest {
     }
 
     @Test
-    fun `registers typed handler with generic fallback when annotated with OutboxFallbackHandler`() {
+    fun `does not register generic fallback for typed handler`() {
         val bean = HandlerBeanFactory.createAnnotatedTypedHandlerWithGenericFallback()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
         verify(exactly = 1) { handlerRegistry.register(any()) }
-        verify(exactly = 1) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
 

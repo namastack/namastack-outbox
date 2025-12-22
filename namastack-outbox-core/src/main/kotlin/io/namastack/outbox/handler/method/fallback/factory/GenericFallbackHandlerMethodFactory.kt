@@ -2,7 +2,6 @@ package io.namastack.outbox.handler.method.fallback.factory
 
 import io.namastack.outbox.handler.OutboxFailureContext
 import io.namastack.outbox.handler.OutboxHandlerWithFallback
-import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.fallback.GenericFallbackHandlerMethod
 import io.namastack.outbox.handler.method.fallback.OutboxFallbackHandlerMethod
 import io.namastack.outbox.handler.method.internal.ReflectionUtils
@@ -11,24 +10,22 @@ import java.lang.reflect.Method
 /**
  * Factory for creating generic fallback handler methods.
  *
- * Signature: `fun handleFailure(payload: Any, metadata: OutboxRecordMetadata, context: OutboxFailureContext)`
+ * Signature: `fun handleFailure(payload: Any, context: OutboxFailureContext)`
  *
  * @author Roland Beisel
  * @since 0.5.0
  */
 class GenericFallbackHandlerMethodFactory : OutboxFallbackHandlerMethodFactory {
     /**
-     * Checks if method matches generic fallback signature (3 params: Any, metadata, context).
+     * Checks if method matches generic fallback signature (2 params: Any, context).
      */
     override fun supports(method: Method): Boolean {
-        if (method.parameterCount != 3) return false
+        if (method.parameterCount != 2) return false
 
         val payloadType = method.parameterTypes[0].kotlin
-        val metadataType = method.parameterTypes[1].kotlin
-        val failureContext = method.parameterTypes[2].kotlin
+        val failureContext = method.parameterTypes[1].kotlin
 
         return payloadType == Any::class &&
-            metadataType == OutboxRecordMetadata::class &&
             failureContext == OutboxFailureContext::class
     }
 
@@ -45,7 +42,7 @@ class GenericFallbackHandlerMethodFactory : OutboxFallbackHandlerMethodFactory {
      * Creates generic fallback handler from OutboxHandlerWithFallback interface.
      */
     fun createFromInterface(bean: OutboxHandlerWithFallback): GenericFallbackHandlerMethod {
-        val method = ReflectionUtils.findMethod(bean, "handleFailure", 3)
+        val method = ReflectionUtils.findMethod(bean, "handleFailure", 2)
         return GenericFallbackHandlerMethod(bean, method)
     }
 }
