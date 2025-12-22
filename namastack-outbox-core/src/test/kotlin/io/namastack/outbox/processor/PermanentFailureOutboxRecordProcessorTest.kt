@@ -14,15 +14,12 @@ import org.junit.jupiter.api.Test
 class PermanentFailureOutboxRecordProcessorTest {
     private lateinit var recordRepository: OutboxRecordRepository
     private lateinit var processor: PermanentFailureOutboxRecordProcessor
-    private lateinit var nextProcessor: OutboxRecordProcessor
 
     @BeforeEach
     fun setUp() {
         recordRepository = mockk()
-        nextProcessor = mockk()
 
         processor = PermanentFailureOutboxRecordProcessor(recordRepository)
-        processor.setNext(nextProcessor)
     }
 
     @Test
@@ -37,7 +34,6 @@ class PermanentFailureOutboxRecordProcessorTest {
             )
 
         every { recordRepository.save(any() as OutboxRecord<*>) } returns record
-        every { nextProcessor.handle(any()) } returns false
 
         val result = processor.handle(record)
 
@@ -45,7 +41,6 @@ class PermanentFailureOutboxRecordProcessorTest {
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
 
         verify { recordRepository.save(record) }
-        verify { nextProcessor.handle(record) }
     }
 
     @Test
@@ -69,27 +64,6 @@ class PermanentFailureOutboxRecordProcessorTest {
     }
 
     @Test
-    fun `handle returns true when next processor returns true`() {
-        val record =
-            outboxRecord(
-                handlerId = "test-handler",
-                failureCount = 3,
-                failureException = RuntimeException("Error"),
-            )
-
-        every { recordRepository.save(any() as OutboxRecord<*>) } returns record
-        every { nextProcessor.handle(any()) } returns true
-
-        val result = processor.handle(record)
-
-        assertThat(result).isTrue()
-        assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
-
-        verify { recordRepository.save(record) }
-        verify { nextProcessor.handle(record) }
-    }
-
-    @Test
     fun `handle marks record as FAILED with high failure count`() {
         val record =
             outboxRecord(
@@ -99,7 +73,6 @@ class PermanentFailureOutboxRecordProcessorTest {
             )
 
         every { recordRepository.save(any() as OutboxRecord<*>) } returns record
-        every { nextProcessor.handle(any()) } returns false
 
         processor.handle(record)
 
@@ -120,7 +93,6 @@ class PermanentFailureOutboxRecordProcessorTest {
             )
 
         every { recordRepository.save(any() as OutboxRecord<*>) } returns record
-        every { nextProcessor.handle(any()) } returns false
 
         processor.handle(record)
 
@@ -140,7 +112,6 @@ class PermanentFailureOutboxRecordProcessorTest {
             )
 
         every { recordRepository.save(any() as OutboxRecord<*>) } returns record
-        every { nextProcessor.handle(any()) } returns false
 
         processor.handle(record)
 
@@ -160,7 +131,6 @@ class PermanentFailureOutboxRecordProcessorTest {
             )
 
         every { recordRepository.save(any() as OutboxRecord<*>) } returns record
-        every { nextProcessor.handle(any()) } returns false
 
         processor.handle(record)
 

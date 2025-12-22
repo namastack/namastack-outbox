@@ -23,7 +23,7 @@ class PermanentFailureOutboxRecordProcessor(
     /**
      * Processes record by marking it as permanently FAILED.
      *
-     * @return result false as this is the last processor
+     * @return false as this is the last processor
      */
     override fun handle(record: OutboxRecord<*>): Boolean {
         record.markFailed()
