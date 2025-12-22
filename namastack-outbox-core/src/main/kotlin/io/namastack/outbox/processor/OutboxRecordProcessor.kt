@@ -27,7 +27,8 @@ abstract class OutboxRecordProcessor(
      */
     fun setNext(nextProcessor: OutboxRecordProcessor): OutboxRecordProcessor {
         this.next = nextProcessor
-        return this
+
+        return nextProcessor
     }
 
     /**

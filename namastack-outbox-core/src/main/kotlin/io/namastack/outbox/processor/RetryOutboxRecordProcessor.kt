@@ -30,7 +30,8 @@ class RetryOutboxRecordProcessor(
     /**
      * Processes record by scheduling retry if possible.
      *
-     * @return true if retry was scheduled, false if next processor should process
+     * @return false if retry was scheduled or if processing chain ends,
+     *         true if next processor in chain should handle the record
      */
     override fun handle(record: OutboxRecord<*>): Boolean {
         val retryPolicy = retryPolicyRegistry.getByHandlerId(record.handlerId)

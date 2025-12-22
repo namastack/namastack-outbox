@@ -23,10 +23,11 @@ class OutboxFallbackHandlerInvoker(
      * Invokes the fallback handler for a failed record.
      *
      * Looks up fallback handler by handlerId and invokes it with payload and
-     * failure context. If no fallback is registered, logs debug and returns.
+     * failure context. If no fallback is registered, logs debug and returns false.
      *
      * @param payload Record payload
      * @param context Failure details
+     * @return true if fallback handler was invoked, false if no handler registered or payload is null
      */
     fun dispatch(
         payload: Any?,

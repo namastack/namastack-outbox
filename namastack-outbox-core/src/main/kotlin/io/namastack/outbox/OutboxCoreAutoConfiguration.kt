@@ -305,17 +305,12 @@ class OutboxCoreAutoConfiguration {
             )
         val permanentFailure = PermanentFailureOutboxRecordProcessor(recordRepository)
 
-        return primary.apply {
-            setNext(
-                retry.apply {
-                    setNext(
-                        fallback.apply {
-                            setNext(permanentFailure)
-                        },
-                    )
-                },
-            )
-        }
+        primary
+            .setNext(retry)
+            .setNext(fallback)
+            .setNext(permanentFailure)
+
+        return primary
     }
 
     /**

@@ -112,8 +112,8 @@ class OutboxProcessingScheduler(
             log.trace("Processing {} records for key {}", records.size, recordKey)
 
             for (record in records) {
-                val shouldStop = processRecord(record, recordKey)
-                if (shouldStop) break
+                val shouldContinue = processRecord(record, recordKey)
+                if (!shouldContinue) break
             }
         } catch (ex: Exception) {
             log.error("Error processing key {}", recordKey, ex)
@@ -121,7 +121,7 @@ class OutboxProcessingScheduler(
     }
 
     /**
-     * Processes single record. Returns true if processing should stop for this key.
+     * Processes single record. Returns true if processing should continue for this key.
      */
     private fun processRecord(
         record: OutboxRecord<*>,
@@ -129,28 +129,21 @@ class OutboxProcessingScheduler(
     ): Boolean {
         if (!record.canBeRetried(clock)) {
             log.trace("Skipping record {} - not ready for retry", record.id)
-
-            return shouldStopProcessing(recordKey)
+            return shouldContinueProcessing(recordKey)
         }
 
-        val success = recordProcessorChain.handle(record)
-
-        if (!success) {
-            return shouldStopProcessing(recordKey)
-        }
-
-        return false
+        return recordProcessorChain.handle(record) || shouldContinueProcessing(recordKey)
     }
 
     /**
-     * Determines if processing should stop based on stopOnFirstFailure setting.
+     * Determines if processing should continue based on stopOnFirstFailure setting.
      */
-    private fun shouldStopProcessing(recordKey: String): Boolean {
+    private fun shouldContinueProcessing(recordKey: String): Boolean {
         if (properties.processing.stopOnFirstFailure) {
             log.trace("Stopping key {} processing (stopOnFirstFailure=true)", recordKey)
-            return true
+            return false
         }
 
-        return false
+        return true
     }
 }
