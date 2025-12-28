@@ -4,6 +4,7 @@ import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.annotation.OutboxFallbackHandler
 import io.namastack.outbox.annotation.OutboxHandler
 import io.namastack.outbox.handler.OutboxFailureContext
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
@@ -97,18 +98,27 @@ class AnnotationMultipleFallbacksIntegrationTest {
 
     @Component
     class MultipleHandlersWithFallbacks {
+        @Suppress("UNUSED_PARAMETER")
         @OutboxHandler
-        fun handleEvent1(payload: Event1) {
+        fun handleEvent1(
+            payload: Event1,
+            metadata: OutboxRecordMetadata,
+        ) {
             handledEvents.computeIfAbsent("Handler1") { mutableListOf() }.add(payload)
             throw RuntimeException("Handler 1 failure")
         }
 
+        @Suppress("UNUSED_PARAMETER")
         @OutboxHandler
-        fun handleEvent2(payload: Event2) {
+        fun handleEvent2(
+            payload: Event2,
+            metadata: OutboxRecordMetadata,
+        ) {
             handledEvents.computeIfAbsent("Handler2") { mutableListOf() }.add(payload)
             throw RuntimeException("Handler 2 failure")
         }
 
+        @Suppress("UNUSED_PARAMETER")
         @OutboxFallbackHandler
         fun fallback1(
             payload: Event1,
@@ -117,6 +127,7 @@ class AnnotationMultipleFallbacksIntegrationTest {
             fallbackCalls.computeIfAbsent("Fallback1") { mutableListOf() }.add(context)
         }
 
+        @Suppress("UNUSED_PARAMETER")
         @OutboxFallbackHandler
         fun fallback2(
             payload: Event2,

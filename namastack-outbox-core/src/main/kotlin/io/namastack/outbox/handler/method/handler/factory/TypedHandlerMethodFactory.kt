@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.method.handler.factory
 
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
@@ -9,15 +10,17 @@ import java.lang.reflect.Method
 /**
  * Factory for creating typed handler methods.
  *
- * Signature: `fun handle(payload: T)` where T is a specific type (not Any).
+ * Signature: `fun handle(payload: T, metadata: OutboxRecordMetadata)` where T is a specific type (not Any).
  */
 class TypedHandlerMethodFactory : OutboxHandlerMethodFactory {
     /**
-     * Checks if method matches typed handler signature (1 param, NOT Any).
+     * Checks if method matches typed handler signature.
+     * - 2 params: Typed payload (NOT Any) + OutboxRecordMetadata
      */
     override fun supports(method: Method): Boolean {
-        if (method.parameterCount != 1) return false
-        return method.parameterTypes.first().kotlin != Any::class
+        if (method.parameterCount != 2) return false
+        if (method.parameterTypes.first().kotlin == Any::class) return false
+        return method.parameterTypes[1] == OutboxRecordMetadata::class.java
     }
 
     /**
@@ -33,7 +36,7 @@ class TypedHandlerMethodFactory : OutboxHandlerMethodFactory {
      * Creates typed handler from OutboxTypedHandler interface.
      */
     fun createFromInterface(bean: OutboxTypedHandler<*>): TypedHandlerMethod {
-        val method = ReflectionUtils.findMethod(bean, "handle", 1)
+        val method = ReflectionUtils.findMethod(bean, "handle", 2)
         return TypedHandlerMethod(bean, method)
     }
 }

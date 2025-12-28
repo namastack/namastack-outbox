@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.method.handler.factory
 
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import org.assertj.core.api.Assertions.assertThat
@@ -21,8 +22,13 @@ class TypedHandlerMethodFactoryTest {
     @DisplayName("supports()")
     inner class SupportsTests {
         @Test
-        fun `should support method with single String parameter`() {
-            val method = TestHandler::class.java.getMethod("handleString", String::class.java)
+        fun `should support method with String and metadata parameters`() {
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handleString",
+                    String::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
 
             val result = factory.supports(method)
 
@@ -30,8 +36,13 @@ class TypedHandlerMethodFactoryTest {
         }
 
         @Test
-        fun `should support method with single Int parameter`() {
-            val method = TestHandler::class.java.getMethod("handleInt", Int::class.java)
+        fun `should support method with Int and metadata parameters`() {
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handleInt",
+                    Int::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
 
             val result = factory.supports(method)
 
@@ -39,8 +50,13 @@ class TypedHandlerMethodFactoryTest {
         }
 
         @Test
-        fun `should support method with single custom type parameter`() {
-            val method = TestHandler::class.java.getMethod("handlePayload", TestPayload::class.java)
+        fun `should support method with custom type and metadata parameters`() {
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handlePayload",
+                    TestPayload::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
 
             val result = factory.supports(method)
 
@@ -49,7 +65,12 @@ class TypedHandlerMethodFactoryTest {
 
         @Test
         fun `should not support method with Any parameter`() {
-            val method = TestHandler::class.java.getMethod("handleAny", Any::class.java)
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handleAny",
+                    Any::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
 
             val result = factory.supports(method)
 
@@ -86,7 +107,12 @@ class TypedHandlerMethodFactoryTest {
         @Test
         fun `should create typed handler method for String parameter`() {
             val bean = TestHandler()
-            val method = TestHandler::class.java.getMethod("handleString", String::class.java)
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handleString",
+                    String::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
 
             val result = factory.create(bean, method)
 
@@ -99,7 +125,12 @@ class TypedHandlerMethodFactoryTest {
         @Test
         fun `should create typed handler method for custom type parameter`() {
             val bean = TestHandler()
-            val method = TestHandler::class.java.getMethod("handlePayload", TestPayload::class.java)
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handlePayload",
+                    TestPayload::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
 
             val result = factory.create(bean, method)
 
@@ -110,8 +141,18 @@ class TypedHandlerMethodFactoryTest {
         @Test
         fun `should generate unique handler IDs for different methods`() {
             val bean = TestHandler()
-            val stringMethod = TestHandler::class.java.getMethod("handleString", String::class.java)
-            val intMethod = TestHandler::class.java.getMethod("handleInt", Int::class.java)
+            val stringMethod =
+                TestHandler::class.java.getMethod(
+                    "handleString",
+                    String::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
+            val intMethod =
+                TestHandler::class.java.getMethod(
+                    "handleInt",
+                    Int::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
 
             val handler1 = factory.create(bean, stringMethod) as TypedHandlerMethod
             val handler2 = factory.create(bean, intMethod) as TypedHandlerMethod
@@ -122,7 +163,12 @@ class TypedHandlerMethodFactoryTest {
         @Test
         fun `should preserve bean reference`() {
             val bean = TestHandler()
-            val method = TestHandler::class.java.getMethod("handleString", String::class.java)
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handleString",
+                    String::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
 
             val result = factory.create(bean, method) as TypedHandlerMethod
 
@@ -132,7 +178,12 @@ class TypedHandlerMethodFactoryTest {
         @Test
         fun `should preserve method reference`() {
             val bean = TestHandler()
-            val method = TestHandler::class.java.getMethod("handleString", String::class.java)
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handleString",
+                    String::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
 
             val result = factory.create(bean, method) as TypedHandlerMethod
 
@@ -171,7 +222,7 @@ class TypedHandlerMethodFactoryTest {
             val result = factory.createFromInterface(bean)
 
             assertThat(result.method.name).isEqualTo("handle")
-            assertThat(result.method.parameterCount).isEqualTo(1)
+            assertThat(result.method.parameterCount).isEqualTo(2)
         }
 
         @Test
@@ -192,7 +243,12 @@ class TypedHandlerMethodFactoryTest {
         @Test
         fun `should include class name in handler ID`() {
             val bean = TestHandler()
-            val method = TestHandler::class.java.getMethod("handleString", String::class.java)
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handleString",
+                    String::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
 
             val handler = factory.create(bean, method) as TypedHandlerMethod
 
@@ -202,7 +258,12 @@ class TypedHandlerMethodFactoryTest {
         @Test
         fun `should include method name in handler ID`() {
             val bean = TestHandler()
-            val method = TestHandler::class.java.getMethod("handleString", String::class.java)
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handleString",
+                    String::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
 
             val handler = factory.create(bean, method) as TypedHandlerMethod
 
@@ -212,7 +273,12 @@ class TypedHandlerMethodFactoryTest {
         @Test
         fun `should include parameter type in handler ID`() {
             val bean = TestHandler()
-            val method = TestHandler::class.java.getMethod("handleString", String::class.java)
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handleString",
+                    String::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
 
             val handler = factory.create(bean, method) as TypedHandlerMethod
 
@@ -222,7 +288,12 @@ class TypedHandlerMethodFactoryTest {
         @Test
         fun `should format handler ID with hash and parentheses`() {
             val bean = TestHandler()
-            val method = TestHandler::class.java.getMethod("handleString", String::class.java)
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handleString",
+                    String::class.java,
+                    OutboxRecordMetadata::class.java,
+                )
 
             val handler = factory.create(bean, method) as TypedHandlerMethod
 
@@ -232,22 +303,34 @@ class TypedHandlerMethodFactoryTest {
 
     class TestHandler {
         @Suppress("unused")
-        fun handleString(payload: String) {
+        fun handleString(
+            payload: String,
+            metadata: OutboxRecordMetadata,
+        ) {
             println(payload)
         }
 
         @Suppress("unused")
-        fun handleInt(payload: Int) {
+        fun handleInt(
+            payload: Int,
+            metadata: OutboxRecordMetadata,
+        ) {
             println(payload)
         }
 
         @Suppress("unused")
-        fun handlePayload(payload: TestPayload) {
+        fun handlePayload(
+            payload: TestPayload,
+            metadata: OutboxRecordMetadata,
+        ) {
             println(payload)
         }
 
         @Suppress("unused")
-        fun handleAny(payload: Any) {
+        fun handleAny(
+            payload: Any,
+            metadata: OutboxRecordMetadata,
+        ) {
             println(payload)
         }
 
@@ -266,13 +349,19 @@ class TypedHandlerMethodFactoryTest {
     }
 
     class StringHandlerImpl : OutboxTypedHandler<String> {
-        override fun handle(payload: String) {
+        override fun handle(
+            payload: String,
+            metadata: OutboxRecordMetadata,
+        ) {
             println(payload)
         }
     }
 
     class PayloadHandlerImpl : OutboxTypedHandler<TestPayload> {
-        override fun handle(payload: TestPayload) {
+        override fun handle(
+            payload: TestPayload,
+            metadata: OutboxRecordMetadata,
+        ) {
             println(payload)
         }
     }

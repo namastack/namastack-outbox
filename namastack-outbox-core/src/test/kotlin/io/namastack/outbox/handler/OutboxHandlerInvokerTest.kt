@@ -32,11 +32,11 @@ class OutboxHandlerInvokerTest {
         val typedHandler = mockk<TypedHandlerMethod>()
 
         every { handlerRegistry.getHandlerById("handler-1") } returns typedHandler
-        every { typedHandler.invoke(payload) } returns Unit
+        every { typedHandler.invoke(payload, metadata) } returns Unit
 
         invoker.dispatch(payload, metadata)
 
-        verify { typedHandler.invoke(payload) }
+        verify { typedHandler.invoke(payload, metadata) }
     }
 
     @Test
@@ -83,7 +83,7 @@ class OutboxHandlerInvokerTest {
         val exception = RuntimeException("Handler error")
 
         every { handlerRegistry.getHandlerById("failing-handler") } returns typedHandler
-        every { typedHandler.invoke(payload) } throws exception
+        every { typedHandler.invoke(payload, metadata) } throws exception
 
         assertThatThrownBy {
             invoker.dispatch(payload, metadata)
@@ -113,7 +113,7 @@ class OutboxHandlerInvokerTest {
         val handler = mockk<TypedHandlerMethod>()
 
         every { handlerRegistry.getHandlerById(handlerId) } returns handler
-        every { handler.invoke(any()) } returns Unit
+        every { handler.invoke(any(), any()) } returns Unit
 
         invoker.dispatch(payload, metadata)
 

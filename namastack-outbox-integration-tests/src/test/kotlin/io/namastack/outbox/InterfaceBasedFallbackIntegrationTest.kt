@@ -194,7 +194,10 @@ class InterfaceBasedFallbackIntegrationTest {
 
     @Component
     class TypedHandlerWithFallback : OutboxTypedHandlerWithFallback<TypedFailureEvent> {
-        override fun handle(payload: TypedFailureEvent) {
+        override fun handle(
+            payload: TypedFailureEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
             handledEvents.computeIfAbsent("TypedHandlerWithFallback") { mutableListOf() }.add(payload)
             throw RuntimeException("Typed handler failure")
         }
@@ -209,7 +212,10 @@ class InterfaceBasedFallbackIntegrationTest {
 
     @Component
     class FallbackWithSuccessCompletion : OutboxTypedHandlerWithFallback<SuccessfulFallbackEvent> {
-        override fun handle(payload: SuccessfulFallbackEvent) {
+        override fun handle(
+            payload: SuccessfulFallbackEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
             handledEvents.computeIfAbsent("FallbackWithSuccessCompletion") { mutableListOf() }.add(payload)
             throw RuntimeException("Handler failure")
         }
@@ -225,7 +231,10 @@ class InterfaceBasedFallbackIntegrationTest {
 
     @Component
     class FallbackWithException : OutboxTypedHandlerWithFallback<FallbackExceptionEvent> {
-        override fun handle(payload: FallbackExceptionEvent) {
+        override fun handle(
+            payload: FallbackExceptionEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
             handledEvents.computeIfAbsent("FallbackWithException") { mutableListOf() }.add(payload)
             throw RuntimeException("Handler failure")
         }

@@ -25,9 +25,7 @@ class OutboxHandlerInvoker(
      * Algorithm:
      * 1. Skip if payload is null (nothing to process)
      * 2. Look up handler by ID from metadata
-     * 3. Invoke the handler based on its type:
-     *    - TypedHandlerMethod: Call with just payload parameter
-     *    - GenericHandlerMethod: Call with payload AND metadata parameters
+     * 3. Invoke the handler with payload and metadata
      *
      * The handler ID comes from metadata.handlerId, which was stored when
      * the record was originally scheduled.
@@ -59,7 +57,7 @@ class OutboxHandlerInvoker(
                 ?: throw IllegalStateException("No handler with id ${metadata.handlerId}")
 
         when (handler) {
-            is TypedHandlerMethod -> handler.invoke(payload)
+            is TypedHandlerMethod -> handler.invoke(payload, metadata)
             is GenericHandlerMethod -> handler.invoke(payload, metadata)
         }
     }

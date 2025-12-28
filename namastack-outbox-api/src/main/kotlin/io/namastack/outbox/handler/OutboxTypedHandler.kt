@@ -7,12 +7,27 @@ package io.namastack.outbox.handler
  * Implementations should be idempotent as records may be processed multiple times
  * due to retries or system failures.
  *
+ * The metadata parameter provides access to record context including key, handler ID,
+ * creation timestamp, and custom context (e.g., tracing IDs, tenant info).
+ *
  * Example:
  *
  * ```kotlin
  * @Component
  * class OrderCreatedHandler : OutboxTypedHandler<OrderCreatedPayload> {
- *     override fun handle(payload: OrderCreatedPayload) {
+ *     override fun handle(payload: OrderCreatedPayload, metadata: OutboxRecordMetadata) {
+ *         val traceId = metadata.context["traceId"]
+ *         eventBus.publish(payload, traceId)
+ *     }
+ * }
+ * ```
+ *
+ * If you don't need metadata, simply ignore the parameter:
+ *
+ * ```kotlin
+ * @Component
+ * class OrderCreatedHandler : OutboxTypedHandler<OrderCreatedPayload> {
+ *     override fun handle(payload: OrderCreatedPayload, metadata: OutboxRecordMetadata) {
  *         eventBus.publish(payload)
  *     }
  * }
@@ -25,10 +40,14 @@ package io.namastack.outbox.handler
  */
 interface OutboxTypedHandler<T> {
     /**
-     * Handles an outbox record with the given payload.
+     * Handles an outbox record with payload and metadata.
      *
      * @param payload The record payload of type [T]
+     * @param metadata Record metadata (key, handlerId, context, createdAt)
      * @throws Exception to signal processing failure and trigger automatic retries
      */
-    fun handle(payload: T)
+    fun handle(
+        payload: T,
+        metadata: OutboxRecordMetadata,
+    )
 }
