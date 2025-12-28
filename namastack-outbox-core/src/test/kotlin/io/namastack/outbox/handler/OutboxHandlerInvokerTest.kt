@@ -28,7 +28,7 @@ class OutboxHandlerInvokerTest {
     @Test
     fun `dispatches to typed handler with payload only`() {
         val payload = "test-payload"
-        val metadata = OutboxRecordMetadata("test-key", "handler-1", now)
+        val metadata = OutboxRecordMetadata("test-key", "handler-1", now, emptyMap())
         val typedHandler = mockk<TypedHandlerMethod>()
 
         every { handlerRegistry.getHandlerById("handler-1") } returns typedHandler
@@ -42,7 +42,7 @@ class OutboxHandlerInvokerTest {
     @Test
     fun `dispatches to generic handler with payload and metadata`() {
         val payload: Any = "test-payload"
-        val metadata = OutboxRecordMetadata("test-key", "handler-2", now)
+        val metadata = OutboxRecordMetadata("test-key", "handler-2", now, emptyMap())
         val genericHandler = mockk<GenericHandlerMethod>()
 
         every { handlerRegistry.getHandlerById("handler-2") } returns genericHandler
@@ -55,7 +55,7 @@ class OutboxHandlerInvokerTest {
 
     @Test
     fun `skips processing when payload is null`() {
-        val metadata = OutboxRecordMetadata("test-key", "handler-1", now)
+        val metadata = OutboxRecordMetadata("test-key", "handler-1", now, emptyMap())
 
         invoker.dispatch(null, metadata)
 
@@ -65,7 +65,7 @@ class OutboxHandlerInvokerTest {
     @Test
     fun `throws IllegalStateException when handler not found`() {
         val payload = "test-payload"
-        val metadata = OutboxRecordMetadata("test-key", "unknown-handler", now)
+        val metadata = OutboxRecordMetadata("test-key", "unknown-handler", now, emptyMap())
 
         every { handlerRegistry.getHandlerById("unknown-handler") } returns null
 
@@ -78,7 +78,7 @@ class OutboxHandlerInvokerTest {
     @Test
     fun `propagates exception from typed handler`() {
         val payload = "test-payload"
-        val metadata = OutboxRecordMetadata("test-key", "failing-handler", now)
+        val metadata = OutboxRecordMetadata("test-key", "failing-handler", now, emptyMap())
         val typedHandler = mockk<TypedHandlerMethod>()
         val exception = RuntimeException("Handler error")
 
@@ -93,7 +93,7 @@ class OutboxHandlerInvokerTest {
     @Test
     fun `propagates exception from generic handler`() {
         val payload: Any = "test-payload"
-        val metadata = OutboxRecordMetadata("test-key", "failing-handler", now)
+        val metadata = OutboxRecordMetadata("test-key", "failing-handler", now, emptyMap())
         val genericHandler = mockk<GenericHandlerMethod>()
         val exception = IllegalStateException("Handler error")
 
@@ -109,7 +109,7 @@ class OutboxHandlerInvokerTest {
     fun `looks up handler by ID from metadata`() {
         val payload = "test"
         val handlerId = "my.custom.Handler#handle(java.lang.String)"
-        val metadata = OutboxRecordMetadata("test-key", handlerId, now)
+        val metadata = OutboxRecordMetadata("test-key", handlerId, now, emptyMap())
         val handler = mockk<TypedHandlerMethod>()
 
         every { handlerRegistry.getHandlerById(handlerId) } returns handler

@@ -8,9 +8,11 @@ import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 /**
  * Creates failure context for fallback handlers.
  *
+ * Includes all failure details and the original context map from the record.
+ *
  * @param handlerException The exception that caused the handler to fail
  * @param retryPolicyRegistry Registry to lookup retry policy
- * @return OutboxFailureContext with all failure details
+ * @return OutboxFailureContext with all failure details and context
  */
 internal fun OutboxRecord<*>.toFailureContext(
     handlerException: Throwable,
@@ -27,12 +29,13 @@ internal fun OutboxRecord<*>.toFailureContext(
         lastFailure = handlerException,
         retriesExhausted = retriesExhausted(retryPolicy.maxRetries()),
         nonRetryableException = !retryPolicy.shouldRetry(handlerException),
+        context = context,
     )
 }
 
 /**
  * Converts record to metadata for handler invocation.
  *
- * @return OutboxRecordMetadata with key, handlerId, and createdAt
+ * @return OutboxRecordMetadata with key, handlerId, createdAt, and context
  */
-internal fun OutboxRecord<*>.toMetadata() = OutboxRecordMetadata(key, handlerId, createdAt)
+internal fun OutboxRecord<*>.toMetadata() = OutboxRecordMetadata(key, handlerId, createdAt, context)
