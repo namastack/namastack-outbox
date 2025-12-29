@@ -11,6 +11,7 @@ publish = "0.35.0"
 hibernate = "7.2.0.Final"
 springOrm = "7.0.2"
 springTx = "7.0.2"
+springAspects = "7.0.2"
 h2 = "2.4.240"
 mockk = "1.14.7"
 assertj = "3.27.6"
@@ -29,7 +30,10 @@ spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-s
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBoot" }
 spring-boot-starter-data-jpa-test = { module = "org.springframework.boot:spring-boot-starter-data-jpa-test", version.ref = "springBoot" }
 spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator", version.ref = "springBoot" }
+spring-boot-micrometer-tracing-opentelemetry = { module = "org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry", version.ref = "springBoot" }
+spring-boot-opentelemetry = { module = "org.springframework.boot:spring-boot-opentelemetry", version.ref = "springBoot" }
 spring-tx = { module = "org.springframework:spring-tx", version.ref = "springTx" }
+spring-aspects = { module = "org.springframework:spring-aspects", version.ref = "springAspects" }
 
 # Jakarta dependencies
 jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakarta" }
