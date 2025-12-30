@@ -7,10 +7,12 @@ import kotlin.reflect.KClass
 /**
  * Handler for records with a specific payload type. Provides type-safe processing.
  *
- * Signature: `fun handle(payload: T, metadata: OutboxRecordMetadata)`
+ * Supports two signatures:
+ * - 1 param: `fun handle(payload: T)`
+ * - 2 params: `fun handle(payload: T, metadata: OutboxRecordMetadata)`
  *
  * @param bean Bean containing the handler method
- * @param method Handler method (must have 2 parameters: payload + metadata)
+ * @param method Handler method (1 or 2 parameters)
  */
 class TypedHandlerMethod(
     bean: Any,
@@ -22,6 +24,7 @@ class TypedHandlerMethod(
 
     /**
      * Invokes handler with typed payload and metadata.
+     * Passes metadata only if method accepts it.
      *
      * @param payload Record payload matching paramType
      * @param metadata Record metadata
@@ -31,6 +34,10 @@ class TypedHandlerMethod(
         payload: Any,
         metadata: OutboxRecordMetadata,
     ) {
-        invokeMethod(payload, metadata)
+        if (method.parameterCount == 1) {
+            invokeMethod(payload)
+        } else {
+            invokeMethod(payload, metadata)
+        }
     }
 }

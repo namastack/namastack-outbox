@@ -10,17 +10,27 @@ import java.lang.reflect.Method
 /**
  * Factory for creating typed handler methods.
  *
- * Signature: `fun handle(payload: T, metadata: OutboxRecordMetadata)` where T is a specific type (not Any).
+ * Supports two signatures:
+ * - 1 param: `fun handle(payload: T)` where T is a specific type (not Any)
+ * - 2 params: `fun handle(payload: T, metadata: OutboxRecordMetadata)` where T is a specific type (not Any)
  */
 class TypedHandlerMethodFactory : OutboxHandlerMethodFactory {
     /**
      * Checks if method matches typed handler signature.
+     * - 1 param: Typed payload (NOT Any)
      * - 2 params: Typed payload (NOT Any) + OutboxRecordMetadata
      */
     override fun supports(method: Method): Boolean {
-        if (method.parameterCount != 2) return false
+        val paramCount = method.parameterCount
+        if (paramCount != 1 && paramCount != 2) return false
+
         if (method.parameterTypes.first().kotlin == Any::class) return false
-        return method.parameterTypes[1] == OutboxRecordMetadata::class.java
+
+        if (paramCount == 2) {
+            return method.parameterTypes[1] == OutboxRecordMetadata::class.java
+        }
+
+        return true
     }
 
     /**

@@ -25,6 +25,9 @@ object HandlerBeanFactory {
 
     fun createAnnotatedTypedHandler(): AnnotatedTypedHandler = AnnotatedTypedHandler()
 
+    fun createAnnotatedTypedHandlerWithoutMetadata(): AnnotatedTypedHandlerWithoutMetadata =
+        AnnotatedTypedHandlerWithoutMetadata()
+
     fun createAnnotatedGenericHandler(): AnnotatedGenericHandler = AnnotatedGenericHandler()
 
     fun createAnnotatedTypedHandlerWithFallback(): AnnotatedTypedHandlerWithFallback =
@@ -123,6 +126,13 @@ class AnnotatedTypedHandler {
         payload: String,
         metadata: OutboxRecordMetadata,
     ) {
+    }
+}
+
+@Suppress("UNUSED_PARAMETER")
+class AnnotatedTypedHandlerWithoutMetadata {
+    @OutboxHandler
+    fun handle(payload: String) {
     }
 }
 

@@ -22,6 +22,32 @@ class TypedHandlerMethodFactoryTest {
     @DisplayName("supports()")
     inner class SupportsTests {
         @Test
+        fun `should support method with String parameter only`() {
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handleStringOnly",
+                    String::class.java,
+                )
+
+            val result = factory.supports(method)
+
+            assertThat(result).isTrue()
+        }
+
+        @Test
+        fun `should support method with custom type parameter only`() {
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handlePayloadOnly",
+                    TestPayload::class.java,
+                )
+
+            val result = factory.supports(method)
+
+            assertThat(result).isTrue()
+        }
+
+        @Test
         fun `should support method with String and metadata parameters`() {
             val method =
                 TestHandler::class.java.getMethod(
@@ -61,6 +87,19 @@ class TypedHandlerMethodFactoryTest {
             val result = factory.supports(method)
 
             assertThat(result).isTrue()
+        }
+
+        @Test
+        fun `should not support method with Any parameter only`() {
+            val method =
+                TestHandler::class.java.getMethod(
+                    "handleAnyOnly",
+                    Any::class.java,
+                )
+
+            val result = factory.supports(method)
+
+            assertThat(result).isFalse()
         }
 
         @Test
@@ -302,6 +341,21 @@ class TypedHandlerMethodFactoryTest {
     }
 
     class TestHandler {
+        @Suppress("unused")
+        fun handleStringOnly(payload: String) {
+            println(payload)
+        }
+
+        @Suppress("unused")
+        fun handlePayloadOnly(payload: TestPayload) {
+            println(payload)
+        }
+
+        @Suppress("unused")
+        fun handleAnyOnly(payload: Any) {
+            println(payload)
+        }
+
         @Suppress("unused")
         fun handleString(
             payload: String,

@@ -73,6 +73,16 @@ class OutboxHandlerBeanPostProcessorTest {
     }
 
     @Test
+    fun `registers typed handler bean without metadata when method annotated with @OutboxHandler`() {
+        val bean = HandlerBeanFactory.createAnnotatedTypedHandlerWithoutMetadata()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any(TypedHandlerMethod::class)) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
+    }
+
+    @Test
     fun `registers generic handler when method annotated with @OutboxHandler`() {
         val bean = HandlerBeanFactory.createAnnotatedGenericHandler()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
