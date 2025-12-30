@@ -1,7 +1,7 @@
 package io.namastack.outbox
 
-import io.opentelemetry.api.trace.Span
-import io.opentelemetry.api.trace.StatusCode.ERROR
+import io.micrometer.tracing.Span
+import io.micrometer.tracing.Tracer
 import org.aspectj.lang.ProceedingJoinPoint
 import org.aspectj.lang.annotation.Around
 import org.aspectj.lang.annotation.Aspect
@@ -9,17 +9,20 @@ import org.aspectj.lang.annotation.Aspect
 /**
  * AOP Aspect that restores distributed tracing context when processing outbox records.
  *
- * Creates a new root span with a link to the original producer span, following
+ * Creates a child span from the original producer span, following
  * OpenTelemetry semantic conventions for asynchronous queue-based messaging.
  *
  * This pattern maintains trace continuity across the async boundary between
- * transaction commit and outbox processing without creating parent-child relationships.
+ * transaction commit and outbox processing, allowing distributed traces to span
+ * the entire lifecycle from record creation to final processing.
  *
  * @param spanFactory Factory for creating consumer spans with producer links
+ * @param tracer Micrometer tracer for managing span lifecycle and context propagation
  */
 @Aspect
 class OutboxHandlerTracingAspect(
     private val spanFactory: OutboxSpanFactory,
+    private val tracer: Tracer,
 ) {
     /**
      * Intercepts outbox record processing and wraps execution in a tracing span.
@@ -40,35 +43,36 @@ class OutboxHandlerTracingAspect(
         joinPoint: ProceedingJoinPoint,
         record: OutboxRecord<*>,
     ): Any? {
-        val span = spanFactory.create(record) ?: return joinPoint.proceed()
+        val spanBuilder = spanFactory.create(record) ?: return joinPoint.proceed()
 
-        return runWithSpan(span) { joinPoint.proceed() }
+        return runWithSpan(spanBuilder, record) { joinPoint.proceed() }
     }
 
     /**
-     * Executes block within span context with proper error handling and cleanup.
+     * Executes a block within a span context with proper error handling and cleanup.
      *
-     * Makes span current so nested operations inherit the trace context.
-     * Records exceptions and sets error status before rethrowing.
-     * Ensures span is ended even if exception occurs.
+     * Makes the span current so nested operations inherit the trace context.
+     * If the outbox record has a failure exception, it is recorded in the span
+     * before the span is ended. Ensures the span is always properly closed
+     * even if an exception occurs during execution.
      *
-     * @param span Consumer span to execute within
-     * @param block Code to execute within span context
+     * @param T The return type of the block
+     * @param spanBuilder Span builder to create and execute within
+     * @param record Outbox record being processed, used to check for failure exceptions
+     * @param block Lambda to execute within the span context
      * @return Result of block execution
-     * @throws Exception Rethrows any exception after recording it in span
      */
     private inline fun <T> runWithSpan(
-        span: Span,
+        spanBuilder: Span.Builder,
+        record: OutboxRecord<*>,
         block: () -> T,
-    ): T =
+    ): T {
+        val span = spanBuilder.start()
         try {
-            span.makeCurrent().use { block() }
-        } catch (ex: Exception) {
-            span.recordException(ex)
-            span.setStatus(ERROR)
-
-            throw ex
+            return tracer.withSpan(span).use { block() }
         } finally {
+            record.failureException?.let { error -> span.error(error) }
             span.end()
         }
+    }
 }

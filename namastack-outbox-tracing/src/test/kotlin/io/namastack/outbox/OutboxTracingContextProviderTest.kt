@@ -8,13 +8,20 @@ import io.mockk.Called
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class OutboxTracingContextProviderTest {
     private val tracer = mockk<Tracer>()
     private val propagator = mockk<Propagator>()
-    private val provider = OutboxTracingContextProvider(tracer, propagator)
+
+    private lateinit var provider: OutboxTracingContextProvider
+
+    @BeforeEach
+    fun setUp() {
+        provider = OutboxTracingContextProvider(tracer, propagator)
+    }
 
     @Test
     fun `returns empty map when no current span exists`() {
@@ -22,7 +29,7 @@ class OutboxTracingContextProviderTest {
 
         val result = provider.provide()
 
-        assertEquals(emptyMap<String, String>(), result)
+        assertThat(result).isEmpty()
         verify { propagator wasNot Called }
     }
 
@@ -48,12 +55,29 @@ class OutboxTracingContextProviderTest {
 
         val result = provider.provide()
 
-        assertEquals(
-            mapOf(
-                "traceparent" to "00-abc-def-01",
-                "tracestate" to "vendor=value",
-            ),
-            result,
-        )
+        assertThat(result)
+            .containsEntry("traceparent", "00-abc-def-01")
+            .containsEntry("tracestate", "vendor=value")
+            .hasSize(2)
+    }
+
+    @Test
+    fun `returns empty map when propagator throws exception`() {
+        val span = mockk<Span>()
+        val context = mockk<TraceContext>()
+
+        every { tracer.currentSpan() } returns span
+        every { span.context() } returns context
+        every {
+            propagator.inject(
+                context,
+                any<MutableMap<String, String>>(),
+                any(),
+            )
+        } throws RuntimeException("Propagation failed")
+
+        val result = provider.provide()
+
+        assertThat(result).isEmpty()
     }
 }
