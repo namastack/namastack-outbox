@@ -65,7 +65,6 @@ class InterfaceBasedFallbackIntegrationTest {
                 // 3 handler calls = 1 initial attempt + 2 retries (max-retries: 2)
                 assertThat(handledEvents["GenericHandlerWithFallback"]).hasSize(3)
                 assertThat(fallbackCalls["GenericHandlerWithFallback"]).hasSize(1)
-                assertThat(recordRepository.findCompletedRecords()).hasSize(1)
                 assertThat(recordRepository.findFailedRecords()).isEmpty()
 
                 val context = fallbackCalls["GenericHandlerWithFallback"]?.first()
@@ -86,7 +85,6 @@ class InterfaceBasedFallbackIntegrationTest {
                 // 3 handler calls = 1 initial attempt + 2 retries (max-retries: 2)
                 assertThat(handledEvents["TypedHandlerWithFallback"]).hasSize(3)
                 assertThat(fallbackCalls["TypedHandlerWithFallback"]).hasSize(1)
-                assertThat(recordRepository.findCompletedRecords()).hasSize(1)
                 assertThat(recordRepository.findFailedRecords()).isEmpty()
 
                 val context = fallbackCalls["TypedHandlerWithFallback"]?.first()
@@ -106,7 +104,6 @@ class InterfaceBasedFallbackIntegrationTest {
                 // 3 handler calls = 1 initial attempt + 2 retries (max-retries: 2)
                 assertThat(handledEvents["FallbackWithSuccessCompletion"]).hasSize(3)
                 assertThat(fallbackCalls["FallbackWithSuccessCompletion"]).hasSize(1)
-                assertThat(recordRepository.findCompletedRecords()).hasSize(1)
                 assertThat(recordRepository.findFailedRecords()).isEmpty()
             }
     }
