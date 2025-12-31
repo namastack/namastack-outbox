@@ -51,8 +51,8 @@ class OutboxSpanFactoryTest {
         val result = factory.create(record)
 
         assertThat(result).isNotNull
-        verify(exactly = 1) { spanBuilder.name("outbox publish") }
-        verify(exactly = 1) { spanBuilder.kind(Span.Kind.PRODUCER) }
+        verify(exactly = 1) { spanBuilder.name("outbox process") }
+        verify(exactly = 1) { spanBuilder.kind(Span.Kind.CONSUMER) }
         verify(exactly = 1) { spanBuilder.tag("outbox.record.id", "record-123") }
         verify(exactly = 1) { spanBuilder.tag("outbox.record.key", "order-456") }
         verify(exactly = 1) {
@@ -164,7 +164,7 @@ class OutboxSpanFactoryTest {
     }
 
     private fun mockPropagator(): Span.Builder {
-        val spanBuilder = mockk<Span.Builder>()
+        val spanBuilder = mockk<Span.Builder>(relaxed = true)
 
         every { propagator.extract<Map<String, String>>(any(), any()) } answers {
             val carrier = firstArg<Map<String, String>>()

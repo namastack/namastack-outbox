@@ -30,7 +30,7 @@ class OutboxSpanFactory(
     private val log = LoggerFactory.getLogger(OutboxSpanFactory::class.java)
 
     /**
-     * Creates a child span builder for processing an outbox record.
+     * Creates a child span for processing an outbox record.
      *
      * Extracts trace context from the record's context map and creates a span
      * that is a child of the original producer span. The span is tagged with
@@ -41,9 +41,9 @@ class OutboxSpanFactory(
      * degradation - processing continues without tracing).
      *
      * @param record The outbox record being processed
-     * @return Span builder for the processing span, or null if context restoration fails
+     * @return Span for the processing span, or null if context restoration fails
      */
-    fun create(record: OutboxRecord<*>): Span.Builder? {
+    fun create(record: OutboxRecord<*>): Span? {
         try {
             val spanBuilder = restoreSpan(record.context) ?: return null
 
@@ -53,7 +53,7 @@ class OutboxSpanFactory(
 
             spanBuilder
                 .name(SPAN_NAME)
-                .kind(Span.Kind.PRODUCER)
+                .kind(Span.Kind.CONSUMER)
                 .tag(ID_TAG, record.id)
                 .tag(KEY_TAG, record.key)
                 .tag(HANDLER_CLASS_TAG, handler.bean::class.java.name)
@@ -62,7 +62,7 @@ class OutboxSpanFactory(
 
             tracer.currentSpan()?.let { currentSpan -> spanBuilder.addLink(Link(currentSpan)) }
 
-            return spanBuilder
+            return spanBuilder.start()
         } catch (ex: Exception) {
             log.warn("Failed to create span", ex)
             return null
@@ -99,7 +99,7 @@ class OutboxSpanFactory(
     }
 
     private companion object {
-        private const val SPAN_NAME = "outbox publish"
+        private const val SPAN_NAME = "outbox process"
         private const val ID_TAG = "outbox.record.id"
         private const val KEY_TAG = "outbox.record.key"
         private const val HANDLER_CLASS_TAG = "outbox.handler.class"

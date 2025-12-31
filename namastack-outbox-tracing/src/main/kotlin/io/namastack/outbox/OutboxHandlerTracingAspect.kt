@@ -43,9 +43,9 @@ class OutboxHandlerTracingAspect(
         joinPoint: ProceedingJoinPoint,
         record: OutboxRecord<*>,
     ): Any? {
-        val spanBuilder = spanFactory.create(record) ?: return joinPoint.proceed()
+        val span = spanFactory.create(record) ?: return joinPoint.proceed()
 
-        return runWithSpan(spanBuilder, record) { joinPoint.proceed() }
+        return runWithSpan(span, record) { joinPoint.proceed() }
     }
 
     /**
@@ -57,17 +57,16 @@ class OutboxHandlerTracingAspect(
      * even if an exception occurs during execution.
      *
      * @param T The return type of the block
-     * @param spanBuilder Span builder to create and execute within
+     * @param span Span to execute within
      * @param record Outbox record being processed, used to check for failure exceptions
      * @param block Lambda to execute within the span context
      * @return Result of block execution
      */
     private inline fun <T> runWithSpan(
-        spanBuilder: Span.Builder,
+        span: Span,
         record: OutboxRecord<*>,
         block: () -> T,
     ): T {
-        val span = spanBuilder.start()
         try {
             return tracer.withSpan(span).use { block() }
         } finally {

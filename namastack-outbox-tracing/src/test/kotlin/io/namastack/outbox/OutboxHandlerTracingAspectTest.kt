@@ -47,12 +47,10 @@ class OutboxHandlerTracingAspectTest {
                 context = mapOf("traceparent" to "00-abc-def-01"),
             )
 
-        val spanBuilder = mockk<Span.Builder>()
         val span = mockk<Span>(relaxed = true)
         val scope = mockk<Tracer.SpanInScope>(relaxed = true)
 
-        every { spanFactory.create(record) } returns spanBuilder
-        every { spanBuilder.start() } returns span
+        every { spanFactory.create(record) } returns span
         every { tracer.withSpan(span) } returns scope
         every { joinPoint.proceed() } returns "result"
 
@@ -76,12 +74,10 @@ class OutboxHandlerTracingAspectTest {
                 failureException = failureException,
             )
 
-        val spanBuilder = mockk<Span.Builder>()
         val span = mockk<Span>(relaxed = true)
         val scopedTracer = mockk<Tracer.SpanInScope>(relaxed = true)
 
-        every { spanFactory.create(record) } returns spanBuilder
-        every { spanBuilder.start() } returns span
+        every { spanFactory.create(record) } returns span
         every { tracer.withSpan(span) } returns scopedTracer
         every { joinPoint.proceed() } returns "result"
 
@@ -100,12 +96,10 @@ class OutboxHandlerTracingAspectTest {
             )
 
         val exception = RuntimeException("Handler failed")
-        val spanBuilder = mockk<Span.Builder>()
         val span = mockk<Span>(relaxed = true)
         val scope = mockk<Tracer.SpanInScope>(relaxed = true)
 
-        every { spanFactory.create(record) } returns spanBuilder
-        every { spanBuilder.start() } returns span
+        every { spanFactory.create(record) } returns span
         every { tracer.withSpan(span) } returns scope
         every { joinPoint.proceed() } throws exception
 
