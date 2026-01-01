@@ -21,7 +21,7 @@ import java.time.Clock
  * @author Roland Beisel
  * @since 0.5.0
  */
-open class PrimaryOutboxRecordProcessor(
+class PrimaryOutboxRecordProcessor(
     private val handlerInvoker: OutboxHandlerInvoker,
     private val recordRepository: OutboxRecordRepository,
     private val properties: OutboxProperties,
