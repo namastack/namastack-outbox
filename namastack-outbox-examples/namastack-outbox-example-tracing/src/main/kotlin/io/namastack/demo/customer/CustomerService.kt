@@ -15,7 +15,7 @@ class CustomerService(
     private val logger = LoggerFactory.getLogger(CustomerService::class.java)
 
     @Transactional
-    @Observed(name = "customer.register")
+    @Observed(name = "customer.register", contextualName = "register customer")
     fun register(
         firstname: String,
         lastname: String,

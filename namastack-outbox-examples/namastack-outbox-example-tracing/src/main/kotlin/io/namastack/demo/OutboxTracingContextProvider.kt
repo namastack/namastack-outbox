@@ -1,4 +1,4 @@
-package io.namastack.outbox
+package io.namastack.demo
 
 import io.micrometer.tracing.Tracer
 import io.micrometer.tracing.propagation.Propagator

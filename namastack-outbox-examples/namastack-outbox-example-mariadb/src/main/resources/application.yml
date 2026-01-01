@@ -1,6 +1,6 @@
 spring:
   application:
-    name: namastack-outbox-basic-example
+    name: namastack-outbox-example-mariadb
 
   datasource:
     url: jdbc:mysql://localhost:33306/outbox_example
