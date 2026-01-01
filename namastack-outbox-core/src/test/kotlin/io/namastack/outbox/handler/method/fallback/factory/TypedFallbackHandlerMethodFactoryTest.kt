@@ -1,6 +1,7 @@
 package io.namastack.outbox.handler.method.fallback.factory
 
 import io.namastack.outbox.handler.OutboxFailureContext
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandlerWithFallback
 import io.namastack.outbox.handler.method.fallback.TypedFallbackHandlerMethod
 import org.assertj.core.api.Assertions.assertThat
@@ -171,7 +172,10 @@ class TypedFallbackHandlerMethodFactoryTest {
     }
 
     class TestOutboxTypedHandlerWithFallback : OutboxTypedHandlerWithFallback<String> {
-        override fun handle(payload: String) {
+        override fun handle(
+            payload: String,
+            metadata: OutboxRecordMetadata,
+        ) {
         }
 
         override fun handleFailure(

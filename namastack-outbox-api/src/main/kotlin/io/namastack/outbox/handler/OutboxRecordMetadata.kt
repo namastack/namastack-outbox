@@ -5,17 +5,18 @@ import java.time.OffsetDateTime
 /**
  * Metadata context for an outbox record during processing.
  *
- * Provides information about the record being processed. Available to handlers
- * for decision-making and context awareness during record handling.
+ * Provides information about the record being processed, including custom context
+ * for cross-cutting concerns like distributed tracing, multi-tenancy, or correlation IDs.
  *
  * ## Usage
  *
- * Passed to generic handlers to provide context about the record:
+ * Available to all handlers for context-aware record processing:
  *
  * ```kotlin
  * @OutboxHandler
  * fun handle(payload: Any, metadata: OutboxRecordMetadata) {
- *     logger.info("Processing record created at ${metadata.createdAt} for key ${metadata.key}")
+ *     val traceId = metadata.context["traceId"]
+ *     logger.info("Processing record for key ${metadata.key} with trace $traceId")
  *     when (payload) {
  *         is OrderCreated -> handleOrder(payload, metadata)
  *         else -> logger.warn("Unknown payload type for handler ${metadata.handlerId}")
@@ -26,6 +27,7 @@ import java.time.OffsetDateTime
  * @property key Logical group identifier for ordered processing of records in the same group
  * @property handlerId Unique identifier of the handler that will process this record
  * @property createdAt Timestamp when the record was created in the outbox
+ * @property context Custom context map for cross-cutting concerns (tracing, tenancy, correlation)
  *
  * @author Roland Beisel
  * @since 0.4.0
@@ -34,4 +36,5 @@ data class OutboxRecordMetadata(
     val key: String,
     val handlerId: String,
     val createdAt: OffsetDateTime,
+    val context: Map<String, String>,
 )

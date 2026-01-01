@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.annotation.OutboxEvent
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
@@ -163,14 +164,20 @@ class EventMulticasterIntegrationTest {
     // Event Handlers
     @Component
     class OrderEventHandler : OutboxTypedHandler<OrderCreatedEvent> {
-        override fun handle(payload: OrderCreatedEvent) {
+        override fun handle(
+            payload: OrderCreatedEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
             handledEvents.computeIfAbsent("OrderEventHandler") { mutableListOf() }.add(payload)
         }
     }
 
     @Component
     class PaymentEventHandler : OutboxTypedHandler<PaymentProcessedEvent> {
-        override fun handle(payload: PaymentProcessedEvent) {
+        override fun handle(
+            payload: PaymentProcessedEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
             handledEvents.computeIfAbsent("PaymentEventHandler") { mutableListOf() }.add(payload)
         }
     }

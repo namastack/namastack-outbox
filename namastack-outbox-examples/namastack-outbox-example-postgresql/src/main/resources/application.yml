@@ -1,6 +1,6 @@
 spring:
   application:
-    name: namastack-outbox-basic-example
+    name: namastack-outbox-example-postgresql
 
   datasource:
     url: jdbc:postgresql://localhost:5432/outbox_example

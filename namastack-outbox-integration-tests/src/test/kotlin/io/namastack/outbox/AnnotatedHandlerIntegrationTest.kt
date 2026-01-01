@@ -210,21 +210,32 @@ class AnnotatedHandlerIntegrationTest {
     // Variant 1: Simple class with @OutboxHandler annotation
     @Component
     class SimpleClassHandler {
+        @Suppress("UNUSED_PARAMETER")
         @OutboxHandler
-        fun handle(event: SimpleEvent) {
+        fun handle(
+            event: SimpleEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
             recordEvent("SimpleClassHandler", event.value)
         }
     }
 
     // Variant 2: Generic interface with @OutboxHandler annotation on interface method
     interface GenericHandlerInterface<T : BaseEvent> {
+        @Suppress("UNUSED_PARAMETER")
         @OutboxHandler
-        fun handle(event: T)
+        fun handle(
+            event: T,
+            metadata: OutboxRecordMetadata,
+        )
     }
 
     @Component
     class GenericInterfaceHandler : GenericHandlerInterface<GenericEvent> {
-        override fun handle(event: GenericEvent) {
+        override fun handle(
+            event: GenericEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
             recordEvent("GenericInterfaceHandler", event.value)
         }
     }
@@ -232,12 +243,18 @@ class AnnotatedHandlerIntegrationTest {
     // Variant 3: Non-generic interface with @OutboxHandler annotation
     interface NonGenericHandlerInterface {
         @OutboxHandler
-        fun handle(event: NonGenericEvent)
+        fun handle(
+            event: NonGenericEvent,
+            metadata: OutboxRecordMetadata,
+        )
     }
 
     @Component
     class NonGenericInterfaceHandler : NonGenericHandlerInterface {
-        override fun handle(event: NonGenericEvent) {
+        override fun handle(
+            event: NonGenericEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
             recordEvent("NonGenericInterfaceHandler", event.value)
         }
     }
@@ -245,12 +262,18 @@ class AnnotatedHandlerIntegrationTest {
     // Variant 4: Abstract class with @OutboxHandler annotation
     abstract class AbstractHandlerBase {
         @OutboxHandler
-        abstract fun handle(event: AbstractEvent)
+        abstract fun handle(
+            event: AbstractEvent,
+            metadata: OutboxRecordMetadata,
+        )
     }
 
     @Component
     class AbstractClassHandler : AbstractHandlerBase() {
-        override fun handle(event: AbstractEvent) {
+        override fun handle(
+            event: AbstractEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
             recordEvent("AbstractClassHandler", event.value)
         }
     }
@@ -258,14 +281,20 @@ class AnnotatedHandlerIntegrationTest {
     // Variant 5: Multi-level inheritance (interface -> abstract class -> concrete class)
     interface MultiLevelHandlerInterface {
         @OutboxHandler
-        fun handle(event: MultiLevelEvent)
+        fun handle(
+            event: MultiLevelEvent,
+            metadata: OutboxRecordMetadata,
+        )
     }
 
     abstract class MultiLevelHandlerBase : MultiLevelHandlerInterface
 
     @Component
     class MultiLevelInheritanceHandler : MultiLevelHandlerBase() {
-        override fun handle(event: MultiLevelEvent) {
+        override fun handle(
+            event: MultiLevelEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
             recordEvent("MultiLevelInheritanceHandler", event.value)
         }
     }
@@ -273,7 +302,10 @@ class AnnotatedHandlerIntegrationTest {
     // Variant 6: Class implementing multiple interfaces
     interface HandlerInterfaceA<T : BaseEvent> {
         @OutboxHandler
-        fun handleFromA(event: T)
+        fun handleFromA(
+            event: T,
+            metadata: OutboxRecordMetadata,
+        )
     }
 
     interface HandlerInterfaceB {
@@ -284,7 +316,10 @@ class AnnotatedHandlerIntegrationTest {
     class MultipleInterfacesHandler :
         HandlerInterfaceA<MultiInterfaceEvent>,
         HandlerInterfaceB {
-        override fun handleFromA(event: MultiInterfaceEvent) {
+        override fun handleFromA(
+            event: MultiInterfaceEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
             recordEvent("MultipleInterfacesHandler", event.value)
         }
 
@@ -296,13 +331,21 @@ class AnnotatedHandlerIntegrationTest {
     // Variant 7: Multiple @OutboxHandler methods in same class (overloading)
     @Component
     class OverloadedMethodsHandler {
+        @Suppress("UNUSED_PARAMETER")
         @OutboxHandler
-        fun handle(event: OverloadEvent1) {
+        fun handle(
+            event: OverloadEvent1,
+            metadata: OutboxRecordMetadata,
+        ) {
             recordEvent("OverloadedMethodsHandler-1", event.value)
         }
 
+        @Suppress("UNUSED_PARAMETER")
         @OutboxHandler
-        fun handle(event: OverloadEvent2) {
+        fun handle(
+            event: OverloadEvent2,
+            metadata: OutboxRecordMetadata,
+        ) {
             recordEvent("OverloadedMethodsHandler-2", event.value)
         }
     }
@@ -310,6 +353,7 @@ class AnnotatedHandlerIntegrationTest {
     // Variant 8: Handler with OutboxRecordMetadata parameter
     @Component
     class MetadataParameterHandler {
+        @Suppress("UNUSED_PARAMETER")
         @OutboxHandler
         fun handle(
             event: Any,

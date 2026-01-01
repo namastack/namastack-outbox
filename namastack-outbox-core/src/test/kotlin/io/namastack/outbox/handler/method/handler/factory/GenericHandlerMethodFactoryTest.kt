@@ -301,9 +301,10 @@ class GenericHandlerMethodFactoryTest {
             val payload = "test-payload"
             val metadata =
                 OutboxRecordMetadata(
-                    "test-key",
-                    "handler-1",
-                    OffsetDateTime.now(ZoneOffset.UTC),
+                    key = "test-key",
+                    handlerId = "handler-1",
+                    createdAt = OffsetDateTime.now(ZoneOffset.UTC),
+                    context = mapOf("traceId" to "test-trace-id"),
                 )
 
             bean.reset()
@@ -325,9 +326,10 @@ class GenericHandlerMethodFactoryTest {
             val handler = factory.create(bean, method) as GenericHandlerMethod
             val metadata =
                 OutboxRecordMetadata(
-                    "test-key",
-                    "handler-1",
-                    OffsetDateTime.now(ZoneOffset.UTC),
+                    key = "test-key",
+                    handlerId = "handler-1",
+                    createdAt = OffsetDateTime.now(ZoneOffset.UTC),
+                    context = mapOf("traceId" to "test-trace-id"),
                 )
 
             val payload1: Any = "string"

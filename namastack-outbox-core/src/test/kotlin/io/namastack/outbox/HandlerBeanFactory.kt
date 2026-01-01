@@ -25,6 +25,9 @@ object HandlerBeanFactory {
 
     fun createAnnotatedTypedHandler(): AnnotatedTypedHandler = AnnotatedTypedHandler()
 
+    fun createAnnotatedTypedHandlerWithoutMetadata(): AnnotatedTypedHandlerWithoutMetadata =
+        AnnotatedTypedHandlerWithoutMetadata()
+
     fun createAnnotatedGenericHandler(): AnnotatedGenericHandler = AnnotatedGenericHandler()
 
     fun createAnnotatedTypedHandlerWithFallback(): AnnotatedTypedHandlerWithFallback =
@@ -97,11 +100,17 @@ class GenericInterfaceHandlerWithFallback : OutboxHandlerWithFallback {
 }
 
 class TypedInterfaceHandler : OutboxTypedHandler<String> {
-    override fun handle(payload: String) {}
+    override fun handle(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {}
 }
 
 class TypedInterfaceHandlerWithFallback : OutboxTypedHandlerWithFallback<String> {
-    override fun handle(payload: String) {}
+    override fun handle(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {}
 
     override fun handleFailure(
         payload: String,
@@ -112,6 +121,16 @@ class TypedInterfaceHandlerWithFallback : OutboxTypedHandlerWithFallback<String>
 
 @Suppress("UNUSED_PARAMETER")
 class AnnotatedTypedHandler {
+    @OutboxHandler
+    fun handle(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {
+    }
+}
+
+@Suppress("UNUSED_PARAMETER")
+class AnnotatedTypedHandlerWithoutMetadata {
     @OutboxHandler
     fun handle(payload: String) {
     }
@@ -130,7 +149,10 @@ class AnnotatedGenericHandler {
 @Suppress("UNUSED_PARAMETER")
 class AnnotatedTypedHandlerWithFallback {
     @OutboxHandler
-    fun handle(payload: String) {
+    fun handle(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {
     }
 
     @OutboxFallbackHandler
@@ -144,11 +166,17 @@ class AnnotatedTypedHandlerWithFallback {
 @Suppress("UNUSED_PARAMETER")
 class MultipleAnnotatedTypedHandlersWithMultipleFallbacks {
     @OutboxHandler
-    fun handle(payload: String) {
+    fun handle(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {
     }
 
     @OutboxHandler
-    fun handle(payload: Int) {
+    fun handle(
+        payload: Int,
+        metadata: OutboxRecordMetadata,
+    ) {
     }
 
     @OutboxFallbackHandler
@@ -169,7 +197,10 @@ class MultipleAnnotatedTypedHandlersWithMultipleFallbacks {
 @Suppress("UNUSED_PARAMETER")
 class AnnotatedTypedHandlerWithGenericFallback {
     @OutboxHandler
-    fun handle(payload: String) {
+    fun handle(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {
     }
 
     @OutboxFallbackHandler
@@ -200,11 +231,17 @@ class AnnotatedGenericHandlerWithFallback {
 @Suppress("UNUSED_PARAMETER")
 class MultiAnnotatedHandlerBean {
     @OutboxHandler
-    fun handleString(payload: String) {
+    fun handleString(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {
     }
 
     @OutboxHandler
-    fun handleInt(payload: Int) {
+    fun handleInt(
+        payload: Int,
+        metadata: OutboxRecordMetadata,
+    ) {
     }
 }
 
@@ -218,7 +255,10 @@ class AnnotatedHandlerBeanWithWrongSignature {
 @Suppress("UNUSED_PARAMETER")
 class AnnotatedHandlerBeanWithNonMatchingFallback {
     @OutboxHandler
-    fun handleString(payload: String) {
+    fun handleString(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {
     }
 
     @OutboxFallbackHandler
@@ -232,7 +272,10 @@ class AnnotatedHandlerBeanWithNonMatchingFallback {
 @Suppress("UNUSED_PARAMETER")
 class AnnotatedHandlerBeanWithInvalidFallbackSignature {
     @OutboxHandler
-    fun handleString(payload: String) {
+    fun handleString(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {
     }
 
     @OutboxFallbackHandler
@@ -243,7 +286,10 @@ class AnnotatedHandlerBeanWithInvalidFallbackSignature {
 @Suppress("UNUSED_PARAMETER")
 class AnnotatedHandlerBeanWithMultipleMatchingFallbacks {
     @OutboxHandler
-    fun handleString(payload: String) {
+    fun handleString(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {
     }
 
     @OutboxFallbackHandler
@@ -276,7 +322,10 @@ class GenericInterfaceHandlerWithRetryPolicy :
 class TypedInterfaceHandlerWithRetryPolicy :
     OutboxTypedHandler<String>,
     OutboxRetryAware {
-    override fun handle(payload: String) {
+    override fun handle(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {
     }
 
     override fun getRetryPolicy(): OutboxRetryPolicy = CustomerOutboxRetryPolicy()
@@ -328,7 +377,10 @@ class TypedAnnotatedHandlerWithRetryPolicyByName {
 
 open class BaseHandler {
     @OutboxHandler
-    open fun handle(payload: String) {
+    open fun handle(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {
     }
 }
 

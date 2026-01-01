@@ -1,6 +1,6 @@
 spring:
   application:
-    name: namastack-outbox-basic-example
+    name: namastack-outbox-example-sqlserver
 
   datasource:
     url: jdbc:sqlserver://localhost;databaseName=outbox_example;encrypt=true;trustServerCertificate=true

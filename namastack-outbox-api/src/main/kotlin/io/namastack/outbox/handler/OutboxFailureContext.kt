@@ -6,16 +6,19 @@ import java.time.OffsetDateTime
  * Context for fallback handlers about permanently failed records.
  *
  * Provides details about handler failure to enable informed compensating actions.
+ * Includes the original context (e.g., tracing IDs, tenant info) from the record.
  *
  * Example usage:
  * ```kotlin
  * override fun handleFailure(
  *     payload: OrderEvent,
- *     metadata: OutboxRecordMetadata,
  *     context: OutboxFailureContext
  * ) {
+ *     val traceId = context.context["traceId"]
+ *     logger.error("Handler failed for order ${payload.orderId} (trace: $traceId)")
+ *
  *     if (context.retriesExhausted) {
- *         deadLetterQueue.publish(payload)
+ *         deadLetterQueue.publish(payload, traceId)
  *     }
  *     if (context.nonRetryableException) {
  *         compensationService.cancel(payload.orderId)
@@ -35,6 +38,7 @@ import java.time.OffsetDateTime
  * @property handlerId Unique identifier of the failed handler
  * @property retriesExhausted True if retry limit was reached
  * @property nonRetryableException True if failure was due to non-retryable exception
+ * @property context Custom context from the original record (tracing, tenancy, correlation)
  *
  * @author Roland Beisel
  * @since 0.5.0
@@ -48,4 +52,5 @@ data class OutboxFailureContext(
     val handlerId: String,
     val retriesExhausted: Boolean,
     val nonRetryableException: Boolean,
+    val context: Map<String, String>,
 )

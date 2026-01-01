@@ -139,6 +139,7 @@ class TypedFallbackHandlerMethodTest {
             handlerId = "test-handler-id",
             retriesExhausted = true,
             nonRetryableException = false,
+            context = mapOf("traceId" to "test-trace-id"),
         )
 
     // Test beans

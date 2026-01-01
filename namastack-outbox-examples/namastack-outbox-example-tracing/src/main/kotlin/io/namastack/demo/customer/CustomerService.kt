@@ -1,5 +1,6 @@
 package io.namastack.demo.customer
 
+import io.micrometer.observation.annotation.Observed
 import io.namastack.outbox.Outbox
 import jakarta.transaction.Transactional
 import org.slf4j.LoggerFactory
@@ -14,6 +15,7 @@ class CustomerService(
     private val logger = LoggerFactory.getLogger(CustomerService::class.java)
 
     @Transactional
+    @Observed(name = "customer.register", contextualName = "register customer")
     fun register(
         firstname: String,
         lastname: String,

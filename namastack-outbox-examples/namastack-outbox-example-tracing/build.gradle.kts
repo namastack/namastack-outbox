@@ -1,5 +1,5 @@
 plugins {
-    id("org.springframework.boot") version "4.0.0"
+    id("org.springframework.boot") version "4.0.1"
     id("io.spring.dependency-management") version "1.1.7"
     id("org.jetbrains.kotlin.plugin.jpa") version "2.2.21"
     kotlin("jvm") version "2.2.20"
@@ -16,12 +16,11 @@ repositories {
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.springframework.boot:spring-boot-starter")
+    implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
     implementation("org.springframework.boot:spring-boot-flyway")
-    implementation("org.springframework.boot:spring-boot-opentelemetry")
-    implementation("org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry")
-    runtimeOnly("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("io.namastack:namastack-outbox-starter-jpa:0.5.0-SNAPSHOT")
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-test")

@@ -4,6 +4,7 @@ import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.annotation.OutboxFallbackHandler
 import io.namastack.outbox.annotation.OutboxHandler
 import io.namastack.outbox.handler.OutboxFailureContext
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
@@ -101,12 +102,17 @@ class AnnotationTypedFallbackIntegrationTest {
 
     @Component
     class TypedAnnotatedHandlerWithFallback {
+        @Suppress("UNUSED_PARAMETER")
         @OutboxHandler
-        fun handle(payload: TypedEvent) {
+        fun handle(
+            payload: TypedEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
             handledEvents.computeIfAbsent("TypedHandler") { mutableListOf() }.add(payload)
             throw RuntimeException("Typed handler failure")
         }
 
+        @Suppress("UNUSED_PARAMETER")
         @OutboxFallbackHandler
         fun handleFailure(
             payload: TypedEvent,

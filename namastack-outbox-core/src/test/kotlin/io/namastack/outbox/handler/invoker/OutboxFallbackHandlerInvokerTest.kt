@@ -102,6 +102,7 @@ class OutboxFallbackHandlerInvokerTest {
         recordKey: String = "key",
         createdAt: OffsetDateTime = now,
         lastFailure: Throwable? = null,
+        context: Map<String, String> = emptyMap(),
     ): OutboxFailureContext =
         OutboxFailureContext(
             failureCount = failureCount,
@@ -112,5 +113,6 @@ class OutboxFallbackHandlerInvokerTest {
             recordKey = recordKey,
             createdAt = createdAt,
             lastFailure = lastFailure,
+            context = context,
         )
 }
