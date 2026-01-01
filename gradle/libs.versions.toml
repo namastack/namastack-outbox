@@ -14,11 +14,9 @@ h2 = "2.4.240"
 mockk = "1.14.7"
 assertj = "3.27.6"
 micrometer = "1.16.1"
-micrometer-tracing = "1.6.1"
 jakarta = "3.0.0"
 commons = "1.20.0"
 jackson = "3.0.3"
-slf4j = "2.0.17"
 junit = "6.0.1"
 
 [libraries]
@@ -30,9 +28,7 @@ spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-s
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBoot" }
 spring-boot-starter-data-jpa-test = { module = "org.springframework.boot:spring-boot-starter-data-jpa-test", version.ref = "springBoot" }
 spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator", version.ref = "springBoot" }
-spring-boot-tracing = { module = "org.springframework.boot:spring-boot-micrometer-tracing", version.ref = "springBoot" }
 spring-tx = { module = "org.springframework:spring-tx", version.ref = "spring" }
-spring-aspects = { module = "org.springframework:spring-aspects", version.ref = "spring" }
 
 # Jakarta dependencies
 jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakarta" }
@@ -53,7 +49,6 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 
 # Metrics dependencies
 micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometer" }
-micrometer-tracing = { module = "io.micrometer:micrometer-tracing", version.ref = "micrometer-tracing" }
 
 # Common dependencies
 commons-codec = { module = "commons-codec:commons-codec", version.ref = "commons" }
@@ -61,9 +56,6 @@ commons-codec = { module = "commons-codec:commons-codec", version.ref = "commons
 # Jackson dependencies
 jackson-databind = { module = "tools.jackson.core:jackson-databind", version.ref = "jackson" }
 jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin", version.ref = "jackson" }
-
-# slf4j dependencies
-slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 
 [plugins]
 # Kotlin plugins
