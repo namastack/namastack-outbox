@@ -4,7 +4,6 @@ import io.namastack.demo.customer.CustomerRegisteredEvent
 import io.namastack.outbox.annotation.OutboxFallbackHandler
 import io.namastack.outbox.annotation.OutboxHandler
 import io.namastack.outbox.handler.OutboxFailureContext
-import io.namastack.outbox.handler.OutboxRecordMetadata
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
