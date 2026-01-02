@@ -31,7 +31,7 @@ import kotlin.reflect.KClass
  * @property name The Spring bean name of the retry policy (mutually exclusive with [value])
  *
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)

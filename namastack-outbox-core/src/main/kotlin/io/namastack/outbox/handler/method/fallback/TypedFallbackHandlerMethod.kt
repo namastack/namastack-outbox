@@ -11,7 +11,7 @@ import java.lang.reflect.Method
  * @param bean Bean containing the fallback handler method
  * @param method Handler method (must have typed payload + context parameters)
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 class TypedFallbackHandlerMethod(
     bean: Any,

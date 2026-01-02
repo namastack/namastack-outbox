@@ -13,7 +13,7 @@ import java.lang.reflect.Method
  * Signature: `fun handleFailure(payload: Any, context: OutboxFailureContext)`
  *
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 class GenericFallbackHandlerMethodFactory : OutboxFallbackHandlerMethodFactory {
     /**

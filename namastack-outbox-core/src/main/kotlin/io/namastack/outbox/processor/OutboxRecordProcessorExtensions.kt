@@ -13,6 +13,9 @@ import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
  * @param handlerException The exception that caused the handler to fail
  * @param retryPolicyRegistry Registry to lookup retry policy
  * @return OutboxFailureContext with all failure details and context
+ *
+ * @author Roland Beisel
+ * @since 1.0.0
  */
 internal fun OutboxRecord<*>.toFailureContext(
     handlerException: Throwable,

@@ -6,6 +6,9 @@ import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
  * Calculates the fair target partition count for an instance.
  * Instances are sorted lexicographically; the first 'remainder' entries each get one extra partition.
  * Assumes instanceId is contained in activeInstanceIds.
+ *
+ * @author Roland Beisel
+ * @since 0.4.0
  */
 object DistributionCalculator {
     /**

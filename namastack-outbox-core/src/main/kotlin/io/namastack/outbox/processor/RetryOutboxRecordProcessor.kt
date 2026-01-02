@@ -18,7 +18,7 @@ import java.time.Clock
  * @param clock Clock for retry scheduling
  *
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 class RetryOutboxRecordProcessor(
     private val retryPolicyRegistry: OutboxRetryPolicyRegistry,

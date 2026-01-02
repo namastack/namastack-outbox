@@ -21,7 +21,7 @@ import kotlin.reflect.KClass
  * @param beanFactory Spring bean factory for loading policy beans by name or class
  *
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 class OutboxRetryPolicyRegistry(
     private val beanFactory: BeanFactory,

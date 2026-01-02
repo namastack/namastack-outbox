@@ -13,6 +13,9 @@ import java.lang.reflect.Method
  * Supports two signatures:
  * - 1 param: `fun handle(payload: T)` where T is a specific type (not Any)
  * - 2 params: `fun handle(payload: T, metadata: OutboxRecordMetadata)` where T is a specific type (not Any)
+ *
+ * @author Roland Beisel
+ * @since 1.0.0
  */
 class TypedHandlerMethodFactory : OutboxHandlerMethodFactory {
     /**
