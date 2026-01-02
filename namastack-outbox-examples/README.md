@@ -6,32 +6,32 @@ This directory contains various example projects demonstrating different feature
 
 ### 🚀 Getting Started
 
-- **[namastack-outbox-example-h2](namastack-outbox-example-h2/)** - Basic outbox pattern setup with H2 in-memory database. Perfect starting point.
+- **[namastack-outbox-example-h2](namastack-outbox-example-h2)** - Basic outbox pattern setup with H2 in-memory database. Perfect starting point.
 
 ### 🎯 Handler Registration
 
-- **[namastack-outbox-example-annotation](namastack-outbox-example-annotation/)** - Annotation-based handler registration using `@OutboxHandler`
+- **[namastack-outbox-example-annotation](namastack-outbox-example-annotation)** - Annotation-based handler registration using `@OutboxHandler`
 
 ### 🔄 Resilience & Error Handling
 
-- **[namastack-outbox-example-retry](namastack-outbox-example-retry/)** - Retry policies and automatic retry behavior
-- **[namastack-outbox-example-fallback](namastack-outbox-example-fallback/)** - Fallback handlers for permanent failures using `@OutboxFallbackHandler`
+- **[namastack-outbox-example-retry](namastack-outbox-example-retry)** - Retry policies and automatic retry behavior
+- **[namastack-outbox-example-fallback](namastack-outbox-example-fallback)** - Fallback handlers for permanent failures using `@OutboxFallbackHandler`
 
 ### 🔌 Integration Patterns
 
-- **[namastack-outbox-example-multicaster](namastack-outbox-example-multicaster/)** - Transaction isolation between Spring events and outbox
-- **[namastack-outbox-example-tracing](namastack-outbox-example-tracing/)** - Distributed tracing with OpenTelemetry and Micrometer
+- **[namastack-outbox-example-multicaster](namastack-outbox-example-multicaster)** - Transaction isolation between Spring events and outbox
+- **[namastack-outbox-example-tracing](namastack-outbox-example-tracing)** - Distributed tracing with OpenTelemetry and Micrometer
 
 ### 💾 Database Support
 
-- **[namastack-outbox-example-mysql](namastack-outbox-example-mysql/)** - MySQL database integration
-- **[namastack-outbox-example-mariadb](namastack-outbox-example-mariadb/)** - MariaDB database integration
-- **[namastack-outbox-example-postgresql](namastack-outbox-example-postgresql/)** - PostgreSQL database integration
-- **[namastack-outbox-example-sqlserver](namastack-outbox-example-sqlserver/)** - SQL Server database integration
+- **[namastack-outbox-example-mysql](namastack-outbox-example-mysql)** - MySQL database integration
+- **[namastack-outbox-example-mariadb](namastack-outbox-example-mariadb)** - MariaDB database integration
+- **[namastack-outbox-example-postgresql](namastack-outbox-example-postgresql)** - PostgreSQL database integration
+- **[namastack-outbox-example-sqlserver](namastack-outbox-example-sqlserver)** - SQL Server database integration
 
 ### ☕ Language Support
 
-- **[namastack-outbox-example-java](namastack-outbox-example-java/)** - Pure Java implementation (no Kotlin required)
+- **[namastack-outbox-example-java](namastack-outbox-example-java)** - Pure Java implementation (no Kotlin required)
 
 ## Quick Start
 
@@ -94,11 +94,11 @@ outbox:
 
 Recommended order for learning:
 
-1. **Start with basics**: [example-h2](namastack-outbox-example-h2/) - Understand core concepts
-2. **Handler styles**: [example-annotation](namastack-outbox-example-annotation/) - Learn annotation-based handlers
-3. **Error handling**: [example-retry](namastack-outbox-example-retry/) - See retry mechanisms
-4. **Fallback logic**: [example-fallback](namastack-outbox-example-fallback/) - Handle permanent failures
-5. **Advanced patterns**: [example-tracing](namastack-outbox-example-tracing/) - Distributed tracing
+1. **Start with basics**: [example-h2](namastack-outbox-example-h2) - Understand core concepts
+2. **Handler styles**: [example-annotation](namastack-outbox-example-annotation) - Learn annotation-based handlers
+3. **Error handling**: [example-retry](namastack-outbox-example-retry) - See retry mechanisms
+4. **Fallback logic**: [example-fallback](namastack-outbox-example-fallback) - Handle permanent failures
+5. **Advanced patterns**: [example-tracing](namastack-outbox-example-tracing) - Distributed tracing
 6. **Production databases**: Choose your database example (MySQL, PostgreSQL, etc.)
 
 ## Requirements
