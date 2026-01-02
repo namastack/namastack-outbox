@@ -23,7 +23,6 @@ class CustomerRegisteredOutboxHandler {
     @Suppress("UNUSED_PARAMETER")
     fun handleFailure(
         payload: CustomerRegisteredEvent,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
         logger.info("[Handler] Invoking fallback method with context $context")

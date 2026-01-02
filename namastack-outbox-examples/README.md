@@ -103,7 +103,7 @@ Recommended order for learning:
 
 ## Requirements
 
-- Java 17 or later
+- Java 21 or later
 - Docker & Docker Compose (for database examples)
 - Gradle (wrapper included)
 

@@ -20,7 +20,6 @@ class GenericOutboxHandler : OutboxHandlerWithFallback {
 
     override fun handleFailure(
         payload: Any,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
         logger.info("[Handler] Invoking fallback method with context $context")
