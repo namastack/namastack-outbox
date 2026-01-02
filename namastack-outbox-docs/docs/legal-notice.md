@@ -14,7 +14,7 @@ handling and outbox pattern implementations in modern applications.
 The project is part of a broader open-source initiative and welcomes contributions, feedback, and
 voluntary donations to support its development and sustainability.
 
-_Last updated: December 2025_
+_Last updated: January 2026_
 
 ---
 
@@ -133,7 +133,7 @@ https://tools.google.com/dlpage/gaoptout/
 
 # License / Copyright
 
-© 2025 **namastack.io**.  
+© 2026 **namastack.io**.  
 Namastack Outbox for Spring Boot is licensed under the  
 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).
 

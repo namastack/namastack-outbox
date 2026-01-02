@@ -78,7 +78,7 @@ class OrderHandlers {
     
     // Generic handler - processes any payload type
     @OutboxHandler
-    fun handleAny(payload: Any) {
+    fun handleAny(payload: Any, metadata: OutboxRecordMetadata) {
         when (payload) {
             is OrderCreatedRecord -> eventPublisher.publish(payload)
             is PaymentProcessedEvent -> paymentService.process(payload)

@@ -45,7 +45,7 @@ nav:
   - Features: features.md
 
 copyright: >
-  Copyright &copy; 2025 namastack.io -
+  Copyright &copy; 2026 namastack.io -
   <a href="#__consent">Change cookie settings</a>
 
 plugins:
@@ -53,7 +53,7 @@ plugins:
   - macros
 
 extra:
-  outbox_version: 0.4.1
+  outbox_version: 1.0.0-RC1
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/namastack/namastack-outbox
