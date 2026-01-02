@@ -671,7 +671,7 @@ From **1.0.0 onwards**, Namastack Outbox follows strict **semantic versioning**:
 - 📖 [Documentation](https://outbox.namastack.io)
 - 🐛 [Issues](https://github.com/namastack/namastack-outbox/issues)
 - 💬 [Discussions](https://github.com/namastack/namastack-outbox/discussions)
-- 📦 [Example Projects](namastack-outbox-examples/)
+- 📦 [Example Projects](namastack-outbox-examples)
 
 ---
 
