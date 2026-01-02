@@ -10,6 +10,9 @@ import java.lang.reflect.Method
  *
  * @param bean Bean containing the handler method
  * @param method Handler method for reflection
+ *
+ * @author Roland Beisel
+ * @since 1.0.0
  */
 sealed class OutboxHandlerMethod(
     bean: Any,

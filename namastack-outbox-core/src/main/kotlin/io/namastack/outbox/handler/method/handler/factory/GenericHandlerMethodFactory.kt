@@ -11,6 +11,9 @@ import java.lang.reflect.Method
  * Factory for creating generic handler methods.
  *
  * Signature: `fun handle(payload: Any, metadata: OutboxRecordMetadata)`
+ *
+ * @author Roland Beisel
+ * @since 1.0.0
  */
 class GenericHandlerMethodFactory : OutboxHandlerMethodFactory {
     /**

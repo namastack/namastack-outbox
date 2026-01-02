@@ -16,6 +16,9 @@ import kotlin.reflect.KClass
  * Handlers are registered from two sources:
  * 1. @OutboxHandler annotated methods (discovered by AnnotatedHandlerScanner)
  * 2. OutboxHandler/OutboxTypedHandler interface implementations (discovered by InterfaceHandlerScanner)
+ *
+ * @author Roland Beisel
+ * @since 0.4.0
  */
 class OutboxHandlerRegistry {
     /**

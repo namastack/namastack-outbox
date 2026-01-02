@@ -7,6 +7,9 @@ import java.lang.reflect.Method
  * Factory for creating handler method wrappers from annotated or interface-based methods.
  *
  * Implementations: [TypedHandlerMethodFactory], [GenericHandlerMethodFactory]
+ *
+ * @author Roland Beisel
+ * @since 1.0.0
  */
 interface OutboxHandlerMethodFactory {
     /**

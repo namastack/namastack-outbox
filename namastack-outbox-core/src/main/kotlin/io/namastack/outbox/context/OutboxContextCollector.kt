@@ -66,7 +66,7 @@ import org.slf4j.LoggerFactory
  * @param providers List of all registered OutboxContextProvider beans
  *
  * @author Aleksander Zamojski
- * @since 0.5.0
+ * @since 1.0.0
  */
 class OutboxContextCollector(
     private val providers: List<OutboxContextProvider>,

@@ -29,7 +29,7 @@ import org.springframework.core.annotation.AnnotatedElementUtils
  * @param registry The retry policy registry for bean lookup and default policy access
  *
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 class RetryPolicyScanner(
     private val registry: OutboxRetryPolicyRegistry,

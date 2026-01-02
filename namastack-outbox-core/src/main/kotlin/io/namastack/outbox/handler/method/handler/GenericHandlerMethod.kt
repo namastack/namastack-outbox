@@ -10,6 +10,9 @@ import java.lang.reflect.Method
  *
  * @param bean Bean containing the handler method
  * @param method Handler method (must have Any + OutboxRecordMetadata parameters)
+ *
+ * @author Roland Beisel
+ * @since 0.4.0
  */
 class GenericHandlerMethod(
     bean: Any,

@@ -41,7 +41,7 @@ import java.time.OffsetDateTime
  * @property context Custom context from the original record (tracing, tenancy, correlation)
  *
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 data class OutboxFailureContext(
     val recordId: String,

@@ -2,7 +2,7 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
 import org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED
 import org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED
 import org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
@@ -25,11 +25,13 @@ dependencies {
     jacocoAggregation(project(":namastack-outbox-metrics"))
 }
 
+val javaVersion = 17
+val jvmTargetVersion = JvmTarget.fromTarget(javaVersion.toString())
 val isRelease = project.hasProperty("release") && project.property("release") == "true"
 
 allprojects {
     group = "io.namastack"
-    version = "0.5.0" + if (!isRelease) "-SNAPSHOT" else ""
+    version = "1.0.0-RC1" + if (!isRelease) "-SNAPSHOT" else ""
 
     repositories {
         mavenLocal()
@@ -40,7 +42,13 @@ allprojects {
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(javaVersion)
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(javaVersion))
+    }
 }
 
 tasks.check {
@@ -61,9 +69,13 @@ subprojects {
         }
     }
 
+    tasks.withType<JavaCompile> {
+        options.release.set(javaVersion)
+    }
+
     tasks.withType<KotlinCompile> {
         compilerOptions {
-            jvmTarget.set(JVM_21)
+            jvmTarget.set(jvmTargetVersion)
         }
     }
 

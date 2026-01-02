@@ -12,7 +12,7 @@ import java.time.Clock
  * Processors form a chain where each processor can handle a record or pass it to the next processor.
  *
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 abstract class OutboxRecordProcessor(
     protected var next: OutboxRecordProcessor? = null,

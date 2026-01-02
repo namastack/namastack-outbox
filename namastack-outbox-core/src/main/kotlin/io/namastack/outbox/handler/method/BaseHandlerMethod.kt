@@ -11,7 +11,7 @@ import java.lang.reflect.Method
  * @param bean The bean instance containing the handler method
  * @param method The Java Method object for reflection
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 abstract class BaseHandlerMethod(
     val bean: Any,

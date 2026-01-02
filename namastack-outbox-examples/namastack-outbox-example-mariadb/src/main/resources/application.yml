@@ -3,7 +3,7 @@ spring:
     name: namastack-outbox-example-mariadb
 
   datasource:
-    url: jdbc:mysql://localhost:33306/outbox_example
+    url: jdbc:mariadb://localhost:33306/outbox_example
     username: username
     password: password
 

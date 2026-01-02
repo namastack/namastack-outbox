@@ -99,7 +99,7 @@ package io.namastack.outbox.annotation
  *                (e.g., traceId, spanId, tenantId, correlationId), implement the [io.namastack.outbox.context.OutboxContextProvider]
  *                interface instead. This avoids repeating the same context entries across all event annotations.
  *
- * @author Roland Beisel
+ * @author Roland Beisel, Aleksander Zamojski
  * @since 0.3.0
  * @see io.namastack.outbox.context.OutboxContextProvider
  */

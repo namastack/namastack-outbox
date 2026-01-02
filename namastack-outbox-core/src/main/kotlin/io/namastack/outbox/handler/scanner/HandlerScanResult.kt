@@ -13,7 +13,7 @@ import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
  * @property fallback Optional fallback handler (null if handler has no fallback)
  *
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 data class HandlerScanResult(
     val handler: OutboxHandlerMethod,

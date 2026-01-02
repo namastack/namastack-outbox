@@ -15,6 +15,9 @@ import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
  * Replaces the previous OutboxDispatcher with a more semantically correct name.
  *
  * @param handlerRegistry Registry of all registered handlers
+ *
+ * @author Roland Beisel
+ * @since 0.4.0
  */
 class OutboxHandlerInvoker(
     private val handlerRegistry: OutboxHandlerRegistry,

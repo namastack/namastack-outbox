@@ -21,6 +21,9 @@ import java.time.Clock
  * Concurrency assumptions:
  *  - Rebalance invoked after batch completion (scheduler guarantees no overlapping processing).
  *  - Ownership changes only through this coordinator / repository layer.
+ *
+ * @author Roland Beisel
+ * @since 0.2.0
  */
 open class PartitionCoordinator(
     private val instanceRegistry: OutboxInstanceRegistry,

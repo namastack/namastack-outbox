@@ -18,7 +18,7 @@ package io.namastack.outbox.retry
  * ```
  *
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 interface OutboxRetryAware {
     /**

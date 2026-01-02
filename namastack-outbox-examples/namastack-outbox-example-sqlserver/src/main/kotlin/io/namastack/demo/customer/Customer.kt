@@ -9,7 +9,7 @@ import java.util.UUID
 data class Customer(
     @Id
     val id: UUID,
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "uniqueidentifier")
     val firstname: String,
     @Column(nullable = false)
     val lastname: String,

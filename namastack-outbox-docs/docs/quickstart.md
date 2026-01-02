@@ -1,6 +1,9 @@
 # Quickstart
 
-**Namastack Outbox for Spring Boot** is a robust library for **Java and Kotlin** projects that implements the **Transactional Outbox Pattern** for reliable record publishing in distributed systems.
+**Namastack Outbox for Spring Boot** is a robust Spring Boot library for **Java and Kotlin** projects that implements the 
+**Transactional Outbox Pattern** for reliable record publishing in distributed systems. Ensures 
+records are never lost through atomic persistence and automatic retry logic
+with handler-based processing and partition-aware horizontal scaling.
 
 This guide will get you up and running in 5 minutes with minimal configuration.
 
@@ -56,19 +59,28 @@ Annotate your application class with `@EnableOutbox`:
     }
     ```
 
-## Create a Handler
-
-Create a typed handler for your payload:
+## Create Handlers
 
 === "Kotlin"
 
     ```kotlin
     @Component
-    class OrderRecordHandler : OutboxTypedHandler<OrderCreatedRecord> {
-        override fun handle(payload: OrderCreatedRecord) {
-            // Process the record - this will be called automatically when ready
+    class OrderHandlers {
+        // Typed handler - processes specific payload type
+        @OutboxHandler
+        fun handleOrder(payload: OrderCreatedEvent) {
             eventPublisher.publish(payload)
         }
+        
+        // Generic handler - processes any payload type
+        @OutboxHandler
+        fun handleAny(payload: Any, metadata: OutboxRecordMetadata) {
+            when (payload) {
+                is OrderCreatedEvent -> eventPublisher.publish(payload)
+                is PaymentProcessedEvent -> paymentService.process(payload)
+                else -> logger.warn("Unknown payload type")
+            }
+        }
     }
     ```
 
@@ -76,47 +88,23 @@ Create a typed handler for your payload:
 
     ```java
     @Component
-    public class OrderRecordHandler implements OutboxTypedHandler<OrderCreatedRecord> {
-        @Override
-        public void handle(OrderCreatedRecord payload) {
-            // Process the record - this will be called automatically when ready
+    public class OrderHandlers {
+        // Typed handler - processes specific payload type
+        @OutboxHandler
+        public void handleOrder(OrderCreatedEvent payload) {
             eventPublisher.publish(payload);
         }
-    }
-    ```
-
-Or use annotations for multiple handlers:
-
-=== "Kotlin"
-
-    ```kotlin
-    @Component
-    class MyHandlers {
+        
+        // Generic handler - processes any payload type
         @OutboxHandler
-        fun handleOrderCreated(payload: OrderCreatedRecord) {
-            // ...
-        }
-
-        @OutboxHandler
-        fun handlePaymentProcessed(payload: PaymentProcessedRecord) {
-            // ...
-        }
-    }
-    ```
-
-=== "Java"
-
-    ```java
-    @Component
-    public class MyHandlers {
-        @OutboxHandler
-        public void handleOrderCreated(OrderCreatedRecord payload) {
-            // ...
-        }
-
-        @OutboxHandler
-        public void handlePaymentProcessed(PaymentProcessedRecord payload) {
-            // ...
+        public void handleAny(Object payload, OutboxRecordMetadata metadata) {
+            if (payload instanceof OrderCreatedEvent) {
+                eventPublisher.publish((OrderCreatedEvent) payload);
+            } else if (payload instanceof PaymentProcessedEvent) {
+                paymentService.process((PaymentProcessedEvent) payload);
+            } else {
+                logger.warn("Unknown payload type");
+            }
         }
     }
     ```
@@ -136,9 +124,9 @@ Or use annotations for multiple handlers:
             val order = Order.create(command)
             orderRepository.save(order)
             
-            // Schedule record - saved atomically with the order
+            // Schedule event - saved atomically with the order
             outbox.schedule(
-                payload = OrderCreatedRecord(order.id, order.customerId),
+                payload = OrderCreatedEvent(order.id, order.customerId),
                 key = "order-${order.id}"  // Groups records for ordered processing
             )
         }
@@ -163,9 +151,9 @@ Or use annotations for multiple handlers:
             Order order = Order.create(command);
             orderRepository.save(order);
             
-            // Schedule record - saved atomically with the order
+            // Schedule event - saved atomically with the order
             outbox.schedule(
-                new OrderCreatedRecord(order.getId(), order.getCustomerId()),
+                new OrderCreatedEvent(order.getId(), order.getCustomerId()),
                 "order-" + order.getId()  // Groups records for ordered processing
             );
         }
@@ -179,10 +167,17 @@ If you prefer Spring's native event publishing, annotate your events with `@Outb
 === "Kotlin"
 
     ```kotlin
-    @OutboxEvent(key = "#event.orderId")  // SpEL expression for key resolution
+    @OutboxEvent(
+        key = "#this.orderId",  // SpEL: uses 'orderId' field
+        context = [
+            OutboxContextEntry(key = "customerId", value = "#this.customerId"),
+            OutboxContextEntry(key = "region", value = "#this.region")
+        ]
+    )
     data class OrderCreatedEvent(
         val orderId: String,
         val customerId: String,
+        val region: String,
         val amount: BigDecimal
     )
 
@@ -198,7 +193,7 @@ If you prefer Spring's native event publishing, annotate your events with `@Outb
             
             // Publish event - automatically saved to outbox atomically
             eventPublisher.publishEvent(
-                OrderCreatedEvent(order.id, order.customerId, order.amount)
+                OrderCreatedEvent(order.id, order.customerId, order.region, order.amount)
             )
         }
     }
@@ -207,10 +202,17 @@ If you prefer Spring's native event publishing, annotate your events with `@Outb
 === "Java"
 
     ```java
-    @OutboxEvent(key = "#event.orderId")  // SpEL expression for key resolution
+    @OutboxEvent(
+        key = "#this.orderId",  // SpEL: uses 'orderId' field
+        context = {
+            @OutboxContextEntry(key = "customerId", value = "#this.customerId"),
+            @OutboxContextEntry(key = "region", value = "#this.region")
+        }
+    )
     public class OrderCreatedEvent {
         private String orderId;
         private String customerId;
+        private String region;
         private BigDecimal amount;
         // constructor, getters...
     }
@@ -233,11 +235,17 @@ If you prefer Spring's native event publishing, annotate your events with `@Outb
             
             // Publish event - automatically saved to outbox atomically
             eventPublisher.publishEvent(
-                new OrderCreatedEvent(order.getId(), order.getCustomerId(), order.getAmount())
+                new OrderCreatedEvent(order.getId(), order.getCustomerId(), 
+                                     order.getRegion(), order.getAmount())
             );
         }
     }
     ```
+
+Both approaches work equally well. Choose based on your preference:
+
+- **Explicit `outbox.schedule()`**: More control, clearer intent, supports any payload type
+- **`@OutboxEvent` + `ApplicationEventPublisher`**: More Spring idiomatic for domain events
 
 ## Configure (Optional)
 
@@ -268,23 +276,23 @@ If you prefer Spring's native event publishing, annotate your events with `@Outb
     outbox.retry.exponential.multiplier=2.0
     ```
 
-For a complete list of all configuration options, see the [Configuration Reference](features.md#configuration-reference).
-
----
+For a complete list of all configuration options, see [Configuration Reference](https://outbox.namastack.io/features/#configuration-reference).
 
 **That's it!** Your records are now reliably persisted and processed.
 
 ## Key Features
 
 - ✅ **Transactional Atomicity**: Records saved in same transaction as domain data
-- ✅ **Automatic Retry**: Exponential backoff, fixed delay, or jittered policies
-- ✅ **Ordered Processing**: Records with same key processed sequentially
-- ✅ **Handler-Based**: Annotation-based or interface-based handler registration
-- ✅ **Horizontal Scaling**: Automatic partition assignment across instances
 - ✅ **Zero Message Loss**: Database-backed with at-least-once delivery
+- ✅ **Horizontal Scaling**: Automatic partition assignment across instances
+- ✅ **Automatic Retry**: Exponential backoff, fixed delay, or jittered policies
+- ✅ **Handler-Based**: Annotation-based or interface-based handler registration
 - ✅ **Type-Safe Handlers**: Generic or typed handler support
+- ✅ **Fallback Handlers**: Graceful degradation when retries are exhausted
+- ✅ **Flexible Payloads**: Store any type - events, commands, notifications, etc.
+- ✅ **Context Propagation**: Trace IDs, tenant info, correlation IDs across async boundaries
+- ✅ **Ordered Processing**: Records with same key processed sequentially
 - ✅ **Built-in Metrics**: Micrometer integration for monitoring
-- ✅ **Flexible Payloads**: Store any type - records, commands, notifications, etc.
 
 ## Supported Databases
 
@@ -296,6 +304,7 @@ For a complete list of all configuration options, see the [Configuration Referen
 ## Next Steps
 
 - Explore the [Features Guide](features.md) for advanced capabilities
-- Check out the [API Reference](https://javadoc.io/doc/io.namastack/namastack-outbox-core) for detailed documentation
+- Check out the [API Reference](https://javadoc.io/doc/io.namastack/namastack-outbox-api) for detailed documentation
+- Report issues at [GitHub Issues](https://github.com/namastack/namastack-outbox/issues)
 - Join [GitHub Discussions](https://github.com/namastack/namastack-outbox/discussions) for community support
 
