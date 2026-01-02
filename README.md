@@ -1,3 +1,4 @@
+[![Version](https://img.shields.io/badge/version-1.0.0--RC1-blue)](https://github.com/namastack/namastack-outbox/releases/tag/v1.0.0-RC1)
 [![CodeFactor](https://www.codefactor.io/repository/github/namastack/namastack-outbox/badge)](https://www.codefactor.io/repository/github/namastack/namastack-outbox)
 [![codecov](https://codecov.io/github/namastack/namastack-outbox/graph/badge.svg?token=TZS1OQB4XC)](https://codecov.io/github/namastack/namastack-outbox)
 [![javadoc](https://javadoc.io/badge2/io.namastack/namastack-outbox-core/javadoc.svg)](https://javadoc.io/doc/io.namastack/namastack-outbox-core)
@@ -9,21 +10,24 @@
 
 # Namastack Outbox for Spring Boot
 
-A robust Spring Boot library for **Java and Kotlin** projects that implements the **Transactional Outbox Pattern** for reliable record publishing
-in distributed systems. Ensures records are never lost through atomic persistence and automatic retry logic
+A robust Spring Boot library for **Java and Kotlin** projects that implements the 
+**Transactional Outbox Pattern** for reliable record publishing in distributed systems. Ensures 
+records are never lost through atomic persistence and automatic retry logic
 with handler-based processing and partition-aware horizontal scaling.
 
 ## Key Features
 
 - ✅ **Transactional Atomicity**: Records saved in same transaction as domain data
-- ✅ **Automatic Retry**: Exponential backoff, fixed delay, or jittered policies
-- ✅ **Ordered Processing**: Records with same key processed sequentially
-- ✅ **Handler-Based**: Annotation-based or interface-based handler registration
-- ✅ **Horizontal Scaling**: Automatic partition assignment across instances
 - ✅ **Zero Message Loss**: Database-backed with at-least-once delivery
+- ✅ **Horizontal Scaling**: Automatic partition assignment across instances
+- ✅ **Automatic Retry**: Exponential backoff, fixed delay, or jittered policies
+- ✅ **Handler-Based**: Annotation-based or interface-based handler registration
 - ✅ **Type-Safe Handlers**: Generic or typed handler support
-- ✅ **Built-in Metrics**: Micrometer integration for monitoring
+- ✅ **Fallback Handlers**: Graceful degradation when retries are exhausted
 - ✅ **Flexible Payloads**: Store any type - events, commands, notifications, etc.
+- ✅ **Context Propagation**: Trace IDs, tenant info, correlation IDs across async boundaries
+- ✅ **Ordered Processing**: Records with same key processed sequentially
+- ✅ **Built-in Metrics**: Micrometer integration for monitoring
 
 ---
 
@@ -32,7 +36,7 @@ with handler-based processing and partition-aware horizontal scaling.
 For detailed information about features, configuration, and advanced topics, visit the **[complete documentation](https://outbox.namastack.io)**.
 
 Quick links:
-- [API Reference (Javadoc)](https://javadoc.io/doc/io.namastack/namastack-outbox-core)
+- [API Reference (Javadoc)](https://javadoc.io/doc/io.namastack/namastack-outbox-api)
 - [GitHub Issues](https://github.com/namastack/namastack-outbox/issues)
 - [GitHub Discussions](https://github.com/namastack/namastack-outbox/discussions)
 
@@ -44,7 +48,7 @@ Quick links:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jpa:0.4.1")
+    implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC1")
 }
 ```
 
@@ -61,14 +65,25 @@ fun main(args: Array<String>) {
 }
 ```
 
-### 3. Create a Handler
+### 3. Create Handlers
 
 ```kotlin
 @Component
-class OrderRecordHandler : OutboxTypedHandler<OrderCreatedRecord> {
-    override fun handle(payload: OrderCreatedRecord) {
-        // Process the record - this will be called automatically when ready
+class OrderHandlers {
+    // Typed handler - processes specific payload type
+    @OutboxHandler
+    fun handleOrder(payload: OrderCreatedRecord) {
         eventPublisher.publish(payload)
+    }
+    
+    // Generic handler - processes any payload type
+    @OutboxHandler
+    fun handleAny(payload: Any) {
+        when (payload) {
+            is OrderCreatedRecord -> eventPublisher.publish(payload)
+            is PaymentProcessedEvent -> paymentService.process(payload)
+            else -> logger.warn("Unknown payload type")
+        }
     }
 }
 ```
@@ -86,9 +101,9 @@ class OrderService(
         val order = Order.create(command)
         orderRepository.save(order)
         
-        // Schedule record - saved atomically with the order
+        // Schedule event - saved atomically with the order
         outbox.schedule(
-            payload = OrderCreatedRecord(order.id, order.customerId),
+            payload = OrderCreatedEvent(order.id, order.customerId),
             key = "order-${order.id}"  // Groups records for ordered processing
         )
     }
@@ -100,10 +115,17 @@ class OrderService(
 If you prefer Spring's native event publishing, annotate your events with `@OutboxEvent`:
 
 ```kotlin
-@OutboxEvent(key = "#event.orderId")  // SpEL expression for key resolution
+@OutboxEvent(
+    key = "#this.orderId",  // SpEL: uses 'orderId' field
+    context = [
+        OutboxContextEntry(key = "customerId", value = "#this.customerId"),
+        OutboxContextEntry(key = "region", value = "#this.region")
+    ]
+)
 data class OrderCreatedEvent(
     val orderId: String,
     val customerId: String,
+    val region: String,
     val amount: BigDecimal
 )
 
@@ -119,7 +141,7 @@ class OrderService(
         
         // Publish event - automatically saved to outbox atomically
         eventPublisher.publishEvent(
-            OrderCreatedEvent(order.id, order.customerId, order.amount)
+            OrderCreatedEvent(order.id, order.customerId, order.region, order.amount)
         )
     }
 }
@@ -144,56 +166,33 @@ outbox:
       multiplier: 2.0
 ```
 
-For a complete list of all configuration options, see [Configuration Reference](#configuration-reference).
+For a complete list of all configuration options, see [Configuration Reference](https://outbox.namastack.io/features/#configuration-reference).
 
 **That's it!** Your records are now reliably persisted and processed.
 
 ---
 
-## Handler Types
+## Features
 
-### Typed Handlers (Type-Safe)
+### Handlers
 
-Process specific payload types with full type safety:
-
-```kotlin
-@Component
-class OrderCreatedHandler : OutboxTypedHandler<OrderCreatedPayload> {
-    override fun handle(payload: OrderCreatedPayload) {
-        println("Processing order: ${payload.orderId}")
-    }
-}
-```
-
-Or use annotations:
+Process outbox records using annotation-based handlers:
 
 ```kotlin
 @Component
 class MyHandlers {
+    // Typed handler - processes specific payload type
     @OutboxHandler
-    fun handleOrderCreated(payload: OrderCreatedPayload) {
-        // ...
+    fun handleOrder(payload: OrderCreatedEvent) {
+        println("Processing order: ${payload.orderId}")
     }
 
+    // Generic handler - processes any payload type
     @OutboxHandler
-    fun handlePaymentProcessed(payload: PaymentProcessedPayload) {
-        // ...
-    }
-}
-```
-
-### Generic Handlers (Multi-Type)
-
-Process any payload type with pattern matching:
-
-```kotlin
-@Component
-class UniversalHandler : OutboxHandler {
-    override fun handle(payload: Any, metadata: OutboxRecordMetadata) {
+    fun handleAny(payload: Any, metadata: OutboxRecordMetadata) {
         when (payload) {
-            is OrderCreatedPayload -> handleOrder(payload)
-            is PaymentProcessedPayload -> handlePayment(payload)
-            is CreateCustomerCommand -> createCustomer(payload)
+            is OrderCreatedEvent -> handleOrder(payload)
+            is PaymentProcessedEvent -> handlePayment(payload)
             else -> logger.warn("Unknown payload: ${payload::class.simpleName}")
         }
     }
@@ -204,11 +203,100 @@ class UniversalHandler : OutboxHandler {
 1. All matching typed handlers (in registration order)
 2. All generic handlers (catch-all)
 
+For interface-based handlers, see [Handler Documentation](https://outbox.namastack.io/features/).
+
 ---
 
-## Retry Policies
+### Fallback Handlers
 
-### Exponential Backoff (Recommended)
+Gracefully handle permanently failed records after all retries are exhausted.
+
+```kotlin
+@Component
+class OrderHandlers {
+    @OutboxHandler
+    fun handleOrder(payload: OrderEvent) {
+        emailService.send(payload.email)  // May fail
+    }
+
+    @OutboxFallbackHandler
+    fun handleOrderFailure(payload: OrderEvent, context: OutboxFailureContext) {
+        // Invoked when handleOrder fails permanently
+        logger.error("Order ${payload.orderId} failed after ${context.failureCount} attempts")
+        deadLetterQueue.publish(payload)
+    }
+}
+```
+
+**Features:**
+- Automatic invocation when retries exhausted or non-retryable exceptions occur
+- Automatically matched by payload type
+- Access to failure details and metadata via `OutboxFailureContext`
+- Record marked COMPLETED if fallback succeeds
+
+For interface-based fallback handlers, see [Fallback Documentation](https://outbox.namastack.io/features/).
+
+---
+
+### Context Propagation
+
+Preserve context (trace IDs, tenant info, correlation IDs) across async boundaries.
+
+```kotlin
+@Component
+class TracingContextProvider(
+    private val tracer: Tracer
+) : OutboxContextProvider {
+    override fun provide(): Map<String, String> {
+        val currentSpan = tracer.currentSpan() ?: return emptyMap()
+        return mapOf(
+            "traceId" to currentSpan.context().traceId(),
+            "spanId" to currentSpan.context().spanId()
+        )
+    }
+}
+```
+
+**Accessing Context in Handlers:**
+
+```kotlin
+@Component
+class OrderHandler {
+    @OutboxHandler
+    fun handle(payload: OrderEvent, metadata: OutboxRecordMetadata) {
+        // Access context via metadata.context
+        val traceId = metadata.context["traceId"]
+        val tenantId = metadata.context["tenantId"]
+        
+        logger.info("Processing order ${payload.orderId} [trace: $traceId]")
+    }
+    
+    @OutboxFallbackHandler
+    fun handleFailure(payload: OrderEvent, failureContext: OutboxFailureContext) {
+        // Access context via failureContext.context
+        val traceId = failureContext.context["traceId"]
+        
+        deadLetterQueue.publish(payload, mapOf("traceId" to traceId))
+    }
+}
+```
+
+**Features:**
+- Automatic context capture during `outbox.schedule()`
+- Context available via `metadata.context` in handlers
+- Context available via `failureContext.context` in fallback handlers
+- Multiple providers supported (merged automatically)
+- Supports distributed tracing, multi-tenancy, correlation IDs
+
+For complete documentation and examples, see [Context Propagation Documentation](https://outbox.namastack.io/features/).
+
+---
+
+### Retry Policies
+
+Configure retry behavior in `application.yml` to set the **default policy for all handlers**.
+
+**Exponential Backoff (Recommended):**
 
 ```yaml
 outbox:
@@ -219,11 +307,18 @@ outbox:
       initial-delay: 1000      # 1 second
       max-delay: 60000         # 1 minute
       multiplier: 2.0
+    # Optional: Control which exceptions trigger retries
+    include-exceptions:
+      - java.net.SocketTimeoutException
+      - org.springframework.web.client.ResourceAccessException
+    exclude-exceptions:
+      - java.lang.IllegalArgumentException
+      - javax.validation.ValidationException
 ```
 
 Delays: 1s → 2s → 4s → 8s → 16s → 32s → 60s (capped)
 
-### Fixed Delay
+**Fixed Delay:**
 
 ```yaml
 outbox:
@@ -234,7 +329,7 @@ outbox:
       delay: 5000              # Always 5 seconds
 ```
 
-### Jittered (Prevents Thundering Herd)
+**Jittered (Prevents Thundering Herd):**
 
 ```yaml
 outbox:
@@ -246,50 +341,42 @@ outbox:
       jitter: 1000             # ±0-1000ms random
 ```
 
----
+**Custom Retry Policies:**
 
-## Configuration Reference
+Override the default policy globally or per handler:
 
-```yaml
-outbox:
-  # Polling
-  poll-interval: 2000                    # How often to check for pending records
-  batch-size: 10                         # Records per polling cycle
+```kotlin
+// Global custom policy - replaces default for all handlers
+@Component
+class CustomRetryPolicy : OutboxRetryPolicy {
+    override fun shouldRetry(exception: Throwable): Boolean {
+        return when (exception) {
+            is InvalidCredentialsException -> false
+            is TemporaryNetworkException -> true
+            else -> true
+        }
+    }
 
-  # Processing
-  processing:
-    stop-on-first-failure: true          # Stop sequence if record fails
-    delete-completed-records: false      # Cleanup completed records
-    executor-core-pool-size: 4
-    executor-max-pool-size: 8
+    override fun nextDelay(failureCount: Int) = Duration.ofSeconds(5)
+    override fun maxRetries() = 3
+}
 
-  # Event Multicaster (for @OutboxEvent support)
-  multicaster:
-    enabled: true                        # Enable automatic outbox persistence for @OutboxEvent
+// Per-handler override using @OutboxRetryable
+@Component  
+class PaymentHandler {
+    @OutboxHandler
+    @OutboxRetryable(AggressiveRetryPolicy::class)
+    fun handle(payload: PaymentEvent) {
+        paymentGateway.process(payload)
+    }
+}
 
-  # Instance Coordination (for clustering)
-  instance:
-    graceful-shutdown-timeout-seconds: 15
-    stale-instance-timeout-seconds: 30
-    heartbeat-interval-seconds: 5
-
-  # Retry Strategy
-  retry:
-    max-retries: 3
-    policy: exponential                  # fixed | exponential | jittered
-    exponential:
-      initial-delay: 1000
-      max-delay: 60000
-      multiplier: 2.0
-    fixed:
-      delay: 5000
-    jittered:
-      base-policy: exponential
-      jitter: 500
-
-  # Database Schema
-  schema-initialization:
-    enabled: true                        # Auto-create tables on startup
+@Component
+class AggressiveRetryPolicy : OutboxRetryPolicy {
+    override fun shouldRetry(exception: Throwable) = true
+    override fun nextDelay(failureCount: Int) = Duration.ofMillis(500)
+    override fun maxRetries() = 10
+}
 ```
 
 ---
@@ -298,36 +385,89 @@ outbox:
 
 ### The Pattern
 
+The Transactional Outbox Pattern ensures reliable message delivery by persisting outbox records in the same database transaction as your business data. This guarantees atomicity - either both succeed or both fail together.
+
+**Flow Overview:**
+
+```mermaid
+graph TD
+    A[Application saves Business Entity + schedules Outbox Record] -->|Atomic transaction| B[Record persisted to outbox_record table<br/>One record per handler, with context]
+    B --> C[Background scheduler polls for unprocessed records]
+    C -->|queries records ready for processing| D[Scheduler invokes registered handlers]
+    D -->|typed → generic| E{Handler execution}
+    E -->|Success| F[Record marked COMPLETED]
+    E -->|Exception thrown| G[Scheduled for retry with backoff]
+    G -->|calculates next retry time| H{Retries remaining?}
+    H -->|Yes| C
+    H -->|No - Max retries exceeded| I{Fallback handler registered?}
+    I -->|Yes| J[Invoke fallback handler]
+    I -->|No| K[Record marked FAILED]
+    J -->|Success| F
+    J -->|Exception| K
 ```
-1. Application saves Order + schedules OrderCreatedRecord
-   ↓ (atomic transaction)
-2. Record persisted to outbox_record table
-   ↓
-3. Background scheduler polls for unprocessed records
-   ↓
-4. Scheduler invokes registered handlers (typed → generic)
-   ↓
-5. Handler processes record successfully → marked COMPLETED
-   OR
-   Handler throws exception → scheduled for retry with backoff
-   ↓
-6. On max retries exceeded → marked FAILED (manual intervention needed)
-```
+
+**Key Guarantees:**
+
+- **Atomicity**: Outbox record is saved in the same transaction as your domain data. No separate transaction means no risk of inconsistency.
+- **At-Least-Once Delivery**: Records are processed at least once, but may be processed multiple times if failures occur. Make your handlers idempotent.
+- **Ordering**: Records with the same `key` are processed sequentially by the same instance. This ensures correct ordering for related records.
+- **Automatic Retry**: Failed records are automatically retried based on the configured retry policy. No manual intervention needed for transient failures.
+- **Graceful Degradation**: Fallback handlers provide a safety net when all retries are exhausted, allowing for compensating actions or dead letter queue publishing.
 
 ### Partitioning & Scaling
 
-Records with the same `key` are processed by the same instance in order:
+The library uses consistent hashing to distribute records across multiple instances, enabling horizontal scaling while maintaining ordering guarantees.
+
+**Partition Assignment:**
+
+Each instance is assigned a subset of 256 partitions. Records are assigned to partitions based on a hash of their `key`:
 
 ```
 Instance 1 → partition 0-84   → handles "order-123", "order-456"
 Instance 2 → partition 85-169 → handles "payment-789", "customer-001"
 Instance 3 → partition 170-255 → handles other keys
-
-If Instance 2 fails:
-Instance 1 → partition 0-127
-Instance 3 → partition 128-255
-(Automatic rebalancing)
 ```
+
+**Key-Based Ordering:**
+
+Records with the same `key` always hash to the same partition, ensuring they're processed by the same instance in order:
+
+```
+Key "order-123" → partition 42 → Instance 1
+Key "order-123" → partition 42 → Instance 1  (same partition, same order)
+Key "order-456" → partition 78 → Instance 1
+Key "payment-789" → partition 142 → Instance 2
+```
+
+**Automatic Rebalancing:**
+
+When an instance fails or a new instance joins, partitions are automatically reassigned:
+
+```
+Before (3 instances):
+Instance 1 → partitions 0-84
+Instance 2 → partitions 85-169
+Instance 3 → partitions 170-255
+
+Instance 2 fails:
+Instance 1 → partitions 0-127      (takes over half of Instance 2's partitions)
+Instance 3 → partitions 128-255    (takes over other half)
+
+New Instance 4 joins:
+Instance 1 → partitions 0-63
+Instance 3 → partitions 64-127
+Instance 4 → partitions 128-191
+Instance 5 → partitions 192-255
+(Partitions redistributed evenly)
+```
+
+**Stale Instance Detection:**
+
+Each instance sends periodic heartbeats. If an instance stops sending heartbeats (crash, network partition), it's marked as stale and its partitions are reassigned to healthy instances. This ensures no records are left unprocessed.
+
+**Processing Isolation:**
+
+Each instance only processes records from its assigned partitions. This prevents duplicate processing and ensures clean separation of work across the cluster.
 
 ---
 
@@ -362,186 +502,167 @@ outbox.partitions.pending.records.max
 
 ---
 
-## Breaking Changes in 0.4.0
+## What's New in 1.0.0-RC1
 
-### Handler API Changes
+### 🎯 Fallback Handlers (GH-127, GH-128)
 
-**Before (0.3.0):**
+Add graceful degradation for permanently failed records:
+
 ```kotlin
-class MyProcessor : OutboxRecordProcessor {
-    override fun process(record: OutboxRecord) { }
+@OutboxFallbackHandler
+fun handleFailure(payload: OrderEvent, context: OutboxFailureContext) {
+    deadLetterQueue.publish(payload)
 }
 ```
 
-**After (0.4.0):**
+**Features:**
+- Automatic invocation after retries exhausted or non-retryable exceptions
+- Automatic matching by payload type
+- Access to failure context (retry count, exception, etc.)
+- Records marked COMPLETED if fallback succeeds
+- Shared fallbacks for multiple handlers
+
+**See:** [Fallback Handlers](#fallback-handlers)
+
+### 🔗 Context Propagation (GH-115, GH-129)
+
+Preserve context across async boundaries:
+
 ```kotlin
-// Type-safe handlers
-class OrderHandler : OutboxTypedHandler<OrderCreatedPayload> {
-    override fun handle(payload: OrderCreatedPayload) { }
+@Component
+class TracingContextProvider : OutboxContextProvider {
+    override fun provide(): Map<String, String> {
+        return mapOf(
+            "traceId" to getCurrentTraceId(),
+            "spanId" to getCurrentSpanId()
+        )
+    }
+}
+```
+
+**Features:**
+- Automatic context capture during `outbox.schedule()`
+- Context restoration in handlers via `metadata.context`
+- Support for tracing, tenancy, correlation IDs
+- Multiple providers with automatic merging
+- Available in both primary and fallback handlers
+
+**See:** [Context Propagation](#context-propagation)
+
+### 📊 Handler-Specific Retry Policies (GH-101)
+
+Custom retry behavior per handler:
+
+```kotlin
+@Component
+class PaymentHandler {
+    @OutboxHandler
+    @OutboxRetryable(AggressiveRetryPolicy::class)
+    fun handle(payload: PaymentEvent) {
+        paymentGateway.process(payload)
+    }
 }
 
-// Or generic handlers
-class MyHandler : OutboxHandler {
-    override fun handle(payload: Any, metadata: OutboxRecordMetadata) { }
+@Component
+class AggressiveRetryPolicy : OutboxRetryPolicy {
+    override fun shouldRetry(exception: Throwable) = true
+    override fun nextDelay(failureCount: Int) = Duration.ofSeconds(1)
+    override fun maxRetries() = 10
 }
 ```
 
-### Key Benefits of 0.4.0
+**See:** [Retry Policies](#retry-policies)
 
-- ✨ **Type-Safe**: Handler signatures are type-checked at compile time
-- ✨ **Simpler**: No manual payload type detection needed
-- ✨ **More Flexible**: Both typed and generic handlers work together
-- ✨ **Better Testing**: Handlers are regular Spring beans, easy to mock
-- ✨ **Flexible Payloads**: Store any type - events, commands, notifications, etc.
+---
 
-### Migration
+## Migration Guide
 
-The migration is straightforward:
+### Migrating to 1.0.0-RC1
 
-1. Replace `OutboxRecordProcessor` with `OutboxTypedHandler<YourPayloadType>`
-2. Update handler method signature from `process(record: OutboxRecord)` to `handle(payload: T)`
-3. Change `outbox.schedule()` calls to pass the payload object directly (not serialized)
+Version 1.0.0-RC1 introduces breaking schema changes. **You must drop and recreate the outbox tables.**
 
-**Before:**
-```kotlin
-outbox.schedule(
-    eventType = "OrderCreated",
-    payload = objectMapper.writeValueAsString(event)
-)
-```
+**Database Schema Changes:**
 
-**After:**
-```kotlin
-outbox.schedule(
-    payload = orderCreatedPayload,  // Type-safe! Can be event, command, etc.
-    key = "order-${orderCreatedPayload.orderId}"
-)
-```
-
-### Database Schema Changes
-
-Version 0.4.0 introduces breaking schema changes. **Drop and recreate the outbox tables:**
+The database schema has been updated to support new features (fallback handlers, context propagation, handler-specific retry policies). All outbox tables must be recreated.
 
 ```sql
--- Drop old tables (data will be lost - process pending records first!)
+-- Drop existing tables (process or backup pending records first!)
 DROP TABLE IF EXISTS outbox_record CASCADE;
 DROP TABLE IF EXISTS outbox_instance CASCADE;
 DROP TABLE IF EXISTS outbox_partition CASCADE;
 
--- On next startup, Namastack Outbox will auto-create the new schema
+-- New schema is auto-created on next startup
 -- (if outbox.schema-initialization.enabled=true)
 ```
 
 **Migration Steps:**
 
-1. **Before upgrading** (in version 0.3.0):
-   - Process all pending records or accept loss of unprocessed records
-   - Backup old outbox tables if needed for audit trail
+1. **Before upgrading**: 
+   - Process all pending records OR
+   - Backup `outbox_record` table if you need audit trail OR
+   - Accept data loss for pending records
 
-2. **Upgrade** to 0.4.0:
-   - Update dependency in `build.gradle.kts`
-   - Drop old outbox tables (see SQL above)
-   - Restart application
-   - New schema is auto-created on startup
+2. **Upgrade**:
+   ```gradle
+   dependencies {
+       implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC1")
+   }
+   ```
 
-3. **After upgrade** (in version 0.4.0):
-   - Register new handlers (TypedHandler or OutboxHandler)
-   - Update record scheduling code
-   - No data migration needed (fresh start)
+3. **Drop old tables**: Execute the SQL above to drop all outbox tables
 
-**Automated Migration (Optional):**
+4. **Restart application**: New schema with updated columns is auto-created
 
-If you want automatic table recreation, ensure:
-```yaml
-outbox:
-  schema-initialization:
-    enabled: true  # Default - creates schema on startup
-```
+**What's New in Schema:**
+- Support for context propagation (new `context` column)
+- Enhanced failure tracking for fallback handlers
+- Optimized indexes for partition-based queries
 
----
+**API Compatibility:**
+- ✅ No breaking changes in handler APIs (0.4.x handlers work as-is)
+- ✅ No breaking changes in `Outbox.schedule()` API
+- ✅ All existing features remain backward compatible
 
-## Common Patterns
+## Version Stability & Semantic Versioning:**
 
-### Idempotent Handler (Recommended)
+From **1.0.0 onwards**, Namastack Outbox follows strict **semantic versioning**:
 
-```kotlin
-@Component
-class OrderHandler : OutboxTypedHandler<OrderCreatedPayload> {
-    override fun handle(payload: OrderCreatedPayload) {
-        // Check if already processed (idempotency key)
-        if (processedRecordService.isProcessed(payload.id)) {
-            return
-        }
-        
-        // Process the payload
-        eventPublisher.publish(payload)
-        
-        // Mark as processed
-        processedRecordService.mark(payload.id)
-    }
-}
-```
+- **Major versions (x.0.0)**: Breaking changes allowed
+  - API changes, schema changes, behavior changes
+  - Migration guide provided for each major version
+  
+- **Minor versions (1.x.0)**: New features, backward compatible
+  - New APIs, new features, enhancements
+  - No breaking changes, safe to upgrade
+  
+- **Patch versions (1.0.x)**: Bug fixes only
+  - Bug fixes, security patches
+  - No new features, no breaking changes
 
-### Error Handling & Retries
+**Pre-1.0.0 Versions:**
+- Versions before 1.0.0 (0.x.x) were under active development
+- Breaking changes could occur between minor versions
+- Database schema changes required table recreation
 
-**Automatic Retry on Exception:**
+**1.0.0-RC1 Status:**
+- This is a **Release Candidate** for the stable 1.0.0 release
+- API is locked and stable (no breaking changes expected until 2.0.0)
+- Production-ready with comprehensive testing
+- Only bug fixes and documentation updates until 1.0.0 GA
 
-```kotlin
-@Component
-class PaymentHandler : OutboxTypedHandler<PaymentProcessedPayload> {
-    override fun handle(payload: PaymentProcessedPayload) {
-        try {
-            paymentGateway.confirmPayment(payload.transactionId)
-        } catch (e: TemporaryNetworkException) {
-            // Throwing exception → Record scheduled for retry
-            throw e
-        } catch (e: PermanentPaymentFailureException) {
-            // Not throwing exception → Handler completes successfully, no retry
-            logger.error("Permanent failure for transaction ${payload.transactionId}", e)
-        }
-    }
-}
-```
-
-**Custom Retry Policy (Fail-Fast on Specific Exceptions):**
-
-```kotlin
-// 1. Define the custom retry policy
-class CustomRetryPolicy : OutboxRetryPolicy {
-    override fun shouldRetry(exception: Throwable): Boolean {
-        return when (exception) {
-            is InvalidCredentialsException -> false      // Don't retry auth errors
-            is PermanentFailureException -> false        // Don't retry permanent failures
-            is TemporaryNetworkException -> true         // Retry network errors
-            else -> true                                 // Default: retry
-        }
-    }
-
-    override fun nextDelay(exception: Throwable): Duration {
-        return when (exception) {
-            is TemporaryNetworkException -> Duration.ofSeconds(5)
-            else -> Duration.ofSeconds(1)
-        }
-    }
-}
-
-// 2. Register the bean via configuration
-@Configuration
-class OutboxConfiguration {
-    @Bean
-    fun customRetryPolicy(): OutboxRetryPolicy = CustomRetryPolicy()
-}
-```
-
-The custom `OutboxRetryPolicy` bean is automatically detected and used by the framework.
+**What This Means for You:**
+- ✅ Safe to use in production from 1.0.0-RC1 onwards
+- ✅ Upgrade within same major version without fear of breaking changes
+- ✅ Clear migration path when major versions are released
+- ✅ Predictable release cycle and stability guarantees
 
 ---
 
 ## Requirements
 
-- Java 21+
+- Java 17+
 - Spring Boot 4.0.0+
-- Kotlin 2.2+ (optional, Java is supported)
+- Kotlin 2.2+ (optional, Java is fully supported)
 
 ---
 
@@ -550,6 +671,7 @@ The custom `OutboxRetryPolicy` bean is automatically detected and used by the fr
 - 📖 [Documentation](https://outbox.namastack.io)
 - 🐛 [Issues](https://github.com/namastack/namastack-outbox/issues)
 - 💬 [Discussions](https://github.com/namastack/namastack-outbox/discussions)
+- 📦 [Example Projects](namastack-outbox-examples/)
 
 ---
 
@@ -562,6 +684,5 @@ Apache License 2.0 - See [LICENSE](./LICENSE)
 ## Acknowledgments
 
 - Built with ❤️ by [Namastack](https://namastack.io)
-- Inspired by the Transactional Outbox Pattern
+- Inspired by the [Transactional Outbox Pattern](https://microservices.io/patterns/data/transactional-outbox.html)
 - Powered by Spring Boot & Kotlin
-
