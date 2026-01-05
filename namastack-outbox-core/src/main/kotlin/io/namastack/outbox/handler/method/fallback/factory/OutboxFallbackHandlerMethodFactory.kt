@@ -7,6 +7,9 @@ import java.lang.reflect.Method
  * Factory interface for creating fallback handler method wrappers.
  *
  * Implementations: [TypedFallbackHandlerMethodFactory], [GenericFallbackHandlerMethodFactory]
+ *
+ * @author Roland Beisel
+ * @since 1.0.0
  */
 interface OutboxFallbackHandlerMethodFactory {
     /**

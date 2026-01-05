@@ -29,11 +29,7 @@ class CustomerRegisteredOutboxHandler {
     }
 
     @OutboxFallbackHandler
-    fun handleFailure(
-        payload: CustomerRegisteredEvent,
-        metadata: OutboxRecordMetadata,
-        context: OutboxFailureContext
-    ) {
+    fun handleFailure(payload: CustomerRegisteredEvent, context: OutboxFailureContext) {
         // Fallback logic - invoked after retries exhausted
         logger.info("Fallback invoked: ${context}")
     }

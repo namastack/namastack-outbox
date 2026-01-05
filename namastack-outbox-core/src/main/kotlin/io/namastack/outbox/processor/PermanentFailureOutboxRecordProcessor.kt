@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory
  * @param recordRepository Repository for persisting failed state
  *
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 class PermanentFailureOutboxRecordProcessor(
     private val recordRepository: OutboxRecordRepository,

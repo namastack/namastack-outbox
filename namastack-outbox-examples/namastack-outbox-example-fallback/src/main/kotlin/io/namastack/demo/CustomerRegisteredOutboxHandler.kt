@@ -4,7 +4,6 @@ import io.namastack.demo.customer.CustomerRegisteredEvent
 import io.namastack.outbox.annotation.OutboxFallbackHandler
 import io.namastack.outbox.annotation.OutboxHandler
 import io.namastack.outbox.handler.OutboxFailureContext
-import io.namastack.outbox.handler.OutboxRecordMetadata
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -23,7 +22,6 @@ class CustomerRegisteredOutboxHandler {
     @Suppress("UNUSED_PARAMETER")
     fun handleFailure(
         payload: CustomerRegisteredEvent,
-        metadata: OutboxRecordMetadata,
         context: OutboxFailureContext,
     ) {
         logger.info("[Handler] Invoking fallback method with context $context")

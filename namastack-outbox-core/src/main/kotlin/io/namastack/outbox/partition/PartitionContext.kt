@@ -10,6 +10,9 @@ import kotlin.math.max
  * @property activeInstanceIds The set of all currently active instance ids.
  * @property partitionAssignments The full set of persisted partition assignments.
  * @property targetPartitionCount The desired partition count for the current instance.
+ *
+ * @author Roland Beisel
+ * @since 0.4.0
  */
 data class PartitionContext(
     val currentInstanceId: String,

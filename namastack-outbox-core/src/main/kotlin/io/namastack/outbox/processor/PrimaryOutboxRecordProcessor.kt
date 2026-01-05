@@ -19,7 +19,7 @@ import java.time.Clock
  * @param clock Clock for completion timestamp
  *
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 class PrimaryOutboxRecordProcessor(
     private val handlerInvoker: OutboxHandlerInvoker,

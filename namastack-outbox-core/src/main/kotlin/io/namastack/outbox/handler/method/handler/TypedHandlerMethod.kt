@@ -13,6 +13,9 @@ import kotlin.reflect.KClass
  *
  * @param bean Bean containing the handler method
  * @param method Handler method (1 or 2 parameters)
+ *
+ * @author Roland Beisel
+ * @since 0.4.0
  */
 class TypedHandlerMethod(
     bean: Any,

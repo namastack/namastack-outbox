@@ -20,7 +20,7 @@ import java.lang.reflect.Method
  * Matches fallback handlers to handlers based on payload type compatibility.
  *
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 class AnnotatedHandlerScanner : HandlerScanner {
     private val log = LoggerFactory.getLogger(AnnotatedHandlerScanner::class.java)

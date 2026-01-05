@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory
  *
  * @param fallbackHandlerRegistry Registry of all registered fallback handlers
  * @author Roland Beisel
- * @since 0.5.0
+ * @since 1.0.0
  */
 class OutboxFallbackHandlerInvoker(
     private val fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
