@@ -348,6 +348,10 @@ outbox:
   retry:
     policy: jittered
     max-retries: 4
+    exponential:
+      initial-delay: 2000
+      max-delay: 60000
+      multiplier: 2.0
     jittered:
       base-policy: exponential
       jitter: 1000             # ±0-1000ms random
@@ -355,30 +359,37 @@ outbox:
 
 **Custom Retry Policies:**
 
-Override the default policy globally or per handler:
+**Global Custom Policy** - Override default for all handlers using bean named `outboxRetryPolicy`:
 
 ```kotlin
-// Global custom policy - replaces default for all handlers
-@Component
-class CustomRetryPolicy : OutboxRetryPolicy {
-    override fun shouldRetry(exception: Throwable): Boolean {
-        return when (exception) {
-            is InvalidCredentialsException -> false
-            is TemporaryNetworkException -> true
-            else -> true
+@Configuration
+class OutboxConfig {
+    @Bean("outboxRetryPolicy")
+    fun customRetryPolicy(): OutboxRetryPolicy {
+        return object : OutboxRetryPolicy {
+            override fun shouldRetry(exception: Throwable): Boolean {
+                return when (exception) {
+                    is IllegalArgumentException -> false
+                    is PaymentDeclinedException -> false
+                    else -> true
+                }
+            }
+
+            override fun nextDelay(failureCount: Int) = Duration.ofSeconds(5)
+            override fun maxRetries() = 3
         }
     }
-
-    override fun nextDelay(failureCount: Int) = Duration.ofSeconds(5)
-    override fun maxRetries() = 3
 }
+```
 
-// Per-handler override using @OutboxRetryable
+**Per-Handler Policy** - Override via `@OutboxRetryable`:
+
+```kotlin
 @Component  
 class PaymentHandler {
     @OutboxHandler
     @OutboxRetryable(AggressiveRetryPolicy::class)
-    fun handle(payload: PaymentEvent) {
+    fun handlePayment(payload: PaymentEvent) {
         paymentGateway.process(payload)
     }
 }
@@ -398,25 +409,6 @@ class AggressiveRetryPolicy : OutboxRetryPolicy {
 ### The Pattern
 
 The Transactional Outbox Pattern ensures reliable message delivery by persisting outbox records in the same database transaction as your business data. This guarantees atomicity - either both succeed or both fail together.
-
-**Flow Overview:**
-
-```mermaid
-graph TD
-    A[Application saves Business Entity + schedules Outbox Record] -->|Atomic transaction| B[Record persisted to outbox_record table<br/>One record per handler, with context]
-    B --> C[Background scheduler polls for unprocessed records]
-    C -->|queries records ready for processing| D[Scheduler invokes registered handlers]
-    D -->|typed → generic| E{Handler execution}
-    E -->|Success| F[Record marked COMPLETED]
-    E -->|Exception thrown| G[Scheduled for retry with backoff]
-    G -->|calculates next retry time| H{Retries remaining?}
-    H -->|Yes| C
-    H -->|No - Max retries exceeded| I{Fallback handler registered?}
-    I -->|Yes| J[Invoke fallback handler]
-    I -->|No| K[Record marked FAILED]
-    J -->|Success| F
-    J -->|Exception| K
-```
 
 **Key Guarantees:**
 
