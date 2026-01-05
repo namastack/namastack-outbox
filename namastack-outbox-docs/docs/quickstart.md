@@ -37,7 +37,7 @@ Annotate your application class with `@EnableOutbox`:
 
     ```kotlin
     @SpringBootApplication
-    @EnableOutbox
+    @EnableOutbox  // Required for automatic outbox processing
     @EnableScheduling
     class Application
 
@@ -50,7 +50,7 @@ Annotate your application class with `@EnableOutbox`:
 
     ```java
     @SpringBootApplication
-    @EnableOutbox
+    @EnableOutbox  // Required for automatic outbox processing
     @EnableScheduling
     public class Application {
         public static void main(String[] args) {
@@ -295,6 +295,8 @@ For a complete list of all configuration options, see [Configuration Reference](
 - ✅ **Built-in Metrics**: Micrometer integration for monitoring
 
 ## Supported Databases
+
+Any JPA-compatible database is supported. Automatic schema creation is currently available for:
 
 - ✅ H2 (development)
 - ✅ MySQL / MariaDB

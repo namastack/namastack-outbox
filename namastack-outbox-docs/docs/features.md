@@ -1640,11 +1640,12 @@ outbox:
 
 ### Supported Databases
 
-- :material-elephant: **PostgreSQL**
-- :material-dolphin: **MySQL**
-- :seal: **MariaDB**
-- :material-microsoft-azure: **SQL Server**
-- :material-database: **H2**
+Any JPA-compatible database is supported. Automatic schema creation is currently available for:
+
+- ✅ H2 (development)
+- ✅ MySQL / MariaDB
+- ✅ PostgreSQL
+- ✅ SQL Server
 
 ### Schema Management
 

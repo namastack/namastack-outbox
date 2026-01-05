@@ -46,10 +46,22 @@ Quick links:
 
 ### 1. Add Dependency
 
+**Gradle (Kotlin DSL):**
+
 ```gradle
 dependencies {
     implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC1")
 }
+```
+
+**Maven:**
+
+```xml
+<dependency>
+    <groupId>io.namastack</groupId>
+    <artifactId>namastack-outbox-starter-jpa</artifactId>
+    <version>1.0.0-RC1</version>
+</dependency>
 ```
 
 ### 2. Enable Outbox
@@ -57,7 +69,7 @@ dependencies {
 ```kotlin
 @SpringBootApplication
 @EnableOutbox
-@EnableScheduling
+@EnableScheduling  // Required for automatic outbox processing
 class Application
 
 fun main(args: Array<String>) {
@@ -494,6 +506,8 @@ outbox.partitions.pending.records.max
 ---
 
 ## Supported Databases
+
+Any JPA-compatible database is supported. Automatic schema creation is currently available for:
 
 - ✅ H2 (development)
 - ✅ MySQL / MariaDB
