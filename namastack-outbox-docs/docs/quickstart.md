@@ -37,8 +37,8 @@ Annotate your application class with `@EnableOutbox`:
 
     ```kotlin
     @SpringBootApplication
-    @EnableOutbox  // Required for automatic outbox processing
-    @EnableScheduling
+    @EnableOutbox
+    @EnableScheduling  // Required for automatic outbox processing
     class Application
 
     fun main(args: Array<String>) {
@@ -50,8 +50,8 @@ Annotate your application class with `@EnableOutbox`:
 
     ```java
     @SpringBootApplication
-    @EnableOutbox  // Required for automatic outbox processing
-    @EnableScheduling
+    @EnableOutbox
+    @EnableScheduling  // Required for automatic outbox processing
     public class Application {
         public static void main(String[] args) {
             SpringApplication.run(Application.class, args);
