@@ -186,6 +186,277 @@ outbox:
 
 ---
 
+## Record Scheduling
+
+### Outbox Service API
+
+Schedule records for processing via the `Outbox` service:
+
+=== "Kotlin"
+
+    ```kotlin
+    @Service
+    class OrderService(
+        private val outbox: Outbox,
+        private val orderRepository: OrderRepository
+    ) {
+        @Transactional
+        fun createOrder(command: CreateOrderCommand) {
+            val order = Order.create(command)
+            orderRepository.save(order)
+            
+            // Schedule record with explicit key
+            outbox.schedule(
+                payload = OrderCreatedRecord(order.id, order.customerId),
+                key = "order-${order.id}"  // Groups records for ordered processing
+            )
+        }
+        
+        @Transactional
+        fun updateOrder(orderId: String) {
+            // Schedule record with auto-generated UUID key
+            outbox.schedule(payload = OrderUpdatedRecord(orderId))
+        }
+    }
+    ```
+
+=== "Java"
+
+    ```java
+    @Service
+    public class OrderService {
+        private final Outbox outbox;
+        private final OrderRepository orderRepository;
+
+        public OrderService(Outbox outbox, OrderRepository orderRepository) {
+            this.outbox = outbox;
+            this.orderRepository = orderRepository;
+        }
+
+        @Transactional
+        public void createOrder(CreateOrderCommand command) {
+            Order order = Order.create(command);
+            orderRepository.save(order);
+            
+            // Schedule record with explicit key
+            outbox.schedule(
+                new OrderCreatedRecord(order.getId(), order.getCustomerId()),
+                "order-" + order.getId()  // Groups records for ordered processing
+            );
+        }
+        
+        @Transactional
+        public void updateOrder(String orderId) {
+            // Schedule record with auto-generated UUID key
+            outbox.schedule(new OrderUpdatedRecord(orderId));
+        }
+    }
+    ```
+
+#### Record Lifecycle
+
+Records go through the following states:
+
+- **NEW**: Freshly scheduled, waiting for processing
+- **COMPLETED**: Successfully processed by all handlers
+- **FAILED**: Exhausted all retries, requires manual intervention
+
+### OutboxEventMulticaster
+
+The `OutboxEventMulticaster` provides seamless integration with Spring's event system. It automatically intercepts and persists events annotated with `@OutboxEvent` directly to the outbox table, allowing you to use Spring's native `ApplicationEventPublisher` while getting outbox benefits.
+
+#### How It Works
+
+```mermaid
+graph TB
+    A["publishEvent(event)"] --> B["OutboxEventMulticaster"]
+    B --> C{Check OutboxEvent<br/>Annotation}
+    C -->|Present| D["Serialize & Store"]
+    C -->|Not Present| E["Normal Event Flow"]
+    D --> F["Outbox Table"]
+    E --> G["Event Listeners"]
+    D -->|if publish-after-save=true| G
+```
+
+#### @OutboxEvent Annotation
+
+Mark your events with `@OutboxEvent` to enable automatic outbox persistence:
+
+=== "Kotlin"
+
+    ```kotlin
+    @OutboxEvent(key = "#event.orderId")  // SpEL expression for key resolution
+    data class OrderCreatedEvent(
+        val orderId: String,
+        val customerId: String,
+        val amount: BigDecimal
+    )
+    ```
+
+=== "Java"
+
+    ```java
+    @OutboxEvent(key = "#event.orderId")  // SpEL expression for key resolution
+    public class OrderCreatedEvent {
+        private String orderId;
+        private String customerId;
+        private BigDecimal amount;
+        
+        // constructor, getters, setters...
+    }
+    ```
+
+##### SpEL Key Resolution
+
+The `key` parameter supports Spring Expression Language (SpEL) for dynamic key extraction:
+
+| Expression | Description | Example |
+|------------|-------------|---------|
+| `#root.fieldName` | Access root object property | `#root.orderId` |
+| `#event.fieldName` | Same as #root (alternative syntax) | `#event.customerId` |
+| `#root.getId()` | Call method on root object | `#root.getOrderId()` |
+| `#root.nested.field` | Access nested properties | `#root.order.id` |
+| `#root.toString()` | Convert to string | `#root.id.toString()` |
+
+!!! example "SpEL Examples"
+
+    === "Simple Property"
+        ```kotlin
+        @OutboxEvent(key = "#event.orderId")
+        data class OrderEvent(val orderId: String)
+        ```
+
+    === "Method Call"
+        ```kotlin
+        @OutboxEvent(key = "#event.getAggregateId()")
+        data class DomainEvent(val id: UUID) {
+            fun getAggregateId() = id.toString()
+        }
+        ```
+
+    === "Nested Property"
+        ```kotlin
+        @OutboxEvent(key = "#event.order.id")
+        data class OrderConfirmedEvent(val order: Order)
+        ```
+
+#### Configuration
+
+The multicaster can be configured to control event publishing behavior:
+
+```yaml
+outbox:
+  multicaster:
+    enabled: true  # Enable/disable automatic interception (default: true)
+
+  processing:
+    publish-after-save: true  # Also forward to other listeners in same transaction (default: true)
+```
+
+| Configuration         | Value            | Effect                                                       |
+|-----------------------|------------------|--------------------------------------------------------------|
+| `multicaster.enabled` | `true` (default) | @OutboxEvent annotations are intercepted and stored          |
+| `multicaster.enabled` | `false`          | OutboxEventMulticaster is disabled, events flow normally     |
+| `publish-after-save`  | `true` (default) | Events also published to other listeners in same transaction |
+| `publish-after-save`  | `false`          | Events only stored to outbox, not published to listeners     |
+
+#### Usage Example
+
+=== "Kotlin"
+
+    ```kotlin
+    @Service
+    class OrderService(
+        private val orderRepository: OrderRepository,
+        private val eventPublisher: ApplicationEventPublisher
+    ) {
+        @Transactional
+        fun createOrder(command: CreateOrderCommand) {
+            val order = Order.create(command)
+            orderRepository.save(order)
+            
+            // Automatically saved to outbox + published to listeners
+            eventPublisher.publishEvent(
+                OrderCreatedEvent(order.id, order.customerId, order.amount)
+            )
+        }
+    }
+    ```
+
+=== "Java"
+
+    ```java
+    @Service
+    public class OrderService {
+        private final OrderRepository orderRepository;
+        private final ApplicationEventPublisher eventPublisher;
+
+        public OrderService(OrderRepository orderRepository, 
+                           ApplicationEventPublisher eventPublisher) {
+            this.orderRepository = orderRepository;
+            this.eventPublisher = eventPublisher;
+        }
+
+        @Transactional
+        public void createOrder(CreateOrderCommand command) {
+            Order order = Order.create(command);
+            orderRepository.save(order);
+            
+            // Automatically saved to outbox + published to listeners
+            eventPublisher.publishEvent(
+                new OrderCreatedEvent(order.getId(), order.getCustomerId(), order.getAmount())
+            );
+        }
+    }
+    ```
+
+#### @OutboxEvent with Context
+
+When using `@OutboxEvent` with `ApplicationEventPublisher`, you can define context using SpEL expressions:
+
+=== "Kotlin"
+
+    ```kotlin
+    @OutboxEvent(
+        key = "#this.orderId",
+        context = [
+            OutboxContextEntry(key = "customerId", value = "#this.customerId"),
+            OutboxContextEntry(key = "region", value = "#this.region"),
+            OutboxContextEntry(key = "priority", value = "#this.priority")
+        ]
+    )
+    data class OrderCreatedEvent(
+        val orderId: String,
+        val customerId: String,
+        val region: String,
+        val priority: String
+    )
+    ```
+
+=== "Java"
+
+    ```java
+    @OutboxEvent(
+        key = "#this.orderId",
+        context = {
+            @OutboxContextEntry(key = "customerId", value = "#this.customerId"),
+            @OutboxContextEntry(key = "region", value = "#this.region"),
+            @OutboxContextEntry(key = "priority", value = "#this.priority")
+        }
+    )
+    public class OrderCreatedEvent {
+        private String orderId;
+        private String customerId;
+        private String region;
+        private String priority;
+        // constructor, getters...
+    }
+    ```
+
+Context from `@OutboxEvent` annotations is merged with context from registered `OutboxContextProvider` beans.
+
+---
+
 ## Processing Chain
 
 !!! info "Internal Processing Pipeline"
@@ -196,147 +467,129 @@ outbox:
 The processing chain consists of four processors, executed in this exact order:
 
 ```mermaid
-graph LR
-    A[Primary Handler] --> B{Success?}
-    B -->|Yes| C[Mark COMPLETED]
-    B -->|No| D[Retry Processor]
-    D --> E{Can Retry?}
-    E -->|Yes| F[Schedule Retry]
-    E -->|No| G[Fallback Processor]
-    G --> H{Fallback Exists?}
-    H -->|Yes| I{Fallback Success?}
-    I -->|Yes| C
-    I -->|No| J[Permanent Failure Processor]
-    H -->|No| J
-    J --> K[Mark FAILED]
+flowchart LR
+    A((Start)) --> B[Invoke Handler]
+    B --> C{Success?}
+
+    C -- Yes --> Z[Mark COMPLETED]
+    C -- No --> D{Can Retry?}
+
+    D -- Yes --> E[Schedule Retry]
+
+    D -- No --> F{Fallback Exists?}
+
+    F -- Yes --> G[Invoke Fallback]
+    G --> H{Fallback Success?}
+
+    H -- Yes --> Z
+    H -- No --> Y[Mark FAILED]
+
+    F -- No --> Y
+
+    Y --> S((Stop))
+    Z --> S((Stop))
 ```
 
-#### 1. Primary Handler Processor
+**Processing Flow:**
 
-**Responsibility:** Invokes the registered handler for the record's payload type.
+1. **Primary Handler Processor** - Invokes the registered handler for the payload type. On success, marks record as `COMPLETED`. On exception, passes to Retry Processor.
 
-**Behavior:**
-- Dispatches to typed handlers first, then generic handlers
-- On success: Record marked `COMPLETED`
-- On exception: Passes control to Retry Processor
+2. **Retry Processor** - Evaluates if the exception is retryable and if retry limit is not exceeded. Schedules next retry with calculated delay or passes to Fallback Processor.
 
-=== "Kotlin"
+3. **Fallback Processor** - Invokes registered fallback handler if available. On success, marks record as `COMPLETED`. On failure or if no fallback exists, passes to Permanent Failure Processor.
 
-    ```kotlin
-    @Component
-    class OrderHandler : OutboxTypedHandler<OrderEvent> {
-        override fun handle(payload: OrderEvent, metadata: OutboxRecordMetadata) {
-            // Primary processing happens here
-            eventPublisher.publish(payload)
-        }
-    }
-    ```
+4. **Permanent Failure Processor** - Marks the record as permanently `FAILED`. Final state - no further processing.
 
-#### 2. Retry Processor
+### Processing Flow Examples
 
-**Responsibility:** Determines if the record should be retried based on retry policy.
+#### Scenario 1: Retries Exhausted with Successful Fallback
 
-**Behavior:**
-- Checks if retries are exhausted (`failureCount >= maxRetries`)
-- Checks if exception is retryable (`retryPolicy.shouldRetry(exception)`)
-- If retryable: Calculates next retry time and schedules retry
-- If not retryable: Passes control to Fallback Processor
+Order processing with 3 max retries and fallback handler:
 
-**Example:**
-```yaml
-outbox:
-  retry:
-    max-retries: 3
-    policy: exponential
-    exponential:
-      initial-delay: 1000
-      multiplier: 2.0
+```mermaid
+sequenceDiagram
+    participant S as Scheduler
+    participant P as Primary Processor
+    participant R as Retry Processor
+    participant F as Fallback Processor
+    participant DB as Database
+    
+    Note over S,DB: Attempts 1-3: Retries
+    loop 3 times
+        S->>P: Process Record
+        P->>P: SocketTimeoutException
+        P->>R: Handle Exception
+        R->>R: Can Retry? ✓
+        R->>DB: Schedule Retry (1s→2s→4s)
+    end
+    
+    Note over S,DB: Attempt 4: Fallback
+    S->>P: Process Record
+    P->>P: SocketTimeoutException
+    P->>R: Handle Exception
+    R->>R: Retries Exhausted
+    R->>F: Invoke Fallback
+    F->>F: Publish to DLQ
+    F->>DB: Mark COMPLETED ✓
 ```
 
-With this config: 1s → 2s → 4s → 8s → Fallback
+#### Scenario 2: Non-Retryable Exception
 
-#### 3. Fallback Processor
+Order processing with non-retryable exception:
 
-**Responsibility:** Invokes registered fallback handler when retries are exhausted or exception is non-retryable.
+```mermaid
+sequenceDiagram
+    participant S as Scheduler
+    participant P as Primary Processor
+    participant R as Retry Processor
+    participant F as Fallback Processor
+    participant DB as Database
+    
+    S->>P: Process Record
+    P->>P: IllegalArgumentException
+    P->>R: Handle Exception
+    R->>R: Non-Retryable Exception
+    R->>F: Invoke Fallback
+    F->>F: Publish to DLQ
+    F->>DB: Mark COMPLETED ✓
+```
 
-**Behavior:**
-- Checks if fallback handler exists for this handler ID
-- If exists: Invokes fallback with `OutboxFailureContext`
-  - On success: Record marked `COMPLETED`
-  - On exception: Passes control to Permanent Failure Processor
-- If no fallback: Passes control to Permanent Failure Processor
+#### Scenario 3: No Fallback Handler
 
-=== "Kotlin"
+Order processing without fallback handler:
 
-    ```kotlin
-    @Component
-    class OrderFallbackHandler : OutboxFallbackHandler<OrderEvent> {
-        override fun handle(payload: OrderEvent, context: OutboxFailureContext) {
-            // Fallback processing happens here
-            logger.error("Order ${payload.orderId} failed after ${context.failureCount} attempts")
-            deadLetterQueue.publish(payload)
-        }
-    }
-    ```
-
-#### 4. Permanent Failure Processor
-
-**Responsibility:** Marks the record as permanently failed.
-
-**Behavior:**
-- Sets record status to `FAILED`
-- Records failure details and exception
-- Final state - no further processing
-
-### Processing Flow Example
-
-**Scenario:** Order processing with 3 max retries and fallback handler
-
-| Attempt | Processor                    | Action                           | Next State         |
-|---------|------------------------------|----------------------------------|--------------------|
-| 1       | Primary Handler              | Throws `SocketTimeoutException`  | Retry scheduled    |
-| 2       | Primary Handler              | Throws `SocketTimeoutException`  | Retry scheduled    |
-| 3       | Primary Handler              | Throws `SocketTimeoutException`  | Retry scheduled    |
-| 4       | Primary Handler              | Throws `SocketTimeoutException`  | Retries exhausted  |
-| 4       | Fallback Processor           | Fallback handler invoked         | `COMPLETED`        |
-
-**Scenario:** Order processing with non-retryable exception
-
-| Attempt | Processor                    | Action                              | Next State      |
-|---------|------------------------------|-------------------------------------|-----------------|
-| 1       | Primary Handler              | Throws `IllegalArgumentException`   | Non-retryable   |
-| 1       | Fallback Processor           | Fallback handler invoked            | `COMPLETED`     |
-
-**Scenario:** Order processing with no fallback handler
-
-| Attempt | Processor                    | Action                           | Next State      |
-|---------|------------------------------|----------------------------------|-----------------|
-| 1       | Primary Handler              | Throws `SocketTimeoutException`  | Retry scheduled |
-| 2       | Primary Handler              | Throws `SocketTimeoutException`  | Retry scheduled |
-| 3       | Primary Handler              | Throws `SocketTimeoutException`  | Retry scheduled |
-| 4       | Primary Handler              | Throws `SocketTimeoutException`  | Retries exhausted |
-| 4       | Permanent Failure Processor  | No fallback exists               | `FAILED`        |
-
-### Chain Benefits
-
-**Separation of Concerns:**
-- Each processor handles one responsibility
-- Easy to understand and test
-- Changes isolated to single processor
-
-**Flexibility:**
-- Retry policies configurable per handler
-- Fallback handlers optional
-- Easy to add new processors in future
-
-**Reliability:**
-- Clear failure paths
-- No silent failures
-- Comprehensive error handling
+```mermaid
+sequenceDiagram
+    participant S as Scheduler
+    participant P as Primary Processor
+    participant R as Retry Processor
+    participant F as Fallback Processor
+    participant PF as Permanent Failure Processor
+    participant DB as Database
+    
+    Note over S,DB: Attempts 1-3: Retries
+    loop 3 times
+        S->>P: Process Record
+        P->>P: SocketTimeoutException
+        P->>R: Handle Exception
+        R->>R: Can Retry? ✓
+        R->>DB: Schedule Retry (1s→2s→4s)
+    end
+    
+    Note over S,DB: Attempt 4: Permanent Failure
+    S->>P: Process Record
+    P->>P: SocketTimeoutException
+    P->>R: Handle Exception
+    R->>R: Retries Exhausted
+    R->>F: Check Fallback
+    F->>F: No Fallback Found
+    F->>PF: Handle Permanent Failure
+    PF->>DB: Mark FAILED ✗
+```
 
 ---
 
-## Public API
+## Handlers
 
 ### Handler Types & Interfaces
 
@@ -411,21 +664,12 @@ Process any payload type with pattern matching. Use for catch-all or multi-type 
     }
     ```
 
-!!! note "Handler Signature Requirements"
-    - **Typed handlers** can accept 1 or 2 parameters:
-        - `fun handle(payload: T)` - Payload only
-        - `fun handle(payload: T, metadata: OutboxRecordMetadata)` - Payload + metadata
-    - **Generic handlers** must accept 2 parameters:
-        - `fun handle(payload: Any, metadata: OutboxRecordMetadata)` - Required signature
-
 #### Handler Invocation Order
 
 When multiple handlers are registered:
 
 1. **All matching typed handlers** are invoked first (in registration order)
 2. **All generic handlers** are invoked second (catch-all)
-
-Both typed and generic handlers can be registered for the same payload type and both will be called.
 
 ### Annotation-based Handlers
 
@@ -474,6 +718,13 @@ Use `@OutboxHandler` annotation for method-level handler registration as an alte
         }
     }
     ```
+
+!!! note "Handler Signature Requirements"
+- **Typed handlers** can accept 1 or 2 parameters:
+- `fun handle(payload: T)` - Payload only
+- `fun handle(payload: T, metadata: OutboxRecordMetadata)` - Payload + metadata
+- **Generic handlers** must accept 2 parameters:
+- `fun handle(payload: Any, metadata: OutboxRecordMetadata)` - Required signature
 
 **Interface vs Annotation:**
 - **Interfaces**: Best when entire class is dedicated to handling a single type
@@ -687,78 +938,6 @@ Fallback handlers are automatically matched to primary handlers by payload type.
 4. **Alternative Processing**: Route to alternative processing logic
 5. **Audit Logging**: Log failure details for compliance and debugging
 
-### Outbox Service API
-
-Schedule records for processing via the `Outbox` service:
-
-=== "Kotlin"
-
-    ```kotlin
-    @Service
-    class OrderService(
-        private val outbox: Outbox,
-        private val orderRepository: OrderRepository
-    ) {
-        @Transactional
-        fun createOrder(command: CreateOrderCommand) {
-            val order = Order.create(command)
-            orderRepository.save(order)
-            
-            // Schedule record with explicit key
-            outbox.schedule(
-                payload = OrderCreatedRecord(order.id, order.customerId),
-                key = "order-${order.id}"  // Groups records for ordered processing
-            )
-        }
-        
-        @Transactional
-        fun updateOrder(orderId: String) {
-            // Schedule record with auto-generated UUID key
-            outbox.schedule(payload = OrderUpdatedRecord(orderId))
-        }
-    }
-    ```
-
-=== "Java"
-
-    ```java
-    @Service
-    public class OrderService {
-        private final Outbox outbox;
-        private final OrderRepository orderRepository;
-
-        public OrderService(Outbox outbox, OrderRepository orderRepository) {
-            this.outbox = outbox;
-            this.orderRepository = orderRepository;
-        }
-
-        @Transactional
-        public void createOrder(CreateOrderCommand command) {
-            Order order = Order.create(command);
-            orderRepository.save(order);
-            
-            // Schedule record with explicit key
-            outbox.schedule(
-                new OrderCreatedRecord(order.getId(), order.getCustomerId()),
-                "order-" + order.getId()  // Groups records for ordered processing
-            );
-        }
-        
-        @Transactional
-        public void updateOrder(String orderId) {
-            // Schedule record with auto-generated UUID key
-            outbox.schedule(new OrderUpdatedRecord(orderId));
-        }
-    }
-    ```
-
-#### Record Lifecycle
-
-Records go through the following states:
-
-- **NEW**: Freshly scheduled, waiting for processing
-- **COMPLETED**: Successfully processed by all handlers
-- **FAILED**: Exhausted all retries, requires manual intervention
 
 ---
 
@@ -1014,201 +1193,6 @@ When you provide manual context, it's merged with context from registered `Outbo
 5. **Feature Flags**: Propagate feature flag states for consistent behavior
 6. **Request Metadata**: Pass request IDs, client info, API versions
 
-### @OutboxEvent with Context
-
-When using `@OutboxEvent` with `ApplicationEventPublisher`, you can define context using SpEL expressions:
-
-=== "Kotlin"
-
-    ```kotlin
-    @OutboxEvent(
-        key = "#this.orderId",
-        context = [
-            OutboxContextEntry(key = "customerId", value = "#this.customerId"),
-            OutboxContextEntry(key = "region", value = "#this.region"),
-            OutboxContextEntry(key = "priority", value = "#this.priority")
-        ]
-    )
-    data class OrderCreatedEvent(
-        val orderId: String,
-        val customerId: String,
-        val region: String,
-        val priority: String
-    )
-    ```
-
-=== "Java"
-
-    ```java
-    @OutboxEvent(
-        key = "#this.orderId",
-        context = {
-            @OutboxContextEntry(key = "customerId", value = "#this.customerId"),
-            @OutboxContextEntry(key = "region", value = "#this.region"),
-            @OutboxContextEntry(key = "priority", value = "#this.priority")
-        }
-    )
-    public class OrderCreatedEvent {
-        private String orderId;
-        private String customerId;
-        private String region;
-        private String priority;
-        // constructor, getters...
-    }
-    ```
-
-Context from `@OutboxEvent` annotations is merged with context from registered `OutboxContextProvider` beans.
-
----
-
-## OutboxEventMulticaster
-
-The `OutboxEventMulticaster` provides seamless integration with Spring's event system. It automatically intercepts and persists events annotated with `@OutboxEvent` directly to the outbox table, allowing you to use Spring's native `ApplicationEventPublisher` while getting outbox benefits.
-
-### How It Works
-
-```mermaid
-graph TB
-    A["publishEvent(event)"] --> B["OutboxEventMulticaster"]
-    B --> C{Check OutboxEvent<br/>Annotation}
-    C -->|Present| D["Serialize & Store"]
-    C -->|Not Present| E["Normal Event Flow"]
-    D --> F["Outbox Table"]
-    E --> G["Event Listeners"]
-    D -->|if publish-after-save=true| G
-```
-
-### @OutboxEvent Annotation
-
-Mark your events with `@OutboxEvent` to enable automatic outbox persistence:
-
-=== "Kotlin"
-
-    ```kotlin
-    @OutboxEvent(key = "#event.orderId")  // SpEL expression for key resolution
-    data class OrderCreatedEvent(
-        val orderId: String,
-        val customerId: String,
-        val amount: BigDecimal
-    )
-    ```
-
-=== "Java"
-
-    ```java
-    @OutboxEvent(key = "#event.orderId")  // SpEL expression for key resolution
-    public class OrderCreatedEvent {
-        private String orderId;
-        private String customerId;
-        private BigDecimal amount;
-        
-        // constructor, getters, setters...
-    }
-    ```
-
-#### SpEL Key Resolution
-
-The `key` parameter supports Spring Expression Language (SpEL) for dynamic key extraction:
-
-| Expression | Description | Example |
-|------------|-------------|---------|
-| `#root.fieldName` | Access root object property | `#root.orderId` |
-| `#event.fieldName` | Same as #root (alternative syntax) | `#event.customerId` |
-| `#root.getId()` | Call method on root object | `#root.getOrderId()` |
-| `#root.nested.field` | Access nested properties | `#root.order.id` |
-| `#root.toString()` | Convert to string | `#root.id.toString()` |
-
-!!! example "SpEL Examples"
-
-    === "Simple Property"
-        ```kotlin
-        @OutboxEvent(key = "#event.orderId")
-        data class OrderEvent(val orderId: String)
-        ```
-
-    === "Method Call"
-        ```kotlin
-        @OutboxEvent(key = "#event.getAggregateId()")
-        data class DomainEvent(val id: UUID) {
-            fun getAggregateId() = id.toString()
-        }
-        ```
-
-    === "Nested Property"
-        ```kotlin
-        @OutboxEvent(key = "#event.order.id")
-        data class OrderConfirmedEvent(val order: Order)
-        ```
-
-### Configuration
-
-The multicaster can be configured to control event publishing behavior:
-
-```yaml
-outbox:
-  multicaster:
-    enabled: true  # Enable/disable automatic interception (default: true)
-
-  processing:
-    publish-after-save: true  # Also forward to other listeners in same transaction (default: true)
-```
-
-| Configuration         | Value            | Effect                                                       |
-|-----------------------|------------------|--------------------------------------------------------------|
-| `multicaster.enabled` | `true` (default) | @OutboxEvent annotations are intercepted and stored          |
-| `multicaster.enabled` | `false`          | OutboxEventMulticaster is disabled, events flow normally     |
-| `publish-after-save`  | `true` (default) | Events also published to other listeners in same transaction |
-| `publish-after-save`  | `false`          | Events only stored to outbox, not published to listeners     |
-
-### Usage Example
-
-=== "Kotlin"
-
-    ```kotlin
-    @Service
-    class OrderService(
-        private val orderRepository: OrderRepository,
-        private val eventPublisher: ApplicationEventPublisher
-    ) {
-        @Transactional
-        fun createOrder(command: CreateOrderCommand) {
-            val order = Order.create(command)
-            orderRepository.save(order)
-            
-            // Automatically saved to outbox + published to listeners
-            eventPublisher.publishEvent(
-                OrderCreatedEvent(order.id, order.customerId, order.amount)
-            )
-        }
-    }
-    ```
-
-=== "Java"
-
-    ```java
-    @Service
-    public class OrderService {
-        private final OrderRepository orderRepository;
-        private final ApplicationEventPublisher eventPublisher;
-
-        public OrderService(OrderRepository orderRepository, 
-                           ApplicationEventPublisher eventPublisher) {
-            this.orderRepository = orderRepository;
-            this.eventPublisher = eventPublisher;
-        }
-
-        @Transactional
-        public void createOrder(CreateOrderCommand command) {
-            Order order = Order.create(command);
-            orderRepository.save(order);
-            
-            // Automatically saved to outbox + published to listeners
-            eventPublisher.publishEvent(
-                new OrderCreatedEvent(order.getId(), order.getCustomerId(), order.getAmount())
-            );
-        }
-    }
-    ```
 
 ---
 
@@ -1331,11 +1315,15 @@ Implement custom serializers for alternative formats (Protobuf, Avro, XML, etc.)
 
 ## Retry Mechanisms
 
-The library provides sophisticated retry strategies to handle transient failures gracefully.
+The library provides sophisticated retry strategies to handle transient failures gracefully. You can configure a default retry policy for all handlers and optionally override it per handler.
 
-### Retry Policies
+### Default Retry Policy
 
-#### Fixed Delay
+The default retry policy applies to all handlers unless overridden. Configure it via `application.yml` or by providing a custom `OutboxRetryPolicy` bean.
+
+#### Built-in Retry Policies
+
+##### Fixed Delay
 
 Retry with a constant delay between attempts:
 
@@ -1350,16 +1338,9 @@ outbox:
 
 **Use Case:** Simple scenarios with consistent retry intervals
 
-**Example Retry Schedule:**
+**Example Retry Schedule:** 0s → 5s → 5s → 5s → 5s → 5s → Failed
 
-- Attempt 1: Immediate
-- Attempt 2: +5 seconds
-- Attempt 3: +5 seconds
-- Attempt 4: +5 seconds
-- Attempt 5: +5 seconds
-- Attempt 6: ❌ Failed (max retries exceeded)
-
-#### Exponential Backoff
+##### Exponential Backoff
 
 Retry with exponentially increasing delays:
 
@@ -1374,11 +1355,11 @@ outbox:
       multiplier: 2.0        # Double each time
 ```
 
-**Retry Schedule:** 1s → 2s → 4s → 8s → 16s → 32s (capped at 60s)
-
 **Use Case:** Handles transient failures gracefully without overwhelming downstream services
 
-#### Jittered Retry
+**Retry Schedule:** 0s → 1s → 2s → 4s → 8s → 16s → 32s (capped at 60s)
+
+##### Jittered Retry
 
 Add random jitter to prevent thundering herd problems:
 
@@ -1398,203 +1379,7 @@ outbox:
 
 **Benefits:** Prevents coordinated retry storms when multiple instances retry simultaneously
 
-### Custom Retry Policy
-
-Implement the `OutboxRetryPolicy` interface for advanced retry logic:
-
-=== "Kotlin"
-
-    ```kotlin
-    class CustomRetryPolicy : OutboxRetryPolicy {
-        override fun shouldRetry(exception: Throwable): Boolean {
-            // Don't retry validation errors - they won't succeed on retry
-            if (exception is IllegalArgumentException) return false
-            
-            // Don't retry permanent failures
-            if (exception is PaymentDeclinedException) return false
-            
-            // Retry transient failures
-            return exception is TimeoutException || 
-                   exception is IOException ||
-                   exception.cause is TimeoutException
-        }
-
-        override fun nextDelay(failureCount: Int): Duration {
-            // Exponential backoff: 1s → 2s → 4s → 8s (capped at 60s)
-            val delayMillis = 1000L * (1L shl failureCount)
-            return Duration.ofMillis(minOf(delayMillis, 60000L))
-        }
-    }
-
-    @Configuration
-    class OutboxConfig {
-        @Bean
-        fun customRetryPolicy() = CustomRetryPolicy()
-    }
-    ```
-
-=== "Java"
-
-    ```java
-    public class CustomRetryPolicy implements OutboxRetryPolicy {
-        @Override
-        public boolean shouldRetry(Throwable exception) {
-            // Don't retry validation errors - they won't succeed on retry
-            if (exception instanceof IllegalArgumentException) return false;
-            
-            // Don't retry permanent failures
-            if (exception instanceof PaymentDeclinedException) return false;
-            
-            // Retry transient failures
-            return exception instanceof TimeoutException || 
-                   exception instanceof IOException ||
-                   (exception.getCause() instanceof TimeoutException);
-        }
-
-        @Override
-        public Duration nextDelay(int failureCount) {
-            // Exponential backoff: 1s → 2s → 4s → 8s (capped at 60s)
-            long delayMillis = 1000L * (1L << failureCount);
-            return Duration.ofMillis(Math.min(delayMillis, 60000L));
-        }
-    }
-
-    @Configuration
-    public class OutboxConfig {
-        @Bean
-        public OutboxRetryPolicy customRetryPolicy() {
-            return new CustomRetryPolicy();
-        }
-    }
-    ```
-
-**Key Methods:**
-
-- `shouldRetry(exception: Throwable): Boolean` - Decide if this error should be retried
-- `nextDelay(failureCount: Int): Duration` - Calculate delay before next retry
-
-### Handler-Specific Retry Policies
-
-!!! success "Per-Handler Retry Configuration (Since 1.0.0)"
-    Override the default retry policy for specific handlers using `@OutboxRetryable` annotation.
-
-You can configure retry behavior per handler, allowing different handlers to have different retry strategies:
-
-=== "Kotlin"
-
-    ```kotlin
-    @Component
-    class PaymentHandler {
-        // Uses custom retry policy for this handler
-        @OutboxHandler
-        @OutboxRetryable(AggressiveRetryPolicy::class)
-        fun handlePayment(payload: PaymentEvent) {
-            paymentGateway.process(payload)  // Critical - needs aggressive retries
-        }
-        
-        // Uses custom retry policy for this handler
-        @OutboxHandler
-        @OutboxRetryable(ConservativeRetryPolicy::class)
-        fun handleNotification(payload: NotificationEvent) {
-            emailService.send(payload)  // Less critical - conservative retries
-        }
-        
-        // Uses default retry policy (from application.yml)
-        @OutboxHandler
-        fun handleAudit(payload: AuditEvent) {
-            auditService.log(payload)
-        }
-    }
-    
-    @Component
-    class AggressiveRetryPolicy : OutboxRetryPolicy {
-        override fun shouldRetry(exception: Throwable) = true
-        override fun nextDelay(failureCount: Int) = Duration.ofMillis(500)
-        override fun maxRetries() = 10  // Retry up to 10 times
-    }
-    
-    @Component
-    class ConservativeRetryPolicy : OutboxRetryPolicy {
-        override fun shouldRetry(exception: Throwable): Boolean {
-            // Don't retry permanent failures
-            return exception !is IllegalArgumentException
-        }
-        override fun nextDelay(failureCount: Int) = Duration.ofSeconds(10)
-        override fun maxRetries() = 2  // Only retry twice
-    }
-    ```
-
-=== "Java"
-
-    ```java
-    @Component
-    public class PaymentHandler {
-        // Uses custom retry policy for this handler
-        @OutboxHandler
-        @OutboxRetryable(AggressiveRetryPolicy.class)
-        public void handlePayment(PaymentEvent payload) {
-            paymentGateway.process(payload);  // Critical - needs aggressive retries
-        }
-        
-        // Uses custom retry policy for this handler
-        @OutboxHandler
-        @OutboxRetryable(ConservativeRetryPolicy.class)
-        public void handleNotification(NotificationEvent payload) {
-            emailService.send(payload);  // Less critical - conservative retries
-        }
-        
-        // Uses default retry policy (from application.yml)
-        @OutboxHandler
-        public void handleAudit(AuditEvent payload) {
-            auditService.log(payload);
-        }
-    }
-    
-    @Component
-    public class AggressiveRetryPolicy implements OutboxRetryPolicy {
-        @Override
-        public boolean shouldRetry(Throwable exception) {
-            return true;
-        }
-        
-        @Override
-        public Duration nextDelay(int failureCount) {
-            return Duration.ofMillis(500);
-        }
-        
-        @Override
-        public int maxRetries() {
-            return 10;  // Retry up to 10 times
-        }
-    }
-    
-    @Component
-    public class ConservativeRetryPolicy implements OutboxRetryPolicy {
-        @Override
-        public boolean shouldRetry(Throwable exception) {
-            // Don't retry permanent failures
-            return !(exception instanceof IllegalArgumentException);
-        }
-        
-        @Override
-        public Duration nextDelay(int failureCount) {
-            return Duration.ofSeconds(10);
-        }
-        
-        @Override
-        public int maxRetries() {
-            return 2;  // Only retry twice
-        }
-    }
-    ```
-
-**Policy Resolution Order:**
-
-1. **Handler-specific policy** (via `@OutboxRetryable`) - highest priority
-2. **Global custom policy** (custom bean implementing `OutboxRetryPolicy`)
-3. **Default policy** (from `application.yml`)
-
-### Exception Filtering
+#### Exception Filtering
 
 !!! success "Exception-Based Retry Control (Since 1.0.0)"
     Control which exceptions trigger retries using include/exclude patterns.
@@ -1633,6 +1418,341 @@ outbox:
 
 - **include-exceptions**: Whitelist transient errors (network, timeout, rate limiting)
 - **exclude-exceptions**: Blacklist permanent errors (validation, business rules, auth failures)
+
+#### Custom Default Retry Policy
+
+Implement the `OutboxRetryPolicy` interface and register it as a bean named `outboxRetryPolicy`:
+
+=== "Kotlin"
+
+    ```kotlin
+    @Configuration
+    class OutboxConfig {
+        @Bean("outboxRetryPolicy")
+        fun customRetryPolicy(): OutboxRetryPolicy {
+            return object : OutboxRetryPolicy {
+                override fun shouldRetry(exception: Throwable): Boolean {
+                    // Don't retry validation errors
+                    if (exception is IllegalArgumentException) return false
+                    
+                    // Don't retry permanent failures
+                    if (exception is PaymentDeclinedException) return false
+                    
+                    // Retry transient failures
+                    return exception is TimeoutException || 
+                           exception is IOException ||
+                           exception.cause is TimeoutException
+                }
+
+                override fun nextDelay(failureCount: Int): Duration {
+                    // Exponential backoff: 1s → 2s → 4s → 8s (capped at 60s)
+                    val delayMillis = 1000L * (1L shl failureCount)
+                    return Duration.ofMillis(minOf(delayMillis, 60000L))
+                }
+                
+                override fun maxRetries(): Int = 5
+            }
+        }
+    }
+    ```
+
+=== "Java"
+
+    ```java
+    @Configuration
+    public class OutboxConfig {
+        @Bean("outboxRetryPolicy")
+        public OutboxRetryPolicy customRetryPolicy() {
+            return new OutboxRetryPolicy() {
+                @Override
+                public boolean shouldRetry(Throwable exception) {
+                    // Don't retry validation errors
+                    if (exception instanceof IllegalArgumentException) return false;
+                    
+                    // Don't retry permanent failures
+                    if (exception instanceof PaymentDeclinedException) return false;
+                    
+                    // Retry transient failures
+                    return exception instanceof TimeoutException || 
+                           exception instanceof IOException ||
+                           (exception.getCause() instanceof TimeoutException);
+                }
+
+                @Override
+                public Duration nextDelay(int failureCount) {
+                    // Exponential backoff: 1s → 2s → 4s → 8s (capped at 60s)
+                    long delayMillis = 1000L * (1L << failureCount);
+                    return Duration.ofMillis(Math.min(delayMillis, 60000L));
+                }
+                
+                @Override
+                public int maxRetries() {
+                    return 5;
+                }
+            };
+        }
+    }
+    ```
+
+**Key Methods:**
+
+- `shouldRetry(exception: Throwable): Boolean` - Decide if this error should be retried
+- `nextDelay(failureCount: Int): Duration` - Calculate delay before next retry
+- `maxRetries(): Int` - Maximum number of retry attempts
+
+**Important:** The bean must be named `outboxRetryPolicy` to override the default policy configured in `application.yml`.
+
+### Handler-Specific Retry Policies
+
+!!! success "Per-Handler Retry Configuration (Since 1.0.0)"
+    Override the default retry policy for specific handlers using `@OutboxRetryable` annotation or by implementing the `OutboxRetryAware` interface.
+
+You can configure retry behavior per handler, allowing different handlers to have different retry strategies.
+
+#### Interface-Based Approach
+
+Implement the `OutboxRetryAware` interface to specify a retry policy programmatically:
+
+=== "Kotlin"
+
+    ```kotlin
+    @Component
+    class PaymentHandler(
+        private val aggressiveRetryPolicy: AggressiveRetryPolicy
+    ) : OutboxTypedHandler<PaymentEvent>, OutboxRetryAware {
+        
+        override fun handle(payload: PaymentEvent, metadata: OutboxRecordMetadata) {
+            paymentGateway.process(payload)
+        }
+        
+        override fun getRetryPolicy(): OutboxRetryPolicy = aggressiveRetryPolicy
+    }
+    
+    @Component
+    class NotificationHandler(
+        private val conservativeRetryPolicy: ConservativeRetryPolicy
+    ) : OutboxTypedHandler<NotificationEvent>, OutboxRetryAware {
+        
+        override fun handle(payload: NotificationEvent, metadata: OutboxRecordMetadata) {
+            emailService.send(payload)
+        }
+        
+        override fun getRetryPolicy(): OutboxRetryPolicy = conservativeRetryPolicy
+    }
+    
+    @Component
+    class AggressiveRetryPolicy : OutboxRetryPolicy {
+        override fun shouldRetry(exception: Throwable) = true
+        override fun nextDelay(failureCount: Int) = Duration.ofMillis(500)
+        override fun maxRetries() = 10
+    }
+    
+    @Component
+    class ConservativeRetryPolicy : OutboxRetryPolicy {
+        override fun shouldRetry(exception: Throwable) = 
+            exception !is IllegalArgumentException
+        override fun nextDelay(failureCount: Int) = Duration.ofSeconds(10)
+        override fun maxRetries() = 2
+    }
+    ```
+
+=== "Java"
+
+    ```java
+    @Component
+    public class PaymentHandler implements OutboxTypedHandler<PaymentEvent>, OutboxRetryAware {
+        private final AggressiveRetryPolicy aggressiveRetryPolicy;
+        
+        public PaymentHandler(AggressiveRetryPolicy aggressiveRetryPolicy) {
+            this.aggressiveRetryPolicy = aggressiveRetryPolicy;
+        }
+        
+        @Override
+        public void handle(PaymentEvent payload, OutboxRecordMetadata metadata) {
+            paymentGateway.process(payload);
+        }
+        
+        @Override
+        public OutboxRetryPolicy getRetryPolicy() {
+            return aggressiveRetryPolicy;
+        }
+    }
+    
+    @Component
+    public class NotificationHandler implements OutboxTypedHandler<NotificationEvent>, OutboxRetryAware {
+        private final ConservativeRetryPolicy conservativeRetryPolicy;
+        
+        public NotificationHandler(ConservativeRetryPolicy conservativeRetryPolicy) {
+            this.conservativeRetryPolicy = conservativeRetryPolicy;
+        }
+        
+        @Override
+        public void handle(NotificationEvent payload, OutboxRecordMetadata metadata) {
+            emailService.send(payload);
+        }
+        
+        @Override
+        public OutboxRetryPolicy getRetryPolicy() {
+            return conservativeRetryPolicy;
+        }
+    }
+    
+    @Component
+    public class AggressiveRetryPolicy implements OutboxRetryPolicy {
+        @Override
+        public boolean shouldRetry(Throwable exception) {
+            return true;
+        }
+        
+        @Override
+        public Duration nextDelay(int failureCount) {
+            return Duration.ofMillis(500);
+        }
+        
+        @Override
+        public int maxRetries() {
+            return 10;
+        }
+    }
+    
+    @Component
+    public class ConservativeRetryPolicy implements OutboxRetryPolicy {
+        @Override
+        public boolean shouldRetry(Throwable exception) {
+            return !(exception instanceof IllegalArgumentException);
+        }
+        
+        @Override
+        public Duration nextDelay(int failureCount) {
+            return Duration.ofSeconds(10);
+        }
+        
+        @Override
+        public int maxRetries() {
+            return 2;
+        }
+    }
+    ```
+
+#### Annotation-Based Approach
+
+Use the `@OutboxRetryable` annotation for method-level retry policy configuration:
+
+=== "Kotlin"
+
+    ```kotlin
+    @Component
+    class PaymentHandler {
+        // Critical handler - aggressive retries
+        @OutboxHandler
+        @OutboxRetryable(AggressiveRetryPolicy::class)
+        fun handlePayment(payload: PaymentEvent) {
+            paymentGateway.process(payload)
+        }
+        
+        // Less critical handler - conservative retries
+        @OutboxHandler
+        @OutboxRetryable(ConservativeRetryPolicy::class)
+        fun handleNotification(payload: NotificationEvent) {
+            emailService.send(payload)
+        }
+        
+        // Uses default retry policy
+        @OutboxHandler
+        fun handleAudit(payload: AuditEvent) {
+            auditService.log(payload)
+        }
+    }
+    
+    @Component
+    class AggressiveRetryPolicy : OutboxRetryPolicy {
+        override fun shouldRetry(exception: Throwable) = true
+        override fun nextDelay(failureCount: Int) = Duration.ofMillis(500)
+        override fun maxRetries() = 10
+    }
+    
+    @Component
+    class ConservativeRetryPolicy : OutboxRetryPolicy {
+        override fun shouldRetry(exception: Throwable) = 
+            exception !is IllegalArgumentException
+        override fun nextDelay(failureCount: Int) = Duration.ofSeconds(10)
+        override fun maxRetries() = 2
+    }
+    ```
+
+=== "Java"
+
+    ```java
+    @Component
+    public class PaymentHandler {
+        // Critical handler - aggressive retries
+        @OutboxHandler
+        @OutboxRetryable(AggressiveRetryPolicy.class)
+        public void handlePayment(PaymentEvent payload) {
+            paymentGateway.process(payload);
+        }
+        
+        // Less critical handler - conservative retries
+        @OutboxHandler
+        @OutboxRetryable(ConservativeRetryPolicy.class)
+        public void handleNotification(NotificationEvent payload) {
+            emailService.send(payload);
+        }
+        
+        // Uses default retry policy
+        @OutboxHandler
+        public void handleAudit(AuditEvent payload) {
+            auditService.log(payload);
+        }
+    }
+    
+    @Component
+    public class AggressiveRetryPolicy implements OutboxRetryPolicy {
+        @Override
+        public boolean shouldRetry(Throwable exception) {
+            return true;
+        }
+        
+        @Override
+        public Duration nextDelay(int failureCount) {
+            return Duration.ofMillis(500);
+        }
+        
+        @Override
+        public int maxRetries() {
+            return 10;
+        }
+    }
+    
+    @Component
+    public class ConservativeRetryPolicy implements OutboxRetryPolicy {
+        @Override
+        public boolean shouldRetry(Throwable exception) {
+            return !(exception instanceof IllegalArgumentException);
+        }
+        
+        @Override
+        public Duration nextDelay(int failureCount) {
+            return Duration.ofSeconds(10);
+        }
+        
+        @Override
+        public int maxRetries() {
+            return 2;
+        }
+    }
+    ```
+
+**Policy Resolution Order:**
+
+1. **Handler-specific policy via interface** (`OutboxRetryAware.getRetryPolicy()`) - highest priority
+2. **Handler-specific policy via annotation** (`@OutboxRetryable`)
+3. **Global custom policy** (bean named `outboxRetryPolicy`)
+4. **Default policy** (from `application.yml`)
+
+!!! tip "Interface vs Annotation"
+    - **Interface (`OutboxRetryAware`)**: Best when handler class is dedicated to single payload type, and you want type safety
+    - **Annotation (`@OutboxRetryable`)**: Best for method-level handlers or multiple handlers in one class
 
 ---
 
