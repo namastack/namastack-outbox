@@ -17,7 +17,7 @@ micrometer = "1.16.1"
 jakarta = "3.0.0"
 commons = "1.20.0"
 jackson = "3.0.3"
-junit = "6.0.1"
+junit = "6.0.2"
 
 [libraries]
 # Spring Boot dependencies
