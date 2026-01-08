@@ -32,7 +32,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v5
 
       - name: Build and run tests
-        run: ./gradlew clean build --no-daemon
+        run: ./gradlew clean build
 
       - name: Upload coverage report (artifact)
         if: matrix.java == '21'
