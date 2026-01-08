@@ -28,13 +28,19 @@ import org.springframework.boot.autoconfigure.AutoConfigurationPackage
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.autoconfigure.condition.ConditionalOnThreading
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.task.SimpleAsyncTaskExecutorBuilder
+import org.springframework.boot.task.SimpleAsyncTaskSchedulerBuilder
 import org.springframework.boot.task.ThreadPoolTaskExecutorBuilder
 import org.springframework.boot.task.ThreadPoolTaskSchedulerBuilder
+import org.springframework.boot.thread.Threading
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Role
 import org.springframework.context.event.SimpleApplicationEventMulticaster
+import org.springframework.core.task.SimpleAsyncTaskExecutor
 import org.springframework.core.task.TaskExecutor
+import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import java.time.Clock
@@ -67,18 +73,20 @@ class OutboxCoreAutoConfiguration {
     fun clock(): Clock = Clock.systemDefaultZone()
 
     /**
-     * Creates a ThreadPoolTaskExecutor for parallel record processing.
+     * Task executor for processing outbox records using platform threads.
      *
      * Processes multiple record keys in parallel while maintaining strict ordering
      * within each record key. Pool size is configurable via:
      * - outbox.processing.executor-core-pool-size
      * - outbox.processing.executor-max-pool-size
      *
+     * @param builder Builder for ThreadPoolTaskExecutor
      * @param properties Outbox configuration properties
-     * @return Configured ThreadPoolTaskExecutor
+     * @return Configured ThreadPoolTaskExecutor with platform threads
      */
     @Bean("outboxTaskExecutor")
     @ConditionalOnMissingBean(name = ["outboxTaskExecutor"])
+    @ConditionalOnThreading(Threading.PLATFORM)
     fun outboxTaskExecutor(
         builder: ThreadPoolTaskExecutorBuilder,
         properties: OutboxProperties,
@@ -90,7 +98,30 @@ class OutboxCoreAutoConfiguration {
             .build()
 
     /**
-     * Scheduler for general outbox batch processing tasks.
+     * Task executor for processing outbox records using virtual threads.
+     *
+     * Alternative to platform thread executor when virtual threads are enabled.
+     * Concurrency limit is configurable via:
+     * - outbox.processing.executor-concurrency-limit
+     *
+     * @param builder Builder for SimpleAsyncTaskExecutor
+     * @param properties Outbox configuration properties
+     * @return Configured SimpleAsyncTaskExecutor with virtual threads
+     */
+    @Bean("outboxTaskExecutor")
+    @ConditionalOnMissingBean(name = ["outboxTaskExecutor"])
+    @ConditionalOnThreading(Threading.VIRTUAL)
+    fun outboxTaskExecutorVirtualThreads(
+        builder: SimpleAsyncTaskExecutorBuilder,
+        properties: OutboxProperties,
+    ): SimpleAsyncTaskExecutor =
+        builder
+            .concurrencyLimit(properties.processing.executorConcurrencyLimit)
+            .threadNamePrefix("outbox-proc-")
+            .build()
+
+    /**
+     * Scheduler for general outbox batch processing tasks using platform threads.
      *
      * Pool size: 5 (internal use only)
      * Used for periodic batch operations and scheduled maintenance.
@@ -99,6 +130,7 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean("outboxDefaultScheduler")
     @ConditionalOnMissingBean(name = ["outboxDefaultScheduler"])
+    @ConditionalOnThreading(Threading.PLATFORM)
     fun outboxDefaultScheduler(builder: ThreadPoolTaskSchedulerBuilder): ThreadPoolTaskScheduler =
         builder
             .poolSize(5)
@@ -106,7 +138,26 @@ class OutboxCoreAutoConfiguration {
             .build()
 
     /**
-     * Scheduler for partition rebalancing and heartbeat signals.
+     * Scheduler for general outbox batch processing tasks using virtual threads.
+     *
+     * Alternative to platform thread scheduler when virtual threads are enabled.
+     * Concurrency limit: 5 (internal use only)
+     * Used for periodic batch operations and scheduled maintenance.
+     *
+     * @param builder Builder for SimpleAsyncTaskScheduler
+     * @return SimpleAsyncTaskScheduler for outbox batch jobs with virtual threads
+     */
+    @Bean("outboxDefaultScheduler")
+    @ConditionalOnMissingBean(name = ["outboxDefaultScheduler"])
+    @ConditionalOnThreading(Threading.VIRTUAL)
+    fun outboxDefaultSchedulerVirtualThreads(builder: SimpleAsyncTaskSchedulerBuilder): SimpleAsyncTaskScheduler =
+        builder
+            .concurrencyLimit(5)
+            .threadNamePrefix("outbox-scheduler-")
+            .build()
+
+    /**
+     * Scheduler for partition rebalancing and heartbeat signals using platform threads.
      *
      * Pool size: 1 (single-threaded for coordination)
      * Used for distributed instance coordination and partition assignment.
@@ -115,9 +166,29 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean("outboxRebalancingScheduler")
     @ConditionalOnMissingBean(name = ["outboxRebalancingScheduler"])
+    @ConditionalOnThreading(Threading.PLATFORM)
     fun outboxRebalancingScheduler(builder: ThreadPoolTaskSchedulerBuilder): ThreadPoolTaskScheduler =
         builder
             .poolSize(1)
+            .threadNamePrefix("outbox-rebalancing-")
+            .build()
+
+    /**
+     * Scheduler for partition rebalancing and heartbeat signals using virtual threads.
+     *
+     * Alternative to platform thread scheduler when virtual threads are enabled.
+     * Concurrency limit: 1 (single-threaded for coordination)
+     * Used for distributed instance coordination and partition assignment.
+     *
+     * @param builder Builder for SimpleAsyncTaskScheduler
+     * @return SimpleAsyncTaskScheduler for coordination tasks with virtual threads
+     */
+    @Bean("outboxRebalancingScheduler")
+    @ConditionalOnMissingBean(name = ["outboxRebalancingScheduler"])
+    @ConditionalOnThreading(Threading.VIRTUAL)
+    fun outboxRebalancingSchedulerVirtualThreads(builder: SimpleAsyncTaskSchedulerBuilder): SimpleAsyncTaskScheduler =
+        builder
+            .concurrencyLimit(1)
             .threadNamePrefix("outbox-rebalancing-")
             .build()
 

@@ -13,12 +13,17 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledForJreRange
+import org.junit.jupiter.api.condition.JRE
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration
 import org.springframework.boot.autoconfigure.task.TaskSchedulingAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.task.SimpleAsyncTaskExecutor
+import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import java.time.Clock
 import java.time.Duration
@@ -195,12 +200,14 @@ class OutboxCoreAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .run { context ->
-                    val executor =
-                        context.getBean(
-                            "outboxTaskExecutor",
-                        ) as org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
-                    assertThat(executor.corePoolSize).isEqualTo(4)
-                    assertThat(executor.maxPoolSize).isEqualTo(8)
+                    val executor = context.getBean("outboxTaskExecutor")
+
+                    assertThat(executor)
+                        .isInstanceOfSatisfying(ThreadPoolTaskExecutor::class.java) {
+                            assertThat(it.corePoolSize).isEqualTo(4)
+                            assertThat(it.maxPoolSize).isEqualTo(8)
+                            assertThat(it.threadNamePrefix).isEqualTo("outbox-proc-")
+                        }
                 }
         }
 
@@ -212,12 +219,48 @@ class OutboxCoreAutoConfigurationTest {
                     "outbox.processing.executor-core-pool-size=7",
                     "outbox.processing.executor-max-pool-size=15",
                 ).run { context ->
-                    val executor =
-                        context.getBean(
-                            "outboxTaskExecutor",
-                        ) as org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
-                    assertThat(executor.corePoolSize).isEqualTo(7)
-                    assertThat(executor.maxPoolSize).isEqualTo(15)
+                    val executor = context.getBean("outboxTaskExecutor")
+
+                    assertThat(executor)
+                        .isInstanceOfSatisfying(ThreadPoolTaskExecutor::class.java) {
+                            assertThat(it.corePoolSize).isEqualTo(7)
+                            assertThat(it.maxPoolSize).isEqualTo(15)
+                        }
+                }
+        }
+
+        @Test
+        @EnabledForJreRange(min = JRE.JAVA_21)
+        fun `creates default outboxTaskExecutor with virtual threads`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues(
+                    "spring.threads.virtual.enabled=true",
+                ).run { context ->
+                    val executor = context.getBean("outboxTaskExecutor")
+
+                    assertThat(executor)
+                        .isInstanceOfSatisfying(SimpleAsyncTaskExecutor::class.java) {
+                            assertThat(it.concurrencyLimit).isEqualTo(-1)
+                            assertThat(it.threadNamePrefix).isEqualTo("outbox-proc-")
+                        }
+                }
+        }
+
+        @Test
+        fun `applies custom concurrency limit from properties`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues(
+                    "spring.threads.virtual.enabled=true",
+                    "outbox.processing.executor-concurrency-limit=100",
+                ).run { context ->
+                    val executor = context.getBean("outboxTaskExecutor")
+
+                    assertThat(executor)
+                        .isInstanceOfSatisfying(SimpleAsyncTaskExecutor::class.java) {
+                            assertThat(it.concurrencyLimit).isEqualTo(100)
+                        }
                 }
         }
     }
@@ -230,14 +273,31 @@ class OutboxCoreAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .run { context ->
-                    val scheduler =
-                        context.getBean(
-                            "outboxDefaultScheduler",
-                            ThreadPoolTaskScheduler::class.java,
-                        )
-                    assertThat(scheduler).isNotNull
-                    assertThat(scheduler.scheduledThreadPoolExecutor.corePoolSize).isEqualTo(5)
-                    assertThat(scheduler.threadNamePrefix).isEqualTo("outbox-scheduler-")
+                    val scheduler = context.getBean("outboxDefaultScheduler")
+
+                    assertThat(scheduler)
+                        .isInstanceOfSatisfying(ThreadPoolTaskScheduler::class.java) {
+                            assertThat(it.scheduledThreadPoolExecutor.corePoolSize).isEqualTo(5)
+                            assertThat(it.threadNamePrefix).isEqualTo("outbox-scheduler-")
+                        }
+                }
+        }
+
+        @Test
+        @EnabledForJreRange(min = JRE.JAVA_21)
+        fun `creates default outboxDefaultScheduler with virtual threads`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues(
+                    "spring.threads.virtual.enabled=true",
+                ).run { context ->
+                    val scheduler = context.getBean("outboxDefaultScheduler")
+
+                    assertThat(scheduler)
+                        .isInstanceOfSatisfying(SimpleAsyncTaskScheduler::class.java) {
+                            assertThat(it.concurrencyLimit).isEqualTo(5)
+                            assertThat(it.threadNamePrefix).isEqualTo("outbox-scheduler-")
+                        }
                 }
         }
 
@@ -246,14 +306,31 @@ class OutboxCoreAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .run { context ->
-                    val scheduler =
-                        context.getBean(
-                            "outboxRebalancingScheduler",
-                            ThreadPoolTaskScheduler::class.java,
-                        )
-                    assertThat(scheduler).isNotNull
-                    assertThat(scheduler.scheduledThreadPoolExecutor.corePoolSize).isEqualTo(1)
-                    assertThat(scheduler.threadNamePrefix).isEqualTo("outbox-rebalancing-")
+                    val scheduler = context.getBean("outboxRebalancingScheduler")
+
+                    assertThat(scheduler)
+                        .isInstanceOfSatisfying(ThreadPoolTaskScheduler::class.java) {
+                            assertThat(it.scheduledThreadPoolExecutor.corePoolSize).isEqualTo(1)
+                            assertThat(it.threadNamePrefix).isEqualTo("outbox-rebalancing-")
+                        }
+                }
+        }
+
+        @Test
+        @EnabledForJreRange(min = JRE.JAVA_21)
+        fun `creates default outboxRebalancingScheduler with virtual threads`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues(
+                    "spring.threads.virtual.enabled=true",
+                ).run { context ->
+                    val scheduler = context.getBean("outboxRebalancingScheduler")
+
+                    assertThat(scheduler)
+                        .isInstanceOfSatisfying(SimpleAsyncTaskScheduler::class.java) {
+                            assertThat(it.concurrencyLimit).isEqualTo(1)
+                            assertThat(it.threadNamePrefix).isEqualTo("outbox-rebalancing-")
+                        }
                 }
         }
 
@@ -262,16 +339,8 @@ class OutboxCoreAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .run { context ->
-                    val scheduler1 =
-                        context.getBean(
-                            "outboxDefaultScheduler",
-                            ThreadPoolTaskScheduler::class.java,
-                        )
-                    val scheduler2 =
-                        context.getBean(
-                            "outboxDefaultScheduler",
-                            ThreadPoolTaskScheduler::class.java,
-                        )
+                    val scheduler1 = context.getBean("outboxDefaultScheduler")
+                    val scheduler2 = context.getBean("outboxDefaultScheduler")
                     assertThat(scheduler1).isSameAs(scheduler2)
                 }
         }

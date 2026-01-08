@@ -168,6 +168,13 @@
       "description": "Maximum pool size for the ThreadPoolTaskExecutor used for parallel processing of record keys. Default: 8."
     },
     {
+      "name": "outbox.processing.executor-concurrency-limit",
+      "type": "java.lang.Integer",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
+      "defaultValue": -1,
+      "description": "Concurrency limit for the SimpleAsyncTaskExecutor used for parallel processing of record keys when virtual threads are enabled. Default: -1 (no limit)."
+    },
+    {
       "name": "outbox.instance.graceful-shutdown-timeout-seconds",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
