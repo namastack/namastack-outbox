@@ -248,6 +248,7 @@ class OutboxCoreAutoConfigurationTest {
         }
 
         @Test
+        @EnabledForJreRange(min = JRE.JAVA_21)
         fun `applies custom concurrency limit from properties`() {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
