@@ -220,6 +220,7 @@ class JpaOutboxRecordRepositoryTest {
                 setOf(1),
                 NEW,
                 10,
+                ignoreRecordKeys = setOf(),
                 true,
             )
 
@@ -228,6 +229,7 @@ class JpaOutboxRecordRepositoryTest {
                 setOf(2),
                 NEW,
                 10,
+                ignoreRecordKeys = setOf(),
                 true,
             )
 
@@ -250,6 +252,7 @@ class JpaOutboxRecordRepositoryTest {
                 setOf(1, 2),
                 NEW,
                 10,
+                ignoreRecordKeys = setOf(),
                 true,
             )
 
@@ -352,7 +355,7 @@ class JpaOutboxRecordRepositoryTest {
         createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minusMinutes(3))
         createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minusMinutes(1))
 
-        val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+        val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, setOf(), true)
 
         assertThat(result).contains(recordKey)
     }
@@ -364,7 +367,7 @@ class JpaOutboxRecordRepositoryTest {
 
         createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minusMinutes(3))
 
-        val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+        val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, setOf(), true)
 
         assertThat(result).contains(recordKey)
     }
@@ -381,7 +384,7 @@ class JpaOutboxRecordRepositoryTest {
         createRecordWithPartitionAndTime(recordKey1, NEW, 2, now.minusMinutes(3))
         createRecordWithPartitionAndTime(recordKey3, NEW, 1, now.minusMinutes(1))
 
-        val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1, 2), NEW, 10, true)
+        val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1, 2), NEW, 10, setOf(), true)
 
         assertThat(result).containsExactly(recordKey1, recordKey2, recordKey3)
     }

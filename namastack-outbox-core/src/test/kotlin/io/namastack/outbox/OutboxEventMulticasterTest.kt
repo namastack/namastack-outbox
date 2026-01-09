@@ -23,7 +23,7 @@ import java.math.BigDecimal
 @DisplayName("OutboxEventMulticaster")
 class OutboxEventMulticasterTest {
     private var outbox = mockk<Outbox>(relaxed = true)
-    private var outboxProperties = OutboxProperties(processing = OutboxProperties.Processing(publishAfterSave = true))
+    private var outboxProperties = OutboxProperties(multicaster = OutboxProperties.Multicaster(publishAfterSave = true))
     private var delegateEventMulticaster = mockk<SimpleApplicationEventMulticaster>()
 
     private lateinit var eventMulticaster: OutboxEventMulticaster
@@ -110,7 +110,7 @@ class OutboxEventMulticasterTest {
 
         @Test
         fun `should not publish to delegate when publishAfterSave is false`() {
-            val localProperties = OutboxProperties(processing = OutboxProperties.Processing(publishAfterSave = false))
+            val localProperties = OutboxProperties(multicaster = OutboxProperties.Multicaster(publishAfterSave = false))
             val localMulticaster =
                 OutboxEventMulticaster(
                     outbox = outbox,
