@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  * @param retry Configuration for retry mechanisms
  * @param processing Configuration for record processing behavior
  * @param instance Configuration for instance management and coordination
+ * @param multicaster Configuration for the custom application event multicaster
  * @param schemaInitialization Configuration for database schema initialization
  *
  * @author Roland Beisel
@@ -21,6 +22,7 @@ data class OutboxProperties(
     var retry: Retry = Retry(),
     var processing: Processing = Processing(),
     var instance: Instance = Instance(),
+    var multicaster: Multicaster = Multicaster(),
     var schemaInitialization: SchemaInitialization = SchemaInitialization(),
 ) {
     /**
@@ -30,7 +32,6 @@ data class OutboxProperties(
      * @param pollBatchSize Maximum number of records to poll from a database in a single batch
      * @param concurrencyLimit Maximum number of records to process at the same time
      * @param stopOnFirstFailure Whether to stop processing on the first failure
-     * @param publishAfterSave Whether to publish events to listeners after saving to outbox
      * @param deleteCompletedRecords Whether to delete completed records after processing
      * @param executorCorePoolSize Core pool size for the processing executor
      * @param executorMaxPoolSize Maximum pool size for the processing executor
@@ -40,7 +41,6 @@ data class OutboxProperties(
         var pollBatchSize: Int = 10,
         var concurrencyLimit: Int = 10,
         var stopOnFirstFailure: Boolean = true,
-        var publishAfterSave: Boolean = true,
         var deleteCompletedRecords: Boolean = false,
         var executorCorePoolSize: Int = 4,
         var executorMaxPoolSize: Int = 8,
@@ -59,6 +59,20 @@ data class OutboxProperties(
         var staleInstanceTimeoutSeconds: Long = 30,
         var gracefulShutdownTimeoutSeconds: Long = 15,
         var rebalanceInterval: Long = 10000,
+    )
+
+    /**
+     * Configuration for the custom application event multicaster.
+     *
+     * Controls the OutboxEventMulticaster bean that intercepts @OutboxEvent annotated events
+     * and routes them through the outbox for reliable delivery.
+     *
+     * @param enabled Whether to enable the custom application event multicaster for @OutboxEvent handling.
+     * @param publishAfterSave Whether to publish events to Spring listeners after saving them to the outbox.
+     */
+    data class Multicaster(
+        var enabled: Boolean = true,
+        var publishAfterSave: Boolean = true,
     )
 
     /**

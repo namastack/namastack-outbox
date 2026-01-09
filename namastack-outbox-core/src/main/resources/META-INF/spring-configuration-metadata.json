@@ -42,6 +42,12 @@
       "description": "Outbox instance management and coordination configuration"
     },
     {
+      "name": "outbox.multicaster",
+      "type": "io.namastack.outbox.OutboxProperties$Multicaster",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "description": "Outbox event multicaster configuration for @OutboxEvent handling"
+    },
+    {
       "name": "outbox.schema-initialization",
       "type": "io.namastack.outbox.OutboxProperties$SchemaInitialization",
       "sourceType": "io.namastack.outbox.OutboxProperties",
@@ -146,13 +152,6 @@
       "description": "Whether to stop processing remaining records for a record key when one record fails. If true (default), processing stops on first failure to maintain strict ordering. If false, continues processing other records allowing failed records to be retried later."
     },
     {
-      "name": "outbox.processing.publish-after-save",
-      "type": "java.lang.Boolean",
-      "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
-      "defaultValue": true,
-      "description": "Whether to publish records to listeners after saving them to the outbox. If true (default), records are published to listeners and saved to outbox for durability. If false, records are only saved to outbox and not published immediately."
-    },
-    {
       "name": "outbox.processing.delete-completed-records",
       "type": "java.lang.Boolean",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
@@ -211,9 +210,16 @@
     {
       "name": "outbox.multicaster.enabled",
       "type": "java.lang.Boolean",
-      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Multicaster",
       "defaultValue": true,
       "description": "Enable or disable the custom application event multicaster for @OutboxEvent handling. If true, the OutboxEventMulticaster bean is registered."
+    },
+    {
+      "name": "outbox.multicaster.publish-after-save",
+      "type": "java.lang.Boolean",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Multicaster",
+      "defaultValue": true,
+      "description": "Whether to publish events to listeners after saving them to the outbox. If true (default), events are published to listeners and saved to outbox for durability. If false, events are only saved to outbox and not published immediately."
     }
   ]
 }
