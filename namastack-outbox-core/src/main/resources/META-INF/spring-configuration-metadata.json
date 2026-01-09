@@ -40,30 +40,15 @@
       "type": "io.namastack.outbox.OutboxProperties$Instance",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "description": "Outbox instance management and coordination configuration"
+    },
+    {
+      "name": "outbox.schema-initialization",
+      "type": "io.namastack.outbox.OutboxProperties$SchemaInitialization",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "description": "Outbox database schema initialization configuration"
     }
   ],
   "properties": [
-    {
-      "name": "outbox.poll-interval",
-      "type": "java.lang.Long",
-      "sourceType": "io.namastack.outbox.OutboxProperties",
-      "defaultValue": 2000,
-      "description": "Interval in milliseconds at which the outbox is polled"
-    },
-    {
-      "name": "outbox.batch-size",
-      "type": "java.lang.Integer",
-      "sourceType": "io.namastack.outbox.OutboxProperties",
-      "defaultValue": 10,
-      "description": "Maximum number of record keys to process in a single batch"
-    },
-    {
-      "name": "outbox.rebalance-interval",
-      "type": "java.lang.Long",
-      "sourceType": "io.namastack.outbox.OutboxProperties",
-      "defaultValue": 10000,
-      "description": "Interval in milliseconds at which partition rebalancing is triggered."
-    },
     {
       "name": "outbox.retry.max-retries",
       "type": "java.lang.Integer",
@@ -133,6 +118,27 @@
       "description": "Maximum random jitter in milliseconds to add to the base policy's delay"
     },
     {
+      "name": "outbox.processing.poll-interval",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
+      "defaultValue": 2000,
+      "description": "Interval in milliseconds at which the outbox is polled"
+    },
+    {
+      "name": "outbox.processing.poll-batch-size",
+      "type": "java.lang.Integer",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
+      "defaultValue": 10,
+      "description": "Maximum number of records to poll from a database in a single batch"
+    },
+    {
+      "name": "outbox.processing.concurrency-limit",
+      "type": "java.lang.Integer",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
+      "defaultValue": 10,
+      "description": "Maximum number of records to process at the same time"
+    },
+    {
       "name": "outbox.processing.stop-on-first-failure",
       "type": "java.lang.Boolean",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
@@ -168,11 +174,11 @@
       "description": "Maximum pool size for the ThreadPoolTaskExecutor used for parallel processing of record keys. Default: 8."
     },
     {
-      "name": "outbox.instance.graceful-shutdown-timeout-seconds",
+      "name": "outbox.instance.heartbeat-interval-seconds",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
-      "defaultValue": 15,
-      "description": "Timeout in seconds for graceful shutdown of outbox processing instances"
+      "defaultValue": 5,
+      "description": "Interval in seconds between instance heartbeats to indicate the instance is still active"
     },
     {
       "name": "outbox.instance.stale-instance-timeout-seconds",
@@ -182,18 +188,25 @@
       "description": "Timeout in seconds to consider an instance stale and remove it from active instances"
     },
     {
-      "name": "outbox.instance.heartbeat-interval-seconds",
+      "name": "outbox.instance.graceful-shutdown-timeout-seconds",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
-      "defaultValue": 5,
-      "description": "Interval in seconds between instance heartbeats to indicate the instance is still active"
+      "defaultValue": 15,
+      "description": "Timeout in seconds for graceful shutdown of outbox processing instances"
     },
     {
-      "name": "outbox.instance.new-instance-detection-interval-seconds",
+      "name": "outbox.instance.rebalance-interval",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
-      "defaultValue": 10,
-      "description": "Interval in seconds for detecting new instances that have joined the cluster"
+      "defaultValue": 10000,
+      "description": "Interval in milliseconds at which partition rebalancing is performed"
+    },
+    {
+      "name": "outbox.schema-initialization.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "io.namastack.outbox.OutboxProperties$SchemaInitialization",
+      "defaultValue": true,
+      "description": "Whether to enable automatic schema initialization for outbox tables"
     },
     {
       "name": "outbox.multicaster.enabled",

@@ -30,10 +30,10 @@ class OutboxInstanceRegistryTest {
         OutboxProperties(
             instance =
                 OutboxProperties.Instance(
-                    gracefulShutdownTimeoutSeconds = 1,
-                    staleInstanceTimeoutSeconds = 2,
                     heartbeatIntervalSeconds = 1,
-                    newInstanceDetectionIntervalSeconds = 2,
+                    staleInstanceTimeoutSeconds = 2,
+                    gracefulShutdownTimeoutSeconds = 1,
+                    rebalanceInterval = 10000,
                 ),
         )
 

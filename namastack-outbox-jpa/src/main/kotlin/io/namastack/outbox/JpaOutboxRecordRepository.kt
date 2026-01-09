@@ -34,6 +34,7 @@ internal open class JpaOutboxRecordRepository(
         from OutboxRecordEntity o
         where o.partitionNo in :partitions
         and o.status = :status
+        and o.recordKey not in :ignoreRecordKeys
         and o.nextRetryAt <= :now
         and not exists (
             select 1 from OutboxRecordEntity older
@@ -54,6 +55,7 @@ internal open class JpaOutboxRecordRepository(
         from OutboxRecordEntity o
         where o.partitionNo in :partitions
         and o.status = :status
+        and o.recordKey not in :ignoreRecordKeys
         and o.nextRetryAt <= :now
         group by o.recordKey
         order by minCreated asc
@@ -293,6 +295,7 @@ internal open class JpaOutboxRecordRepository(
      * @param partitions List of partition numbers to search in
      * @param status The status to filter by
      * @param batchSize Maximum number of record keys to return
+     * @param ignoreRecordKeys Set of record keys to exclude from the results
      * @param ignoreRecordKeysWithPreviousFailure Whether to exclude record keys with previous open/failed events
      * @return List of record keys with pending records in the specified partitions
      */
@@ -300,6 +303,7 @@ internal open class JpaOutboxRecordRepository(
         partitions: Set<Int>,
         status: OutboxRecordStatus,
         batchSize: Int,
+        ignoreRecordKeys: Set<String>,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): List<String> {
         val now = OffsetDateTime.now(clock)
@@ -314,6 +318,7 @@ internal open class JpaOutboxRecordRepository(
             .createQuery(query)
             .setParameter("partitions", partitions)
             .setParameter("status", status)
+            .setParameter("ignoreRecordKeys", ignoreRecordKeys)
             .setParameter("now", now)
             .setMaxResults(batchSize)
             .resultList

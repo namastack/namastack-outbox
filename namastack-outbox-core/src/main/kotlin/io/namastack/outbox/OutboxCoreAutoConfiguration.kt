@@ -101,7 +101,7 @@ class OutboxCoreAutoConfiguration {
     @ConditionalOnMissingBean(name = ["outboxDefaultScheduler"])
     fun outboxDefaultScheduler(builder: ThreadPoolTaskSchedulerBuilder): ThreadPoolTaskScheduler =
         builder
-            .poolSize(5)
+            .poolSize(1)
             .threadNamePrefix("outbox-scheduler-")
             .build()
 

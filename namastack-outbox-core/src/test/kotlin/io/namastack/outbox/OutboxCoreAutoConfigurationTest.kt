@@ -226,7 +226,7 @@ class OutboxCoreAutoConfigurationTest {
     @DisplayName("Scheduler Configuration")
     inner class SchedulerConfiguration {
         @Test
-        fun `creates default outboxDefaultScheduler with pool size 5`() {
+        fun `creates default outboxDefaultScheduler with pool size 1`() {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .run { context ->
@@ -236,7 +236,7 @@ class OutboxCoreAutoConfigurationTest {
                             ThreadPoolTaskScheduler::class.java,
                         )
                     assertThat(scheduler).isNotNull
-                    assertThat(scheduler.scheduledThreadPoolExecutor.corePoolSize).isEqualTo(5)
+                    assertThat(scheduler.scheduledThreadPoolExecutor.corePoolSize).isEqualTo(1)
                     assertThat(scheduler.threadNamePrefix).isEqualTo("outbox-scheduler-")
                 }
         }

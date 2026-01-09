@@ -7,6 +7,8 @@ import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessor
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.springframework.core.task.SyncTaskExecutor
 import java.time.Clock
 import java.time.Instant
@@ -23,7 +25,8 @@ class OutboxProcessingSchedulerTest {
 
     private val properties =
         OutboxProperties().apply {
-            batchSize = 100
+            processing.pollBatchSize = 100
+            processing.concurrencyLimit = 100
             processing.stopOnFirstFailure = false
         }
 
@@ -55,6 +58,7 @@ class OutboxProcessingSchedulerTest {
                 partitions = any(),
                 status = any(),
                 batchSize = any(),
+                ignoreRecordKeys = any(),
                 ignoreRecordKeysWithPreviousFailure = any(),
             )
         }
@@ -106,7 +110,7 @@ class OutboxProcessingSchedulerTest {
 
     @Test
     fun `process respects batch size configuration`() {
-        properties.batchSize = 50
+        properties.processing.pollBatchSize = 50
 
         prepareFindRecordKeysInPartitions(emptyList())
 
@@ -117,6 +121,7 @@ class OutboxProcessingSchedulerTest {
                 partitions = any(),
                 status = any(),
                 batchSize = 50,
+                ignoreRecordKeys = any(),
                 ignoreRecordKeysWithPreviousFailure = any(),
             )
         }
@@ -135,6 +140,7 @@ class OutboxProcessingSchedulerTest {
                 partitions = any(),
                 status = any(),
                 batchSize = any(),
+                ignoreRecordKeys = any(),
                 ignoreRecordKeysWithPreviousFailure = true,
             )
         }
@@ -379,15 +385,132 @@ class OutboxProcessingSchedulerTest {
         verify(exactly = 1) { recordProcessorChain.handle(record3) }
     }
 
-    private fun prepareFindRecordKeysInPartitions(recordKeys: List<String>) {
+    @ParameterizedTest
+    @CsvSource(
+        value = [
+            "0, 1",
+            "1, 1",
+            "2, 2",
+            "3, 2",
+            "4, 3",
+            "5, 3",
+            "6, 4",
+            "7, 4",
+        ],
+    )
+    fun `process multiple batches`(
+        recordKeyCount: Int,
+        batchCount: Int,
+    ) {
+        properties.processing.pollBatchSize = 2
+        properties.processing.concurrencyLimit = 2
+
+        val recordKeys =
+            (1..recordKeyCount).map {
+                "record-key-$it"
+            }
+        val records =
+            (1..recordKeyCount).map {
+                OutboxRecordTestFactory.outboxRecord(
+                    id = "record-$it",
+                    recordKey = "record-key-$it",
+                    nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+                )
+            }
+
+        prepareFindRecordKeysInPartitions(
+            recordKeys.subList(minOf(0, recordKeys.size), minOf(2, recordKeys.size)),
+            recordKeys.subList(minOf(2, recordKeys.size), minOf(4, recordKeys.size)),
+            recordKeys.subList(minOf(4, recordKeys.size), minOf(6, recordKeys.size)),
+            recordKeys.subList(minOf(6, recordKeys.size), minOf(8, recordKeys.size)),
+        )
+        recordKeys.forEach { recordKey ->
+            prepareFindIncompleteRecordsByRecordKey(
+                recordKey = recordKey,
+                incompleteRecords = records.filter { it.key == recordKey },
+            )
+        }
+
+        every { recordProcessorChain.handle(any()) } returns true
+
+        scheduler.process()
+
+        verify(exactly = batchCount) {
+            recordRepository.findRecordKeysInPartitions(
+                partitions = any(),
+                status = any(),
+                batchSize = any(),
+                ignoreRecordKeys = any(),
+                ignoreRecordKeysWithPreviousFailure = any(),
+            )
+        }
+        verify(exactly = recordKeyCount) { recordProcessorChain.handle(any()) }
+    }
+
+    @Test
+    fun `stop processing records if assigned partitions changes`() {
+        properties.processing.pollBatchSize = 2
+        properties.processing.concurrencyLimit = 2
+
+        val assignedPartitions = setOf(1, 3, 5)
+
+        val recordKeys1 = "record-key-1"
+        val recordKeys2 = "record-key-2"
+
+        val record1 =
+            OutboxRecordTestFactory.outboxRecord(
+                id = "record-1",
+                recordKey = recordKeys1,
+                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+            )
+        val record2 =
+            OutboxRecordTestFactory.outboxRecord(
+                id = "record-1",
+                recordKey = recordKeys2,
+                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+            )
+
+        every { partitionCoordinator.getAssignedPartitionNumbers() } returns
+            assignedPartitions andThen
+            assignedPartitions andThen
+            assignedPartitions + 7
+
+        prepareFindRecordKeysInPartitions(listOf(recordKeys1, recordKeys2))
+        prepareFindIncompleteRecordsByRecordKey(
+            recordKey = recordKeys1,
+            incompleteRecords = listOf(record1),
+        )
+        prepareFindIncompleteRecordsByRecordKey(
+            recordKey = recordKeys2,
+            incompleteRecords = listOf(record2),
+        )
+
+        every { recordProcessorChain.handle(any()) } returns true
+
+        scheduler.process()
+
+        verify(exactly = 1) {
+            recordRepository.findRecordKeysInPartitions(
+                partitions = any(),
+                status = any(),
+                batchSize = any(),
+                ignoreRecordKeys = any(),
+                ignoreRecordKeysWithPreviousFailure = any(),
+            )
+        }
+        verify(exactly = 2) { recordProcessorChain.handle(any()) }
+    }
+
+    private fun prepareFindRecordKeysInPartitions(vararg recordKeys: List<String>) {
         every {
             recordRepository.findRecordKeysInPartitions(
                 partitions = any(),
                 status = any(),
                 batchSize = any(),
+                ignoreRecordKeys = any(),
                 ignoreRecordKeysWithPreviousFailure = any(),
             )
-        } returns recordKeys
+        } returnsMany recordKeys.toList()
     }
 
     private fun prepareFindIncompleteRecordsByRecordKey(
