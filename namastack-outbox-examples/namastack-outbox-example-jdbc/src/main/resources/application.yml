@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: namastack-outbox-example-jdbc
+
+  datasource:
+    url: jdbc:h2:mem:demo;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+
+outbox:
+  schema-initialization:
+    enabled: true
+  instance:
+    graceful-shutdown-timeout-seconds: 2
+
+logging:
+  level:
+    root: warn
+    io.namastack.demo: debug
+
