@@ -13,6 +13,7 @@ import java.time.OffsetDateTime
  *
  * @param entityManager JPA entity manager for database operations
  * @param transactionTemplate Transaction template for programmatic transaction management
+ * @param entityMapper Mapper for converting between domain objects and JPA entities
  * @param clock Clock for time-based operations
  *
  * @author Roland Beisel

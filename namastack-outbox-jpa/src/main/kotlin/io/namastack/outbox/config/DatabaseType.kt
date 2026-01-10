@@ -1,4 +1,4 @@
-package io.namastack.outbox
+package io.namastack.outbox.config
 
 /**
  * Sealed class representing supported database types.

@@ -1,2 +1,2 @@
-io.namastack.outbox.JpaOutboxAutoConfiguration
-
+io.namastack.outbox.config.JpaOutboxAutoConfiguration
+io.namastack.outbox.config.JpaOutboxSchemaAutoConfiguration
