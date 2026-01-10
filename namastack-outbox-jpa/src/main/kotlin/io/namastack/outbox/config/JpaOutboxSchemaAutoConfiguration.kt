@@ -21,7 +21,7 @@ import javax.sql.DataSource
  * outbox tables are created before entity scanning occurs.
  *
  * @author Roland Beisel
- * @since 1.1.0
+ * @since 1.0.0
  */
 @AutoConfiguration
 @AutoConfigureBefore(HibernateJpaAutoConfiguration::class)
