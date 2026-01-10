@@ -4,10 +4,8 @@ import io.namastack.outbox.partition.PartitionAssignment
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.jdbc.core.RowMapper
+import org.springframework.jdbc.core.queryForObject
 import org.springframework.transaction.support.TransactionTemplate
-import java.sql.ResultSet
-import java.time.OffsetDateTime
 
 /**
  * JDBC repository implementation for managing partition assignments.
@@ -19,90 +17,138 @@ import java.time.OffsetDateTime
  * @param transactionTemplate Transaction template for programmatic transaction management
  *
  * @author Roland Beisel
- * @since 1.1.0
+ * @since 1.0.0
  */
 internal open class JdbcOutboxPartitionAssignmentRepository(
     private val jdbcTemplate: JdbcTemplate,
     private val transactionTemplate: TransactionTemplate,
 ) : PartitionAssignmentRepository {
-    private val rowMapper =
-        RowMapper { rs: ResultSet, _: Int ->
-            PartitionAssignment(
-                partitionNumber = rs.getInt("partition_number"),
-                instanceId = rs.getString("instance_id"),
-                updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java),
-                version = rs.getLong("version"),
-            )
-        }
+    private val rowMapper = PartitionAssignmentRowMapper()
 
-    override fun findAll(): Set<PartitionAssignment> =
-        jdbcTemplate
-            .query(
-                "SELECT * FROM outbox_partition ORDER BY partition_number",
-                rowMapper,
-            ).toSet()
+    /**
+     * Query to select all partition assignments ordered by partition number.
+     */
+    private val findAllQuery = """
+        SELECT * FROM outbox_partition
+        ORDER BY partition_number
+    """
 
+    /**
+     * Query to select partition assignments by instance ID.
+     */
+    private val findByInstanceIdQuery = """
+        SELECT * FROM outbox_partition
+        WHERE instance_id = ?
+    """
+
+    /**
+     * Query to update partition assignment with optimistic locking.
+     */
+    private val updatePartitionQuery = """
+        UPDATE outbox_partition
+        SET instance_id = ?, version = ?, updated_at = ?
+        WHERE partition_number = ? AND version = ?
+    """
+
+    /**
+     * Query to check if partition exists.
+     */
+    private val partitionExistsQuery = """
+        SELECT COUNT(*) FROM outbox_partition
+        WHERE partition_number = ?
+    """
+
+    /**
+     * Query to insert new partition assignment.
+     */
+    private val insertPartitionQuery = """
+        INSERT INTO outbox_partition (partition_number, instance_id, version, updated_at)
+        VALUES (?, ?, ?, ?)
+    """
+
+    /**
+     * Finds all partition assignments ordered by partition number.
+     */
+    override fun findAll(): Set<PartitionAssignment> = jdbcTemplate.query(findAllQuery, rowMapper).toSet()
+
+    /**
+     * Finds partition assignments by instance ID.
+     */
     override fun findByInstanceId(instanceId: String): Set<PartitionAssignment> =
-        jdbcTemplate
-            .query(
-                "SELECT * FROM outbox_partition WHERE instance_id = ?",
-                rowMapper,
-                instanceId,
-            ).toSet()
+        jdbcTemplate.query(findByInstanceIdQuery, rowMapper, instanceId).toSet()
 
+    /**
+     * Saves all partition assignments with optimistic locking.
+     * Throws OptimisticLockingFailureException if version mismatch detected.
+     */
     override fun saveAll(partitionAssignments: Set<PartitionAssignment>) {
         transactionTemplate.execute {
             partitionAssignments.forEach { assignment ->
-                // Calculate new version (increment by 1)
-                val newVersion = (assignment.version ?: 0) + 1
-
-                // Try UPDATE with optimistic locking (version check in WHERE clause)
-                val updated =
-                    jdbcTemplate.update(
-                        """
-                        UPDATE outbox_partition
-                        SET instance_id = ?, version = ?, updated_at = ?
-                        WHERE partition_number = ? AND version = ?
-                        """.trimIndent(),
-                        assignment.instanceId,
-                        newVersion,
-                        assignment.updatedAt,
-                        assignment.partitionNumber,
-                        assignment.version ?: 0,
-                    )
-
-                // If no rows updated, either record doesn't exist or version mismatch
-                if (updated == 0) {
-                    // Check if record exists
-                    val exists =
-                        (
-                            jdbcTemplate.queryForObject(
-                                "SELECT COUNT(*) FROM outbox_partition WHERE partition_number = ?",
-                                Int::class.java,
-                                assignment.partitionNumber,
-                            ) ?: 0
-                        ) > 0
-
-                    if (exists) {
-                        // Record exists but version mismatch -> Optimistic locking failure
-                        throw OptimisticLockingFailureException(
-                            "Partition assignment with partition number ${assignment.partitionNumber} was updated by another instance (version mismatch)",
-                        )
-                    } else {
-                        // Record doesn't exist -> INSERT
-                        jdbcTemplate.update(
-                            """
-                            INSERT INTO outbox_partition (partition_number, instance_id, version, updated_at)
-                            VALUES (?, ?, ?, ?)
-                            """.trimIndent(),
-                            assignment.partitionNumber,
-                            assignment.instanceId,
-                            0, // Initial version is 0
-                            assignment.updatedAt,
-                        )
-                    }
-                }
+                savePartitionAssignment(assignment)
             }
         }
+    }
+
+    /**
+     * Saves a single partition assignment.
+     * Tries update first, then insert if not exists, or throws exception if version mismatch.
+     */
+    private fun savePartitionAssignment(assignment: PartitionAssignment) {
+        val newVersion = (assignment.version ?: 0) + 1
+        val updated = tryUpdate(assignment, newVersion)
+
+        if (updated == 0) {
+            handleUpdateFailure(assignment)
+        }
+    }
+
+    /**
+     * Attempts to update partition assignment with optimistic locking.
+     * Returns number of rows updated.
+     */
+    private fun tryUpdate(
+        assignment: PartitionAssignment,
+        newVersion: Long,
+    ): Int =
+        jdbcTemplate.update(
+            updatePartitionQuery.trimIndent(),
+            assignment.instanceId,
+            newVersion,
+            assignment.updatedAt,
+            assignment.partitionNumber,
+            assignment.version ?: 0,
+        )
+
+    /**
+     * Handles case when update fails - either partition doesn't exist (insert) or version mismatch (exception).
+     */
+    private fun handleUpdateFailure(assignment: PartitionAssignment) {
+        if (partitionExists(assignment.partitionNumber)) {
+            throw OptimisticLockingFailureException(
+                "Partition assignment with partition number ${assignment.partitionNumber} " +
+                    "was updated by another instance (version mismatch)",
+            )
+        } else {
+            insertPartition(assignment)
+        }
+    }
+
+    /**
+     * Checks if partition exists in database.
+     */
+    private fun partitionExists(partitionNumber: Int): Boolean =
+        (jdbcTemplate.queryForObject<Int>(partitionExistsQuery, partitionNumber) ?: 0) > 0
+
+    /**
+     * Inserts new partition assignment with initial version 0.
+     */
+    private fun insertPartition(assignment: PartitionAssignment) {
+        jdbcTemplate.update(
+            insertPartitionQuery.trimIndent(),
+            assignment.partitionNumber,
+            assignment.instanceId,
+            0, // Initial version is 0
+            assignment.updatedAt,
+        )
     }
 }

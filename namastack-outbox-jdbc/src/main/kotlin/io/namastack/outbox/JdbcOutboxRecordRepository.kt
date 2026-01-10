@@ -1,9 +1,9 @@
 package io.namastack.outbox
 
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.jdbc.core.RowMapper
+import org.springframework.jdbc.core.queryForList
+import org.springframework.jdbc.core.queryForObject
 import org.springframework.transaction.support.TransactionTemplate
-import java.sql.ResultSet
 import java.time.OffsetDateTime
 
 /**
@@ -27,192 +27,224 @@ internal open class JdbcOutboxRecordRepository(
     private val clock: java.time.Clock,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
-    private val rowMapper =
-        RowMapper { rs: ResultSet, _: Int ->
-            val recordType = rs.getString("record_type")
-            val clazz = resolveClass(recordType)
-            val payload = recordSerializer.deserialize(rs.getString("payload"), clazz)
+    private val rowMapper = OutboxRecordRowMapper(recordSerializer)
 
-            @Suppress("UNCHECKED_CAST")
-            val context =
-                rs
-                    .getString("context")
-                    ?.let { recordSerializer.deserialize(it, Map::class.java as Class<Map<String, String>>) }
-                    ?: emptyMap()
+    /**
+     * Query to update an existing outbox record.
+     */
+    private val updateRecordQuery = """
+        UPDATE outbox_record
+        SET status = ?, record_key = ?, record_type = ?, payload = ?, context = ?,
+            partition_no = ?, created_at = ?, completed_at = ?, failure_count = ?,
+            failure_reason = ?, next_retry_at = ?, handler_id = ?
+        WHERE id = ?
+    """
 
-            OutboxRecord.restore(
-                id = rs.getString("id"),
-                recordKey = rs.getString("record_key"),
-                payload = payload,
-                context = context,
-                partition = rs.getInt("partition_no"),
-                createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
-                status = OutboxRecordStatus.valueOf(rs.getString("status")),
-                completedAt = rs.getObject("completed_at", OffsetDateTime::class.java),
-                failureCount = rs.getInt("failure_count"),
-                failureReason = rs.getString("failure_reason"),
-                nextRetryAt = rs.getObject("next_retry_at", OffsetDateTime::class.java),
-                handlerId = rs.getString("handler_id"),
-                failureException = null,
-            )
-        }
+    /**
+     * Query to insert a new outbox record.
+     */
+    private val insertRecordQuery = """
+        INSERT INTO outbox_record
+        (id, status, record_key, record_type, payload, context, partition_no,
+         created_at, completed_at, failure_count, failure_reason, next_retry_at, handler_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
 
+    /**
+     * Query to select outbox records by status ordered by creation time.
+     */
+    private val findByStatusQuery = """
+        SELECT * FROM outbox_record
+        WHERE status = ?
+        ORDER BY created_at
+    """
+
+    /**
+     * Query to select outbox records by record key and status ordered by creation time.
+     */
+    private val findByKeyAndStatusQuery = """
+        SELECT * FROM outbox_record
+        WHERE record_key = ? AND status = ?
+        ORDER BY created_at
+    """
+
+    /**
+     * Query to count outbox records by status.
+     */
+    private val countByStatusQuery = """
+        SELECT COUNT(*) FROM outbox_record
+        WHERE status = ?
+    """
+
+    /**
+     * Query to count outbox records by partition and status.
+     */
+    private val countByPartitionStatusQuery = """
+        SELECT COUNT(*) FROM outbox_record
+        WHERE partition_no = ? AND status = ?
+    """
+
+    /**
+     * Query to delete outbox records by status.
+     */
+    private val deleteByStatusQuery = """
+        DELETE FROM outbox_record
+        WHERE status = ?
+    """
+
+    /**
+     * Query to delete outbox records by record key and status.
+     */
+    private val deleteByKeyAndStatusQuery = """
+        DELETE FROM outbox_record
+        WHERE record_key = ? AND status = ?
+    """
+
+    /**
+     * Query to delete outbox record by id.
+     */
+    private val deleteByIdQuery = """
+        DELETE FROM outbox_record
+        WHERE id = ?
+    """
+
+    /**
+     * Query to select record keys with no previous open/failed event (older.completedAt is null).
+     * Used when ignoreRecordKeysWithPreviousFailure is true.
+     * Note: Partition placeholders are dynamically injected.
+     */
+    private val recordKeysQueryWithPreviousFailureFilterTemplate = """
+        SELECT o.record_key
+        FROM outbox_record o
+        WHERE o.partition_no IN (%s)
+          AND o.status = ?
+          AND o.next_retry_at <= ?
+          AND NOT EXISTS (
+            SELECT 1 FROM outbox_record older
+            WHERE older.record_key = o.record_key
+              AND older.completed_at IS NULL
+              AND older.created_at < o.created_at
+          )
+        GROUP BY o.record_key
+        ORDER BY MIN(o.created_at) ASC
+        LIMIT ?
+    """
+
+    /**
+     * Query to select all record keys with pending records, regardless of previous failures.
+     * Used when ignoreRecordKeysWithPreviousFailure is false.
+     * Note: Partition placeholders are dynamically injected.
+     */
+    private val recordKeysQueryWithoutPreviousFailureFilterTemplate = """
+        SELECT o.record_key
+        FROM outbox_record o
+        WHERE o.partition_no IN (%s)
+          AND o.status = ?
+          AND o.next_retry_at <= ?
+        GROUP BY o.record_key
+        ORDER BY MIN(o.created_at) ASC
+        LIMIT ?
+    """
+
+    /**
+     * Saves an outbox record.
+     * Updates existing record or inserts new one.
+     */
     override fun <T> save(record: OutboxRecord<T>): OutboxRecord<T> =
         transactionTemplate.execute {
             val payload = record.payload ?: throw IllegalArgumentException("record payload cannot be null")
             val serializedPayload = recordSerializer.serialize(payload)
             val recordType = payload.javaClass.name
-            val serializedContext =
-                record.context
-                    .takeIf { it.isNotEmpty() }
-                    ?.let { recordSerializer.serialize(it) }
+            val serializedContext = serializeContext(record.context)
 
-            // Try UPDATE first within transaction
-            val updated =
-                jdbcTemplate.update(
-                    """
-                    UPDATE outbox_record
-                    SET status = ?, record_key = ?, record_type = ?, payload = ?, context = ?,
-                        partition_no = ?, created_at = ?, completed_at = ?, failure_count = ?,
-                        failure_reason = ?, next_retry_at = ?, handler_id = ?
-                    WHERE id = ?
-                    """.trimIndent(),
-                    record.status.name,
-                    record.key,
-                    recordType,
-                    serializedPayload,
-                    serializedContext,
-                    record.partition,
-                    record.createdAt,
-                    record.completedAt,
-                    record.failureCount,
-                    record.failureReason,
-                    record.nextRetryAt,
-                    record.handlerId,
-                    record.id,
-                )
+            val updated = tryUpdate(record, recordType, serializedPayload, serializedContext)
 
-            // If no rows updated, INSERT
             if (updated == 0) {
-                jdbcTemplate.update(
-                    """
-                    INSERT INTO outbox_record
-                    (id, status, record_key, record_type, payload, context, partition_no,
-                     created_at, completed_at, failure_count, failure_reason, next_retry_at, handler_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """.trimIndent(),
-                    record.id,
-                    record.status.name,
-                    record.key,
-                    recordType,
-                    serializedPayload,
-                    serializedContext,
-                    record.partition,
-                    record.createdAt,
-                    record.completedAt,
-                    record.failureCount,
-                    record.failureReason,
-                    record.nextRetryAt,
-                    record.handlerId,
-                )
+                insert(record, recordType, serializedPayload, serializedContext)
             }
+
             record
-        }!!
+        }
 
-    override fun findPendingRecords(): List<OutboxRecord<*>> =
-        jdbcTemplate.query(
-            """
-            SELECT * FROM outbox_record
-            WHERE status = ?
-            ORDER BY created_at
-            """.trimIndent(),
-            rowMapper,
-            OutboxRecordStatus.NEW.name,
-        )
+    /**
+     * Finds all pending outbox records ordered by creation time.
+     */
+    override fun findPendingRecords(): List<OutboxRecord<*>> = findRecordsByStatus(OutboxRecordStatus.NEW)
 
-    override fun findCompletedRecords(): List<OutboxRecord<*>> =
-        jdbcTemplate.query(
-            """
-            SELECT * FROM outbox_record
-            WHERE status = ?
-            ORDER BY created_at
-            """.trimIndent(),
-            rowMapper,
-            OutboxRecordStatus.COMPLETED.name,
-        )
+    /**
+     * Finds all completed outbox records ordered by creation time.
+     */
+    override fun findCompletedRecords(): List<OutboxRecord<*>> = findRecordsByStatus(OutboxRecordStatus.COMPLETED)
 
-    override fun findFailedRecords(): List<OutboxRecord<*>> =
-        jdbcTemplate.query(
-            """
-            SELECT * FROM outbox_record
-            WHERE status = ?
-            ORDER BY created_at
-            """.trimIndent(),
-            rowMapper,
-            OutboxRecordStatus.FAILED.name,
-        )
+    /**
+     * Finds all failed outbox records ordered by creation time.
+     */
+    override fun findFailedRecords(): List<OutboxRecord<*>> = findRecordsByStatus(OutboxRecordStatus.FAILED)
 
+    /**
+     * Finds all incomplete records for a specific record key ordered by creation time.
+     */
     override fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord<*>> =
         jdbcTemplate.query(
-            """
-            SELECT * FROM outbox_record
-            WHERE record_key = ? AND status = ?
-            ORDER BY created_at
-            """.trimIndent(),
+            findByKeyAndStatusQuery,
             rowMapper,
             recordKey,
             OutboxRecordStatus.NEW.name,
         )
 
+    /**
+     * Counts outbox records by status.
+     */
     override fun countByStatus(status: OutboxRecordStatus): Long =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM outbox_record WHERE status = ?",
-            Long::class.java,
-            status.name,
-        ) ?: 0L
+        jdbcTemplate.queryForObject(countByStatusQuery, Long::class.java, status.name) ?: 0L
 
+    /**
+     * Counts outbox records by partition and status.
+     */
     override fun countRecordsByPartition(
         partition: Int,
         status: OutboxRecordStatus,
     ): Long =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM outbox_record WHERE partition_no = ? AND status = ?",
-            Long::class.java,
+        jdbcTemplate.queryForObject<Long>(
+            countByPartitionStatusQuery,
             partition,
             status.name,
         ) ?: 0L
 
+    /**
+     * Deletes all outbox records with the specified status.
+     */
     override fun deleteByStatus(status: OutboxRecordStatus) {
         transactionTemplate.execute {
-            jdbcTemplate.update(
-                "DELETE FROM outbox_record WHERE status = ?",
-                status.name,
-            )
+            jdbcTemplate.update(deleteByStatusQuery.trimIndent(), status.name)
         }
     }
 
+    /**
+     * Deletes outbox records by record key and status.
+     */
     override fun deleteByRecordKeyAndStatus(
         recordKey: String,
         status: OutboxRecordStatus,
     ) {
         transactionTemplate.execute {
-            jdbcTemplate.update(
-                "DELETE FROM outbox_record WHERE record_key = ? AND status = ?",
-                recordKey,
-                status.name,
-            )
+            jdbcTemplate.update(deleteByKeyAndStatusQuery.trimIndent(), recordKey, status.name)
         }
     }
 
+    /**
+     * Deletes a single outbox record by ID.
+     */
     override fun deleteById(id: String) {
         transactionTemplate.executeWithoutResult {
-            jdbcTemplate.update(
-                "DELETE FROM outbox_record WHERE id = ?",
-                id,
-            )
+            jdbcTemplate.update(deleteByIdQuery.trimIndent(), id)
         }
     }
 
+    /**
+     * Finds record keys in specified partitions that are ready for processing.
+     * Optionally filters out keys with previous incomplete records.
+     */
     override fun findRecordKeysInPartitions(
         partitions: Set<Int>,
         status: OutboxRecordStatus,
@@ -220,52 +252,112 @@ internal open class JdbcOutboxRecordRepository(
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): List<String> {
         val now = OffsetDateTime.now(clock)
-        val partitionPlaceholders = partitions.joinToString(",") { "?" }
+        val query = buildRecordKeysQuery(partitions, ignoreRecordKeysWithPreviousFailure)
+        val args = buildQueryArgs(partitions, status, now, batchSize)
 
-        val query =
-            if (ignoreRecordKeysWithPreviousFailure) {
-                """
-                SELECT o.record_key
-                FROM outbox_record o
-                WHERE o.partition_no IN ($partitionPlaceholders)
-                  AND o.status = ?
-                  AND o.next_retry_at <= ?
-                  AND NOT EXISTS (
-                    SELECT 1 FROM outbox_record older
-                    WHERE older.record_key = o.record_key
-                      AND older.completed_at IS NULL
-                      AND older.created_at < o.created_at
-                  )
-                GROUP BY o.record_key
-                ORDER BY MIN(o.created_at) ASC
-                LIMIT ?
-                """.trimIndent()
-            } else {
-                """
-                SELECT o.record_key
-                FROM outbox_record o
-                WHERE o.partition_no IN ($partitionPlaceholders)
-                  AND o.status = ?
-                  AND o.next_retry_at <= ?
-                GROUP BY o.record_key
-                ORDER BY MIN(o.created_at) ASC
-                LIMIT ?
-                """.trimIndent()
-            }
-
-        val args = mutableListOf<Any>()
-        args.addAll(partitions)
-        args.add(status.name)
-        args.add(now)
-        args.add(batchSize)
-
-        return jdbcTemplate.queryForList(query, String::class.java, *args.toTypedArray())
+        return jdbcTemplate
+            .queryForList<String>(query, *args.toTypedArray())
+            .filterNotNull()
     }
 
-    private fun resolveClass(className: String): Class<*> =
-        try {
-            Thread.currentThread().contextClassLoader.loadClass(className)
-        } catch (ex: ClassNotFoundException) {
-            throw IllegalStateException("Cannot find class for record type $className", ex)
+    /**
+     * Attempts to update an existing record. Returns number of rows updated.
+     */
+    private fun <T> tryUpdate(
+        record: OutboxRecord<T>,
+        recordType: String,
+        serializedPayload: String,
+        serializedContext: String?,
+    ): Int =
+        jdbcTemplate.update(
+            updateRecordQuery.trimIndent(),
+            record.status.name,
+            record.key,
+            recordType,
+            serializedPayload,
+            serializedContext,
+            record.partition,
+            record.createdAt,
+            record.completedAt,
+            record.failureCount,
+            record.failureReason,
+            record.nextRetryAt,
+            record.handlerId,
+            record.id,
+        )
+
+    /**
+     * Inserts a new record into the database.
+     */
+    private fun <T> insert(
+        record: OutboxRecord<T>,
+        recordType: String,
+        serializedPayload: String,
+        serializedContext: String?,
+    ) {
+        jdbcTemplate.update(
+            insertRecordQuery.trimIndent(),
+            record.id,
+            record.status.name,
+            record.key,
+            recordType,
+            serializedPayload,
+            serializedContext,
+            record.partition,
+            record.createdAt,
+            record.completedAt,
+            record.failureCount,
+            record.failureReason,
+            record.nextRetryAt,
+            record.handlerId,
+        )
+    }
+
+    /**
+     * Serializes context map to JSON string, returns null if empty.
+     */
+    private fun serializeContext(context: Map<String, String>): String? =
+        context
+            .takeIf { it.isNotEmpty() }
+            ?.let { recordSerializer.serialize(it) }
+
+    /**
+     * Finds all records with the specified status.
+     */
+    private fun findRecordsByStatus(status: OutboxRecordStatus): List<OutboxRecord<*>> =
+        jdbcTemplate.query(findByStatusQuery, rowMapper, status.name)
+
+    /**
+     * Builds the query for finding record keys with dynamic partition placeholders.
+     */
+    private fun buildRecordKeysQuery(
+        partitions: Set<Int>,
+        ignoreRecordKeysWithPreviousFailure: Boolean,
+    ): String {
+        val partitionPlaceholders = partitions.joinToString(",") { "?" }
+        val template =
+            if (ignoreRecordKeysWithPreviousFailure) {
+                recordKeysQueryWithPreviousFailureFilterTemplate
+            } else {
+                recordKeysQueryWithoutPreviousFailureFilterTemplate
+            }
+
+        return template.format(partitionPlaceholders).trimIndent()
+    }
+
+    /**
+     * Builds the query arguments list for record keys query.
+     */
+    private fun buildQueryArgs(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+        now: OffsetDateTime,
+        batchSize: Int,
+    ): List<Any> =
+        mutableListOf<Any>().apply {
+            addAll(partitions)
+            add(status.name)
+            add(now)
+            add(batchSize)
         }
 }
