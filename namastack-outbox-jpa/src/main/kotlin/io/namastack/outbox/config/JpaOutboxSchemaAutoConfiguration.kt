@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigureBefore
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.autoconfigure.condition.ConditionalOnSingleCandidate
 import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
 import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
 import org.springframework.boot.sql.init.DatabaseInitializationMode
@@ -38,6 +39,7 @@ class JpaOutboxSchemaAutoConfiguration {
      */
     @Bean
     @ConditionalOnProperty(name = ["outbox.schema-initialization.enabled"], havingValue = "true")
+    @ConditionalOnSingleCandidate(DataSource::class)
     internal fun outboxDataSourceScriptDatabaseInitializer(
         dataSource: DataSource,
     ): DataSourceScriptDatabaseInitializer {
