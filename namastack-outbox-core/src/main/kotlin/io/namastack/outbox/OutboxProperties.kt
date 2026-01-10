@@ -37,6 +37,7 @@ data class OutboxProperties(
      * @param deleteCompletedRecords Whether to delete completed records after processing
      * @param executorCorePoolSize Core pool size for the processing executor
      * @param executorMaxPoolSize Maximum pool size for the processing executor
+     * @param executorConcurrencyLimit Concurrency limit for the virtual thread executor (-1 for no limit)
      */
     data class Processing(
         var stopOnFirstFailure: Boolean = true,
@@ -44,6 +45,7 @@ data class OutboxProperties(
         var deleteCompletedRecords: Boolean = false,
         var executorCorePoolSize: Int = 4,
         var executorMaxPoolSize: Int = 8,
+        var executorConcurrencyLimit: Int = -1,
     )
 
     /**
