@@ -1,6 +1,8 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.annotation.EnableOutbox
+import io.namastack.outbox.config.JpaOutboxAutoConfiguration
+import io.namastack.outbox.config.JpaOutboxSchemaAutoConfiguration
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -13,7 +15,11 @@ import java.sql.Connection
 import javax.sql.DataSource
 
 @DataJpaTest
-@ImportAutoConfiguration(JpaOutboxAutoConfiguration::class, OutboxJacksonAutoConfiguration::class)
+@ImportAutoConfiguration(
+    JpaOutboxAutoConfiguration::class,
+    JpaOutboxSchemaAutoConfiguration::class,
+    OutboxJacksonAutoConfiguration::class,
+)
 class OutboxDataSourceScriptDatabaseInitializerDisabledTest {
     @Autowired
     private lateinit var dataSource: DataSource

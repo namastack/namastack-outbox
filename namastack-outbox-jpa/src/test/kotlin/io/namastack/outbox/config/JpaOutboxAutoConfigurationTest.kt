@@ -1,31 +1,29 @@
-package io.namastack.outbox
+package io.namastack.outbox.config
 
-import io.mockk.every
 import io.mockk.mockk
+import io.namastack.outbox.JpaOutboxPartitionAssignmentRepository
+import io.namastack.outbox.JpaOutboxRecordRepository
+import io.namastack.outbox.OutboxPayloadSerializer
+import io.namastack.outbox.OutboxRecordEntityMapper
+import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.partition.PartitionAssignmentRepository
 import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
-import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.AutoConfigurations
-import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
-import java.sql.SQLException
 import java.time.Clock
 import java.time.ZoneId
-import javax.sql.DataSource
 
-@DisplayName("JpaOutboxAutoConfiguration")
 class JpaOutboxAutoConfigurationTest {
     private val contextRunner =
         ApplicationContextRunner()
@@ -39,14 +37,16 @@ class JpaOutboxAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(CompleteConfiguration::class.java)
                 .run { context ->
-                    assertThat(context).hasNotFailed()
-                    assertThat(context).hasSingleBean(Clock::class.java)
-                    assertThat(context).hasBean("outboxEntityManager")
-                    assertThat(context).hasBean("outboxTransactionTemplate")
-                    assertThat(context).hasSingleBean(OutboxRecordEntityMapper::class.java)
-                    assertThat(context).hasSingleBean(OutboxRecordRepository::class.java)
-                    assertThat(context).hasSingleBean(OutboxInstanceRepository::class.java)
-                    assertThat(context).hasSingleBean(JpaOutboxPartitionAssignmentRepository::class.java)
+                    Assertions.assertThat(context).hasNotFailed()
+                    Assertions.assertThat(context).hasSingleBean(Clock::class.java)
+                    Assertions.assertThat(context).hasBean("outboxEntityManager")
+                    Assertions.assertThat(context).hasBean("outboxTransactionTemplate")
+                    Assertions.assertThat(context).hasSingleBean(OutboxRecordEntityMapper::class.java)
+                    Assertions.assertThat(context).hasSingleBean(OutboxRecordRepository::class.java)
+                    Assertions.assertThat(context).hasSingleBean(OutboxInstanceRepository::class.java)
+                    Assertions
+                        .assertThat(context)
+                        .hasSingleBean(JpaOutboxPartitionAssignmentRepository::class.java)
                 }
         }
 
@@ -55,15 +55,15 @@ class JpaOutboxAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(CompleteConfiguration::class.java)
                 .run { context ->
-                    assertThat(context).hasNotFailed()
-                    assertThat(context).hasBean("outboxTransactionTemplate")
+                    Assertions.assertThat(context).hasNotFailed()
+                    Assertions.assertThat(context).hasBean("outboxTransactionTemplate")
 
                     val transactionTemplate =
                         context.getBean(
                             "outboxTransactionTemplate",
                             TransactionTemplate::class.java,
                         )
-                    assertThat(transactionTemplate).isNotNull()
+                    Assertions.assertThat(transactionTemplate).isNotNull()
                 }
         }
 
@@ -72,11 +72,11 @@ class JpaOutboxAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(CompleteConfiguration::class.java)
                 .run { context ->
-                    assertThat(context).hasNotFailed()
-                    assertThat(context).hasBean("outboxEntityManager")
+                    Assertions.assertThat(context).hasNotFailed()
+                    Assertions.assertThat(context).hasBean("outboxEntityManager")
 
                     val entityManager = context.getBean("outboxEntityManager", EntityManager::class.java)
-                    assertThat(entityManager).isNotNull()
+                    Assertions.assertThat(entityManager).isNotNull()
                 }
         }
     }
@@ -89,9 +89,9 @@ class JpaOutboxAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(ConfigurationWithoutClock::class.java)
                 .run { context ->
-                    assertThat(context).hasSingleBean(Clock::class.java)
+                    Assertions.assertThat(context).hasSingleBean(Clock::class.java)
                     val clock = context.getBean(Clock::class.java)
-                    assertThat(clock.zone).isEqualTo(ZoneId.systemDefault())
+                    Assertions.assertThat(clock.zone).isEqualTo(ZoneId.systemDefault())
                 }
         }
 
@@ -100,57 +100,10 @@ class JpaOutboxAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(ConfigurationWithCustomClock::class.java)
                 .run { context ->
-                    assertThat(context).hasSingleBean(Clock::class.java)
+                    Assertions.assertThat(context).hasSingleBean(Clock::class.java)
                     val clock = context.getBean(Clock::class.java)
-                    assertThat(clock.zone).isEqualTo(ZoneId.of("Z"))
+                    Assertions.assertThat(clock.zone).isEqualTo(ZoneId.of("Z"))
                 }
-        }
-    }
-
-    @Nested
-    @DisplayName("Schema Initialization")
-    inner class SchemaInitialization {
-        @Test
-        fun `creates database initializer when schema initialization enabled`() {
-            contextRunner
-                .withUserConfiguration(ConfigurationWithRealDataSource::class.java)
-                .withPropertyValues("outbox.schema-initialization.enabled=true")
-                .run { context ->
-                    assertThat(context).hasSingleBean(DataSourceScriptDatabaseInitializer::class.java)
-                }
-        }
-
-        @Test
-        fun `does not create database initializer when explicitly disabled`() {
-            contextRunner
-                .withUserConfiguration(CompleteConfiguration::class.java)
-                .withPropertyValues("outbox.schema-initialization.enabled=false")
-                .run { context ->
-                    assertThat(context).doesNotHaveBean(DataSourceScriptDatabaseInitializer::class.java)
-                }
-        }
-
-        @Test
-        fun `does not create database initializer by default`() {
-            contextRunner
-                .withUserConfiguration(CompleteConfiguration::class.java)
-                .run { context ->
-                    assertThat(context).doesNotHaveBean(DataSourceScriptDatabaseInitializer::class.java)
-                }
-        }
-
-        @Test
-        fun `throws on unknown database type`() {
-            val dataSource = mockk<DataSource>()
-
-            every { dataSource.connection } throws SQLException("unknown connection")
-
-            val jpaOutboxAutoConfiguration = JpaOutboxAutoConfiguration()
-
-            assertThatThrownBy {
-                jpaOutboxAutoConfiguration.outboxDataSourceScriptDatabaseInitializer(dataSource)
-            }.isInstanceOf(RuntimeException::class.java)
-                .hasMessageContaining("Could not detect database name")
         }
     }
 
@@ -162,8 +115,9 @@ class JpaOutboxAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(ConfigurationWithoutEntityManagerFactory::class.java)
                 .run { context ->
-                    assertThat(context).hasFailed()
-                    assertThat(context.getStartupFailure())
+                    Assertions.assertThat(context).hasFailed()
+                    Assertions
+                        .assertThat(context.getStartupFailure())
                         .hasMessageContaining("EntityManager")
                 }
         }
@@ -173,21 +127,10 @@ class JpaOutboxAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(ConfigurationWithoutTransactionManager::class.java)
                 .run { context ->
-                    assertThat(context).hasFailed()
-                    assertThat(context.getStartupFailure())
+                    Assertions.assertThat(context).hasFailed()
+                    Assertions
+                        .assertThat(context.getStartupFailure())
                         .hasMessageContaining("PlatformTransactionManager")
-                }
-        }
-
-        @Test
-        fun `fails when DataSource is missing for schema initialization`() {
-            contextRunner
-                .withUserConfiguration(ConfigurationWithoutDataSource::class.java)
-                .withPropertyValues("outbox.schema-initialization.enabled=true")
-                .run { context ->
-                    assertThat(context).hasFailed()
-                    assertThat(context.getStartupFailure())
-                        .hasMessageContaining("DataSource")
                 }
         }
     }
@@ -200,15 +143,15 @@ class JpaOutboxAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(ConfigurationWithCustomTransactionTemplate::class.java)
                 .run { context ->
-                    assertThat(context).hasNotFailed()
-                    assertThat(context).hasBean("outboxTransactionTemplate")
+                    Assertions.assertThat(context).hasNotFailed()
+                    Assertions.assertThat(context).hasBean("outboxTransactionTemplate")
 
                     val transactionTemplate =
                         context.getBean(
                             "outboxTransactionTemplate",
                             TransactionTemplate::class.java,
                         )
-                    assertThat(transactionTemplate).isNotNull()
+                    Assertions.assertThat(transactionTemplate).isNotNull()
                 }
         }
 
@@ -217,11 +160,11 @@ class JpaOutboxAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(ConfigurationWithCustomRepository::class.java)
                 .run { context ->
-                    assertThat(context).hasNotFailed()
-                    assertThat(context).hasSingleBean(OutboxRecordRepository::class.java)
+                    Assertions.assertThat(context).hasNotFailed()
+                    Assertions.assertThat(context).hasSingleBean(OutboxRecordRepository::class.java)
 
                     val repository = context.getBean(OutboxRecordRepository::class.java)
-                    assertThat(repository).isNotInstanceOf(JpaOutboxRecordRepository::class.java)
+                    Assertions.assertThat(repository).isNotInstanceOf(JpaOutboxRecordRepository::class.java)
                 }
         }
 
@@ -230,11 +173,11 @@ class JpaOutboxAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(ConfigurationWithCustomEntityManager::class.java)
                 .run { context ->
-                    assertThat(context).hasNotFailed()
-                    assertThat(context).hasBean("outboxEntityManager")
+                    Assertions.assertThat(context).hasNotFailed()
+                    Assertions.assertThat(context).hasBean("outboxEntityManager")
 
                     val entityManager = context.getBean("outboxEntityManager", EntityManager::class.java)
-                    assertThat(entityManager).isNotNull()
+                    Assertions.assertThat(entityManager).isNotNull()
                 }
         }
     }
@@ -248,10 +191,9 @@ class JpaOutboxAutoConfigurationTest {
                 .withUserConfiguration(ConfigurationWithoutEnableOutbox::class.java)
                 .withPropertyValues("outbox.schema-initialization.enabled=true")
                 .run { context ->
-                    assertThat(context).doesNotHaveBean(OutboxRecordRepository::class.java)
-                    assertThat(context).doesNotHaveBean(OutboxInstanceRepository::class.java)
-                    assertThat(context).doesNotHaveBean(DataSourceScriptDatabaseInitializer::class.java)
-                    // Clock bean might still be created if it's a fallback
+                    Assertions.assertThat(context).doesNotHaveBean(OutboxRecordRepository::class.java)
+                    Assertions.assertThat(context).doesNotHaveBean(OutboxInstanceRepository::class.java)
+                    Assertions.assertThat(context).doesNotHaveBean(PartitionAssignmentRepository::class.java)
                 }
         }
     }
@@ -271,28 +213,6 @@ class JpaOutboxAutoConfigurationTest {
         fun clock(): Clock = Clock.systemUTC()
 
         @Bean
-        fun dataSource(): DataSource = mockk(relaxed = true)
-
-        @Bean
-        fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
-    }
-
-    @EnableOutbox
-    @Configuration
-    private class ConfigurationWithRealDataSource {
-        @Bean
-        fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
-
-        @Bean
-        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
-
-        @Bean
-        fun dataSource(): DataSource =
-            EmbeddedDatabaseBuilder()
-                .setType(EmbeddedDatabaseType.H2)
-                .build()
-
-        @Bean
         fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
     }
 
@@ -306,9 +226,6 @@ class JpaOutboxAutoConfigurationTest {
         fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
 
         @Bean
-        fun dataSource(): DataSource = mockk(relaxed = true)
-
-        @Bean
         fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
     }
 
@@ -320,9 +237,6 @@ class JpaOutboxAutoConfigurationTest {
 
         @Bean
         fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
-
-        @Bean
-        fun dataSource(): DataSource = mockk(relaxed = true)
 
         @Bean
         fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
@@ -341,25 +255,6 @@ class JpaOutboxAutoConfigurationTest {
         fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
 
         @Bean
-        fun dataSource(): DataSource = mockk(relaxed = true)
-
-        @Bean
-        fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
-    }
-
-    @EnableOutbox
-    @Configuration
-    private class ConfigurationWithoutDataSource {
-        @Bean
-        fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
-
-        @Bean
-        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
-
-        @Bean
-        fun clock(): Clock = Clock.systemUTC()
-
-        @Bean
         fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
     }
 
@@ -374,9 +269,6 @@ class JpaOutboxAutoConfigurationTest {
 
         @Bean
         fun clock(): Clock = Clock.systemUTC()
-
-        @Bean
-        fun dataSource(): DataSource = mockk(relaxed = true)
     }
 
     @EnableOutbox
@@ -390,9 +282,6 @@ class JpaOutboxAutoConfigurationTest {
 
         @Bean
         fun clock(): Clock = Clock.systemUTC()
-
-        @Bean
-        fun dataSource(): DataSource = mockk(relaxed = true)
 
         @Bean
         fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
@@ -414,9 +303,6 @@ class JpaOutboxAutoConfigurationTest {
         fun clock(): Clock = Clock.systemUTC()
 
         @Bean
-        fun dataSource(): DataSource = mockk(relaxed = true)
-
-        @Bean
         fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
 
         @Bean("outboxEntityManager")
@@ -436,9 +322,6 @@ class JpaOutboxAutoConfigurationTest {
         fun clock(): Clock = Clock.systemUTC()
 
         @Bean
-        fun dataSource(): DataSource = mockk(relaxed = true)
-
-        @Bean
         fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
 
         @Bean
@@ -455,9 +338,6 @@ class JpaOutboxAutoConfigurationTest {
 
         @Bean
         fun clock(): Clock = Clock.systemUTC()
-
-        @Bean
-        fun dataSource(): DataSource = mockk(relaxed = true)
 
         @Bean
         fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)

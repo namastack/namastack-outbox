@@ -1,5 +1,12 @@
-package io.namastack.outbox
+package io.namastack.outbox.config
 
+import io.namastack.outbox.JpaOutboxInstanceRepository
+import io.namastack.outbox.JpaOutboxPartitionAssignmentRepository
+import io.namastack.outbox.JpaOutboxRecordRepository
+import io.namastack.outbox.OutboxCoreAutoConfiguration
+import io.namastack.outbox.OutboxPayloadSerializer
+import io.namastack.outbox.OutboxRecordEntityMapper
+import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
@@ -7,36 +14,28 @@ import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.AutoConfiguration
-import org.springframework.boot.autoconfigure.AutoConfigurationPackage
+import org.springframework.boot.autoconfigure.AutoConfigureAfter
 import org.springframework.boot.autoconfigure.AutoConfigureBefore
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
-import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
-import org.springframework.boot.sql.init.DatabaseInitializationMode
-import org.springframework.boot.sql.init.DatabaseInitializationSettings
+import org.springframework.boot.transaction.autoconfigure.TransactionAutoConfiguration
 import org.springframework.context.annotation.Bean
-import org.springframework.jdbc.support.JdbcUtils
 import org.springframework.orm.jpa.SharedEntityManagerCreator
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
-import java.sql.DatabaseMetaData
 import java.time.Clock
-import javax.sql.DataSource
 
 /**
  * Auto-configuration class for JPA-based Outbox functionality.
  *
- * This configuration provides JPA implementations for outbox repositories
- * and handles database schema initialization when enabled.
+ * This configuration provides JPA implementations for outbox repositories.
  *
  * @author Roland Beisel
  * @since 0.1.0
  */
 @AutoConfiguration
-@AutoConfigureBefore(HibernateJpaAutoConfiguration::class)
-@AutoConfigurationPackage
+@AutoConfigureAfter(TransactionAutoConfiguration::class)
+@AutoConfigureBefore(OutboxCoreAutoConfiguration::class)
 @ConditionalOnBean(annotation = [EnableOutbox::class])
 class JpaOutboxAutoConfiguration {
     /**
@@ -79,6 +78,7 @@ class JpaOutboxAutoConfiguration {
      *
      * @param entityManager JPA entity manager
      * @param transactionTemplate Transaction template for programmatic transaction management
+     * @param outboxRecordEntityMapper Mapper for converting between domain objects and JPA entities
      * @param clock Clock for time-based operations
      * @return JPA outbox record repository implementation
      */
@@ -92,6 +92,12 @@ class JpaOutboxAutoConfiguration {
     ): OutboxRecordRepository =
         JpaOutboxRecordRepository(entityManager, transactionTemplate, outboxRecordEntityMapper, clock)
 
+    /**
+     * Creates the entity mapper for outbox records.
+     *
+     * @param recordSerializer Serializer for payload and context
+     * @return Mapper for converting between domain objects and JPA entities
+     */
     @Bean
     @ConditionalOnMissingBean
     internal fun outboxRecordEntityMapper(recordSerializer: OutboxPayloadSerializer): OutboxRecordEntityMapper =
@@ -124,35 +130,4 @@ class JpaOutboxAutoConfiguration {
         @Qualifier("outboxEntityManager") entityManager: EntityManager,
         @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
     ): PartitionAssignmentRepository = JpaOutboxPartitionAssignmentRepository(entityManager, transactionTemplate)
-
-    /**
-     * Creates a database initializer for outbox schema when schema initialization is enabled.
-     *
-     * This bean is only created when the property 'outbox.schema-initialization.enabled' is set to true.
-     *
-     * @param dataSource The data source to initialize
-     * @return Database initializer for outbox schema
-     */
-    @Bean
-    @ConditionalOnProperty(name = ["outbox.schema-initialization.enabled"], havingValue = "true")
-    internal fun outboxDataSourceScriptDatabaseInitializer(
-        dataSource: DataSource,
-    ): DataSourceScriptDatabaseInitializer {
-        val databaseName = detectDatabaseName(dataSource)
-        val databaseType = DatabaseType.from(databaseName)
-
-        val settings = DatabaseInitializationSettings()
-        settings.schemaLocations = mutableListOf(databaseType.schemaLocation)
-        settings.mode = DatabaseInitializationMode.ALWAYS
-
-        return DataSourceScriptDatabaseInitializer(dataSource, settings)
-    }
-
-    private fun detectDatabaseName(dataSource: DataSource): String =
-        try {
-            val metadata = JdbcUtils.extractDatabaseMetaData(dataSource, DatabaseMetaData::getDatabaseProductName)
-            JdbcUtils.commonDatabaseName(metadata) ?: throw RuntimeException("Could not detect database name")
-        } catch (e: Exception) {
-            throw RuntimeException("Could not detect database name", e)
-        }
 }
