@@ -5,6 +5,7 @@ import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
+import org.hibernate.boot.model.naming.PhysicalNamingStrategy
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
@@ -17,6 +18,7 @@ import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
 import org.springframework.boot.sql.init.DatabaseInitializationMode
 import org.springframework.boot.sql.init.DatabaseInitializationSettings
 import org.springframework.context.annotation.Bean
+import org.springframework.core.env.Environment
 import org.springframework.jdbc.support.JdbcUtils
 import org.springframework.orm.jpa.SharedEntityManagerCreator
 import org.springframework.transaction.PlatformTransactionManager
@@ -124,6 +126,24 @@ class JpaOutboxAutoConfiguration {
         @Qualifier("outboxEntityManager") entityManager: EntityManager,
         @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
     ): PartitionAssignmentRepository = JpaOutboxPartitionAssignmentRepository(entityManager, transactionTemplate)
+
+    /**
+     * Creates a Hibernate physical naming strategy that applies a prefix to outbox tables.
+     *
+     * This bean is only created when the property 'outbox.table-prefix' is configured.
+     * The naming strategy adds the configured prefix to the three core outbox tables:
+     * outbox_record, outbox_instance, and outbox_partition.
+     *
+     * @param env Spring environment to retrieve the table prefix property
+     * @return Physical naming strategy with configured prefix
+     */
+    @Bean
+    @ConditionalOnProperty(name = ["outbox.table-prefix"], matchIfMissing = false)
+    fun physicalNamingStrategy(env: Environment): PhysicalNamingStrategy {
+        val prefix = env.getProperty("outbox.table-prefix", "")
+
+        return PrefixedPhysicalNamingStrategy(prefix)
+    }
 
     /**
      * Creates a database initializer for outbox schema when schema initialization is enabled.

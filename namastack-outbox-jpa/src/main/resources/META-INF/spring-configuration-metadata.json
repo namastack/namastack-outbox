@@ -1,6 +1,13 @@
 {
   "properties": [
     {
+      "name": "outbox.table-prefix",
+      "type": "java.lang.String",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "defaultValue": "",
+      "description": "Optional prefix for outbox database tables. If specified, all outbox tables (outbox_record, outbox_instance, outbox_partition) will be prefixed with this value. Example: 'myapp_' results in tables 'myapp_outbox_record', 'myapp_outbox_instance', 'myapp_outbox_partition'."
+    },
+    {
       "name": "outbox.schema-initialization.enabled",
       "type": "java.lang.Boolean",
       "sourceType": "io.namastack.outbox.OutboxProperties$SchemaInitialization",
