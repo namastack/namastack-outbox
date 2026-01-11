@@ -153,7 +153,6 @@ outbox:
   instance:
     heartbeat-interval-seconds: 5             # How often to send heartbeats
     stale-instance-timeout-seconds: 30        # When to consider an instance dead
-    new-instance-detection-interval-seconds: 10  # How often to check for new instances
     graceful-shutdown-timeout-seconds: 15     # Time to wait for graceful shutdown
 ```
 
@@ -1908,7 +1907,6 @@ outbox:
     graceful-shutdown-timeout-seconds: 15    # Graceful shutdown timeout (default: 15)
     stale-instance-timeout-seconds: 30       # When to mark instance as dead (default: 30)
     heartbeat-interval-seconds: 5            # Heartbeat interval (default: 5)
-    new-instance-detection-interval-seconds: 10  # New instance check interval (default: 10)
 
   # Retry Configuration
   retry:
