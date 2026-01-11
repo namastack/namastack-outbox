@@ -1,0 +1,11 @@
+{
+  "properties": [
+    {
+      "name": "outbox.schema-initialization.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "io.namastack.outbox.OutboxProperties$SchemaInitialization",
+      "defaultValue": false,
+      "description": "Whether schema initialization is enabled at startup"
+    }
+  ]
+}

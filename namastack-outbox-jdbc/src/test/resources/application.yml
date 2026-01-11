@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+outbox:
+  schema-initialization:
+    enabled: true
+
+logging:
+  level:
+    root: warn
+    io.namastack.outbox: trace
+
