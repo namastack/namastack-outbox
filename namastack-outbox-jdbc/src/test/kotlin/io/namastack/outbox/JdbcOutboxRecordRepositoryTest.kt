@@ -124,12 +124,16 @@ class JdbcOutboxRecordRepositoryTest {
         val records = jdbcOutboxRecordRepository.findPendingRecords()
 
         assertThat(records).hasSize(3)
-        assertThat(records.map { it.createdAt })
-            .containsExactly(
-                now.minusMinutes(3),
-                now.minusMinutes(2),
-                now.minusMinutes(1),
+
+        val actualTimes = records.map { it.createdAt.truncatedTo(ChronoUnit.MILLIS) }
+        val expectedTimes =
+            listOf(
+                now.minusMinutes(3).truncatedTo(ChronoUnit.MILLIS),
+                now.minusMinutes(2).truncatedTo(ChronoUnit.MILLIS),
+                now.minusMinutes(1).truncatedTo(ChronoUnit.MILLIS),
             )
+
+        assertThat(actualTimes).containsExactlyElementsOf(expectedTimes)
     }
 
     @Test
@@ -205,10 +209,10 @@ class JdbcOutboxRecordRepositoryTest {
         val records = jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey)
 
         assertThat(records).hasSize(3)
-        assertThat(records.map { it.createdAt }).containsExactly(
-            now.minusMinutes(3),
-            now.minusMinutes(2),
-            now.minusMinutes(1),
+        assertThat(records.map { it.createdAt.truncatedTo(ChronoUnit.MILLIS) }).containsExactly(
+            now.minusMinutes(3).truncatedTo(ChronoUnit.MILLIS),
+            now.minusMinutes(2).truncatedTo(ChronoUnit.MILLIS),
+            now.minusMinutes(1).truncatedTo(ChronoUnit.MILLIS),
         )
         assertThat(records.map { it.key }).allMatch { it == recordKey }
     }
@@ -355,8 +359,8 @@ class JdbcOutboxRecordRepositoryTest {
         val recordKey = UUID.randomUUID().toString()
         val now = OffsetDateTime.now(clock)
 
-        createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minusMinutes(3))
-        createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minusMinutes(1))
+        createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minusMinutes(3).truncatedTo(ChronoUnit.MILLIS))
+        createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minusMinutes(1).truncatedTo(ChronoUnit.MILLIS))
 
         val result = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
 
@@ -368,7 +372,7 @@ class JdbcOutboxRecordRepositoryTest {
         val recordKey = UUID.randomUUID().toString()
         val now = OffsetDateTime.now(clock)
 
-        createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minusMinutes(3))
+        createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minusMinutes(3).truncatedTo(ChronoUnit.MILLIS))
 
         val result = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
 
@@ -383,9 +387,9 @@ class JdbcOutboxRecordRepositoryTest {
         val recordKey2 = UUID.randomUUID().toString()
         val recordKey3 = UUID.randomUUID().toString()
 
-        createRecordWithPartitionAndTime(recordKey2, NEW, 1, now.minusMinutes(2))
-        createRecordWithPartitionAndTime(recordKey1, NEW, 2, now.minusMinutes(3))
-        createRecordWithPartitionAndTime(recordKey3, NEW, 1, now.minusMinutes(1))
+        createRecordWithPartitionAndTime(recordKey2, NEW, 1, now.minusMinutes(2).truncatedTo(ChronoUnit.MILLIS))
+        createRecordWithPartitionAndTime(recordKey1, NEW, 2, now.minusMinutes(3).truncatedTo(ChronoUnit.MILLIS))
+        createRecordWithPartitionAndTime(recordKey3, NEW, 1, now.minusMinutes(1).truncatedTo(ChronoUnit.MILLIS))
 
         val result = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1, 2), NEW, 10, true)
 
