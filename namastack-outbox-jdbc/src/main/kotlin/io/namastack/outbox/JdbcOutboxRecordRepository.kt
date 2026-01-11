@@ -1,34 +1,30 @@
 package io.namastack.outbox
 
-import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.jdbc.core.queryForList
-import org.springframework.jdbc.core.queryForObject
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.OffsetDateTime
 
 /**
  * JDBC implementation of the OutboxRecordRepository and OutboxRecordStatusRepository interfaces.
  *
- * This implementation uses Spring's JdbcTemplate to persist and query outbox records
+ * This implementation uses Spring's JdbcClient to persist and query outbox records
  * from a relational database.
  *
- * @param jdbcTemplate JDBC template for database operations
+ * @param jdbcClient JDBC client for database operations
  * @param transactionTemplate Transaction template for programmatic transaction management
- * @param recordSerializer Serializer for payload and context
+ * @param entityMapper Mapper for converting between domain objects and JPA entities
  * @param clock Clock for time-based operations
  *
  * @author Roland Beisel
  * @since 1.1.0
  */
 internal open class JdbcOutboxRecordRepository(
-    private val jdbcTemplate: JdbcTemplate,
+    private val jdbcClient: JdbcClient,
     private val transactionTemplate: TransactionTemplate,
-    private val recordSerializer: OutboxPayloadSerializer,
+    private val entityMapper: JdbcOutboxRecordEntityMapper,
     private val clock: java.time.Clock,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
-    private val rowMapper = OutboxRecordRowMapper(recordSerializer)
-
     /**
      * Query to update an existing outbox record.
      */
@@ -152,15 +148,12 @@ internal open class JdbcOutboxRecordRepository(
      */
     override fun <T> save(record: OutboxRecord<T>): OutboxRecord<T> =
         transactionTemplate.execute {
-            val payload = record.payload ?: throw IllegalArgumentException("record payload cannot be null")
-            val serializedPayload = recordSerializer.serialize(payload)
-            val recordType = payload.javaClass.name
-            val serializedContext = serializeContext(record.context)
+            val entity = entityMapper.map(record)
 
-            val updated = tryUpdate(record, recordType, serializedPayload, serializedContext)
+            val updated = tryUpdate(entity)
 
             if (updated == 0) {
-                insert(record, recordType, serializedPayload, serializedContext)
+                insert(entity)
             }
 
             record
@@ -185,18 +178,24 @@ internal open class JdbcOutboxRecordRepository(
      * Finds all incomplete records for a specific record key ordered by creation time.
      */
     override fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord<*>> =
-        jdbcTemplate.query(
-            findByKeyAndStatusQuery,
-            rowMapper,
-            recordKey,
-            OutboxRecordStatus.NEW.name,
-        )
+        jdbcClient
+            .sql(findByKeyAndStatusQuery)
+            .param(recordKey)
+            .param(OutboxRecordStatus.NEW.name)
+            .query(JdbcOutboxRecordEntity::class.java)
+            .list()
+            .filterNotNull()
+            .map { entityMapper.map(it) }
 
     /**
      * Counts outbox records by status.
      */
     override fun countByStatus(status: OutboxRecordStatus): Long =
-        jdbcTemplate.queryForObject(countByStatusQuery, Long::class.java, status.name) ?: 0L
+        jdbcClient
+            .sql(countByStatusQuery)
+            .param(status.name)
+            .query(Long::class.java)
+            .single()
 
     /**
      * Counts outbox records by partition and status.
@@ -205,18 +204,22 @@ internal open class JdbcOutboxRecordRepository(
         partition: Int,
         status: OutboxRecordStatus,
     ): Long =
-        jdbcTemplate.queryForObject<Long>(
-            countByPartitionStatusQuery,
-            partition,
-            status.name,
-        ) ?: 0L
+        jdbcClient
+            .sql(countByPartitionStatusQuery)
+            .param(partition)
+            .param(status.name)
+            .query(Long::class.java)
+            .single()
 
     /**
      * Deletes all outbox records with the specified status.
      */
     override fun deleteByStatus(status: OutboxRecordStatus) {
         transactionTemplate.execute {
-            jdbcTemplate.update(deleteByStatusQuery.trimIndent(), status.name)
+            jdbcClient
+                .sql(deleteByStatusQuery.trimIndent())
+                .param(status.name)
+                .update()
         }
     }
 
@@ -228,7 +231,11 @@ internal open class JdbcOutboxRecordRepository(
         status: OutboxRecordStatus,
     ) {
         transactionTemplate.execute {
-            jdbcTemplate.update(deleteByKeyAndStatusQuery.trimIndent(), recordKey, status.name)
+            jdbcClient
+                .sql(deleteByKeyAndStatusQuery.trimIndent())
+                .param(recordKey)
+                .param(status.name)
+                .update()
         }
     }
 
@@ -237,7 +244,10 @@ internal open class JdbcOutboxRecordRepository(
      */
     override fun deleteById(id: String) {
         transactionTemplate.executeWithoutResult {
-            jdbcTemplate.update(deleteByIdQuery.trimIndent(), id)
+            jdbcClient
+                .sql(deleteByIdQuery.trimIndent())
+                .param(id)
+                .update()
         }
     }
 
@@ -253,79 +263,70 @@ internal open class JdbcOutboxRecordRepository(
     ): List<String> {
         val now = OffsetDateTime.now(clock)
         val query = buildRecordKeysQuery(partitions, ignoreRecordKeysWithPreviousFailure)
-        val args = buildQueryArgs(partitions, status, now, batchSize)
 
-        return jdbcTemplate
-            .queryForList<String>(query, *args.toTypedArray())
-            .filterNotNull()
+        val clientBuilder = jdbcClient.sql(query)
+        partitions.forEach { clientBuilder.param(it) }
+        clientBuilder.param(status.name)
+        clientBuilder.param(now)
+        clientBuilder.param(batchSize)
+
+        return clientBuilder.query(String::class.java).list().filterNotNull()
     }
 
     /**
      * Attempts to update an existing record. Returns number of rows updated.
      */
-    private fun <T> tryUpdate(
-        record: OutboxRecord<T>,
-        recordType: String,
-        serializedPayload: String,
-        serializedContext: String?,
-    ): Int =
-        jdbcTemplate.update(
-            updateRecordQuery.trimIndent(),
-            record.status.name,
-            record.key,
-            recordType,
-            serializedPayload,
-            serializedContext,
-            record.partition,
-            record.createdAt,
-            record.completedAt,
-            record.failureCount,
-            record.failureReason,
-            record.nextRetryAt,
-            record.handlerId,
-            record.id,
-        )
+    private fun tryUpdate(entity: JdbcOutboxRecordEntity): Int =
+        jdbcClient
+            .sql(updateRecordQuery.trimIndent())
+            .param(entity.status.name)
+            .param(entity.recordKey)
+            .param(entity.recordType)
+            .param(entity.payload)
+            .param(entity.context)
+            .param(entity.partitionNo)
+            .param(entity.createdAt)
+            .param(entity.completedAt)
+            .param(entity.failureCount)
+            .param(entity.failureReason)
+            .param(entity.nextRetryAt)
+            .param(entity.handlerId)
+            .param(entity.id)
+            .update()
 
     /**
      * Inserts a new record into the database.
      */
-    private fun <T> insert(
-        record: OutboxRecord<T>,
-        recordType: String,
-        serializedPayload: String,
-        serializedContext: String?,
-    ) {
-        jdbcTemplate.update(
-            insertRecordQuery.trimIndent(),
-            record.id,
-            record.status.name,
-            record.key,
-            recordType,
-            serializedPayload,
-            serializedContext,
-            record.partition,
-            record.createdAt,
-            record.completedAt,
-            record.failureCount,
-            record.failureReason,
-            record.nextRetryAt,
-            record.handlerId,
-        )
+    private fun insert(entity: JdbcOutboxRecordEntity) {
+        jdbcClient
+            .sql(insertRecordQuery.trimIndent())
+            .param(entity.id)
+            .param(entity.status.name)
+            .param(entity.recordKey)
+            .param(entity.recordType)
+            .param(entity.payload)
+            .param(entity.context)
+            .param(entity.partitionNo)
+            .param(entity.createdAt)
+            .param(entity.completedAt)
+            .param(entity.failureCount)
+            .param(entity.failureReason)
+            .param(entity.nextRetryAt)
+            .param(entity.handlerId)
+            .update()
     }
-
-    /**
-     * Serializes context map to JSON string, returns null if empty.
-     */
-    private fun serializeContext(context: Map<String, String>): String? =
-        context
-            .takeIf { it.isNotEmpty() }
-            ?.let { recordSerializer.serialize(it) }
 
     /**
      * Finds all records with the specified status.
      */
     private fun findRecordsByStatus(status: OutboxRecordStatus): List<OutboxRecord<*>> =
-        jdbcTemplate.query(findByStatusQuery, rowMapper, status.name)
+        jdbcClient
+            .sql(findByStatusQuery)
+            .param(status.name)
+            .query(JdbcOutboxRecordEntity::class.java)
+            .list()
+            .filterNotNull()
+            .map { entityMapper.map(it) }
 
     /**
      * Builds the query for finding record keys with dynamic partition placeholders.
@@ -344,20 +345,4 @@ internal open class JdbcOutboxRecordRepository(
 
         return template.format(partitionPlaceholders).trimIndent()
     }
-
-    /**
-     * Builds the query arguments list for record keys query.
-     */
-    private fun buildQueryArgs(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-        now: OffsetDateTime,
-        batchSize: Int,
-    ): List<Any> =
-        mutableListOf<Any>().apply {
-            addAll(partitions)
-            add(status.name)
-            add(now)
-            add(batchSize)
-        }
 }

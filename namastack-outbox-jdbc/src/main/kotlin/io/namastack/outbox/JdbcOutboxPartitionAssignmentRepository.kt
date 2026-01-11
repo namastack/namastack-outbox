@@ -3,8 +3,7 @@ package io.namastack.outbox
 import io.namastack.outbox.partition.PartitionAssignment
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import org.springframework.dao.OptimisticLockingFailureException
-import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.jdbc.core.queryForObject
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
 
 /**
@@ -13,18 +12,16 @@ import org.springframework.transaction.support.TransactionTemplate
  * Uses optimistic locking (version field) to detect and prevent concurrent
  * modifications when multiple instances try to claim the same partition.
  *
- * @param jdbcTemplate JDBC template for database operations
+ * @param jdbcClient JDBC client for database operations
  * @param transactionTemplate Transaction template for programmatic transaction management
  *
  * @author Roland Beisel
- * @since 1.0.0
+ * @since 1.1.0
  */
 internal open class JdbcOutboxPartitionAssignmentRepository(
-    private val jdbcTemplate: JdbcTemplate,
+    private val jdbcClient: JdbcClient,
     private val transactionTemplate: TransactionTemplate,
 ) : PartitionAssignmentRepository {
-    private val rowMapper = PartitionAssignmentRowMapper()
-
     /**
      * Query to select all partition assignments ordered by partition number.
      */
@@ -69,13 +66,27 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
     /**
      * Finds all partition assignments ordered by partition number.
      */
-    override fun findAll(): Set<PartitionAssignment> = jdbcTemplate.query(findAllQuery, rowMapper).toSet()
+    override fun findAll(): Set<PartitionAssignment> =
+        jdbcClient
+            .sql(findAllQuery)
+            .query(JdbcOutboxPartitionAssignmentEntity::class.java)
+            .list()
+            .filterNotNull()
+            .map { JdbcOutboxPartitionAssignmentEntityMapper.map(it) }
+            .toSet()
 
     /**
      * Finds partition assignments by instance ID.
      */
     override fun findByInstanceId(instanceId: String): Set<PartitionAssignment> =
-        jdbcTemplate.query(findByInstanceIdQuery, rowMapper, instanceId).toSet()
+        jdbcClient
+            .sql(findByInstanceIdQuery)
+            .param(instanceId)
+            .query(JdbcOutboxPartitionAssignmentEntity::class.java)
+            .list()
+            .filterNotNull()
+            .map { JdbcOutboxPartitionAssignmentEntityMapper.map(it) }
+            .toSet()
 
     /**
      * Saves all partition assignments with optimistic locking.
@@ -84,7 +95,8 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
     override fun saveAll(partitionAssignments: Set<PartitionAssignment>) {
         transactionTemplate.execute {
             partitionAssignments.forEach { assignment ->
-                savePartitionAssignment(assignment)
+                val entity = JdbcOutboxPartitionAssignmentEntityMapper.map(assignment)
+                savePartitionAssignment(entity, assignment.version)
             }
         }
     }
@@ -93,12 +105,15 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
      * Saves a single partition assignment.
      * Tries update first, then insert if not exists, or throws exception if version mismatch.
      */
-    private fun savePartitionAssignment(assignment: PartitionAssignment) {
-        val newVersion = (assignment.version ?: 0) + 1
-        val updated = tryUpdate(assignment, newVersion)
+    private fun savePartitionAssignment(
+        entity: JdbcOutboxPartitionAssignmentEntity,
+        originalVersion: Long?,
+    ) {
+        val newVersion = (originalVersion ?: 0) + 1
+        val updated = tryUpdate(entity, newVersion, originalVersion)
 
         if (updated == 0) {
-            handleUpdateFailure(assignment)
+            handleUpdateFailure(entity)
         }
     }
 
@@ -107,29 +122,30 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
      * Returns number of rows updated.
      */
     private fun tryUpdate(
-        assignment: PartitionAssignment,
+        entity: JdbcOutboxPartitionAssignmentEntity,
         newVersion: Long,
+        originalVersion: Long?,
     ): Int =
-        jdbcTemplate.update(
-            updatePartitionQuery.trimIndent(),
-            assignment.instanceId,
-            newVersion,
-            assignment.updatedAt,
-            assignment.partitionNumber,
-            assignment.version ?: 0,
-        )
+        jdbcClient
+            .sql(updatePartitionQuery.trimIndent())
+            .param(entity.instanceId)
+            .param(newVersion)
+            .param(entity.updatedAt)
+            .param(entity.partitionNumber)
+            .param(originalVersion ?: 0)
+            .update()
 
     /**
      * Handles case when update fails - either partition doesn't exist (insert) or version mismatch (exception).
      */
-    private fun handleUpdateFailure(assignment: PartitionAssignment) {
-        if (partitionExists(assignment.partitionNumber)) {
+    private fun handleUpdateFailure(entity: JdbcOutboxPartitionAssignmentEntity) {
+        if (partitionExists(entity.partitionNumber)) {
             throw OptimisticLockingFailureException(
-                "Partition assignment with partition number ${assignment.partitionNumber} " +
+                "Partition assignment with partition number ${entity.partitionNumber} " +
                     "was updated by another instance (version mismatch)",
             )
         } else {
-            insertPartition(assignment)
+            insertPartition(entity)
         }
     }
 
@@ -137,18 +153,22 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
      * Checks if partition exists in database.
      */
     private fun partitionExists(partitionNumber: Int): Boolean =
-        (jdbcTemplate.queryForObject<Int>(partitionExistsQuery, partitionNumber) ?: 0) > 0
+        jdbcClient
+            .sql(partitionExistsQuery)
+            .param(partitionNumber)
+            .query(Int::class.java)
+            .single() > 0
 
     /**
      * Inserts new partition assignment with initial version 0.
      */
-    private fun insertPartition(assignment: PartitionAssignment) {
-        jdbcTemplate.update(
-            insertPartitionQuery.trimIndent(),
-            assignment.partitionNumber,
-            assignment.instanceId,
-            0, // Initial version is 0
-            assignment.updatedAt,
-        )
+    private fun insertPartition(entity: JdbcOutboxPartitionAssignmentEntity) {
+        jdbcClient
+            .sql(insertPartitionQuery.trimIndent())
+            .param(entity.partitionNumber)
+            .param(entity.instanceId)
+            .param(0) // Initial version is 0
+            .param(entity.updatedAt)
+            .update()
     }
 }

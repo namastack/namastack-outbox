@@ -1,7 +1,7 @@
-package io.namastack.outbox
+package io.namastack.outbox.config
 
+import org.assertj.core.api.Assertions
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
@@ -88,7 +88,8 @@ class JdbcDatabaseTypeTest {
 
         @Test
         fun `throws for unsupported database`() {
-            assertThatThrownBy { JdbcDatabaseType.from("unsupported") }
+            Assertions
+                .assertThatThrownBy { JdbcDatabaseType.from("unsupported") }
                 .isInstanceOf(IllegalArgumentException::class.java)
                 .hasMessage("Unsupported database type: unsupported")
         }

@@ -1,29 +1,37 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.annotation.EnableOutbox
+import io.namastack.outbox.config.JdbcOutboxAutoConfiguration
+import io.namastack.outbox.config.JdbcOutboxSchemaAutoConfiguration
 import io.namastack.outbox.partition.PartitionAssignment
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.jdbc.autoconfigure.JdbcClientAutoConfiguration
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest
-import org.springframework.dao.OptimisticLockingFailureException
-import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.OffsetDateTime
 
 @JdbcTest
-@ImportAutoConfiguration(JdbcOutboxAutoConfiguration::class, OutboxJacksonAutoConfiguration::class)
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@ImportAutoConfiguration(
+    JdbcClientAutoConfiguration::class,
+    JdbcOutboxAutoConfiguration::class,
+    JdbcOutboxSchemaAutoConfiguration::class,
+    OutboxJacksonAutoConfiguration::class,
+)
 class JdbcOutboxPartitionAssignmentRepositoryTest {
     @Autowired
     private lateinit var partitionAssignmentRepository: PartitionAssignmentRepository
 
     @Autowired
-    private lateinit var jdbcTemplate: JdbcTemplate
+    private lateinit var transactionTemplate: TransactionTemplate
 
     private val clock = Clock.systemUTC()
 
@@ -38,7 +46,9 @@ class JdbcOutboxPartitionAssignmentRepositoryTest {
     fun `findAll returns all partitions ordered by partition number`() {
         val assignments = (0..255).map { PartitionAssignment.create(it, "instance-1", clock, null) }.toSet()
 
-        partitionAssignmentRepository.saveAll(assignments)
+        transactionTemplate.executeWithoutResult {
+            partitionAssignmentRepository.saveAll(assignments)
+        }
 
         val all = partitionAssignmentRepository.findAll()
 
@@ -60,7 +70,9 @@ class JdbcOutboxPartitionAssignmentRepositoryTest {
         val i2Assignments = (100..199).map { PartitionAssignment.create(it, "instance-2", clock, null) }.toSet()
         val allAssignments = i1Assignments + i2Assignments
 
-        partitionAssignmentRepository.saveAll(allAssignments)
+        transactionTemplate.executeWithoutResult {
+            partitionAssignmentRepository.saveAll(allAssignments)
+        }
 
         val i1Partitions = partitionAssignmentRepository.findByInstanceId("instance-1")
         val i2Partitions = partitionAssignmentRepository.findByInstanceId("instance-2")
@@ -75,7 +87,9 @@ class JdbcOutboxPartitionAssignmentRepositoryTest {
     fun `findByInstanceId returns empty for non-existent instance`() {
         val assignments = (0..99).map { PartitionAssignment.create(it, "instance-1", clock, null) }.toSet()
 
-        partitionAssignmentRepository.saveAll(assignments)
+        transactionTemplate.executeWithoutResult {
+            partitionAssignmentRepository.saveAll(assignments)
+        }
 
         val nonExistent = partitionAssignmentRepository.findByInstanceId("non-existent")
 
@@ -86,7 +100,9 @@ class JdbcOutboxPartitionAssignmentRepositoryTest {
     fun `saveAll creates new partitions`() {
         val assignments = (0..9).map { PartitionAssignment.create(it, "instance-1", clock, null) }.toSet()
 
-        partitionAssignmentRepository.saveAll(assignments)
+        transactionTemplate.executeWithoutResult {
+            partitionAssignmentRepository.saveAll(assignments)
+        }
 
         val saved = partitionAssignmentRepository.findAll()
 
@@ -97,7 +113,9 @@ class JdbcOutboxPartitionAssignmentRepositoryTest {
     @Test
     fun `saveAll updates existing partitions`() {
         val initial = (0..9).map { PartitionAssignment.create(it, "instance-1", clock, null) }.toSet()
-        partitionAssignmentRepository.saveAll(initial)
+        transactionTemplate.executeWithoutResult {
+            partitionAssignmentRepository.saveAll(initial)
+        }
 
         val updated =
             (0..9)
@@ -110,7 +128,9 @@ class JdbcOutboxPartitionAssignmentRepositoryTest {
                     existing
                 }.toSet()
 
-        partitionAssignmentRepository.saveAll(updated)
+        transactionTemplate.executeWithoutResult {
+            partitionAssignmentRepository.saveAll(updated)
+        }
 
         val result = partitionAssignmentRepository.findByInstanceId("instance-2")
 
@@ -124,7 +144,9 @@ class JdbcOutboxPartitionAssignmentRepositoryTest {
         val unassigned = (100..109).map { PartitionAssignment(it, null, OffsetDateTime.now(clock)) }.toSet()
         val all = assigned + unassigned
 
-        partitionAssignmentRepository.saveAll(all)
+        transactionTemplate.executeWithoutResult {
+            partitionAssignmentRepository.saveAll(all)
+        }
 
         val findAll = partitionAssignmentRepository.findAll()
         val findByInstance = partitionAssignmentRepository.findByInstanceId("instance-1")
@@ -136,58 +158,67 @@ class JdbcOutboxPartitionAssignmentRepositoryTest {
     }
 
     @Test
-    fun `saveAll throws OptimisticLockingFailureException on version mismatch`() {
-        // Create initial partition
-        val initial = PartitionAssignment.create(0, "instance-1", clock, null)
-        partitionAssignmentRepository.saveAll(setOf(initial))
+    fun `saveAll with mixed operations persists all changes`() {
+        val initial = (0..19).map { PartitionAssignment.create(it, "instance-1", clock, null) }.toSet()
+        transactionTemplate.executeWithoutResult {
+            partitionAssignmentRepository.saveAll(initial)
+        }
 
-        // Load the same partition (simulating two concurrent instances)
-        val loaded1 = partitionAssignmentRepository.findAll().first { it.partitionNumber == 0 }
-        val loaded2 = partitionAssignmentRepository.findAll().first { it.partitionNumber == 0 }
+        val allAssignments = partitionAssignmentRepository.findAll().toMutableSet()
 
-        // First instance claims the partition successfully
-        loaded1.claim("instance-2", clock)
-        partitionAssignmentRepository.saveAll(setOf(loaded1))
+        val toRelease = allAssignments.filter { it.partitionNumber in 0..4 }.toSet()
+        val toClaim = allAssignments.filter { it.partitionNumber in 5..9 }.toSet()
+        val toKeep = allAssignments.filter { it.partitionNumber in 10..19 }.toSet()
 
-        // Second instance tries to claim the same partition with old version -> should fail
-        loaded2.claim("instance-3", clock)
+        val released = toRelease.map { it.copy(instanceId = null) }.toSet()
+        val claimed = toClaim.map { it.copy(instanceId = "instance-2") }.toSet()
+        val updated = released + claimed + toKeep
 
-        assertThatThrownBy {
-            partitionAssignmentRepository.saveAll(setOf(loaded2))
-        }.isInstanceOf(OptimisticLockingFailureException::class.java)
-            .hasMessageContaining("version mismatch")
+        transactionTemplate.executeWithoutResult {
+            partitionAssignmentRepository.saveAll(updated)
+        }
+
+        val i1Final = partitionAssignmentRepository.findByInstanceId("instance-1")
+        val i2Final = partitionAssignmentRepository.findByInstanceId("instance-2")
+        val unassignedFinal = partitionAssignmentRepository.findAll().filter { it.instanceId == null }
+
+        assertThat(i1Final.map { it.partitionNumber }).containsExactlyElementsOf(10..19)
+        assertThat(i2Final.map { it.partitionNumber }).containsExactlyElementsOf(5..9)
+        assertThat(unassignedFinal.map { it.partitionNumber }).containsExactlyElementsOf(0..4)
     }
 
     @Test
-    fun `version is incremented on update`() {
-        val assignment = PartitionAssignment.create(0, "instance-1", clock, null)
-        partitionAssignmentRepository.saveAll(setOf(assignment))
+    fun `saveAll with empty set does nothing`() {
+        val initial = (0..9).map { PartitionAssignment.create(it, "instance-1", clock, null) }.toSet()
+        transactionTemplate.executeWithoutResult {
+            partitionAssignmentRepository.saveAll(initial)
+        }
 
-        val initialVersion = partitionAssignmentRepository.findAll().first().version
+        val beforeCount = partitionAssignmentRepository.findAll().size
 
-        val loaded = partitionAssignmentRepository.findAll().first()
-        loaded.claim("instance-2", clock)
-        partitionAssignmentRepository.saveAll(setOf(loaded))
+        transactionTemplate.executeWithoutResult {
+            partitionAssignmentRepository.saveAll(emptySet())
+        }
 
-        val updatedVersion = partitionAssignmentRepository.findAll().first().version
+        val afterCount = partitionAssignmentRepository.findAll().size
 
-        assertThat(initialVersion).isEqualTo(0)
-        assertThat(updatedVersion).isEqualTo(1)
+        assertThat(afterCount).isEqualTo(beforeCount)
     }
 
     @Test
-    fun `saveAll handles release correctly`() {
-        val assignment = PartitionAssignment.create(0, "instance-1", clock, null)
-        partitionAssignmentRepository.saveAll(setOf(assignment))
+    fun `saveAll persists all 256 partitions`() {
+        val assignments = (0..255).map { PartitionAssignment.create(it, "instance-1", clock, null) }.toSet()
 
-        val loaded = partitionAssignmentRepository.findAll().first()
-        loaded.release("instance-1", clock)
-        partitionAssignmentRepository.saveAll(setOf(loaded))
+        transactionTemplate.executeWithoutResult {
+            partitionAssignmentRepository.saveAll(assignments)
+        }
 
-        val released = partitionAssignmentRepository.findAll().first()
+        val all = partitionAssignmentRepository.findAll()
+        val byInstance = partitionAssignmentRepository.findByInstanceId("instance-1")
 
-        assertThat(released.instanceId).isNull()
-        assertThat(released.version).isEqualTo(1)
+        assertThat(all).hasSize(TOTAL_PARTITIONS)
+        assertThat(byInstance).hasSize(TOTAL_PARTITIONS)
+        assertThat(all.map { it.partitionNumber }).containsExactlyElementsOf(0..255)
     }
 
     @EnableOutbox

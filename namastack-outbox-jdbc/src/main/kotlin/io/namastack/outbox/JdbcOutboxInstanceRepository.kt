@@ -3,7 +3,7 @@ package io.namastack.outbox
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.instance.OutboxInstanceStatus
-import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.OffsetDateTime
 
@@ -13,18 +13,16 @@ import java.time.OffsetDateTime
  * Provides database operations for instance registration, heartbeat updates,
  * and cleanup of dead instances.
  *
- * @param jdbcTemplate JDBC template for database operations
+ * @param jdbcClient JDBC client for database operations
  * @param transactionTemplate Transaction template for programmatic transaction management
  *
  * @author Roland Beisel
- * @since 1.0.0
+ * @since 1.1.0
  */
 internal open class JdbcOutboxInstanceRepository(
-    private val jdbcTemplate: JdbcTemplate,
+    private val jdbcClient: JdbcClient,
     private val transactionTemplate: TransactionTemplate,
 ) : OutboxInstanceRepository {
-    private val rowMapper = OutboxInstanceRowMapper()
-
     /**
      * Query to update an existing instance.
      */
@@ -119,9 +117,10 @@ internal open class JdbcOutboxInstanceRepository(
      */
     override fun save(instance: OutboxInstance): OutboxInstance =
         transactionTemplate.execute {
-            val updated = tryUpdate(instance)
+            val entity = JdbcOutboxInstanceEntityMapper.map(instance)
+            val updated = tryUpdate(entity)
             if (updated == 0) {
-                insert(instance)
+                insert(entity)
             }
             instance
         }
@@ -130,18 +129,36 @@ internal open class JdbcOutboxInstanceRepository(
      * Finds instance by ID.
      */
     override fun findById(instanceId: String): OutboxInstance? =
-        jdbcTemplate.query(findByIdQuery, rowMapper, instanceId).firstOrNull()
+        jdbcClient
+            .sql(findByIdQuery)
+            .param(instanceId)
+            .query(JdbcOutboxInstanceEntity::class.java)
+            .optional()
+            .map { JdbcOutboxInstanceEntityMapper.map(it) }
+            .orElse(null)
 
     /**
      * Finds all instances ordered by creation time.
      */
-    override fun findAll(): List<OutboxInstance> = jdbcTemplate.query(findAllQuery, rowMapper)
+    override fun findAll(): List<OutboxInstance> =
+        jdbcClient
+            .sql(findAllQuery)
+            .query(JdbcOutboxInstanceEntity::class.java)
+            .list()
+            .filterNotNull()
+            .map { JdbcOutboxInstanceEntityMapper.map(it) }
 
     /**
      * Finds instances by status ordered by last heartbeat.
      */
     override fun findByStatus(status: OutboxInstanceStatus): List<OutboxInstance> =
-        jdbcTemplate.query(findByStatusQuery, rowMapper, status.name)
+        jdbcClient
+            .sql(findByStatusQuery)
+            .param(status.name)
+            .query(JdbcOutboxInstanceEntity::class.java)
+            .list()
+            .filterNotNull()
+            .map { JdbcOutboxInstanceEntityMapper.map(it) }
 
     /**
      * Finds all active instances.
@@ -155,13 +172,15 @@ internal open class JdbcOutboxInstanceRepository(
         val activeStatuses = listOf(OutboxInstanceStatus.ACTIVE, OutboxInstanceStatus.SHUTTING_DOWN)
         val statusPlaceholders = activeStatuses.joinToString(",") { "?" }
         val query = findStaleHeartbeatQueryTemplate.format(statusPlaceholders).trimIndent()
-        val args =
-            buildList<Any> {
-                add(cutoffTime)
-                addAll(activeStatuses.map { it.name })
-            }
 
-        return jdbcTemplate.query(query, rowMapper, *args.toTypedArray())
+        val clientBuilder = jdbcClient.sql(query).param(cutoffTime)
+        activeStatuses.forEach { clientBuilder.param(it.name) }
+
+        return clientBuilder
+            .query(JdbcOutboxInstanceEntity::class.java)
+            .list()
+            .filterNotNull()
+            .map { JdbcOutboxInstanceEntityMapper.map(it) }
     }
 
     /**
@@ -172,7 +191,13 @@ internal open class JdbcOutboxInstanceRepository(
         timestamp: OffsetDateTime,
     ): Boolean =
         transactionTemplate.execute {
-            val updated = jdbcTemplate.update(updateHeartbeatQuery.trimIndent(), timestamp, timestamp, instanceId)
+            val updated =
+                jdbcClient
+                    .sql(updateHeartbeatQuery.trimIndent())
+                    .param(timestamp)
+                    .param(timestamp)
+                    .param(instanceId)
+                    .update()
             updated > 0
         } ?: false
 
@@ -185,7 +210,13 @@ internal open class JdbcOutboxInstanceRepository(
         timestamp: OffsetDateTime,
     ): Boolean =
         transactionTemplate.execute {
-            val updated = jdbcTemplate.update(updateStatusQuery.trimIndent(), status.name, timestamp, instanceId)
+            val updated =
+                jdbcClient
+                    .sql(updateStatusQuery.trimIndent())
+                    .param(status.name)
+                    .param(timestamp)
+                    .param(instanceId)
+                    .update()
             updated > 0
         } ?: false
 
@@ -193,50 +224,55 @@ internal open class JdbcOutboxInstanceRepository(
      * Counts instances by status.
      */
     override fun countByStatus(status: OutboxInstanceStatus): Long =
-        jdbcTemplate.queryForObject(countByStatusQuery, Long::class.java, status.name) ?: 0L
+        jdbcClient
+            .sql(countByStatusQuery)
+            .param(status.name)
+            .query(Long::class.java)
+            .single()
 
     /**
      * Deletes instance by ID.
      */
-    override fun deleteById(instanceId: String): Boolean {
-        var deleted = false
-        transactionTemplate.executeWithoutResult {
-            val rows = jdbcTemplate.update(deleteByIdQuery.trimIndent(), instanceId)
-            deleted = rows > 0
-        }
-        return deleted
-    }
+    override fun deleteById(instanceId: String): Boolean =
+        transactionTemplate.execute {
+            val deleted =
+                jdbcClient
+                    .sql(deleteByIdQuery.trimIndent())
+                    .param(instanceId)
+                    .update()
+            deleted > 0
+        } ?: false
 
     /**
      * Attempts to update an existing instance. Returns number of rows updated.
      */
-    private fun tryUpdate(instance: OutboxInstance): Int =
-        jdbcTemplate.update(
-            updateInstanceQuery.trimIndent(),
-            instance.hostname,
-            instance.port,
-            instance.status.name,
-            instance.startedAt,
-            instance.lastHeartbeat,
-            instance.createdAt,
-            instance.updatedAt,
-            instance.instanceId,
-        )
+    private fun tryUpdate(entity: JdbcOutboxInstanceEntity): Int =
+        jdbcClient
+            .sql(updateInstanceQuery.trimIndent())
+            .param(entity.hostname)
+            .param(entity.port)
+            .param(entity.status.name)
+            .param(entity.startedAt)
+            .param(entity.lastHeartbeat)
+            .param(entity.createdAt)
+            .param(entity.updatedAt)
+            .param(entity.instanceId)
+            .update()
 
     /**
      * Inserts a new instance into the database.
      */
-    private fun insert(instance: OutboxInstance) {
-        jdbcTemplate.update(
-            insertInstanceQuery.trimIndent(),
-            instance.instanceId,
-            instance.hostname,
-            instance.port,
-            instance.status.name,
-            instance.startedAt,
-            instance.lastHeartbeat,
-            instance.createdAt,
-            instance.updatedAt,
-        )
+    private fun insert(entity: JdbcOutboxInstanceEntity) {
+        jdbcClient
+            .sql(insertInstanceQuery.trimIndent())
+            .param(entity.instanceId)
+            .param(entity.hostname)
+            .param(entity.port)
+            .param(entity.status.name)
+            .param(entity.startedAt)
+            .param(entity.lastHeartbeat)
+            .param(entity.createdAt)
+            .param(entity.updatedAt)
+            .update()
     }
 }
