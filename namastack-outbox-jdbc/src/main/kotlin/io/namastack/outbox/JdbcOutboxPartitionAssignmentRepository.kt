@@ -35,7 +35,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
      */
     private val findByInstanceIdQuery = """
         SELECT * FROM outbox_partition
-        WHERE instance_id = ?
+        WHERE instance_id = :instanceId
     """
 
     /**
@@ -43,8 +43,8 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
      */
     private val updatePartitionQuery = """
         UPDATE outbox_partition
-        SET instance_id = ?, version = ?, updated_at = ?
-        WHERE partition_number = ? AND version = ?
+        SET instance_id = :instanceId, version = :version, updated_at = :updatedAt
+        WHERE partition_number = :partitionNumber AND version = :originalVersion
     """
 
     /**
@@ -52,7 +52,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
      */
     private val partitionExistsQuery = """
         SELECT COUNT(*) FROM outbox_partition
-        WHERE partition_number = ?
+        WHERE partition_number = :partitionNumber
     """
 
     /**
@@ -60,7 +60,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
      */
     private val insertPartitionQuery = """
         INSERT INTO outbox_partition (partition_number, instance_id, version, updated_at)
-        VALUES (?, ?, ?, ?)
+        VALUES (:partitionNumber, :instanceId, :version, :updatedAt)
     """
 
     /**
@@ -81,7 +81,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
     override fun findByInstanceId(instanceId: String): Set<PartitionAssignment> =
         jdbcClient
             .sql(findByInstanceIdQuery)
-            .param(instanceId)
+            .param("instanceId", instanceId)
             .query(JdbcOutboxPartitionAssignmentEntity::class.java)
             .list()
             .filterNotNull()
@@ -128,11 +128,11 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
     ): Int =
         jdbcClient
             .sql(updatePartitionQuery.trimIndent())
-            .param(entity.instanceId)
-            .param(newVersion)
-            .param(entity.updatedAt)
-            .param(entity.partitionNumber)
-            .param(originalVersion ?: 0)
+            .param("instanceId", entity.instanceId)
+            .param("version", newVersion)
+            .param("updatedAt", entity.updatedAt)
+            .param("partitionNumber", entity.partitionNumber)
+            .param("originalVersion", originalVersion ?: 0)
             .update()
 
     /**
@@ -155,7 +155,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
     private fun partitionExists(partitionNumber: Int): Boolean =
         jdbcClient
             .sql(partitionExistsQuery)
-            .param(partitionNumber)
+            .param("partitionNumber", partitionNumber)
             .query(Int::class.java)
             .single() > 0
 
@@ -165,10 +165,10 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
     private fun insertPartition(entity: JdbcOutboxPartitionAssignmentEntity) {
         jdbcClient
             .sql(insertPartitionQuery.trimIndent())
-            .param(entity.partitionNumber)
-            .param(entity.instanceId)
-            .param(0) // Initial version is 0
-            .param(entity.updatedAt)
+            .param("partitionNumber", entity.partitionNumber)
+            .param("instanceId", entity.instanceId)
+            .param("version", 0) // Initial version is 0
+            .param("updatedAt", entity.updatedAt)
             .update()
     }
 }
