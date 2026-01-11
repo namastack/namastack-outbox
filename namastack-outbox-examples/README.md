@@ -6,7 +6,7 @@ This directory contains various example projects demonstrating different feature
 
 ### 🚀 Getting Started
 
-- **[namastack-outbox-example-h2](namastack-outbox-example-h2)** - Basic outbox pattern setup with H2 in-memory database. Perfect starting point.
+- **[namastack-outbox-example-h2](namastack-outbox-example-h2)** - Basic outbox pattern setup with H2 in-memory database using JPA. Perfect starting point.
 
 ### 🎯 Handler Registration
 
@@ -24,6 +24,7 @@ This directory contains various example projects demonstrating different feature
 
 ### 💾 Database Support
 
+- **[namastack-outbox-example-jdbc](namastack-outbox-example-jdbc)** - JDBC-based implementation with H2 (no JPA/Hibernate required)
 - **[namastack-outbox-example-mysql](namastack-outbox-example-mysql)** - MySQL database integration
 - **[namastack-outbox-example-mariadb](namastack-outbox-example-mariadb)** - MariaDB database integration
 - **[namastack-outbox-example-postgresql](namastack-outbox-example-postgresql)** - PostgreSQL database integration

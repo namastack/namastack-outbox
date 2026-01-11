@@ -196,13 +196,6 @@
       "description": "Interval in seconds between instance heartbeats to indicate the instance is still active"
     },
     {
-      "name": "outbox.instance.new-instance-detection-interval-seconds",
-      "type": "java.lang.Long",
-      "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
-      "defaultValue": 10,
-      "description": "Interval in seconds for detecting new instances that have joined the cluster"
-    },
-    {
       "name": "outbox.multicaster.enabled",
       "type": "java.lang.Boolean",
       "sourceType": "io.namastack.outbox.OutboxProperties",

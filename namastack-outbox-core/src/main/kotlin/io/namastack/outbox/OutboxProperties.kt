@@ -54,13 +54,11 @@ data class OutboxProperties(
      * @param gracefulShutdownTimeoutSeconds Timeout in seconds for graceful shutdown
      * @param staleInstanceTimeoutSeconds Timeout in seconds to consider an instance stale
      * @param heartbeatIntervalSeconds Interval in seconds between heartbeats
-     * @param newInstanceDetectionIntervalSeconds Interval in seconds for detecting new instances
      */
     data class Instance(
         var gracefulShutdownTimeoutSeconds: Long = 15,
         var staleInstanceTimeoutSeconds: Long = 30,
         var heartbeatIntervalSeconds: Long = 5,
-        var newInstanceDetectionIntervalSeconds: Long = 10,
     )
 
     /**

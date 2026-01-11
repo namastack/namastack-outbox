@@ -33,7 +33,6 @@ class OutboxInstanceRegistryTest {
                     gracefulShutdownTimeoutSeconds = 1,
                     staleInstanceTimeoutSeconds = 2,
                     heartbeatIntervalSeconds = 1,
-                    newInstanceDetectionIntervalSeconds = 2,
                 ),
         )
 

@@ -1,0 +1,2 @@
+io.namastack.outbox.config.JdbcOutboxAutoConfiguration
+io.namastack.outbox.config.JdbcOutboxSchemaAutoConfiguration
