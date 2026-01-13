@@ -12,7 +12,8 @@ import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
-import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.beans.factory.BeanFactory
+import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigureAfter
 import org.springframework.boot.autoconfigure.AutoConfigureBefore
@@ -57,7 +58,7 @@ class JpaOutboxAutoConfiguration {
      * @param entityManagerFactory Primary JPA entity manager factory
      * @return Shared, transaction-aware entity manager for outbox operations
      */
-    @Bean("outboxEntityManager")
+    @Bean("outboxEntityManager", autowireCandidate = false)
     @ConditionalOnMissingBean(name = ["outboxEntityManager"])
     internal fun outboxEntityManager(entityManagerFactory: EntityManagerFactory): EntityManager =
         SharedEntityManagerCreator.createSharedEntityManager(entityManagerFactory)
@@ -68,7 +69,7 @@ class JpaOutboxAutoConfiguration {
      * @param transactionManager Platform transaction manager
      * @return Transaction template for outbox operations
      */
-    @Bean("outboxTransactionTemplate")
+    @Bean("outboxTransactionTemplate", autowireCandidate = false)
     @ConditionalOnMissingBean(name = ["outboxTransactionTemplate"])
     internal fun outboxTransactionTemplate(transactionManager: PlatformTransactionManager): TransactionTemplate =
         TransactionTemplate(transactionManager)
@@ -76,8 +77,7 @@ class JpaOutboxAutoConfiguration {
     /**
      * Creates a JPA-based outbox record repository.
      *
-     * @param entityManager JPA entity manager
-     * @param transactionTemplate Transaction template for programmatic transaction management
+     * @param beanFactory Bean factory for retrieving outbox-specific beans
      * @param outboxRecordEntityMapper Mapper for converting between domain objects and JPA entities
      * @param clock Clock for time-based operations
      * @return JPA outbox record repository implementation
@@ -85,12 +85,44 @@ class JpaOutboxAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     internal fun outboxRecordRepository(
-        @Qualifier("outboxEntityManager") entityManager: EntityManager,
-        @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
+        beanFactory: BeanFactory,
         outboxRecordEntityMapper: OutboxRecordEntityMapper,
         clock: Clock,
     ): OutboxRecordRepository =
-        JpaOutboxRecordRepository(entityManager, transactionTemplate, outboxRecordEntityMapper, clock)
+        JpaOutboxRecordRepository(
+            entityManager = beanFactory.getBean<EntityManager>("outboxEntityManager"),
+            transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
+            entityMapper = outboxRecordEntityMapper,
+            clock = clock,
+        )
+
+    /**
+     * Creates a JPA-based outbox instance repository.
+     *
+     * @param beanFactory Bean factory for retrieving outbox-specific beans
+     * @return JPA outbox instance repository implementation
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    internal fun outboxInstanceRepository(beanFactory: BeanFactory): OutboxInstanceRepository =
+        JpaOutboxInstanceRepository(
+            entityManager = beanFactory.getBean<EntityManager>("outboxEntityManager"),
+            transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
+        )
+
+    /**
+     * Creates a JPA-based outbox partition repository.
+     *
+     * @param beanFactory Bean factory for retrieving outbox-specific beans
+     * @return JPA outbox partition repository implementation
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    internal fun outboxPartitionAssignmentRepository(beanFactory: BeanFactory): PartitionAssignmentRepository =
+        JpaOutboxPartitionAssignmentRepository(
+            entityManager = beanFactory.getBean<EntityManager>("outboxEntityManager"),
+            transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
+        )
 
     /**
      * Creates the entity mapper for outbox records.
@@ -102,32 +134,4 @@ class JpaOutboxAutoConfiguration {
     @ConditionalOnMissingBean
     internal fun outboxRecordEntityMapper(recordSerializer: OutboxPayloadSerializer): OutboxRecordEntityMapper =
         OutboxRecordEntityMapper(recordSerializer)
-
-    /**
-     * Creates a JPA-based outbox instance repository.
-     *
-     * @param entityManager JPA entity manager
-     * @param transactionTemplate Transaction template for programmatic transaction management
-     * @return JPA outbox instance repository implementation
-     */
-    @Bean
-    @ConditionalOnMissingBean
-    internal fun outboxInstanceRepository(
-        @Qualifier("outboxEntityManager") entityManager: EntityManager,
-        @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
-    ): OutboxInstanceRepository = JpaOutboxInstanceRepository(entityManager, transactionTemplate)
-
-    /**
-     * Creates a JPA-based outbox partition repository.
-     *
-     * @param entityManager JPA entity manager
-     * @param transactionTemplate Transaction template for programmatic transaction management
-     * @return JPA outbox partition repository implementation
-     */
-    @Bean
-    @ConditionalOnMissingBean
-    internal fun outboxPartitionAssignmentRepository(
-        @Qualifier("outboxEntityManager") entityManager: EntityManager,
-        @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
-    ): PartitionAssignmentRepository = JpaOutboxPartitionAssignmentRepository(entityManager, transactionTemplate)
 }

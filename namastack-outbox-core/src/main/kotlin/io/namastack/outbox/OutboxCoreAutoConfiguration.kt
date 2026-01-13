@@ -21,7 +21,6 @@ import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.springframework.beans.factory.BeanFactory
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.config.BeanDefinition
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
@@ -84,7 +83,7 @@ class OutboxCoreAutoConfiguration {
      * @param properties Outbox configuration properties
      * @return Configured ThreadPoolTaskExecutor with platform threads
      */
-    @Bean("outboxTaskExecutor")
+    @Bean("outboxTaskExecutor", autowireCandidate = false)
     @ConditionalOnMissingBean(name = ["outboxTaskExecutor"])
     @ConditionalOnThreading(Threading.PLATFORM)
     fun outboxTaskExecutor(
@@ -108,7 +107,7 @@ class OutboxCoreAutoConfiguration {
      * @param properties Outbox configuration properties
      * @return Configured SimpleAsyncTaskExecutor with virtual threads
      */
-    @Bean("outboxTaskExecutor")
+    @Bean("outboxTaskExecutor", autowireCandidate = false)
     @ConditionalOnMissingBean(name = ["outboxTaskExecutor"])
     @ConditionalOnThreading(Threading.VIRTUAL)
     fun outboxTaskExecutorVirtualThreads(
@@ -128,7 +127,7 @@ class OutboxCoreAutoConfiguration {
      *
      * @return ThreadPoolTaskScheduler for outbox batch jobs
      */
-    @Bean("outboxDefaultScheduler")
+    @Bean("outboxDefaultScheduler", autowireCandidate = false)
     @ConditionalOnMissingBean(name = ["outboxDefaultScheduler"])
     @ConditionalOnThreading(Threading.PLATFORM)
     fun outboxDefaultScheduler(builder: ThreadPoolTaskSchedulerBuilder): ThreadPoolTaskScheduler =
@@ -147,7 +146,7 @@ class OutboxCoreAutoConfiguration {
      * @param builder Builder for SimpleAsyncTaskScheduler
      * @return SimpleAsyncTaskScheduler for outbox batch jobs with virtual threads
      */
-    @Bean("outboxDefaultScheduler")
+    @Bean("outboxDefaultScheduler", autowireCandidate = false)
     @ConditionalOnMissingBean(name = ["outboxDefaultScheduler"])
     @ConditionalOnThreading(Threading.VIRTUAL)
     fun outboxDefaultSchedulerVirtualThreads(builder: SimpleAsyncTaskSchedulerBuilder): SimpleAsyncTaskScheduler =
@@ -164,7 +163,7 @@ class OutboxCoreAutoConfiguration {
      *
      * @return ThreadPoolTaskScheduler for coordination tasks
      */
-    @Bean("outboxRebalancingScheduler")
+    @Bean("outboxRebalancingScheduler", autowireCandidate = false)
     @ConditionalOnMissingBean(name = ["outboxRebalancingScheduler"])
     @ConditionalOnThreading(Threading.PLATFORM)
     fun outboxRebalancingScheduler(builder: ThreadPoolTaskSchedulerBuilder): ThreadPoolTaskScheduler =
@@ -183,7 +182,7 @@ class OutboxCoreAutoConfiguration {
      * @param builder Builder for SimpleAsyncTaskScheduler
      * @return SimpleAsyncTaskScheduler for coordination tasks with virtual threads
      */
-    @Bean("outboxRebalancingScheduler")
+    @Bean("outboxRebalancingScheduler", autowireCandidate = false)
     @ConditionalOnMissingBean(name = ["outboxRebalancingScheduler"])
     @ConditionalOnThreading(Threading.VIRTUAL)
     fun outboxRebalancingSchedulerVirtualThreads(builder: SimpleAsyncTaskSchedulerBuilder): SimpleAsyncTaskScheduler =
@@ -395,8 +394,8 @@ class OutboxCoreAutoConfiguration {
      * @param recordProcessorChain Root processor of the chain (PrimaryOutboxRecordProcessor)
      * @param partitionCoordinator Coordinator for partition assignments
      * @param properties Configuration properties
-     * @param taskExecutor TaskExecutor for parallel processing
      * @param clock Clock for time calculations
+     * @param beanFactory Factory for retrieving the outboxTaskExecutor bean
      * @return OutboxProcessingScheduler for coordinated processing
      */
     @Bean
@@ -406,10 +405,12 @@ class OutboxCoreAutoConfiguration {
         recordProcessorChain: OutboxRecordProcessor,
         partitionCoordinator: PartitionCoordinator,
         properties: OutboxProperties,
-        @Qualifier("outboxTaskExecutor") taskExecutor: TaskExecutor,
         clock: Clock,
-    ): OutboxProcessingScheduler =
-        OutboxProcessingScheduler(
+        beanFactory: BeanFactory,
+    ): OutboxProcessingScheduler {
+        val taskExecutor = beanFactory.getBean("outboxTaskExecutor") as TaskExecutor
+
+        return OutboxProcessingScheduler(
             recordRepository = recordRepository,
             recordProcessorChain = recordProcessorChain,
             partitionCoordinator = partitionCoordinator,
@@ -417,6 +418,7 @@ class OutboxCoreAutoConfiguration {
             properties = properties,
             clock = clock,
         )
+    }
 
     /**
      * Custom ApplicationEventMulticaster for outbox event handling.

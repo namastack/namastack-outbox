@@ -10,7 +10,8 @@ import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
-import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.beans.factory.BeanFactory
+import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigureAfter
 import org.springframework.boot.autoconfigure.AutoConfigureBefore
@@ -60,7 +61,7 @@ class JdbcOutboxAutoConfiguration {
      * @param dataSource DataSource to use
      * @return JdbcClient for outbox operations
      */
-    @Bean("outboxJdbcClient")
+    @Bean("outboxJdbcClient", autowireCandidate = false)
     @ConditionalOnMissingBean(name = ["outboxJdbcClient"])
     internal fun outboxJdbcClient(dataSource: DataSource): JdbcClient = JdbcClient.create(dataSource)
 
@@ -70,7 +71,7 @@ class JdbcOutboxAutoConfiguration {
      * @param transactionManager Platform transaction manager
      * @return Transaction template for outbox operations
      */
-    @Bean("outboxTransactionTemplate")
+    @Bean("outboxTransactionTemplate", autowireCandidate = false)
     @ConditionalOnMissingBean(name = ["outboxTransactionTemplate"])
     internal fun outboxTransactionTemplate(transactionManager: PlatformTransactionManager): TransactionTemplate =
         TransactionTemplate(transactionManager)
@@ -78,8 +79,7 @@ class JdbcOutboxAutoConfiguration {
     /**
      * Creates a JDBC-based outbox record repository.
      *
-     * @param jdbcClient JDBC client
-     * @param transactionTemplate Transaction template for programmatic transaction management
+     * @param beanFactory Bean factory for retrieving outbox-specific beans
      * @param jdbcOutboxRecordEntityMapper Mapper for converting between domain objects and JPA entities
      * @param clock Clock for time-based operations
      * @return JDBC outbox record repository implementation
@@ -87,16 +87,15 @@ class JdbcOutboxAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     internal fun outboxRecordRepository(
-        @Qualifier("outboxJdbcClient") jdbcClient: JdbcClient,
-        @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
+        beanFactory: BeanFactory,
         jdbcOutboxRecordEntityMapper: JdbcOutboxRecordEntityMapper,
         clock: Clock,
     ): OutboxRecordRepository =
         JdbcOutboxRecordRepository(
-            jdbcClient,
-            transactionTemplate,
-            jdbcOutboxRecordEntityMapper,
-            clock,
+            jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient"),
+            transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
+            entityMapper = jdbcOutboxRecordEntityMapper,
+            clock = clock,
         )
 
     /**
@@ -113,28 +112,28 @@ class JdbcOutboxAutoConfiguration {
     /**
      * Creates a JDBC-based outbox instance repository.
      *
-     * @param jdbcClient JDBC client
-     * @param transactionTemplate Transaction template for programmatic transaction management
+     * @param beanFactory Bean factory for retrieving outbox-specific beans
      * @return JDBC outbox instance repository implementation
      */
     @Bean
     @ConditionalOnMissingBean
-    internal fun outboxInstanceRepository(
-        @Qualifier("outboxJdbcClient") jdbcClient: JdbcClient,
-        @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
-    ): OutboxInstanceRepository = JdbcOutboxInstanceRepository(jdbcClient, transactionTemplate)
+    internal fun outboxInstanceRepository(beanFactory: BeanFactory): OutboxInstanceRepository =
+        JdbcOutboxInstanceRepository(
+            jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient"),
+            transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
+        )
 
     /**
      * Creates a JDBC-based outbox partition repository.
      *
-     * @param jdbcClient JDBC client
-     * @param transactionTemplate Transaction template for programmatic transaction management
+     * @param beanFactory Bean factory for retrieving outbox-specific beans
      * @return JDBC outbox partition repository implementation
      */
     @Bean
     @ConditionalOnMissingBean
-    internal fun outboxPartitionAssignmentRepository(
-        @Qualifier("outboxJdbcClient") jdbcClient: JdbcClient,
-        @Qualifier("outboxTransactionTemplate") transactionTemplate: TransactionTemplate,
-    ): PartitionAssignmentRepository = JdbcOutboxPartitionAssignmentRepository(jdbcClient, transactionTemplate)
+    internal fun outboxPartitionAssignmentRepository(beanFactory: BeanFactory): PartitionAssignmentRepository =
+        JdbcOutboxPartitionAssignmentRepository(
+            jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient"),
+            transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
+        )
 }
