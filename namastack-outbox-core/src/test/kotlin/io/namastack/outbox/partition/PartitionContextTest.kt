@@ -4,7 +4,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import java.time.Clock
-import java.time.OffsetDateTime
+import java.time.Instant
 
 @DisplayName("PartitionContext")
 class PartitionContextTest {
@@ -95,9 +95,9 @@ class PartitionContextTest {
         val assignments =
             setOf(
                 PartitionAssignment.create(0, "i-1", clock, null),
-                PartitionAssignment(50, null, OffsetDateTime.now()),
+                PartitionAssignment(50, null, Instant.now()),
                 PartitionAssignment.create(100, "i-2", clock, null),
-                PartitionAssignment(150, null, OffsetDateTime.now()),
+                PartitionAssignment(150, null, Instant.now()),
                 PartitionAssignment.create(255, "i-1", clock, null),
             )
         val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments)
@@ -279,7 +279,7 @@ class PartitionContextTest {
     fun `getPartitionStats returns correct statistics with unassigned partitions`() {
         val i1Partitions = (0..99).map { PartitionAssignment.create(it, "i-1", clock, null) }.toSet()
         val i2Partitions = (100..199).map { PartitionAssignment.create(it, "i-2", clock, null) }.toSet()
-        val unassignedPartitions = (200..255).map { PartitionAssignment(it, null, OffsetDateTime.now()) }.toSet()
+        val unassignedPartitions = (200..255).map { PartitionAssignment(it, null, Instant.now()) }.toSet()
         val assignments = i1Partitions + i2Partitions + unassignedPartitions
 
         val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments)
@@ -313,7 +313,7 @@ class PartitionContextTest {
 
     @Test
     fun `getPartitionStats returns zero average when no instances own partitions`() {
-        val unassignedPartitions = (0..255).map { PartitionAssignment(it, null, OffsetDateTime.now()) }.toSet()
+        val unassignedPartitions = (0..255).map { PartitionAssignment(it, null, Instant.now()) }.toSet()
 
         val ctx = PartitionContext("i-1", setOf("i-1"), unassignedPartitions)
         val stats = ctx.getPartitionStats()

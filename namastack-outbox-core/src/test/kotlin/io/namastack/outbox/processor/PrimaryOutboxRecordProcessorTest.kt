@@ -16,7 +16,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
-import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 class PrimaryOutboxRecordProcessorTest {
@@ -51,7 +50,7 @@ class PrimaryOutboxRecordProcessorTest {
 
         assertThat(result).isTrue()
         assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
-        assertThat(record.completedAt).isEqualTo(OffsetDateTime.now(clock))
+        assertThat(record.completedAt).isEqualTo(Instant.now(clock))
 
         verify { handlerInvoker.dispatch(record.payload, any<OutboxRecordMetadata>()) }
         verify { recordRepository.save(record) }
@@ -133,7 +132,7 @@ class PrimaryOutboxRecordProcessorTest {
             createRecord(
                 key = "test-key",
                 handlerId = "test-handler",
-                createdAt = OffsetDateTime.parse("2024-01-01T09:00:00Z"),
+                createdAt = Instant.parse("2024-01-01T09:00:00Z"),
             )
         properties.processing.deleteCompletedRecords = true
 
@@ -145,7 +144,7 @@ class PrimaryOutboxRecordProcessorTest {
 
         assertThat(metadataSlot.captured.key).isEqualTo("test-key")
         assertThat(metadataSlot.captured.handlerId).isEqualTo("test-handler")
-        assertThat(metadataSlot.captured.createdAt).isEqualTo(OffsetDateTime.parse("2024-01-01T09:00:00Z"))
+        assertThat(metadataSlot.captured.createdAt).isEqualTo(Instant.parse("2024-01-01T09:00:00Z"))
     }
 
     @Test
@@ -201,7 +200,7 @@ class PrimaryOutboxRecordProcessorTest {
         key: String = "order-123",
         handlerId: String = "orderHandler",
         payload: Any? = mapOf("orderId" to "123"),
-        createdAt: OffsetDateTime = OffsetDateTime.now(clock),
+        createdAt: Instant = Instant.now(clock),
     ): OutboxRecord<Any?> =
         OutboxRecord.restore(
             id = id,

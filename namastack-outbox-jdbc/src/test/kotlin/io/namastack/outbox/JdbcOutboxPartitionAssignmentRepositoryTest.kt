@@ -16,7 +16,7 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
-import java.time.OffsetDateTime
+import java.time.Instant
 
 @JdbcTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -141,7 +141,7 @@ class JdbcOutboxPartitionAssignmentRepositoryTest {
     @Test
     fun `saveAll with unassigned partitions persists null instanceId`() {
         val assigned = (0..99).map { PartitionAssignment.create(it, "instance-1", clock, null) }.toSet()
-        val unassigned = (100..109).map { PartitionAssignment(it, null, OffsetDateTime.now(clock)) }.toSet()
+        val unassigned = (100..109).map { PartitionAssignment(it, null, Instant.now(clock)) }.toSet()
         val all = assigned + unassigned
 
         transactionTemplate.executeWithoutResult {

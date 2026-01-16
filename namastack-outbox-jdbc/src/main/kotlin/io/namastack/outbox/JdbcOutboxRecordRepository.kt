@@ -2,7 +2,7 @@ package io.namastack.outbox
 
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * JDBC implementation of the OutboxRecordRepository and OutboxRecordStatusRepository interfaces.
@@ -260,7 +260,7 @@ internal open class JdbcOutboxRecordRepository(
         batchSize: Int,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): List<String> {
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
 
         val query =
             if (ignoreRecordKeysWithPreviousFailure) {

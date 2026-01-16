@@ -1,6 +1,6 @@
 package io.namastack.outbox.instance
 
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * Repository interface for managing outbox instance records.
@@ -56,7 +56,7 @@ interface OutboxInstanceRepository {
      * @param cutoffTime The cutoff time for stale heartbeats
      * @return List of instances with heartbeats older than cutoff time
      */
-    fun findInstancesWithStaleHeartbeat(cutoffTime: OffsetDateTime): List<OutboxInstance>
+    fun findInstancesWithStaleHeartbeat(cutoffTime: Instant): List<OutboxInstance>
 
     /**
      * Updates the heartbeat timestamp for an instance.
@@ -67,7 +67,7 @@ interface OutboxInstanceRepository {
      */
     fun updateHeartbeat(
         instanceId: String,
-        timestamp: OffsetDateTime,
+        timestamp: Instant,
     ): Boolean
 
     /**
@@ -81,7 +81,7 @@ interface OutboxInstanceRepository {
     fun updateStatus(
         instanceId: String,
         status: OutboxInstanceStatus,
-        timestamp: OffsetDateTime,
+        timestamp: Instant,
     ): Boolean
 
     /**

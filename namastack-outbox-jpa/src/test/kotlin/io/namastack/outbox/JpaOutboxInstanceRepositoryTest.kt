@@ -15,8 +15,9 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import java.time.Clock
-import java.time.OffsetDateTime
+import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.time.temporal.ChronoUnit.MINUTES
 
 @DataJpaTest
 @ImportAutoConfiguration(JpaOutboxAutoConfiguration::class, OutboxJacksonAutoConfiguration::class)
@@ -76,9 +77,9 @@ class JpaOutboxInstanceRepositoryTest {
 
     @Test
     fun `finds all instances ordered by created date`() {
-        val now = OffsetDateTime.now(clock)
-        val instance1 = createInstanceAtTime("instance-1", ACTIVE, now.minusMinutes(2))
-        val instance2 = createInstanceAtTime("instance-2", ACTIVE, now.minusMinutes(1))
+        val now = Instant.now(clock)
+        val instance1 = createInstanceAtTime("instance-1", ACTIVE, now.minus(2, MINUTES))
+        val instance2 = createInstanceAtTime("instance-2", ACTIVE, now.minus(1, MINUTES))
         val instance3 = createInstanceAtTime("instance-3", SHUTTING_DOWN, now)
 
         jpaOutboxInstanceRepository.save(instance1)
@@ -119,11 +120,12 @@ class JpaOutboxInstanceRepositoryTest {
 
     @Test
     fun `finds instances with stale heartbeat`() {
-        val cutoffTime = OffsetDateTime.now(clock)
-        val staleActive = createInstanceWithHeartbeat("stale-active", ACTIVE, cutoffTime.minusMinutes(1))
-        val staleShuttingDown = createInstanceWithHeartbeat("stale-shutting", SHUTTING_DOWN, cutoffTime.minusMinutes(2))
-        val recentActive = createInstanceWithHeartbeat("recent-active", ACTIVE, cutoffTime.plusMinutes(1))
-        val staleDead = createInstanceWithHeartbeat("stale-dead", DEAD, cutoffTime.minusMinutes(3))
+        val cutoffTime = Instant.now(clock)
+        val staleActive = createInstanceWithHeartbeat("stale-active", ACTIVE, cutoffTime.minus(1, MINUTES))
+        val staleShuttingDown =
+            createInstanceWithHeartbeat("stale-shutting", SHUTTING_DOWN, cutoffTime.minus(2, MINUTES))
+        val recentActive = createInstanceWithHeartbeat("recent-active", ACTIVE, cutoffTime.plus(1, MINUTES))
+        val staleDead = createInstanceWithHeartbeat("stale-dead", DEAD, cutoffTime.minus(3, MINUTES))
 
         jpaOutboxInstanceRepository.save(staleActive)
         jpaOutboxInstanceRepository.save(staleShuttingDown)
@@ -138,8 +140,8 @@ class JpaOutboxInstanceRepositoryTest {
 
     @Test
     fun `finds instances with stale heartbeat returns empty when none exist`() {
-        val cutoffTime = OffsetDateTime.now(clock)
-        val recentInstance = createInstanceWithHeartbeat("recent", ACTIVE, cutoffTime.plusMinutes(1))
+        val cutoffTime = Instant.now(clock)
+        val recentInstance = createInstanceWithHeartbeat("recent", ACTIVE, cutoffTime.plus(1, MINUTES))
 
         jpaOutboxInstanceRepository.save(recentInstance)
 
@@ -178,7 +180,7 @@ class JpaOutboxInstanceRepositoryTest {
         val instance = createInstance("instance-1", ACTIVE)
         jpaOutboxInstanceRepository.save(instance)
 
-        val newHeartbeat = OffsetDateTime.now(clock).plusMinutes(1)
+        val newHeartbeat = Instant.now(clock).plus(1, MINUTES)
         val result = jpaOutboxInstanceRepository.updateHeartbeat("instance-1", newHeartbeat)
 
         assertThat(result).isTrue()
@@ -189,7 +191,7 @@ class JpaOutboxInstanceRepositoryTest {
 
     @Test
     fun `heartbeat update returns false for non-existent instance`() {
-        val newHeartbeat = OffsetDateTime.now(clock)
+        val newHeartbeat = Instant.now(clock)
         val result = jpaOutboxInstanceRepository.updateHeartbeat("non-existent", newHeartbeat)
 
         assertThat(result).isFalse()
@@ -200,7 +202,7 @@ class JpaOutboxInstanceRepositoryTest {
         val instance = createInstance("instance-1", ACTIVE)
         jpaOutboxInstanceRepository.save(instance)
 
-        val newTimestamp = OffsetDateTime.now(clock).plusMinutes(1)
+        val newTimestamp = Instant.now(clock).plus(1, MINUTES)
         val result = jpaOutboxInstanceRepository.updateStatus("instance-1", SHUTTING_DOWN, newTimestamp)
 
         assertThat(result).isTrue()
@@ -212,7 +214,7 @@ class JpaOutboxInstanceRepositoryTest {
 
     @Test
     fun `status update returns false for non-existent instance`() {
-        val newTimestamp = OffsetDateTime.now(clock)
+        val newTimestamp = Instant.now(clock)
         val result = jpaOutboxInstanceRepository.updateStatus("non-existent", SHUTTING_DOWN, newTimestamp)
 
         assertThat(result).isFalse()
@@ -251,7 +253,7 @@ class JpaOutboxInstanceRepositoryTest {
     private fun createInstanceAtTime(
         instanceId: String,
         status: OutboxInstanceStatus,
-        createdAt: OffsetDateTime,
+        createdAt: Instant,
     ): OutboxInstance =
         OutboxInstance(
             instanceId = instanceId,
@@ -267,9 +269,9 @@ class JpaOutboxInstanceRepositoryTest {
     private fun createInstanceWithHeartbeat(
         instanceId: String,
         status: OutboxInstanceStatus,
-        lastHeartbeat: OffsetDateTime,
+        lastHeartbeat: Instant,
     ): OutboxInstance {
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
         return OutboxInstance(
             instanceId = instanceId,
             hostname = "localhost",

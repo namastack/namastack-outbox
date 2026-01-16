@@ -6,16 +6,19 @@ import io.namastack.outbox.instance.OutboxInstanceStatus.DEAD
 import io.namastack.outbox.instance.OutboxInstanceStatus.SHUTTING_DOWN
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import java.time.OffsetDateTime
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.time.temporal.ChronoUnit.MINUTES
+import java.time.temporal.ChronoUnit.SECONDS
 
 class OutboxInstanceEntityMapperTest {
     @Test
     fun `maps OutboxInstance to OutboxInstanceEntity with all properties`() {
-        val now = OffsetDateTime.now()
-        val startedAt = now.minusMinutes(10)
-        val lastHeartbeat = now.minusMinutes(1)
-        val createdAt = now.minusMinutes(15)
-        val updatedAt = now.minusSeconds(30)
+        val now = Instant.now()
+        val startedAt = now.minus(10, MINUTES)
+        val lastHeartbeat = now.minus(1, MINUTES)
+        val createdAt = now.minus(15, MINUTES)
+        val updatedAt = now.minus(30, SECONDS)
 
         val instance =
             OutboxInstance(
@@ -43,11 +46,11 @@ class OutboxInstanceEntityMapperTest {
 
     @Test
     fun `maps OutboxInstanceEntity to OutboxInstance with all properties`() {
-        val now = OffsetDateTime.now()
-        val startedAt = now.minusMinutes(5)
-        val lastHeartbeat = now.minusSeconds(30)
-        val createdAt = now.minusMinutes(10)
-        val updatedAt = now.minusSeconds(15)
+        val now = Instant.now()
+        val startedAt = now.minus(5, MINUTES)
+        val lastHeartbeat = now.minus(30, SECONDS)
+        val createdAt = now.minus(10, MINUTES)
+        val updatedAt = now.minus(15, SECONDS)
 
         val entity =
             OutboxInstanceEntity(
@@ -75,7 +78,7 @@ class OutboxInstanceEntityMapperTest {
 
     @Test
     fun `maps OutboxInstance with DEAD status`() {
-        val now = OffsetDateTime.now()
+        val now = Instant.now()
 
         val instance =
             OutboxInstance(
@@ -83,10 +86,10 @@ class OutboxInstanceEntityMapperTest {
                 hostname = "failed-server",
                 port = 7070,
                 status = DEAD,
-                startedAt = now.minusHours(1),
-                lastHeartbeat = now.minusMinutes(30),
-                createdAt = now.minusHours(2),
-                updatedAt = now.minusMinutes(30),
+                startedAt = now.minus(1, ChronoUnit.HOURS),
+                lastHeartbeat = now.minus(30, MINUTES),
+                createdAt = now.minus(2, ChronoUnit.HOURS),
+                updatedAt = now.minus(30, MINUTES),
             )
 
         val entity = OutboxInstanceEntityMapper.toEntity(instance)
@@ -99,7 +102,7 @@ class OutboxInstanceEntityMapperTest {
 
     @Test
     fun `maps OutboxInstance with different port numbers`() {
-        val now = OffsetDateTime.now()
+        val now = Instant.now()
 
         val instance =
             OutboxInstance(
@@ -120,7 +123,7 @@ class OutboxInstanceEntityMapperTest {
 
     @Test
     fun `maps list of entities to instances`() {
-        val now = OffsetDateTime.now()
+        val now = Instant.now()
 
         val entity1 =
             OutboxInstanceEntity(
@@ -169,7 +172,7 @@ class OutboxInstanceEntityMapperTest {
 
     @Test
     fun `round trip conversion preserves all data`() {
-        val now = OffsetDateTime.now()
+        val now = Instant.now()
 
         val originalInstance =
             OutboxInstance(
@@ -177,10 +180,10 @@ class OutboxInstanceEntityMapperTest {
                 hostname = "round-trip-host",
                 port = 5432,
                 status = ACTIVE,
-                startedAt = now.minusMinutes(20),
-                lastHeartbeat = now.minusMinutes(2),
-                createdAt = now.minusMinutes(25),
-                updatedAt = now.minusMinutes(1),
+                startedAt = now.minus(20, MINUTES),
+                lastHeartbeat = now.minus(2, MINUTES),
+                createdAt = now.minus(25, MINUTES),
+                updatedAt = now.minus(1, MINUTES),
             )
 
         val entity = OutboxInstanceEntityMapper.toEntity(originalInstance)
@@ -191,7 +194,7 @@ class OutboxInstanceEntityMapperTest {
 
     @Test
     fun `maps instances with special hostname characters`() {
-        val now = OffsetDateTime.now()
+        val now = Instant.now()
 
         val instance =
             OutboxInstance(

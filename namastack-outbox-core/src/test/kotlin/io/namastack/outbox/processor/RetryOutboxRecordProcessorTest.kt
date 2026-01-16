@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.time.OffsetDateTime
 import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
 
 class RetryOutboxRecordProcessorTest {
     private lateinit var retryPolicyRegistry: OutboxRetryPolicyRegistry
@@ -56,7 +56,7 @@ class RetryOutboxRecordProcessorTest {
         val result = processor.handle(record)
 
         assertThat(result).isFalse()
-        assertThat(record.nextRetryAt).isEqualTo(OffsetDateTime.now(clock).plusMinutes(5))
+        assertThat(record.nextRetryAt).isEqualTo(Instant.now(clock).plus(5, ChronoUnit.MINUTES))
 
         verify { retryPolicyRegistry.getByHandlerId("test-handler") }
         verify { retryPolicy.shouldRetry(any()) }
@@ -144,7 +144,7 @@ class RetryOutboxRecordProcessorTest {
 
         processor.handle(record)
 
-        assertThat(record.nextRetryAt).isEqualTo(OffsetDateTime.now(clock).plusSeconds(30))
+        assertThat(record.nextRetryAt).isEqualTo(Instant.now(clock).plus(30, ChronoUnit.SECONDS))
 
         verify { retryPolicy.nextDelay(3) }
     }
@@ -204,7 +204,7 @@ class RetryOutboxRecordProcessorTest {
         val result = processor.handle(record)
 
         assertThat(result).isFalse()
-        assertThat(record.nextRetryAt).isEqualTo(OffsetDateTime.now(clock).plusMinutes(2))
+        assertThat(record.nextRetryAt).isEqualTo(Instant.now(clock).plus(2, ChronoUnit.MINUTES))
     }
 
     @Test

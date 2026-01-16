@@ -5,7 +5,7 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Table
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * JPA entity representing an outbox record in the database.
@@ -29,10 +29,10 @@ internal data class OutboxRecordEntity(
     val payload: String,
     val context: String?,
     val partitionNo: Int,
-    val createdAt: OffsetDateTime,
-    val completedAt: OffsetDateTime?,
+    val createdAt: Instant,
+    val completedAt: Instant?,
     val failureCount: Int,
     val failureReason: String?,
-    val nextRetryAt: OffsetDateTime,
+    val nextRetryAt: Instant,
     val handlerId: String,
 )

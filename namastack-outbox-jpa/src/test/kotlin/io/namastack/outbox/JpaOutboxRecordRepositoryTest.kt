@@ -18,8 +18,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
-import java.time.OffsetDateTime
+import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.time.temporal.ChronoUnit.MINUTES
 import java.util.UUID
 
 @DataJpaTest
@@ -109,21 +110,21 @@ class JpaOutboxRecordRepositoryTest {
 
     @Test
     fun `returns pending records ordered by createdAt asc`() {
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
         val recordKey = UUID.randomUUID().toString()
 
-        createNewRecordsForRecordKey(1, recordKey, NEW, now.minusMinutes(1))
-        createNewRecordsForRecordKey(1, recordKey, NEW, now.minusMinutes(2))
-        createNewRecordsForRecordKey(1, recordKey, NEW, now.minusMinutes(3))
+        createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(1, MINUTES))
+        createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(2, MINUTES))
+        createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(3, MINUTES))
 
         val records = jpaOutboxRecordRepository.findPendingRecords()
 
         assertThat(records).hasSize(3)
         assertThat(records.map { it.createdAt })
             .containsExactly(
-                now.minusMinutes(3),
-                now.minusMinutes(2),
-                now.minusMinutes(1),
+                now.minus(3, MINUTES),
+                now.minus(2, MINUTES),
+                now.minus(1, MINUTES),
             )
     }
 
@@ -190,20 +191,20 @@ class JpaOutboxRecordRepositoryTest {
     @Test
     fun `finds all incomplete records by record key ordered by created date`() {
         val recordKey = UUID.randomUUID().toString()
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
 
-        createNewRecordsForRecordKey(1, recordKey, NEW, now.minusMinutes(3))
-        createNewRecordsForRecordKey(1, recordKey, NEW, now.minusMinutes(1))
-        createNewRecordsForRecordKey(1, recordKey, NEW, now.minusMinutes(2))
+        createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(3, MINUTES))
+        createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(1, MINUTES))
+        createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(2, MINUTES))
         createNewRecordsForRecordKey(1, "other-record-key", NEW, now)
 
         val records = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey)
 
         assertThat(records).hasSize(3)
         assertThat(records.map { it.createdAt }).containsExactly(
-            now.minusMinutes(3),
-            now.minusMinutes(2),
-            now.minusMinutes(1),
+            now.minus(3, MINUTES),
+            now.minus(2, MINUTES),
+            now.minus(1, MINUTES),
         )
         assertThat(records.map { it.key }).allMatch { it == recordKey }
     }
@@ -348,10 +349,10 @@ class JpaOutboxRecordRepositoryTest {
     @Test
     fun `findRecordKeysInPartitions processes oldest record when multiple NEW records exist`() {
         val recordKey = UUID.randomUUID().toString()
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
 
-        createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minusMinutes(3))
-        createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minusMinutes(1))
+        createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES))
+        createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(1, MINUTES))
 
         val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
 
@@ -361,9 +362,9 @@ class JpaOutboxRecordRepositoryTest {
     @Test
     fun `findRecordKeysInPartitions allows processing when oldest record is ready`() {
         val recordKey = UUID.randomUUID().toString()
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
 
-        createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minusMinutes(3))
+        createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES))
 
         val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
 
@@ -372,15 +373,15 @@ class JpaOutboxRecordRepositoryTest {
 
     @Test
     fun `findRecordKeysInPartitions orders by oldest record creation time across partitions`() {
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
 
         val recordKey1 = UUID.randomUUID().toString()
         val recordKey2 = UUID.randomUUID().toString()
         val recordKey3 = UUID.randomUUID().toString()
 
-        createRecordWithPartitionAndTime(recordKey2, NEW, 1, now.minusMinutes(2))
-        createRecordWithPartitionAndTime(recordKey1, NEW, 2, now.minusMinutes(3))
-        createRecordWithPartitionAndTime(recordKey3, NEW, 1, now.minusMinutes(1))
+        createRecordWithPartitionAndTime(recordKey2, NEW, 1, now.minus(2, MINUTES))
+        createRecordWithPartitionAndTime(recordKey1, NEW, 2, now.minus(3, MINUTES))
+        createRecordWithPartitionAndTime(recordKey3, NEW, 1, now.minus(1, MINUTES))
 
         val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1, 2), NEW, 10, true)
 
@@ -419,7 +420,7 @@ class JpaOutboxRecordRepositoryTest {
     }
 
     private fun createFailedRecords(count: Int = 3) {
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
         (0 until count).forEach { _ ->
             jpaOutboxRecordRepository.save(
                 OutboxRecord.restore(
@@ -442,7 +443,7 @@ class JpaOutboxRecordRepositoryTest {
     }
 
     private fun createCompletedRecords(count: Int = 3) {
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
         (0 until count).forEach { _ ->
             jpaOutboxRecordRepository.save(
                 OutboxRecord.restore(
@@ -465,7 +466,7 @@ class JpaOutboxRecordRepositoryTest {
     }
 
     private fun createNewRecords(count: Int = 3) {
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
         (0 until count).forEach { _ ->
             jpaOutboxRecordRepository.save(
                 OutboxRecord.restore(
@@ -491,7 +492,7 @@ class JpaOutboxRecordRepositoryTest {
         count: Int = 3,
         recordKey: String,
         status: OutboxRecordStatus = NEW,
-        createdAt: OffsetDateTime = OffsetDateTime.now(clock),
+        createdAt: Instant = Instant.now(clock),
     ) {
         (0 until count).forEach { _ ->
             jpaOutboxRecordRepository.save(
@@ -518,7 +519,7 @@ class JpaOutboxRecordRepositoryTest {
         recordKey: String,
         status: OutboxRecordStatus,
         partition: Int,
-        createdAt: OffsetDateTime = OffsetDateTime.now(clock),
+        createdAt: Instant = Instant.now(clock),
     ) {
         jpaOutboxRecordRepository.save(
             OutboxRecord.restore(
@@ -542,7 +543,7 @@ class JpaOutboxRecordRepositoryTest {
     private fun createCompletedRecordsForRecordKey(
         count: Int,
         recordKey: String,
-        createdAt: OffsetDateTime = OffsetDateTime.now(clock),
+        createdAt: Instant = Instant.now(clock),
     ) {
         (0 until count).forEach { _ ->
             jpaOutboxRecordRepository.save(
@@ -569,7 +570,7 @@ class JpaOutboxRecordRepositoryTest {
         recordKey: String,
         status: OutboxRecordStatus,
         partition: Int,
-        createdAt: OffsetDateTime,
+        createdAt: Instant,
     ): OutboxRecord<String> {
         val record =
             OutboxRecord.restore(

@@ -1,6 +1,6 @@
 package io.namastack.outbox.handler
 
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * Metadata context for an outbox record during processing.
@@ -35,6 +35,6 @@ import java.time.OffsetDateTime
 data class OutboxRecordMetadata(
     val key: String,
     val handlerId: String,
-    val createdAt: OffsetDateTime,
+    val createdAt: Instant,
     val context: Map<String, String>,
 )

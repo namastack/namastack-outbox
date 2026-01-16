@@ -5,7 +5,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
-import java.time.OffsetDateTime
+import java.time.Instant
 
 @DisplayName("TypedFallbackHandlerMethod")
 class TypedFallbackHandlerMethodTest {
@@ -133,7 +133,7 @@ class TypedFallbackHandlerMethodTest {
         OutboxFailureContext(
             recordId = "test-record-id",
             recordKey = "test-record-key",
-            createdAt = OffsetDateTime.now(),
+            createdAt = Instant.now(),
             failureCount = 3,
             lastFailure = RuntimeException("Test exception"),
             handlerId = "test-handler-id",

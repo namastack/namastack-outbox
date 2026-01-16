@@ -19,7 +19,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
-import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 class FallbackOutboxRecordProcessorTest {
@@ -74,7 +73,7 @@ class FallbackOutboxRecordProcessorTest {
 
         assertThat(result).isTrue()
         assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
-        assertThat(record.completedAt).isEqualTo(OffsetDateTime.now(clock))
+        assertThat(record.completedAt).isEqualTo(Instant.now(clock))
 
         verify { fallbackHandlerInvoker.dispatch(any(), any<OutboxFailureContext>()) }
         verify { recordRepository.save(record) }
@@ -204,7 +203,7 @@ class FallbackOutboxRecordProcessorTest {
 
     @Test
     fun `handle passes failure context with all record details`() {
-        val createdAt = OffsetDateTime.parse("2024-01-01T09:00:00Z")
+        val createdAt = Instant.parse("2024-01-01T09:00:00Z")
         val record =
             outboxRecord(
                 id = "record-123",

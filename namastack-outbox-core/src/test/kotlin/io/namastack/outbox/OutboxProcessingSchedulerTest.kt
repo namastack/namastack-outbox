@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test
 import org.springframework.core.task.SyncTaskExecutor
 import java.time.Clock
 import java.time.Instant
-import java.time.OffsetDateTime
 import java.time.ZoneId
 
 class OutboxProcessingSchedulerTest {
@@ -161,7 +160,7 @@ class OutboxProcessingSchedulerTest {
         val record =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).plusSeconds(5),
+                nextRetryAt = Instant.now(clock).plusSeconds(5),
             )
 
         prepareFindRecordKeysInPartitions(listOf(key))
@@ -181,7 +180,7 @@ class OutboxProcessingSchedulerTest {
         val record =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+                nextRetryAt = Instant.now(clock).minusSeconds(5),
             )
 
         prepareFindRecordKeysInPartitions(listOf(key))
@@ -201,12 +200,12 @@ class OutboxProcessingSchedulerTest {
         val record1 =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+                nextRetryAt = Instant.now(clock).minusSeconds(5),
             )
         val record2 =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+                nextRetryAt = Instant.now(clock).minusSeconds(5),
             )
 
         prepareFindRecordKeysInPartitions(listOf(key))
@@ -231,12 +230,12 @@ class OutboxProcessingSchedulerTest {
         val notReadyRecord =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).plusSeconds(5),
+                nextRetryAt = Instant.now(clock).plusSeconds(5),
             )
         val readyRecord =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+                nextRetryAt = Instant.now(clock).minusSeconds(5),
             )
 
         prepareFindRecordKeysInPartitions(listOf(key))
@@ -259,12 +258,12 @@ class OutboxProcessingSchedulerTest {
         val notReadyRecord =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).plusSeconds(5),
+                nextRetryAt = Instant.now(clock).plusSeconds(5),
             )
         val readyRecord =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+                nextRetryAt = Instant.now(clock).minusSeconds(5),
             )
 
         prepareFindRecordKeysInPartitions(listOf(key))
@@ -289,12 +288,12 @@ class OutboxProcessingSchedulerTest {
         val record1 =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+                nextRetryAt = Instant.now(clock).minusSeconds(5),
             )
         val record2 =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+                nextRetryAt = Instant.now(clock).minusSeconds(5),
             )
 
         prepareFindRecordKeysInPartitions(listOf(key))
@@ -320,12 +319,12 @@ class OutboxProcessingSchedulerTest {
         val record1 =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+                nextRetryAt = Instant.now(clock).minusSeconds(5),
             )
         val record2 =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+                nextRetryAt = Instant.now(clock).minusSeconds(5),
             )
 
         prepareFindRecordKeysInPartitions(listOf(key))
@@ -351,17 +350,17 @@ class OutboxProcessingSchedulerTest {
         val record1 =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+                nextRetryAt = Instant.now(clock).minusSeconds(5),
             )
         val record2 =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+                nextRetryAt = Instant.now(clock).minusSeconds(5),
             )
         val record3 =
             OutboxRecordTestFactory.outboxRecord(
                 recordKey = key,
-                nextRetryAt = OffsetDateTime.now(clock).minusSeconds(5),
+                nextRetryAt = Instant.now(clock).minusSeconds(5),
             )
 
         prepareFindRecordKeysInPartitions(listOf(key))

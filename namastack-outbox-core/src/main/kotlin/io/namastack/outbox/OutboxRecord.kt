@@ -4,7 +4,7 @@ import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionHasher
 import java.time.Clock
 import java.time.Duration
-import java.time.OffsetDateTime
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -33,14 +33,14 @@ class OutboxRecord<T> internal constructor(
     val payload: T,
     val context: Map<String, String>,
     val partition: Int,
-    val createdAt: OffsetDateTime,
+    val createdAt: Instant,
     val handlerId: String,
     status: OutboxRecordStatus,
-    completedAt: OffsetDateTime?,
+    completedAt: Instant?,
     failureCount: Int,
     failureException: Throwable?,
     failureReason: String?,
-    nextRetryAt: OffsetDateTime,
+    nextRetryAt: Instant,
 ) {
     /**
      * Current processing status of this outbox record.
@@ -52,7 +52,7 @@ class OutboxRecord<T> internal constructor(
      * Timestamp when the record processing was completed.
      * Null if the record has not been completed yet.
      */
-    var completedAt: OffsetDateTime? = completedAt
+    var completedAt: Instant? = completedAt
         internal set
 
     /**
@@ -65,7 +65,7 @@ class OutboxRecord<T> internal constructor(
     /**
      * Timestamp when the next retry attempt should be made.
      */
-    var nextRetryAt: OffsetDateTime = nextRetryAt
+    var nextRetryAt: Instant = nextRetryAt
         internal set
 
     /**
@@ -89,7 +89,7 @@ class OutboxRecord<T> internal constructor(
      */
     internal fun markCompleted(clock: Clock) {
         if (status != OutboxRecordStatus.COMPLETED) {
-            completedAt = OffsetDateTime.now(clock)
+            completedAt = Instant.now(clock)
             status = OutboxRecordStatus.COMPLETED
         }
     }
@@ -117,7 +117,7 @@ class OutboxRecord<T> internal constructor(
      * @param clock Clock to use for determining the current time
      * @return true if the record can be retried, false otherwise
      */
-    internal fun canBeRetried(clock: Clock): Boolean = nextRetryAt.isBefore(OffsetDateTime.now(clock)) && status == NEW
+    internal fun canBeRetried(clock: Clock): Boolean = nextRetryAt.isBefore(Instant.now(clock)) && status == NEW
 
     /**
      * Checks if the maximum number of retries has been exhausted.
@@ -137,7 +137,7 @@ class OutboxRecord<T> internal constructor(
         delay: Duration,
         clock: Clock,
     ) {
-        this.nextRetryAt = OffsetDateTime.now(clock).plus(delay)
+        this.nextRetryAt = Instant.now(clock).plus(delay)
     }
 
     /**
@@ -223,7 +223,7 @@ class OutboxRecord<T> internal constructor(
             val ctx = context ?: emptyMap()
             val hId = handlerId ?: error("handlerId must be set")
 
-            val now = OffsetDateTime.now(clock)
+            val now = Instant.now(clock)
             val partition = PartitionHasher.getPartitionForRecordKey(rk)
 
             return OutboxRecord(
@@ -268,14 +268,14 @@ class OutboxRecord<T> internal constructor(
             recordKey: String,
             payload: T,
             context: Map<String, String>,
-            createdAt: OffsetDateTime,
+            createdAt: Instant,
             status: OutboxRecordStatus,
-            completedAt: OffsetDateTime?,
+            completedAt: Instant?,
             failureCount: Int,
             failureException: Throwable?,
             failureReason: String?,
             partition: Int,
-            nextRetryAt: OffsetDateTime,
+            nextRetryAt: Instant,
             handlerId: String,
         ): OutboxRecord<T> =
             OutboxRecord(

@@ -7,7 +7,8 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import tools.jackson.module.kotlin.jsonMapper
 import tools.jackson.module.kotlin.kotlinModule
-import java.time.OffsetDateTime
+import java.time.Instant
+import java.time.temporal.ChronoUnit.MINUTES
 import java.util.UUID
 
 class OutboxRecordEntityMapperTest {
@@ -30,9 +31,9 @@ class OutboxRecordEntityMapperTest {
     inner class MapOutboxRecordTests {
         @Test
         fun `should map OrderCreatedEvent payload`() {
-            val now = OffsetDateTime.now()
-            val completedAt = now.plusMinutes(5)
-            val nextRetryAt = now.plusMinutes(10)
+            val now = Instant.now()
+            val completedAt = now.plus(5, MINUTES)
+            val nextRetryAt = now.plus(10, MINUTES)
             val event = OrderCreatedEvent(orderId = "123", amount = 100.50)
 
             val record =
@@ -70,9 +71,9 @@ class OutboxRecordEntityMapperTest {
 
         @Test
         fun `should map provided context`() {
-            val now = OffsetDateTime.now()
-            val completedAt = now.plusMinutes(5)
-            val nextRetryAt = now.plusMinutes(10)
+            val now = Instant.now()
+            val completedAt = now.plus(5, MINUTES)
+            val nextRetryAt = now.plus(10, MINUTES)
             val event = OrderCreatedEvent(orderId = "123", amount = 100.50)
 
             val record =
@@ -100,7 +101,7 @@ class OutboxRecordEntityMapperTest {
 
         @Test
         fun `should map null completedAt`() {
-            val now = OffsetDateTime.now()
+            val now = Instant.now()
             val event = PaymentProcessedEvent(paymentId = "pay-456", status = "completed")
 
             val record =
@@ -136,7 +137,7 @@ class OutboxRecordEntityMapperTest {
 
         @Test
         fun `should map FAILED status`() {
-            val now = OffsetDateTime.now()
+            val now = Instant.now()
             val event = OrderCreatedEvent(orderId = "fail-789", amount = 50.0)
 
             val record =
@@ -169,7 +170,7 @@ class OutboxRecordEntityMapperTest {
 
         @Test
         fun `should maintain serialization integrity with different event types`() {
-            val now = OffsetDateTime.now()
+            val now = Instant.now()
             val orderEvent = OrderCreatedEvent(orderId = "order-555", amount = 999.99)
             val paymentEvent = PaymentProcessedEvent(paymentId = "pay-555", status = "approved")
 
@@ -222,7 +223,7 @@ class OutboxRecordEntityMapperTest {
 
         @Test
         fun `should map all status types correctly`() {
-            val now = OffsetDateTime.now()
+            val now = Instant.now()
             val event = OrderCreatedEvent(orderId = "status-test", amount = 1.0)
 
             for (status in OutboxRecordStatus.entries) {
@@ -258,9 +259,9 @@ class OutboxRecordEntityMapperTest {
     inner class MapOutboxRecordEntityTests {
         @Test
         fun `should map OrderCreatedEvent payload`() {
-            val now = OffsetDateTime.now()
-            val completedAt = now.plusMinutes(5)
-            val nextRetryAt = now.plusMinutes(10)
+            val now = Instant.now()
+            val completedAt = now.plus(5, MINUTES)
+            val nextRetryAt = now.plus(10, MINUTES)
             val event = OrderCreatedEvent(orderId = "123", amount = 100.50)
 
             val entity =
@@ -299,9 +300,9 @@ class OutboxRecordEntityMapperTest {
 
         @Test
         fun `should map provided context`() {
-            val now = OffsetDateTime.now()
-            val completedAt = now.plusMinutes(5)
-            val nextRetryAt = now.plusMinutes(10)
+            val now = Instant.now()
+            val completedAt = now.plus(5, MINUTES)
+            val nextRetryAt = now.plus(10, MINUTES)
             val event = OrderCreatedEvent(orderId = "123", amount = 100.50)
 
             val entity =
@@ -334,7 +335,7 @@ class OutboxRecordEntityMapperTest {
 
         @Test
         fun `should map null completedAt`() {
-            val now = OffsetDateTime.now()
+            val now = Instant.now()
             val event = PaymentProcessedEvent(paymentId = "pay-456", status = "completed")
 
             val entity =
@@ -369,7 +370,7 @@ class OutboxRecordEntityMapperTest {
 
         @Test
         fun `should map FAILED status`() {
-            val now = OffsetDateTime.now()
+            val now = Instant.now()
             val event = OrderCreatedEvent(orderId = "fail-789", amount = 50.0)
 
             val entity =
@@ -400,7 +401,7 @@ class OutboxRecordEntityMapperTest {
 
         @Test
         fun `should maintain deserialization integrity with different event types`() {
-            val now = OffsetDateTime.now()
+            val now = Instant.now()
             val orderEvent = OrderCreatedEvent(orderId = "order-555", amount = 999.99)
             val paymentEvent = PaymentProcessedEvent(paymentId = "pay-555", status = "approved")
 
@@ -454,7 +455,7 @@ class OutboxRecordEntityMapperTest {
 
         @Test
         fun `should map all status types correctly`() {
-            val now = OffsetDateTime.now()
+            val now = Instant.now()
             val event = OrderCreatedEvent(orderId = "status-test", amount = 1.0)
 
             for (status in OutboxRecordStatus.entries) {

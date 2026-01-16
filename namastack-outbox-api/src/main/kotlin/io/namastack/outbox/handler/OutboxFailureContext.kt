@@ -1,6 +1,6 @@
 package io.namastack.outbox.handler
 
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * Context for fallback handlers about permanently failed records.
@@ -46,7 +46,7 @@ import java.time.OffsetDateTime
 data class OutboxFailureContext(
     val recordId: String,
     val recordKey: String,
-    val createdAt: OffsetDateTime,
+    val createdAt: Instant,
     val failureCount: Int,
     val lastFailure: Throwable?,
     val handlerId: String,

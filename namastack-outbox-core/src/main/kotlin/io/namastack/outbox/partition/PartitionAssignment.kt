@@ -1,7 +1,7 @@
 package io.namastack.outbox.partition
 
 import java.time.Clock
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * Model representing a partition assignment.
@@ -19,7 +19,7 @@ import java.time.OffsetDateTime
 data class PartitionAssignment(
     val partitionNumber: Int,
     var instanceId: String?,
-    var updatedAt: OffsetDateTime,
+    var updatedAt: Instant,
     val version: Long? = null,
 ) {
     companion object {
@@ -37,7 +37,7 @@ data class PartitionAssignment(
             clock: Clock,
             version: Long?,
         ): PartitionAssignment {
-            val now = OffsetDateTime.now(clock)
+            val now = Instant.now(clock)
             return PartitionAssignment(
                 partitionNumber = partitionNumber,
                 instanceId = instanceId,
@@ -58,7 +58,7 @@ data class PartitionAssignment(
         instanceId: String,
         clock: Clock,
     ) {
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
 
         this.instanceId = instanceId
         this.updatedAt = now
@@ -82,7 +82,7 @@ data class PartitionAssignment(
             )
         }
 
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
 
         this.instanceId = null
         this.updatedAt = now

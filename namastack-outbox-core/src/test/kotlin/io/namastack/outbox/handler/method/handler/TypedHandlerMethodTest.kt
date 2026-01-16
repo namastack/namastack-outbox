@@ -134,7 +134,7 @@ class TypedHandlerMethodTest {
         OutboxRecordMetadata(
             key = "test-key",
             handlerId = "test-handler",
-            createdAt = java.time.OffsetDateTime.now(),
+            createdAt = java.time.Instant.now(),
             context = emptyMap(),
         )
 

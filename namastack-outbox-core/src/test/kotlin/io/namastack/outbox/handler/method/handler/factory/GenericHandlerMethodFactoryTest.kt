@@ -8,8 +8,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
+import java.time.Instant
 
 @DisplayName("GenericHandlerMethodFactory")
 class GenericHandlerMethodFactoryTest {
@@ -303,7 +302,7 @@ class GenericHandlerMethodFactoryTest {
                 OutboxRecordMetadata(
                     key = "test-key",
                     handlerId = "handler-1",
-                    createdAt = OffsetDateTime.now(ZoneOffset.UTC),
+                    createdAt = Instant.now(),
                     context = mapOf("traceId" to "test-trace-id"),
                 )
 
@@ -328,7 +327,7 @@ class GenericHandlerMethodFactoryTest {
                 OutboxRecordMetadata(
                     key = "test-key",
                     handlerId = "handler-1",
-                    createdAt = OffsetDateTime.now(ZoneOffset.UTC),
+                    createdAt = Instant.now(),
                     context = mapOf("traceId" to "test-trace-id"),
                 )
 

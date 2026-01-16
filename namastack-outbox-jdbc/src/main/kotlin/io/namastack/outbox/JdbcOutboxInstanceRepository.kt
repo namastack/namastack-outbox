@@ -5,7 +5,7 @@ import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.instance.OutboxInstanceStatus
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * JDBC repository implementation for managing outbox instance entities.
@@ -167,7 +167,7 @@ internal open class JdbcOutboxInstanceRepository(
     /**
      * Finds instances with stale heartbeat.
      */
-    override fun findInstancesWithStaleHeartbeat(cutoffTime: OffsetDateTime): List<OutboxInstance> {
+    override fun findInstancesWithStaleHeartbeat(cutoffTime: Instant): List<OutboxInstance> {
         val activeStatuses = listOf(OutboxInstanceStatus.ACTIVE.name, OutboxInstanceStatus.SHUTTING_DOWN.name)
 
         return jdbcClient
@@ -185,7 +185,7 @@ internal open class JdbcOutboxInstanceRepository(
      */
     override fun updateHeartbeat(
         instanceId: String,
-        timestamp: OffsetDateTime,
+        timestamp: Instant,
     ): Boolean =
         transactionTemplate.execute {
             val updated =
@@ -204,7 +204,7 @@ internal open class JdbcOutboxInstanceRepository(
     override fun updateStatus(
         instanceId: String,
         status: OutboxInstanceStatus,
-        timestamp: OffsetDateTime,
+        timestamp: Instant,
     ): Boolean =
         transactionTemplate.execute {
             val updated =

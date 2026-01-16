@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import java.net.InetAddress
 import java.time.Clock
 import java.time.Duration
-import java.time.OffsetDateTime
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -113,7 +113,7 @@ class OutboxInstanceRegistry(
      * it indicates the instance was removed and triggers re-registration.
      */
     private fun sendHeartbeat() {
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
         val success = instanceRepository.updateHeartbeat(currentInstanceId, now)
 
         if (success) {
@@ -131,7 +131,7 @@ class OutboxInstanceRegistry(
      * configured timeout threshold and removes them from the registry.
      */
     private fun cleanupStaleInstances() {
-        val cutoffTime = OffsetDateTime.now(clock).minus(staleInstanceTimeout)
+        val cutoffTime = Instant.now(clock).minus(staleInstanceTimeout)
         val staleInstances = instanceRepository.findInstancesWithStaleHeartbeat(cutoffTime)
 
         staleInstances.forEach { instance ->
@@ -188,7 +188,7 @@ class OutboxInstanceRegistry(
             instanceRepository.updateStatus(
                 currentInstanceId,
                 OutboxInstanceStatus.SHUTTING_DOWN,
-                OffsetDateTime.now(clock),
+                Instant.now(clock),
             )
 
             Thread.sleep(gracefulShutdownTimeout.toMillis())

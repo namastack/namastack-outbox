@@ -1,7 +1,7 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordStatus.NEW
-import java.time.OffsetDateTime
+import java.time.Instant
 import java.util.UUID
 
 object OutboxRecordTestFactory {
@@ -11,12 +11,12 @@ object OutboxRecordTestFactory {
         payload: CreatedEvent = CreatedEvent(),
         context: Map<String, String> = emptyMap(),
         partition: Int = 1,
-        createdAt: OffsetDateTime = OffsetDateTime.now(),
+        createdAt: Instant = Instant.now(),
         status: OutboxRecordStatus = NEW,
-        completedAt: OffsetDateTime? = OffsetDateTime.now(),
+        completedAt: Instant? = Instant.now(),
         failureCount: Int = 0,
         failureReason: String? = null,
-        nextRetryAt: OffsetDateTime = OffsetDateTime.now(),
+        nextRetryAt: Instant = Instant.now(),
         handlerId: String = @Suppress("ktlint:standard:max-line-length")
         $$"io.namastack.outbox.OutboxRecordTestFactory$CreatedEventHandler#handle(io.namastack.outbox.OutboxRecordTestFactory$CreatedEvent)",
         failureException: Throwable? = null,

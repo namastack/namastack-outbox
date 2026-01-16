@@ -11,14 +11,13 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
+import java.time.Instant
 
 @DisplayName("OutboxHandlerInvoker")
 class OutboxHandlerInvokerTest {
     private val handlerRegistry = mockk<OutboxHandlerRegistry>()
     private lateinit var invoker: OutboxHandlerInvoker
-    private val now = OffsetDateTime.now(ZoneOffset.UTC)
+    private val now = Instant.now()
 
     @BeforeEach
     fun setUp() {
