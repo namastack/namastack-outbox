@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: namastack-outbox-example-h2
+
+  datasource:
+    url: jdbc:h2:mem:demo;INIT=CREATE SCHEMA IF NOT EXISTS myschema;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+      naming:
+        physical-strategy: io.namastack.demo.PrefixedPhysicalNamingStrategy
+    properties:
+      hibernate:
+        default_schema: myschema
+    show-sql: true
+
+outbox:
+  schema-initialization:
+    enabled: false
+  instance:
+    graceful-shutdown-timeout-seconds: 2
+
+logging:
+  level:
+    root: warn
+    io.namastack.demo: debug

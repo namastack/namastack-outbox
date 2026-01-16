@@ -30,6 +30,10 @@ This directory contains various example projects demonstrating different feature
 - **[namastack-outbox-example-postgresql](namastack-outbox-example-postgresql)** - PostgreSQL database integration
 - **[namastack-outbox-example-sqlserver](namastack-outbox-example-sqlserver)** - SQL Server database integration
 
+### 🏷️ Table Naming & Schema Management
+
+- **[namastack-outbox-example-table-prefix-jpa](namastack-outbox-example-table-prefix-jpa)** - JPA example showing how to use a **custom H2 schema** and **table prefixes** via Hibernate’s `PhysicalNamingStrategy`
+
 ### ☕ Language Support
 
 - **[namastack-outbox-example-java](namastack-outbox-example-java)** - Pure Java implementation (no Kotlin required)
@@ -78,18 +82,22 @@ namastack-outbox-example-*/
 
 ## Common Configuration
 
-All examples share similar configuration in `application.yml`:
+All examples share similar configuration in `application.yml` (the exact defaults vary per example):
 
 ```yaml
 outbox:
   schema-initialization:
-    enabled: true              # Auto-create outbox tables
+    enabled: true              # Auto-create outbox tables (typically used by JDBC examples)
   instance:
     graceful-shutdown-timeout-seconds: 2
   retry:
     policy: "fixed"            # or "exponential"
     max-retries: 3
 ```
+
+**Note:** In JPA examples, schema creation is usually handled by either:
+- Hibernate DDL (e.g. `spring.jpa.hibernate.ddl-auto=create-drop`) for dev/test, or
+- Flyway/Liquibase for production-style setups.
 
 ## Learning Path
 
@@ -118,4 +126,3 @@ Each example contains a detailed README with:
 - Configuration details
 
 For general library documentation, see the [main project README](../README.md).
-

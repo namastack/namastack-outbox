@@ -1,7 +1,6 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.annotation.EnableOutbox
-import io.namastack.outbox.config.JpaOutboxAutoConfiguration
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceStatus
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE

@@ -1,7 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.config.JpaOutboxAutoConfiguration
-import io.namastack.outbox.config.JpaOutboxSchemaAutoConfiguration
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration
 import org.springframework.boot.autoconfigure.task.TaskSchedulingAutoConfiguration
@@ -36,7 +34,6 @@ import org.springframework.test.annotation.DirtiesContext.ClassMode.BEFORE_EACH_
     TaskSchedulingAutoConfiguration::class,
     OutboxCoreAutoConfiguration::class,
     JpaOutboxAutoConfiguration::class,
-    JpaOutboxSchemaAutoConfiguration::class,
     OutboxJacksonAutoConfiguration::class,
 )
 @EnableConfigurationProperties(OutboxProperties::class)

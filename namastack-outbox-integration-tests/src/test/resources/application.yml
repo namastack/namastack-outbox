@@ -6,11 +6,9 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: create-drop
 
 outbox:
-  schema-initialization:
-    enabled: true
   retry:
     policy: "fixed"
     fixed:

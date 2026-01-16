@@ -1,11 +1,6 @@
-package io.namastack.outbox.config
+package io.namastack.outbox
 
 import io.mockk.mockk
-import io.namastack.outbox.JpaOutboxPartitionAssignmentRepository
-import io.namastack.outbox.JpaOutboxRecordRepository
-import io.namastack.outbox.OutboxPayloadSerializer
-import io.namastack.outbox.OutboxRecordEntityMapper
-import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository

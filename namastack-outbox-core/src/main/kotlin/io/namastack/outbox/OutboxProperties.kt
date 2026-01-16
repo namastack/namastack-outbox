@@ -67,7 +67,7 @@ data class OutboxProperties(
      * @param enabled Whether to enable automatic schema initialization
      */
     data class SchemaInitialization(
-        var enabled: Boolean = true,
+        var enabled: Boolean = false,
     )
 
     /**
