@@ -556,5 +556,4 @@ class OutboxRecordTest {
             assertThat(record2.partition).isEqualTo(PartitionHasher.getPartitionForRecordKey(key2))
         }
     }
-
 }
