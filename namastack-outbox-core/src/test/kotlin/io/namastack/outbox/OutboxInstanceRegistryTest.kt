@@ -17,13 +17,12 @@ import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 @DisplayName("OutboxInstanceRegistry")
 class OutboxInstanceRegistryTest {
     private val clock = Clock.fixed(Instant.parse("2025-10-25T10:00:00Z"), ZoneOffset.UTC)
-    private val now = OffsetDateTime.now(clock)
+    private val now = Instant.now(clock)
 
     private val instanceRepository = mockk<OutboxInstanceRepository>()
     private val properties =

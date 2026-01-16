@@ -18,8 +18,9 @@ import org.springframework.boot.jdbc.autoconfigure.JdbcClientAutoConfiguration
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest
 import java.time.Clock
-import java.time.OffsetDateTime
+import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.time.temporal.ChronoUnit.MINUTES
 
 @JdbcTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -85,9 +86,9 @@ class JdbcOutboxInstanceRepositoryTest {
 
     @Test
     fun `finds all instances ordered by created date`() {
-        val now = OffsetDateTime.now(clock)
-        val instance1 = createInstanceAtTime("instance-1", ACTIVE, now.minusMinutes(2))
-        val instance2 = createInstanceAtTime("instance-2", ACTIVE, now.minusMinutes(1))
+        val now = Instant.now(clock)
+        val instance1 = createInstanceAtTime("instance-1", ACTIVE, now.minus(2, MINUTES))
+        val instance2 = createInstanceAtTime("instance-2", ACTIVE, now.minus(1, MINUTES))
         val instance3 = createInstanceAtTime("instance-3", SHUTTING_DOWN, now)
 
         jdbcOutboxInstanceRepository.save(instance1)
@@ -128,11 +129,12 @@ class JdbcOutboxInstanceRepositoryTest {
 
     @Test
     fun `finds instances with stale heartbeat`() {
-        val cutoffTime = OffsetDateTime.now(clock)
-        val staleActive = createInstanceWithHeartbeat("stale-active", ACTIVE, cutoffTime.minusMinutes(1))
-        val staleShuttingDown = createInstanceWithHeartbeat("stale-shutting", SHUTTING_DOWN, cutoffTime.minusMinutes(2))
-        val recentActive = createInstanceWithHeartbeat("recent-active", ACTIVE, cutoffTime.plusMinutes(1))
-        val staleDead = createInstanceWithHeartbeat("stale-dead", DEAD, cutoffTime.minusMinutes(3))
+        val cutoffTime = Instant.now(clock)
+        val staleActive = createInstanceWithHeartbeat("stale-active", ACTIVE, cutoffTime.minus(1, MINUTES))
+        val staleShuttingDown =
+            createInstanceWithHeartbeat("stale-shutting", SHUTTING_DOWN, cutoffTime.minus(2, MINUTES))
+        val recentActive = createInstanceWithHeartbeat("recent-active", ACTIVE, cutoffTime.plus(1, MINUTES))
+        val staleDead = createInstanceWithHeartbeat("stale-dead", DEAD, cutoffTime.minus(3, MINUTES))
 
         jdbcOutboxInstanceRepository.save(staleActive)
         jdbcOutboxInstanceRepository.save(staleShuttingDown)
@@ -147,8 +149,8 @@ class JdbcOutboxInstanceRepositoryTest {
 
     @Test
     fun `finds instances with stale heartbeat returns empty when none exist`() {
-        val cutoffTime = OffsetDateTime.now(clock)
-        val recentInstance = createInstanceWithHeartbeat("recent", ACTIVE, cutoffTime.plusMinutes(1))
+        val cutoffTime = Instant.now(clock)
+        val recentInstance = createInstanceWithHeartbeat("recent", ACTIVE, cutoffTime.plus(1, MINUTES))
 
         jdbcOutboxInstanceRepository.save(recentInstance)
 
@@ -187,7 +189,7 @@ class JdbcOutboxInstanceRepositoryTest {
         val instance = createInstance("instance-1", ACTIVE)
         jdbcOutboxInstanceRepository.save(instance)
 
-        val newHeartbeat = OffsetDateTime.now(clock).plusMinutes(1)
+        val newHeartbeat = Instant.now(clock).plus(1, MINUTES)
         val result = jdbcOutboxInstanceRepository.updateHeartbeat("instance-1", newHeartbeat)
 
         assertThat(result).isTrue()
@@ -198,7 +200,7 @@ class JdbcOutboxInstanceRepositoryTest {
 
     @Test
     fun `heartbeat update returns false for non-existent instance`() {
-        val newHeartbeat = OffsetDateTime.now(clock)
+        val newHeartbeat = Instant.now(clock)
         val result = jdbcOutboxInstanceRepository.updateHeartbeat("non-existent", newHeartbeat)
 
         assertThat(result).isFalse()
@@ -209,7 +211,7 @@ class JdbcOutboxInstanceRepositoryTest {
         val instance = createInstance("instance-1", ACTIVE)
         jdbcOutboxInstanceRepository.save(instance)
 
-        val newTimestamp = OffsetDateTime.now(clock).plusMinutes(1)
+        val newTimestamp = Instant.now(clock).plus(1, MINUTES)
         val result = jdbcOutboxInstanceRepository.updateStatus("instance-1", SHUTTING_DOWN, newTimestamp)
 
         assertThat(result).isTrue()
@@ -221,7 +223,7 @@ class JdbcOutboxInstanceRepositoryTest {
 
     @Test
     fun `status update returns false for non-existent instance`() {
-        val newTimestamp = OffsetDateTime.now(clock)
+        val newTimestamp = Instant.now(clock)
         val result = jdbcOutboxInstanceRepository.updateStatus("non-existent", SHUTTING_DOWN, newTimestamp)
 
         assertThat(result).isFalse()
@@ -260,7 +262,7 @@ class JdbcOutboxInstanceRepositoryTest {
     private fun createInstanceAtTime(
         instanceId: String,
         status: OutboxInstanceStatus,
-        createdAt: OffsetDateTime,
+        createdAt: Instant,
     ): OutboxInstance =
         OutboxInstance(
             instanceId = instanceId,
@@ -276,9 +278,9 @@ class JdbcOutboxInstanceRepositoryTest {
     private fun createInstanceWithHeartbeat(
         instanceId: String,
         status: OutboxInstanceStatus,
-        lastHeartbeat: OffsetDateTime,
+        lastHeartbeat: Instant,
     ): OutboxInstance {
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
         return OutboxInstance(
             instanceId = instanceId,
             hostname = "localhost",

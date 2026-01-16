@@ -7,7 +7,7 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Table
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * JPA entity representing an outbox processor instance.
@@ -32,18 +32,18 @@ internal data class OutboxInstanceEntity(
     @Column(name = "status", nullable = false)
     var status: OutboxInstanceStatus,
     @Column(name = "started_at", nullable = false)
-    val startedAt: OffsetDateTime,
+    val startedAt: Instant,
     @Column(name = "last_heartbeat", nullable = false)
-    var lastHeartbeat: OffsetDateTime,
+    var lastHeartbeat: Instant,
     @Column(name = "created_at", nullable = false)
-    val createdAt: OffsetDateTime,
+    val createdAt: Instant,
     @Column(name = "updated_at", nullable = false)
-    var updatedAt: OffsetDateTime,
+    var updatedAt: Instant,
 ) {
     /**
      * Updates the last heartbeat timestamp to current time.
      */
-    fun updateHeartbeat(timestamp: OffsetDateTime) {
+    fun updateHeartbeat(timestamp: Instant) {
         lastHeartbeat = timestamp
         updatedAt = timestamp
     }
@@ -53,7 +53,7 @@ internal data class OutboxInstanceEntity(
      */
     fun updateStatus(
         newStatus: OutboxInstanceStatus,
-        timestamp: OffsetDateTime,
+        timestamp: Instant,
     ) {
         status = newStatus
         updatedAt = timestamp

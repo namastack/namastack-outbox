@@ -13,7 +13,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager
 import java.time.Clock
-import java.time.OffsetDateTime
+import java.time.Instant
 
 @DataJpaTest
 @ImportAutoConfiguration(JpaOutboxAutoConfiguration::class, OutboxJacksonAutoConfiguration::class)
@@ -133,7 +133,7 @@ class JpaOutboxPartitionAssignmentRepositoryTest {
     @Test
     fun `saveAll with unassigned partitions persists null instanceId`() {
         val assigned = (0..99).map { PartitionAssignment.create(it, "instance-1", clock, null) }.toSet()
-        val unassigned = (100..109).map { PartitionAssignment(it, null, OffsetDateTime.now(clock)) }.toSet()
+        val unassigned = (100..109).map { PartitionAssignment(it, null, Instant.now(clock)) }.toSet()
         val all = assigned + unassigned
 
         partitionAssignmentRepository.saveAll(all)

@@ -26,7 +26,7 @@ class PartitionAssignmentTest {
 
     @Test
     fun `nullable instanceId allowed`() {
-        val now = java.time.OffsetDateTime.now(clock)
+        val now = java.time.Instant.now(clock)
         val pa = PartitionAssignment(7, null, now)
         assertThat(pa.instanceId).isNull()
         assertThat(pa.partitionNumber).isEqualTo(7)

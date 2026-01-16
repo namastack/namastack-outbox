@@ -4,7 +4,7 @@ import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import org.springframework.data.relational.core.mapping.Column
 import org.springframework.data.relational.core.mapping.Table
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * JPA entity representing an outbox record in the database.
@@ -30,11 +30,11 @@ data class OutboxRecord(
     val recordType: String,
     val payload: String,
     val partitionNo: Int,
-    val createdAt: OffsetDateTime,
-    val completedAt: OffsetDateTime? = null,
+    val createdAt: Instant,
+    val completedAt: Instant? = null,
     val failureCount: Int = 0,
     val failureReason: String? = null,
-    val nextRetryAt: OffsetDateTime,
+    val nextRetryAt: Instant,
     val handlerId: String,
 ) : Persistable<String> {
     override fun getId(): String = entityId

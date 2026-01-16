@@ -12,15 +12,14 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
+import java.time.Instant
 import java.util.UUID
 
 @DisplayName("OutboxFallbackHandlerInvoker")
 class OutboxFallbackHandlerInvokerTest {
     private val fallbackHandlerRegistry = mockk<OutboxFallbackHandlerRegistry>()
     private lateinit var invoker: OutboxFallbackHandlerInvoker
-    private val now = OffsetDateTime.now(ZoneOffset.UTC)
+    private val now = Instant.now()
 
     @BeforeEach
     fun setUp() {
@@ -100,7 +99,7 @@ class OutboxFallbackHandlerInvokerTest {
         retriesExhausted: Boolean = true,
         nonRetryableException: Boolean = false,
         recordKey: String = "key",
-        createdAt: OffsetDateTime = now,
+        createdAt: Instant = now,
         lastFailure: Throwable? = null,
         context: Map<String, String> = emptyMap(),
     ): OutboxFailureContext =

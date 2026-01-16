@@ -1,6 +1,6 @@
 package io.namastack.outbox
 
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * Entity representing a partition assignment to an outbox processor instance.
@@ -15,5 +15,5 @@ internal data class JdbcOutboxPartitionAssignmentEntity(
     val partitionNumber: Int,
     val instanceId: String?,
     val version: Long?,
-    val updatedAt: OffsetDateTime,
+    val updatedAt: Instant,
 )

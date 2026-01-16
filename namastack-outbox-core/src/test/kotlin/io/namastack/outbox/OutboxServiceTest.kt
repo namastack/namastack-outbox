@@ -15,13 +15,12 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
-import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 @DisplayName("OutboxService")
 class OutboxServiceTest {
     private val clock = Clock.fixed(Instant.parse("2025-09-25T10:00:00Z"), ZoneOffset.UTC)
-    private val now = OffsetDateTime.now(clock)
+    private val now = Instant.now(clock)
 
     private val contextCollector = mockk<OutboxContextCollector>(relaxed = true)
     private val handlerRegistry = mockk<OutboxHandlerRegistry>(relaxed = true)

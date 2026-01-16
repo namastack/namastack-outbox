@@ -3,7 +3,7 @@ package io.namastack.outbox
 import jakarta.persistence.EntityManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * JPA implementation of the OutboxRecordRepository and OutboxRecordStatusRepository interfaces.
@@ -303,7 +303,7 @@ internal open class JpaOutboxRecordRepository(
         batchSize: Int,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): List<String> {
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
         val query =
             if (ignoreRecordKeysWithPreviousFailure) {
                 recordKeysQueryWithPreviousFailureFilter

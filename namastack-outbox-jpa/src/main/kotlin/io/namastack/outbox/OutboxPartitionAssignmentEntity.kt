@@ -5,7 +5,7 @@ import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import jakarta.persistence.Version
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * JPA entity representing a partition assignment to an outbox processor instance.
@@ -31,5 +31,5 @@ internal data class OutboxPartitionAssignmentEntity(
     @Column(name = "version", nullable = false)
     val version: Long? = null,
     @Column(name = "updated_at", nullable = false)
-    var updatedAt: OffsetDateTime,
+    var updatedAt: Instant,
 )

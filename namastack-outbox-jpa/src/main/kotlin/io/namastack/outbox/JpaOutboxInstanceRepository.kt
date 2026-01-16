@@ -8,7 +8,7 @@ import io.namastack.outbox.instance.OutboxInstanceStatus.SHUTTING_DOWN
 import jakarta.persistence.EntityManager
 import jakarta.persistence.LockModeType
 import org.springframework.transaction.support.TransactionTemplate
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * JPA repository implementation for managing outbox instance entities.
@@ -140,7 +140,7 @@ internal open class JpaOutboxInstanceRepository(
      * @param cutoffTime The cutoff time for stale heartbeat
      * @return List of outbox instances with stale heartbeat
      */
-    override fun findInstancesWithStaleHeartbeat(cutoffTime: OffsetDateTime): List<OutboxInstance> {
+    override fun findInstancesWithStaleHeartbeat(cutoffTime: Instant): List<OutboxInstance> {
         val entities =
             entityManager
                 .createQuery(findInstancesWithStaleHeartbeatQuery, OutboxInstanceEntity::class.java)
@@ -160,7 +160,7 @@ internal open class JpaOutboxInstanceRepository(
      */
     override fun updateHeartbeat(
         instanceId: String,
-        timestamp: OffsetDateTime,
+        timestamp: Instant,
     ): Boolean =
         transactionTemplate.execute {
             val entity =
@@ -185,7 +185,7 @@ internal open class JpaOutboxInstanceRepository(
     override fun updateStatus(
         instanceId: String,
         status: OutboxInstanceStatus,
-        timestamp: OffsetDateTime,
+        timestamp: Instant,
     ): Boolean =
         transactionTemplate.execute {
             val entity =

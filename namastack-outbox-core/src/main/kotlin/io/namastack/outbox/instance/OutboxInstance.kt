@@ -1,7 +1,7 @@
 package io.namastack.outbox.instance
 
 import java.time.Clock
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * Represents an outbox processor instance.
@@ -17,10 +17,10 @@ data class OutboxInstance(
     val hostname: String,
     val port: Int,
     val status: OutboxInstanceStatus,
-    val startedAt: OffsetDateTime,
-    val lastHeartbeat: OffsetDateTime,
-    val createdAt: OffsetDateTime,
-    val updatedAt: OffsetDateTime,
+    val startedAt: Instant,
+    val lastHeartbeat: Instant,
+    val createdAt: Instant,
+    val updatedAt: Instant,
 ) {
     companion object {
         /**
@@ -35,7 +35,7 @@ data class OutboxInstance(
             status: OutboxInstanceStatus,
             clock: Clock,
         ): OutboxInstance {
-            val now = OffsetDateTime.now(clock)
+            val now = Instant.now(clock)
 
             return OutboxInstance(
                 instanceId = instanceId,

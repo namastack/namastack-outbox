@@ -1,6 +1,6 @@
 package io.namastack.outbox
 
-import java.time.OffsetDateTime
+import java.time.Instant
 
 /**
  * Entity representing an outbox record in the database.
@@ -20,10 +20,10 @@ internal data class JdbcOutboxRecordEntity(
     val payload: String,
     val context: String?,
     val partitionNo: Int,
-    val createdAt: OffsetDateTime,
-    val completedAt: OffsetDateTime?,
+    val createdAt: Instant,
+    val completedAt: Instant?,
     val failureCount: Int,
     val failureReason: String?,
-    val nextRetryAt: OffsetDateTime,
+    val nextRetryAt: Instant,
     val handlerId: String,
 )

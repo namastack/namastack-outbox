@@ -4,10 +4,9 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import reactor.core.publisher.Mono
-import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.json.JsonMapper
 import java.time.Clock
-import java.time.OffsetDateTime
+import java.time.Instant
 import java.util.UUID
 
 @RestController
@@ -20,7 +19,7 @@ class OutboxRecordController(
     fun createOutboxRecord(
         @PathVariable("recordKey") recordKey: String,
     ): Mono<OutboxRecord> {
-        val now = OffsetDateTime.now(clock)
+        val now = Instant.now(clock)
         val partition = PartitionHasher.getPartitionForRecordKey(recordKey)
 
         return outboxRecordRepository.save(

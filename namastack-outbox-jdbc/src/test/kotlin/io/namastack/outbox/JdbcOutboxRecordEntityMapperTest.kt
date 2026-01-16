@@ -6,7 +6,8 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import tools.jackson.module.kotlin.jsonMapper
 import tools.jackson.module.kotlin.kotlinModule
-import java.time.OffsetDateTime
+import java.time.Instant
+import java.time.temporal.ChronoUnit.MINUTES
 
 class JdbcOutboxRecordEntityMapperTest {
     private val innerJsonMapper = jsonMapper { addModule(kotlinModule()) }
@@ -23,9 +24,9 @@ class JdbcOutboxRecordEntityMapperTest {
     inner class MapOutboxRecordTests {
         @Test
         fun `should map OrderCreatedEvent payload`() {
-            val now = OffsetDateTime.now()
-            val completedAt = now.plusMinutes(5)
-            val nextRetryAt = now.plusMinutes(10)
+            val now = Instant.now()
+            val completedAt = now.plus(5, MINUTES)
+            val nextRetryAt = now.plus(10, MINUTES)
             val event = OrderCreatedEvent(orderId = "123", amount = 100.50)
 
             val record =
@@ -63,9 +64,9 @@ class JdbcOutboxRecordEntityMapperTest {
 
         @Test
         fun `should map provided context`() {
-            val now = OffsetDateTime.now()
-            val completedAt = now.plusMinutes(5)
-            val nextRetryAt = now.plusMinutes(10)
+            val now = Instant.now()
+            val completedAt = now.plus(5, MINUTES)
+            val nextRetryAt = now.plus(10, MINUTES)
             val event = OrderCreatedEvent(orderId = "123", amount = 100.50)
 
             val record =
@@ -93,7 +94,7 @@ class JdbcOutboxRecordEntityMapperTest {
 
         @Test
         fun `should map empty context to null`() {
-            val now = OffsetDateTime.now()
+            val now = Instant.now()
             val event = OrderCreatedEvent(orderId = "123", amount = 100.50)
 
             val record =
@@ -124,7 +125,7 @@ class JdbcOutboxRecordEntityMapperTest {
     inner class MapEntityToOutboxRecordTests {
         @Test
         fun `should deserialize event payload correctly`() {
-            val now = OffsetDateTime.now()
+            val now = Instant.now()
             val entity =
                 JdbcOutboxRecordEntity(
                     id = "test-id",
@@ -156,7 +157,7 @@ class JdbcOutboxRecordEntityMapperTest {
 
         @Test
         fun `should deserialize context correctly`() {
-            val now = OffsetDateTime.now()
+            val now = Instant.now()
             val entity =
                 JdbcOutboxRecordEntity(
                     id = "test-id",
@@ -182,7 +183,7 @@ class JdbcOutboxRecordEntityMapperTest {
 
         @Test
         fun `should map null context to empty map`() {
-            val now = OffsetDateTime.now()
+            val now = Instant.now()
             val entity =
                 JdbcOutboxRecordEntity(
                     id = "test-id",

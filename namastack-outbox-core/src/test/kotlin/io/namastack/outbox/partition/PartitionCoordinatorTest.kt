@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
 import java.time.Clock
-import java.time.OffsetDateTime
+import java.time.Instant
 
 @DisplayName("PartitionCoordinator")
 class PartitionCoordinatorTest {
@@ -56,8 +56,8 @@ class PartitionCoordinatorTest {
     inner class GetAssignedPartitionNumbers {
         @Test
         fun `return assigned partition numbers for current instance`() {
-            val assignment1 = PartitionAssignment(0, "instance-1", OffsetDateTime.now())
-            val assignment2 = PartitionAssignment(1, "instance-1", OffsetDateTime.now())
+            val assignment1 = PartitionAssignment(0, "instance-1", Instant.now())
+            val assignment2 = PartitionAssignment(1, "instance-1", Instant.now())
 
             every {
                 partitionAssignmentRepository.findByInstanceId("instance-1")
@@ -84,8 +84,8 @@ class PartitionCoordinatorTest {
     inner class GetPartitionContextTests {
         @Test
         fun `return partition context with active instances and assignments`() {
-            val assignment1 = PartitionAssignment(0, "instance-1", OffsetDateTime.now())
-            val assignment2 = PartitionAssignment(1, "instance-2", OffsetDateTime.now())
+            val assignment1 = PartitionAssignment(0, "instance-1", Instant.now())
+            val assignment2 = PartitionAssignment(1, "instance-2", Instant.now())
 
             every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
             every { partitionAssignmentRepository.findAll() } returns setOf(assignment1, assignment2)
@@ -157,11 +157,11 @@ class PartitionCoordinatorTest {
 
         @Test
         fun `claim stale partitions when owned less than target`() {
-            val ownedAssignment = PartitionAssignment(0, "instance-1", OffsetDateTime.now())
+            val ownedAssignment = PartitionAssignment(0, "instance-1", Instant.now())
             val staleAssignments =
                 (1..150)
                     .map { partitionNumber ->
-                        PartitionAssignment(partitionNumber, "instance-old", OffsetDateTime.now())
+                        PartitionAssignment(partitionNumber, "instance-old", Instant.now())
                     }.toSet()
             val allAssignments = setOf(ownedAssignment) + staleAssignments
 
@@ -178,7 +178,7 @@ class PartitionCoordinatorTest {
             val assignments =
                 (0..150)
                     .map { partitionNumber ->
-                        PartitionAssignment(partitionNumber, "instance-1", OffsetDateTime.now())
+                        PartitionAssignment(partitionNumber, "instance-1", Instant.now())
                     }.toSet()
 
             every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
@@ -191,11 +191,11 @@ class PartitionCoordinatorTest {
 
         @Test
         fun `handle claim stale partitions failure gracefully`() {
-            val ownedAssignment = PartitionAssignment(0, "instance-1", OffsetDateTime.now())
+            val ownedAssignment = PartitionAssignment(0, "instance-1", Instant.now())
             val staleAssignments =
                 (1..150)
                     .map { partitionNumber ->
-                        PartitionAssignment(partitionNumber, "instance-old", OffsetDateTime.now())
+                        PartitionAssignment(partitionNumber, "instance-old", Instant.now())
                     }.toSet()
             val allAssignments = setOf(ownedAssignment) + staleAssignments
 
@@ -214,7 +214,7 @@ class PartitionCoordinatorTest {
             val assignments =
                 (0..150)
                     .map { partitionNumber ->
-                        PartitionAssignment(partitionNumber, "instance-1", OffsetDateTime.now())
+                        PartitionAssignment(partitionNumber, "instance-1", Instant.now())
                     }.toSet()
 
             every { instanceRegistry.getActiveInstanceIds() } returns setOf("instance-1", "instance-2")
