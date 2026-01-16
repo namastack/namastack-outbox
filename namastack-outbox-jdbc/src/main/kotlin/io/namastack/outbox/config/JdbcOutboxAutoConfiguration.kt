@@ -8,7 +8,7 @@ import io.namastack.outbox.JdbcTableNameResolver
 import io.namastack.outbox.OutboxCoreAutoConfiguration
 import io.namastack.outbox.OutboxPayloadSerializer
 import io.namastack.outbox.OutboxRecordRepository
-import io.namastack.outbox.annotation.EnableOutbox
+import io.namastack.outbox.OutboxService
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import org.springframework.beans.factory.BeanFactory
@@ -16,8 +16,9 @@ import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigureAfter
 import org.springframework.boot.autoconfigure.AutoConfigureBefore
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.jdbc.autoconfigure.JdbcClientAutoConfiguration
 import org.springframework.boot.transaction.autoconfigure.TransactionAutoConfiguration
@@ -32,6 +33,7 @@ import javax.sql.DataSource
  * Auto-configuration class for JDBC-based Outbox functionality.
  *
  * This configuration provides JDBC implementations for outbox repositories.
+ * Requires both JDBC (JdbcClient) and the outbox core module to be present.
  *
  * @author Roland Beisel
  * @since 1.0.0
@@ -44,7 +46,8 @@ import javax.sql.DataSource
     ],
 )
 @AutoConfigureBefore(OutboxCoreAutoConfiguration::class)
-@ConditionalOnBean(annotation = [EnableOutbox::class])
+@ConditionalOnClass(JdbcClient::class, OutboxService::class)
+@ConditionalOnProperty(name = ["outbox.enabled"], havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(JdbcOutboxConfigurationProperties::class)
 class JdbcOutboxAutoConfiguration {
     /**

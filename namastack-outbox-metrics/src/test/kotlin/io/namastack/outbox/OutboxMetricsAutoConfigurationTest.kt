@@ -1,7 +1,6 @@
 package io.namastack.outbox
 
 import io.mockk.mockk
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
@@ -82,7 +81,6 @@ class OutboxMetricsAutoConfigurationTest {
         }
     }
 
-    @EnableOutbox
     @Configuration
     class ConfigWithAllBeans {
         @Bean
@@ -103,7 +101,6 @@ class OutboxMetricsAutoConfigurationTest {
         }
     }
 
-    @EnableOutbox
     @Configuration
     class ConfigMissingStatusRepo {
         @Bean
@@ -121,7 +118,6 @@ class OutboxMetricsAutoConfigurationTest {
         }
     }
 
-    @EnableOutbox
     @Configuration
     class ConfigMissingRecordRepo {
         @Bean
@@ -139,7 +135,6 @@ class OutboxMetricsAutoConfigurationTest {
         }
     }
 
-    @EnableOutbox
     @Configuration
     class ConfigMissingCoordinator {
         @Bean
@@ -157,7 +152,6 @@ class OutboxMetricsAutoConfigurationTest {
         }
     }
 
-    @EnableOutbox
     @Configuration
     class ConfigMissingRegistry {
         @Bean
@@ -170,7 +164,6 @@ class OutboxMetricsAutoConfigurationTest {
         fun partitionCoordinator() = mockk<io.namastack.outbox.partition.PartitionCoordinator>()
     }
 
-    @EnableOutbox
     @Configuration
     class ConfigMissingMetricsProvider {
         @Bean

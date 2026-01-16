@@ -2,7 +2,6 @@ package io.namastack.outbox.schema
 
 import io.namastack.outbox.Outbox
 import io.namastack.outbox.OutboxRecordRepository
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.schema.AbstractJdbcSchemaInitializationTest.MyHandler
@@ -72,7 +71,6 @@ abstract class AbstractJdbcSchemaInitializationTest {
         return false
     }
 
-    @EnableOutbox
     @EnableScheduling
     @SpringBootApplication
     class TestApplication

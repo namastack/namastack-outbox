@@ -2,7 +2,6 @@ package io.namastack.demo
 
 import io.namastack.demo.customer.Customer
 import io.namastack.demo.customer.CustomerRepository
-import io.namastack.outbox.annotation.EnableOutbox
 import org.slf4j.LoggerFactory
 import org.springframework.boot.CommandLineRunner
 import org.springframework.boot.SpringApplication
@@ -11,7 +10,6 @@ import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
 
 @EnableAsync
-@EnableOutbox
 @EnableScheduling
 @SpringBootApplication
 class DemoApplication(

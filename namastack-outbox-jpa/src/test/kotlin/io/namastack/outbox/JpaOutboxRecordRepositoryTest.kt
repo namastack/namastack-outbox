@@ -6,7 +6,6 @@ import io.mockk.verify
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
-import io.namastack.outbox.annotation.EnableOutbox
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.within
@@ -592,7 +591,6 @@ class JpaOutboxRecordRepositoryTest {
         return record
     }
 
-    @EnableOutbox
     @SpringBootApplication
     class TestApplication
 }

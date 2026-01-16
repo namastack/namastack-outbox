@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.annotation.OutboxEvent
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
@@ -186,7 +185,6 @@ class EventMulticasterIntegrationTest {
         val handledEvents = ConcurrentHashMap<String, MutableList<Any>>()
     }
 
-    @EnableOutbox
     @EnableScheduling
     @SpringBootApplication
     class TestApplication

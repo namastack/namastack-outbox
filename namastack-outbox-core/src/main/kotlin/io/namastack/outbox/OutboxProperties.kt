@@ -8,6 +8,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  * This class defines all configurable aspects of the outbox pattern implementation,
  * including retry policies, processing behavior, and instance management.
  *
+ * @param enabled Whether the outbox functionality is enabled. Defaults to true.
+ *                Set to false to disable outbox auto-configuration entirely.
  * @param pollInterval Interval in milliseconds at which the outbox is polled
  * @param rebalanceInterval Interval in milliseconds at which partition rebalancing is performed
  * @param batchSize Maximum number of records to process in a single batch
@@ -20,6 +22,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  */
 @ConfigurationProperties(prefix = "outbox")
 data class OutboxProperties(
+    var enabled: Boolean = true,
     var pollInterval: Long = 2000,
     var rebalanceInterval: Long = 10000,
     var batchSize: Int = 10,

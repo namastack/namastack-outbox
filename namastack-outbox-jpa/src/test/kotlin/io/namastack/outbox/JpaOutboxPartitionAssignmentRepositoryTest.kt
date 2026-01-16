@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.partition.PartitionAssignment
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
@@ -212,7 +211,6 @@ class JpaOutboxPartitionAssignmentRepositoryTest {
         assertThat(all.map { it.partitionNumber }).containsExactlyElementsOf(0..255)
     }
 
-    @EnableOutbox
     @SpringBootApplication
     class TestApplication
 }

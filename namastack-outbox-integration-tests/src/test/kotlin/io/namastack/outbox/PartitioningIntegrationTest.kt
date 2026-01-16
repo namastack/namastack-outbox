@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
@@ -157,7 +156,6 @@ class PartitioningIntegrationTest {
         }
     }
 
-    @EnableOutbox
     @SpringBootApplication
     class TestApplication
 }

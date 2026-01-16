@@ -1,7 +1,6 @@
 package io.namastack.outbox
 
 import io.mockk.mockk
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
@@ -347,7 +346,6 @@ class OutboxCoreAutoConfigurationTest {
         }
     }
 
-    @EnableOutbox
     @Configuration
     private class MinimalTestConfig {
         @Bean
@@ -360,7 +358,6 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
     }
 
-    @EnableOutbox
     @Configuration
     private class ConfigWithCustomClock {
         @Bean
@@ -376,7 +373,6 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
     }
 
-    @EnableOutbox
     @Configuration
     private class ConfigWithCustomInstanceRegistry {
         companion object {
@@ -396,7 +392,6 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxInstanceRegistry() = instanceRegistry
     }
 
-    @EnableOutbox
     @Configuration
     private class ConfigWithCustomRetryPolicy {
         @Bean
@@ -412,7 +407,6 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxRetryPolicy() = FixedDelayRetryPolicy(delay = Duration.ofSeconds(1), maxRetries = 3)
     }
 
-    @EnableOutbox
     @Configuration
     private class ConfigWithoutRepository {
         @Bean

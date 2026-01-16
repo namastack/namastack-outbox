@@ -1,18 +1,18 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionCoordinator
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 
 /**
  * Auto-configuration class for Outbox metrics functionality.
  *
  * Provides Micrometer meter binders for monitoring outbox records and partitions
- * when the EnableOutbox annotation is present and a persistence module is available.
+ * when outbox is enabled and a persistence module is available.
  *
  * Registers two main meter binders:
  * - OutboxRecordMetricsMeterBinder: Tracks record counts by status (NEW, FAILED, COMPLETED)
@@ -27,7 +27,8 @@ import org.springframework.context.annotation.Bean
  * @since 0.1.0
  */
 @AutoConfiguration
-@ConditionalOnBean(annotation = [EnableOutbox::class])
+@ConditionalOnClass(OutboxService::class)
+@ConditionalOnProperty(name = ["outbox.enabled"], havingValue = "true", matchIfMissing = true)
 internal class OutboxMetricsAutoConfiguration {
     /**
      * Creates the outbox record metrics meter binder.

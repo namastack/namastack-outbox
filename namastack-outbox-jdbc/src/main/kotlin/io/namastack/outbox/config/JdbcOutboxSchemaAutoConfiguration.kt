@@ -1,8 +1,7 @@
 package io.namastack.outbox.config
 
-import io.namastack.outbox.annotation.EnableOutbox
 import org.springframework.boot.autoconfigure.AutoConfiguration
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
 import org.springframework.boot.sql.init.DatabaseInitializationMode
@@ -16,12 +15,14 @@ import javax.sql.DataSource
  * Auto-configuration for JDBC outbox database schema initialization.
  *
  * This configuration handles database schema creation when enabled.
+ * Requires a DataSource to be present.
  *
  * @author Roland Beisel
  * @since 1.0.0
  */
 @AutoConfiguration
-@ConditionalOnBean(annotation = [EnableOutbox::class])
+@ConditionalOnClass(DataSource::class)
+@ConditionalOnProperty(name = ["outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class JdbcOutboxSchemaAutoConfiguration {
     /**
      * Creates a database initializer for outbox schema when schema initialization is enabled.

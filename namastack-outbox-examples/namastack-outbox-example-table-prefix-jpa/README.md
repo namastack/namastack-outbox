@@ -6,7 +6,7 @@ It uses **H2 in-memory** and lets **Hibernate create the schema** on startup (`d
 
 ## What This Example Shows
 
-- Using `@EnableOutbox` to enable outbox processing
+- Auto-configuration - just add the dependency and it works
 - Using **Hibernate DDL** (`spring.jpa.hibernate.ddl-auto=create-drop`) to automatically create tables
 - Prefixing table names via `spring.jpa.hibernate.naming.physical-strategy`
 - Disabling the outbox SQL schema initializer (because Hibernate creates the tables in this example)
