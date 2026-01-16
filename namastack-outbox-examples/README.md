@@ -32,7 +32,8 @@ This directory contains various example projects demonstrating different feature
 
 ### 🏷️ Table Naming & Schema Management
 
-- **[namastack-outbox-example-table-prefix-jpa](namastack-outbox-example-table-prefix-jpa)** - JPA example showing how to use a **custom H2 schema** and **table prefixes** via Hibernate’s `PhysicalNamingStrategy`
+- **[namastack-outbox-example-table-prefix-jpa](namastack-outbox-example-table-prefix-jpa)** - JPA example showing how to use a **custom H2 schema** and **table prefixes** via Hibernate's `PhysicalNamingStrategy`
+- **[namastack-outbox-example-table-prefix-jdbc](namastack-outbox-example-table-prefix-jdbc)** - JDBC example showing how to use **custom table prefixes** and **custom database schemas** with manual schema creation
 
 ### ☕ Language Support
 
@@ -79,25 +80,6 @@ namastack-outbox-example-*/
         └── resources/
             └── application.yml   # Configuration
 ```
-
-## Common Configuration
-
-All examples share similar configuration in `application.yml` (the exact defaults vary per example):
-
-```yaml
-outbox:
-  schema-initialization:
-    enabled: true              # Auto-create outbox tables (typically used by JDBC examples)
-  instance:
-    graceful-shutdown-timeout-seconds: 2
-  retry:
-    policy: "fixed"            # or "exponential"
-    max-retries: 3
-```
-
-**Note:** In JPA examples, schema creation is usually handled by either:
-- Hibernate DDL (e.g. `spring.jpa.hibernate.ddl-auto=create-drop`) for dev/test, or
-- Flyway/Liquibase for production-style setups.
 
 ## Learning Path
 

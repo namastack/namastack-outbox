@@ -5,6 +5,7 @@ import io.namastack.outbox.partition.PartitionAssignmentRepository
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
+import java.sql.Timestamp
 
 /**
  * JDBC repository implementation for managing partition assignments.
@@ -14,19 +15,23 @@ import org.springframework.transaction.support.TransactionTemplate
  *
  * @param jdbcClient JDBC client for database operations
  * @param transactionTemplate Transaction template for programmatic transaction management
+ * @param tableNameResolver Resolver for fully qualified table names
  *
  * @author Roland Beisel
- * @since 1.1.0
+ * @since 1.0.0
  */
 internal open class JdbcOutboxPartitionAssignmentRepository(
     private val jdbcClient: JdbcClient,
     private val transactionTemplate: TransactionTemplate,
+    private val tableNameResolver: JdbcTableNameResolver,
 ) : PartitionAssignmentRepository {
+    private val tableName = tableNameResolver.outboxPartitionAssignment
+
     /**
      * Query to select all partition assignments ordered by partition number.
      */
     private val findAllQuery = """
-        SELECT * FROM outbox_partition
+        SELECT * FROM $tableName
         ORDER BY partition_number
     """
 
@@ -34,7 +39,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
      * Query to select partition assignments by instance ID.
      */
     private val findByInstanceIdQuery = """
-        SELECT * FROM outbox_partition
+        SELECT * FROM $tableName
         WHERE instance_id = :instanceId
     """
 
@@ -42,7 +47,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
      * Query to update partition assignment with optimistic locking.
      */
     private val updatePartitionQuery = """
-        UPDATE outbox_partition
+        UPDATE $tableName
         SET instance_id = :instanceId, version = :version, updated_at = :updatedAt
         WHERE partition_number = :partitionNumber AND version = :originalVersion
     """
@@ -51,7 +56,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
      * Query to check if partition exists.
      */
     private val partitionExistsQuery = """
-        SELECT COUNT(*) FROM outbox_partition
+        SELECT COUNT(*) FROM $tableName
         WHERE partition_number = :partitionNumber
     """
 
@@ -59,7 +64,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
      * Query to insert new partition assignment.
      */
     private val insertPartitionQuery = """
-        INSERT INTO outbox_partition (partition_number, instance_id, version, updated_at)
+        INSERT INTO $tableName (partition_number, instance_id, version, updated_at)
         VALUES (:partitionNumber, :instanceId, :version, :updatedAt)
     """
 
@@ -130,7 +135,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
             .sql(updatePartitionQuery.trimIndent())
             .param("instanceId", entity.instanceId)
             .param("version", newVersion)
-            .param("updatedAt", entity.updatedAt)
+            .param("updatedAt", Timestamp.from(entity.updatedAt))
             .param("partitionNumber", entity.partitionNumber)
             .param("originalVersion", originalVersion ?: 0)
             .update()
@@ -168,7 +173,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
             .param("partitionNumber", entity.partitionNumber)
             .param("instanceId", entity.instanceId)
             .param("version", 0) // Initial version is 0
-            .param("updatedAt", entity.updatedAt)
+            .param("updatedAt", Timestamp.from(entity.updatedAt))
             .update()
     }
 }

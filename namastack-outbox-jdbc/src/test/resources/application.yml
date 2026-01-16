@@ -6,8 +6,9 @@ spring:
     driver-class-name: org.h2.Driver
 
 outbox:
-  schema-initialization:
-    enabled: true
+  jdbc:
+    schema-initialization:
+      enabled: true
 
 logging:
   level:

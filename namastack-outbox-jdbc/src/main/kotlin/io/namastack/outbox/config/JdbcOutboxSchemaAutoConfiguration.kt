@@ -18,7 +18,7 @@ import javax.sql.DataSource
  * This configuration handles database schema creation when enabled.
  *
  * @author Roland Beisel
- * @since 1.1.0
+ * @since 1.0.0
  */
 @AutoConfiguration
 @ConditionalOnBean(annotation = [EnableOutbox::class])
@@ -32,10 +32,13 @@ class JdbcOutboxSchemaAutoConfiguration {
      * @return Database initializer for outbox schema
      */
     @Bean
-    @ConditionalOnProperty(name = ["outbox.schema-initialization.enabled"], havingValue = "true")
+    @ConditionalOnProperty(name = ["outbox.jdbc.schema-initialization.enabled"], havingValue = "true")
     internal fun outboxDataSourceScriptDatabaseInitializer(
         dataSource: DataSource,
+        properties: JdbcOutboxConfigurationProperties,
     ): DataSourceScriptDatabaseInitializer {
+        validateNoCustomTableNaming(properties)
+
         val databaseName = detectDatabaseName(dataSource)
         val databaseType = JdbcDatabaseType.from(databaseName)
 
@@ -44,6 +47,20 @@ class JdbcOutboxSchemaAutoConfiguration {
         settings.mode = DatabaseInitializationMode.ALWAYS
 
         return DataSourceScriptDatabaseInitializer(dataSource, settings)
+    }
+
+    private fun validateNoCustomTableNaming(properties: JdbcOutboxConfigurationProperties) {
+        val hasTablePrefix = properties.tablePrefix.isNotEmpty()
+        val hasSchemaName = !properties.schemaName.isNullOrEmpty()
+
+        if (hasTablePrefix || hasSchemaName) {
+            throw IllegalStateException(
+                "Cannot use automatic schema initialization (outbox.jdbc.schema-initialization.enabled=true) " +
+                    "together with custom table prefix or schema name. " +
+                    "Either disable schema initialization and create tables manually with your desired naming, " +
+                    "or remove the table-prefix and schema-name configuration.",
+            )
+        }
     }
 
     private fun detectDatabaseName(dataSource: DataSource): String =

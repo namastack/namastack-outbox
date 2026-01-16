@@ -4,6 +4,7 @@ import io.namastack.outbox.JdbcOutboxInstanceRepository
 import io.namastack.outbox.JdbcOutboxPartitionAssignmentRepository
 import io.namastack.outbox.JdbcOutboxRecordEntityMapper
 import io.namastack.outbox.JdbcOutboxRecordRepository
+import io.namastack.outbox.JdbcTableNameResolver
 import io.namastack.outbox.OutboxCoreAutoConfiguration
 import io.namastack.outbox.OutboxPayloadSerializer
 import io.namastack.outbox.OutboxRecordRepository
@@ -17,6 +18,7 @@ import org.springframework.boot.autoconfigure.AutoConfigureAfter
 import org.springframework.boot.autoconfigure.AutoConfigureBefore
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.jdbc.autoconfigure.JdbcClientAutoConfiguration
 import org.springframework.boot.transaction.autoconfigure.TransactionAutoConfiguration
 import org.springframework.context.annotation.Bean
@@ -32,7 +34,7 @@ import javax.sql.DataSource
  * This configuration provides JDBC implementations for outbox repositories.
  *
  * @author Roland Beisel
- * @since 1.1.0
+ * @since 1.0.0
  */
 @AutoConfiguration
 @AutoConfigureAfter(
@@ -43,6 +45,7 @@ import javax.sql.DataSource
 )
 @AutoConfigureBefore(OutboxCoreAutoConfiguration::class)
 @ConditionalOnBean(annotation = [EnableOutbox::class])
+@EnableConfigurationProperties(JdbcOutboxConfigurationProperties::class)
 class JdbcOutboxAutoConfiguration {
     /**
      * Provides a default Clock bean if none is configured.
@@ -52,6 +55,17 @@ class JdbcOutboxAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun clock(): Clock = Clock.systemDefaultZone()
+
+    /**
+     * Creates the table name resolver for JDBC operations.
+     *
+     * @param properties Configuration properties for table prefix and schema
+     * @return Table name resolver for constructing fully qualified table names
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    internal fun jdbcTableNameResolver(properties: JdbcOutboxConfigurationProperties): JdbcTableNameResolver =
+        JdbcTableNameResolver(properties)
 
     /**
      * Creates a named JdbcClient for outbox operations.
@@ -82,6 +96,7 @@ class JdbcOutboxAutoConfiguration {
      * @param beanFactory Bean factory for retrieving outbox-specific beans
      * @param jdbcOutboxRecordEntityMapper Mapper for converting between domain objects and JPA entities
      * @param clock Clock for time-based operations
+     * @param tableNameResolver Resolver for fully qualified table names
      * @return JDBC outbox record repository implementation
      */
     @Bean
@@ -90,12 +105,14 @@ class JdbcOutboxAutoConfiguration {
         beanFactory: BeanFactory,
         jdbcOutboxRecordEntityMapper: JdbcOutboxRecordEntityMapper,
         clock: Clock,
+        tableNameResolver: JdbcTableNameResolver,
     ): OutboxRecordRepository =
         JdbcOutboxRecordRepository(
             jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient"),
             transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
             entityMapper = jdbcOutboxRecordEntityMapper,
             clock = clock,
+            tableNameResolver = tableNameResolver,
         )
 
     /**
@@ -113,27 +130,37 @@ class JdbcOutboxAutoConfiguration {
      * Creates a JDBC-based outbox instance repository.
      *
      * @param beanFactory Bean factory for retrieving outbox-specific beans
+     * @param tableNameResolver Resolver for fully qualified table names
      * @return JDBC outbox instance repository implementation
      */
     @Bean
     @ConditionalOnMissingBean
-    internal fun outboxInstanceRepository(beanFactory: BeanFactory): OutboxInstanceRepository =
+    internal fun outboxInstanceRepository(
+        beanFactory: BeanFactory,
+        tableNameResolver: JdbcTableNameResolver,
+    ): OutboxInstanceRepository =
         JdbcOutboxInstanceRepository(
             jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient"),
             transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
+            tableNameResolver = tableNameResolver,
         )
 
     /**
      * Creates a JDBC-based outbox partition repository.
      *
      * @param beanFactory Bean factory for retrieving outbox-specific beans
+     * @param tableNameResolver Resolver for fully qualified table names
      * @return JDBC outbox partition repository implementation
      */
     @Bean
     @ConditionalOnMissingBean
-    internal fun outboxPartitionAssignmentRepository(beanFactory: BeanFactory): PartitionAssignmentRepository =
+    internal fun outboxPartitionAssignmentRepository(
+        beanFactory: BeanFactory,
+        tableNameResolver: JdbcTableNameResolver,
+    ): PartitionAssignmentRepository =
         JdbcOutboxPartitionAssignmentRepository(
             jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient"),
             transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
+            tableNameResolver = tableNameResolver,
         )
 }

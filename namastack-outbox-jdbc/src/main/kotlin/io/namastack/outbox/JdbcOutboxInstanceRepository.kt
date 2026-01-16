@@ -5,6 +5,7 @@ import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.instance.OutboxInstanceStatus
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
+import java.sql.Timestamp
 import java.time.Instant
 
 /**
@@ -15,19 +16,23 @@ import java.time.Instant
  *
  * @param jdbcClient JDBC client for database operations
  * @param transactionTemplate Transaction template for programmatic transaction management
+ * @param tableNameResolver Resolver for fully qualified table names
  *
  * @author Roland Beisel
- * @since 1.1.0
+ * @since 1.0.0
  */
 internal open class JdbcOutboxInstanceRepository(
     private val jdbcClient: JdbcClient,
     private val transactionTemplate: TransactionTemplate,
+    private val tableNameResolver: JdbcTableNameResolver,
 ) : OutboxInstanceRepository {
+    private val tableName = tableNameResolver.outboxInstance
+
     /**
      * Query to update an existing instance.
      */
     private val updateInstanceQuery = """
-        UPDATE outbox_instance
+        UPDATE $tableName
         SET hostname = :hostname, port = :port, status = :status, started_at = :startedAt,
             last_heartbeat = :lastHeartbeat, created_at = :createdAt, updated_at = :updatedAt
         WHERE instance_id = :instanceId
@@ -37,7 +42,7 @@ internal open class JdbcOutboxInstanceRepository(
      * Query to insert a new instance.
      */
     private val insertInstanceQuery = """
-        INSERT INTO outbox_instance
+        INSERT INTO $tableName
         (instance_id, hostname, port, status, started_at, last_heartbeat, created_at, updated_at)
         VALUES (:instanceId, :hostname, :port, :status, :startedAt, :lastHeartbeat, :createdAt, :updatedAt)
     """
@@ -46,7 +51,7 @@ internal open class JdbcOutboxInstanceRepository(
      * Query to select instance by ID.
      */
     private val findByIdQuery = """
-        SELECT * FROM outbox_instance
+        SELECT * FROM $tableName
         WHERE instance_id = :instanceId
     """
 
@@ -54,7 +59,7 @@ internal open class JdbcOutboxInstanceRepository(
      * Query to select all instances ordered by creation time.
      */
     private val findAllQuery = """
-        SELECT * FROM outbox_instance
+        SELECT * FROM $tableName
         ORDER BY created_at
     """
 
@@ -62,7 +67,7 @@ internal open class JdbcOutboxInstanceRepository(
      * Query to select instances by status ordered by last heartbeat.
      */
     private val findByStatusQuery = """
-        SELECT * FROM outbox_instance
+        SELECT * FROM $tableName
         WHERE status = :status
         ORDER BY last_heartbeat DESC
     """
@@ -71,7 +76,7 @@ internal open class JdbcOutboxInstanceRepository(
      * Query to select instances with stale heartbeat.
      */
     private val findStaleHeartbeatQueryTemplate = """
-        SELECT * FROM outbox_instance
+        SELECT * FROM $tableName
         WHERE last_heartbeat < :cutoffTime
           AND status IN (:statuses)
         ORDER BY last_heartbeat
@@ -81,7 +86,7 @@ internal open class JdbcOutboxInstanceRepository(
      * Query to update instance heartbeat.
      */
     private val updateHeartbeatQuery = """
-        UPDATE outbox_instance
+        UPDATE $tableName
         SET last_heartbeat = :lastHeartbeat, updated_at = :updatedAt
         WHERE instance_id = :instanceId
     """
@@ -90,7 +95,7 @@ internal open class JdbcOutboxInstanceRepository(
      * Query to update instance status.
      */
     private val updateStatusQuery = """
-        UPDATE outbox_instance
+        UPDATE $tableName
         SET status = :status, updated_at = :updatedAt
         WHERE instance_id = :instanceId
     """
@@ -99,7 +104,7 @@ internal open class JdbcOutboxInstanceRepository(
      * Query to count instances by status.
      */
     private val countByStatusQuery = """
-        SELECT COUNT(*) FROM outbox_instance
+        SELECT COUNT(*) FROM $tableName
         WHERE status = :status
     """
 
@@ -107,7 +112,7 @@ internal open class JdbcOutboxInstanceRepository(
      * Query to delete instance by ID.
      */
     private val deleteByIdQuery = """
-        DELETE FROM outbox_instance
+        DELETE FROM $tableName
         WHERE instance_id = :instanceId
     """
 
@@ -172,7 +177,7 @@ internal open class JdbcOutboxInstanceRepository(
 
         return jdbcClient
             .sql(findStaleHeartbeatQueryTemplate.trimIndent())
-            .param("cutoffTime", cutoffTime)
+            .param("cutoffTime", Timestamp.from(cutoffTime))
             .param("statuses", activeStatuses)
             .query(JdbcOutboxInstanceEntity::class.java)
             .list()
@@ -191,8 +196,8 @@ internal open class JdbcOutboxInstanceRepository(
             val updated =
                 jdbcClient
                     .sql(updateHeartbeatQuery.trimIndent())
-                    .param("lastHeartbeat", timestamp)
-                    .param("updatedAt", timestamp)
+                    .param("lastHeartbeat", Timestamp.from(timestamp))
+                    .param("updatedAt", Timestamp.from(timestamp))
                     .param("instanceId", instanceId)
                     .update()
             updated > 0
@@ -211,7 +216,7 @@ internal open class JdbcOutboxInstanceRepository(
                 jdbcClient
                     .sql(updateStatusQuery.trimIndent())
                     .param("status", status.name)
-                    .param("updatedAt", timestamp)
+                    .param("updatedAt", Timestamp.from(timestamp))
                     .param("instanceId", instanceId)
                     .update()
             updated > 0
@@ -249,10 +254,10 @@ internal open class JdbcOutboxInstanceRepository(
             .param("hostname", entity.hostname)
             .param("port", entity.port)
             .param("status", entity.status.name)
-            .param("startedAt", entity.startedAt)
-            .param("lastHeartbeat", entity.lastHeartbeat)
-            .param("createdAt", entity.createdAt)
-            .param("updatedAt", entity.updatedAt)
+            .param("startedAt", Timestamp.from(entity.startedAt))
+            .param("lastHeartbeat", Timestamp.from(entity.lastHeartbeat))
+            .param("createdAt", Timestamp.from(entity.createdAt))
+            .param("updatedAt", Timestamp.from(entity.updatedAt))
             .param("instanceId", entity.instanceId)
             .update()
 
@@ -266,10 +271,10 @@ internal open class JdbcOutboxInstanceRepository(
             .param("hostname", entity.hostname)
             .param("port", entity.port)
             .param("status", entity.status.name)
-            .param("startedAt", entity.startedAt)
-            .param("lastHeartbeat", entity.lastHeartbeat)
-            .param("createdAt", entity.createdAt)
-            .param("updatedAt", entity.updatedAt)
+            .param("startedAt", Timestamp.from(entity.startedAt))
+            .param("lastHeartbeat", Timestamp.from(entity.lastHeartbeat))
+            .param("createdAt", Timestamp.from(entity.createdAt))
+            .param("updatedAt", Timestamp.from(entity.updatedAt))
             .update()
     }
 }

@@ -16,7 +16,7 @@ package io.namastack.outbox.config
  * @param schemaLocation Classpath location of the database-specific schema script
  *
  * @author Roland Beisel
- * @since 1.1.0
+ * @since 1.0.0
  */
 sealed class JdbcDatabaseType(
     val schemaLocation: String,

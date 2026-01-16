@@ -7,7 +7,7 @@ package io.namastack.outbox
  * the domain model and persistence layer representations.
  *
  * @author Roland Beisel
- * @since 1.1.0
+ * @since 1.0.0
  */
 internal class JdbcOutboxRecordEntityMapper(
     private val serializer: OutboxPayloadSerializer,

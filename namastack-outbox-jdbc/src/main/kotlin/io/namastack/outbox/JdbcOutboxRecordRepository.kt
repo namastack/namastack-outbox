@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
+import java.sql.Timestamp
 import java.time.Instant
 
 /**
@@ -14,22 +15,26 @@ import java.time.Instant
  * @param transactionTemplate Transaction template for programmatic transaction management
  * @param entityMapper Mapper for converting between domain objects and JPA entities
  * @param clock Clock for time-based operations
+ * @param tableNameResolver Resolver for fully qualified table names
  *
  * @author Roland Beisel
- * @since 1.1.0
+ * @since 1.0.0
  */
 internal open class JdbcOutboxRecordRepository(
     private val jdbcClient: JdbcClient,
     private val transactionTemplate: TransactionTemplate,
     private val entityMapper: JdbcOutboxRecordEntityMapper,
     private val clock: java.time.Clock,
+    private val tableNameResolver: JdbcTableNameResolver,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
+    private val tableName = tableNameResolver.outboxRecord
+
     /**
      * Query to update an existing outbox record.
      */
     private val updateRecordQuery = """
-        UPDATE outbox_record
+        UPDATE $tableName
         SET status = :status, record_key = :recordKey, record_type = :recordType, payload = :payload, context = :context,
             partition_no = :partitionNo, created_at = :createdAt, completed_at = :completedAt, failure_count = :failureCount,
             failure_reason = :failureReason, next_retry_at = :nextRetryAt, handler_id = :handlerId
@@ -40,7 +45,7 @@ internal open class JdbcOutboxRecordRepository(
      * Query to insert a new outbox record.
      */
     private val insertRecordQuery = """
-        INSERT INTO outbox_record
+        INSERT INTO $tableName
         (id, status, record_key, record_type, payload, context, partition_no,
          created_at, completed_at, failure_count, failure_reason, next_retry_at, handler_id)
         VALUES (:id, :status, :recordKey, :recordType, :payload, :context, :partitionNo,
@@ -51,7 +56,7 @@ internal open class JdbcOutboxRecordRepository(
      * Query to select outbox records by status ordered by creation time.
      */
     private val findByStatusQuery = """
-        SELECT * FROM outbox_record
+        SELECT * FROM $tableName
         WHERE status = :status
         ORDER BY created_at
     """
@@ -60,7 +65,7 @@ internal open class JdbcOutboxRecordRepository(
      * Query to select outbox records by record key and status ordered by creation time.
      */
     private val findByKeyAndStatusQuery = """
-        SELECT * FROM outbox_record
+        SELECT * FROM $tableName
         WHERE record_key = :recordKey AND status = :status
         ORDER BY created_at
     """
@@ -69,7 +74,7 @@ internal open class JdbcOutboxRecordRepository(
      * Query to count outbox records by status.
      */
     private val countByStatusQuery = """
-        SELECT COUNT(*) FROM outbox_record
+        SELECT COUNT(*) FROM $tableName
         WHERE status = :status
     """
 
@@ -77,7 +82,7 @@ internal open class JdbcOutboxRecordRepository(
      * Query to count outbox records by partition and status.
      */
     private val countByPartitionStatusQuery = """
-        SELECT COUNT(*) FROM outbox_record
+        SELECT COUNT(*) FROM $tableName
         WHERE partition_no = :partitionNo AND status = :status
     """
 
@@ -85,7 +90,7 @@ internal open class JdbcOutboxRecordRepository(
      * Query to delete outbox records by status.
      */
     private val deleteByStatusQuery = """
-        DELETE FROM outbox_record
+        DELETE FROM $tableName
         WHERE status = :status
     """
 
@@ -93,7 +98,7 @@ internal open class JdbcOutboxRecordRepository(
      * Query to delete outbox records by record key and status.
      */
     private val deleteByKeyAndStatusQuery = """
-        DELETE FROM outbox_record
+        DELETE FROM $tableName
         WHERE record_key = :recordKey AND status = :status
     """
 
@@ -101,7 +106,7 @@ internal open class JdbcOutboxRecordRepository(
      * Query to delete outbox record by id.
      */
     private val deleteByIdQuery = """
-        DELETE FROM outbox_record
+        DELETE FROM $tableName
         WHERE id = :id
     """
 
@@ -111,19 +116,18 @@ internal open class JdbcOutboxRecordRepository(
      */
     private val recordKeysQueryWithPreviousFailureFilterTemplate = """
         SELECT o.record_key
-        FROM outbox_record o
+        FROM $tableName o
         WHERE o.partition_no IN (:partitions)
           AND o.status = :status
           AND o.next_retry_at <= :now
           AND NOT EXISTS (
-            SELECT 1 FROM outbox_record older
+            SELECT 1 FROM $tableName older
             WHERE older.record_key = o.record_key
               AND older.completed_at IS NULL
               AND older.created_at < o.created_at
           )
         GROUP BY o.record_key
         ORDER BY MIN(o.created_at) ASC
-        LIMIT :batchSize
     """
 
     /**
@@ -132,13 +136,12 @@ internal open class JdbcOutboxRecordRepository(
      */
     private val recordKeysQueryWithoutPreviousFailureFilterTemplate = """
         SELECT o.record_key
-        FROM outbox_record o
+        FROM $tableName o
         WHERE o.partition_no IN (:partitions)
           AND o.status = :status
           AND o.next_retry_at <= :now
         GROUP BY o.record_key
         ORDER BY MIN(o.created_at) ASC
-        LIMIT :batchSize
     """
 
     /**
@@ -271,10 +274,10 @@ internal open class JdbcOutboxRecordRepository(
 
         return jdbcClient
             .sql(query.trimIndent())
+            .withMaxRows(batchSize)
             .param("partitions", partitions.toList())
             .param("status", status.name)
-            .param("now", now)
-            .param("batchSize", batchSize)
+            .param("now", Timestamp.from(now))
             .query(String::class.java)
             .list()
             .filterNotNull()
@@ -292,11 +295,11 @@ internal open class JdbcOutboxRecordRepository(
             .param("payload", entity.payload)
             .param("context", entity.context)
             .param("partitionNo", entity.partitionNo)
-            .param("createdAt", entity.createdAt)
-            .param("completedAt", entity.completedAt)
+            .param("createdAt", Timestamp.from(entity.createdAt))
+            .param("completedAt", entity.completedAt?.let { Timestamp.from(it) })
             .param("failureCount", entity.failureCount)
             .param("failureReason", entity.failureReason)
-            .param("nextRetryAt", entity.nextRetryAt)
+            .param("nextRetryAt", Timestamp.from(entity.nextRetryAt))
             .param("handlerId", entity.handlerId)
             .param("id", entity.id)
             .update()
@@ -314,11 +317,11 @@ internal open class JdbcOutboxRecordRepository(
             .param("payload", entity.payload)
             .param("context", entity.context)
             .param("partitionNo", entity.partitionNo)
-            .param("createdAt", entity.createdAt)
-            .param("completedAt", entity.completedAt)
+            .param("createdAt", Timestamp.from(entity.createdAt))
+            .param("completedAt", entity.completedAt?.let { Timestamp.from(it) })
             .param("failureCount", entity.failureCount)
             .param("failureReason", entity.failureReason)
-            .param("nextRetryAt", entity.nextRetryAt)
+            .param("nextRetryAt", Timestamp.from(entity.nextRetryAt))
             .param("handlerId", entity.handlerId)
             .update()
     }

@@ -14,7 +14,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  * @param retry Configuration for retry mechanisms
  * @param processing Configuration for record processing behavior
  * @param instance Configuration for instance management and coordination
- * @param schemaInitialization Configuration for database schema initialization
  *
  * @author Roland Beisel
  * @since 0.1.0
@@ -27,7 +26,6 @@ data class OutboxProperties(
     var retry: Retry = Retry(),
     var processing: Processing = Processing(),
     var instance: Instance = Instance(),
-    var schemaInitialization: SchemaInitialization = SchemaInitialization(),
 ) {
     /**
      * Configuration for outbox record processing behavior.
@@ -59,15 +57,6 @@ data class OutboxProperties(
         var gracefulShutdownTimeoutSeconds: Long = 15,
         var staleInstanceTimeoutSeconds: Long = 30,
         var heartbeatIntervalSeconds: Long = 5,
-    )
-
-    /**
-     * Configuration for database schema initialization.
-     *
-     * @param enabled Whether to enable automatic schema initialization
-     */
-    data class SchemaInitialization(
-        var enabled: Boolean = false,
     )
 
     /**

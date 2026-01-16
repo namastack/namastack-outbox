@@ -19,13 +19,23 @@ dependencies {
 
     testImplementation(project(":namastack-outbox-jackson"))
     testImplementation(libs.spring.boot.starter.test)
-    testImplementation(libs.spring.boot.starter.data.jpa.test)
-    testImplementation(libs.spring.boot.starter.data.jdbc)
+    testImplementation(libs.spring.boot.starter.data.jdbc.test)
     testImplementation(libs.jackson.databind)
     testImplementation(libs.jackson.module.kotlin)
     testImplementation(libs.assertj.core)
     testImplementation(libs.mockk)
     testImplementation(libs.h2)
     testImplementation(libs.junit.jupiter)
+
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.testcontainers.mysql)
+    testImplementation(libs.testcontainers.mariadb)
+    testImplementation(libs.testcontainers.mssqlserver)
+
     testRuntimeOnly(libs.junit.platform.launcher)
+    testRuntimeOnly(libs.postgresql)
+    testRuntimeOnly(libs.mysql.connector.j)
+    testRuntimeOnly(libs.mariadb.java.client)
+    testRuntimeOnly(libs.mssql.jdbc)
 }
