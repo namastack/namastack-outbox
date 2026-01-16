@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
@@ -24,7 +23,6 @@ import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.config.BeanDefinition
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.autoconfigure.condition.ConditionalOnThreading
@@ -47,16 +45,17 @@ import java.time.Clock
 /**
  * Auto-configuration class for Outbox core functionality.
  *
- * Activated when @EnableOutbox annotation is present. Configures handler discovery
- * and registration, partition-aware processing scheduling, retry policies, instance
- * coordination for distributed deployments, and optional event multicasting.
+ * Activated when outbox is enabled (default). Can be disabled by setting
+ * `outbox.enabled=false`. Configures handler discovery and registration,
+ * partition-aware processing scheduling, retry policies, instance coordination
+ * for distributed deployments, and optional event multicasting.
  *
  * @author Roland Beisel
  * @since 0.1.0
  */
 @AutoConfiguration
 @AutoConfigurationPackage
-@ConditionalOnBean(annotation = [EnableOutbox::class])
+@ConditionalOnProperty(name = ["outbox.enabled"], havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(OutboxProperties::class)
 class OutboxCoreAutoConfiguration {
     /**

@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import jakarta.persistence.EntityManager
@@ -10,8 +9,9 @@ import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigureAfter
 import org.springframework.boot.autoconfigure.AutoConfigureBefore
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.transaction.autoconfigure.TransactionAutoConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.orm.jpa.SharedEntityManagerCreator
@@ -23,6 +23,7 @@ import java.time.Clock
  * Auto-configuration class for JPA-based Outbox functionality.
  *
  * This configuration provides JPA implementations for outbox repositories.
+ * Requires both JPA (EntityManagerFactory) and the outbox core module to be present.
  *
  * @author Roland Beisel
  * @since 0.1.0
@@ -30,7 +31,8 @@ import java.time.Clock
 @AutoConfiguration
 @AutoConfigureAfter(TransactionAutoConfiguration::class)
 @AutoConfigureBefore(OutboxCoreAutoConfiguration::class)
-@ConditionalOnBean(annotation = [EnableOutbox::class])
+@ConditionalOnClass(EntityManagerFactory::class, OutboxService::class)
+@ConditionalOnProperty(name = ["outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class JpaOutboxAutoConfiguration {
     /**
      * Provides a default Clock bean if none is configured.

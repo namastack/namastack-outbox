@@ -3,7 +3,6 @@ package io.namastack.outbox
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.config.JdbcOutboxAutoConfiguration
 import io.namastack.outbox.config.JdbcOutboxSchemaAutoConfiguration
 import org.assertj.core.api.Assertions.assertThat
@@ -589,7 +588,6 @@ class JdbcOutboxRecordRepositoryTest {
         return record
     }
 
-    @EnableOutbox
     @SpringBootApplication
     class TestApplication
 }

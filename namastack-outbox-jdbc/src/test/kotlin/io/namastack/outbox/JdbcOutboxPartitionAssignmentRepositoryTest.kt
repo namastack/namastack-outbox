@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.config.JdbcOutboxAutoConfiguration
 import io.namastack.outbox.config.JdbcOutboxSchemaAutoConfiguration
 import io.namastack.outbox.partition.PartitionAssignment
@@ -221,7 +220,6 @@ class JdbcOutboxPartitionAssignmentRepositoryTest {
         assertThat(all.map { it.partitionNumber }).containsExactlyElementsOf(0..255)
     }
 
-    @EnableOutbox
     @SpringBootApplication
     class TestApplication
 }

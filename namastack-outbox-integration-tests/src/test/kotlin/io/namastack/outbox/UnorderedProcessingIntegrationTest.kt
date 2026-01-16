@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import jakarta.persistence.EntityManager
@@ -101,7 +100,6 @@ class UnorderedProcessingIntegrationTest {
         }
     }
 
-    @EnableOutbox
     @EnableScheduling
     @SpringBootApplication
     class TestApplication

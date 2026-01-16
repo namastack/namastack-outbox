@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.config.JdbcOutboxAutoConfiguration
 import io.namastack.outbox.config.JdbcOutboxSchemaAutoConfiguration
 import io.namastack.outbox.instance.OutboxInstance
@@ -293,7 +292,6 @@ class JdbcOutboxInstanceRepositoryTest {
         )
     }
 
-    @EnableOutbox
     @SpringBootApplication
     class TestApplication
 }

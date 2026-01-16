@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.annotation.EnableOutbox
 import io.namastack.outbox.handler.OutboxFailureContext
 import io.namastack.outbox.handler.OutboxHandlerWithFallback
 import io.namastack.outbox.handler.OutboxRecordMetadata
@@ -250,7 +249,6 @@ class InterfaceBasedFallbackIntegrationTest {
         val fallbackCalls = ConcurrentHashMap<String, MutableList<OutboxFailureContext>>()
     }
 
-    @EnableOutbox
     @EnableScheduling
     @SpringBootApplication
     class TestApplication

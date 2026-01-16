@@ -1,7 +1,6 @@
 package io.namastack.demo;
 
 import io.namastack.demo.customer.CustomerService;
-import io.namastack.outbox.annotation.EnableOutbox;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,7 +9,6 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-@EnableOutbox
 @EnableScheduling
 @SpringBootApplication
 public class DemoApplication implements CommandLineRunner {

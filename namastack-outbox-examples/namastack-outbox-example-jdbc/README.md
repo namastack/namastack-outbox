@@ -8,7 +8,7 @@ This example demonstrates the basic usage of the Namastack Outbox pattern with t
 - Using `namastack-outbox-starter-jdbc` for minimal setup
 - Scheduling outbox records using `Outbox.schedule()`
 - Processing outbox records with typed and generic handlers
-- Using `@EnableOutbox` to enable the outbox functionality
+- Auto-configuration - just add the dependency and it works
 - Plain JDBC repository implementation without JPA entities
 - In-memory database configuration for quick testing
 
