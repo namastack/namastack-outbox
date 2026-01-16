@@ -8,13 +8,14 @@ plugins {
 description = "namastack-outbox-jpa"
 
 dependencies {
-    compileOnly(libs.hibernate.core)
-    compileOnly(libs.spring.orm)
-
     implementation(project(":namastack-outbox-api"))
     implementation(project(":namastack-outbox-core"))
+
+    implementation(platform(libs.spring.boot.bom))
     implementation(libs.spring.boot.autoconfigure)
     implementation(libs.spring.boot.hibernate)
+    compileOnly(libs.hibernate.core)
+    compileOnly(libs.spring.orm)
     compileOnly(libs.spring.boot)
 
     testImplementation(project(":namastack-outbox-jackson"))

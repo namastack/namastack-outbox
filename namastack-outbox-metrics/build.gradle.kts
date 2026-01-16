@@ -9,6 +9,8 @@ description = "namastack-outbox-metrics"
 dependencies {
     implementation(project(":namastack-outbox-api"))
     implementation(project(":namastack-outbox-core"))
+
+    implementation(platform(libs.spring.boot.bom))
     implementation(libs.spring.boot.autoconfigure)
     implementation(libs.micrometer.core)
 

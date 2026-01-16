@@ -8,57 +8,49 @@ dokka = "2.1.0"
 publish = "0.35.0"
 
 # Dependency versions
-spring = "7.0.2"
-hibernate = "7.2.0.Final"
-h2 = "2.4.240"
 mockk = "1.14.7"
-assertj = "3.27.6"
-micrometer = "1.16.2"
-jakarta = "3.0.0"
-commons = "1.20.0"
-jackson = "3.0.3"
-junit = "6.0.2"
 
 [libraries]
 # Spring Boot dependencies
-spring-boot = { module = "org.springframework.boot:spring-boot", version.ref = "springBoot" }
-spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure", version.ref = "springBoot" }
-spring-boot-hibernate = { module = "org.springframework.boot:spring-boot-hibernate", version.ref = "springBoot" }
-spring-boot-jdbc = { module = "org.springframework.boot:spring-boot-jdbc", version.ref = "springBoot" }
-spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-starter-logging", version.ref = "springBoot" }
-spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBoot" }
-spring-boot-starter-data-jpa-test = { module = "org.springframework.boot:spring-boot-starter-data-jpa-test", version.ref = "springBoot" }
-spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot-starter-data-jdbc", version.ref = "springBoot" }
-spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator", version.ref = "springBoot" }
-spring-tx = { module = "org.springframework:spring-tx", version.ref = "spring" }
-spring-jdbc = { module = "org.springframework:spring-jdbc", version.ref = "spring" }
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot"}
+spring-boot = { module = "org.springframework.boot:spring-boot" }
+spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure" }
+spring-boot-hibernate = { module = "org.springframework.boot:spring-boot-hibernate" }
+spring-boot-jdbc = { module = "org.springframework.boot:spring-boot-jdbc" }
+spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-starter-logging" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-starter-data-jpa-test = { module = "org.springframework.boot:spring-boot-starter-data-jpa-test" }
+spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot-starter-data-jdbc" }
+spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator" }
+spring-tx = { module = "org.springframework:spring-tx" }
+spring-jdbc = { module = "org.springframework:spring-jdbc" }
 
 # Jakarta dependencies
-jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakarta" }
+jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api" }
 
 # Kotlin dependencies
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
 
 # JPA and Database dependencies
-hibernate-core = { module = "org.hibernate.orm:hibernate-core", version.ref = "hibernate" }
-spring-orm = { module = "org.springframework:spring-orm", version.ref = "spring" }
-h2 = { module = "com.h2database:h2", version.ref = "h2" }
+hibernate-core = { module = "org.hibernate.orm:hibernate-core" }
+spring-orm = { module = "org.springframework:spring-orm" }
+h2 = { module = "com.h2database:h2" }
 
 # Test dependencies
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
-assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
-junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
-junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }
+assertj-core = { module = "org.assertj:assertj-core" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 
 # Metrics dependencies
-micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometer" }
+micrometer-core = { module = "io.micrometer:micrometer-core" }
 
 # Common dependencies
-commons-codec = { module = "commons-codec:commons-codec", version.ref = "commons" }
+commons-codec = { module = "commons-codec:commons-codec" }
 
 # Jackson dependencies
-jackson-databind = { module = "tools.jackson.core:jackson-databind", version.ref = "jackson" }
-jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin", version.ref = "jackson" }
+jackson-databind = { module = "tools.jackson.core:jackson-databind" }
+jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
 
 [plugins]
 # Kotlin plugins
