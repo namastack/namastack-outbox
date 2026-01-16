@@ -44,6 +44,13 @@
   ],
   "properties": [
     {
+      "name": "outbox.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "defaultValue": true,
+      "description": "Whether the outbox functionality is enabled. Set to false to disable outbox auto-configuration entirely."
+    },
+    {
       "name": "outbox.poll-interval",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties",
