@@ -10,7 +10,7 @@ import java.time.Instant
  * and partition assignment.
  *
  * @author Roland Beisel
- * @since 1.1.0
+ * @since 1.0.0
  */
 internal data class JdbcOutboxRecordEntity(
     val id: String,

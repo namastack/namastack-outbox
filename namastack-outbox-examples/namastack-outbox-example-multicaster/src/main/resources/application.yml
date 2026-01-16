@@ -14,8 +14,6 @@ spring:
       ddl-auto: create-drop
 
 outbox:
-  schema-initialization:
-    enabled: true
   instance:
     graceful-shutdown-timeout-seconds: 2
 

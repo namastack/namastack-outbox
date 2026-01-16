@@ -6,7 +6,7 @@ import io.namastack.outbox.partition.PartitionAssignment
  * Mapper for converting between PartitionAssignment domain objects and JdbcOutboxPartitionAssignmentEntity entities.
  *
  * @author Roland Beisel
- * @since 1.1.0
+ * @since 1.0.0
  */
 internal object JdbcOutboxPartitionAssignmentEntityMapper {
     /**

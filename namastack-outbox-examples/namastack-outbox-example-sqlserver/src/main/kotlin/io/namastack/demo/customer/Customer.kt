@@ -8,8 +8,9 @@ import java.util.UUID
 @Entity(name = "customer")
 data class Customer(
     @Id
+    @Column(columnDefinition = "uniqueidentifier")
     val id: UUID,
-    @Column(nullable = false, columnDefinition = "uniqueidentifier")
+    @Column(nullable = false)
     val firstname: String,
     @Column(nullable = false)
     val lastname: String,

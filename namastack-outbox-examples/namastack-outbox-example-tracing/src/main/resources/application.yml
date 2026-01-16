@@ -11,7 +11,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: validate
+      ddl-auto: create-drop
 
 management:
   observations:
@@ -36,8 +36,6 @@ management:
           endpoint: http://localhost:4318/v1/logs
 
 outbox:
-  schema-initialization:
-    enabled: true
   instance:
     graceful-shutdown-timeout-seconds: 2
 

@@ -9,6 +9,7 @@ publish = "0.35.0"
 
 # Dependency versions
 mockk = "1.14.7"
+testcontainers = "1.21.4"
 
 [libraries]
 # Spring Boot dependencies
@@ -20,7 +21,7 @@ spring-boot-jdbc = { module = "org.springframework.boot:spring-boot-jdbc" }
 spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-starter-logging" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 spring-boot-starter-data-jpa-test = { module = "org.springframework.boot:spring-boot-starter-data-jpa-test" }
-spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot-starter-data-jdbc" }
+spring-boot-starter-data-jdbc-test = { module = "org.springframework.boot:spring-boot-starter-data-jdbc-test" }
 spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator" }
 spring-tx = { module = "org.springframework:spring-tx" }
 spring-jdbc = { module = "org.springframework:spring-jdbc" }
@@ -35,6 +36,12 @@ kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
 hibernate-core = { module = "org.hibernate.orm:hibernate-core" }
 spring-orm = { module = "org.springframework:spring-orm" }
 h2 = { module = "com.h2database:h2" }
+
+# JDBC drivers
+postgresql = { module = "org.postgresql:postgresql" }
+mysql-connector-j = { module = "com.mysql:mysql-connector-j" }
+mariadb-java-client = { module = "org.mariadb.jdbc:mariadb-java-client" }
+mssql-jdbc = { module = "com.microsoft.sqlserver:mssql-jdbc" }
 
 # Test dependencies
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
@@ -51,6 +58,13 @@ commons-codec = { module = "commons-codec:commons-codec" }
 # Jackson dependencies
 jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
+
+# Testcontainers dependencies
+testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+testcontainers-mysql = { module = "org.testcontainers:mysql", version.ref = "testcontainers" }
+testcontainers-mariadb = { module = "org.testcontainers:mariadb", version.ref = "testcontainers" }
+testcontainers-mssqlserver = { module = "org.testcontainers:mssqlserver", version.ref = "testcontainers" }
 
 [plugins]
 # Kotlin plugins

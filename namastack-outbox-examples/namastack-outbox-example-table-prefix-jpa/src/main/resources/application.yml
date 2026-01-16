@@ -20,8 +20,6 @@ spring:
     show-sql: true
 
 outbox:
-  schema-initialization:
-    enabled: false
   instance:
     graceful-shutdown-timeout-seconds: 2
 

@@ -10,7 +10,7 @@ import java.time.Instant
  * and load balancing across multiple application instances.
  *
  * @author Roland Beisel
- * @since 1.1.0
+ * @since 1.0.0
  */
 internal data class JdbcOutboxInstanceEntity(
     val instanceId: String,

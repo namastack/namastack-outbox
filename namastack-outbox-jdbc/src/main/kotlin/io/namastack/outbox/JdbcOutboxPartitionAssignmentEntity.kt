@@ -9,7 +9,7 @@ import java.time.Instant
  * when multiple instances try to claim the same partition.
  *
  * @author Roland Beisel
- * @since 1.1.0
+ * @since 1.0.0
  */
 internal data class JdbcOutboxPartitionAssignmentEntity(
     val partitionNumber: Int,
