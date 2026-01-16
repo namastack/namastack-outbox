@@ -4,6 +4,7 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import java.time.Instant
 
@@ -18,7 +19,16 @@ import java.time.Instant
  * @since 0.1.0
  */
 @Entity
-@Table(name = "outbox_record")
+@Table(
+    name = "outbox_record",
+    indexes = [
+        Index(name = "idx_outbox_record_record_key_created", columnList = "recordKey, createdAt"),
+        Index(name = "idx_outbox_record_partition_status_retry", columnList = "partitionNo, status, nextRetryAt"),
+        Index(name = "idx_outbox_record_status_retry", columnList = "status, nextRetryAt"),
+        Index(name = "idx_outbox_record_status", columnList = "status"),
+        Index(name = "idx_outbox_record_key_completed_created", columnList = "recordKey, completedAt, createdAt"),
+    ],
+)
 internal data class OutboxRecordEntity(
     @Id
     val id: String,

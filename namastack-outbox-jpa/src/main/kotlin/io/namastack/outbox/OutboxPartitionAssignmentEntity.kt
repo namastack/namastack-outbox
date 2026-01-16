@@ -3,6 +3,7 @@ package io.namastack.outbox
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import jakarta.persistence.Version
 import java.time.Instant
@@ -20,7 +21,12 @@ import java.time.Instant
  * @since 0.4.0
  */
 @Entity
-@Table(name = "outbox_partition")
+@Table(
+    name = "outbox_partition",
+    indexes = [
+        Index(name = "idx_outbox_partition_instance_id", columnList = "instance_id"),
+    ],
+)
 internal data class OutboxPartitionAssignmentEntity(
     @Id
     @Column(name = "partition_number", nullable = false)

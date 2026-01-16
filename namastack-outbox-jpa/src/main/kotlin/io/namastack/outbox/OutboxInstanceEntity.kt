@@ -6,6 +6,7 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import java.time.Instant
 
@@ -19,7 +20,14 @@ import java.time.Instant
  * @since 0.2.0
  */
 @Entity
-@Table(name = "outbox_instance")
+@Table(
+    name = "outbox_instance",
+    indexes = [
+        Index(name = "idx_outbox_instance_status_heartbeat", columnList = "status, last_heartbeat"),
+        Index(name = "idx_outbox_instance_last_heartbeat", columnList = "last_heartbeat"),
+        Index(name = "idx_outbox_instance_status", columnList = "status"),
+    ],
+)
 internal data class OutboxInstanceEntity(
     @Id
     @Column(name = "instance_id")
