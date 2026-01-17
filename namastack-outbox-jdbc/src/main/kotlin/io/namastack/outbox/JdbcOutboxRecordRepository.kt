@@ -13,7 +13,7 @@ import java.time.Instant
  *
  * @param jdbcClient JDBC client for database operations
  * @param transactionTemplate Transaction template for programmatic transaction management
- * @param entityMapper Mapper for converting between domain objects and JPA entities
+ * @param entityMapper Mapper for converting between domain objects and entities
  * @param clock Clock for time-based operations
  * @param tableNameResolver Resolver for fully qualified table names
  *

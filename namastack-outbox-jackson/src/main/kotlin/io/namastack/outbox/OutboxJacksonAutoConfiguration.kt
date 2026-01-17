@@ -4,6 +4,7 @@ import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigureBefore
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import tools.jackson.databind.json.JsonMapper
 import tools.jackson.module.kotlin.kotlinModule
@@ -20,6 +21,7 @@ import tools.jackson.module.kotlin.kotlinModule
  */
 @AutoConfiguration
 @AutoConfigureBefore(OutboxCoreAutoConfiguration::class)
+@ConditionalOnProperty(name = ["outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class OutboxJacksonAutoConfiguration {
     /**
      * Creates OutboxPayloadSerializer bean using Jackson.

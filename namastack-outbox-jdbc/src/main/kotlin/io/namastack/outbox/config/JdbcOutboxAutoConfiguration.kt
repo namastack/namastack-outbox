@@ -97,7 +97,7 @@ class JdbcOutboxAutoConfiguration {
      * Creates a JDBC-based outbox record repository.
      *
      * @param beanFactory Bean factory for retrieving outbox-specific beans
-     * @param jdbcOutboxRecordEntityMapper Mapper for converting between domain objects and JPA entities
+     * @param jdbcOutboxRecordEntityMapper Mapper for converting between domain objects and entities
      * @param clock Clock for time-based operations
      * @param tableNameResolver Resolver for fully qualified table names
      * @return JDBC outbox record repository implementation
@@ -122,7 +122,7 @@ class JdbcOutboxAutoConfiguration {
      * Creates the entity mapper for outbox records.
      *
      * @param recordSerializer Serializer for payload and context
-     * @return Mapper for converting between domain objects and JPA entities
+     * @return Mapper for converting between domain objects and entities
      */
     @Bean
     @ConditionalOnMissingBean
