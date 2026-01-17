@@ -4,6 +4,7 @@
     <toRun name="Example MySQL: Docker Compose" type="docker-deploy" />
     <toRun name="Example PostgreSQL: Docker Compose" type="docker-deploy" />
     <toRun name="Example SQLServer: Docker Compose" type="docker-deploy" />
+    <toRun name="Example Tracing: Docker Compose" type="docker-deploy" />
     <method v="2" />
   </configuration>
 </component>

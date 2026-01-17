@@ -32,6 +32,7 @@ This directory contains various example projects demonstrating different feature
 
 ### 🏷️ Table Naming & Schema Management
 
+- **[namastack-outbox-example-flyway-jpa](namastack-outbox-example-flyway-jpa)** - JPA example with **Flyway migrations** for production-ready manual schema management (`ddl-auto: validate`)
 - **[namastack-outbox-example-table-prefix-jpa](namastack-outbox-example-table-prefix-jpa)** - JPA example showing how to use a **custom H2 schema** and **table prefixes** via Hibernate's `PhysicalNamingStrategy`
 - **[namastack-outbox-example-table-prefix-jdbc](namastack-outbox-example-table-prefix-jdbc)** - JDBC example showing how to use **custom table prefixes** and **custom database schemas** with manual schema creation
 
