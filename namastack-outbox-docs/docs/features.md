@@ -3,6 +3,28 @@
 Namastack Outbox for Spring Boot provides a comprehensive set of features to implement the Outbox 
 Pattern in distributed systems with reliability, scalability, and ease of use.
 
+---
+
+## What's New in 1.0.0-RC2
+
+!!! success "New Features"
+
+    - **🔌 JDBC Module**: New lightweight persistence module without JPA/Hibernate dependency
+    - **🏷️ Custom Table Naming**: Support for custom table prefixes and schema names (JDBC module)
+    - **⚡ Virtual Threads**: Full support for Java 21 virtual threads
+    - **🔧 Auto-Configuration**: `@EnableOutbox` removed - outbox is now auto-configured
+    - **📊 JPA Index Definitions**: JPA entities now include proper index definitions
+
+!!! warning "Breaking Changes"
+    
+    - `@EnableOutbox` annotation removed (use `outbox.enabled=false` to opt-out)
+    - JPA module no longer supports automatic schema creation
+    - Timestamps changed from `OffsetDateTime` to `Instant`
+
+    See the [Migration Guide](https://github.com/namastack/namastack-outbox#migrating-to-100-rc2) for details.
+
+---
+
 ## Core Features
 
 ### Transactional Outbox Pattern
@@ -1755,11 +1777,177 @@ Use the `@OutboxRetryable` annotation for method-level retry policy configuratio
 
 ---
 
+## Persistence Modules
+
+Namastack Outbox provides two persistence modules to choose from based on your needs.
+
+### JPA Module
+
+The JPA module uses Hibernate/JPA for database operations. Best for projects already using Spring Data JPA.
+
+=== "Gradle"
+
+    ```kotlin
+    dependencies {
+        implementation("io.namastack:namastack-outbox-starter-jpa:{{ outbox_version }}")
+    }
+    ```
+
+=== "Maven"
+
+    ```xml
+    <dependency>
+        <groupId>io.namastack</groupId>
+        <artifactId>namastack-outbox-starter-jpa</artifactId>
+        <version>{{ outbox_version }}</version>
+    </dependency>
+    ```
+
+!!! warning "Schema Management"
+    The JPA module does **not** support automatic schema creation. You must manage schemas using:
+    
+    - **Flyway/Liquibase** (recommended for production) - Use the [SQL schema files](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema)
+    - **Hibernate DDL Auto** (`ddl-auto: create`) for development
+
+### JDBC Module
+
+!!! success "New in 1.0.0-RC2"
+    The JDBC module provides a lightweight alternative without JPA/Hibernate dependency.
+
+The JDBC module uses Spring's `JdbcClient` for database operations. Best for projects that don't use JPA or want lower overhead.
+
+=== "Gradle"
+
+    ```kotlin
+    dependencies {
+        implementation("io.namastack:namastack-outbox-starter-jdbc:{{ outbox_version }}")
+    }
+    ```
+
+=== "Maven"
+
+    ```xml
+    <dependency>
+        <groupId>io.namastack</groupId>
+        <artifactId>namastack-outbox-starter-jdbc</artifactId>
+        <version>{{ outbox_version }}</version>
+    </dependency>
+    ```
+
+**Benefits:**
+
+- No Hibernate/JPA dependency required
+- Built-in automatic schema initialization
+- Support for custom table prefixes and schema names
+- Lower memory footprint
+
+#### Automatic Schema Creation (JDBC Only)
+
+The JDBC module can automatically create outbox tables on startup:
+
+```yaml
+outbox:
+  jdbc:
+    schema-initialization:
+      enabled: true  # Auto-create tables on startup
+```
+
+!!! note "Database Detection"
+    The JDBC module automatically detects your database type and uses the appropriate schema. Supported databases: PostgreSQL, MySQL, MariaDB, H2, SQL Server.
+
+#### Custom Table Prefix and Schema Name
+
+!!! success "New in 1.0.0-RC2"
+    Configure custom table prefixes and schema names for the JDBC module.
+
+The JDBC module supports custom table naming for multi-tenant deployments or naming conventions:
+
+```yaml
+outbox:
+  jdbc:
+    table-prefix: "myapp_"           # Results in: myapp_outbox_record, myapp_outbox_instance, etc.
+    schema-name: "outbox_schema"     # Results in: outbox_schema.myapp_outbox_record
+```
+
+**Examples:**
+
+| Configuration             | Resulting Table Name          |
+|---------------------------|-------------------------------|
+| Default                   | `outbox_record`               |
+| `table-prefix: "app1_"`   | `app1_outbox_record`          |
+| `schema-name: "myschema"` | `myschema.outbox_record`      |
+| Both                      | `myschema.app1_outbox_record` |
+
+!!! warning "Schema Initialization Limitation"
+    When using custom table prefix or schema name, you must create tables manually. Schema initialization cannot be used with custom naming:
+    
+    ```yaml
+    outbox:
+      jdbc:
+        table-prefix: "myapp_"
+        schema-name: "custom_schema"
+        schema-initialization:
+          enabled: false  # Must be false when using custom naming
+    ```
+
+**Manual Schema Creation:**
+
+Use the SQL schema files as templates and adjust table names:
+👉 [Schema Files on GitHub](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema)
+
+---
+
+## Virtual Threads Support
+
+!!! success "New in 1.0.0-RC2"
+    Full support for Java 21 virtual threads for improved scalability.
+
+When virtual threads are enabled in Spring Boot, Namastack Outbox automatically uses virtual threads for outbox processing, providing better scalability for I/O-bound workloads.
+
+### Enabling Virtual Threads
+
+Enable virtual threads in your Spring Boot application:
+
+```yaml
+spring:
+  threads:
+    virtual:
+      enabled: true
+```
+
+**Benefits:**
+
+- **Higher Throughput**: Handle more concurrent outbox records with fewer resources
+- **Lower Memory**: Virtual threads have minimal memory overhead
+- **Better I/O Handling**: Ideal for handlers that make external API calls
+- **Automatic**: No code changes required - the library detects and uses virtual threads automatically
+
+### Configuration
+
+When virtual threads are enabled, use the concurrency limit instead of pool sizes:
+
+```yaml
+outbox:
+  processing:
+    executor-concurrency-limit: -1  # -1 for unlimited, or set a specific limit
+```
+
+!!! note "Platform Threads"
+    When virtual threads are disabled (default), the library uses traditional thread pools:
+    ```yaml
+    outbox:
+      processing:
+        executor-core-pool-size: 4
+        executor-max-pool-size: 8
+    ```
+
+---
+
 ## Database Support
 
 ### Supported Databases
 
-Any JPA-compatible database is supported. Automatic schema creation is currently available for:
+Any JPA/JDBC-compatible database is supported. Automatic schema creation (JDBC module only) is available for:
 
 - ✅ H2 (development)
 - ✅ MySQL / MariaDB
@@ -1768,15 +1956,41 @@ Any JPA-compatible database is supported. Automatic schema creation is currently
 
 ### Schema Management
 
-The library can automatically create its schema on startup:
+#### JDBC Module
+
+The JDBC module can automatically create its schema on startup:
 
 ```yaml
 outbox:
-  schema-initialization:
-    enabled: true  # Auto-create tables on startup (default: true)
+  jdbc:
+    schema-initialization:
+      enabled: true  # Auto-create tables on startup (default: false)
 ```
 
-Or create the tables manually. Database-specific schemas are available [here](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jpa/src/main/resources/schema).
+#### JPA Module
+
+The JPA module does **not** support automatic schema creation. Use one of these approaches:
+
+**Option 1: Hibernate DDL Auto (Development)**
+```yaml
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create  # or create-drop, update
+```
+
+**Option 2: Flyway/Liquibase (Production)**
+
+Create tables manually using migration scripts. Database-specific schemas are available:
+👉 [Schema Files on GitHub](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema)
+
+Then configure Hibernate to validate the schema:
+```yaml
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+```
 
 ---
 
@@ -1886,6 +2100,9 @@ Complete reference of all configuration options:
 
 ```yaml
 outbox:
+  # Enable/Disable Outbox (Since 1.0.0-RC2)
+  enabled: true                              # Enable outbox functionality (default: true)
+
   # Polling Configuration
   poll-interval: 2000                        # Milliseconds between polling cycles (default: 2000)
   rebalance-interval: 10000                  # Milliseconds between rebalance checks (default: 10000)
@@ -1894,9 +2111,11 @@ outbox:
   # Processing Configuration
   processing:
     stop-on-first-failure: true              # Stop processing on first failure (default: true)
+    publish-after-save: true                 # Publish events to listeners after saving (default: true)
     delete-completed-records: false          # Delete records after completion (default: false)
-    executor-core-pool-size: 4               # Core threads for processing (default: 4)
-    executor-max-pool-size: 8                # Maximum threads for processing (default: 8)
+    executor-core-pool-size: 4               # Core threads for processing (default: 4, platform threads)
+    executor-max-pool-size: 8                # Maximum threads for processing (default: 8, platform threads)
+    executor-concurrency-limit: -1           # Concurrency limit for virtual threads (default: -1 unlimited)
 
   # Event Multicaster Configuration
   multicaster:
@@ -1908,16 +2127,23 @@ outbox:
     stale-instance-timeout-seconds: 30       # When to mark instance as dead (default: 30)
     heartbeat-interval-seconds: 5            # Heartbeat interval (default: 5)
 
+  # JDBC Module Configuration (Since 1.0.0-RC2)
+  jdbc:
+    table-prefix: ""                         # Prefix for table names (default: empty)
+    schema-name: null                        # Database schema name (default: null, uses default schema)
+    schema-initialization:
+      enabled: false                         # Auto-create tables on startup (default: false)
+
   # Retry Configuration
   retry:
     policy: exponential                      # Retry policy: fixed|exponential|jittered (default: exponential)
     max-retries: 3                           # Maximum retry attempts (default: 3)
     
     # Exception Filtering (Since 1.0.0)
-    include-exceptions:                      # Only retry these exceptions (optional, since 1.0.0)
+    include-exceptions:                      # Only retry these exceptions (optional)
       - java.net.SocketTimeoutException
       - org.springframework.web.client.ResourceAccessException
-    exclude-exceptions:                      # Never retry these exceptions (optional, since 1.0.0)
+    exclude-exceptions:                      # Never retry these exceptions (optional)
       - java.lang.IllegalArgumentException
       - javax.validation.ValidationException
     
@@ -1935,11 +2161,25 @@ outbox:
     jittered:
       base-policy: exponential               # Base policy for jitter: fixed|exponential (default: exponential)
       jitter: 500                            # Max random jitter in milliseconds (default: 500)
-
-  # Schema Initialization
-  schema-initialization:
-    enabled: true                            # Auto-create schema on startup (default: true)
 ```
+
+### Disabling Outbox
+
+!!! success "New in 1.0.0-RC2"
+    Outbox is now auto-configured when the library is on the classpath. Use `outbox.enabled=false` to disable.
+
+To completely disable outbox functionality:
+
+```yaml
+outbox:
+  enabled: false
+```
+
+This prevents all outbox beans from being created, useful for:
+
+- Running tests without outbox processing
+- Temporarily disabling outbox in specific environments
+- Conditional feature flags
 
 ---
 

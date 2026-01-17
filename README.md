@@ -1,4 +1,4 @@
-[![Version](https://img.shields.io/badge/version-1.0.0--RC1-blue)](https://github.com/namastack/namastack-outbox/releases/tag/v1.0.0-RC1)
+[![Version](https://img.shields.io/badge/version-1.0.0--RC2-blue)](https://github.com/namastack/namastack-outbox/releases/tag/v1.0.0-RC2)
 [![CodeFactor](https://www.codefactor.io/repository/github/namastack/namastack-outbox/badge)](https://www.codefactor.io/repository/github/namastack/namastack-outbox)
 [![codecov](https://codecov.io/github/namastack/namastack-outbox/graph/badge.svg?token=TZS1OQB4XC)](https://codecov.io/github/namastack/namastack-outbox)
 [![javadoc](https://javadoc.io/badge2/io.namastack/namastack-outbox-core/javadoc.svg)](https://javadoc.io/doc/io.namastack/namastack-outbox-core)
@@ -50,7 +50,7 @@ Quick links:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC1")
+    implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC2")
 }
 ```
 
@@ -59,22 +59,31 @@ dependencies {
 ```xml
 <dependency>
     <groupId>io.namastack</groupId>
-    <artifactId>namastack-outbox-starter-jpa</artifactId>
-    <version>1.0.0-RC1</version>
+    <artifactId>namastack-outbox-starter-jdbc</artifactId>
+    <version>1.0.0-RC2</version>
 </dependency>
 ```
 
-### 2. Enable Outbox
+> **Note:** We use the JDBC starter here for automatic schema creation. For JPA/Hibernate projects, see [JPA Setup](#jpa-setup) below.
+
+### 2. Enable Scheduling & Schema Creation
 
 ```kotlin
 @SpringBootApplication
-@EnableOutbox
 @EnableScheduling  // Required for automatic outbox processing
 class Application
 
 fun main(args: Array<String>) {
     runApplication<Application>(*args)
 }
+```
+
+```yaml
+# application.yml
+outbox:
+  jdbc:
+    schema-initialization:
+      enabled: true  # Auto-creates outbox tables on startup
 ```
 
 ### 3. Create Handlers
@@ -127,13 +136,7 @@ class OrderService(
 If you prefer Spring's native event publishing, annotate your events with `@OutboxEvent`:
 
 ```kotlin
-@OutboxEvent(
-    key = "#this.orderId",  // SpEL: uses 'orderId' field
-    context = [
-        OutboxContextEntry(key = "customerId", value = "#this.customerId"),
-        OutboxContextEntry(key = "region", value = "#this.region")
-    ]
-)
+@OutboxEvent(key = "#this.orderId")  // SpEL: uses 'orderId' field
 data class OrderCreatedEvent(
     val orderId: String,
     val customerId: String,
@@ -181,6 +184,37 @@ outbox:
 For a complete list of all configuration options, see [Configuration Reference](https://outbox.namastack.io/features/#configuration-reference).
 
 **That's it!** Your records are now reliably persisted and processed.
+
+---
+
+## JPA Setup
+
+If you prefer using JPA/Hibernate instead of JDBC, use the JPA starter:
+
+```gradle
+dependencies {
+    implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC2")
+}
+```
+
+**Schema Management Options:**
+
+The JPA module does **not** support automatic schema creation. Choose one of these options:
+
+**Option 1: Hibernate DDL Auto (Development only)**
+```yaml
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create  # or create-drop
+```
+
+**Option 2: Flyway/Liquibase (Recommended for Production)**
+
+Use the SQL schema files from our repository:
+👉 [Schema Files on GitHub](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema)
+
+See [example-flyway-jpa](namastack-outbox-examples/namastack-outbox-example-flyway-jpa) for a complete example.
 
 ---
 
@@ -499,12 +533,53 @@ outbox.partitions.pending.records.max
 
 ## Supported Databases
 
-Any JPA-compatible database is supported. Automatic schema creation is currently available for:
+Any JPA-compatible database is supported. Automatic schema creation is available in the JDBC module for:
 
 - ✅ H2 (development)
 - ✅ MySQL / MariaDB
 - ✅ PostgreSQL
 - ✅ SQL Server
+
+**Schema Files for Flyway/Liquibase:**
+
+If you manage your database schema manually with Flyway or Liquibase, you can find the SQL schema files for all supported databases here:
+
+👉 [Schema Files on GitHub](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema)
+
+---
+
+## What's New in 1.0.0-RC2
+
+### 🔌 New JDBC Module (GH-136)
+
+A new lightweight persistence module without JPA/Hibernate dependency:
+
+```gradle
+implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC2")
+```
+
+### 🏷️ Custom Table Prefix & Schema (GH-152)
+
+JDBC module supports custom table naming:
+
+```yaml
+outbox:
+  jdbc:
+    table-prefix: "myapp_"
+    schema-name: "outbox_schema"
+```
+
+### ⚡ Virtual Threads Support (GH-134)
+
+Automatic virtual threads support when enabled in Spring Boot for improved scalability.
+
+### 🔧 Auto-Configuration (GH-155)
+
+`@EnableOutbox` removed - outbox is now auto-configured. Use `outbox.enabled=false` to opt-out.
+
+### 📊 JPA Index Definitions (GH-153)
+
+JPA entities now include proper index definitions for optimal query performance.
 
 ---
 
@@ -583,6 +658,116 @@ class AggressiveRetryPolicy : OutboxRetryPolicy {
 
 ## Migration Guide
 
+### Migrating to 1.0.0-RC2
+
+Version 1.0.0-RC2 introduces several breaking changes. Please review carefully before upgrading.
+
+#### ⚠️ Breaking Changes
+
+**1. `@EnableOutbox` Annotation Removed (GH-155)**
+
+The `@EnableOutbox` annotation has been removed. The outbox functionality is now **auto-configured** when the library is on the classpath.
+
+```kotlin
+// Before (RC1)
+@SpringBootApplication
+@EnableOutbox  // ❌ Remove this
+@EnableScheduling
+class Application
+
+// After (RC2)
+@SpringBootApplication
+@EnableScheduling
+class Application
+```
+
+**To disable outbox**, use the opt-out property:
+```yaml
+outbox:
+  enabled: false
+```
+
+**2. JPA Module: Automatic Schema Creation Removed (GH-153)**
+
+The JPA module **no longer supports automatic schema creation**. You must create tables manually using Flyway, Liquibase, or SQL scripts.
+
+**Options:**
+- **Recommended**: Use Flyway/Liquibase migrations (see [example-flyway-jpa](namastack-outbox-examples/namastack-outbox-example-flyway-jpa))
+- **Alternative**: Use Hibernate's `ddl-auto: create` or `create-drop` for development
+- **Alternative**: Use the new JDBC module which supports schema initialization
+
+**3. JPA Entities Now Include Index Definitions (GH-153)**
+
+If you use Hibernate's `ddl-auto: create` or `create-drop`, indexes are now automatically created. If you manage schemas manually, ensure your migration scripts include the required indexes. See the [schema documentation](https://outbox.namastack.io/features/#schema-management) for index definitions.
+
+**4. `OffsetDateTime` Replaced with `Instant` (GH-150)**
+
+All timestamp fields now use `java.time.Instant` instead of `OffsetDateTime`. This affects custom repository implementations or direct database queries.
+
+#### 🆕 New Features
+
+**1. New JDBC Module (GH-136)**
+
+A new lightweight JDBC module is available as an alternative to JPA:
+
+```gradle
+// Use JDBC instead of JPA
+implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC2")
+```
+
+Features:
+- No Hibernate/JPA dependency required
+- Built-in schema initialization support
+- Custom table prefix and schema name support
+
+**2. Custom Table Prefix and Schema Name (GH-152)**
+
+The JDBC module supports custom table prefixes and schema names:
+
+```yaml
+outbox:
+  jdbc:
+    table-prefix: "myapp_"           # Results in: myapp_outbox_record
+    schema-name: "outbox_schema"     # Results in: outbox_schema.myapp_outbox_record
+    schema-initialization:
+      enabled: true                  # Auto-create tables (JDBC only)
+```
+
+> **Note**: Schema initialization cannot be used together with custom table prefix or schema name.
+
+**3. Virtual Threads Support (GH-134)**
+
+Full support for Java 21 virtual threads. When virtual threads are enabled in Spring Boot, the outbox processing automatically uses virtual threads for improved scalability.
+
+**4. Improved Bean Configuration (GH-144, GH-141)**
+
+- Internal beans are now marked as non-autowiring candidates to prevent bean ambiguity
+- Optimized `TransactionTemplate` usage in JPA module
+
+#### Migration Steps
+
+1. **Remove `@EnableOutbox`** from your application class
+
+2. **Choose your schema management strategy for JPA**:
+   - Add Flyway/Liquibase migrations, OR
+   - Use `ddl-auto: create` for development, OR
+   - Switch to the JDBC module with schema initialization
+
+3. **Update any custom code** using `OffsetDateTime` to use `Instant`
+
+4. **Update dependency**:
+   ```gradle
+   dependencies {
+       implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC2")
+       // OR for JDBC
+       implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC2")
+   }
+   ```
+
+5. **Test thoroughly** before deploying to production
+
+---
+
 ### Migrating to 1.0.0-RC1
 
 Version 1.0.0-RC1 introduces breaking schema changes. **You must drop and recreate the outbox tables.**
@@ -619,7 +804,7 @@ DROP TABLE IF EXISTS outbox_partition CASCADE;
 
 4. **Restart application**: New schema with updated columns is auto-created
 
-**What's New in Schema:**
+**What's New in RC1 Schema:**
 - Support for context propagation (new `context` column)
 - Enhanced failure tracking for fallback handlers
 - Optimized indexes for partition-based queries
@@ -650,14 +835,14 @@ From **1.0.0 onwards**, Namastack Outbox follows strict **semantic versioning**:
 - Breaking changes could occur between minor versions
 - Database schema changes required table recreation
 
-**1.0.0-RC1 Status:**
+**1.0.0-RC2 Status:**
 - This is a **Release Candidate** for the stable 1.0.0 release
 - API is locked and stable (no breaking changes expected until 2.0.0)
 - Production-ready with comprehensive testing
 - Only bug fixes and documentation updates until 1.0.0 GA
 
 **What This Means for You:**
-- ✅ Safe to use in production from 1.0.0-RC1 onwards
+- ✅ Safe to use in production from 1.0.0-RC2 onwards
 - ✅ Upgrade within same major version without fear of breaking changes
 - ✅ Clear migration path when major versions are released
 - ✅ Predictable release cycle and stability guarantees

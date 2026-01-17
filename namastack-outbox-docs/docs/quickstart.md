@@ -15,7 +15,7 @@ This guide will get you up and running in 5 minutes with minimal configuration.
 
     ```kotlin
     dependencies {
-        implementation("io.namastack:namastack-outbox-starter-jpa:{{ outbox_version }}")
+        implementation("io.namastack:namastack-outbox-starter-jdbc:{{ outbox_version }}")
     }
     ```
 
@@ -24,20 +24,20 @@ This guide will get you up and running in 5 minutes with minimal configuration.
     ```xml
     <dependency>
         <groupId>io.namastack</groupId>
-        <artifactId>namastack-outbox-starter-jpa</artifactId>
+        <artifactId>namastack-outbox-starter-jdbc</artifactId>
         <version>{{ outbox_version }}</version>
     </dependency>
     ```
 
-## Enable Outbox
+!!! note "JDBC vs JPA"
+    We recommend the JDBC starter for quick start as it supports automatic schema creation. For JPA/Hibernate projects, see [JPA Setup](#jpa-setup) below.
 
-Annotate your application class with `@EnableOutbox`:
+## Enable Scheduling & Schema Creation
 
 === "Kotlin"
 
     ```kotlin
     @SpringBootApplication
-    @EnableOutbox
     @EnableScheduling  // Required for automatic outbox processing
     class Application
 
@@ -50,7 +50,6 @@ Annotate your application class with `@EnableOutbox`:
 
     ```java
     @SpringBootApplication
-    @EnableOutbox
     @EnableScheduling  // Required for automatic outbox processing
     public class Application {
         public static void main(String[] args) {
@@ -58,6 +57,15 @@ Annotate your application class with `@EnableOutbox`:
         }
     }
     ```
+
+Enable automatic schema creation in your configuration:
+
+```yaml
+outbox:
+  jdbc:
+    schema-initialization:
+      enabled: true  # Auto-creates outbox tables on startup
+```
 
 ## Create Handlers
 
@@ -296,12 +304,64 @@ For a complete list of all configuration options, see [Configuration Reference](
 
 ## Supported Databases
 
-Any JPA-compatible database is supported. Automatic schema creation is currently available for:
+Any JPA/JDBC-compatible database is supported. Automatic schema creation is available in the JDBC module for:
 
 - ✅ H2 (development)
 - ✅ MySQL / MariaDB
 - ✅ PostgreSQL
 - ✅ SQL Server
+
+**Schema Files for Flyway/Liquibase:**
+
+If you manage your database schema manually, you can find the SQL schema files here:
+👉 [Schema Files on GitHub](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema)
+
+---
+
+## JPA Setup
+
+If you prefer using JPA/Hibernate instead of JDBC:
+
+=== "Gradle"
+
+    ```kotlin
+    dependencies {
+        implementation("io.namastack:namastack-outbox-starter-jpa:{{ outbox_version }}")
+    }
+    ```
+
+=== "Maven"
+
+    ```xml
+    <dependency>
+        <groupId>io.namastack</groupId>
+        <artifactId>namastack-outbox-starter-jpa</artifactId>
+        <version>{{ outbox_version }}</version>
+    </dependency>
+    ```
+
+!!! warning "Schema Management Required"
+    The JPA module does **not** support automatic schema creation. Choose one of these options:
+
+    **Option 1: Hibernate DDL Auto (Development only)**
+    ```yaml
+    spring:
+      jpa:
+        hibernate:
+          ddl-auto: create  # or create-drop
+    ```
+
+    **Option 2: Flyway/Liquibase (Recommended for Production)**
+    
+    Use the [SQL schema files](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema) from our repository and configure Hibernate to validate:
+    ```yaml
+    spring:
+      jpa:
+        hibernate:
+          ddl-auto: validate
+    ```
+
+---
 
 ## Next Steps
 

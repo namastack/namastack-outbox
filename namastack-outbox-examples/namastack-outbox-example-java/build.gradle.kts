@@ -23,7 +23,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-flyway")
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC1-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC2-SNAPSHOT")
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
