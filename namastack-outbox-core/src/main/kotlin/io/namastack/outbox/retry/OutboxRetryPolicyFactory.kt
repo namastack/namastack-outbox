@@ -17,53 +17,82 @@ internal object OutboxRetryPolicyFactory {
     /**
      * Creates a retry policy instance based on the given name and properties.
      *
-     * @param name The name of the retry policy ("fixed", "exponential", "jittered")
      * @param retryProperties Configuration properties for retry behavior
      * @return A configured retry policy instance
      * @throws IllegalStateException if the policy name is unsupported or configuration is invalid
      */
-    fun createDefault(
-        name: String,
+    fun createDefault(retryProperties: OutboxProperties.Retry): OutboxRetryPolicy.Builder =
+        OutboxRetryPolicy
+            .builder()
+            .let { configureDelay(retryProperties, it) }
+            .maxRetries(retryProperties.maxRetries)
+            .let { configureRetryPredicate(retryProperties, it) }
+
+    private fun configureDelay(
         retryProperties: OutboxProperties.Retry,
-    ): OutboxRetryPolicy =
-        when (name.lowercase()) {
+        builder: OutboxRetryPolicy.Builder,
+    ): OutboxRetryPolicy.Builder {
+        val name = retryProperties.policy
+
+        return when (name.lowercase()) {
             "fixed" -> {
-                FixedDelayRetryPolicy(
+                builder.fixedDelay(
                     delay = Duration.ofMillis(retryProperties.fixed.delay),
-                    maxRetries = retryProperties.maxRetries,
-                    includeExceptions = convertExceptionNames(retryProperties.includeExceptions),
-                    excludeExceptions = convertExceptionNames(retryProperties.excludeExceptions),
                 )
             }
 
             "exponential" -> {
-                ExponentialBackoffRetryPolicy(
+                builder.exponentialBackoffDelay(
                     initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
                     maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
                     backoffMultiplier = retryProperties.exponential.multiplier,
-                    maxRetries = retryProperties.maxRetries,
-                    includeExceptions = convertExceptionNames(retryProperties.includeExceptions),
-                    excludeExceptions = convertExceptionNames(retryProperties.excludeExceptions),
                 )
             }
 
             "jittered" -> {
                 val basePolicy = retryProperties.jittered.basePolicy
 
-                if (basePolicy.lowercase() == "jittered") {
-                    error("Cannot create a jittered policy with jittered base policy.")
+                when (basePolicy.lowercase()) {
+                    "fixed" -> {
+                        builder.fixedDelay(
+                            delay = Duration.ofMillis(retryProperties.fixed.delay),
+                            jitter = Duration.ofMillis(retryProperties.jittered.jitter),
+                        )
+                    }
+
+                    "exponential" -> {
+                        builder.exponentialBackoffDelay(
+                            initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
+                            maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
+                            backoffMultiplier = retryProperties.exponential.multiplier,
+                            jitter = Duration.ofMillis(retryProperties.jittered.jitter),
+                        )
+                    }
+
+                    else -> error("Unsupported jittered base policy: $basePolicy")
                 }
-
-                JitteredRetryPolicy(
-                    basePolicy = createDefault(name = basePolicy, retryProperties = retryProperties),
-                    jitter = Duration.ofMillis(retryProperties.jittered.jitter),
-                )
             }
 
-            else -> {
-                error("Unsupported retry-policy: $name")
-            }
+            else -> error("Unsupported retry-policy: $name")
         }
+    }
+
+    private fun configureRetryPredicate(
+        retryProperties: OutboxProperties.Retry,
+        builder: OutboxRetryPolicy.Builder,
+    ): OutboxRetryPolicy.Builder {
+        val includeExceptions = convertExceptionNames(retryProperties.includeExceptions)
+        val excludeExceptions = convertExceptionNames(retryProperties.excludeExceptions)
+
+        return builder
+            .shouldRetry { exception ->
+                when {
+                    includeExceptions.isNotEmpty() -> includeExceptions.any { it.java.isInstance(exception) }
+                    excludeExceptions.isNotEmpty() -> excludeExceptions.none { it.java.isInstance(exception) }
+                    else -> true
+                }
+            }
+    }
 
     private fun convertExceptionNames(exceptionNames: Set<String>): Set<KClass<out Throwable>> =
         exceptionNames

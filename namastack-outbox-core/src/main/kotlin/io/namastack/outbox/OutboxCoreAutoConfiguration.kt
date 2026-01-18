@@ -201,13 +201,16 @@ class OutboxCoreAutoConfiguration {
      * Handlers can override this by using @OutboxRetryable annotation or
      * implementing OutboxRetryAware interface.
      *
-     * @param properties Outbox configuration including retry settings
      * @return Default configured OutboxRetryPolicy
      */
     @Bean("outboxRetryPolicy")
     @ConditionalOnMissingBean(name = ["outboxRetryPolicy"])
-    fun defaultOutboxRetryPolicy(properties: OutboxProperties): OutboxRetryPolicy =
-        OutboxRetryPolicyFactory.createDefault(name = properties.retry.policy, retryProperties = properties.retry)
+    fun defaultOutboxRetryPolicy(builder: OutboxRetryPolicy.Builder): OutboxRetryPolicy = builder.build()
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxRetryPolicyBuilder(properties: OutboxProperties): OutboxRetryPolicy.Builder =
+        OutboxRetryPolicyFactory.createDefault(retryProperties = properties.retry)
 
     /**
      * Dispatcher that invokes the appropriate handler for each record.

@@ -1,7 +1,6 @@
 package io.namastack.outbox.retry
 
 import java.time.Duration
-import kotlin.reflect.KClass
 
 /**
  * Retry policy that uses a fixed delay between retry attempts.
@@ -45,52 +44,16 @@ import kotlin.reflect.KClass
  * @author Roland Beisel
  * @since 0.1.0
  */
-class FixedDelayRetryPolicy(
+class FixedDelayCalculator(
     private val delay: Duration,
-    private val maxRetries: Int,
-    private val includeExceptions: Set<KClass<out Throwable>> = emptySet(),
-    private val excludeExceptions: Set<KClass<out Throwable>> = emptySet(),
-) : OutboxRetryPolicy {
-    /**
-     * Determines if the exception should trigger a retry attempt.
-     *
-     * ## Resolution Logic
-     *
-     * 1. If includeExceptions is not empty: Retry only if exception matches one of the types
-     * 2. If excludeExceptions is not empty: Retry if exception does NOT match any of the types
-     * 3. If both are empty: Always retry (default behavior)
-     *
-     * Type matching includes subclass checking (e.g., IOException matches SocketTimeoutException).
-     *
-     * @param exception The exception that occurred
-     * @return true if retry should be attempted, false otherwise
-     */
-    override fun shouldRetry(exception: Throwable): Boolean {
-        if (includeExceptions.isNotEmpty()) {
-            return includeExceptions.any { it.java.isInstance(exception) }
-        }
-
-        if (excludeExceptions.isNotEmpty()) {
-            return excludeExceptions.none { it.java.isInstance(exception) }
-        }
-
-        return true
-    }
-
+) : OutboxDelayCalculator {
     /**
      * Returns the fixed delay duration for all retry attempts.
      *
      * @param failureCount The number of failures that have occurred (ignored)
      * @return The fixed delay duration
      */
-    override fun nextDelay(failureCount: Int): Duration = delay
-
-    /**
-     * Returns the maximum number of retry attempts.
-     *
-     * @return Maximum retry attempts configured for this policy
-     */
-    override fun maxRetries(): Int = maxRetries
+    override fun calculate(failureCount: Int): Duration = delay
 
     companion object {
         /**
@@ -143,10 +106,7 @@ class FixedDelayRetryPolicy(
      */
     class Builder {
         private var delay: Duration = Duration.ofSeconds(5)
-        private var maxRetries: Int = 3
         private var jitter: Duration? = null
-        private val includeExceptions = mutableSetOf<KClass<out Throwable>>()
-        private val excludeExceptions = mutableSetOf<KClass<out Throwable>>()
 
         /**
          * Sets the fixed delay between retries.
@@ -155,14 +115,6 @@ class FixedDelayRetryPolicy(
          * @return This builder for chaining
          */
         fun delay(delay: Duration): Builder = apply { this.delay = delay }
-
-        /**
-         * Sets the maximum number of retry attempts.
-         *
-         * @param retries Maximum retry attempts
-         * @return This builder for chaining
-         */
-        fun maxRetries(retries: Int): Builder = apply { this.maxRetries = retries }
 
         /**
          * Sets the jitter duration to add randomness to retry delays.
@@ -176,56 +128,6 @@ class FixedDelayRetryPolicy(
         fun jitter(jitter: Duration): Builder = apply { this.jitter = jitter }
 
         /**
-         * Adds an exception type to the include list (whitelist).
-         *
-         * Only exceptions matching these types will trigger retries.
-         * Cannot be combined with excludeException.
-         *
-         * @param exceptionClass Exception class to include
-         * @return This builder for chaining
-         */
-        fun includeException(exceptionClass: KClass<out Throwable>): Builder =
-            apply {
-                includeExceptions.add(exceptionClass)
-            }
-
-        /**
-         * Adds multiple exception types to the include list (whitelist).
-         *
-         * @param exceptionClasses Exception classes to include
-         * @return This builder for chaining
-         */
-        fun includeExceptions(vararg exceptionClasses: KClass<out Throwable>): Builder =
-            apply {
-                includeExceptions.addAll(exceptionClasses)
-            }
-
-        /**
-         * Adds an exception type to the exclude list (blacklist).
-         *
-         * Exceptions matching these types will NOT trigger retries.
-         * Cannot be combined with includeException.
-         *
-         * @param exceptionClass Exception class to exclude
-         * @return This builder for chaining
-         */
-        fun excludeException(exceptionClass: KClass<out Throwable>): Builder =
-            apply {
-                excludeExceptions.add(exceptionClass)
-            }
-
-        /**
-         * Adds multiple exception types to the exclude list (blacklist).
-         *
-         * @param exceptionClasses Exception classes to exclude
-         * @return This builder for chaining
-         */
-        fun excludeExceptions(vararg exceptionClasses: KClass<out Throwable>): Builder =
-            apply {
-                excludeExceptions.addAll(exceptionClasses)
-            }
-
-        /**
          * Builds the FixedDelayRetryPolicy with configured parameters.
          *
          * If jitter is configured, wraps the policy in a JitteredRetryPolicy.
@@ -233,21 +135,14 @@ class FixedDelayRetryPolicy(
          * @return Configured FixedDelayRetryPolicy (or JitteredRetryPolicy if jitter is set)
          * @throws IllegalStateException if both includeExceptions and excludeExceptions are set
          */
-        fun build(): OutboxRetryPolicy {
-            require(includeExceptions.isEmpty() || excludeExceptions.isEmpty()) {
-                "Cannot specify both includeExceptions and excludeExceptions. Use one or the other."
-            }
-
+        fun build(): OutboxDelayCalculator {
             val basePolicy =
-                FixedDelayRetryPolicy(
+                FixedDelayCalculator(
                     delay = delay,
-                    maxRetries = maxRetries,
-                    includeExceptions = includeExceptions.toSet(),
-                    excludeExceptions = excludeExceptions.toSet(),
                 )
 
             return if (jitter != null) {
-                JitteredRetryPolicy(basePolicy, jitter!!)
+                JitteredDelayCalculator(basePolicy, jitter!!)
             } else {
                 basePolicy
             }

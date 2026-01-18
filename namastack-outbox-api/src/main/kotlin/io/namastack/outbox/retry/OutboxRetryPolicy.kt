@@ -37,4 +37,110 @@ interface OutboxRetryPolicy {
      * @return Maximum number of retry attempts
      */
     fun maxRetries(): Int
+
+    companion object {
+        /**
+         * Creates a builder for constructing a OutboxRetryPolicy with fluent API.
+         *
+         * @return A new Builder instance
+         */
+        fun builder(): Builder = Builder()
+    }
+
+    class Builder private constructor(
+        private val delayCalculator: OutboxDelayCalculator,
+        private val maxRetries: Int,
+        private val predicate: (Throwable) -> Boolean,
+    ) {
+        constructor() : this(
+            delayCalculator = FixedDelayCalculator.builder().build(),
+            maxRetries = 3,
+            predicate = { true },
+        )
+
+        fun fixedDelay(delay: Duration): Builder =
+            Builder(
+                delayCalculator =
+                    FixedDelayCalculator
+                        .builder()
+                        .delay(delay)
+                        .build(),
+                maxRetries = maxRetries,
+                predicate = predicate,
+            )
+
+        fun fixedDelay(
+            delay: Duration,
+            jitter: Duration,
+        ): Builder =
+            Builder(
+                delayCalculator =
+                    FixedDelayCalculator
+                        .builder()
+                        .delay(delay)
+                        .jitter(jitter)
+                        .build(),
+                maxRetries = maxRetries,
+                predicate = predicate,
+            )
+
+        fun exponentialBackoffDelay(
+            initialDelay: Duration,
+            maxDelay: Duration,
+            backoffMultiplier: Double,
+        ): Builder =
+            Builder(
+                delayCalculator =
+                    ExponentialBackoffDelayCalculator
+                        .builder()
+                        .initialDelay(initialDelay)
+                        .maxDelay(maxDelay)
+                        .backoffMultiplier(backoffMultiplier)
+                        .build(),
+                maxRetries = maxRetries,
+                predicate = predicate,
+            )
+
+        fun exponentialBackoffDelay(
+            initialDelay: Duration,
+            maxDelay: Duration,
+            backoffMultiplier: Double,
+            jitter: Duration,
+        ): Builder =
+            Builder(
+                delayCalculator =
+                    ExponentialBackoffDelayCalculator
+                        .builder()
+                        .initialDelay(initialDelay)
+                        .maxDelay(maxDelay)
+                        .backoffMultiplier(backoffMultiplier)
+                        .jitter(jitter)
+                        .build(),
+                maxRetries = maxRetries,
+                predicate = predicate,
+            )
+
+        fun maxRetries(maxRetries: Int): Builder =
+            Builder(
+                delayCalculator = delayCalculator,
+                maxRetries = maxRetries,
+                predicate = predicate,
+            )
+
+        fun shouldRetry(predicate: (Throwable) -> Boolean): Builder =
+            Builder(
+                delayCalculator = delayCalculator,
+                maxRetries = maxRetries,
+                predicate = predicate,
+            )
+
+        fun build(): OutboxRetryPolicy =
+            object : OutboxRetryPolicy {
+                override fun shouldRetry(exception: Throwable): Boolean = predicate(exception)
+
+                override fun nextDelay(failureCount: Int): Duration = delayCalculator.calculate(failureCount)
+
+                override fun maxRetries(): Int = maxRetries
+            }
+    }
 }
