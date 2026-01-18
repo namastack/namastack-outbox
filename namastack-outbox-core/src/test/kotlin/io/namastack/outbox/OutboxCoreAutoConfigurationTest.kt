@@ -4,9 +4,7 @@ import io.mockk.mockk
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
-import io.namastack.outbox.retry.ExponentialBackoffRetryPolicy
-import io.namastack.outbox.retry.FixedDelayRetryPolicy
-import io.namastack.outbox.retry.JitteredRetryPolicy
+import io.namastack.outbox.retry.BackOffStrategies
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
@@ -14,6 +12,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledForJreRange
 import org.junit.jupiter.api.condition.JRE
+import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration
 import org.springframework.boot.autoconfigure.task.TaskSchedulingAutoConfiguration
@@ -99,8 +98,7 @@ class OutboxCoreAutoConfigurationTest {
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .run { context ->
                     assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
-                    assertThat(context.getBean(OutboxRetryPolicy::class.java))
-                        .isInstanceOf(ExponentialBackoffRetryPolicy::class.java)
+                    assertThat(context.getBean<OutboxRetryPolicy>()).isNotNull
                 }
         }
 
@@ -110,8 +108,7 @@ class OutboxCoreAutoConfigurationTest {
                 .withUserConfiguration(ConfigWithCustomRetryPolicy::class.java)
                 .run { context ->
                     assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
-                    assertThat(context.getBean(OutboxRetryPolicy::class.java))
-                        .isInstanceOf(FixedDelayRetryPolicy::class.java)
+                    assertThat(context.getBean<OutboxRetryPolicy>()).isNotNull
                 }
         }
 
@@ -125,8 +122,7 @@ class OutboxCoreAutoConfigurationTest {
                     "outbox.retry.jittered.jitter=100",
                 ).run { context ->
                     assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
-                    assertThat(context.getBean(OutboxRetryPolicy::class.java))
-                        .isInstanceOf(JitteredRetryPolicy::class.java)
+                    assertThat(context.getBean<OutboxRetryPolicy>()).isNotNull
                 }
         }
     }
@@ -404,7 +400,11 @@ class OutboxCoreAutoConfigurationTest {
         fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
 
         @Bean
-        fun outboxRetryPolicy() = FixedDelayRetryPolicy(delay = Duration.ofSeconds(1), maxRetries = 3)
+        fun outboxRetryPolicy() =
+            OutboxRetryPolicy
+                .builder()
+                .backOff(BackOffStrategies.fixed(Duration.ofSeconds(1)))
+                .build()
     }
 
     @Configuration

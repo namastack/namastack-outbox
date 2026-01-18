@@ -66,12 +66,13 @@ data class OutboxProperties(
      * Configuration for retry policies and behavior.
      *
      * @param maxRetries Maximum number of retry attempts
-     * @param policy Name of the retry policy to use ("exponential", "fixed", "jittered")
+     * @param policy Name of the retry policy to use ("exponential", "fixed", "linear", "jittered")
      * @param includeExceptions Fully qualified class names of exceptions to retry on
      * @param excludeExceptions Fully qualified class names of exceptions to exclude from retry
      * @param exponential Configuration for exponential backoff retry
      * @param fixed Configuration for fixed delay retry
-     * @param jittered Configuration for jittered retry
+     * @param linear Configuration for linear backoff retry
+     * @param jittered Configuration for jittered retry (deprecated, use jitter property instead)
      */
     data class Retry(
         var maxRetries: Int = 3,
@@ -80,6 +81,8 @@ data class OutboxProperties(
         var excludeExceptions: Set<String> = emptySet(),
         var exponential: ExponentialRetry = ExponentialRetry(),
         var fixed: FixedRetry = FixedRetry(),
+        var linear: LinearRetry = LinearRetry(),
+        @Deprecated("Use jitter property in exponential, fixed, or linear retry configuration instead")
         var jittered: JitteredRetry = JitteredRetry(),
     ) {
         /**
@@ -88,20 +91,39 @@ data class OutboxProperties(
          * @param initialDelay Initial delay in milliseconds
          * @param maxDelay Maximum delay in milliseconds
          * @param multiplier Multiplier for exponential backoff
+         * @param jitter Maximum jitter in milliseconds to add to each delay (0 = no jitter)
          */
         data class ExponentialRetry(
             var initialDelay: Long = 2000,
             var maxDelay: Long = 60000,
             var multiplier: Double = 2.0,
+            var jitter: Long = 0,
         )
 
         /**
          * Configuration for fixed delay retry policy.
          *
          * @param delay Fixed delay in milliseconds between retries
+         * @param jitter Maximum jitter in milliseconds to add to each delay (0 = no jitter)
          */
         data class FixedRetry(
             var delay: Long = 5000,
+            var jitter: Long = 0,
+        )
+
+        /**
+         * Configuration for linear backoff retry policy.
+         *
+         * @param initialDelay Initial delay in milliseconds
+         * @param increment Amount to add in milliseconds for each subsequent retry
+         * @param maxDelay Maximum delay in milliseconds (0 = no limit)
+         * @param jitter Maximum jitter in milliseconds to add to each delay (0 = no jitter)
+         */
+        data class LinearRetry(
+            var initialDelay: Long = 1000,
+            var increment: Long = 1000,
+            var maxDelay: Long = 0,
+            var jitter: Long = 0,
         )
 
         /**
@@ -109,7 +131,9 @@ data class OutboxProperties(
          *
          * @param basePolicy Base retry policy to apply jitter to
          * @param jitter Maximum jitter amount in milliseconds
+         * @deprecated Use jitter property in exponential, fixed, or linear retry configuration instead
          */
+        @Deprecated("Use jitter property in exponential, fixed, or linear retry configuration instead")
         data class JitteredRetry(
             var basePolicy: String = "exponential",
             var jitter: Long = 500,

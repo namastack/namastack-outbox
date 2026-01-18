@@ -37,4 +37,24 @@ interface OutboxRetryPolicy {
      * @return Maximum number of retry attempts
      */
     fun maxRetries(): Int
+
+    companion object {
+        /**
+         * Creates a new [OutboxRetryPolicyBuilder] for building retry policies with a fluent API.
+         *
+         * ## Example
+         * ```kotlin
+         * val policy = OutboxRetryPolicy.builder()
+         *     .maxRetries(5)
+         *     .backOff(BackOffStrategies.exponential(Duration.ofSeconds(1), 2.0))
+         *     .retryOn(IOException::class.java)
+         *     .build()
+         * ```
+         *
+         * @return A new builder instance
+         * @since 1.0.0-RC2
+         */
+        @JvmStatic
+        fun builder(): OutboxRetryPolicyBuilder = OutboxRetryPolicyBuilder()
+    }
 }
