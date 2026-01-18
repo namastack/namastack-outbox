@@ -1,6 +1,7 @@
 package io.namastack.outbox.retry
 
 import io.namastack.outbox.OutboxProperties
+import io.namastack.outbox.retry.OutboxRetryPolicyFactory.configureDelay
 import java.time.Duration
 import kotlin.reflect.KClass
 
@@ -31,44 +32,16 @@ internal object OutboxRetryPolicyFactory {
      * @see configureRetryPredicate
      * @see configureDelay
      */
-    fun createDefault(retryProperties: OutboxProperties.Retry): OutboxRetryPolicy.Builder =
-        OutboxRetryPolicy
-            .builder()
-            .let { configureRetryPredicate(retryProperties, it) }
-            .let { configureDelay(retryProperties, it) }
-            .maxRetries(retryProperties.maxRetries)
-
-    /**
-     * Configures the retry predicate based on include/exclude exception lists.
-     *
-     * The retry predicate determines which exceptions should trigger retry attempts:
-     * - If `includeExceptions` is not empty: Only retries exceptions matching the include list
-     * - If `excludeExceptions` is not empty: Retries all exceptions except those in the exclude list
-     * - If both are empty: Retries all exceptions (default behavior)
-     *
-     * Note: `includeExceptions` takes precedence over `excludeExceptions` if both are configured.
-     *
-     * @param retryProperties Configuration properties containing exception include/exclude lists
-     * @param builder The builder instance to configure
-     * @return The builder with configured retry predicate
-     * @throws IllegalStateException if exception class names cannot be resolved or are not Throwable types
-     * @see convertExceptionNames
-     */
-    private fun configureRetryPredicate(
-        retryProperties: OutboxProperties.Retry,
-        builder: OutboxRetryPolicy.Builder,
-    ): OutboxRetryPolicy.Builder {
+    fun createDefault(retryProperties: OutboxProperties.Retry): OutboxRetryPolicy.Builder {
         val includeExceptions = convertExceptionNames(retryProperties.includeExceptions)
         val excludeExceptions = convertExceptionNames(retryProperties.excludeExceptions)
 
-        return builder
-            .retryPredicate { exception ->
-                when {
-                    includeExceptions.isNotEmpty() -> includeExceptions.any { it.java.isInstance(exception) }
-                    excludeExceptions.isNotEmpty() -> excludeExceptions.none { it.java.isInstance(exception) }
-                    else -> true
-                }
-            }
+        return OutboxRetryPolicy
+            .builder()
+//            .retryOn(includeExceptions)
+//            .nonRetryOn(excludeExceptions)
+            .let { configureDelay(retryProperties, it) }
+            .maxRetries(retryProperties.maxRetries)
     }
 
     /**
@@ -118,16 +91,24 @@ internal object OutboxRetryPolicyFactory {
 
         return when (name.lowercase()) {
             "fixed" -> {
-                builder.fixedDelay(
+                builder.fixedBackOff(
                     delay = Duration.ofMillis(retryProperties.fixed.delay),
                 )
             }
 
+            "linear" -> {
+                builder.linearBackoff(
+                    initialDelay = Duration.ofMillis(retryProperties.linear.initialDelay),
+                    increment = retryProperties.linear.increment,
+                    maxDelay = Duration.ofMillis(retryProperties.linear.maxDelay),
+                )
+            }
+
             "exponential" -> {
-                builder.exponentialBackoffDelay(
+                builder.exponentialBackoff(
                     initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
+                    multiplier = retryProperties.exponential.multiplier,
                     maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
-                    backoffMultiplier = retryProperties.exponential.multiplier,
                 )
             }
 
@@ -136,19 +117,19 @@ internal object OutboxRetryPolicyFactory {
 
                 when (basePolicy.lowercase()) {
                     "fixed" -> {
-                        builder.fixedDelay(
-                            delay = Duration.ofMillis(retryProperties.fixed.delay),
-                            jitter = Duration.ofMillis(retryProperties.jittered.jitter),
-                        )
+                        builder
+                            .fixedBackOff(
+                                delay = Duration.ofMillis(retryProperties.fixed.delay),
+                            ).jitter(jitter = Duration.ofMillis(retryProperties.jittered.jitter))
                     }
 
                     "exponential" -> {
-                        builder.exponentialBackoffDelay(
-                            initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
-                            maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
-                            backoffMultiplier = retryProperties.exponential.multiplier,
-                            jitter = Duration.ofMillis(retryProperties.jittered.jitter),
-                        )
+                        builder
+                            .exponentialBackoff(
+                                initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
+                                maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
+                                multiplier = retryProperties.exponential.multiplier,
+                            ).jitter(jitter = Duration.ofMillis(retryProperties.jittered.jitter))
                     }
 
                     else -> error("Unsupported jittered base policy: $basePolicy")
