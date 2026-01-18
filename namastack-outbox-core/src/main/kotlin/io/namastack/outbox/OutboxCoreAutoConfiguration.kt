@@ -207,8 +207,25 @@ class OutboxCoreAutoConfiguration {
     @ConditionalOnMissingBean(name = ["outboxRetryPolicy"])
     fun defaultOutboxRetryPolicy(builder: OutboxRetryPolicy.Builder): OutboxRetryPolicy = builder.build()
 
-    @Bean
-    @ConditionalOnMissingBean
+    /**
+     * Creates a pre-configured Builder for the default retry policy based on application properties.
+     *
+     * The builder is initialized with settings from `outbox.retry.*` configuration properties
+     * via OutboxRetryPolicyFactory. This builder is then used by [defaultOutboxRetryPolicy]
+     * to create the actual policy instance.
+     *
+     * Users can customize the default retry policy by:
+     * 1. Providing their own `outboxRetryPolicy` bean (replaces the default policy)
+     * 2. Providing their own `outboxRetryPolicyBuilder` bean (customizes the builder)
+     * 3. Configuring via application properties (used by this factory method)
+     *
+     * @param properties OutboxProperties containing retry configuration settings
+     * @return Pre-configured Builder instance based on application properties
+     * @see defaultOutboxRetryPolicy
+     * @see OutboxRetryPolicyFactory
+     */
+    @Bean("outboxRetryPolicyBuilder")
+    @ConditionalOnMissingBean(name = ["outboxRetryPolicyBuilder"])
     fun outboxRetryPolicyBuilder(properties: OutboxProperties): OutboxRetryPolicy.Builder =
         OutboxRetryPolicyFactory.createDefault(retryProperties = properties.retry)
 
