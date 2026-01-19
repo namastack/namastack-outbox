@@ -1,7 +1,6 @@
 package io.namastack.outbox.retry
 
 import io.namastack.outbox.OutboxProperties
-import io.namastack.outbox.retry.OutboxRetryPolicyFactory.configureDelay
 import java.time.Duration
 import kotlin.reflect.KClass
 
@@ -29,8 +28,6 @@ internal object OutboxRetryPolicyFactory {
      * @param retryProperties Configuration properties for retry behavior from application settings
      * @return A configured Builder instance ready to build or further customize
      * @throws IllegalStateException if the policy name is unsupported or configuration is invalid
-     * @see configureRetryPredicate
-     * @see configureDelay
      */
     fun createDefault(retryProperties: OutboxProperties.Retry): OutboxRetryPolicy.Builder {
         val includeExceptions = convertExceptionNames(retryProperties.includeExceptions)
@@ -38,8 +35,8 @@ internal object OutboxRetryPolicyFactory {
 
         return OutboxRetryPolicy
             .builder()
-//            .retryOn(includeExceptions)
-//            .nonRetryOn(excludeExceptions)
+            .retryOn(includeExceptions)
+            .noRetryOn(excludeExceptions)
             .let { configureDelay(retryProperties, it) }
             .maxRetries(retryProperties.maxRetries)
     }
@@ -91,25 +88,28 @@ internal object OutboxRetryPolicyFactory {
 
         return when (name.lowercase()) {
             "fixed" -> {
-                builder.fixedBackOff(
-                    delay = Duration.ofMillis(retryProperties.fixed.delay),
-                )
+                builder
+                    .fixedBackOff(
+                        delay = Duration.ofMillis(retryProperties.fixed.delay),
+                    ).jitter(jitter = Duration.ofMillis(retryProperties.fixed.jitter))
             }
 
             "linear" -> {
-                builder.linearBackoff(
-                    initialDelay = Duration.ofMillis(retryProperties.linear.initialDelay),
-                    increment = retryProperties.linear.increment,
-                    maxDelay = Duration.ofMillis(retryProperties.linear.maxDelay),
-                )
+                builder
+                    .linearBackoff(
+                        initialDelay = Duration.ofMillis(retryProperties.linear.initialDelay),
+                        increment = Duration.ofMillis(retryProperties.linear.increment),
+                        maxDelay = Duration.ofMillis(retryProperties.linear.maxDelay),
+                    ).jitter(jitter = Duration.ofMillis(retryProperties.linear.jitter))
             }
 
             "exponential" -> {
-                builder.exponentialBackoff(
-                    initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
-                    multiplier = retryProperties.exponential.multiplier,
-                    maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
-                )
+                builder
+                    .exponentialBackoff(
+                        initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
+                        multiplier = retryProperties.exponential.multiplier,
+                        maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
+                    ).jitter(jitter = Duration.ofMillis(retryProperties.exponential.jitter))
             }
 
             "jittered" -> {
@@ -120,6 +120,15 @@ internal object OutboxRetryPolicyFactory {
                         builder
                             .fixedBackOff(
                                 delay = Duration.ofMillis(retryProperties.fixed.delay),
+                            ).jitter(jitter = Duration.ofMillis(retryProperties.jittered.jitter))
+                    }
+
+                    "linear" -> {
+                        builder
+                            .linearBackoff(
+                                initialDelay = Duration.ofMillis(retryProperties.linear.initialDelay),
+                                increment = Duration.ofMillis(retryProperties.linear.increment),
+                                maxDelay = Duration.ofMillis(retryProperties.linear.maxDelay),
                             ).jitter(jitter = Duration.ofMillis(retryProperties.jittered.jitter))
                     }
 

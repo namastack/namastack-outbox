@@ -2,6 +2,7 @@ package io.namastack.outbox.retry
 
 import java.time.Duration
 import kotlin.math.pow
+import kotlin.reflect.KClass
 
 /**
  * Interface for retry policies that determine when and how to retry failed outbox record processing.
@@ -75,15 +76,62 @@ interface OutboxRetryPolicy {
     fun maxRetries(): Int
 
     companion object {
+        @JvmStatic
         fun builder(): Builder = Builder()
+
+        private fun assertIsNotNegative(
+            name: String,
+            value: Int,
+        ) {
+            assertIsNotNegative(name, value >= 0)
+        }
+
+        private fun assertIsNotNegative(
+            name: String,
+            duration: Duration,
+        ) {
+            assertIsNotNegative(name, !duration.isNegative)
+        }
+
+        private fun assertIsNotNegative(
+            name: String,
+            value: Boolean,
+        ) {
+            require(value) {
+                "Invalid $name: must be greater than or equal to zero."
+            }
+        }
+
+        private fun assertIsPositive(
+            name: String,
+            value: Int,
+        ) {
+            assertIsPositive(name, value > 0)
+        }
+
+        private fun assertIsPositive(
+            name: String,
+            duration: Duration,
+        ) {
+            assertIsPositive(name, !duration.isNegative && !duration.isZero)
+        }
+
+        private fun assertIsPositive(
+            name: String,
+            value: Boolean,
+        ) {
+            require(value) {
+                "Invalid $name: must be greater than zero."
+            }
+        }
     }
 
     class Builder private constructor(
-        private var retryableExceptions: Collection<Class<out Throwable>>,
-        private var nonRetryableExceptions: Collection<Class<out Throwable>>,
+        private var retryableExceptions: Collection<KClass<out Throwable>>,
+        private var nonRetryableExceptions: Collection<KClass<out Throwable>>,
         private val retryPredicate: ((Throwable) -> Boolean)?,
         private val backOffStrategy: BackOffStrategy,
-        private val jitter: Duration?,
+        private val jitter: Duration,
         private val maxRetries: Int,
     ) {
         constructor() : this(
@@ -91,16 +139,16 @@ interface OutboxRetryPolicy {
             retryableExceptions = emptyList(),
             nonRetryableExceptions = emptyList(),
             backOffStrategy = FixedBackOffStrategy(Duration.ofSeconds(5)),
-            jitter = null,
+            jitter = Duration.ZERO,
             maxRetries = 3,
         )
 
-        fun retryOn(vararg exceptions: Class<out Throwable>): Builder =
+        fun retryOn(vararg exceptions: KClass<out Throwable>): Builder =
             retryOn(
                 exceptions = exceptions.toList(),
             )
 
-        fun retryOn(exceptions: Collection<Class<out Throwable>>): Builder =
+        fun retryOn(exceptions: Collection<KClass<out Throwable>>): Builder =
             Builder(
                 retryPredicate = retryPredicate,
                 retryableExceptions = exceptions,
@@ -110,12 +158,12 @@ interface OutboxRetryPolicy {
                 maxRetries = maxRetries,
             )
 
-        fun noRetryOn(vararg exceptions: Class<out Throwable>): Builder =
+        fun noRetryOn(vararg exceptions: KClass<out Throwable>): Builder =
             noRetryOn(
                 exceptions = exceptions.toList(),
             )
 
-        fun noRetryOn(exceptions: Collection<Class<out Throwable>>): Builder =
+        fun noRetryOn(exceptions: Collection<KClass<out Throwable>>): Builder =
             Builder(
                 retryPredicate = retryPredicate,
                 retryableExceptions = retryableExceptions,
@@ -145,17 +193,24 @@ interface OutboxRetryPolicy {
                 maxRetries = maxRetries,
             )
 
-        fun fixedBackOff(delay: Duration): Builder =
-            backOff(
+        fun fixedBackOff(delay: Duration): Builder {
+            assertIsPositive("delay", delay)
+
+            return backOff(
                 strategy = FixedBackOffStrategy(delay = delay),
             )
+        }
 
         fun linearBackoff(
             initialDelay: Duration,
             increment: Duration,
             maxDelay: Duration,
-        ): Builder =
-            backOff(
+        ): Builder {
+            assertIsPositive("initialDelay", initialDelay)
+            assertIsPositive("increment", increment)
+            assertIsPositive("maxDelay", maxDelay)
+
+            return backOff(
                 strategy =
                     LinearBackOffStrategy(
                         initialDelay = initialDelay,
@@ -163,13 +218,18 @@ interface OutboxRetryPolicy {
                         maxDelay = maxDelay,
                     ),
             )
+        }
 
         fun exponentialBackoff(
             initialDelay: Duration,
             multiplier: Double,
             maxDelay: Duration,
-        ): Builder =
-            backOff(
+        ): Builder {
+            assertIsPositive("initialDelay", initialDelay)
+            require(multiplier > 1.0) { "Invalid multiplier: must be greater than 1.0." }
+            assertIsPositive("maxDelay", maxDelay)
+
+            return backOff(
                 strategy =
                     ExponentialBackOffStrategy(
                         initialDelay = initialDelay,
@@ -177,9 +237,12 @@ interface OutboxRetryPolicy {
                         maxDelay = maxDelay,
                     ),
             )
+        }
 
-        fun jitter(jitter: Duration): Builder =
-            Builder(
+        fun jitter(jitter: Duration): Builder {
+            assertIsNotNegative("jitter", jitter)
+
+            return Builder(
                 retryPredicate = retryPredicate,
                 retryableExceptions = retryableExceptions,
                 nonRetryableExceptions = nonRetryableExceptions,
@@ -187,9 +250,12 @@ interface OutboxRetryPolicy {
                 jitter = jitter,
                 maxRetries = maxRetries,
             )
+        }
 
-        fun maxRetries(maxRetries: Int): Builder =
-            Builder(
+        fun maxRetries(maxRetries: Int): Builder {
+            assertIsPositive("maxRetries", maxRetries)
+
+            return Builder(
                 retryPredicate = retryPredicate,
                 retryableExceptions = retryableExceptions,
                 nonRetryableExceptions = nonRetryableExceptions,
@@ -197,6 +263,7 @@ interface OutboxRetryPolicy {
                 jitter = jitter,
                 maxRetries = maxRetries,
             )
+        }
 
         fun build(): OutboxRetryPolicy =
             object : OutboxRetryPolicy {
@@ -227,7 +294,7 @@ interface OutboxRetryPolicy {
                 override fun nextDelay(failureCount: Int): Duration {
                     val baseDelay = backOffStrategy.nextDelay(failureCount)
 
-                    return if (jitter != null) {
+                    return if (!jitter.isNegative && !jitter.isZero) {
                         applyJitter(baseDelay)
                     } else {
                         baseDelay
@@ -245,34 +312,34 @@ interface OutboxRetryPolicy {
                 override fun maxRetries(): Int = maxRetries
             }
     }
-}
 
-internal class FixedBackOffStrategy(
-    private val delay: Duration,
-) : BackOffStrategy {
-    override fun nextDelay(failureCount: Int): Duration = delay
-}
-
-internal class LinearBackOffStrategy(
-    private val initialDelay: Duration,
-    private val increment: Duration,
-    private val maxDelay: Duration,
-) : BackOffStrategy {
-    override fun nextDelay(failureCount: Int): Duration {
-        val delayMillis = initialDelay.toMillis() + increment.toMillis() * (failureCount - 1)
-
-        return Duration.ofMillis(minOf(delayMillis, maxDelay.toMillis()))
+    private class FixedBackOffStrategy(
+        private val delay: Duration,
+    ) : BackOffStrategy {
+        override fun nextDelay(failureCount: Int): Duration = delay
     }
-}
 
-internal class ExponentialBackOffStrategy(
-    private val initialDelay: Duration,
-    private val multiplier: Double,
-    private val maxDelay: Duration,
-) : BackOffStrategy {
-    override fun nextDelay(failureCount: Int): Duration {
-        val delayMillis = (initialDelay.toMillis() * multiplier.pow(failureCount - 1)).toLong()
+    private class LinearBackOffStrategy(
+        private val initialDelay: Duration,
+        private val increment: Duration,
+        private val maxDelay: Duration,
+    ) : BackOffStrategy {
+        override fun nextDelay(failureCount: Int): Duration {
+            val delayMillis = initialDelay.toMillis() + increment.toMillis() * (failureCount - 1)
 
-        return Duration.ofMillis(minOf(delayMillis, maxDelay.toMillis()))
+            return Duration.ofMillis(minOf(delayMillis, maxDelay.toMillis()))
+        }
+    }
+
+    private class ExponentialBackOffStrategy(
+        private val initialDelay: Duration,
+        private val multiplier: Double,
+        private val maxDelay: Duration,
+    ) : BackOffStrategy {
+        override fun nextDelay(failureCount: Int): Duration {
+            val delayMillis = (initialDelay.toMillis() * multiplier.pow(failureCount - 1)).toLong()
+
+            return Duration.ofMillis(minOf(delayMillis, maxDelay.toMillis()))
+        }
     }
 }
