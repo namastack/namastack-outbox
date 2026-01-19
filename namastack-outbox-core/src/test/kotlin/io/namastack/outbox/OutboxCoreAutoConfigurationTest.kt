@@ -106,7 +106,6 @@ class OutboxCoreAutoConfigurationTest {
                     assertThat(policy.nextDelay(4)).isEqualTo(Duration.ofSeconds(16))
                     assertThat(policy.nextDelay(5)).isEqualTo(Duration.ofSeconds(32))
                     assertThat(policy.nextDelay(6)).isEqualTo(Duration.ofSeconds(60))
-
                 }
         }
 

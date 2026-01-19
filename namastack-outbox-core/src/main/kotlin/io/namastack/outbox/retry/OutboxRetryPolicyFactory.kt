@@ -17,9 +17,10 @@ internal object OutboxRetryPolicyFactory {
      * Creates a pre-configured retry policy builder based on application properties.
      *
      * This method constructs a Builder with configuration applied in the following order:
-     * 1. Retry predicate configuration (include/exclude exceptions)
-     * 2. Delay strategy configuration (fixed, exponential, or jittered)
-     * 3. Maximum retry attempts
+     * 1. Maximum retry attempts
+     * 2. Delay strategy configuration (fixed, linear, or exponential)
+     * 3. Jitter configuration (if specified)
+     * 4. Retry predicate configuration (include/exclude exceptions)
      *
      * The builder can then be further customized before calling `build()` to create
      * the final OutboxRetryPolicy instance.
@@ -45,16 +46,19 @@ internal object OutboxRetryPolicyFactory {
      *
      * Supported delay strategies:
      * - **fixed**: Constant delay between retry attempts
+     * - **linear**: Linearly increasing delay with configurable increment
      * - **exponential**: Exponentially increasing delay with configurable multiplier
-     * - **jittered**: Adds random jitter to a base policy (fixed or exponential)
+     * - **jittered**: (Deprecated) Adds random jitter to a base policy. Use the `jitter` property instead.
      *
-     * For jittered policies, the base policy must be either "fixed" or "exponential".
+     * Jitter can be applied to any base policy (fixed, linear, or exponential) via the `jitter` property
+     * in the respective configuration section. This adds randomness to prevent the thundering herd problem.
      *
      * @param retryProperties Configuration properties containing policy name and delay settings
      * @param builder The builder instance to configure
      * @return The builder with configured delay strategy
      * @throws IllegalStateException if the policy name or jittered base policy is unsupported
      */
+    @Suppress("DEPRECATION")
     private fun configureDelay(
         retryProperties: OutboxProperties.Retry,
         builder: OutboxRetryPolicy.Builder,
