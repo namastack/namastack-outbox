@@ -446,7 +446,7 @@ interface OutboxRetryPolicy {
                 override fun nextDelay(failureCount: Int): Duration {
                     val baseDelay = backOffStrategy.nextDelay(failureCount)
 
-                    return if (!jitter.isNegative && !jitter.isZero) {
+                    return if (!jitter.isZero) {
                         applyJitter(baseDelay)
                     } else {
                         baseDelay

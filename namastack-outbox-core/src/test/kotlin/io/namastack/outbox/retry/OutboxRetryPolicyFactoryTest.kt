@@ -78,7 +78,7 @@ class OutboxRetryPolicyFactoryTest {
             fun `fixed backoff and jitter (deprecated)`() {
                 val prop =
                     properties(
-                        policy = "fixed",
+                        policy = "jittered",
                         fixedDelayMs = 5000,
                         jitteredBasePolicy = "fixed",
                         jitteredJitterMs = 500,
@@ -148,7 +148,7 @@ class OutboxRetryPolicyFactoryTest {
             fun `linear backoff and jitter (deprecated)`() {
                 val prop =
                     properties(
-                        policy = "linear",
+                        policy = "jittered",
                         linearInitialMs = 1000,
                         linearIncrementMs = 2000,
                         linearMaxMs = 7000,
@@ -220,7 +220,7 @@ class OutboxRetryPolicyFactoryTest {
             fun `exponential backoff and jitter (deprecated)`() {
                 val prop =
                     properties(
-                        policy = "exponential",
+                        policy = "jittered",
                         exponentialInitialMs = 1000,
                         exponentialMultiplier = 2.0,
                         exponentialMaxMs = 9000,
