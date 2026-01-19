@@ -237,8 +237,9 @@ interface OutboxRetryPolicy {
                 private fun applyJitter(baseDelay: Duration): Duration {
                     val min = maxOf(baseDelay.minus(jitter).toMillis(), 0)
                     val max = baseDelay.plus(jitter).toMillis()
-                    val jitterMillis = min + (Math.random() * (max - min)).toLong()
-                    return baseDelay.plusMillis(jitterMillis)
+                    val jitteredDelayMillis = min + (Math.random() * (max - min)).toLong()
+
+                    return Duration.ofMillis(jitteredDelayMillis)
                 }
 
                 override fun maxRetries(): Int = maxRetries
