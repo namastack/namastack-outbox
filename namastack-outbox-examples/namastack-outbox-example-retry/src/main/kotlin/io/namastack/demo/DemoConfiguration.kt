@@ -1,7 +1,5 @@
 package io.namastack.demo
 
-import io.namastack.outbox.retry.ExponentialBackoffRetryPolicy
-import io.namastack.outbox.retry.FixedDelayRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import org.springframework.beans.factory.config.BeanDefinition
 import org.springframework.context.annotation.Bean
@@ -18,11 +16,11 @@ class DemoConfiguration {
     @Bean
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
     fun outboxRetryPolicy(): OutboxRetryPolicy =
-        FixedDelayRetryPolicy
+        OutboxRetryPolicy
             .builder()
             .maxRetries(1)
-            .excludeException(RuntimeException::class)
             .jitter(Duration.ofSeconds(1))
+            .noRetryOn(RuntimeException::class)
             .build()
 
     /**
@@ -31,13 +29,14 @@ class DemoConfiguration {
     @Bean
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
     fun customOutboxRetryPolicy(): OutboxRetryPolicy =
-        ExponentialBackoffRetryPolicy
+        OutboxRetryPolicy
             .builder()
             .maxRetries(2)
-            .initialDelay(Duration.ofSeconds(1))
-            .backoffMultiplier(1.5)
-            .maxDelay(Duration.ofSeconds(60))
-            .includeException(RuntimeException::class)
-            .jitter(Duration.ofSeconds(1))
+            .exponentialBackoff(
+                initialDelay = Duration.ofSeconds(1),
+                multiplier = 1.5,
+                maxDelay = Duration.ofSeconds(60),
+            ).jitter(Duration.ofSeconds(1))
+            .retryOn(RuntimeException::class)
             .build()
 }
