@@ -1,8 +1,8 @@
 package io.namastack.outbox.retry
 
 import java.time.Duration
+import java.util.function.Predicate
 import kotlin.math.pow
-import kotlin.reflect.KClass
 
 /**
  * Interface for retry policies that determine when and how to retry failed outbox record processing.
@@ -81,13 +81,6 @@ interface OutboxRetryPolicy {
 
         private fun assertIsNotNegative(
             name: String,
-            value: Int,
-        ) {
-            assertIsNotNegative(name, value >= 0)
-        }
-
-        private fun assertIsNotNegative(
-            name: String,
             duration: Duration,
         ) {
             assertIsNotNegative(name, !duration.isNegative)
@@ -127,71 +120,34 @@ interface OutboxRetryPolicy {
     }
 
     class Builder private constructor(
-        private var retryableExceptions: Collection<KClass<out Throwable>>,
-        private var nonRetryableExceptions: Collection<KClass<out Throwable>>,
-        private val retryPredicate: ((Throwable) -> Boolean)?,
+        private val maxRetries: Int,
         private val backOffStrategy: BackOffStrategy,
         private val jitter: Duration,
-        private val maxRetries: Int,
+        private var retryableExceptions: Collection<Class<out Throwable>>,
+        private var nonRetryableExceptions: Collection<Class<out Throwable>>,
+        private val retryPredicate: Predicate<Throwable>?,
     ) {
         constructor() : this(
-            retryPredicate = null,
-            retryableExceptions = emptyList(),
-            nonRetryableExceptions = emptyList(),
+            maxRetries = 3,
             backOffStrategy = FixedBackOffStrategy(Duration.ofSeconds(5)),
             jitter = Duration.ZERO,
-            maxRetries = 3,
+            retryableExceptions = emptyList(),
+            nonRetryableExceptions = emptyList(),
+            retryPredicate = null,
         )
 
-        fun retryOn(vararg exceptions: KClass<out Throwable>): Builder =
-            retryOn(
-                exceptions = exceptions.toList(),
-            )
+        fun maxRetries(maxRetries: Int): Builder {
+            assertIsPositive("maxRetries", maxRetries)
 
-        fun retryOn(exceptions: Collection<KClass<out Throwable>>): Builder =
-            Builder(
-                retryPredicate = retryPredicate,
-                retryableExceptions = exceptions,
-                nonRetryableExceptions = nonRetryableExceptions,
+            return Builder(
+                maxRetries = maxRetries,
                 backOffStrategy = backOffStrategy,
                 jitter = jitter,
-                maxRetries = maxRetries,
-            )
-
-        fun noRetryOn(vararg exceptions: KClass<out Throwable>): Builder =
-            noRetryOn(
-                exceptions = exceptions.toList(),
-            )
-
-        fun noRetryOn(exceptions: Collection<KClass<out Throwable>>): Builder =
-            Builder(
-                retryPredicate = retryPredicate,
-                retryableExceptions = retryableExceptions,
-                nonRetryableExceptions = exceptions,
-                backOffStrategy = backOffStrategy,
-                jitter = jitter,
-                maxRetries = maxRetries,
-            )
-
-        fun retryIf(predicate: (Throwable) -> Boolean): Builder =
-            Builder(
-                retryPredicate = predicate,
                 retryableExceptions = retryableExceptions,
                 nonRetryableExceptions = nonRetryableExceptions,
-                backOffStrategy = backOffStrategy,
-                jitter = jitter,
-                maxRetries = maxRetries,
-            )
-
-        fun backOff(strategy: BackOffStrategy): Builder =
-            Builder(
                 retryPredicate = retryPredicate,
-                retryableExceptions = retryableExceptions,
-                nonRetryableExceptions = nonRetryableExceptions,
-                backOffStrategy = strategy,
-                jitter = jitter,
-                maxRetries = maxRetries,
             )
+        }
 
         fun fixedBackOff(delay: Duration): Builder {
             assertIsPositive("delay", delay)
@@ -239,31 +195,68 @@ interface OutboxRetryPolicy {
             )
         }
 
+        fun backOff(strategy: BackOffStrategy): Builder =
+            Builder(
+                maxRetries = maxRetries,
+                backOffStrategy = strategy,
+                jitter = jitter,
+                retryableExceptions = retryableExceptions,
+                nonRetryableExceptions = nonRetryableExceptions,
+                retryPredicate = retryPredicate,
+            )
+
         fun jitter(jitter: Duration): Builder {
             assertIsNotNegative("jitter", jitter)
 
             return Builder(
-                retryPredicate = retryPredicate,
-                retryableExceptions = retryableExceptions,
-                nonRetryableExceptions = nonRetryableExceptions,
+                maxRetries = maxRetries,
                 backOffStrategy = backOffStrategy,
                 jitter = jitter,
-                maxRetries = maxRetries,
+                retryableExceptions = retryableExceptions,
+                nonRetryableExceptions = nonRetryableExceptions,
+                retryPredicate = retryPredicate,
             )
         }
 
-        fun maxRetries(maxRetries: Int): Builder {
-            assertIsPositive("maxRetries", maxRetries)
+        fun retryOn(vararg exceptions: Class<out Throwable>): Builder =
+            retryOn(
+                exceptions = exceptions.toList(),
+            )
 
-            return Builder(
-                retryPredicate = retryPredicate,
-                retryableExceptions = retryableExceptions,
-                nonRetryableExceptions = nonRetryableExceptions,
+        fun retryOn(exceptions: Collection<Class<out Throwable>>): Builder =
+            Builder(
+                maxRetries = maxRetries,
                 backOffStrategy = backOffStrategy,
                 jitter = jitter,
-                maxRetries = maxRetries,
+                retryableExceptions = exceptions,
+                nonRetryableExceptions = nonRetryableExceptions,
+                retryPredicate = retryPredicate,
             )
-        }
+
+        fun noRetryOn(vararg exceptions: Class<out Throwable>): Builder =
+            noRetryOn(
+                exceptions = exceptions.toList(),
+            )
+
+        fun noRetryOn(exceptions: Collection<Class<out Throwable>>): Builder =
+            Builder(
+                maxRetries = maxRetries,
+                backOffStrategy = backOffStrategy,
+                jitter = jitter,
+                retryableExceptions = retryableExceptions,
+                nonRetryableExceptions = exceptions,
+                retryPredicate = retryPredicate,
+            )
+
+        fun retryIf(predicate: Predicate<Throwable>): Builder =
+            Builder(
+                maxRetries = maxRetries,
+                backOffStrategy = backOffStrategy,
+                jitter = jitter,
+                retryableExceptions = retryableExceptions,
+                nonRetryableExceptions = nonRetryableExceptions,
+                retryPredicate = predicate,
+            )
 
         fun build(): OutboxRetryPolicy =
             object : OutboxRetryPolicy {
@@ -284,7 +277,7 @@ interface OutboxRetryPolicy {
                     }
 
                     // If a retry predicate is defined and matches, retry
-                    if (retryPredicate != null && retryPredicate(exception)) {
+                    if (retryPredicate != null && retryPredicate.test(exception)) {
                         return true
                     }
 

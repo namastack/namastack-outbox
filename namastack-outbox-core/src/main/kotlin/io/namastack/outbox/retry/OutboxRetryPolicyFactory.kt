@@ -2,7 +2,6 @@ package io.namastack.outbox.retry
 
 import io.namastack.outbox.OutboxProperties
 import java.time.Duration
-import kotlin.reflect.KClass
 
 /**
  * Factory for creating retry policy instances based on configuration.
@@ -35,35 +34,11 @@ internal object OutboxRetryPolicyFactory {
 
         return OutboxRetryPolicy
             .builder()
+            .maxRetries(retryProperties.maxRetries)
+            .let { configureDelay(retryProperties, it) }
             .retryOn(includeExceptions)
             .noRetryOn(excludeExceptions)
-            .let { configureDelay(retryProperties, it) }
-            .maxRetries(retryProperties.maxRetries)
     }
-
-    /**
-     * Converts fully qualified exception class names to Kotlin class references.
-     *
-     * This method resolves string class names (e.g., "java.lang.IllegalStateException")
-     * to their corresponding Kotlin class references for use in retry predicate matching.
-     *
-     * @param exceptionNames Set of fully qualified exception class names
-     * @return Set of Kotlin class references for the specified exception types
-     * @throws IllegalStateException if any class name cannot be found in the classpath
-     * @throws IllegalStateException if any class name refers to a non-Throwable type
-     */
-    private fun convertExceptionNames(exceptionNames: Set<String>): Set<KClass<out Throwable>> =
-        exceptionNames
-            .map { className ->
-                try {
-                    @Suppress("UNCHECKED_CAST")
-                    Class.forName(className).kotlin as KClass<out Throwable>
-                } catch (_: ClassNotFoundException) {
-                    error("Exception class not found: $className")
-                } catch (_: ClassCastException) {
-                    error("Class $className is not a Throwable")
-                }
-            }.toSet()
 
     /**
      * Configures the delay strategy based on the policy name from properties.
@@ -91,7 +66,7 @@ internal object OutboxRetryPolicyFactory {
                 builder
                     .fixedBackOff(
                         delay = Duration.ofMillis(retryProperties.fixed.delay),
-                    ).jitter(jitter = Duration.ofMillis(retryProperties.fixed.jitter))
+                    ).jitter(jitter = Duration.ofMillis(retryProperties.jitter))
             }
 
             "linear" -> {
@@ -100,7 +75,7 @@ internal object OutboxRetryPolicyFactory {
                         initialDelay = Duration.ofMillis(retryProperties.linear.initialDelay),
                         increment = Duration.ofMillis(retryProperties.linear.increment),
                         maxDelay = Duration.ofMillis(retryProperties.linear.maxDelay),
-                    ).jitter(jitter = Duration.ofMillis(retryProperties.linear.jitter))
+                    ).jitter(jitter = Duration.ofMillis(retryProperties.jitter))
             }
 
             "exponential" -> {
@@ -109,7 +84,7 @@ internal object OutboxRetryPolicyFactory {
                         initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
                         multiplier = retryProperties.exponential.multiplier,
                         maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
-                    ).jitter(jitter = Duration.ofMillis(retryProperties.exponential.jitter))
+                    ).jitter(jitter = Duration.ofMillis(retryProperties.jitter))
             }
 
             "jittered" -> {
@@ -148,4 +123,27 @@ internal object OutboxRetryPolicyFactory {
             else -> error("Unsupported retry-policy: $name")
         }
     }
+
+    /**
+     * Converts fully qualified exception class names to Kotlin class references.
+     *
+     * This method resolves string class names (e.g., "java.lang.IllegalStateException")
+     * to their corresponding Kotlin class references for use in retry predicate matching.
+     *
+     * @param exceptionNames Set of fully qualified exception class names
+     * @return Set of Kotlin class references for the specified exception types
+     * @throws IllegalStateException if any class name cannot be found in the classpath
+     * @throws IllegalStateException if any class name refers to a non-Throwable type
+     */
+    private fun convertExceptionNames(exceptionNames: Set<String>): Set<Class<out Throwable>> =
+        exceptionNames
+            .map { className ->
+                try {
+                    Class.forName(className).asSubclass(Throwable::class.java)
+                } catch (_: ClassNotFoundException) {
+                    error("Exception class not found: $className")
+                } catch (_: ClassCastException) {
+                    error("Class $className is not a Throwable")
+                }
+            }.toSet()
 }

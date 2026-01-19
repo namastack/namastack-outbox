@@ -3,3 +3,12 @@ plugins {
 }
 
 description = "namastack-outbox-api"
+
+dependencies {
+    testImplementation(platform(libs.spring.boot.bom))
+    testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.assertj.core)
+    testImplementation(libs.mockk)
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}

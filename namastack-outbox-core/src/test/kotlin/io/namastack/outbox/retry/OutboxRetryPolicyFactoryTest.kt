@@ -8,326 +8,336 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.time.Duration
 
-@DisplayName("OutboxRetryPolicyFactory")
 class OutboxRetryPolicyFactoryTest {
     @Nested
-    @DisplayName("createDefault() - Fixed Policy")
-    inner class CreateFixedPolicyTests {
+    @DisplayName("max retries")
+    inner class MaxRetriesTests {
         @Test
-        fun `should create FixedDelayRetryPolicy when name is 'fixed'`() {
-            val properties =
-                createRetryProperties(
-                    maxRetries = 5,
-                    fixedDelay = 3000L,
+        fun `default maxRetries`() {
+            val prop = properties()
+            val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
+
+            assertThat(policy.maxRetries()).isEqualTo(3)
+        }
+
+        @Test
+        fun `can set maxRetries`() {
+            val prop =
+                properties(
+                    maxRetries = 10,
                 )
+            val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
 
-            val policy = OutboxRetryPolicyFactory.createDefault("fixed", properties)
-
-            assertThat(policy).isInstanceOf(FixedDelayRetryPolicy::class.java)
-            assertThat(policy.maxRetries()).isEqualTo(5)
-            assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofMillis(3000))
-        }
-
-        @Test
-        fun `should create FixedDelayRetryPolicy with case-insensitive name`() {
-            val properties = createRetryProperties(fixedDelay = 1000L)
-
-            val policyLower = OutboxRetryPolicyFactory.createDefault("fixed", properties)
-            val policyUpper = OutboxRetryPolicyFactory.createDefault("FIXED", properties)
-            val policyMixed = OutboxRetryPolicyFactory.createDefault("FiXeD", properties)
-
-            assertThat(policyLower).isInstanceOf(FixedDelayRetryPolicy::class.java)
-            assertThat(policyUpper).isInstanceOf(FixedDelayRetryPolicy::class.java)
-            assertThat(policyMixed).isInstanceOf(FixedDelayRetryPolicy::class.java)
-        }
-
-        @Test
-        fun `should create FixedDelayRetryPolicy with configured delay`() {
-            val properties = createRetryProperties(fixedDelay = 5000L)
-
-            val policy = OutboxRetryPolicyFactory.createDefault("fixed", properties)
-
-            assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofMillis(5000))
-            assertThat(policy.nextDelay(10)).isEqualTo(Duration.ofMillis(5000))
+            assertThat(policy.maxRetries()).isEqualTo(10)
         }
     }
 
     @Nested
-    @DisplayName("createDefault() - Exponential Policy")
-    inner class CreateExponentialPolicyTests {
-        @Test
-        fun `should create ExponentialBackoffRetryPolicy when name is 'exponential'`() {
-            val properties =
-                createRetryProperties(
-                    maxRetries = 7,
-                    exponentialInitialDelay = 1000L,
-                    exponentialMaxDelay = 60000L,
-                    exponentialMultiplier = 2.0,
-                )
+    @DisplayName("supported policies")
+    inner class SupportedPolicies {
+        @Nested
+        @DisplayName("fixed policy")
+        inner class FixedPolicyTests {
+            @Test
+            fun `fixed backoff`() {
+                val prop =
+                    properties(
+                        policy = "fixed",
+                        fixedDelayMs = 3000,
+                    )
+                val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
 
-            val policy = OutboxRetryPolicyFactory.createDefault("exponential", properties)
+                assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofSeconds(3))
+                assertThat(policy.nextDelay(2)).isEqualTo(Duration.ofSeconds(3))
+                assertThat(policy.nextDelay(10)).isEqualTo(Duration.ofSeconds(3))
+            }
 
-            assertThat(policy).isInstanceOf(ExponentialBackoffRetryPolicy::class.java)
-            assertThat(policy.maxRetries()).isEqualTo(7)
-            assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofMillis(1000))
+            @Test
+            fun `fixed backoff and jitter`() {
+                val prop =
+                    properties(
+                        policy = "fixed",
+                        fixedDelayMs = 5000,
+                        jitterMs = 2000,
+                    )
+                val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
+
+                val base = Duration.ofMillis(5000)
+                val jitter = Duration.ofMillis(2000)
+                val min = base.minus(jitter)
+                val max = base.plus(jitter)
+
+                repeat(100) {
+                    // sample many times due to randomness
+                    val d = policy.nextDelay(1)
+                    assertThat(d).isBetween(min, max)
+                }
+            }
+
+            @Test
+            fun `fixed backoff and jitter (deprecated)`() {
+                val prop =
+                    properties(
+                        policy = "fixed",
+                        fixedDelayMs = 5000,
+                        jitteredBasePolicy = "fixed",
+                        jitteredJitterMs = 500,
+                    )
+                val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
+
+                val base = Duration.ofMillis(5000)
+                val jitter = Duration.ofMillis(2000)
+                val min = base.minus(jitter)
+                val max = base.plus(jitter)
+
+                repeat(100) {
+                    // sample many times due to randomness
+                    val d = policy.nextDelay(1)
+                    assertThat(d).isBetween(min, max)
+                }
+            }
         }
 
-        @Test
-        fun `should create ExponentialBackoffRetryPolicy with case-insensitive name`() {
-            val properties = createRetryProperties()
+        @Nested
+        @DisplayName("linear policy")
+        inner class LinearPolicyTests {
+            @Test
+            fun `linear backoff`() {
+                val prop =
+                    properties(
+                        policy = "linear",
+                        linearInitialMs = 1000,
+                        linearIncrementMs = 2000,
+                        linearMaxMs = 7000,
+                    )
+                val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
 
-            val policyLower = OutboxRetryPolicyFactory.createDefault("exponential", properties)
-            val policyUpper = OutboxRetryPolicyFactory.createDefault("EXPONENTIAL", properties)
-            val policyMixed = OutboxRetryPolicyFactory.createDefault("ExPoNeNtIaL", properties)
+                // failureCount: 1 -> 1s, 2 -> 3s, 3 -> 5s, 4 -> 7s (cap), 5 -> 7s
+                assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofSeconds(1))
+                assertThat(policy.nextDelay(2)).isEqualTo(Duration.ofSeconds(3))
+                assertThat(policy.nextDelay(3)).isEqualTo(Duration.ofSeconds(5))
+                assertThat(policy.nextDelay(4)).isEqualTo(Duration.ofSeconds(7))
+                assertThat(policy.nextDelay(5)).isEqualTo(Duration.ofSeconds(7))
+            }
 
-            assertThat(policyLower).isInstanceOf(ExponentialBackoffRetryPolicy::class.java)
-            assertThat(policyUpper).isInstanceOf(ExponentialBackoffRetryPolicy::class.java)
-            assertThat(policyMixed).isInstanceOf(ExponentialBackoffRetryPolicy::class.java)
+            @Test
+            fun `linear backoff and jitter`() {
+                val prop =
+                    properties(
+                        policy = "linear",
+                        linearInitialMs = 1000,
+                        linearIncrementMs = 2000,
+                        linearMaxMs = 7000,
+                        jitterMs = 500,
+                    )
+                val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
+
+                val base = Duration.ofMillis(1000)
+                val jitter = Duration.ofMillis(500)
+                val min = base.minus(jitter)
+                val max = base.plus(jitter)
+
+                repeat(100) {
+                    // sample many times due to randomness
+                    val d = policy.nextDelay(1)
+                    assertThat(d).isBetween(min, max)
+                }
+            }
+
+            @Test
+            fun `linear backoff and jitter (deprecated)`() {
+                val prop =
+                    properties(
+                        policy = "linear",
+                        linearInitialMs = 1000,
+                        linearIncrementMs = 2000,
+                        linearMaxMs = 7000,
+                        jitteredBasePolicy = "linear",
+                        jitteredJitterMs = 500,
+                    )
+                val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
+
+                val base = Duration.ofMillis(1000)
+                val jitter = Duration.ofMillis(500)
+                val min = base.minus(jitter)
+                val max = base.plus(jitter)
+
+                repeat(100) {
+                    // sample many times due to randomness
+                    val d = policy.nextDelay(1)
+                    assertThat(d).isBetween(min, max)
+                }
+            }
         }
 
-        @Test
-        fun `should create ExponentialBackoffRetryPolicy with exponential growth`() {
-            val properties =
-                createRetryProperties(
-                    exponentialInitialDelay = 100L,
-                    exponentialMaxDelay = 10000L,
-                    exponentialMultiplier = 3.0,
-                )
+        @Nested
+        @DisplayName("exponential policy")
+        inner class ExponentialPolicyTests {
+            @Test
+            fun `exponential backoff`() {
+                val prop =
+                    properties(
+                        policy = "exponential",
+                        exponentialInitialMs = 1000,
+                        exponentialMultiplier = 2.0,
+                        exponentialMaxMs = 9000,
+                    )
+                val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
 
-            val policy = OutboxRetryPolicyFactory.createDefault("exponential", properties)
+                // 1 -> 1s, 2 -> 2s, 3 -> 4s, 4 -> 8s, 5 -> 9s (cap)
+                assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofSeconds(1))
+                assertThat(policy.nextDelay(2)).isEqualTo(Duration.ofSeconds(2))
+                assertThat(policy.nextDelay(3)).isEqualTo(Duration.ofSeconds(4))
+                assertThat(policy.nextDelay(4)).isEqualTo(Duration.ofSeconds(8))
+                assertThat(policy.nextDelay(5)).isEqualTo(Duration.ofSeconds(9))
+            }
 
-            assertThat(policy.nextDelay(1)).isEqualTo(Duration.ofMillis(100))
-            assertThat(policy.nextDelay(2)).isEqualTo(Duration.ofMillis(300))
-            assertThat(policy.nextDelay(3)).isEqualTo(Duration.ofMillis(900))
+            @Test
+            fun `exponential backoff and jitter`() {
+                val prop =
+                    properties(
+                        policy = "exponential",
+                        exponentialInitialMs = 1000,
+                        exponentialMultiplier = 2.0,
+                        exponentialMaxMs = 9000,
+                        jitterMs = 500,
+                    )
+                val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
+
+                val base = Duration.ofMillis(1000)
+                val jitter = Duration.ofMillis(500)
+                val min = base.minus(jitter)
+                val max = base.plus(jitter)
+
+                repeat(100) {
+                    // sample many times due to randomness
+                    val d = policy.nextDelay(1)
+                    assertThat(d).isBetween(min, max)
+                }
+            }
+
+            @Test
+            fun `exponential backoff and jitter (deprecated)`() {
+                val prop =
+                    properties(
+                        policy = "exponential",
+                        exponentialInitialMs = 1000,
+                        exponentialMultiplier = 2.0,
+                        exponentialMaxMs = 9000,
+                        jitteredBasePolicy = "exponential",
+                        jitteredJitterMs = 500,
+                    )
+                val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
+
+                val base = Duration.ofMillis(1000)
+                val jitter = Duration.ofMillis(500)
+                val min = base.minus(jitter)
+                val max = base.plus(jitter)
+
+                repeat(100) {
+                    // sample many times due to randomness
+                    val d = policy.nextDelay(1)
+                    assertThat(d).isBetween(min, max)
+                }
+            }
         }
 
-        @Test
-        fun `should create ExponentialBackoffRetryPolicy with max delay cap`() {
-            val properties =
-                createRetryProperties(
-                    exponentialInitialDelay = 100L,
-                    exponentialMaxDelay = 500L,
-                    exponentialMultiplier = 2.0,
-                )
+        @Nested
+        @DisplayName("error handling")
+        inner class ErrorHandling {
+            @Test
+            fun `unsupported policy fails`() {
+                val prop = properties(policy = "random")
+                assertThatThrownBy { OutboxRetryPolicyFactory.createDefault(prop) }
+                    .isInstanceOf(IllegalStateException::class.java)
+                    .hasMessageContaining("Unsupported retry-policy")
+            }
 
-            val policy = OutboxRetryPolicyFactory.createDefault("exponential", properties)
-
-            assertThat(policy.nextDelay(10)).isEqualTo(Duration.ofMillis(500))
+            @Test
+            fun `unsupported jittered base policy fails`() {
+                val prop = properties(policy = "jittered", jitteredBasePolicy = "random")
+                assertThatThrownBy { OutboxRetryPolicyFactory.createDefault(prop) }
+                    .isInstanceOf(IllegalStateException::class.java)
+                    .hasMessageContaining("Unsupported jittered base policy")
+            }
         }
     }
 
     @Nested
-    @DisplayName("createDefault() - Jittered Policy")
-    inner class CreateJitteredPolicyTests {
+    @DisplayName("exception include/exclude conversion")
+    inner class ExceptionConversion {
         @Test
-        fun `should create JitteredRetryPolicy when name is 'jittered'`() {
-            val properties =
-                createRetryProperties(
-                    jitteredBasePolicy = "fixed",
-                    jitteredJitter = 500L,
-                    fixedDelay = 2000L,
+        fun `includes and excludes are applied to builder`() {
+            val prop =
+                properties(
+                    include = setOf(IllegalArgumentException::class.java.name, IllegalStateException::class.java.name),
+                    exclude = setOf(UnsupportedOperationException::class.java.name),
                 )
+            val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
 
-            val policy = OutboxRetryPolicyFactory.createDefault("jittered", properties)
-
-            assertThat(policy).isInstanceOf(JitteredRetryPolicy::class.java)
+            assertThat(policy.shouldRetry(IllegalArgumentException())).isTrue()
+            assertThat(policy.shouldRetry(IllegalStateException())).isTrue()
+            assertThat(policy.shouldRetry(UnsupportedOperationException())).isFalse()
         }
 
         @Test
-        fun `should create JitteredRetryPolicy with case-insensitive name`() {
-            val properties =
-                createRetryProperties(
-                    jitteredBasePolicy = "fixed",
-                    jitteredJitter = 500L,
+        fun `fails if class not found`() {
+            val prop =
+                properties(
+                    include = setOf("com.example.DoesNotExist"),
                 )
 
-            val policyLower = OutboxRetryPolicyFactory.createDefault("jittered", properties)
-            val policyUpper = OutboxRetryPolicyFactory.createDefault("JITTERED", properties)
-            val policyMixed = OutboxRetryPolicyFactory.createDefault("JiTtErEd", properties)
-
-            assertThat(policyLower).isInstanceOf(JitteredRetryPolicy::class.java)
-            assertThat(policyUpper).isInstanceOf(JitteredRetryPolicy::class.java)
-            assertThat(policyMixed).isInstanceOf(JitteredRetryPolicy::class.java)
+            assertThatThrownBy { OutboxRetryPolicyFactory.createDefault(prop) }
+                .isInstanceOf(IllegalStateException::class.java)
+                .hasMessageContaining("Exception class not found")
         }
 
         @Test
-        fun `should create JitteredRetryPolicy wrapping fixed policy`() {
-            val properties =
-                createRetryProperties(
-                    jitteredBasePolicy = "fixed",
-                    jitteredJitter = 500L,
-                    fixedDelay = 3000L,
+        fun `fails if class is not a Throwable`() {
+            val prop =
+                properties(
+                    include = setOf(String::class.java.name),
                 )
 
-            val policy = OutboxRetryPolicyFactory.createDefault("jittered", properties)
-
-            assertThat(policy).isInstanceOf(JitteredRetryPolicy::class.java)
-            val delay = policy.nextDelay(1)
-            assertThat(delay).isBetween(Duration.ofMillis(3000), Duration.ofMillis(3500))
-        }
-
-        @Test
-        fun `should create JitteredRetryPolicy wrapping exponential policy`() {
-            val properties =
-                createRetryProperties(
-                    jitteredBasePolicy = "exponential",
-                    jitteredJitter = 200L,
-                    exponentialInitialDelay = 1000L,
-                    exponentialMaxDelay = 60000L,
-                    exponentialMultiplier = 2.0,
-                )
-
-            val policy = OutboxRetryPolicyFactory.createDefault("jittered", properties)
-
-            assertThat(policy).isInstanceOf(JitteredRetryPolicy::class.java)
-            val delay = policy.nextDelay(1)
-            assertThat(delay).isBetween(Duration.ofMillis(1000), Duration.ofMillis(1200))
-        }
-
-        @Test
-        fun `should throw when base policy is jittered`() {
-            val properties =
-                createRetryProperties(
-                    jitteredBasePolicy = "jittered",
-                    jitteredJitter = 500L,
-                )
-
-            assertThatThrownBy {
-                OutboxRetryPolicyFactory.createDefault("jittered", properties)
-            }.isInstanceOf(IllegalStateException::class.java)
-                .hasMessageContaining("Cannot create a jittered policy with jittered base policy")
-        }
-
-        @Test
-        fun `should throw when base policy is jittered with different case`() {
-            val properties =
-                createRetryProperties(
-                    jitteredBasePolicy = "JITTERED",
-                    jitteredJitter = 500L,
-                )
-
-            assertThatThrownBy {
-                OutboxRetryPolicyFactory.createDefault("jittered", properties)
-            }.isInstanceOf(IllegalStateException::class.java)
-                .hasMessageContaining("Cannot create a jittered policy with jittered base policy")
+            assertThatThrownBy { OutboxRetryPolicyFactory.createDefault(prop) }
+                .isInstanceOf(IllegalStateException::class.java)
+                .hasMessageContaining("is not a Throwable")
         }
     }
 
-    @Nested
-    @DisplayName("createDefault() - Error Cases")
-    inner class ErrorCasesTests {
-        @Test
-        fun `should throw when policy name is unsupported`() {
-            val properties = createRetryProperties()
-
-            assertThatThrownBy {
-                OutboxRetryPolicyFactory.createDefault("unknown", properties)
-            }.isInstanceOf(IllegalStateException::class.java)
-                .hasMessageContaining("Unsupported retry-policy: unknown")
-        }
-
-        @Test
-        fun `should throw for empty policy name`() {
-            val properties = createRetryProperties()
-
-            assertThatThrownBy {
-                OutboxRetryPolicyFactory.createDefault("", properties)
-            }.isInstanceOf(IllegalStateException::class.java)
-                .hasMessageContaining("Unsupported retry-policy:")
-        }
-
-        @Test
-        fun `should throw for null-like policy name`() {
-            val properties = createRetryProperties()
-
-            assertThatThrownBy {
-                OutboxRetryPolicyFactory.createDefault("null", properties)
-            }.isInstanceOf(IllegalStateException::class.java)
-                .hasMessageContaining("Unsupported retry-policy: null")
-        }
-    }
-
-    @Nested
-    @DisplayName("createDefault() - Integration")
-    inner class IntegrationTests {
-        @Test
-        fun `should create policies with different maxRetries`() {
-            val properties3 = createRetryProperties(maxRetries = 3)
-            val properties5 = createRetryProperties(maxRetries = 5)
-            val properties10 = createRetryProperties(maxRetries = 10)
-
-            val policy3 = OutboxRetryPolicyFactory.createDefault("fixed", properties3)
-            val policy5 = OutboxRetryPolicyFactory.createDefault("fixed", properties5)
-            val policy10 = OutboxRetryPolicyFactory.createDefault("fixed", properties10)
-
-            assertThat(policy3.maxRetries()).isEqualTo(3)
-            assertThat(policy5.maxRetries()).isEqualTo(5)
-            assertThat(policy10.maxRetries()).isEqualTo(10)
-        }
-
-        @Test
-        fun `should create multiple policies independently`() {
-            val properties = createRetryProperties()
-
-            val policy1 = OutboxRetryPolicyFactory.createDefault("fixed", properties)
-            val policy2 = OutboxRetryPolicyFactory.createDefault("exponential", properties)
-
-            assertThat(policy1).isInstanceOf(FixedDelayRetryPolicy::class.java)
-            assertThat(policy2).isInstanceOf(ExponentialBackoffRetryPolicy::class.java)
-            assertThat(policy1).isNotSameAs(policy2)
-        }
-
-        @Test
-        fun `should handle recursive jittered creation with exponential base`() {
-            val properties =
-                createRetryProperties(
-                    jitteredBasePolicy = "exponential",
-                    jitteredJitter = 100L,
-                    exponentialInitialDelay = 500L,
-                    exponentialMaxDelay = 30000L,
-                    exponentialMultiplier = 2.0,
-                )
-
-            val policy = OutboxRetryPolicyFactory.createDefault("jittered", properties)
-
-            assertThat(policy).isInstanceOf(JitteredRetryPolicy::class.java)
-            // Jitter wraps exponential, so delay should be exponential + jitter
-            val delay1 = policy.nextDelay(1)
-            val delay2 = policy.nextDelay(2)
-            assertThat(delay1).isBetween(Duration.ofMillis(500), Duration.ofMillis(600))
-            assertThat(delay2).isBetween(Duration.ofMillis(1000), Duration.ofMillis(1100))
-        }
-    }
-
-    // Helper method to create retry properties with defaults
-    private fun createRetryProperties(
-        maxRetries: Int = 3,
-        fixedDelay: Long = 5000L,
-        exponentialInitialDelay: Long = 1000L,
-        exponentialMaxDelay: Long = 300000L,
-        exponentialMultiplier: Double = 2.0,
-        jitteredBasePolicy: String = "fixed",
-        jitteredJitter: Long = 500L,
+    private fun properties(
+        maxRetries: Int? = null,
+        policy: String? = null,
+        fixedDelayMs: Long? = null,
+        linearInitialMs: Long? = null,
+        linearIncrementMs: Long? = null,
+        linearMaxMs: Long? = null,
+        exponentialInitialMs: Long? = null,
+        exponentialMultiplier: Double? = null,
+        exponentialMaxMs: Long? = null,
+        jitterMs: Long? = null,
+        jitteredBasePolicy: String? = null,
+        jitteredJitterMs: Long? = null,
+        include: Set<String>? = null,
+        exclude: Set<String>? = null,
     ): OutboxProperties.Retry {
-        val retry = OutboxProperties.Retry()
-        retry.maxRetries = maxRetries
-        retry.policy = "exponential"
+        val properties = OutboxProperties.Retry()
 
-        val fixed = OutboxProperties.Retry.FixedRetry()
-        fixed.delay = fixedDelay
-        retry.fixed = fixed
+        maxRetries?.let { properties.maxRetries = it }
+        policy?.let { properties.policy = it }
+        fixedDelayMs?.let { properties.fixed.delay = it }
+        linearInitialMs?.let { properties.linear.initialDelay = it }
+        linearIncrementMs?.let { properties.linear.increment = it }
+        linearMaxMs?.let { properties.linear.maxDelay = it }
+        exponentialInitialMs?.let { properties.exponential.initialDelay = it }
+        exponentialMultiplier?.let { properties.exponential.multiplier = it }
+        exponentialMaxMs?.let { properties.exponential.maxDelay = it }
+        jitterMs?.let { properties.jitter = it }
+        jitteredBasePolicy?.let { properties.jittered.basePolicy = it }
+        jitteredJitterMs?.let { properties.jittered.jitter = it }
+        include?.let { properties.includeExceptions = it }
+        exclude?.let { properties.excludeExceptions = it }
 
-        val exponential = OutboxProperties.Retry.ExponentialRetry()
-        exponential.initialDelay = exponentialInitialDelay
-        exponential.maxDelay = exponentialMaxDelay
-        exponential.multiplier = exponentialMultiplier
-        retry.exponential = exponential
-
-        val jittered = OutboxProperties.Retry.JitteredRetry()
-        jittered.basePolicy = jitteredBasePolicy
-        jittered.jitter = jitteredJitter
-        retry.jittered = jittered
-
-        return retry
+        return properties
     }
 }

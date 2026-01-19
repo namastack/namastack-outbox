@@ -226,7 +226,7 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean("outboxRetryPolicyBuilder")
     @ConditionalOnMissingBean(name = ["outboxRetryPolicyBuilder"])
-    fun outboxRetryPolicyBuilder(properties: OutboxProperties): OutboxRetryPolicy.Builder =
+    fun defaultOutboxRetryPolicyBuilder(properties: OutboxProperties): OutboxRetryPolicy.Builder =
         OutboxRetryPolicyFactory.createDefault(retryProperties = properties.retry)
 
     /**
