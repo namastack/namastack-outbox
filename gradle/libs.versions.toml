@@ -5,7 +5,7 @@ springBoot = "4.0.1"
 dependencyManagement = "1.1.7"
 ktlint = "14.0.1"
 dokka = "2.1.0"
-publish = "0.35.0"
+publish = "0.36.0"
 
 # Dependency versions
 mockk = "1.14.7"
