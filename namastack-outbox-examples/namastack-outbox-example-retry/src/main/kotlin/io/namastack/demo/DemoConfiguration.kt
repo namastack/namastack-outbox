@@ -20,7 +20,7 @@ class DemoConfiguration {
             .builder()
             .maxRetries(1)
             .jitter(Duration.ofSeconds(1))
-            .noRetryOn(RuntimeException::class)
+            .noRetryOn(RuntimeException::class.java)
             .build()
 
     /**
@@ -37,6 +37,6 @@ class DemoConfiguration {
                 multiplier = 1.5,
                 maxDelay = Duration.ofSeconds(60),
             ).jitter(Duration.ofSeconds(1))
-            .retryOn(RuntimeException::class)
+            .retryOn(RuntimeException::class.java)
             .build()
 }

@@ -3,7 +3,6 @@ package io.namastack.outbox.retry
 import java.time.Duration
 import java.util.concurrent.ThreadLocalRandom
 import java.util.function.Predicate
-import kotlin.reflect.KClass
 
 /**
  * Interface for retry policies that determine when and how to retry failed outbox record processing.
@@ -123,8 +122,8 @@ interface OutboxRetryPolicy {
         private val maxRetries: Int,
         private val backOffStrategy: BackOffStrategy,
         private val jitter: Duration,
-        private val retryableExceptions: Collection<KClass<out Throwable>>,
-        private val nonRetryableExceptions: Collection<KClass<out Throwable>>,
+        private val retryableExceptions: Collection<Class<out Throwable>>,
+        private val nonRetryableExceptions: Collection<Class<out Throwable>>,
         private val retryPredicate: Predicate<Throwable>?,
     ) {
         companion object {
@@ -318,7 +317,7 @@ interface OutboxRetryPolicy {
          * @param exceptions The exception types that should trigger a retry
          * @return Builder instance for method chaining
          */
-        fun retryOn(vararg exceptions: KClass<out Throwable>): Builder =
+        fun retryOn(vararg exceptions: Class<out Throwable>): Builder =
             retryOn(
                 exceptions = exceptions.toList(),
             )
@@ -332,7 +331,7 @@ interface OutboxRetryPolicy {
          * @param exceptions Collection of exception types that should trigger a retry
          * @return Builder instance for method chaining
          */
-        fun retryOn(exceptions: Collection<KClass<out Throwable>>): Builder =
+        fun retryOn(exceptions: Collection<Class<out Throwable>>): Builder =
             Builder(
                 maxRetries = maxRetries,
                 backOffStrategy = backOffStrategy,
@@ -351,7 +350,7 @@ interface OutboxRetryPolicy {
          * @param exceptions The exception types that should never trigger a retry
          * @return Builder instance for method chaining
          */
-        fun noRetryOn(vararg exceptions: KClass<out Throwable>): Builder =
+        fun noRetryOn(vararg exceptions: Class<out Throwable>): Builder =
             noRetryOn(
                 exceptions = exceptions.toList(),
             )
@@ -365,7 +364,7 @@ interface OutboxRetryPolicy {
          * @param exceptions Collection of exception types that should never trigger a retry
          * @return Builder instance for method chaining
          */
-        fun noRetryOn(exceptions: Collection<KClass<out Throwable>>): Builder =
+        fun noRetryOn(exceptions: Collection<Class<out Throwable>>): Builder =
             Builder(
                 maxRetries = maxRetries,
                 backOffStrategy = backOffStrategy,

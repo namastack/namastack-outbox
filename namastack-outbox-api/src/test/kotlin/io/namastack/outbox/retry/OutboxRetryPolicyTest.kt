@@ -28,7 +28,7 @@ class OutboxRetryPolicyTest {
             val policy =
                 OutboxRetryPolicy
                     .builder()
-                    .retryOn(RetryableException::class)
+                    .retryOn(RetryableException::class.java)
                     .build()
 
             assertThat(policy.shouldRetry(RetryableException())).isTrue()
@@ -40,7 +40,7 @@ class OutboxRetryPolicyTest {
             val policy =
                 OutboxRetryPolicy
                     .builder()
-                    .noRetryOn(NonRetryableException::class)
+                    .noRetryOn(NonRetryableException::class.java)
                     .build()
 
             assertThat(policy.shouldRetry(NonRetryableException())).isFalse()
@@ -64,8 +64,8 @@ class OutboxRetryPolicyTest {
             val policy =
                 OutboxRetryPolicy
                     .builder()
-                    .retryOn(RetryableException::class)
-                    .noRetryOn(NonRetryableException::class)
+                    .retryOn(RetryableException::class.java)
+                    .noRetryOn(NonRetryableException::class.java)
                     .build()
 
             assertThat(policy.shouldRetry(RetryableException())).isTrue()
@@ -78,7 +78,7 @@ class OutboxRetryPolicyTest {
             val policy =
                 OutboxRetryPolicy
                     .builder()
-                    .retryOn(RetryableException::class)
+                    .retryOn(RetryableException::class.java)
                     .retryIf { it is OtherRetryableException }
                     .build()
 
@@ -92,7 +92,7 @@ class OutboxRetryPolicyTest {
             val policy =
                 OutboxRetryPolicy
                     .builder()
-                    .noRetryOn(NonRetryableException::class)
+                    .noRetryOn(NonRetryableException::class.java)
                     .retryIf { it is RetryableException }
                     .build()
 
@@ -106,8 +106,8 @@ class OutboxRetryPolicyTest {
             val policy =
                 OutboxRetryPolicy
                     .builder()
-                    .retryOn(RetryableException::class)
-                    .noRetryOn(NonRetryableException::class)
+                    .retryOn(RetryableException::class.java)
+                    .noRetryOn(NonRetryableException::class.java)
                     .retryIf { it is OtherRetryableException }
                     .build()
 
@@ -122,8 +122,8 @@ class OutboxRetryPolicyTest {
             val policy =
                 OutboxRetryPolicy
                     .builder()
-                    .retryOn(listOf(RetryableException::class, OtherRetryableException::class))
-                    .noRetryOn(listOf(NonRetryableException::class, OtherNonRetryableException::class))
+                    .retryOn(listOf(RetryableException::class.java, OtherRetryableException::class.java))
+                    .noRetryOn(listOf(NonRetryableException::class.java, OtherNonRetryableException::class.java))
                     .build()
 
             assertThat(policy.shouldRetry(RetryableException())).isTrue()
