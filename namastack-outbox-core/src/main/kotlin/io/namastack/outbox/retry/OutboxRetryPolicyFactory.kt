@@ -2,7 +2,6 @@ package io.namastack.outbox.retry
 
 import io.namastack.outbox.OutboxProperties
 import java.time.Duration
-import kotlin.reflect.KClass
 
 /**
  * Factory for creating retry policy instances based on configuration.
@@ -15,62 +14,140 @@ import kotlin.reflect.KClass
  */
 internal object OutboxRetryPolicyFactory {
     /**
-     * Creates a retry policy instance based on the given name and properties.
+     * Creates a pre-configured retry policy builder based on application properties.
      *
-     * @param name The name of the retry policy ("fixed", "exponential", "jittered")
-     * @param retryProperties Configuration properties for retry behavior
-     * @return A configured retry policy instance
+     * This method constructs a Builder with configuration applied in the following order:
+     * 1. Maximum retry attempts
+     * 2. Delay strategy configuration (fixed, linear, or exponential)
+     * 3. Jitter configuration (if specified)
+     * 4. Retry predicate configuration (include/exclude exceptions)
+     *
+     * The builder can then be further customized before calling `build()` to create
+     * the final OutboxRetryPolicy instance.
+     *
+     * @param retryProperties Configuration properties for retry behavior from application settings
+     * @return A configured Builder instance ready to build or further customize
      * @throws IllegalStateException if the policy name is unsupported or configuration is invalid
      */
-    fun createDefault(
-        name: String,
+    fun createDefault(retryProperties: OutboxProperties.Retry): OutboxRetryPolicy.Builder {
+        val includeExceptions = convertExceptionNames(retryProperties.includeExceptions)
+        val excludeExceptions = convertExceptionNames(retryProperties.excludeExceptions)
+
+        return OutboxRetryPolicy
+            .builder()
+            .maxRetries(retryProperties.maxRetries)
+            .let { configureDelay(retryProperties, it) }
+            .retryOn(includeExceptions)
+            .noRetryOn(excludeExceptions)
+    }
+
+    /**
+     * Configures the delay strategy based on the policy name from properties.
+     *
+     * Supported delay strategies:
+     * - **fixed**: Constant delay between retry attempts
+     * - **linear**: Linearly increasing delay with configurable increment
+     * - **exponential**: Exponentially increasing delay with configurable multiplier
+     * - **jittered**: (Deprecated) Adds random jitter to a base policy. Use the `jitter` property instead.
+     *
+     * Jitter can be applied to any base policy (fixed, linear, or exponential) via the `jitter` property
+     * in the respective configuration section. This adds randomness to prevent the thundering herd problem.
+     *
+     * @param retryProperties Configuration properties containing policy name and delay settings
+     * @param builder The builder instance to configure
+     * @return The builder with configured delay strategy
+     * @throws IllegalStateException if the policy name or jittered base policy is unsupported
+     */
+    @Suppress("DEPRECATION")
+    private fun configureDelay(
         retryProperties: OutboxProperties.Retry,
-    ): OutboxRetryPolicy =
-        when (name.lowercase()) {
+        builder: OutboxRetryPolicy.Builder,
+    ): OutboxRetryPolicy.Builder {
+        val name = retryProperties.policy
+
+        return when (name.lowercase()) {
             "fixed" -> {
-                FixedDelayRetryPolicy(
-                    delay = Duration.ofMillis(retryProperties.fixed.delay),
-                    maxRetries = retryProperties.maxRetries,
-                    includeExceptions = convertExceptionNames(retryProperties.includeExceptions),
-                    excludeExceptions = convertExceptionNames(retryProperties.excludeExceptions),
-                )
+                builder
+                    .fixedBackOff(
+                        delay = Duration.ofMillis(retryProperties.fixed.delay),
+                    ).jitter(jitter = Duration.ofMillis(retryProperties.jitter))
+            }
+
+            "linear" -> {
+                builder
+                    .linearBackoff(
+                        initialDelay = Duration.ofMillis(retryProperties.linear.initialDelay),
+                        increment = Duration.ofMillis(retryProperties.linear.increment),
+                        maxDelay = Duration.ofMillis(retryProperties.linear.maxDelay),
+                    ).jitter(jitter = Duration.ofMillis(retryProperties.jitter))
             }
 
             "exponential" -> {
-                ExponentialBackoffRetryPolicy(
-                    initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
-                    maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
-                    backoffMultiplier = retryProperties.exponential.multiplier,
-                    maxRetries = retryProperties.maxRetries,
-                    includeExceptions = convertExceptionNames(retryProperties.includeExceptions),
-                    excludeExceptions = convertExceptionNames(retryProperties.excludeExceptions),
-                )
+                builder
+                    .exponentialBackoff(
+                        initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
+                        multiplier = retryProperties.exponential.multiplier,
+                        maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
+                    ).jitter(jitter = Duration.ofMillis(retryProperties.jitter))
             }
 
             "jittered" -> {
                 val basePolicy = retryProperties.jittered.basePolicy
 
-                if (basePolicy.lowercase() == "jittered") {
-                    error("Cannot create a jittered policy with jittered base policy.")
-                }
+                when (basePolicy.lowercase()) {
+                    "fixed" -> {
+                        builder
+                            .fixedBackOff(
+                                delay = Duration.ofMillis(retryProperties.fixed.delay),
+                            ).jitter(jitter = Duration.ofMillis(retryProperties.jittered.jitter))
+                    }
 
-                JitteredRetryPolicy(
-                    basePolicy = createDefault(name = basePolicy, retryProperties = retryProperties),
-                    jitter = Duration.ofMillis(retryProperties.jittered.jitter),
-                )
+                    "linear" -> {
+                        builder
+                            .linearBackoff(
+                                initialDelay = Duration.ofMillis(retryProperties.linear.initialDelay),
+                                increment = Duration.ofMillis(retryProperties.linear.increment),
+                                maxDelay = Duration.ofMillis(retryProperties.linear.maxDelay),
+                            ).jitter(jitter = Duration.ofMillis(retryProperties.jittered.jitter))
+                    }
+
+                    "exponential" -> {
+                        builder
+                            .exponentialBackoff(
+                                initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
+                                maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
+                                multiplier = retryProperties.exponential.multiplier,
+                            ).jitter(jitter = Duration.ofMillis(retryProperties.jittered.jitter))
+                    }
+
+                    else -> {
+                        error("Unsupported jittered base policy: $basePolicy")
+                    }
+                }
             }
 
             else -> {
                 error("Unsupported retry-policy: $name")
             }
         }
+    }
 
-    private fun convertExceptionNames(exceptionNames: Set<String>): Set<KClass<out Throwable>> =
+    /**
+     * Converts fully qualified exception class names to Kotlin class references.
+     *
+     * This method resolves string class names (e.g., "java.lang.IllegalStateException")
+     * to their corresponding Kotlin class references for use in retry predicate matching.
+     *
+     * @param exceptionNames Set of fully qualified exception class names
+     * @return Set of Kotlin class references for the specified exception types
+     * @throws IllegalStateException if any class name cannot be found in the classpath
+     * @throws IllegalStateException if any class name refers to a non-Throwable type
+     */
+    private fun convertExceptionNames(exceptionNames: Set<String>): Set<Class<out Throwable>> =
         exceptionNames
             .map { className ->
                 try {
-                    @Suppress("UNCHECKED_CAST")
-                    Class.forName(className).kotlin as KClass<out Throwable>
+                    Class.forName(className).asSubclass(Throwable::class.java)
                 } catch (_: ClassNotFoundException) {
                     error("Exception class not found: $className")
                 } catch (_: ClassCastException) {

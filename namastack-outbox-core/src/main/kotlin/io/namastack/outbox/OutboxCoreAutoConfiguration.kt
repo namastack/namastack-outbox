@@ -190,24 +190,83 @@ class OutboxCoreAutoConfiguration {
             .threadNamePrefix("outbox-rebalancing-")
             .build()
 
-    /** Creates the default retry policy for failed record processing.
+    /**
+     * Creates the default retry policy for failed record processing.
      *
      * This is the fallback policy used when handlers don't specify their own.
-     * Policy type is configurable via outbox.retry.policy:
-     * - exponential: Exponential backoff with jitter
-     * - fixed: Fixed delay between retries
-     * - linear: Linear backoff
+     * The policy is built from the [defaultOutboxRetryPolicyBuilder] bean, which is
+     * pre-configured with settings from application properties.
      *
-     * Handlers can override this by using @OutboxRetryable annotation or
-     * implementing OutboxRetryAware interface.
+     * Policy type is configurable via `outbox.retry.policy`:
+     * - **fixed**: Fixed delay between retries (with optional jitter)
+     * - **linear**: Linear backoff (with optional jitter)
+     * - **exponential**: Exponential backoff (with optional jitter)
      *
-     * @param properties Outbox configuration including retry settings
-     * @return Default configured OutboxRetryPolicy
+     * Handlers can override this default policy by:
+     * - Using `@OutboxRetryable` annotation with a custom policy bean name
+     * - Implementing `OutboxRetryAware` interface to provide their own policy
+     *
+     * @param builder Pre-configured Builder injected from [defaultOutboxRetryPolicyBuilder] bean
+     * @return Default configured OutboxRetryPolicy instance
+     * @see defaultOutboxRetryPolicyBuilder
      */
     @Bean("outboxRetryPolicy")
     @ConditionalOnMissingBean(name = ["outboxRetryPolicy"])
-    fun defaultOutboxRetryPolicy(properties: OutboxProperties): OutboxRetryPolicy =
-        OutboxRetryPolicyFactory.createDefault(name = properties.retry.policy, retryProperties = properties.retry)
+    fun defaultOutboxRetryPolicy(builder: OutboxRetryPolicy.Builder): OutboxRetryPolicy = builder.build()
+
+    /**
+     * Creates a pre-configured Builder for the default retry policy based on application properties.
+     *
+     * This builder is initialized with settings from `outbox.retry.*` configuration properties
+     * via [OutboxRetryPolicyFactory]. The builder is then injected into [defaultOutboxRetryPolicy]
+     * which calls `build()` to create the actual policy instance.
+     *
+     * ## Customization Options
+     *
+     * Users can customize the default retry policy at three levels:
+     *
+     * 1. **Application Properties** (easiest, used by this factory method):
+     * ```properties
+     * outbox.retry.max-retries=5
+     * outbox.retry.policy=exponential
+     * outbox.retry.exponential.initial-delay=1000
+     * outbox.retry.exponential.multiplier=2.0
+     * outbox.retry.exponential.max-delay=60000
+     * outbox.retry.jitter=500
+     * ```
+     *
+     * 2. **Custom Builder Bean** (moderate, allows programmatic customization):
+     * ```kotlin
+     * @Bean("outboxRetryPolicyBuilder")
+     * fun customRetryPolicyBuilder(): OutboxRetryPolicy.Builder {
+     *     return OutboxRetryPolicy.builder()
+     *         .maxRetries(10)
+     *         .exponentialBackoff(
+     *             initialDelay = Duration.ofSeconds(2),
+     *             multiplier = 1.5,
+     *             maxDelay = Duration.ofMinutes(5)
+     *         )
+     *         .jitter(Duration.ofMillis(1000))
+     * }
+     * ```
+     *
+     * 3. **Custom Policy Bean** (advanced, complete replacement):
+     * ```kotlin
+     * @Bean("outboxRetryPolicy")
+     * fun customRetryPolicy(): OutboxRetryPolicy {
+     *     return MyCustomRetryPolicy()
+     * }
+     * ```
+     *
+     * @param properties OutboxProperties containing retry configuration settings
+     * @return Pre-configured Builder instance based on application properties
+     * @see defaultOutboxRetryPolicy
+     * @see OutboxRetryPolicyFactory.createDefault
+     */
+    @Bean("outboxRetryPolicyBuilder")
+    @ConditionalOnMissingBean(name = ["outboxRetryPolicyBuilder"])
+    fun defaultOutboxRetryPolicyBuilder(properties: OutboxProperties): OutboxRetryPolicy.Builder =
+        OutboxRetryPolicyFactory.createDefault(retryProperties = properties.retry)
 
     /**
      * Dispatcher that invokes the appropriate handler for each record.
