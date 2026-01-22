@@ -9,7 +9,7 @@ import java.time.Duration
  * exponential backoff, or exponential backoff with jitter.
  *
  * @author Aleksander Zamojski
- * @since 1.0.0-RC2
+ * @since 1.0.0
  */
 fun interface BackOffStrategy {
     /**

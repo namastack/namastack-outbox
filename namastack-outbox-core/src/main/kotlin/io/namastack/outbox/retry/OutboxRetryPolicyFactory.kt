@@ -2,6 +2,7 @@ package io.namastack.outbox.retry
 
 import io.namastack.outbox.OutboxProperties
 import java.time.Duration
+import kotlin.reflect.KClass
 
 /**
  * Factory for creating retry policy instances based on configuration.
@@ -120,11 +121,15 @@ internal object OutboxRetryPolicyFactory {
                             ).jitter(jitter = Duration.ofMillis(retryProperties.jittered.jitter))
                     }
 
-                    else -> error("Unsupported jittered base policy: $basePolicy")
+                    else -> {
+                        error("Unsupported jittered base policy: $basePolicy")
+                    }
                 }
             }
 
-            else -> error("Unsupported retry-policy: $name")
+            else -> {
+                error("Unsupported retry-policy: $name")
+            }
         }
     }
 
@@ -139,11 +144,11 @@ internal object OutboxRetryPolicyFactory {
      * @throws IllegalStateException if any class name cannot be found in the classpath
      * @throws IllegalStateException if any class name refers to a non-Throwable type
      */
-    private fun convertExceptionNames(exceptionNames: Set<String>): Set<Class<out Throwable>> =
+    private fun convertExceptionNames(exceptionNames: Set<String>): Set<KClass<out Throwable>> =
         exceptionNames
             .map { className ->
                 try {
-                    Class.forName(className).asSubclass(Throwable::class.java)
+                    Class.forName(className).asSubclass(Throwable::class.java).kotlin
                 } catch (_: ClassNotFoundException) {
                     error("Exception class not found: $className")
                 } catch (_: ClassCastException) {

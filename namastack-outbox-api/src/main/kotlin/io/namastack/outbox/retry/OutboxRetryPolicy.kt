@@ -1,8 +1,9 @@
 package io.namastack.outbox.retry
 
 import java.time.Duration
+import java.util.concurrent.ThreadLocalRandom
 import java.util.function.Predicate
-import kotlin.math.pow
+import kotlin.reflect.KClass
 
 /**
  * Interface for retry policies that determine when and how to retry failed outbox record processing.
@@ -97,45 +98,6 @@ interface OutboxRetryPolicy {
     companion object {
         @JvmStatic
         fun builder(): Builder = Builder()
-
-        private fun assertIsNotNegative(
-            name: String,
-            duration: Duration,
-        ) {
-            assertIsNotNegative(name, !duration.isNegative)
-        }
-
-        private fun assertIsNotNegative(
-            name: String,
-            value: Boolean,
-        ) {
-            require(value) {
-                "Invalid $name: must be greater than or equal to zero."
-            }
-        }
-
-        private fun assertIsPositive(
-            name: String,
-            value: Int,
-        ) {
-            assertIsPositive(name, value > 0)
-        }
-
-        private fun assertIsPositive(
-            name: String,
-            duration: Duration,
-        ) {
-            assertIsPositive(name, !duration.isNegative && !duration.isZero)
-        }
-
-        private fun assertIsPositive(
-            name: String,
-            value: Boolean,
-        ) {
-            require(value) {
-                "Invalid $name: must be greater than zero."
-            }
-        }
     }
 
     /**
@@ -155,16 +117,39 @@ interface OutboxRetryPolicy {
      * - Retry on all exceptions
      *
      * @author Aleksander Zamojski
-     * @since 1.0.0-RC2
+     * @since 1.0.0
      */
     class Builder private constructor(
         private val maxRetries: Int,
         private val backOffStrategy: BackOffStrategy,
         private val jitter: Duration,
-        private var retryableExceptions: Collection<Class<out Throwable>>,
-        private var nonRetryableExceptions: Collection<Class<out Throwable>>,
+        private val retryableExceptions: Collection<KClass<out Throwable>>,
+        private val nonRetryableExceptions: Collection<KClass<out Throwable>>,
         private val retryPredicate: Predicate<Throwable>?,
     ) {
+        companion object {
+            private fun requirePositive(
+                name: String,
+                value: Int,
+            ) {
+                require(value > 0) { "Invalid $name: must be greater than zero." }
+            }
+
+            private fun requirePositive(
+                name: String,
+                duration: Duration,
+            ) {
+                require(!duration.isNegative && !duration.isZero) { "Invalid $name: must be greater than zero." }
+            }
+
+            private fun requireNotNegative(
+                name: String,
+                duration: Duration,
+            ) {
+                require(!duration.isNegative) { "Invalid $name: must be greater than or equal to zero." }
+            }
+        }
+
         constructor() : this(
             maxRetries = 3,
             backOffStrategy = FixedBackOffStrategy(Duration.ofSeconds(5)),
@@ -185,7 +170,7 @@ interface OutboxRetryPolicy {
          * @throws IllegalArgumentException if maxRetries is not positive
          */
         fun maxRetries(maxRetries: Int): Builder {
-            assertIsPositive("maxRetries", maxRetries)
+            requirePositive("maxRetries", maxRetries)
 
             return Builder(
                 maxRetries = maxRetries,
@@ -207,7 +192,7 @@ interface OutboxRetryPolicy {
          * @throws IllegalArgumentException if delay is not positive
          */
         fun fixedBackOff(delay: Duration): Builder {
-            assertIsPositive("delay", delay)
+            requirePositive("delay", delay)
 
             return backOff(
                 strategy = FixedBackOffStrategy(delay = delay),
@@ -234,9 +219,9 @@ interface OutboxRetryPolicy {
             increment: Duration,
             maxDelay: Duration,
         ): Builder {
-            assertIsPositive("initialDelay", initialDelay)
-            assertIsPositive("increment", increment)
-            assertIsPositive("maxDelay", maxDelay)
+            requirePositive("initialDelay", initialDelay)
+            requirePositive("increment", increment)
+            requirePositive("maxDelay", maxDelay)
 
             return backOff(
                 strategy =
@@ -268,9 +253,9 @@ interface OutboxRetryPolicy {
             multiplier: Double,
             maxDelay: Duration,
         ): Builder {
-            assertIsPositive("initialDelay", initialDelay)
+            requirePositive("initialDelay", initialDelay)
+            requirePositive("maxDelay", maxDelay)
             require(multiplier > 1.0) { "Invalid multiplier: must be greater than 1.0." }
-            assertIsPositive("maxDelay", maxDelay)
 
             return backOff(
                 strategy =
@@ -312,7 +297,7 @@ interface OutboxRetryPolicy {
          * @throws IllegalArgumentException if jitter is negative
          */
         fun jitter(jitter: Duration): Builder {
-            assertIsNotNegative("jitter", jitter)
+            requireNotNegative("jitter", jitter)
 
             return Builder(
                 maxRetries = maxRetries,
@@ -333,7 +318,7 @@ interface OutboxRetryPolicy {
          * @param exceptions The exception types that should trigger a retry
          * @return Builder instance for method chaining
          */
-        fun retryOn(vararg exceptions: Class<out Throwable>): Builder =
+        fun retryOn(vararg exceptions: KClass<out Throwable>): Builder =
             retryOn(
                 exceptions = exceptions.toList(),
             )
@@ -347,12 +332,12 @@ interface OutboxRetryPolicy {
          * @param exceptions Collection of exception types that should trigger a retry
          * @return Builder instance for method chaining
          */
-        fun retryOn(exceptions: Collection<Class<out Throwable>>): Builder =
+        fun retryOn(exceptions: Collection<KClass<out Throwable>>): Builder =
             Builder(
                 maxRetries = maxRetries,
                 backOffStrategy = backOffStrategy,
                 jitter = jitter,
-                retryableExceptions = exceptions,
+                retryableExceptions = exceptions.toList(),
                 nonRetryableExceptions = nonRetryableExceptions,
                 retryPredicate = retryPredicate,
             )
@@ -366,7 +351,7 @@ interface OutboxRetryPolicy {
          * @param exceptions The exception types that should never trigger a retry
          * @return Builder instance for method chaining
          */
-        fun noRetryOn(vararg exceptions: Class<out Throwable>): Builder =
+        fun noRetryOn(vararg exceptions: KClass<out Throwable>): Builder =
             noRetryOn(
                 exceptions = exceptions.toList(),
             )
@@ -380,13 +365,13 @@ interface OutboxRetryPolicy {
          * @param exceptions Collection of exception types that should never trigger a retry
          * @return Builder instance for method chaining
          */
-        fun noRetryOn(exceptions: Collection<Class<out Throwable>>): Builder =
+        fun noRetryOn(exceptions: Collection<KClass<out Throwable>>): Builder =
             Builder(
                 maxRetries = maxRetries,
                 backOffStrategy = backOffStrategy,
                 jitter = jitter,
                 retryableExceptions = retryableExceptions,
-                nonRetryableExceptions = exceptions,
+                nonRetryableExceptions = exceptions.toList(),
                 retryPredicate = retryPredicate,
             )
 
@@ -456,42 +441,12 @@ interface OutboxRetryPolicy {
                 private fun applyJitter(baseDelay: Duration): Duration {
                     val min = maxOf(baseDelay.minus(jitter).toMillis(), 0)
                     val max = baseDelay.plus(jitter).toMillis()
-                    val jitteredDelayMillis = min + (Math.random() * (max - min)).toLong()
+                    val jitteredDelayMillis = ThreadLocalRandom.current().nextLong(min, max + 1)
 
                     return Duration.ofMillis(jitteredDelayMillis)
                 }
 
                 override fun maxRetries(): Int = maxRetries
             }
-    }
-
-    private class FixedBackOffStrategy(
-        private val delay: Duration,
-    ) : BackOffStrategy {
-        override fun nextDelay(failureCount: Int): Duration = delay
-    }
-
-    private class LinearBackOffStrategy(
-        private val initialDelay: Duration,
-        private val increment: Duration,
-        private val maxDelay: Duration,
-    ) : BackOffStrategy {
-        override fun nextDelay(failureCount: Int): Duration {
-            val delayMillis = initialDelay.toMillis() + increment.toMillis() * (failureCount - 1)
-
-            return Duration.ofMillis(minOf(delayMillis, maxDelay.toMillis()))
-        }
-    }
-
-    private class ExponentialBackOffStrategy(
-        private val initialDelay: Duration,
-        private val multiplier: Double,
-        private val maxDelay: Duration,
-    ) : BackOffStrategy {
-        override fun nextDelay(failureCount: Int): Duration {
-            val delayMillis = (initialDelay.toMillis() * multiplier.pow(failureCount - 1)).toLong()
-
-            return Duration.ofMillis(minOf(delayMillis, maxDelay.toMillis()))
-        }
     }
 }
