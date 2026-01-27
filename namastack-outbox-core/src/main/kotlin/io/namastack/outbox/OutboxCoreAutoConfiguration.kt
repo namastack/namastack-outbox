@@ -9,6 +9,7 @@ import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.partition.PartitionAssignmentCache
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.FallbackOutboxRecordProcessor
@@ -376,6 +377,7 @@ class OutboxCoreAutoConfiguration {
      *
      * @param instanceRegistry Registry of active instances
      * @param partitionAssignmentRepository Repository for assignment persistence
+     * @param partitionAssignmentCache Cache for partition assignments
      * @param clock Clock for timeout detection
      * @return PartitionCoordinator for managing partition lifecycle
      */
@@ -384,12 +386,30 @@ class OutboxCoreAutoConfiguration {
     fun partitionCoordinator(
         instanceRegistry: OutboxInstanceRegistry,
         partitionAssignmentRepository: PartitionAssignmentRepository,
+        partitionAssignmentCache: PartitionAssignmentCache,
         clock: Clock,
     ): PartitionCoordinator =
         PartitionCoordinator(
             instanceRegistry = instanceRegistry,
             partitionAssignmentRepository = partitionAssignmentRepository,
+            partitionAssignmentCache = partitionAssignmentCache,
             clock = clock,
+        )
+
+    /**
+     * Cache delegate for partition assignments.
+     * Separated from PartitionCoordinator to avoid CGLIB proxy initialization issues.
+     *
+     * @param partitionAssignmentRepository Repository for fetching assignments
+     * @return PartitionAssignmentCache for caching assigned partitions
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun partitionAssignmentCache(
+        partitionAssignmentRepository: PartitionAssignmentRepository,
+    ): PartitionAssignmentCache =
+        PartitionAssignmentCache(
+            partitionAssignmentRepository = partitionAssignmentRepository,
         )
 
     /**

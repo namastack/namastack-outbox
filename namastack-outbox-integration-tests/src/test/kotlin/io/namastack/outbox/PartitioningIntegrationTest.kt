@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.partition.PartitionAssignmentCache
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
 import jakarta.persistence.EntityManager
@@ -139,9 +140,15 @@ class PartitioningIntegrationTest {
 
         instanceRegistry.registerInstance()
 
+        val partitionAssignmentCache =
+            PartitionAssignmentCache(
+                partitionAssignmentRepository = partitionAssignmentRepository,
+            )
+
         return PartitionCoordinator(
             instanceRegistry = instanceRegistry,
             partitionAssignmentRepository = partitionAssignmentRepository,
+            partitionAssignmentCache = partitionAssignmentCache,
             clock = Clock.systemDefaultZone(),
         )
     }
