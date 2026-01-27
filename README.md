@@ -1,4 +1,4 @@
-[![Version](https://img.shields.io/badge/version-1.0.0--RC2-blue)](https://github.com/namastack/namastack-outbox/releases/tag/v1.0.0-RC2)
+[![Version](https://img.shields.io/badge/version-1.0.0--RC3-blue)](https://github.com/namastack/namastack-outbox/releases/tag/v1.0.0-RC3)
 [![CodeFactor](https://www.codefactor.io/repository/github/namastack/namastack-outbox/badge)](https://www.codefactor.io/repository/github/namastack/namastack-outbox)
 [![codecov](https://codecov.io/github/namastack/namastack-outbox/graph/badge.svg?token=TZS1OQB4XC)](https://codecov.io/github/namastack/namastack-outbox)
 [![javadoc](https://javadoc.io/badge2/io.namastack/namastack-outbox-core/javadoc.svg)](https://javadoc.io/doc/io.namastack/namastack-outbox-core)
@@ -50,7 +50,7 @@ Quick links:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC2")
+    implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC3")
 }
 ```
 
@@ -60,7 +60,7 @@ dependencies {
 <dependency>
     <groupId>io.namastack</groupId>
     <artifactId>namastack-outbox-starter-jdbc</artifactId>
-    <version>1.0.0-RC2</version>
+    <version>1.0.0-RC3</version>
 </dependency>
 ```
 
@@ -193,7 +193,7 @@ If you prefer using JPA/Hibernate instead of JDBC, use the JPA starter:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC2")
+    implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC3")
 }
 ```
 
@@ -555,7 +555,7 @@ If you manage your database schema manually with Flyway or Liquibase, you can fi
 A new lightweight persistence module without JPA/Hibernate dependency:
 
 ```gradle
-implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC2")
+implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC3")
 ```
 
 ### 🏷️ Custom Table Prefix & Schema (GH-152)
@@ -657,6 +657,10 @@ class AggressiveRetryPolicy : OutboxRetryPolicy {
 ---
 
 ## Migration Guide
+
+### Migrating to 1.0.0-RC3
+
+There are no breaking changes.
 
 ### Migrating to 1.0.0-RC2
 
@@ -835,7 +839,7 @@ From **1.0.0 onwards**, Namastack Outbox follows strict **semantic versioning**:
 - Breaking changes could occur between minor versions
 - Database schema changes required table recreation
 
-**1.0.0-RC2 Status:**
+**1.0.0-RC3 Status:**
 - This is a **Release Candidate** for the stable 1.0.0 release
 - API is locked and stable (no breaking changes expected until 2.0.0)
 - Production-ready with comprehensive testing

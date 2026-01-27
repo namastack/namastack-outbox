@@ -3,28 +3,6 @@
 Namastack Outbox for Spring Boot provides a comprehensive set of features to implement the Outbox 
 Pattern in distributed systems with reliability, scalability, and ease of use.
 
----
-
-## What's New in 1.0.0-RC2
-
-!!! success "New Features"
-
-    - **🔌 JDBC Module**: New lightweight persistence module without JPA/Hibernate dependency
-    - **🏷️ Custom Table Naming**: Support for custom table prefixes and schema names (JDBC module)
-    - **⚡ Virtual Threads**: Full support for Java 21 virtual threads
-    - **🔧 Auto-Configuration**: `@EnableOutbox` removed - outbox is now auto-configured
-    - **📊 JPA Index Definitions**: JPA entities now include proper index definitions
-
-!!! warning "Breaking Changes"
-    
-    - `@EnableOutbox` annotation removed (use `outbox.enabled=false` to opt-out)
-    - JPA module no longer supports automatic schema creation
-    - Timestamps changed from `OffsetDateTime` to `Instant`
-
-    See the [Migration Guide](https://github.com/namastack/namastack-outbox#migrating-to-100-rc2) for details.
-
----
-
 ## Core Features
 
 ### Transactional Outbox Pattern
