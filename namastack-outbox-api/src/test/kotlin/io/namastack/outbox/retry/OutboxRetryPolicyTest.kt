@@ -132,6 +132,48 @@ class OutboxRetryPolicyTest {
             assertThat(policy.shouldRetry(OtherNonRetryableException())).isFalse()
             assertThat(policy.shouldRetry(UndefinedException())).isFalse()
         }
+
+        @Test
+        fun `retryOn accumulates exceptions instead of replacing them`() {
+            val policy =
+                OutboxRetryPolicy
+                    .builder()
+                    .retryOn(RetryableException::class.java)
+                    .retryOn(OtherRetryableException::class.java)
+                    .build()
+
+            assertThat(policy.shouldRetry(RetryableException())).isTrue()
+            assertThat(policy.shouldRetry(OtherRetryableException())).isTrue()
+            assertThat(policy.shouldRetry(UndefinedException())).isFalse()
+        }
+
+        @Test
+        fun `noRetryOn accumulates exceptions instead of replacing them`() {
+            val policy =
+                OutboxRetryPolicy
+                    .builder()
+                    .noRetryOn(NonRetryableException::class.java)
+                    .noRetryOn(OtherNonRetryableException::class.java)
+                    .build()
+
+            assertThat(policy.shouldRetry(NonRetryableException())).isFalse()
+            assertThat(policy.shouldRetry(OtherNonRetryableException())).isFalse()
+            assertThat(policy.shouldRetry(UndefinedException())).isTrue()
+        }
+
+        @Test
+        fun `retryIf accumulates predicates using OR logic`() {
+            val policy =
+                OutboxRetryPolicy
+                    .builder()
+                    .retryIf { it is RetryableException }
+                    .retryIf { it is OtherRetryableException }
+                    .build()
+
+            assertThat(policy.shouldRetry(RetryableException())).isTrue()
+            assertThat(policy.shouldRetry(OtherRetryableException())).isTrue()
+            assertThat(policy.shouldRetry(UndefinedException())).isFalse()
+        }
     }
 
     @Nested
