@@ -3,8 +3,6 @@ package io.namastack.outbox.partition
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
 import org.slf4j.LoggerFactory
-import org.springframework.cache.annotation.CacheEvict
-import org.springframework.cache.annotation.Cacheable
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.scheduling.annotation.Scheduled
 import java.time.Clock
@@ -25,32 +23,21 @@ import java.time.Clock
  * @author Roland Beisel
  * @since 0.2.0
  */
-open class PartitionCoordinator(
+class PartitionCoordinator(
     private val instanceRegistry: OutboxInstanceRegistry,
     private val partitionAssignmentRepository: PartitionAssignmentRepository,
+    private val partitionAssignmentCache: PartitionAssignmentCache,
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(PartitionCoordinator::class.java)
-    private val currentInstanceId = instanceRegistry.getCurrentInstanceId()
+    private val currentInstanceId by lazy { instanceRegistry.getCurrentInstanceId() }
 
     /**
      * Return currently owned partition numbers (cached until next rebalance).
      * Cache is invalidated after each successful rebalance.
      */
-    @Cacheable("partitionAssignments")
-    open fun getAssignedPartitionNumbers(): Set<Int> =
-        partitionAssignmentRepository
-            .findByInstanceId(currentInstanceId)
-            .map { it.partitionNumber }
-            .toSet()
-
-    /**
-     * Invalidates the cache for assigned partition numbers.
-     * Called after each successful rebalance to ensure fresh data is loaded on next access.
-     */
-    @CacheEvict("partitionAssignments", allEntries = true)
-    open fun evictPartitionAssignmentsCache() {
-    }
+    fun getAssignedPartitionNumbers(): Set<Int> =
+        partitionAssignmentCache.getAssignedPartitionNumbers(currentInstanceId)
 
     /**
      * Perform a rebalance cycle:
@@ -68,16 +55,18 @@ open class PartitionCoordinator(
     fun rebalance() {
         log.debug("Starting rebalance for instance {}", currentInstanceId)
 
-        val partitionContext = getPartitionContext()
-        if (partitionContext.hasNoPartitionAssignments()) {
-            bootstrapPartitions()
-            return
+        try {
+            val partitionContext = getPartitionContext()
+            if (partitionContext.hasNoPartitionAssignments()) {
+                bootstrapPartitions()
+                return
+            }
+
+            claimStalePartitions(partitionContext)
+            releaseSurplusPartitions(partitionContext)
+        } finally {
+            partitionAssignmentCache.evictAll()
         }
-
-        claimStalePartitions(partitionContext)
-        releaseSurplusPartitions(partitionContext)
-
-        evictPartitionAssignmentsCache()
     }
 
     /**

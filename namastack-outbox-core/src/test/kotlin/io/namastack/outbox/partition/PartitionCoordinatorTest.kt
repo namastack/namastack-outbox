@@ -23,6 +23,7 @@ import java.time.Instant
 class PartitionCoordinatorTest {
     private val instanceRegistry = mockk<OutboxInstanceRegistry>()
     private val partitionAssignmentRepository = mockk<PartitionAssignmentRepository>()
+    private val partitionAssignmentCache = mockk<PartitionAssignmentCache>(relaxed = true)
     private val clock = Clock.systemUTC()
 
     private lateinit var listAppender: ListAppender<ILoggingEvent>
@@ -42,11 +43,13 @@ class PartitionCoordinatorTest {
         every { partitionAssignmentRepository.findByInstanceId(any()) } returns emptySet()
         every { partitionAssignmentRepository.findAll() } returns emptySet()
         every { partitionAssignmentRepository.saveAll(any()) } returns Unit
+        every { partitionAssignmentCache.getAssignedPartitionNumbers(any()) } returns emptySet()
 
         partitionCoordinator =
             PartitionCoordinator(
                 instanceRegistry = instanceRegistry,
                 partitionAssignmentRepository = partitionAssignmentRepository,
+                partitionAssignmentCache = partitionAssignmentCache,
                 clock = clock,
             )
     }
@@ -56,22 +59,19 @@ class PartitionCoordinatorTest {
     inner class GetAssignedPartitionNumbers {
         @Test
         fun `return assigned partition numbers for current instance`() {
-            val assignment1 = PartitionAssignment(0, "instance-1", Instant.now())
-            val assignment2 = PartitionAssignment(1, "instance-1", Instant.now())
-
             every {
-                partitionAssignmentRepository.findByInstanceId("instance-1")
-            } returns setOf(assignment1, assignment2)
+                partitionAssignmentCache.getAssignedPartitionNumbers("instance-1")
+            } returns setOf(0, 1)
 
             val result = partitionCoordinator.getAssignedPartitionNumbers()
 
             assertThat(result).containsExactlyInAnyOrder(0, 1)
-            verify(exactly = 1) { partitionAssignmentRepository.findByInstanceId("instance-1") }
+            verify(exactly = 1) { partitionAssignmentCache.getAssignedPartitionNumbers("instance-1") }
         }
 
         @Test
         fun `return empty set when no partitions assigned`() {
-            every { partitionAssignmentRepository.findByInstanceId("instance-1") } returns emptySet()
+            every { partitionAssignmentCache.getAssignedPartitionNumbers("instance-1") } returns emptySet()
 
             val result = partitionCoordinator.getAssignedPartitionNumbers()
 
