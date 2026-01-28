@@ -383,23 +383,15 @@ interface OutboxRetryPolicy {
          * @param predicate The predicate function to evaluate exceptions
          * @return Builder instance for method chaining
          */
-        fun retryIf(predicate: Predicate<Throwable>): Builder {
-            val newPredicate =
-                if (retryPredicate != null) {
-                    retryPredicate.or(predicate)
-                } else {
-                    predicate
-                }
-
-            return Builder(
+        fun retryIf(predicate: Predicate<Throwable>): Builder =
+            Builder(
                 maxRetries = maxRetries,
                 backOffStrategy = backOffStrategy,
                 jitter = jitter,
                 retryableExceptions = retryableExceptions,
                 nonRetryableExceptions = nonRetryableExceptions,
-                retryPredicate = newPredicate,
+                retryPredicate = retryPredicate?.or(predicate) ?: predicate,
             )
-        }
 
         /**
          * Builds and returns a configured [OutboxRetryPolicy] instance.
