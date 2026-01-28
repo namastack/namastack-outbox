@@ -1429,7 +1429,7 @@ outbox:
 
 - If `include-exceptions` is set, **only** listed exceptions are retryable
 - If `exclude-exceptions` is set, listed exceptions are **never** retried
-- If both are set, `include-exceptions` takes precedence
+- If both are set, `exclude-exceptions` takes precedence
 - If neither is set, all exceptions are retryable (default behavior)
 
 **Use Cases:**
@@ -1771,6 +1771,261 @@ Use the `@OutboxRetryable` annotation for method-level retry policy configuratio
 !!! tip "Interface vs Annotation"
     - **Interface (`OutboxRetryAware`)**: Best when handler class is dedicated to single payload type, and you want type safety
     - **Annotation (`@OutboxRetryable`)**: Best for method-level handlers or multiple handlers in one class
+
+### OutboxRetryPolicy.Builder API
+
+Use the fluent builder to compose robust retry policies without implementing the interface yourself.
+
+=== "Kotlin"
+
+    ```kotlin
+    @Configuration
+    class OutboxConfig {
+        @Bean
+        fun customRetryPolicy(): OutboxRetryPolicy {
+            return OutboxRetryPolicy.builder()
+                .maxRetries(5)
+                .exponentialBackoff(
+                    initialDelay = Duration.ofSeconds(10),
+                    multiplier = 2.0,
+                    maxDelay = Duration.ofMinutes(5)
+                )
+                .jitter(Duration.ofSeconds(2))
+                .retryOn(TimeoutException::class.java, IOException::class.java)
+                .noRetryOn(IllegalArgumentException::class.java)
+                .build()
+        }
+    }
+    ```
+
+=== "Java"
+
+    ```java
+    @Configuration
+    public class OutboxConfig {
+        @Bean
+        public OutboxRetryPolicy customRetryPolicy() {
+            return OutboxRetryPolicy.builder()
+                .maxRetries(5)
+                .exponentialBackoff(
+                    Duration.ofSeconds(10),
+                    2.0,
+                    Duration.ofMinutes(5)
+                )
+                .jitter(Duration.ofSeconds(2))
+                .retryOn(TimeoutException.class, IOException.class)
+                .noRetryOn(IllegalArgumentException.class)
+                .build();
+        }
+    }
+    ```
+
+**Builder at a glance:**
+
+- Defaults: maxRetries = 3, fixedBackOff = 5s, jitter = 0, retry on all exceptions
+- Immutability: each method returns a new Builder; the original instance isn’t mutated
+- Validation: durations must be > 0 (except jitter, which can be 0), multiplier > 1.0
+
+#### Using the autoconfigured Builder:
+
+A bean named `outboxRetryPolicyBuilder` is auto-configured from your `outbox.retry.*` application properties. Inject it to retain property-driven defaults and add programmatic customizations.
+
+=== "Kotlin"
+
+    ```kotlin
+    @Configuration
+    class OutboxConfig {
+        // Inject the autoconfigured builder from application.yml
+        @Bean
+        fun customRetryPolicy(
+            builder: OutboxRetryPolicy.Builder
+        ): OutboxRetryPolicy {
+            // Start from property-based defaults, then refine
+            return builder
+                .retryOn(TimeoutException::class.java, IOException::class.java)
+                .noRetryOn(IllegalArgumentException::class.java)
+                .build()
+        }
+    }
+    ```
+
+=== "Java"
+
+    ```java
+    @Configuration
+    public class OutboxConfig {
+        // Inject the autoconfigured builder from application.yml
+        @Bean
+        public OutboxRetryPolicy customRetryPolicy(
+            OutboxRetryPolicy.Builder builder
+        ) {
+            // Start from property-based defaults, then refine
+            return builder
+                .retryOn(TimeoutException.class, IOException.class)
+                .noRetryOn(IllegalArgumentException.class)
+                .build();
+        }
+    }
+    ```
+
+#### Builder configuration options
+
+**Backoff strategies:**
+
+- Fixed: same delay for all retries  
+  `fixedBackOff(Duration.ofSeconds(30))`
+
+- Linear: incrementally increasing delay  
+  `linearBackoff(initialDelay = Duration.ofSeconds(5), increment = Duration.ofSeconds(5), maxDelay = Duration.ofMinutes(2))`
+
+- Exponential: exponentially increasing delay  
+  `exponentialBackoff(initialDelay = Duration.ofSeconds(10), multiplier = 2.0, maxDelay = Duration.ofMinutes(5))`
+
+- Custom: provide your own strategy  
+  `backOff(myCustomBackOffStrategy)`
+
+**Jitter:**
+
+Jitter randomizes the computed delay within [base - jitter, base + jitter] to avoid thundering herds; delays never go below zero.
+
+```kotlin
+OutboxRetryPolicy.builder()
+    .fixedBackOff(Duration.ofSeconds(30))
+    .jitter(Duration.ofSeconds(5))  // Actual delay: ~25–35 seconds
+    .build()
+```
+
+**Exception rules and priority:**
+
+- noRetryOn(): these exceptions are never retried (highest priority)
+- retryOn(): if specified, only these exceptions (or subclasses) are retried
+- retryIf(): predicate for advanced logic
+- Default: if neither retryOn() nor retryIf() is configured, all exceptions are retried; if any rule is configured but none match, do not retry
+
+=== "Kotlin"
+
+    ```kotlin
+    // Retry only on specific exceptions
+    OutboxRetryPolicy.builder()
+        .retryOn(TimeoutException::class.java, IOException::class.java)
+        .build()
+
+    // Retry all except specific exceptions
+    OutboxRetryPolicy.builder()
+        .noRetryOn(IllegalArgumentException::class.java, PaymentDeclinedException::class.java)
+        .build()
+
+    // Custom predicate for complex logic
+    OutboxRetryPolicy.builder()
+        .retryIf { exception ->
+            exception is RetryableException ||
+            (exception.cause is TimeoutException)
+        }
+        .build()
+
+    // Combine multiple rules (noRetryOn takes precedence)
+    OutboxRetryPolicy.builder()
+        .retryOn(IOException::class.java)
+        .noRetryOn(FileNotFoundException::class.java)
+        .retryIf { exception -> exception.message?.contains("transient") == true }
+        .build()
+    ```
+
+=== "Java"
+
+    ```java
+    // Retry only on specific exceptions
+    OutboxRetryPolicy.builder()
+        .retryOn(TimeoutException.class, IOException.class)
+        .build();
+
+    // Retry all except specific exceptions
+    OutboxRetryPolicy.builder()
+        .noRetryOn(IllegalArgumentException.class, PaymentDeclinedException.class)
+        .build();
+
+    // Custom predicate for complex logic
+    OutboxRetryPolicy.builder()
+        .retryIf(exception ->
+            exception instanceof RetryableException ||
+            (exception.getCause() instanceof TimeoutException)
+        )
+        .build();
+
+    // Combine multiple rules (noRetryOn takes precedence)
+    OutboxRetryPolicy.builder()
+        .retryOn(IOException.class)
+        .noRetryOn(FileNotFoundException.class)
+        .retryIf(exception ->
+            exception.getMessage() != null &&
+            exception.getMessage().contains("transient")
+        )
+        .build();
+    ```
+
+**Complete examples:**
+
+=== "Kotlin"
+
+    ```kotlin
+    // Simple policy with exponential backoff
+    val simplePolicy = OutboxRetryPolicy.builder()
+        .maxRetries(5)
+        .exponentialBackoff(
+            initialDelay = Duration.ofSeconds(10),
+            multiplier = 2.0,
+            maxDelay = Duration.ofMinutes(5)
+        )
+        .build()
+
+    // Advanced policy with all features
+    val advancedPolicy = OutboxRetryPolicy.builder()
+        .maxRetries(10)
+        .linearBackoff(
+            initialDelay = Duration.ofSeconds(5),
+            increment = Duration.ofSeconds(5),
+            maxDelay = Duration.ofMinutes(2)
+        )
+        .jitter(Duration.ofSeconds(2))
+        .retryOn(TimeoutException::class.java, IOException::class.java)
+        .noRetryOn(IllegalArgumentException::class.java)
+        .retryIf { exception ->
+            exception.message?.contains("retry", ignoreCase = true) == true
+        }
+        .build()
+    ```
+
+=== "Java"
+
+    ```java
+    // Simple policy with exponential backoff
+    OutboxRetryPolicy simplePolicy = OutboxRetryPolicy.builder()
+        .maxRetries(5)
+        .exponentialBackoff(
+            Duration.ofSeconds(10),
+            2.0,
+            Duration.ofMinutes(5)
+        )
+        .build();
+
+    // Advanced policy with all features
+    OutboxRetryPolicy advancedPolicy = OutboxRetryPolicy.builder()
+        .maxRetries(10)
+        .linearBackoff(
+            Duration.ofSeconds(5),
+            Duration.ofSeconds(5),
+            Duration.ofMinutes(2)
+        )
+        .jitter(Duration.ofSeconds(2))
+        .retryOn(TimeoutException.class, IOException.class)
+        .noRetryOn(IllegalArgumentException.class)
+        .retryIf(exception ->
+            exception.getMessage() != null &&
+            exception.getMessage().toLowerCase().contains("retry")
+        )
+        .build();
+    ```
+
 
 ---
 

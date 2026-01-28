@@ -449,6 +449,29 @@ class AggressiveRetryPolicy : OutboxRetryPolicy {
 }
 ```
 
+**OutboxRetryPolicy.Builder API** - Cleaner way to create custom policies:
+
+```kotlin
+@Configuration
+class OutboxConfig {
+    fun customRetryPolicy(): OutboxRetryPolicy {
+        return OutboxRetryPolicy.builder()
+            .maxRetries(5)
+            .exponentialBackoff(
+                initialDelay = Duration.ofSeconds(10),
+                multiplier = 2.0,
+                maxDelay = Duration.ofMinutes(5)
+            )
+            .jitter(Duration.ofSeconds(2))
+            .retryOn(TimeoutException::class.java, IOException::class.java)
+            .noRetryOn(IllegalArgumentException::class.java, PaymentDeclinedException::class.java)
+            .build()
+    }
+}
+```
+
+> **Tip:** A `OutboxRetryPolicy.Builder` bean named `outboxRetryPolicyBuilder` is automatically configured based on your `application.yml` settings. You can inject it to retain property-driven defaults and add programmatic customizations.
+
 ---
 
 ## How It Works
