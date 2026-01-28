@@ -375,20 +375,33 @@ outbox:
       delay: 5000              # Always 5 seconds
 ```
 
+**Linear Backoff:**
+
+```yaml
+outbox:
+  retry:
+    policy: linear
+    max-retries: 5
+    linear:
+      initial-delay: 2000      # Start with 2 seconds
+      increment: 2000          # Add 2 seconds each retry
+      max-delay: 60000         # Cap at 1 minute
+```
+
+Delays: 2s → 4s → 6s → 8s → 10s
+
 **Jittered (Prevents Thundering Herd):**
 
 ```yaml
 outbox:
   retry:
-    policy: jittered
+    policy: exponential
     max-retries: 4
     exponential:
       initial-delay: 2000
       max-delay: 60000
       multiplier: 2.0
-    jittered:
-      base-policy: exponential
-      jitter: 1000             # ±0-1000ms random
+    jitter: 1000               # Add [-1000ms, 1000ms] random delay
 ```
 
 **Custom Retry Policies:**

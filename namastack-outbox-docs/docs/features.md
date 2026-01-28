@@ -1339,6 +1339,25 @@ outbox:
 
 **Example Retry Schedule:** 0s → 5s → 5s → 5s → 5s → 5s → Failed
 
+##### Linear Backoff
+
+Retry with linearly increasing delays:
+
+```yaml
+outbox:
+  retry:
+    policy: "linear"
+    max-retries: 5
+    linear:
+      initial-delay: 2000    # Start with 2 seconds
+      increment: 2000        # Add 2 seconds each retry
+      max-delay: 60000       # Cap at 1 minute
+```
+
+**Use Case:** Gradually increasing delays for services that need time to recover
+
+**Example Retry Schedule:** 0s → 2s → 4s → 6s → 8s → 10s → Failed
+
 ##### Exponential Backoff
 
 Retry with exponentially increasing delays:
@@ -1360,23 +1379,23 @@ outbox:
 
 ##### Jittered Retry
 
-Add random jitter to prevent thundering herd problems:
+Add random jitter to prevent thundering herd problems. Jitter can be applied to any base policy (fixed, linear, or exponential):
 
 ```yaml
 outbox:
   retry:
-    policy: "jittered"
+    policy: "exponential"  # Can also be "fixed" or "linear"
     max-retries: 7
     exponential:
       initial-delay: 2000
       max-delay: 60000
       multiplier: 2.0
-    jittered:
-      base-policy: exponential
-      jitter: 1000  # Add 0-1000ms random delay
+    jitter: 1000  # Add [-1000ms, 1000ms] random delay
 ```
 
 **Benefits:** Prevents coordinated retry storms when multiple instances retry simultaneously
+
+**Note:** The deprecated `policy: "jittered"` configuration is still supported but it's recommended to use the `jitter` property with your chosen base policy instead.
 
 #### Exception Filtering
 
@@ -2114,7 +2133,7 @@ outbox:
 
   # Retry Configuration
   retry:
-    policy: exponential                      # Retry policy: fixed|exponential|jittered (default: exponential)
+    policy: exponential                      # Retry policy: fixed|linear|exponential (default: exponential)
     max-retries: 3                           # Maximum retry attempts (default: 3)
     
     # Exception Filtering (Since 1.0.0)
@@ -2129,16 +2148,20 @@ outbox:
     fixed:
       delay: 5000                            # Delay in milliseconds (default: 5000)
     
+    # Linear Backoff Policy
+    linear:
+      initial-delay: 2000                    # Initial delay in milliseconds (default: 2000)
+      increment: 2000                        # Increment per retry in milliseconds (default: 2000)
+      max-delay: 60000                       # Maximum delay cap in milliseconds (default: 60000)
+    
     # Exponential Backoff Policy
     exponential:
       initial-delay: 1000                    # Initial delay in milliseconds (default: 1000)
       max-delay: 60000                       # Maximum delay cap in milliseconds (default: 60000)
       multiplier: 2.0                        # Backoff multiplier (default: 2.0)
     
-    # Jittered Retry Policy
-    jittered:
-      base-policy: exponential               # Base policy for jitter: fixed|exponential (default: exponential)
-      jitter: 500                            # Max random jitter in milliseconds (default: 500)
+    # Jitter Configuration (can be used with any policy)
+    jitter: 0                                # Max random jitter in milliseconds (default: 0)
 ```
 
 ### Disabling Outbox
