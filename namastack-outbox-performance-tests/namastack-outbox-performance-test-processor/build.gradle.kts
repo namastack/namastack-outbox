@@ -8,13 +8,14 @@ plugins {
 description = "namastack-outbox-performance-test-processor"
 
 dependencies {
+    implementation(platform(libs.spring.boot.bom))
     implementation(libs.kotlin.reflect)
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.micrometer.registry.prometheus)
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-SNAPSHOT")
-    implementation("io.namastack:namastack-outbox-metrics:1.0.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC3-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-metrics:1.0.0-RC3-SNAPSHOT")
     runtimeOnly(libs.postgresql)
 }
 

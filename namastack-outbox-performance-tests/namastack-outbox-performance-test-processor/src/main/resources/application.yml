@@ -13,11 +13,9 @@ spring:
       max-lifetime: 300000
       connection-timeout: 30000
 
-  jpa:
-    properties:
-      hibernate:
-        jdbc:
-          batch_size: 200
+  threads:
+    virtual:
+      enabled: true
 
 server:
   port: 8081
@@ -26,39 +24,24 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, metrics, prometheus
+        include: health,info,metrics,prometheus
 
-namastack:
-  outbox:
+outbox:
+  batch-size: 1000
+  poll-interval: 2000
+  rebalance-interval: 10000
+  jdbc:
     schema-initialization:
       enabled: true
-    retry:
-      policy: exponential
-      max-retries: 3
-      exponential:
-        initial-delay: 1000
-        max-delay: 60000
-        multiplier: 2.0
-      jitter: 1000
-    polling:
-      batch-size: 1200
-      trigger: fixed
-      fixed:
-        interval: 1000
-    processing:
-      stop-on-first-failure: true
-      delete-completed-records: true
-      executor-core-pool-size: 16
-      executor-max-pool-size: 32
-    instance:
-      heartbeat-interval-seconds: 5
-      stale-instance-timeout-seconds: 10
-      graceful-shutdown-timeout-seconds: 2
-      rebalance-interval: 10000
-    multicaster:
-      publish-after-save: false
+  processing:
+    stop-on-first-failure: false
+    delete-completed-records: false
+    publish-after-save: false
+  instance:
+    graceful-shutdown-timeout-seconds: 2
+    stale-instance-timeout-seconds: 10
+    heartbeat-interval-seconds: 5
 
 logging:
   level:
     ROOT: WARN
-    io.namastack.outbox: DEBUG

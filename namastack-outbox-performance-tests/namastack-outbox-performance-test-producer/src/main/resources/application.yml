@@ -7,7 +7,7 @@ spring:
     password: password
     pool:
       initial-size: 10
-      max-size: 100
+      max-size: 30
       max-idle-time: 30s
 
 server:

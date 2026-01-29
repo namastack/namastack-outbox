@@ -8,7 +8,7 @@ plugins {
 description = "namastack-outbox-performance-test-producer"
 
 dependencies {
-    implementation(platform(libs.spring.boot.dependencies))
+    implementation(platform(libs.spring.boot.bom))
     implementation(libs.kotlin.reflect)
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.data.r2dbc)

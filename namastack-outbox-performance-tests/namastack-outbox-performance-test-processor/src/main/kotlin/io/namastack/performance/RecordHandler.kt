@@ -13,6 +13,6 @@ class RecordHandler : OutboxHandler {
         payload: Any,
         metadata: OutboxRecordMetadata,
     ) {
-        logger.info("📝 Processing record for key: ${metadata.key}")
+        // logger.info("📝 Processing record for key: ${metadata.key}")
     }
 }
