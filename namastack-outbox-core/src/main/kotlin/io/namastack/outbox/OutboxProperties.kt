@@ -70,7 +70,7 @@ data class OutboxProperties(
      * @param fixed Configuration for fixed delay retry
      * @param linear Configuration for linear backoff retry
      * @param exponential Configuration for exponential backoff retry
-     * @param jitter Maximum jitter in milliseconds to add to each delay (0 = no jitter)
+     * @param jitter Maximum jitter in milliseconds to add or subtract from each delay (0 = no jitter)
      * @param jittered Configuration for jittered retry (deprecated, use jitter property instead)
      * @param includeExceptions Fully qualified class names of exceptions to retry on
      * @param excludeExceptions Fully qualified class names of exceptions to exclude from retry
@@ -127,9 +127,9 @@ data class OutboxProperties(
          *
          * @param basePolicy Base retry policy to apply jitter to
          * @param jitter Maximum jitter amount in milliseconds
-         * @deprecated Use jitter property in fixed, linear or exponential retry configuration instead
+         * @deprecated Use jitter property in retry configuration instead
          */
-        @Deprecated("Use jitter property in fixed, linear or exponential retry configuration instead")
+        @Deprecated("Use jitter property in retry configuration instead")
         data class JitteredRetry(
             var basePolicy: String = "exponential",
             var jitter: Long = 500,
