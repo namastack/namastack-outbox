@@ -1,0 +1,11 @@
+# nonk8s
+apiVersion: 1
+
+datasources:
+  - name: CloudWatch
+    uid: cloudwatch
+    type: cloudwatch
+    access: proxy
+    jsonData:
+      defaultRegion: eu-central-1
+    isDefault: true
