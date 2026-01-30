@@ -7,15 +7,17 @@ spring:
     username: username
     password: password
     hikari:
-      maximum-pool-size: 50
-      minimum-idle: 20
+      maximum-pool-size: 30
+      minimum-idle: 10
       idle-timeout: 60000
       max-lifetime: 300000
       connection-timeout: 30000
 
-  threads:
-    virtual:
-      enabled: true
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 200
 
 server:
   port: 8081
@@ -24,25 +26,35 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health, info, metrics, prometheus
 
 outbox:
-  batch-size: 500
-  poll-interval: 200
+  batch-size: 1200
+  poll-interval: 1000
   rebalance-interval: 10000
-  jdbc:
-    schema-initialization:
-      enabled: true
+  schema-initialization:
+    enabled: true
+  retry:
+    policy: exponential
+    max-retries: 3
+    exponential:
+      initial-delay: 1000
+      max-delay: 60000
+      multiplier: 2.0
+    jitter: 1000
   processing:
-    stop-on-first-failure: false
-    delete-completed-records: false
+    stop-on-first-failure: true
+    delete-completed-records: true
     publish-after-save: false
-    executor-concurrency-limit: 200
+    executor-core-pool-size: 16
+    executor-max-pool-size: 32
   instance:
     graceful-shutdown-timeout-seconds: 2
+    new-instance-detection-interval-seconds: 5
     stale-instance-timeout-seconds: 10
     heartbeat-interval-seconds: 5
 
 logging:
   level:
     ROOT: WARN
+    io.namastack.outbox: DEBUG
