@@ -35,8 +35,8 @@
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "description": "Jittered retry policy configuration with configurable base policy. Deprecated: use jitter property in exponential, fixed, or linear retry configuration instead.",
       "deprecation": {
-        "reason": "Use jitter property in exponential, fixed, or linear retry configuration instead",
-        "replacement": "outbox.retry.exponential.jitter, outbox.retry.fixed.jitter, or outbox.retry.linear.jitter"
+        "reason": "Use jitter property in retry configuration instead",
+        "replacement": "outbox.retry.jitter"
       }
     },
     {
@@ -103,39 +103,25 @@
       "description": "Fixed delay in milliseconds between retry attempts for fixed delay retry policy"
     },
     {
-      "name": "outbox.retry.fixed.jitter",
-      "type": "java.lang.Long",
-      "sourceType": "io.namastack.outbox.OutboxProperties$Retry$FixedRetry",
-      "defaultValue": 0,
-      "description": "Maximum jitter in milliseconds to add to each delay. A random value between 0 and this value is added. Default: 0 (no jitter)."
-    },
-    {
       "name": "outbox.retry.linear.initial-delay",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$LinearRetry",
-      "defaultValue": 1000,
+      "defaultValue": 2000,
       "description": "Initial delay in milliseconds for linear backoff retry policy"
     },
     {
       "name": "outbox.retry.linear.increment",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$LinearRetry",
-      "defaultValue": 1000,
+      "defaultValue": 2000,
       "description": "Amount in milliseconds to add for each subsequent retry"
     },
     {
       "name": "outbox.retry.linear.max-delay",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$LinearRetry",
-      "defaultValue": 0,
-      "description": "Maximum delay in milliseconds for linear backoff. 0 means no limit."
-    },
-    {
-      "name": "outbox.retry.linear.jitter",
-      "type": "java.lang.Long",
-      "sourceType": "io.namastack.outbox.OutboxProperties$Retry$LinearRetry",
-      "defaultValue": 0,
-      "description": "Maximum jitter in milliseconds to add to each delay. A random value between 0 and this value is added. Default: 0 (no jitter)."
+      "defaultValue": 60000,
+      "description": "Maximum delay in milliseconds for linear backoff retry policy"
     },
     {
       "name": "outbox.retry.exponential.initial-delay",
@@ -159,11 +145,11 @@
       "description": "Multiplier for exponential backoff. Each retry delay is multiplied by this factor."
     },
     {
-      "name": "outbox.retry.exponential.jitter",
+      "name": "outbox.retry.jitter",
       "type": "java.lang.Long",
-      "sourceType": "io.namastack.outbox.OutboxProperties$Retry$ExponentialRetry",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "defaultValue": 0,
-      "description": "Maximum jitter in milliseconds to add to each delay. A random value between 0 and this value is added. Default: 0 (no jitter)."
+      "description": "Maximum jitter in milliseconds to add or subtract from each delay. A random value between -jitter and +jitter is applied. Default: 0 (no jitter)."
     },
     {
       "name": "outbox.retry.jittered.base-policy",
@@ -172,8 +158,8 @@
       "defaultValue": "exponential",
       "description": "Base retry policy for jittered retry. Options: 'fixed', 'linear', 'exponential'",
       "deprecation": {
-        "reason": "Use jitter property in fixed, linear or exponential retry configuration instead",
-        "replacement": "outbox.retry.fixed.jitter, outbox.retry.linear.jitter or outbox.retry.exponential.jitter"
+        "reason": "Use jitter property in retry configuration instead",
+        "replacement": "outbox.retry.jitter"
       }
     },
     {
@@ -181,23 +167,23 @@
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$JitteredRetry",
       "defaultValue": 500,
-      "description": "Maximum random jitter in milliseconds to add to the base policy's delay",
+      "description": "Maximum jitter in milliseconds to add or subtract from the base policy's delay. A random value between -jitter and +jitter is applied.",
       "deprecation": {
-        "reason": "Use jitter property in fixed, linear or exponential retry configuration instead",
-        "replacement": "outbox.retry.fixed.jitter, outbox.retry.linear.jitter or outbox.retry.exponential.jitter"
+        "reason": "Use jitter property in retry configuration instead",
+        "replacement": "outbox.retry.jitter"
       }
     },
     {
       "name": "outbox.retry.include-exceptions",
       "type": "java.util.Set<java.lang.Class<? extends java.lang.Throwable>>",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
-      "description": "Whitelist of exception types that should trigger retries. Only exceptions matching these types (including subclasses) will be retried. Cannot be combined with exclude-exceptions. Example: [java.io.IOException, java.net.SocketTimeoutException]"
+      "description": "Fully qualified class names of exceptions that should trigger retries. Only exceptions matching these types (including subclasses) will be retried. Example: [java.io.IOException, java.net.SocketTimeoutException]"
     },
     {
       "name": "outbox.retry.exclude-exceptions",
       "type": "java.util.Set<java.lang.Class<? extends java.lang.Throwable>>",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
-      "description": "Blacklist of exception types that should NOT trigger retries. All exceptions except these types (and their subclasses) will be retried. Cannot be combined with include-exceptions. Example: [java.lang.IllegalArgumentException, javax.validation.ValidationException]"
+      "description": "Fully qualified class names of exceptions that should NOT trigger retries. All exceptions except these types (and their subclasses) will be retried. Example: [java.lang.IllegalArgumentException, javax.validation.ValidationException]"
     },
     {
       "name": "outbox.processing.stop-on-first-failure",
@@ -261,13 +247,6 @@
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
       "defaultValue": 5,
       "description": "Interval in seconds between instance heartbeats to indicate the instance is still active"
-    },
-    {
-      "name": "outbox.multicaster.enabled",
-      "type": "java.lang.Boolean",
-      "sourceType": "io.namastack.outbox.OutboxProperties",
-      "defaultValue": true,
-      "description": "Enable or disable the custom application event multicaster for @OutboxEvent handling. If true, the OutboxEventMulticaster bean is registered."
     }
   ]
 }

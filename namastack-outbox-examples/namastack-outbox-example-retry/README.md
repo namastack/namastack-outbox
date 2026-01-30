@@ -5,7 +5,7 @@ This example demonstrates **retry policy configuration** and automatic retry beh
 ## What This Example Shows
 
 - Automatic retry mechanism for failed handlers
-- Configurable retry policies (fixed delay, exponential backoff)
+- Configurable retry policies (fixed delay, linear backoff, exponential backoff)
 - Maximum retry attempts configuration
 - Detailed trace logging for retry behavior observation
 
@@ -40,7 +40,7 @@ The application will:
 ## Configuration
 
 See `application.yml` for:
-- Retry policy type (fixed/exponential)
+- Retry policy type (fixed/linear/exponential)
 - Retry delay configuration
 - Maximum retry attempts
 - Trace logging enabled for detailed output
