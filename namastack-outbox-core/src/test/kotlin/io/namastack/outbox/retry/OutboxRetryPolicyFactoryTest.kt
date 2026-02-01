@@ -73,29 +73,6 @@ class OutboxRetryPolicyFactoryTest {
                     assertThat(d).isBetween(min, max)
                 }
             }
-
-            @Test
-            fun `fixed backoff and jitter (deprecated)`() {
-                val prop =
-                    properties(
-                        policy = "jittered",
-                        fixedDelayMs = 5000,
-                        jitteredBasePolicy = "fixed",
-                        jitteredJitterMs = 500,
-                    )
-                val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
-
-                val base = Duration.ofMillis(5000)
-                val jitter = Duration.ofMillis(2000)
-                val min = base.minus(jitter)
-                val max = base.plus(jitter)
-
-                repeat(100) {
-                    // sample many times due to randomness
-                    val d = policy.nextDelay(1)
-                    assertThat(d).isBetween(min, max)
-                }
-            }
         }
 
         @Nested
@@ -129,31 +106,6 @@ class OutboxRetryPolicyFactoryTest {
                         linearIncrementMs = 2000,
                         linearMaxMs = 7000,
                         jitterMs = 500,
-                    )
-                val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
-
-                val base = Duration.ofMillis(1000)
-                val jitter = Duration.ofMillis(500)
-                val min = base.minus(jitter)
-                val max = base.plus(jitter)
-
-                repeat(100) {
-                    // sample many times due to randomness
-                    val d = policy.nextDelay(1)
-                    assertThat(d).isBetween(min, max)
-                }
-            }
-
-            @Test
-            fun `linear backoff and jitter (deprecated)`() {
-                val prop =
-                    properties(
-                        policy = "jittered",
-                        linearInitialMs = 1000,
-                        linearIncrementMs = 2000,
-                        linearMaxMs = 7000,
-                        jitteredBasePolicy = "linear",
-                        jitteredJitterMs = 500,
                     )
                 val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
 
@@ -215,31 +167,6 @@ class OutboxRetryPolicyFactoryTest {
                     assertThat(d).isBetween(min, max)
                 }
             }
-
-            @Test
-            fun `exponential backoff and jitter (deprecated)`() {
-                val prop =
-                    properties(
-                        policy = "jittered",
-                        exponentialInitialMs = 1000,
-                        exponentialMultiplier = 2.0,
-                        exponentialMaxMs = 9000,
-                        jitteredBasePolicy = "exponential",
-                        jitteredJitterMs = 500,
-                    )
-                val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
-
-                val base = Duration.ofMillis(1000)
-                val jitter = Duration.ofMillis(500)
-                val min = base.minus(jitter)
-                val max = base.plus(jitter)
-
-                repeat(100) {
-                    // sample many times due to randomness
-                    val d = policy.nextDelay(1)
-                    assertThat(d).isBetween(min, max)
-                }
-            }
         }
 
         @Nested
@@ -251,14 +178,6 @@ class OutboxRetryPolicyFactoryTest {
                 assertThatThrownBy { OutboxRetryPolicyFactory.createDefault(prop) }
                     .isInstanceOf(IllegalStateException::class.java)
                     .hasMessageContaining("Unsupported retry-policy")
-            }
-
-            @Test
-            fun `unsupported jittered base policy fails`() {
-                val prop = properties(policy = "jittered", jitteredBasePolicy = "random")
-                assertThatThrownBy { OutboxRetryPolicyFactory.createDefault(prop) }
-                    .isInstanceOf(IllegalStateException::class.java)
-                    .hasMessageContaining("Unsupported jittered base policy")
             }
         }
     }
@@ -316,8 +235,6 @@ class OutboxRetryPolicyFactoryTest {
         exponentialMultiplier: Double? = null,
         exponentialMaxMs: Long? = null,
         jitterMs: Long? = null,
-        jitteredBasePolicy: String? = null,
-        jitteredJitterMs: Long? = null,
         include: Set<String>? = null,
         exclude: Set<String>? = null,
     ): OutboxProperties.Retry {
@@ -333,8 +250,6 @@ class OutboxRetryPolicyFactoryTest {
         exponentialMultiplier?.let { properties.exponential.multiplier = it }
         exponentialMaxMs?.let { properties.exponential.maxDelay = it }
         jitterMs?.let { properties.jitter = it }
-        jitteredBasePolicy?.let { properties.jittered.basePolicy = it }
-        jitteredJitterMs?.let { properties.jittered.jitter = it }
         include?.let { properties.includeExceptions = it }
         exclude?.let { properties.excludeExceptions = it }
 

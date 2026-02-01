@@ -30,16 +30,6 @@
       "description": "Exponential backoff retry policy configuration"
     },
     {
-      "name": "namastack.outbox.retry.jittered",
-      "type": "io.namastack.outbox.OutboxProperties$Retry$JitteredRetry",
-      "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
-      "description": "Jittered retry policy configuration with configurable base policy. Deprecated: use jitter property in exponential, fixed, or linear retry configuration instead.",
-      "deprecation": {
-        "reason": "Use jitter property in retry configuration instead",
-        "replacement": "namastack.outbox.retry.jitter"
-      }
-    },
-    {
       "name": "namastack.outbox.processing",
       "type": "io.namastack.outbox.OutboxProperties$Processing",
       "sourceType": "io.namastack.outbox.OutboxProperties",
@@ -150,28 +140,6 @@
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "defaultValue": 0,
       "description": "Maximum jitter in milliseconds to add or subtract from each delay. A random value between -jitter and +jitter is applied. Default: 0 (no jitter)."
-    },
-    {
-      "name": "namastack.outbox.retry.jittered.base-policy",
-      "type": "java.lang.String",
-      "sourceType": "io.namastack.outbox.OutboxProperties$Retry$JitteredRetry",
-      "defaultValue": "exponential",
-      "description": "Base retry policy for jittered retry. Options: 'fixed', 'linear', 'exponential'",
-      "deprecation": {
-        "reason": "Use jitter property in retry configuration instead",
-        "replacement": "namastack.outbox.retry.jitter"
-      }
-    },
-    {
-      "name": "namastack.outbox.retry.jittered.jitter",
-      "type": "java.lang.Long",
-      "sourceType": "io.namastack.outbox.OutboxProperties$Retry$JitteredRetry",
-      "defaultValue": 500,
-      "description": "Maximum jitter in milliseconds to add or subtract from the base policy's delay. A random value between -jitter and +jitter is applied.",
-      "deprecation": {
-        "reason": "Use jitter property in retry configuration instead",
-        "replacement": "namastack.outbox.retry.jitter"
-      }
     },
     {
       "name": "namastack.outbox.retry.include-exceptions",
