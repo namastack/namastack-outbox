@@ -49,7 +49,7 @@ class PartitionCoordinator(
      */
     @Scheduled(
         initialDelayString = "0",
-        fixedDelayString = $$"${outbox.rebalance-interval:10000}",
+        fixedDelayString = $$"${namastack.outbox.rebalance-interval:10000}",
         scheduler = "outboxRebalancingScheduler",
     )
     fun rebalance() {

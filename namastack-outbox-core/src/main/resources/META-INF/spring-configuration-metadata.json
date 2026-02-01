@@ -1,7 +1,7 @@
 {
   "groups": [
     {
-      "name": "outbox",
+      "name": "namastack.outbox",
       "type": "io.namastack.outbox.OutboxProperties",
       "description": "Outbox configuration properties"
     },
@@ -40,6 +40,12 @@
       "type": "io.namastack.outbox.OutboxProperties$Instance",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "description": "Outbox instance management and coordination configuration"
+    },
+    {
+      "name": "namastack.outbox.multicaster",
+      "type": "io.namastack.outbox.OutboxProperties$Multicaster",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "description": "Outbox event multicaster configuration"
     }
   ],
   "properties": [
@@ -215,6 +221,13 @@
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
       "defaultValue": 5,
       "description": "Interval in seconds between instance heartbeats to indicate the instance is still active"
+    },
+    {
+      "name": "namastack.outbox.multicaster.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Multicaster",
+      "defaultValue": true,
+      "description": "Enable or disable the custom application event multicaster for @OutboxEvent handling. If true, the OutboxEventMulticaster bean is registered."
     }
   ]
 }

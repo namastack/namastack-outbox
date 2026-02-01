@@ -12,10 +12,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  *                Set to false to disable outbox auto-configuration entirely.
  * @param pollInterval Interval in milliseconds at which the outbox is polled
  * @param rebalanceInterval Interval in milliseconds at which partition rebalancing is performed
- * @param batchSize Maximum number of records to process in a single batch
+ * @param batchSize Maximum number of record keys to process in a single batch
  * @param retry Configuration for retry mechanisms
  * @param processing Configuration for record processing behavior
  * @param instance Configuration for instance management and coordination
+ * @param multicaster Configuration for the custom application event multicaster
  *
  * @author Roland Beisel
  * @since 0.1.0
@@ -29,6 +30,7 @@ data class OutboxProperties(
     var retry: Retry = Retry(),
     var processing: Processing = Processing(),
     var instance: Instance = Instance(),
+    var multicaster: Multicaster = Multicaster(),
 ) {
     /**
      * Configuration for outbox record processing behavior.
@@ -60,6 +62,18 @@ data class OutboxProperties(
         var gracefulShutdownTimeoutSeconds: Long = 15,
         var staleInstanceTimeoutSeconds: Long = 30,
         var heartbeatIntervalSeconds: Long = 5,
+    )
+
+    /**
+     * Configuration for the custom application event multicaster.
+     *
+     * Controls the OutboxEventMulticaster bean that intercepts @OutboxEvent annotated events
+     * and routes them through the outbox for reliable delivery.
+     *
+     * @param enabled Whether to enable the custom application event multicaster for @OutboxEvent handling.
+     */
+    data class Multicaster(
+        var enabled: Boolean = true,
     )
 
     /**
