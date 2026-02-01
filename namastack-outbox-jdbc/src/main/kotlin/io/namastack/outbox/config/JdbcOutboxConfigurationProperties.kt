@@ -26,9 +26,9 @@ data class JdbcOutboxConfigurationProperties(
      * Note: Schema initialization cannot be used together with custom table prefixes or schema names.
      * When using custom naming, create tables manually using Flyway, Liquibase, or plain SQL scripts.
      *
-     * @property enabled Whether to automatically create outbox tables at startup. Defaults to false.
+     * @property enabled Whether to automatically create outbox tables at startup. Defaults to true.
      */
     data class SchemaInitialization(
-        var enabled: Boolean = false,
+        var enabled: Boolean = true,
     )
 }

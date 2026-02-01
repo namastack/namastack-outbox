@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
@@ -31,18 +32,31 @@ import java.time.Instant
 )
 internal data class OutboxRecordEntity(
     @Id
+    @Column(name = "id", nullable = false)
     val id: String,
     @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
     val status: OutboxRecordStatus,
+    @Column(name = "record_key", nullable = false)
     val recordKey: String,
+    @Column(name = "record_type", nullable = false)
     val recordType: String,
+    @Column(name = "payload", nullable = false)
     val payload: String,
+    @Column(name = "context", nullable = true)
     val context: String?,
+    @Column(name = "partition_no", nullable = false)
     val partitionNo: Int,
+    @Column(name = "created_at", nullable = false)
     val createdAt: Instant,
+    @Column(name = "completed_at", nullable = true)
     val completedAt: Instant?,
+    @Column(name = "failure_count", nullable = false)
     val failureCount: Int,
+    @Column(name = "failure_reason", nullable = true)
     val failureReason: String?,
+    @Column(name = "next_retry_at", nullable = false)
     val nextRetryAt: Instant,
+    @Column(name = "handler_id", nullable = false)
     val handlerId: String,
 )

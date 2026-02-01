@@ -14,7 +14,7 @@
     {
       "name": "outbox.jdbc.schema-initialization.enabled",
       "type": "java.lang.Boolean",
-      "defaultValue": false,
+      "defaultValue": true,
       "description": "Whether schema initialization is enabled at startup"
     }
   ]

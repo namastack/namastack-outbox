@@ -27,13 +27,17 @@ class JdbcOutboxSchemaAutoConfiguration {
     /**
      * Creates a database initializer for outbox schema when schema initialization is enabled.
      *
-     * This bean is only created when the property 'outbox.schema-initialization.enabled' is set to true.
+     * This bean is created by default unless the property 'outbox.jdbc.schema-initialization.enabled' is set to false.
      *
      * @param dataSource The data source to initialize
      * @return Database initializer for outbox schema
      */
     @Bean
-    @ConditionalOnProperty(name = ["outbox.jdbc.schema-initialization.enabled"], havingValue = "true")
+    @ConditionalOnProperty(
+        name = ["outbox.jdbc.schema-initialization.enabled"],
+        havingValue = "true",
+        matchIfMissing = true,
+    )
     internal fun outboxDataSourceScriptDatabaseInitializer(
         dataSource: DataSource,
         properties: JdbcOutboxConfigurationProperties,

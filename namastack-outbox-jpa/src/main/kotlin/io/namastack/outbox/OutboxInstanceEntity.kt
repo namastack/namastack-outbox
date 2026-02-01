@@ -30,7 +30,7 @@ import java.time.Instant
 )
 internal data class OutboxInstanceEntity(
     @Id
-    @Column(name = "instance_id")
+    @Column(name = "instance_id", nullable = false)
     val instanceId: String,
     @Column(name = "hostname", nullable = false)
     val hostname: String,

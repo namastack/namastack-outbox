@@ -2095,13 +2095,13 @@ The JDBC module uses Spring's `JdbcClient` for database operations. Best for pro
 
 #### Automatic Schema Creation (JDBC Only)
 
-The JDBC module can automatically create outbox tables on startup:
+The JDBC module automatically creates outbox tables on startup by default:
 
 ```yaml
 outbox:
   jdbc:
     schema-initialization:
-      enabled: true  # Auto-create tables on startup
+      enabled: true  # Auto-create tables on startup (default: true)
 ```
 
 !!! note "Database Detection"
@@ -2131,7 +2131,7 @@ outbox:
 | Both                      | `myschema.app1_outbox_record` |
 
 !!! warning "Schema Initialization Limitation"
-    When using custom table prefix or schema name, you must create tables manually. Schema initialization cannot be used with custom naming:
+    When using custom table prefix or schema name, you must disable schema initialization (which is enabled by default). Schema initialization cannot be used with custom naming:
     
     ```yaml
     outbox:
@@ -2210,13 +2210,13 @@ Any JPA/JDBC-compatible database is supported. Automatic schema creation (JDBC m
 
 #### JDBC Module
 
-The JDBC module can automatically create its schema on startup:
+The JDBC module automatically creates its schema on startup by default. You can disable it:
 
 ```yaml
 outbox:
   jdbc:
     schema-initialization:
-      enabled: true  # Auto-create tables on startup (default: false)
+      enabled: false
 ```
 
 #### JPA Module
@@ -2384,7 +2384,7 @@ outbox:
     table-prefix: ""                         # Prefix for table names (default: empty)
     schema-name: null                        # Database schema name (default: null, uses default schema)
     schema-initialization:
-      enabled: false                         # Auto-create tables on startup (default: false)
+      enabled: true                          # Auto-create tables on startup (default: true)
 
   # Retry Configuration
   retry:
