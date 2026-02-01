@@ -30,43 +30,48 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
     /**
      * Query to select all partition assignments ordered by partition number.
      */
-    private val findAllQuery = """
+    private val findAllQuery =
+        """
         SELECT * FROM $tableName
         ORDER BY partition_number
-    """
+        """.toSingleLine()
 
     /**
      * Query to select partition assignments by instance ID.
      */
-    private val findByInstanceIdQuery = """
+    private val findByInstanceIdQuery =
+        """
         SELECT * FROM $tableName
         WHERE instance_id = :instanceId
-    """
+        """.toSingleLine()
 
     /**
      * Query to update partition assignment with optimistic locking.
      */
-    private val updatePartitionQuery = """
+    private val updatePartitionQuery =
+        """
         UPDATE $tableName
         SET instance_id = :instanceId, version = :version, updated_at = :updatedAt
         WHERE partition_number = :partitionNumber AND version = :originalVersion
-    """
+        """.toSingleLine()
 
     /**
      * Query to check if partition exists.
      */
-    private val partitionExistsQuery = """
+    private val partitionExistsQuery =
+        """
         SELECT COUNT(*) FROM $tableName
         WHERE partition_number = :partitionNumber
-    """
+        """.toSingleLine()
 
     /**
      * Query to insert new partition assignment.
      */
-    private val insertPartitionQuery = """
+    private val insertPartitionQuery =
+        """
         INSERT INTO $tableName (partition_number, instance_id, version, updated_at)
         VALUES (:partitionNumber, :instanceId, :version, :updatedAt)
-    """
+        """.toSingleLine()
 
     /**
      * Finds all partition assignments ordered by partition number.
@@ -132,7 +137,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
         originalVersion: Long?,
     ): Int =
         jdbcClient
-            .sql(updatePartitionQuery.trimIndent())
+            .sql(updatePartitionQuery)
             .param("instanceId", entity.instanceId)
             .param("version", newVersion)
             .param("updatedAt", Timestamp.from(entity.updatedAt))
@@ -169,7 +174,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
      */
     private fun insertPartition(entity: JdbcOutboxPartitionAssignmentEntity) {
         jdbcClient
-            .sql(insertPartitionQuery.trimIndent())
+            .sql(insertPartitionQuery)
             .param("partitionNumber", entity.partitionNumber)
             .param("instanceId", entity.instanceId)
             .param("version", 0) // Initial version is 0
