@@ -1,4 +1,4 @@
-[![Version](https://img.shields.io/badge/version-1.0.0--RC3-blue)](https://github.com/namastack/namastack-outbox/releases/tag/v1.0.0-RC3)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/namastack/namastack-outbox/releases/tag/v1.0.0)
 [![CodeFactor](https://www.codefactor.io/repository/github/namastack/namastack-outbox/badge)](https://www.codefactor.io/repository/github/namastack/namastack-outbox)
 [![codecov](https://codecov.io/github/namastack/namastack-outbox/graph/badge.svg?token=TZS1OQB4XC)](https://codecov.io/github/namastack/namastack-outbox)
 [![javadoc](https://javadoc.io/badge2/io.namastack/namastack-outbox-core/javadoc.svg)](https://javadoc.io/doc/io.namastack/namastack-outbox-core)
@@ -20,7 +20,7 @@ with handler-based processing and partition-aware horizontal scaling.
 - ✅ **Transactional Atomicity**: Records saved in same transaction as domain data
 - ✅ **Zero Message Loss**: Database-backed with at-least-once delivery
 - ✅ **Horizontal Scaling**: Automatic partition assignment across instances
-- ✅ **Automatic Retry**: Exponential backoff, fixed delay, or jittered policies
+- ✅ **Automatic Retry**: Exponential backoff, fixed delay, linear with optional jitter
 - ✅ **Handler-Based**: Annotation-based or interface-based handler registration
 - ✅ **Type-Safe Handlers**: Generic or typed handler support
 - ✅ **Fallback Handlers**: Graceful degradation when retries are exhausted
@@ -50,7 +50,7 @@ Quick links:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC3")
+    implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0")
 }
 ```
 
@@ -60,7 +60,7 @@ dependencies {
 <dependency>
     <groupId>io.namastack</groupId>
     <artifactId>namastack-outbox-starter-jdbc</artifactId>
-    <version>1.0.0-RC3</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
@@ -186,7 +186,7 @@ If you prefer using JPA/Hibernate instead of JDBC, use the JPA starter:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC3")
+    implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0")
 }
 ```
 
@@ -581,122 +581,160 @@ If you manage your database schema manually with Flyway or Liquibase, you can fi
 
 ---
 
-## What's New in 1.0.0-RC2
+## What's New in 1.0.0
 
-### 🔌 New JDBC Module (GH-136)
+### ⚠️ Breaking Changes
 
-A new lightweight persistence module without JPA/Hibernate dependency:
+This release contains breaking changes. See [Migration Guide](#migrating-to-100) for details.
 
-```gradle
-implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC3")
-```
+### 🏷️ Configuration Property Prefix (GH-176)
 
-### 🏷️ Custom Table Prefix & Schema (GH-152)
-
-JDBC module supports custom table naming:
+All configuration properties now use the `namastack.outbox` prefix for better namespacing:
 
 ```yaml
 namastack:
   outbox:
-    jdbc:
-      table-prefix: "myapp_"
-      schema-name: "outbox_schema"
+    poll-interval: 2000
+    retry:
+      policy: exponential
 ```
 
-### ⚡ Virtual Threads Support (GH-134)
+### 🔧 JDBC Schema Initialization Enabled by Default (GH-177)
 
-Automatic virtual threads support when enabled in Spring Boot for improved scalability.
+The JDBC module now automatically creates outbox tables on startup. No configuration needed for basic usage:
 
-### 🔧 Auto-Configuration (GH-155)
-
-`@EnableOutbox` removed - outbox is now auto-configured. Use `namastack.outbox.enabled=false` to opt-out.
-
-### 📊 JPA Index Definitions (GH-153)
-
-JPA entities now include proper index definitions for optimal query performance.
-
----
-
-## What's New in 1.0.0-RC1
-
-### 🎯 Fallback Handlers (GH-127, GH-128)
-
-Add graceful degradation for permanently failed records:
-
-```kotlin
-@OutboxFallbackHandler
-fun handleFailure(payload: OrderEvent, context: OutboxFailureContext) {
-    deadLetterQueue.publish(payload)
-}
+```gradle
+implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0")
+// Tables are created automatically!
 ```
 
-**Features:**
-- Automatic invocation after retries exhausted or non-retryable exceptions
-- Automatic matching by payload type
-- Access to failure context (retry count, exception, etc.)
-- Records marked COMPLETED if fallback succeeds
-- Shared fallbacks for multiple handlers
+### 🗑️ Deprecated `jittered` Policy Removed (GH-181)
 
-**See:** [Fallback Handlers](#fallback-handlers)
+The deprecated `policy: "jittered"` has been removed. Use the `jitter` property with any base policy:
 
-### 🔗 Context Propagation (GH-115, GH-129)
-
-Preserve context across async boundaries:
-
-```kotlin
-@Component
-class TracingContextProvider : OutboxContextProvider {
-    override fun provide(): Map<String, String> {
-        return mapOf(
-            "traceId" to getCurrentTraceId(),
-            "spanId" to getCurrentSpanId()
-        )
-    }
-}
+```yaml
+namastack:
+  outbox:
+    retry:
+      policy: exponential
+      jitter: 500  # Works with any policy
 ```
-
-**Features:**
-- Automatic context capture during `outbox.schedule()`
-- Context restoration in handlers via `metadata.context`
-- Support for tracing, tenancy, correlation IDs
-- Multiple providers with automatic merging
-- Available in both primary and fallback handlers
-
-**See:** [Context Propagation](#context-propagation)
-
-### 📊 Handler-Specific Retry Policies (GH-101)
-
-Custom retry behavior per handler:
-
-```kotlin
-@Component
-class PaymentHandler {
-    @OutboxHandler
-    @OutboxRetryable(AggressiveRetryPolicy::class)
-    fun handle(payload: PaymentEvent) {
-        paymentGateway.process(payload)
-    }
-}
-
-@Component
-class AggressiveRetryPolicy : OutboxRetryPolicy {
-    override fun shouldRetry(exception: Throwable) = true
-    override fun nextDelay(failureCount: Int) = Duration.ofSeconds(1)
-    override fun maxRetries() = 10
-}
-```
-
-**See:** [Retry Policies](#retry-policies)
 
 ---
 
 ## Migration Guide
 
-### Migrating to 1.0.0-RC3
+### Migrating to 1.0.0
 
-There are no breaking changes.
+Version 1.0.0 introduces several **breaking changes** that require updates to your configuration.
 
-## Version Stability & Semantic Versioning:**
+#### 1. Configuration Property Prefix Change
+
+All configuration properties now use the `namastack.outbox` prefix instead of `outbox`.
+
+**Before (1.0.0):**
+```yaml
+outbox:
+  poll-interval: 2000
+  batch-size: 10
+  retry:
+    policy: exponential
+    max-retries: 3
+  instance:
+    graceful-shutdown-timeout-seconds: 15
+  jdbc:
+    schema-initialization:
+      enabled: true
+```
+
+**After (1.0.0):**
+```yaml
+namastack:
+  outbox:
+    poll-interval: 2000
+    batch-size: 10
+    retry:
+      policy: exponential
+      max-retries: 3
+    instance:
+      graceful-shutdown-timeout-seconds: 15
+    jdbc:
+      schema-initialization:
+        enabled: true
+```
+
+**Properties file format:**
+```properties
+# Before
+outbox.poll-interval=2000
+outbox.enabled=false
+
+# After
+namastack.outbox.poll-interval=2000
+namastack.outbox.enabled=false
+```
+
+#### 2. JDBC Schema Initialization Now Enabled by Default
+
+The JDBC module now **automatically creates outbox tables on startup by default**.
+
+**What changed:**
+- `namastack.outbox.jdbc.schema-initialization.enabled` now defaults to `true` (was `false`)
+- No configuration needed for basic usage with JDBC module
+
+**Action required if using Flyway/Liquibase:**
+If you manage your schema with Flyway or Liquibase, no action is needed - the schema initialization has no effect when tables already exist.
+
+**Action required if using custom table prefix/schema name:**
+You must explicitly disable schema initialization:
+```yaml
+namastack:
+  outbox:
+    jdbc:
+      table-prefix: "myapp_"
+      schema-name: "custom_schema"
+      schema-initialization:
+        enabled: false  # Must disable when using custom naming
+```
+
+#### 3. Deprecated `jittered` Retry Policy Removed
+
+The `policy: "jittered"` configuration has been removed. Use the `jitter` property with any base policy instead.
+
+**Before (deprecated):**
+```yaml
+outbox:
+  retry:
+    policy: jittered
+    jittered:
+      base-policy: exponential
+      jitter: 500
+```
+
+**After (1.0.0):**
+```yaml
+namastack:
+  outbox:
+    retry:
+      policy: exponential  # or fixed, linear
+      exponential:
+        initial-delay: 2000
+        max-delay: 60000
+        multiplier: 2.0
+      jitter: 500  # Add jitter to any policy
+```
+
+#### Migration Checklist
+
+- [ ] Update all `outbox.*` properties to `namastack.outbox.*`
+- [ ] Update YAML configuration to nest `outbox:` under `namastack:`
+- [ ] If using `policy: jittered`, migrate to `jitter` property with base policy
+- [ ] If using custom table prefix/schema name with JDBC, explicitly set `schema-initialization.enabled: false`
+- [ ] Test your application to ensure configuration is correctly applied
+
+---
+
+## Version Stability & Semantic Versioning
 
 From **1.0.0 onwards**, Namastack Outbox follows strict **semantic versioning**:
 
@@ -712,19 +750,14 @@ From **1.0.0 onwards**, Namastack Outbox follows strict **semantic versioning**:
   - Bug fixes, security patches
   - No new features, no breaking changes
 
-**Pre-1.0.0 Versions:**
-- Versions before 1.0.0 (0.x.x) were under active development
-- Breaking changes could occur between minor versions
-- Database schema changes required table recreation
-
-**1.0.0-RC3 Status:**
-- This is a **Release Candidate** for the stable 1.0.0 release
-- API is locked and stable (no breaking changes expected until 2.0.0)
+**1.0.0 Status:**
+- This is the **stable 1.0.0 General Availability release**
+- API is locked and stable (no breaking changes until 2.0.0)
 - Production-ready with comprehensive testing
-- Only bug fixes and documentation updates until 1.0.0 GA
+- Full semantic versioning from this point forward
 
 **What This Means for You:**
-- ✅ Safe to use in production from 1.0.0-RC2 onwards
+- ✅ Safe to use in production
 - ✅ Upgrade within same major version without fear of breaking changes
 - ✅ Clear migration path when major versions are released
 - ✅ Predictable release cycle and stability guarantees

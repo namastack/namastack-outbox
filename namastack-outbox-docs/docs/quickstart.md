@@ -285,7 +285,7 @@ For a complete list of all configuration options, see [Configuration Reference](
 - ✅ **Transactional Atomicity**: Records saved in same transaction as domain data
 - ✅ **Zero Message Loss**: Database-backed with at-least-once delivery
 - ✅ **Horizontal Scaling**: Automatic partition assignment across instances
-- ✅ **Automatic Retry**: Exponential backoff, fixed delay, or jittered policies
+- ✅ **Automatic Retry**: Exponential backoff, fixed delay, linear with optional jitter
 - ✅ **Handler-Based**: Annotation-based or interface-based handler registration
 - ✅ **Type-Safe Handlers**: Generic or typed handler support
 - ✅ **Fallback Handlers**: Graceful degradation when retries are exhausted
