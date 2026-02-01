@@ -13,9 +13,10 @@ spring:
     hibernate:
       ddl-auto: create-drop
 
-outbox:
-  instance:
-    graceful-shutdown-timeout-seconds: 2
+namastack:
+  outbox:
+    instance:
+      graceful-shutdown-timeout-seconds: 2
 
 logging:
   level:

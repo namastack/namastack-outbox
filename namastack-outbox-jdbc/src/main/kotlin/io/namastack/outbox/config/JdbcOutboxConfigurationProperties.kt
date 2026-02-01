@@ -14,7 +14,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  * @author Roland Beisel
  * @since 1.0.0
  */
-@ConfigurationProperties(prefix = "outbox.jdbc")
+@ConfigurationProperties(prefix = "namastack.outbox.jdbc")
 data class JdbcOutboxConfigurationProperties(
     var tablePrefix: String = "",
     var schemaName: String? = null,

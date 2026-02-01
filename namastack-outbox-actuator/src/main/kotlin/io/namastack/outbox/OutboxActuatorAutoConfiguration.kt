@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Bean
  */
 @AutoConfiguration
 @ConditionalOnClass(OutboxService::class)
-@ConditionalOnProperty(name = ["outbox.enabled"], havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 internal class OutboxActuatorAutoConfiguration {
     /**
      * Creates the outbox actuator endpoint when an outbox record repository is available.

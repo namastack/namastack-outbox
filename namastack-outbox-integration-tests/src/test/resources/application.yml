@@ -8,14 +8,15 @@ spring:
     hibernate:
       ddl-auto: create-drop
 
-outbox:
-  retry:
-    policy: "fixed"
-    fixed:
-      delay: 1000
-    max-retries: 2
-  instance:
-    graceful-shutdown-timeout-seconds: 0
+namastack:
+  outbox:
+    retry:
+      policy: "fixed"
+      fixed:
+        delay: 1000
+      max-retries: 2
+    instance:
+      graceful-shutdown-timeout-seconds: 0
 
 logging:
   level:

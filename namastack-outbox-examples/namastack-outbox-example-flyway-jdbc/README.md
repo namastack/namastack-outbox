@@ -23,7 +23,7 @@ This example demonstrates how to use the Namastack Outbox pattern with **Flyway 
 This example uses Flyway for schema management, which is the **recommended approach for production environments**:
 
 1. **Flyway** creates and migrates database schema from SQL scripts
-2. **Automatic schema initialization** (`outbox.jdbc.schema-initialization.enabled`) is `true` by default, but has no effect since Flyway creates the tables first
+2. **Automatic schema initialization** (`namastack.outbox.jdbc.schema-initialization.enabled`) is `true` by default, but has no effect since Flyway creates the tables first
 3. **No automatic schema changes** - all changes are explicit and versioned
 
 ## Running the Example

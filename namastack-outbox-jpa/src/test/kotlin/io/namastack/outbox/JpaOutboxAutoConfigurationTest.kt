@@ -183,7 +183,7 @@ class JpaOutboxAutoConfigurationTest {
         fun `does not create any outbox beans when outbox disabled`() {
             contextRunner
                 .withUserConfiguration(CompleteConfiguration::class.java)
-                .withPropertyValues("outbox.enabled=false")
+                .withPropertyValues("namastack.outbox.enabled=false")
                 .run { context ->
                     Assertions.assertThat(context).doesNotHaveBean(OutboxRecordRepository::class.java)
                     Assertions.assertThat(context).doesNotHaveBean(OutboxInstanceRepository::class.java)

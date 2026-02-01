@@ -21,7 +21,7 @@ import tools.jackson.module.kotlin.kotlinModule
  */
 @AutoConfiguration
 @AutoConfigureBefore(OutboxCoreAutoConfiguration::class)
-@ConditionalOnProperty(name = ["outbox.enabled"], havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class OutboxJacksonAutoConfiguration {
     /**
      * Creates OutboxPayloadSerializer bean using Jackson.

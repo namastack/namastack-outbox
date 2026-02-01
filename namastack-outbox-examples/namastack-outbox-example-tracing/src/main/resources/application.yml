@@ -35,9 +35,10 @@ management:
         otlp:
           endpoint: http://localhost:4318/v1/logs
 
-outbox:
-  instance:
-    graceful-shutdown-timeout-seconds: 2
+namastack:
+  outbox:
+    instance:
+      graceful-shutdown-timeout-seconds: 2
 
 logging:
   pattern:

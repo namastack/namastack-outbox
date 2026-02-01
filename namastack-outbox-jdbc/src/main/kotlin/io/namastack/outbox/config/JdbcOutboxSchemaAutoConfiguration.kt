@@ -22,7 +22,7 @@ import javax.sql.DataSource
  */
 @AutoConfiguration
 @ConditionalOnClass(DataSource::class)
-@ConditionalOnProperty(name = ["outbox.enabled"], havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class JdbcOutboxSchemaAutoConfiguration {
     /**
      * Creates a database initializer for outbox schema when schema initialization is enabled.
@@ -34,7 +34,7 @@ class JdbcOutboxSchemaAutoConfiguration {
      */
     @Bean
     @ConditionalOnProperty(
-        name = ["outbox.jdbc.schema-initialization.enabled"],
+        name = ["namastack.outbox.jdbc.schema-initialization.enabled"],
         havingValue = "true",
         matchIfMissing = true,
     )
@@ -60,10 +60,10 @@ class JdbcOutboxSchemaAutoConfiguration {
 
         if (hasTablePrefix || hasSchemaName) {
             throw IllegalStateException(
-                "Cannot use automatic schema initialization (outbox.jdbc.schema-initialization.enabled=true) " +
-                    "together with custom table prefix or schema name. " +
-                    "Either disable schema initialization and create tables manually with your desired naming, " +
-                    "or remove the table-prefix and schema-name configuration.",
+                "Cannot use automatic schema initialization " +
+                    "(namastack.outbox.jdbc.schema-initialization.enabled=true) together with custom table prefix or " +
+                    "schema name. Either disable schema initialization and create tables manually with your desired " +
+                    "naming, or remove the table-prefix and schema-name configuration.",
             )
         }
     }

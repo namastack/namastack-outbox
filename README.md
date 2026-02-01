@@ -161,16 +161,17 @@ Both approaches work equally well. Choose based on your preference:
 ### 5. Configure (Optional)
 
 ```yaml
-outbox:
-  poll-interval: 2000
-  batch-size: 10
-  retry:
-    policy: "exponential"
-    max-retries: 3
-    exponential:
-      initial-delay: 1000
-      max-delay: 60000
-      multiplier: 2.0
+namastack:
+  outbox:
+    poll-interval: 2000
+    batch-size: 10
+    retry:
+      policy: "exponential"
+      max-retries: 3
+      exponential:
+        initial-delay: 1000
+        max-delay: 60000
+        multiplier: 2.0
 ```
 
 For a complete list of all configuration options, see [Configuration Reference](https://outbox.namastack.io/features/#configuration-reference).
@@ -337,21 +338,22 @@ Configure retry behavior in `application.yml` to set the **default policy for al
 **Exponential Backoff (Recommended):**
 
 ```yaml
-outbox:
-  retry:
-    policy: exponential
-    max-retries: 3
-    exponential:
-      initial-delay: 1000      # 1 second
-      max-delay: 60000         # 1 minute
-      multiplier: 2.0
-    # Optional: Control which exceptions trigger retries
-    include-exceptions:
-      - java.net.SocketTimeoutException
-      - org.springframework.web.client.ResourceAccessException
-    exclude-exceptions:
-      - java.lang.IllegalArgumentException
-      - javax.validation.ValidationException
+namastack:
+  outbox:
+    retry:
+      policy: exponential
+      max-retries: 3
+      exponential:
+        initial-delay: 1000      # 1 second
+        max-delay: 60000         # 1 minute
+        multiplier: 2.0
+      # Optional: Control which exceptions trigger retries
+      include-exceptions:
+        - java.net.SocketTimeoutException
+        - org.springframework.web.client.ResourceAccessException
+      exclude-exceptions:
+        - java.lang.IllegalArgumentException
+        - javax.validation.ValidationException
 ```
 
 Delays: 1s → 2s → 4s → 8s → 16s → 32s → 60s (capped)
@@ -359,25 +361,27 @@ Delays: 1s → 2s → 4s → 8s → 16s → 32s → 60s (capped)
 **Fixed Delay:**
 
 ```yaml
-outbox:
-  retry:
-    policy: fixed
-    max-retries: 5
-    fixed:
-      delay: 5000              # Always 5 seconds
+namastack:
+  outbox:
+    retry:
+      policy: fixed
+      max-retries: 5
+      fixed:
+        delay: 5000              # Always 5 seconds
 ```
 
 **Linear Backoff:**
 
 ```yaml
-outbox:
-  retry:
-    policy: linear
-    max-retries: 5
-    linear:
-      initial-delay: 2000      # Start with 2 seconds
-      increment: 2000          # Add 2 seconds each retry
-      max-delay: 60000         # Cap at 1 minute
+namastack:
+  outbox:
+    retry:
+      policy: linear
+      max-retries: 5
+      linear:
+        initial-delay: 2000      # Start with 2 seconds
+        increment: 2000          # Add 2 seconds each retry
+        max-delay: 60000         # Cap at 1 minute
 ```
 
 Delays: 2s → 4s → 6s → 8s → 10s
@@ -385,15 +389,16 @@ Delays: 2s → 4s → 6s → 8s → 10s
 **Jittered (Prevents Thundering Herd):**
 
 ```yaml
-outbox:
-  retry:
-    policy: exponential
-    max-retries: 4
-    exponential:
-      initial-delay: 2000
-      max-delay: 60000
+namastack:
+  outbox:
+    retry:
+      policy: exponential
+      max-retries: 4
+      exponential:
+        initial-delay: 2000
+        max-delay: 60000
       multiplier: 2.0
-    jitter: 1000               # Add [-1000ms, 1000ms] random delay
+      jitter: 1000               # Add [-1000ms, 1000ms] random delay
 ```
 
 **Custom Retry Policies:**
@@ -591,10 +596,11 @@ implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC3")
 JDBC module supports custom table naming:
 
 ```yaml
-outbox:
-  jdbc:
-    table-prefix: "myapp_"
-    schema-name: "outbox_schema"
+namastack:
+  outbox:
+    jdbc:
+      table-prefix: "myapp_"
+      schema-name: "outbox_schema"
 ```
 
 ### ⚡ Virtual Threads Support (GH-134)
@@ -603,7 +609,7 @@ Automatic virtual threads support when enabled in Spring Boot for improved scala
 
 ### 🔧 Auto-Configuration (GH-155)
 
-`@EnableOutbox` removed - outbox is now auto-configured. Use `outbox.enabled=false` to opt-out.
+`@EnableOutbox` removed - outbox is now auto-configured. Use `namastack.outbox.enabled=false` to opt-out.
 
 ### 📊 JPA Index Definitions (GH-153)
 

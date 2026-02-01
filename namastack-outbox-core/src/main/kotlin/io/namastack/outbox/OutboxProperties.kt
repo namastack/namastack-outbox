@@ -20,7 +20,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  * @author Roland Beisel
  * @since 0.1.0
  */
-@ConfigurationProperties(prefix = "outbox")
+@ConfigurationProperties(prefix = "namastack.outbox")
 data class OutboxProperties(
     var enabled: Boolean = true,
     var pollInterval: Long = 2000,

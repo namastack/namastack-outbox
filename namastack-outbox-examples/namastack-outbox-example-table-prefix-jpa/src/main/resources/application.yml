@@ -19,9 +19,10 @@ spring:
         default_schema: myschema
     show-sql: true
 
-outbox:
-  instance:
-    graceful-shutdown-timeout-seconds: 2
+namastack:
+  outbox:
+    instance:
+      graceful-shutdown-timeout-seconds: 2
 
 logging:
   level:

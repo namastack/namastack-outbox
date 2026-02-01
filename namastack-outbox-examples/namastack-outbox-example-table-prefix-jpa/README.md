@@ -40,7 +40,7 @@ This is useful when you want to keep outbox (and application) tables in a non-de
 
 This example intentionally sets:
 
-- `outbox.jdbc.schema-initialization.enabled=false`
+- `namastack.outbox.jdbc.schema-initialization.enabled=false`
 
 because schema creation is handled by Hibernate (`ddl-auto=create-drop`). Note that schema initialization is enabled by default in the JDBC module, but must be disabled when using custom table prefixes or schema names.
 
