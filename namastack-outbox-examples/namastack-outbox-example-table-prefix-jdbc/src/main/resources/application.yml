@@ -14,6 +14,8 @@ outbox:
   jdbc:
     schema-name: myschema
     table-prefix: prefix_
+    schema-initialization:
+      enabled: false
 
 logging:
   level:

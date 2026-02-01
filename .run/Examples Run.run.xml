@@ -2,6 +2,7 @@
   <configuration default="false" name="Examples Run" type="CompoundRunConfigurationType">
     <toRun name="DemoApplication Annotation" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Fallback" type="SpringBootApplicationConfigurationType" />
+    <toRun name="DemoApplication Flyway JDBC" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Flyway JPA" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication H2" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication JDBC" type="SpringBootApplicationConfigurationType" />

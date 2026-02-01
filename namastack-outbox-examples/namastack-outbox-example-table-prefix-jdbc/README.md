@@ -25,7 +25,7 @@ This configuration results in table names like:
 
 ## Important Notes
 
-⚠️ **Automatic schema initialization (`outbox.jdbc.schema-initialization.enabled=true`) cannot be used together with custom table prefixes or schema names.**
+⚠️ **Automatic schema initialization is enabled by default (`outbox.jdbc.schema-initialization.enabled=true`), but cannot be used together with custom table prefixes or schema names. You must explicitly disable it when using custom naming.**
 
 When using custom naming, you must create the tables manually using:
 - Flyway migrations

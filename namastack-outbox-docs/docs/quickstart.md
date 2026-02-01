@@ -32,7 +32,7 @@ This guide will get you up and running in 5 minutes with minimal configuration.
 !!! note "JDBC vs JPA"
     We recommend the JDBC starter for quick start as it supports automatic schema creation. For JPA/Hibernate projects, see [JPA Setup](#jpa-setup) below.
 
-## Enable Scheduling & Schema Creation
+## Enable Scheduling
 
 === "Kotlin"
 
@@ -57,15 +57,6 @@ This guide will get you up and running in 5 minutes with minimal configuration.
         }
     }
     ```
-
-Enable automatic schema creation in your configuration:
-
-```yaml
-outbox:
-  jdbc:
-    schema-initialization:
-      enabled: true  # Auto-creates outbox tables on startup
-```
 
 ## Create Handlers
 

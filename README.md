@@ -66,7 +66,7 @@ dependencies {
 
 > **Note:** We use the JDBC starter here for automatic schema creation. For JPA/Hibernate projects, see [JPA Setup](#jpa-setup) below.
 
-### 2. Enable Scheduling & Schema Creation
+### 2. Enable Scheduling
 
 ```kotlin
 @SpringBootApplication
@@ -76,14 +76,6 @@ class Application
 fun main(args: Array<String>) {
     runApplication<Application>(*args)
 }
-```
-
-```yaml
-# application.yml
-outbox:
-  jdbc:
-    schema-initialization:
-      enabled: true  # Auto-creates outbox tables on startup
 ```
 
 ### 3. Create Handlers
@@ -697,162 +689,6 @@ class AggressiveRetryPolicy : OutboxRetryPolicy {
 ### Migrating to 1.0.0-RC3
 
 There are no breaking changes.
-
-### Migrating to 1.0.0-RC2
-
-Version 1.0.0-RC2 introduces several breaking changes. Please review carefully before upgrading.
-
-#### ⚠️ Breaking Changes
-
-**1. `@EnableOutbox` Annotation Removed (GH-155)**
-
-The `@EnableOutbox` annotation has been removed. The outbox functionality is now **auto-configured** when the library is on the classpath.
-
-```kotlin
-// Before (RC1)
-@SpringBootApplication
-@EnableOutbox  // ❌ Remove this
-@EnableScheduling
-class Application
-
-// After (RC2)
-@SpringBootApplication
-@EnableScheduling
-class Application
-```
-
-**To disable outbox**, use the opt-out property:
-```yaml
-outbox:
-  enabled: false
-```
-
-**2. JPA Module: Automatic Schema Creation Removed (GH-153)**
-
-The JPA module **no longer supports automatic schema creation**. You must create tables manually using Flyway, Liquibase, or SQL scripts.
-
-**Options:**
-- **Recommended**: Use Flyway/Liquibase migrations (see [example-flyway-jpa](namastack-outbox-examples/namastack-outbox-example-flyway-jpa))
-- **Alternative**: Use Hibernate's `ddl-auto: create` or `create-drop` for development
-- **Alternative**: Use the new JDBC module which supports schema initialization
-
-**3. JPA Entities Now Include Index Definitions (GH-153)**
-
-If you use Hibernate's `ddl-auto: create` or `create-drop`, indexes are now automatically created. If you manage schemas manually, ensure your migration scripts include the required indexes. See the [schema documentation](https://outbox.namastack.io/features/#schema-management) for index definitions.
-
-**4. `OffsetDateTime` Replaced with `Instant` (GH-150)**
-
-All timestamp fields now use `java.time.Instant` instead of `OffsetDateTime`. This affects custom repository implementations or direct database queries.
-
-#### 🆕 New Features
-
-**1. New JDBC Module (GH-136)**
-
-A new lightweight JDBC module is available as an alternative to JPA:
-
-```gradle
-// Use JDBC instead of JPA
-implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC2")
-```
-
-Features:
-- No Hibernate/JPA dependency required
-- Built-in schema initialization support
-- Custom table prefix and schema name support
-
-**2. Custom Table Prefix and Schema Name (GH-152)**
-
-The JDBC module supports custom table prefixes and schema names:
-
-```yaml
-outbox:
-  jdbc:
-    table-prefix: "myapp_"           # Results in: myapp_outbox_record
-    schema-name: "outbox_schema"     # Results in: outbox_schema.myapp_outbox_record
-    schema-initialization:
-      enabled: true                  # Auto-create tables (JDBC only)
-```
-
-> **Note**: Schema initialization cannot be used together with custom table prefix or schema name.
-
-**3. Virtual Threads Support (GH-134)**
-
-Full support for Java 21 virtual threads. When virtual threads are enabled in Spring Boot, the outbox processing automatically uses virtual threads for improved scalability.
-
-**4. Improved Bean Configuration (GH-144, GH-141)**
-
-- Internal beans are now marked as non-autowiring candidates to prevent bean ambiguity
-- Optimized `TransactionTemplate` usage in JPA module
-
-#### Migration Steps
-
-1. **Remove `@EnableOutbox`** from your application class
-
-2. **Choose your schema management strategy for JPA**:
-   - Add Flyway/Liquibase migrations, OR
-   - Use `ddl-auto: create` for development, OR
-   - Switch to the JDBC module with schema initialization
-
-3. **Update any custom code** using `OffsetDateTime` to use `Instant`
-
-4. **Update dependency**:
-   ```gradle
-   dependencies {
-       implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC2")
-       // OR for JDBC
-       implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0-RC2")
-   }
-   ```
-
-5. **Test thoroughly** before deploying to production
-
----
-
-### Migrating to 1.0.0-RC1
-
-Version 1.0.0-RC1 introduces breaking schema changes. **You must drop and recreate the outbox tables.**
-
-**Database Schema Changes:**
-
-The database schema has been updated to support new features (fallback handlers, context propagation, handler-specific retry policies). All outbox tables must be recreated.
-
-```sql
--- Drop existing tables (process or backup pending records first!)
-DROP TABLE IF EXISTS outbox_record CASCADE;
-DROP TABLE IF EXISTS outbox_instance CASCADE;
-DROP TABLE IF EXISTS outbox_partition CASCADE;
-
--- New schema is auto-created on next startup
--- (if outbox.schema-initialization.enabled=true)
-```
-
-**Migration Steps:**
-
-1. **Before upgrading**: 
-   - Process all pending records OR
-   - Backup `outbox_record` table if you need audit trail OR
-   - Accept data loss for pending records
-
-2. **Upgrade**:
-   ```gradle
-   dependencies {
-       implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC1")
-   }
-   ```
-
-3. **Drop old tables**: Execute the SQL above to drop all outbox tables
-
-4. **Restart application**: New schema with updated columns is auto-created
-
-**What's New in RC1 Schema:**
-- Support for context propagation (new `context` column)
-- Enhanced failure tracking for fallback handlers
-- Optimized indexes for partition-based queries
-
-**API Compatibility:**
-- ✅ No breaking changes in handler APIs (0.4.x handlers work as-is)
-- ✅ No breaking changes in `Outbox.schedule()` API
-- ✅ All existing features remain backward compatible
 
 ## Version Stability & Semantic Versioning:**
 
