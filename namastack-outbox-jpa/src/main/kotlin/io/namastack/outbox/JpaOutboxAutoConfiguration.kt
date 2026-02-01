@@ -32,7 +32,7 @@ import java.time.Clock
 @AutoConfigureAfter(TransactionAutoConfiguration::class)
 @AutoConfigureBefore(OutboxCoreAutoConfiguration::class)
 @ConditionalOnClass(EntityManagerFactory::class, OutboxService::class)
-@ConditionalOnProperty(name = ["outbox.enabled"], havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class JpaOutboxAutoConfiguration {
     /**
      * Provides a default Clock bean if none is configured.

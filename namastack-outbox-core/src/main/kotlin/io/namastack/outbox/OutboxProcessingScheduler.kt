@@ -50,7 +50,7 @@ class OutboxProcessingScheduler(
      * Each record is processed through the processor chain which handles
      * dispatching, retry logic, fallback invocation, and failure marking.
      */
-    @Scheduled(fixedDelayString = "\${outbox.poll-interval:2000}", scheduler = "outboxDefaultScheduler")
+    @Scheduled(fixedDelayString = "\${namastack.outbox.poll-interval:2000}", scheduler = "outboxDefaultScheduler")
     fun process() {
         try {
             val assignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()

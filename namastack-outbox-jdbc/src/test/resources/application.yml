@@ -5,10 +5,11 @@ spring:
     password:
     driver-class-name: org.h2.Driver
 
-outbox:
-  jdbc:
-    schema-initialization:
-      enabled: true
+namastack:
+  outbox:
+    jdbc:
+      schema-initialization:
+        enabled: true
 
 logging:
   level:

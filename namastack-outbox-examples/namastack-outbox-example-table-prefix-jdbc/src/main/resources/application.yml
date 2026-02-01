@@ -8,14 +8,15 @@ spring:
     username: sa
     password:
 
-outbox:
-  instance:
-    graceful-shutdown-timeout-seconds: 2
-  jdbc:
-    schema-name: myschema
-    table-prefix: prefix_
-    schema-initialization:
-      enabled: false
+namastack:
+  outbox:
+    instance:
+      graceful-shutdown-timeout-seconds: 2
+    jdbc:
+      schema-name: myschema
+      table-prefix: prefix_
+      schema-initialization:
+        enabled: false
 
 logging:
   level:

@@ -47,7 +47,7 @@ import java.time.Clock
  * Auto-configuration class for Outbox core functionality.
  *
  * Activated when outbox is enabled (default). Can be disabled by setting
- * `outbox.enabled=false`. Configures handler discovery and registration,
+ * `namastack.outbox.enabled=false`. Configures handler discovery and registration,
  * partition-aware processing scheduling, retry policies, instance coordination
  * for distributed deployments, and optional event multicasting.
  *
@@ -56,7 +56,7 @@ import java.time.Clock
  */
 @AutoConfiguration
 @AutoConfigurationPackage
-@ConditionalOnProperty(name = ["outbox.enabled"], havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(OutboxProperties::class)
 class OutboxCoreAutoConfiguration {
     /**
@@ -76,8 +76,8 @@ class OutboxCoreAutoConfiguration {
      *
      * Processes multiple record keys in parallel while maintaining strict ordering
      * within each record key. Pool size is configurable via:
-     * - outbox.processing.executor-core-pool-size
-     * - outbox.processing.executor-max-pool-size
+     * - namastack.outbox.processing.executor-core-pool-size
+     * - namastack.outbox.processing.executor-max-pool-size
      *
      * @param builder Builder for ThreadPoolTaskExecutor
      * @param properties Outbox configuration properties
@@ -101,7 +101,7 @@ class OutboxCoreAutoConfiguration {
      *
      * Alternative to platform thread executor when virtual threads are enabled.
      * Concurrency limit is configurable via:
-     * - outbox.processing.executor-concurrency-limit
+     * - namastack.outbox.processing.executor-concurrency-limit
      *
      * @param builder Builder for SimpleAsyncTaskExecutor
      * @param properties Outbox configuration properties
@@ -508,7 +508,7 @@ class OutboxCoreAutoConfiguration {
      *
      * Enabled by default. To disable:
      * ```properties
-     * outbox.multicaster.enabled=false
+     * namastack.outbox.multicaster.enabled=false
      * ```
      *
      * @param outbox Outbox service for scheduling events
@@ -518,7 +518,7 @@ class OutboxCoreAutoConfiguration {
      */
     @Bean(name = ["applicationEventMulticaster"])
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(name = ["outbox.multicaster.enabled"], havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(name = ["namastack.outbox.multicaster.enabled"], havingValue = "true", matchIfMissing = true)
     fun outboxApplicationEventMulticaster(
         outbox: Outbox,
         beanFactory: BeanFactory,

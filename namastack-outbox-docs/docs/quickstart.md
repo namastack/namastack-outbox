@@ -251,28 +251,29 @@ Both approaches work equally well. Choose based on your preference:
 === "YAML"
 
     ```yaml
-    outbox:
-      poll-interval: 2000
-      batch-size: 10
-      retry:
-        policy: "exponential"
-        max-retries: 3
-        exponential:
-          initial-delay: 1000
-          max-delay: 60000
-          multiplier: 2.0
+    namastack:
+      outbox:
+        poll-interval: 2000
+        batch-size: 10
+        retry:
+          policy: "exponential"
+          max-retries: 3
+          exponential:
+            initial-delay: 1000
+            max-delay: 60000
+            multiplier: 2.0
     ```
 
 === "Properties"
 
     ```properties
-    outbox.poll-interval=2000
-    outbox.batch-size=10
-    outbox.retry.policy=exponential
-    outbox.retry.max-retries=3
-    outbox.retry.exponential.initial-delay=1000
-    outbox.retry.exponential.max-delay=60000
-    outbox.retry.exponential.multiplier=2.0
+    namastack.outbox.poll-interval=2000
+    namastack.outbox.batch-size=10
+    namastack.outbox.retry.policy=exponential
+    namastack.outbox.retry.max-retries=3
+    namastack.outbox.retry.exponential.initial-delay=1000
+    namastack.outbox.retry.exponential.max-delay=60000
+    namastack.outbox.retry.exponential.multiplier=2.0
     ```
 
 For a complete list of all configuration options, see [Configuration Reference](https://outbox.namastack.io/features/#configuration-reference).

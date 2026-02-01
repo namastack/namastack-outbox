@@ -26,9 +26,9 @@ import javax.sql.DataSource
 @SpringBootTest(
     classes = [TestApplication::class],
     properties = [
-        "outbox.jdbc.schema-initialization.enabled=true",
-        "outbox.instance.graceful-shutdown-timeout-seconds=0",
-        "outbox.poll-interval=300",
+        "namastack.outbox.jdbc.schema-initialization.enabled=true",
+        "namastack.outbox.instance.graceful-shutdown-timeout-seconds=0",
+        "namastack.outbox.poll-interval=300",
     ],
 )
 @Import(MyHandler::class)

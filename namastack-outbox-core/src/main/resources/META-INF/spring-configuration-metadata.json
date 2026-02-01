@@ -6,47 +6,47 @@
       "description": "Outbox configuration properties"
     },
     {
-      "name": "outbox.retry",
+      "name": "namastack.outbox.retry",
       "type": "io.namastack.outbox.OutboxProperties$Retry",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "description": "Outbox retry configuration"
     },
     {
-      "name": "outbox.retry.fixed",
+      "name": "namastack.outbox.retry.fixed",
       "type": "io.namastack.outbox.OutboxProperties$Retry$FixedRetry",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "description": "Fixed delay retry policy configuration"
     },
     {
-      "name": "outbox.retry.linear",
+      "name": "namastack.outbox.retry.linear",
       "type": "io.namastack.outbox.OutboxProperties$Retry$LinearRetry",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "description": "Linear backoff retry policy configuration"
     },
     {
-      "name": "outbox.retry.exponential",
+      "name": "namastack.outbox.retry.exponential",
       "type": "io.namastack.outbox.OutboxProperties$Retry$ExponentialRetry",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "description": "Exponential backoff retry policy configuration"
     },
     {
-      "name": "outbox.retry.jittered",
+      "name": "namastack.outbox.retry.jittered",
       "type": "io.namastack.outbox.OutboxProperties$Retry$JitteredRetry",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "description": "Jittered retry policy configuration with configurable base policy. Deprecated: use jitter property in exponential, fixed, or linear retry configuration instead.",
       "deprecation": {
         "reason": "Use jitter property in retry configuration instead",
-        "replacement": "outbox.retry.jitter"
+        "replacement": "namastack.outbox.retry.jitter"
       }
     },
     {
-      "name": "outbox.processing",
+      "name": "namastack.outbox.processing",
       "type": "io.namastack.outbox.OutboxProperties$Processing",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "description": "Outbox processing behavior configuration"
     },
     {
-      "name": "outbox.instance",
+      "name": "namastack.outbox.instance",
       "type": "io.namastack.outbox.OutboxProperties$Instance",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "description": "Outbox instance management and coordination configuration"
@@ -54,195 +54,195 @@
   ],
   "properties": [
     {
-      "name": "outbox.enabled",
+      "name": "namastack.outbox.enabled",
       "type": "java.lang.Boolean",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "defaultValue": true,
       "description": "Whether the outbox functionality is enabled. Set to false to disable outbox auto-configuration entirely."
     },
     {
-      "name": "outbox.poll-interval",
+      "name": "namastack.outbox.poll-interval",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "defaultValue": 2000,
       "description": "Interval in milliseconds at which the outbox is polled"
     },
     {
-      "name": "outbox.batch-size",
+      "name": "namastack.outbox.batch-size",
       "type": "java.lang.Integer",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "defaultValue": 10,
       "description": "Maximum number of record keys to process in a single batch"
     },
     {
-      "name": "outbox.rebalance-interval",
+      "name": "namastack.outbox.rebalance-interval",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "defaultValue": 10000,
       "description": "Interval in milliseconds at which partition rebalancing is triggered."
     },
     {
-      "name": "outbox.retry.max-retries",
+      "name": "namastack.outbox.retry.max-retries",
       "type": "java.lang.Integer",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "defaultValue": 3,
       "description": "Maximum number of retry attempts for failed outbox records"
     },
     {
-      "name": "outbox.retry.policy",
+      "name": "namastack.outbox.retry.policy",
       "type": "java.lang.String",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "defaultValue": "exponential",
       "description": "Retry policy strategy. Options: 'fixed', 'linear', 'exponential', 'jittered'"
     },
     {
-      "name": "outbox.retry.fixed.delay",
+      "name": "namastack.outbox.retry.fixed.delay",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$FixedRetry",
       "defaultValue": 5000,
       "description": "Fixed delay in milliseconds between retry attempts for fixed delay retry policy"
     },
     {
-      "name": "outbox.retry.linear.initial-delay",
+      "name": "namastack.outbox.retry.linear.initial-delay",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$LinearRetry",
       "defaultValue": 2000,
       "description": "Initial delay in milliseconds for linear backoff retry policy"
     },
     {
-      "name": "outbox.retry.linear.increment",
+      "name": "namastack.outbox.retry.linear.increment",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$LinearRetry",
       "defaultValue": 2000,
       "description": "Amount in milliseconds to add for each subsequent retry"
     },
     {
-      "name": "outbox.retry.linear.max-delay",
+      "name": "namastack.outbox.retry.linear.max-delay",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$LinearRetry",
       "defaultValue": 60000,
       "description": "Maximum delay in milliseconds for linear backoff retry policy"
     },
     {
-      "name": "outbox.retry.exponential.initial-delay",
+      "name": "namastack.outbox.retry.exponential.initial-delay",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$ExponentialRetry",
       "defaultValue": 2000,
       "description": "Initial delay in milliseconds for exponential backoff retry policy"
     },
     {
-      "name": "outbox.retry.exponential.max-delay",
+      "name": "namastack.outbox.retry.exponential.max-delay",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$ExponentialRetry",
       "defaultValue": 60000,
       "description": "Maximum delay in milliseconds for exponential backoff retry policy"
     },
     {
-      "name": "outbox.retry.exponential.multiplier",
+      "name": "namastack.outbox.retry.exponential.multiplier",
       "type": "java.lang.Double",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$ExponentialRetry",
       "defaultValue": 2.0,
       "description": "Multiplier for exponential backoff. Each retry delay is multiplied by this factor."
     },
     {
-      "name": "outbox.retry.jitter",
+      "name": "namastack.outbox.retry.jitter",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "defaultValue": 0,
       "description": "Maximum jitter in milliseconds to add or subtract from each delay. A random value between -jitter and +jitter is applied. Default: 0 (no jitter)."
     },
     {
-      "name": "outbox.retry.jittered.base-policy",
+      "name": "namastack.outbox.retry.jittered.base-policy",
       "type": "java.lang.String",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$JitteredRetry",
       "defaultValue": "exponential",
       "description": "Base retry policy for jittered retry. Options: 'fixed', 'linear', 'exponential'",
       "deprecation": {
         "reason": "Use jitter property in retry configuration instead",
-        "replacement": "outbox.retry.jitter"
+        "replacement": "namastack.outbox.retry.jitter"
       }
     },
     {
-      "name": "outbox.retry.jittered.jitter",
+      "name": "namastack.outbox.retry.jittered.jitter",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$JitteredRetry",
       "defaultValue": 500,
       "description": "Maximum jitter in milliseconds to add or subtract from the base policy's delay. A random value between -jitter and +jitter is applied.",
       "deprecation": {
         "reason": "Use jitter property in retry configuration instead",
-        "replacement": "outbox.retry.jitter"
+        "replacement": "namastack.outbox.retry.jitter"
       }
     },
     {
-      "name": "outbox.retry.include-exceptions",
+      "name": "namastack.outbox.retry.include-exceptions",
       "type": "java.util.Set<java.lang.Class<? extends java.lang.Throwable>>",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "description": "Fully qualified class names of exceptions that should trigger retries. Only exceptions matching these types (including subclasses) will be retried. Example: [java.io.IOException, java.net.SocketTimeoutException]"
     },
     {
-      "name": "outbox.retry.exclude-exceptions",
+      "name": "namastack.outbox.retry.exclude-exceptions",
       "type": "java.util.Set<java.lang.Class<? extends java.lang.Throwable>>",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "description": "Fully qualified class names of exceptions that should NOT trigger retries. All exceptions except these types (and their subclasses) will be retried. Example: [java.lang.IllegalArgumentException, javax.validation.ValidationException]"
     },
     {
-      "name": "outbox.processing.stop-on-first-failure",
+      "name": "namastack.outbox.processing.stop-on-first-failure",
       "type": "java.lang.Boolean",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": true,
       "description": "Whether to stop processing remaining records for a record key when one record fails. If true (default), processing stops on first failure to maintain strict ordering. If false, continues processing other records allowing failed records to be retried later."
     },
     {
-      "name": "outbox.processing.publish-after-save",
+      "name": "namastack.outbox.processing.publish-after-save",
       "type": "java.lang.Boolean",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": true,
       "description": "Whether to publish records to listeners after saving them to the outbox. If true (default), records are published to listeners and saved to outbox for durability. If false, records are only saved to outbox and not published immediately."
     },
     {
-      "name": "outbox.processing.delete-completed-records",
+      "name": "namastack.outbox.processing.delete-completed-records",
       "type": "java.lang.Boolean",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": false,
       "description": "If true, completed outbox records will be deleted from the outbox table after successful processing instead of being marked as completed. Default: false."
     },
     {
-      "name": "outbox.processing.executor-core-pool-size",
+      "name": "namastack.outbox.processing.executor-core-pool-size",
       "type": "java.lang.Integer",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": 4,
       "description": "Core pool size for the ThreadPoolTaskExecutor used for parallel processing of record keys. Default: 4."
     },
     {
-      "name": "outbox.processing.executor-max-pool-size",
+      "name": "namastack.outbox.processing.executor-max-pool-size",
       "type": "java.lang.Integer",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": 8,
       "description": "Maximum pool size for the ThreadPoolTaskExecutor used for parallel processing of record keys. Default: 8."
     },
     {
-      "name": "outbox.processing.executor-concurrency-limit",
+      "name": "namastack.outbox.processing.executor-concurrency-limit",
       "type": "java.lang.Integer",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": -1,
       "description": "Concurrency limit for the SimpleAsyncTaskExecutor used for parallel processing of record keys when virtual threads are enabled. Default: -1 (no limit)."
     },
     {
-      "name": "outbox.instance.graceful-shutdown-timeout-seconds",
+      "name": "namastack.outbox.instance.graceful-shutdown-timeout-seconds",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
       "defaultValue": 15,
       "description": "Timeout in seconds for graceful shutdown of outbox processing instances"
     },
     {
-      "name": "outbox.instance.stale-instance-timeout-seconds",
+      "name": "namastack.outbox.instance.stale-instance-timeout-seconds",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
       "defaultValue": 30,
       "description": "Timeout in seconds to consider an instance stale and remove it from active instances"
     },
     {
-      "name": "outbox.instance.heartbeat-interval-seconds",
+      "name": "namastack.outbox.instance.heartbeat-interval-seconds",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
       "defaultValue": 5,

@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit.SECONDS
  */
 @OutboxIntegrationTest
 @Import(UnorderedProcessingIntegrationTest.TestProcessor::class)
-@TestPropertySource(properties = ["outbox.processing.stop-on-first-failure=false"])
+@TestPropertySource(properties = ["namastack.outbox.processing.stop-on-first-failure=false"])
 class UnorderedProcessingIntegrationTest {
     private val clock: Clock = Clock.systemDefaultZone()
 

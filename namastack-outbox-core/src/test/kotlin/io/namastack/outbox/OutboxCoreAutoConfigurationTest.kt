@@ -37,7 +37,7 @@ class OutboxCoreAutoConfigurationTest {
                     TaskSchedulingAutoConfiguration::class.java,
                     OutboxCoreAutoConfiguration::class.java,
                 ),
-            ).withPropertyValues("outbox.instance.graceful-shutdown-timeout-seconds=0")
+            ).withPropertyValues("namastack.outbox.instance.graceful-shutdown-timeout-seconds=0")
 
     @Nested
     @DisplayName("Core Beans")
@@ -114,8 +114,8 @@ class OutboxCoreAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .withPropertyValues(
-                    "outbox.retry.policy=fixed",
-                    "outbox.retry.fixed.delay=2000",
+                    "namastack.outbox.retry.policy=fixed",
+                    "namastack.outbox.retry.fixed.delay=2000",
                 ).run { context ->
                     assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
                     val policy = context.getBean<OutboxRetryPolicy>()
@@ -180,8 +180,8 @@ class OutboxCoreAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .withPropertyValues(
-                    "outbox.poll-interval=5000",
-                    "outbox.batch-size=50",
+                    "namastack.outbox.poll-interval=5000",
+                    "namastack.outbox.batch-size=50",
                 ).run { context ->
                     assertThat(context).hasNotFailed()
                     assertThat(context).hasSingleBean(OutboxProcessingScheduler::class.java)
@@ -193,9 +193,9 @@ class OutboxCoreAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .withPropertyValues(
-                    "outbox.instance.graceful-shutdown-timeout-seconds=0",
-                    "outbox.instance.stale-instance-timeout-seconds=1",
-                    "outbox.instance.heartbeat-interval-seconds=1",
+                    "namastack.outbox.instance.graceful-shutdown-timeout-seconds=0",
+                    "namastack.outbox.instance.stale-instance-timeout-seconds=1",
+                    "namastack.outbox.instance.heartbeat-interval-seconds=1",
                 ).run { context ->
                     assertThat(context).hasNotFailed()
                     assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
@@ -227,8 +227,8 @@ class OutboxCoreAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .withPropertyValues(
-                    "outbox.processing.executor-core-pool-size=7",
-                    "outbox.processing.executor-max-pool-size=15",
+                    "namastack.outbox.processing.executor-core-pool-size=7",
+                    "namastack.outbox.processing.executor-max-pool-size=15",
                 ).run { context ->
                     val executor = context.getBean("outboxTaskExecutor")
 
@@ -265,7 +265,7 @@ class OutboxCoreAutoConfigurationTest {
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .withPropertyValues(
                     "spring.threads.virtual.enabled=true",
-                    "outbox.processing.executor-concurrency-limit=100",
+                    "namastack.outbox.processing.executor-concurrency-limit=100",
                 ).run { context ->
                     val executor = context.getBean("outboxTaskExecutor")
 

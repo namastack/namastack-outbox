@@ -57,9 +57,10 @@ Control how the scheduler handles failures within a key sequence:
 
     === "Enabled (Default)"
         ```yaml
-        outbox:
-          processing:
-            stop-on-first-failure: true
+        namastack:
+          outbox:
+            processing:
+              stop-on-first-failure: true
         ```
         
         **Behavior:**
@@ -70,9 +71,10 @@ Control how the scheduler handles failures within a key sequence:
 
     === "Disabled"
         ```yaml
-        outbox:
-          processing:
-            stop-on-first-failure: false
+        namastack:
+          outbox:
+            processing:
+              stop-on-first-failure: false
         ```
         
         **Behavior:**
@@ -149,11 +151,12 @@ graph TB
 Instances automatically coordinate partition assignments and rebalance when topology changes. Configuration controls how aggressive this coordination is:
 
 ```yaml
-outbox:
-  instance:
-    heartbeat-interval-seconds: 5             # How often to send heartbeats
-    stale-instance-timeout-seconds: 30        # When to consider an instance dead
-    graceful-shutdown-timeout-seconds: 15     # Time to wait for graceful shutdown
+namastack:
+  outbox:
+    instance:
+      heartbeat-interval-seconds: 5             # How often to send heartbeats
+      stale-instance-timeout-seconds: 30        # When to consider an instance dead
+      graceful-shutdown-timeout-seconds: 15     # Time to wait for graceful shutdown
 ```
 
 !!! example "Scaling Behavior"
@@ -344,12 +347,13 @@ The `key` parameter supports Spring Expression Language (SpEL) for dynamic key e
 The multicaster can be configured to control event publishing behavior:
 
 ```yaml
-outbox:
-  multicaster:
-    enabled: true  # Enable/disable automatic interception (default: true)
+namastack:
+  outbox:
+    multicaster:
+      enabled: true  # Enable/disable automatic interception (default: true)
 
-  processing:
-    publish-after-save: true  # Also forward to other listeners in same transaction (default: true)
+    processing:
+      publish-after-save: true  # Also forward to other listeners in same transaction (default: true)
 ```
 
 | Configuration         | Value            | Effect                                                       |
@@ -1327,12 +1331,13 @@ The default retry policy applies to all handlers unless overridden. Configure it
 Retry with a constant delay between attempts:
 
 ```yaml
-outbox:
-  retry:
-    policy: "fixed"
-    max-retries: 5
-    fixed:
-      delay: 5000  # 5 seconds between retries
+namastack:
+  outbox:
+    retry:
+      policy: "fixed"
+      max-retries: 5
+      fixed:
+        delay: 5000  # 5 seconds between retries
 ```
 
 **Use Case:** Simple scenarios with consistent retry intervals
@@ -1344,14 +1349,15 @@ outbox:
 Retry with linearly increasing delays:
 
 ```yaml
-outbox:
-  retry:
-    policy: "linear"
-    max-retries: 5
-    linear:
-      initial-delay: 2000    # Start with 2 seconds
-      increment: 2000        # Add 2 seconds each retry
-      max-delay: 60000       # Cap at 1 minute
+namastack:
+  outbox:
+    retry:
+      policy: "linear"
+      max-retries: 5
+      linear:
+        initial-delay: 2000    # Start with 2 seconds
+        increment: 2000        # Add 2 seconds each retry
+        max-delay: 60000       # Cap at 1 minute
 ```
 
 **Use Case:** Gradually increasing delays for services that need time to recover
@@ -1363,14 +1369,15 @@ outbox:
 Retry with exponentially increasing delays:
 
 ```yaml
-outbox:
-  retry:
-    policy: "exponential"
-    max-retries: 3
-    exponential:
-      initial-delay: 1000    # Start with 1 second
-      max-delay: 60000       # Cap at 1 minute
-      multiplier: 2.0        # Double each time
+namastack:
+  outbox:
+    retry:
+      policy: "exponential"
+      max-retries: 3
+      exponential:
+        initial-delay: 1000    # Start with 1 second
+        max-delay: 60000       # Cap at 1 minute
+        multiplier: 2.0        # Double each time
 ```
 
 **Use Case:** Handles transient failures gracefully without overwhelming downstream services
@@ -1382,15 +1389,16 @@ outbox:
 Add random jitter to prevent thundering herd problems. Jitter can be applied to any base policy (fixed, linear, or exponential):
 
 ```yaml
-outbox:
-  retry:
-    policy: "exponential"  # Can also be "fixed" or "linear"
-    max-retries: 7
-    exponential:
-      initial-delay: 2000
-      max-delay: 60000
-      multiplier: 2.0
-    jitter: 1000  # Add [-1000ms, 1000ms] random delay
+namastack:
+  outbox:
+    retry:
+      policy: "exponential"  # Can also be "fixed" or "linear"
+      max-retries: 7
+      exponential:
+        initial-delay: 2000
+        max-delay: 60000
+        multiplier: 2.0
+      jitter: 1000  # Add [-1000ms, 1000ms] random delay
 ```
 
 **Benefits:** Prevents coordinated retry storms when multiple instances retry simultaneously
@@ -1405,15 +1413,16 @@ outbox:
 Configure which exceptions should trigger retries:
 
 ```yaml
-outbox:
-  retry:
-    policy: exponential
-    max-retries: 3
-    exponential:
-      initial-delay: 1000
-      max-delay: 60000
-      multiplier: 2.0
-    # Only retry these exceptions
+namastack:
+  outbox:
+    retry:
+      policy: exponential
+      max-retries: 3
+      exponential:
+        initial-delay: 1000
+        max-delay: 60000
+        multiplier: 2.0
+      # Only retry these exceptions
     include-exceptions:
       - java.net.SocketTimeoutException
       - org.springframework.web.client.ResourceAccessException
@@ -1828,7 +1837,7 @@ Use the fluent builder to compose robust retry policies without implementing the
 
 #### Using the autoconfigured Builder:
 
-A bean named `outboxRetryPolicyBuilder` is auto-configured from your `outbox.retry.*` application properties. Inject it to retain property-driven defaults and add programmatic customizations.
+A bean named `outboxRetryPolicyBuilder` is auto-configured from your `namastack.outbox.retry.*` application properties. Inject it to retain property-driven defaults and add programmatic customizations.
 
 === "Kotlin"
 
@@ -2098,10 +2107,11 @@ The JDBC module uses Spring's `JdbcClient` for database operations. Best for pro
 The JDBC module automatically creates outbox tables on startup by default:
 
 ```yaml
-outbox:
-  jdbc:
-    schema-initialization:
-      enabled: true  # Auto-create tables on startup (default: true)
+namastack:
+  outbox:
+    jdbc:
+      schema-initialization:
+        enabled: true  # Auto-create tables on startup (default: true)
 ```
 
 !!! note "Database Detection"
@@ -2115,10 +2125,11 @@ outbox:
 The JDBC module supports custom table naming for multi-tenant deployments or naming conventions:
 
 ```yaml
-outbox:
-  jdbc:
-    table-prefix: "myapp_"           # Results in: myapp_outbox_record, myapp_outbox_instance, etc.
-    schema-name: "outbox_schema"     # Results in: outbox_schema.myapp_outbox_record
+namastack:
+  outbox:
+    jdbc:
+      table-prefix: "myapp_"           # Results in: myapp_outbox_record, myapp_outbox_instance, etc.
+      schema-name: "outbox_schema"     # Results in: outbox_schema.myapp_outbox_record
 ```
 
 **Examples:**
@@ -2134,12 +2145,13 @@ outbox:
     When using custom table prefix or schema name, you must disable schema initialization (which is enabled by default). Schema initialization cannot be used with custom naming:
     
     ```yaml
-    outbox:
-      jdbc:
-        table-prefix: "myapp_"
-        schema-name: "custom_schema"
-        schema-initialization:
-          enabled: false  # Must be false when using custom naming
+    namastack:
+      outbox:
+        jdbc:
+          table-prefix: "myapp_"
+          schema-name: "custom_schema"
+          schema-initialization:
+            enabled: false  # Must be false when using custom naming
     ```
 
 **Manual Schema Creation:**
@@ -2179,18 +2191,20 @@ spring:
 When virtual threads are enabled, use the concurrency limit instead of pool sizes:
 
 ```yaml
-outbox:
-  processing:
-    executor-concurrency-limit: -1  # -1 for unlimited, or set a specific limit
+namastack:
+  outbox:
+    processing:
+      executor-concurrency-limit: -1  # -1 for unlimited, or set a specific limit
 ```
 
 !!! note "Platform Threads"
     When virtual threads are disabled (default), the library uses traditional thread pools:
     ```yaml
-    outbox:
-      processing:
-        executor-core-pool-size: 4
-        executor-max-pool-size: 8
+    namastack:
+      outbox:
+        processing:
+          executor-core-pool-size: 4
+          executor-max-pool-size: 8
     ```
 
 ---
@@ -2213,10 +2227,11 @@ Any JPA/JDBC-compatible database is supported. Automatic schema creation (JDBC m
 The JDBC module automatically creates its schema on startup by default. You can disable it:
 
 ```yaml
-outbox:
-  jdbc:
-    schema-initialization:
-      enabled: false
+namastack:
+  outbox:
+    jdbc:
+      schema-initialization:
+        enabled: false
 ```
 
 #### JPA Module
@@ -2351,84 +2366,86 @@ The `namastack-outbox-metrics` module provides automatic integration with Spring
 Complete reference of all configuration options:
 
 ```yaml
-outbox:
-  # Enable/Disable Outbox (Since 1.0.0-RC2)
-  enabled: true                              # Enable outbox functionality (default: true)
+namastack:
+  outbox:
+    # Enable/Disable Outbox (Since 1.0.0-RC2)
+    enabled: true                              # Enable outbox functionality (default: true)
 
-  # Polling Configuration
-  poll-interval: 2000                        # Milliseconds between polling cycles (default: 2000)
-  rebalance-interval: 10000                  # Milliseconds between rebalance checks (default: 10000)
-  batch-size: 10                             # Records per poll cycle (default: 10)
+    # Polling Configuration
+    poll-interval: 2000                        # Milliseconds between polling cycles (default: 2000)
+    rebalance-interval: 10000                  # Milliseconds between rebalance checks (default: 10000)
+    batch-size: 10                             # Records per poll cycle (default: 10)
 
-  # Processing Configuration
-  processing:
-    stop-on-first-failure: true              # Stop processing on first failure (default: true)
-    publish-after-save: true                 # Publish events to listeners after saving (default: true)
-    delete-completed-records: false          # Delete records after completion (default: false)
-    executor-core-pool-size: 4               # Core threads for processing (default: 4, platform threads)
-    executor-max-pool-size: 8                # Maximum threads for processing (default: 8, platform threads)
-    executor-concurrency-limit: -1           # Concurrency limit for virtual threads (default: -1 unlimited)
+    # Processing Configuration
+    processing:
+      stop-on-first-failure: true              # Stop processing on first failure (default: true)
+      publish-after-save: true                 # Publish events to listeners after saving (default: true)
+      delete-completed-records: false          # Delete records after completion (default: false)
+      executor-core-pool-size: 4               # Core threads for processing (default: 4, platform threads)
+      executor-max-pool-size: 8                # Maximum threads for processing (default: 8, platform threads)
+      executor-concurrency-limit: -1           # Concurrency limit for virtual threads (default: -1 unlimited)
 
-  # Event Multicaster Configuration
-  multicaster:
-    enabled: true                            # Enable @OutboxEvent interception (default: true)
+    # Event Multicaster Configuration
+    multicaster:
+      enabled: true                            # Enable @OutboxEvent interception (default: true)
 
-  # Instance Coordination Configuration
-  instance:
-    graceful-shutdown-timeout-seconds: 15    # Graceful shutdown timeout (default: 15)
-    stale-instance-timeout-seconds: 30       # When to mark instance as dead (default: 30)
-    heartbeat-interval-seconds: 5            # Heartbeat interval (default: 5)
+    # Instance Coordination Configuration
+    instance:
+      graceful-shutdown-timeout-seconds: 15    # Graceful shutdown timeout (default: 15)
+      stale-instance-timeout-seconds: 30       # When to mark instance as dead (default: 30)
+      heartbeat-interval-seconds: 5            # Heartbeat interval (default: 5)
 
-  # JDBC Module Configuration (Since 1.0.0-RC2)
-  jdbc:
-    table-prefix: ""                         # Prefix for table names (default: empty)
-    schema-name: null                        # Database schema name (default: null, uses default schema)
-    schema-initialization:
-      enabled: true                          # Auto-create tables on startup (default: true)
+    # JDBC Module Configuration (Since 1.0.0-RC2)
+    jdbc:
+      table-prefix: ""                         # Prefix for table names (default: empty)
+      schema-name: null                        # Database schema name (default: null, uses default schema)
+      schema-initialization:
+        enabled: true                          # Auto-create tables on startup (default: true)
 
-  # Retry Configuration
-  retry:
-    policy: exponential                      # Retry policy: fixed|linear|exponential (default: exponential)
-    max-retries: 3                           # Maximum retry attempts (default: 3)
-    
-    # Exception Filtering (Since 1.0.0)
-    include-exceptions:                      # Only retry these exceptions (optional)
-      - java.net.SocketTimeoutException
-      - org.springframework.web.client.ResourceAccessException
-    exclude-exceptions:                      # Never retry these exceptions (optional)
-      - java.lang.IllegalArgumentException
-      - javax.validation.ValidationException
-    
-    # Fixed Delay Policy
-    fixed:
-      delay: 5000                            # Delay in milliseconds (default: 5000)
-    
-    # Linear Backoff Policy
-    linear:
-      initial-delay: 2000                    # Initial delay in milliseconds (default: 2000)
-      increment: 2000                        # Increment per retry in milliseconds (default: 2000)
-      max-delay: 60000                       # Maximum delay cap in milliseconds (default: 60000)
-    
-    # Exponential Backoff Policy
-    exponential:
-      initial-delay: 1000                    # Initial delay in milliseconds (default: 1000)
-      max-delay: 60000                       # Maximum delay cap in milliseconds (default: 60000)
-      multiplier: 2.0                        # Backoff multiplier (default: 2.0)
-    
-    # Jitter Configuration (can be used with any policy)
-    jitter: 0                                # Max random jitter in milliseconds (default: 0)
+    # Retry Configuration
+    retry:
+      policy: exponential                      # Retry policy: fixed|linear|exponential (default: exponential)
+      max-retries: 3                           # Maximum retry attempts (default: 3)
+      
+      # Exception Filtering (Since 1.0.0)
+      include-exceptions:                      # Only retry these exceptions (optional)
+        - java.net.SocketTimeoutException
+        - org.springframework.web.client.ResourceAccessException
+      exclude-exceptions:                      # Never retry these exceptions (optional)
+        - java.lang.IllegalArgumentException
+        - javax.validation.ValidationException
+      
+      # Fixed Delay Policy
+      fixed:
+        delay: 5000                            # Delay in milliseconds (default: 5000)
+      
+      # Linear Backoff Policy
+      linear:
+        initial-delay: 2000                    # Initial delay in milliseconds (default: 2000)
+        increment: 2000                        # Increment per retry in milliseconds (default: 2000)
+        max-delay: 60000                       # Maximum delay cap in milliseconds (default: 60000)
+      
+      # Exponential Backoff Policy
+      exponential:
+        initial-delay: 1000                    # Initial delay in milliseconds (default: 1000)
+        max-delay: 60000                       # Maximum delay cap in milliseconds (default: 60000)
+        multiplier: 2.0                        # Backoff multiplier (default: 2.0)
+      
+      # Jitter Configuration (can be used with any policy)
+      jitter: 0                                # Max random jitter in milliseconds (default: 0)
 ```
 
 ### Disabling Outbox
 
 !!! success "New in 1.0.0-RC2"
-    Outbox is now auto-configured when the library is on the classpath. Use `outbox.enabled=false` to disable.
+    Outbox is now auto-configured when the library is on the classpath. Use `namastack.outbox.enabled=false` to disable.
 
 To completely disable outbox functionality:
 
 ```yaml
-outbox:
-  enabled: false
+namastack:
+  outbox:
+    enabled: false
 ```
 
 This prevents all outbox beans from being created, useful for:
