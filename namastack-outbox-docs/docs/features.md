@@ -1403,8 +1403,6 @@ namastack:
 
 **Benefits:** Prevents coordinated retry storms when multiple instances retry simultaneously
 
-**Note:** The deprecated `policy: "jittered"` configuration is still supported but it's recommended to use the `jitter` property with your chosen base policy instead.
-
 #### Exception Filtering
 
 !!! success "Exception-Based Retry Control (Since 1.0.0)"
@@ -2072,9 +2070,6 @@ The JPA module uses Hibernate/JPA for database operations. Best for projects alr
 
 ### JDBC Module
 
-!!! success "New in 1.0.0-RC2"
-    The JDBC module provides a lightweight alternative without JPA/Hibernate dependency.
-
 The JDBC module uses Spring's `JdbcClient` for database operations. Best for projects that don't use JPA or want lower overhead.
 
 === "Gradle"
@@ -2119,9 +2114,6 @@ namastack:
 
 #### Custom Table Prefix and Schema Name
 
-!!! success "New in 1.0.0-RC2"
-    Configure custom table prefixes and schema names for the JDBC module.
-
 The JDBC module supports custom table naming for multi-tenant deployments or naming conventions:
 
 ```yaml
@@ -2162,9 +2154,6 @@ Use the SQL schema files as templates and adjust table names:
 ---
 
 ## Virtual Threads Support
-
-!!! success "New in 1.0.0-RC2"
-    Full support for Java 21 virtual threads for improved scalability.
 
 When virtual threads are enabled in Spring Boot, Namastack Outbox automatically uses virtual threads for outbox processing, providing better scalability for I/O-bound workloads.
 
@@ -2368,7 +2357,6 @@ Complete reference of all configuration options:
 ```yaml
 namastack:
   outbox:
-    # Enable/Disable Outbox (Since 1.0.0-RC2)
     enabled: true                              # Enable outbox functionality (default: true)
 
     # Polling Configuration
@@ -2395,7 +2383,6 @@ namastack:
       stale-instance-timeout-seconds: 30       # When to mark instance as dead (default: 30)
       heartbeat-interval-seconds: 5            # Heartbeat interval (default: 5)
 
-    # JDBC Module Configuration (Since 1.0.0-RC2)
     jdbc:
       table-prefix: ""                         # Prefix for table names (default: empty)
       schema-name: null                        # Database schema name (default: null, uses default schema)
@@ -2436,9 +2423,6 @@ namastack:
 ```
 
 ### Disabling Outbox
-
-!!! success "New in 1.0.0-RC2"
-    Outbox is now auto-configured when the library is on the classpath. Use `namastack.outbox.enabled=false` to disable.
 
 To completely disable outbox functionality:
 

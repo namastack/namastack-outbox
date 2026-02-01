@@ -89,7 +89,7 @@
       "type": "java.lang.String",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
       "defaultValue": "exponential",
-      "description": "Retry policy strategy. Options: 'fixed', 'linear', 'exponential', 'jittered'"
+      "description": "Retry policy strategy. Options: 'fixed', 'linear', 'exponential'"
     },
     {
       "name": "namastack.outbox.retry.fixed.delay",

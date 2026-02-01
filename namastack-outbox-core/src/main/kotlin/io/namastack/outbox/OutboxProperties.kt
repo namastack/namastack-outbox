@@ -80,7 +80,7 @@ data class OutboxProperties(
      * Configuration for retry policies and behavior.
      *
      * @param maxRetries Maximum number of retry attempts
-     * @param policy Name of the retry policy to use ("fixed", "linear", "exponential", "jittered")
+     * @param policy Name of the retry policy to use ("fixed", "linear", "exponential")
      * @param fixed Configuration for fixed delay retry
      * @param linear Configuration for linear backoff retry
      * @param exponential Configuration for exponential backoff retry

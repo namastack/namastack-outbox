@@ -48,15 +48,14 @@ internal object OutboxRetryPolicyFactory {
      * - **fixed**: Constant delay between retry attempts
      * - **linear**: Linearly increasing delay with configurable increment
      * - **exponential**: Exponentially increasing delay with configurable multiplier
-     * - **jittered**: (Deprecated) Adds random jitter to a base policy. Use the `jitter` property instead.
      *
      * Jitter can be applied to any base policy (fixed, linear, or exponential) via the `jitter` property
-     * in the respective configuration section. This adds randomness to prevent the thundering herd problem.
+     * in the retry configuration section. This adds randomness to prevent the thundering herd problem.
      *
      * @param retryProperties Configuration properties containing policy name and delay settings
      * @param builder The builder instance to configure
      * @return The builder with configured delay strategy
-     * @throws IllegalStateException if the policy name or jittered base policy is unsupported
+     * @throws IllegalStateException if the policy name is unsupported
      */
     @Suppress("DEPRECATION")
     private fun configureDelay(
