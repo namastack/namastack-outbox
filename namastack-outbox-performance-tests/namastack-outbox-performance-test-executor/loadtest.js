@@ -14,13 +14,13 @@ export const options = {
             rate: RATE,
             timeUnit: '1s',
             duration: DURATION,
-            preAllocatedVUs: 200
+            preAllocatedVUs: 500
         },
     },
 };
 
 export default function () {
-    const url = `${URL}/test-${randomIntBetween(0, 255)}`;
+    const url = `${URL}/test-${randomIntBetween(0, 10000)}`;
 
     let response = http.post(url);
     check(response, {'Status ist 200': (r) => r.status === 200});

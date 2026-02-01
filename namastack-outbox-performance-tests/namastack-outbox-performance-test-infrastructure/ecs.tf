@@ -267,7 +267,7 @@ resource "aws_ecs_service" "performance_processor" {
   name            = "performance-processor"
   cluster         = aws_ecs_cluster.loadtest_cluster.id
   task_definition = aws_ecs_task_definition.performance_processor.arn
-  desired_count   = 2
+  desired_count   = 8
   launch_type     = "FARGATE"
 
   network_configuration {

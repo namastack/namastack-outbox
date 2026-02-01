@@ -7,8 +7,8 @@ spring:
     username: username
     password: password
     hikari:
-      maximum-pool-size: 30
-      minimum-idle: 10
+      maximum-pool-size: 50
+      minimum-idle: 20
       idle-timeout: 60000
       max-lifetime: 300000
       connection-timeout: 30000
@@ -27,8 +27,8 @@ management:
         include: health,info,metrics,prometheus
 
 outbox:
-  batch-size: 1000
-  poll-interval: 2000
+  batch-size: 500
+  poll-interval: 200
   rebalance-interval: 10000
   jdbc:
     schema-initialization:
@@ -37,6 +37,7 @@ outbox:
     stop-on-first-failure: false
     delete-completed-records: false
     publish-after-save: false
+    executor-concurrency-limit: 200
   instance:
     graceful-shutdown-timeout-seconds: 2
     stale-instance-timeout-seconds: 10
