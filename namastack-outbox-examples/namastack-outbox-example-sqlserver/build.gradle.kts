@@ -19,7 +19,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-flyway")
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-RC3-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0-SNAPSHOT")
     implementation("org.flywaydb:flyway-sqlserver")
     runtimeOnly("com.microsoft.sqlserver:mssql-jdbc")
 }
