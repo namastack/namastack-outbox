@@ -91,41 +91,6 @@ internal object OutboxRetryPolicyFactory {
                     ).jitter(jitter = Duration.ofMillis(retryProperties.jitter))
             }
 
-            "jittered" -> {
-                val basePolicy = retryProperties.jittered.basePolicy
-
-                when (basePolicy.lowercase()) {
-                    "fixed" -> {
-                        builder
-                            .fixedBackOff(
-                                delay = Duration.ofMillis(retryProperties.fixed.delay),
-                            ).jitter(jitter = Duration.ofMillis(retryProperties.jittered.jitter))
-                    }
-
-                    "linear" -> {
-                        builder
-                            .linearBackoff(
-                                initialDelay = Duration.ofMillis(retryProperties.linear.initialDelay),
-                                increment = Duration.ofMillis(retryProperties.linear.increment),
-                                maxDelay = Duration.ofMillis(retryProperties.linear.maxDelay),
-                            ).jitter(jitter = Duration.ofMillis(retryProperties.jittered.jitter))
-                    }
-
-                    "exponential" -> {
-                        builder
-                            .exponentialBackoff(
-                                initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
-                                maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
-                                multiplier = retryProperties.exponential.multiplier,
-                            ).jitter(jitter = Duration.ofMillis(retryProperties.jittered.jitter))
-                    }
-
-                    else -> {
-                        error("Unsupported jittered base policy: $basePolicy")
-                    }
-                }
-            }
-
             else -> {
                 error("Unsupported retry-policy: $name")
             }
