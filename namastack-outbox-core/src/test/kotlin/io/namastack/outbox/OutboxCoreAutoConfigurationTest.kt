@@ -1,10 +1,14 @@
 package io.namastack.outbox
 
+import io.mockk.every
 import io.mockk.mockk
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.retry.OutboxRetryPolicy
+import io.namastack.outbox.trigger.AdaptivePollingTrigger
+import io.namastack.outbox.trigger.FixedPollingTrigger
+import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -19,6 +23,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.task.SimpleAsyncTaskExecutor
+import org.springframework.scheduling.TriggerContext
 import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
@@ -82,7 +87,7 @@ class OutboxCoreAutoConfigurationTest {
                 .withUserConfiguration(ConfigWithCustomInstanceRegistry::class.java)
                 .run { context ->
                     assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
-                    assertThat(context.getBean(OutboxInstanceRegistry::class.java))
+                    assertThat(context.getBean<OutboxInstanceRegistry>())
                         .isEqualTo(ConfigWithCustomInstanceRegistry.instanceRegistry)
                 }
         }
@@ -175,19 +180,6 @@ class OutboxCoreAutoConfigurationTest {
     @Nested
     @DisplayName("Configuration Properties")
     inner class PropertyConfiguration {
-        @Test
-        fun `applies custom scheduling properties`() {
-            contextRunner
-                .withUserConfiguration(MinimalTestConfig::class.java)
-                .withPropertyValues(
-                    "namastack.outbox.poll-interval=5000",
-                    "namastack.outbox.batch-size=50",
-                ).run { context ->
-                    assertThat(context).hasNotFailed()
-                    assertThat(context).hasSingleBean(OutboxProcessingScheduler::class.java)
-                }
-        }
-
         @Test
         fun `applies instance configuration properties`() {
             contextRunner
@@ -358,6 +350,68 @@ class OutboxCoreAutoConfigurationTest {
         }
     }
 
+    @Nested
+    @DisplayName("Polling Configuration")
+    inner class PollingConfiguration {
+        @Test
+        fun `creates fixed trigger by default`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    assertThat(context).hasSingleBean(OutboxPollingTrigger::class.java)
+                    assertThat(context.getBean<OutboxPollingTrigger>())
+                        .isInstanceOf(FixedPollingTrigger::class.java)
+                }
+        }
+
+        @Test
+        fun `creates fixed trigger with deprecated property`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues(
+                    "namastack.outbox.poll-interval=4000",
+                ).run { context ->
+                    assertThat(context).hasSingleBean(OutboxPollingTrigger::class.java)
+                    val trigger = context.getBean<OutboxPollingTrigger>()
+
+                    assertThat(trigger).isInstanceOf(FixedPollingTrigger::class.java)
+
+                    val last = Instant.parse("2026-01-01T00:00:00Z")
+                    val ctx = mockk<TriggerContext>(relaxed = true)
+                    every { ctx.lastCompletion() } returns last
+                    val next = trigger.nextExecution(ctx)
+                    assertThat(next).isEqualTo(last.plusMillis(4000))
+                }
+        }
+
+        @Test
+        fun `creates adaptive trigger when configured`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues(
+                    "namastack.outbox.polling.trigger=adaptive",
+                    "namastack.outbox.polling.adaptive.min-interval=2000",
+                    "namastack.outbox.polling.adaptive.max-interval=80000",
+                    "namastack.outbox.polling.batch-size=100",
+                ).run { context ->
+                    assertThat(context).hasSingleBean(OutboxPollingTrigger::class.java)
+                    assertThat(context.getBean<OutboxPollingTrigger>())
+                        .isInstanceOf(AdaptivePollingTrigger::class.java)
+                }
+        }
+
+        @Test
+        fun `uses custom trigger when provided`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithCustomTrigger::class.java)
+                .run { context ->
+                    assertThat(context).hasSingleBean(OutboxPollingTrigger::class.java)
+                    assertThat(context.getBean<OutboxPollingTrigger>())
+                        .isEqualTo(ConfigWithCustomTrigger.outboxPollingTrigger)
+                }
+        }
+    }
+
     @Configuration
     private class MinimalTestConfig {
         @Bean
@@ -431,5 +485,24 @@ class OutboxCoreAutoConfigurationTest {
 
         @Bean
         fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
+    }
+
+    @Configuration
+    private class ConfigWithCustomTrigger {
+        companion object {
+            val outboxPollingTrigger = mockk<OutboxPollingTrigger>(relaxed = true)
+        }
+
+        @Bean
+        fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
+
+        @Bean
+        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
+
+        @Bean
+        fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
+
+        @Bean
+        fun outboxPollingTrigger() = outboxPollingTrigger
     }
 }

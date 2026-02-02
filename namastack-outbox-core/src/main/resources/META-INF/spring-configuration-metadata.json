@@ -6,6 +6,24 @@
       "description": "Outbox configuration properties"
     },
     {
+      "name": "namastack.outbox.polling",
+      "type": "io.namastack.outbox.OutboxProperties$Polling",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "description": "Outbox polling configuration"
+    },
+    {
+      "name": "namastack.outbox.polling.fixed",
+      "type": "io.namastack.outbox.OutboxProperties$Polling$FixedPolling",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Polling",
+      "description": "Fixed polling strategy configuration"
+    },
+    {
+      "name": "namastack.outbox.polling.adaptive",
+      "type": "io.namastack.outbox.OutboxProperties$Polling$AdaptivePolling",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Polling",
+      "description": "Adaptive polling strategy configuration"
+    },
+    {
       "name": "namastack.outbox.retry",
       "type": "io.namastack.outbox.OutboxProperties$Retry",
       "sourceType": "io.namastack.outbox.OutboxProperties",
@@ -61,21 +79,68 @@
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "defaultValue": 2000,
-      "description": "Interval in milliseconds at which the outbox is polled"
+      "description": "Interval in milliseconds at which the outbox is polled",
+      "deprecation": {
+        "reason": "Use polling.fixed.interval or polling.adaptive.min-interval/max-interval instead",
+        "replacement": "namastack.outbox.polling.fixed.interval"
+      }
     },
     {
       "name": "namastack.outbox.batch-size",
       "type": "java.lang.Integer",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "defaultValue": 10,
-      "description": "Maximum number of record keys to process in a single batch"
+      "description": "Maximum number of record keys to process in a single batch",
+      "deprecation": {
+        "reason": "Use polling.batchSize instead",
+        "replacement": "namastack.outbox.polling.batch-size"
+      }
     },
     {
       "name": "namastack.outbox.rebalance-interval",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "defaultValue": 10000,
-      "description": "Interval in milliseconds at which partition rebalancing is triggered."
+      "description": "Interval in milliseconds at which partition rebalancing is triggered",
+      "deprecation": {
+        "reason": "Use instance.rebalanceInterval instead",
+        "replacement": "namastack.outbox.instance.rebalance-interval"
+      }
+    },
+    {
+      "name": "namastack.outbox.polling.batch-size",
+      "type": "java.lang.Integer",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Polling",
+      "defaultValue": 10,
+      "description": "Maximum number of records to process in a single batch"
+    },
+    {
+      "name": "namastack.outbox.polling.trigger",
+      "type": "java.lang.String",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Polling",
+      "defaultValue": "fixed",
+      "description": "The polling trigger strategy to use. Options: 'fixed', 'adaptive'"
+    },
+    {
+      "name": "namastack.outbox.polling.fixed.interval",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Polling$FixedPolling",
+      "defaultValue": 2000,
+      "description": "Fixed interval in milliseconds between polling cycles"
+    },
+    {
+      "name": "namastack.outbox.polling.adaptive.min-interval",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Polling$AdaptivePolling",
+      "defaultValue": 1000,
+      "description": "Minimum interval in milliseconds between polling cycles for adaptive polling"
+    },
+    {
+      "name": "namastack.outbox.polling.adaptive.max-interval",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Polling$AdaptivePolling",
+      "defaultValue": 64000,
+      "description": "Maximum interval in milliseconds between polling cycles for adaptive polling"
     },
     {
       "name": "namastack.outbox.retry.max-retries",
@@ -171,7 +236,11 @@
       "type": "java.lang.Boolean",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": true,
-      "description": "Whether to publish records to listeners after saving them to the outbox. If true (default), records are published to listeners and saved to outbox for durability. If false, records are only saved to outbox and not published immediately."
+      "description": "Whether to publish records to listeners after saving them to the outbox. If true (default), records are published to listeners and saved to outbox for durability. If false, records are only saved to outbox and not published immediately.",
+      "deprecation": {
+        "reason": "Use multicaster.publishAfterSave instead",
+        "replacement": "namastack.outbox.multicaster.publish-after-save"
+      }
     },
     {
       "name": "namastack.outbox.processing.delete-completed-records",
@@ -223,11 +292,25 @@
       "description": "Interval in seconds between instance heartbeats to indicate the instance is still active"
     },
     {
+      "name": "namastack.outbox.instance.rebalance-interval",
+      "type": "java.lang.Long",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
+      "defaultValue": 10000,
+      "description": "Interval in milliseconds at which partition rebalancing is performed"
+    },
+    {
       "name": "namastack.outbox.multicaster.enabled",
       "type": "java.lang.Boolean",
       "sourceType": "io.namastack.outbox.OutboxProperties$Multicaster",
       "defaultValue": true,
       "description": "Enable or disable the custom application event multicaster for @OutboxEvent handling. If true, the OutboxEventMulticaster bean is registered."
+    },
+    {
+      "name": "namastack.outbox.multicaster.publish-after-save",
+      "type": "java.lang.Boolean",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Multicaster",
+      "defaultValue": true,
+      "description": "Whether to publish events to Spring listeners after saving them to the outbox. If true (default), events are published to listeners and saved to outbox for durability. If false, events are only saved to outbox and not published immediately."
     }
   ]
 }

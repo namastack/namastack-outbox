@@ -28,7 +28,7 @@ import javax.sql.DataSource
     properties = [
         "namastack.outbox.jdbc.schema-initialization.enabled=true",
         "namastack.outbox.instance.graceful-shutdown-timeout-seconds=0",
-        "namastack.outbox.poll-interval=300",
+        "namastack.outbox.polling.fixed.interval=300",
     ],
 )
 @Import(MyHandler::class)

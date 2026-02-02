@@ -3,11 +3,15 @@ package io.namastack.outbox
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessor
+import io.namastack.outbox.trigger.OutboxPollingTrigger
+import jakarta.annotation.PostConstruct
+import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.core.task.TaskExecutor
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ScheduledFuture
 
 /**
  * Scheduler for processing outbox records with partition-aware distribution.
@@ -18,6 +22,8 @@ import java.util.concurrent.CountDownLatch
  * Record processing is delegated to a chain of processors that handle the complete
  * record lifecycle (dispatch to handler, retry logic, fallback invocation, failure marking).
  *
+ * @param trigger Polling trigger that determines when the next processing cycle should occur
+ * @param taskScheduler Spring TaskScheduler for scheduling the processing job
  * @param recordRepository Repository for loading records
  * @param recordProcessorChain Root processor of the chain (typically PrimaryOutboxRecordProcessor)
  * @param partitionCoordinator Coordinator for partition assignments
@@ -29,6 +35,8 @@ import java.util.concurrent.CountDownLatch
  * @since 0.2.0
  */
 class OutboxProcessingScheduler(
+    private val trigger: OutboxPollingTrigger,
+    private val taskScheduler: TaskScheduler,
     private val recordRepository: OutboxRecordRepository,
     private val recordProcessorChain: OutboxRecordProcessor,
     private val partitionCoordinator: PartitionCoordinator,
@@ -37,6 +45,46 @@ class OutboxProcessingScheduler(
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
+    private var scheduledTask: ScheduledFuture<*>? = null
+
+    /**
+     * Registers the outbox processing job with the task scheduler.
+     *
+     * This method is automatically invoked after dependency injection is complete.
+     * It schedules the [process] method to run according to the configured [trigger].
+     * The method is idempotent - if a task is already scheduled, no additional task is created.
+     *
+     * Thread-safe through synchronization.
+     */
+    @PostConstruct
+    @Synchronized
+    fun registerJob() {
+        if (scheduledTask == null) {
+            scheduledTask = taskScheduler.schedule(this::process, trigger)
+            log.info("OutboxProcessingScheduler scheduled with trigger: {}", trigger.javaClass.simpleName)
+        } else {
+            log.trace("OutboxProcessingScheduler already scheduled")
+        }
+    }
+
+    /**
+     * Unregisters the outbox processing job from the task scheduler.
+     *
+     * This method is automatically invoked during application shutdown.
+     * It attempts to cancel the scheduled task gracefully (without interrupting if already running).
+     * After cancellation, the task reference is cleared.
+     *
+     * Thread-safe through synchronization.
+     */
+    @PreDestroy
+    @Synchronized
+    fun unregisterJob() {
+        val cancelled = scheduledTask?.cancel(false) ?: false
+        if (cancelled) {
+            log.info("OutboxProcessingScheduler task cancel")
+        }
+        scheduledTask = null
+    }
 
     /**
      * Scheduled processing cycle.
@@ -50,7 +98,6 @@ class OutboxProcessingScheduler(
      * Each record is processed through the processor chain which handles
      * dispatching, retry logic, fallback invocation, and failure marking.
      */
-    @Scheduled(fixedDelayString = "\${namastack.outbox.poll-interval:2000}", scheduler = "outboxDefaultScheduler")
     fun process() {
         try {
             val assignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
@@ -62,7 +109,7 @@ class OutboxProcessingScheduler(
                 recordRepository.findRecordKeysInPartitions(
                     partitions = assignedPartitions,
                     status = NEW,
-                    batchSize = properties.batchSize,
+                    batchSize = properties.batchSize ?: properties.polling.batchSize,
                     ignoreRecordKeysWithPreviousFailure = properties.processing.stopOnFirstFailure,
                 )
 

@@ -30,9 +30,8 @@ management:
 
 namastack:
   outbox:
-    batch-size: 1200
-    poll-interval: 1000
-    rebalance-interval: 10000
+    schema-initialization:
+      enabled: true
     retry:
       policy: exponential
       max-retries: 3
@@ -41,16 +40,23 @@ namastack:
         max-delay: 60000
         multiplier: 2.0
       jitter: 1000
+    polling:
+      batch-size: 1200
+      trigger: fixed
+      fixed:
+        interval: 1000
     processing:
       stop-on-first-failure: true
       delete-completed-records: true
-      publish-after-save: false
       executor-core-pool-size: 16
       executor-max-pool-size: 32
     instance:
-      graceful-shutdown-timeout-seconds: 2
-      stale-instance-timeout-seconds: 10
       heartbeat-interval-seconds: 5
+      stale-instance-timeout-seconds: 10
+      graceful-shutdown-timeout-seconds: 2
+      rebalance-interval: 10000
+    multicaster:
+      publish-after-save: false
 
 logging:
   level:

@@ -23,7 +23,7 @@ import java.math.BigDecimal
 @DisplayName("OutboxEventMulticaster")
 class OutboxEventMulticasterTest {
     private var outbox = mockk<Outbox>(relaxed = true)
-    private var outboxProperties = OutboxProperties(processing = OutboxProperties.Processing(publishAfterSave = true))
+    private var outboxProperties = OutboxProperties(multicaster = OutboxProperties.Multicaster(publishAfterSave = true))
     private var delegateEventMulticaster = mockk<SimpleApplicationEventMulticaster>()
 
     private lateinit var eventMulticaster: OutboxEventMulticaster
@@ -110,6 +110,27 @@ class OutboxEventMulticasterTest {
 
         @Test
         fun `should not publish to delegate when publishAfterSave is false`() {
+            val localProperties = OutboxProperties(multicaster = OutboxProperties.Multicaster(publishAfterSave = false))
+            val localMulticaster =
+                OutboxEventMulticaster(
+                    outbox = outbox,
+                    outboxProperties = localProperties,
+                    delegateEventMulticaster = delegateEventMulticaster,
+                )
+
+            val payload = AnnotatedEvent(id = "agg-1")
+            val event = PayloadApplicationEvent(this, payload)
+
+            localMulticaster.multicastEvent(event)
+
+            verify(exactly = 1) { outbox.schedule(payload, "agg-1", emptyMap()) }
+            verify(exactly = 0) {
+                delegateEventMulticaster.multicastEvent(any(), any())
+            }
+        }
+
+        @Test
+        fun `should not publish to delegate when deprecated publishAfterSave is false`() {
             val localProperties = OutboxProperties(processing = OutboxProperties.Processing(publishAfterSave = false))
             val localMulticaster =
                 OutboxEventMulticaster(
