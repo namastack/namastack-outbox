@@ -99,6 +99,7 @@ class OutboxProcessingScheduler(
      * dispatching, retry logic, fallback invocation, and failure marking.
      */
     fun process() {
+        var recordKeyCount = 0
         try {
             val assignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
             if (assignedPartitions.isEmpty()) return
@@ -113,13 +114,17 @@ class OutboxProcessingScheduler(
                     ignoreRecordKeysWithPreviousFailure = properties.processing.stopOnFirstFailure,
                 )
 
+            recordKeyCount = recordKeys.size
+
             if (recordKeys.isNotEmpty()) {
-                log.debug("Found {} record keys to process", recordKeys.size)
+                log.debug("Found {} record keys to process", recordKeyCount)
                 processBatch(recordKeys)
-                log.debug("Finished processing {} record keys", recordKeys.size)
+                log.debug("Finished processing {} record keys", recordKeyCount)
             }
         } catch (ex: Exception) {
             log.error("Error during outbox processing", ex)
+        } finally {
+            trigger.onTaskComplete(recordKeyCount)
         }
     }
 
