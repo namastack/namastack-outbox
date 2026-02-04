@@ -2,25 +2,20 @@ name: namastack-outbox docs
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'namastack-outbox-docs/**'
       - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pages: write
-  id-token: write
-
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -28,33 +23,17 @@ jobs:
         working-directory: namastack-outbox-docs
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt || pip install mkdocs-material
+          pip install -r requirements.txt
 
       - name: Build MkDocs site
         working-directory: namastack-outbox-docs
         run: mkdocs build --strict
 
-      - name: Upload site artifact to GitHub Pages
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: namastack-outbox-docs/site/
-
-      - name: Upload site artifact to Vercel
+      - name: Deploy to Vercel
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: "--prod"
-          working-directory: namastack-outbox-docs/site/
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          working-directory: namastack-outbox-docs/site
