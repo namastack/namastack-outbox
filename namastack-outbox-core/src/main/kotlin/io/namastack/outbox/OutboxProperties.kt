@@ -71,7 +71,7 @@ data class OutboxProperties(
      */
     data class AdaptivePolling(
         var minInterval: Long = 1000,
-        var maxInterval: Long = 64000,
+        var maxInterval: Long = 10000,
     )
 
     /**
