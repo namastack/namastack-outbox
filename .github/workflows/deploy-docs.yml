@@ -2,8 +2,6 @@ name: namastack-outbox docs
 
 on:
   push:
-    branches:
-      - main
     paths:
       - 'namastack-outbox-docs/**'
       - '.github/workflows/deploy-docs.yml'
@@ -36,10 +34,19 @@ jobs:
         working-directory: namastack-outbox-docs
         run: mkdocs build --strict
 
-      - name: Upload site artifact
+      - name: Upload site artifact to GitHub Pages
         uses: actions/upload-pages-artifact@v4
         with:
           path: namastack-outbox-docs/site/
+
+      - name: Upload site artifact to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: "--prod"
+          working-directory: namastack-outbox-docs/site/
 
   deploy:
     runs-on: ubuntu-latest
