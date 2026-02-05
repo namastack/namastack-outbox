@@ -52,6 +52,14 @@ resource "aws_security_group" "processor_sg" {
   name   = "processor-sg"
   vpc_id = module.vpc.vpc_id
 
+  # Allow Prometheus to scrape metrics
+  ingress {
+    from_port       = 8081
+    to_port         = 8081
+    protocol        = "tcp"
+    security_groups = [aws_security_group.prometheus_sg.id]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -93,4 +101,32 @@ resource "aws_security_group" "db_sg" {
       aws_security_group.processor_sg.id
     ]
   }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
+
+resource "aws_security_group" "prometheus_sg" {
+  name   = "prometheus-sg"
+  vpc_id = module.vpc.vpc_id
+
+  # Allow Grafana to query Prometheus
+  ingress {
+    from_port       = 9090
+    to_port         = 9090
+    protocol        = "tcp"
+    security_groups = [aws_security_group.grafana_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+

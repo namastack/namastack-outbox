@@ -16,6 +16,30 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_policy" "ecs_secrets" {
+  name = "ecs-secrets-access"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          aws_secretsmanager_secret.db_credentials.arn,
+          aws_secretsmanager_secret.grafana_credentials.arn
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_secrets_attach" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = aws_iam_policy.ecs_secrets.arn
+}
+
 resource "aws_iam_policy" "ecs_ssm" {
   name = "ecs-ssm-access"
   policy = jsonencode({
@@ -112,6 +136,11 @@ resource "aws_cloudwatch_log_group" "performance_executor" {
   retention_in_days = 1
 }
 
+resource "aws_cloudwatch_log_group" "prometheus" {
+  name              = "/ecs/prometheus"
+  retention_in_days = 1
+}
+
 resource "aws_ecs_cluster" "loadtest_cluster" {
   name = "loadtest-cluster"
 }
@@ -130,6 +159,10 @@ data "aws_ecr_repository" "performance-test-processor" {
 
 data "aws_ecr_repository" "performance-test-producer" {
   name = "outbox/performance-test-producer"
+}
+
+data "aws_ecr_repository" "prometheus" {
+  name = "outbox/prometheus"
 }
 
 data "aws_ecr_image" "grafana" {
@@ -152,6 +185,11 @@ data "aws_ecr_image" "performance-test-producer" {
   most_recent     = true
 }
 
+data "aws_ecr_image" "prometheus" {
+  repository_name = "outbox/prometheus"
+  most_recent     = true
+}
+
 resource "aws_ecs_task_definition" "grafana" {
   family                   = "grafana"
   requires_compatibilities = ["FARGATE"]
@@ -170,16 +208,19 @@ resource "aws_ecs_task_definition" "grafana" {
 
       environment = [
         {
-          name  = "GF_SECURITY_ADMIN_USER",
-          value = "admin"
-        },
-        {
-          name  = "GF_SECURITY_ADMIN_PASSWORD",
-          value = var.grafana_admin_password
-        },
-        {
           name  = "GF_AUTH_ANONYMOUS_ENABLED",
           value = "false"
+        }
+      ]
+
+      secrets = [
+        {
+          name      = "GF_SECURITY_ADMIN_USER",
+          valueFrom = "${aws_secretsmanager_secret.grafana_credentials.arn}:admin_user::"
+        },
+        {
+          name      = "GF_SECURITY_ADMIN_PASSWORD",
+          valueFrom = "${aws_secretsmanager_secret.grafana_credentials.arn}:admin_password::"
         }
       ]
 
@@ -187,7 +228,7 @@ resource "aws_ecs_task_definition" "grafana" {
         logDriver = "awslogs"
         options = {
           awslogs-group         = "/ecs/grafana"
-          awslogs-region        = "eu-central-1"
+          awslogs-region        = var.aws_region
           awslogs-stream-prefix = "ecs"
         }
       }
@@ -203,8 +244,8 @@ resource "aws_ecs_service" "grafana" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = module.vpc.public_subnets
-    assign_public_ip = true
+    subnets          = module.vpc.private_subnets
+    assign_public_ip = false
     security_groups  = [aws_security_group.grafana_sg.id]
   }
 
@@ -240,15 +281,18 @@ resource "aws_ecs_task_definition" "performance_processor" {
     environment = [
       {
         name  = "SPRING_DATASOURCE_URL",
-        value = "jdbc:postgresql://${aws_db_instance.loadtest_db.endpoint}/${aws_db_instance.loadtest_db.db_name}"
+        value = "jdbc:postgresql://${aws_db_proxy.loadtest_proxy.endpoint}:5432/${aws_db_instance.loadtest_db.db_name}"
+      }
+    ]
+
+    secrets = [
+      {
+        name      = "SPRING_DATASOURCE_USERNAME",
+        valueFrom = "${aws_secretsmanager_secret.db_credentials.arn}:username::"
       },
       {
-        name  = "SPRING_DATASOURCE_USERNAME",
-        value = aws_db_instance.loadtest_db.username
-      },
-      {
-        name  = "SPRING_DATASOURCE_PASSWORD",
-        value = var.db_password
+        name      = "SPRING_DATASOURCE_PASSWORD",
+        valueFrom = "${aws_secretsmanager_secret.db_credentials.arn}:password::"
       }
     ]
 
@@ -256,7 +300,7 @@ resource "aws_ecs_task_definition" "performance_processor" {
       logDriver = "awslogs"
       options = {
         awslogs-group         = "/ecs/performance-processor"
-        awslogs-region        = "eu-central-1"
+        awslogs-region        = var.aws_region
         awslogs-stream-prefix = "ecs"
       }
     }
@@ -271,9 +315,13 @@ resource "aws_ecs_service" "performance_processor" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = module.vpc.public_subnets
-    assign_public_ip = true
+    subnets          = module.vpc.private_subnets
+    assign_public_ip = false
     security_groups  = [aws_security_group.processor_sg.id]
+  }
+
+  service_registries {
+    registry_arn = aws_service_discovery_service.processor.arn
   }
 
   triggers = {
@@ -302,15 +350,18 @@ resource "aws_ecs_task_definition" "performance_producer" {
     environment = [
       {
         name  = "SPRING_R2DBC_URL",
-        value = "r2dbc:postgresql://${aws_db_instance.loadtest_db.endpoint}/${aws_db_instance.loadtest_db.db_name}?sslMode=require"
+        value = "r2dbc:postgresql://${aws_db_proxy.loadtest_proxy.endpoint}:5432/${aws_db_instance.loadtest_db.db_name}"
+      }
+    ]
+
+    secrets = [
+      {
+        name      = "SPRING_R2DBC_USERNAME",
+        valueFrom = "${aws_secretsmanager_secret.db_credentials.arn}:username::"
       },
       {
-        name  = "SPRING_R2DBC_USERNAME",
-        value = aws_db_instance.loadtest_db.username
-      },
-      {
-        name  = "SPRING_R2DBC_PASSWORD",
-        value = var.db_password
+        name      = "SPRING_R2DBC_PASSWORD",
+        valueFrom = "${aws_secretsmanager_secret.db_credentials.arn}:password::"
       }
     ]
 
@@ -318,7 +369,7 @@ resource "aws_ecs_task_definition" "performance_producer" {
       logDriver = "awslogs"
       options = {
         awslogs-group         = "/ecs/performance-producer"
-        awslogs-region        = "eu-central-1"
+        awslogs-region        = var.aws_region
         awslogs-stream-prefix = "ecs"
       }
     }
@@ -334,9 +385,13 @@ resource "aws_ecs_service" "performance_producer" {
   enable_execute_command = true
 
   network_configuration {
-    subnets          = module.vpc.public_subnets
-    assign_public_ip = true
+    subnets          = module.vpc.private_subnets
+    assign_public_ip = false
     security_groups  = [aws_security_group.producer_sg.id]
+  }
+
+  service_registries {
+    registry_arn = aws_service_discovery_service.producer.arn
   }
 
   triggers = {
@@ -360,7 +415,7 @@ resource "aws_ecs_task_definition" "performance_executor" {
     environment = [
       {
         name  = "API_URL",
-        value = "http://${aws_lb.loadtest_lb.dns_name}:8082/outbox/record"
+        value = "http://producer.loadtest.internal:8082/outbox/record"
       },
       {
         name  = "RATE",
@@ -376,9 +431,60 @@ resource "aws_ecs_task_definition" "performance_executor" {
       logDriver = "awslogs"
       options = {
         awslogs-group         = "/ecs/performance-executor"
-        awslogs-region        = "eu-central-1"
+        awslogs-region        = var.aws_region
         awslogs-stream-prefix = "ecs"
       }
     }
   }])
+}
+
+resource "aws_ecs_task_definition" "prometheus" {
+  family                   = "prometheus"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = 1024
+  memory                   = 2048
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+
+  container_definitions = jsonencode([{
+    name  = "prometheus"
+    image = "${data.aws_ecr_repository.prometheus.repository_url}@${data.aws_ecr_image.prometheus.image_digest}"
+
+    portMappings = [{
+      containerPort = 9090
+      protocol      = "tcp"
+    }]
+
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = "/ecs/prometheus"
+        awslogs-region        = var.aws_region
+        awslogs-stream-prefix = "ecs"
+      }
+    }
+  }])
+}
+
+resource "aws_ecs_service" "prometheus" {
+  name            = "prometheus"
+  cluster         = aws_ecs_cluster.loadtest_cluster.id
+  task_definition = aws_ecs_task_definition.prometheus.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = module.vpc.private_subnets
+    assign_public_ip = false
+    security_groups  = [aws_security_group.prometheus_sg.id]
+  }
+
+  service_registries {
+    registry_arn = aws_service_discovery_service.prometheus.arn
+  }
+
+  triggers = {
+    redeployment = data.aws_ecr_image.prometheus.image_digest
+  }
 }

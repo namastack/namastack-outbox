@@ -5,12 +5,6 @@ springBoot = "4.0.2"
 dependencyManagement = "1.1.7"
 dokka = "2.1.0"
 
-# Dependency versions
-postgresql = "42.7.4"
-postgresR2dbc = "1.0.8.RELEASE"
-jackson = "3.0.2"
-commons = "1.20.0"
-
 [libraries]
 # Kotlin dependencies
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }

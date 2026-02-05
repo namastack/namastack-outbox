@@ -3,7 +3,7 @@ spring:
     name: namastack-outbox-performance-test-processor
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/outbox_performance_test
+    url: jdbc:postgresql://localhost:6432/outbox_performance_test
     username: username
     password: password
     hikari:
@@ -26,21 +26,23 @@ management:
       exposure:
         include: health,info,metrics,prometheus
 
-outbox:
-  batch-size: 1000
-  poll-interval: 2000
-  rebalance-interval: 10000
-  jdbc:
-    schema-initialization:
-      enabled: true
-  processing:
-    stop-on-first-failure: false
-    delete-completed-records: false
-    publish-after-save: false
-  instance:
-    graceful-shutdown-timeout-seconds: 2
-    stale-instance-timeout-seconds: 10
-    heartbeat-interval-seconds: 5
+namastack:
+  outbox:
+    polling:
+      trigger: adaptive
+      adaptive:
+        max-interval: 2000
+        min-interval: 200
+    batch-size: 500
+    rebalance-interval: 10000
+    processing:
+      stop-on-first-failure: false
+      delete-completed-records: false
+      publish-after-save: false
+    instance:
+      graceful-shutdown-timeout-seconds: 0
+      stale-instance-timeout-seconds: 10
+      heartbeat-interval-seconds: 5
 
 logging:
   level:

@@ -8,3 +8,21 @@ services:
       POSTGRES_PASSWORD: password
     ports:
       - "5432:5432"
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: pgbouncer
+    depends_on:
+      - postgres
+    environment:
+      DB_USER: username
+      DB_PASSWORD: password
+      DB_NAME: outbox_performance_test
+      DB_HOST: postgres
+      DB_PORT: 5432
+      POOL_MODE: session
+      MAX_CLIENT_CONN: 500
+      DEFAULT_POOL_SIZE: 100
+      AUTH_TYPE: scram-sha-256
+    ports:
+      - "6432:5432"

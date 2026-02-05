@@ -2,7 +2,7 @@ spring:
   application:
     name: namastack-outbox-performance-test-producer
   r2dbc:
-    url: r2dbc:postgresql://localhost:5432/outbox_performance_test
+    url: r2dbc:postgresql://localhost:6432/outbox_performance_test
     username: username
     password: password
     pool:

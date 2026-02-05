@@ -8,4 +8,10 @@ datasources:
     access: proxy
     jsonData:
       defaultRegion: eu-central-1
+
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus.loadtest.internal:9090
     isDefault: true
