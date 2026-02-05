@@ -87,10 +87,11 @@ resource "aws_security_group" "producer_sg" {
   }
 }
 
-resource "aws_security_group" "db_sg" {
-  name   = "db-sg"
+resource "aws_security_group" "rds_proxy_sg" {
+  name   = "rds-proxy-sg"
   vpc_id = module.vpc.vpc_id
 
+  # Allow connections from services
   ingress {
     from_port = 5432
     to_port   = 5432
@@ -100,6 +101,26 @@ resource "aws_security_group" "db_sg" {
       aws_security_group.producer_sg.id,
       aws_security_group.processor_sg.id
     ]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "db_sg" {
+  name   = "db-sg"
+  vpc_id = module.vpc.vpc_id
+
+  # Allow connections from RDS Proxy only
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.rds_proxy_sg.id]
   }
 
   egress {

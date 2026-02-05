@@ -79,7 +79,7 @@ resource "aws_db_proxy" "loadtest_proxy" {
   idle_client_timeout    = 1800
   require_tls            = false
   role_arn               = aws_iam_role.rds_proxy_role.arn
-  vpc_security_group_ids = [aws_security_group.db_sg.id]
+  vpc_security_group_ids = [aws_security_group.rds_proxy_sg.id]
   vpc_subnet_ids         = module.vpc.private_subnets
 
   auth {
