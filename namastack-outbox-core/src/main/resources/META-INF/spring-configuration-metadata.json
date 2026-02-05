@@ -139,7 +139,7 @@
       "name": "namastack.outbox.polling.adaptive.max-interval",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Polling$AdaptivePolling",
-      "defaultValue": 10000,
+      "defaultValue": 8000,
       "description": "Maximum interval in milliseconds between polling cycles for adaptive polling"
     },
     {
