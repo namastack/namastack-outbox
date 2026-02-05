@@ -94,7 +94,7 @@ class OutboxEventMulticaster(
         log.debug("Saving @OutboxEvent to outbox: $classSimpleName")
         saveOutboxRecord(payload, annotation)
 
-        if (outboxProperties.processing.publishAfterSave) {
+        if (outboxProperties.processing.publishAfterSave ?: outboxProperties.multicaster.publishAfterSave) {
             log.debug("Publishing @OutboxEvent to listeners: $classSimpleName")
             delegateEventMulticaster.multicastEvent(event, eventType)
         }

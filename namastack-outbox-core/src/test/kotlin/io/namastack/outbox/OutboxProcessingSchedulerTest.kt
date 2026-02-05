@@ -5,14 +5,19 @@ import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessor
+import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.core.task.SyncTaskExecutor
+import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
+import java.util.concurrent.ScheduledFuture
 
 class OutboxProcessingSchedulerTest {
+    private val trigger: OutboxPollingTrigger = mockk(relaxed = true)
+    private val taskScheduler: TaskScheduler = mockk(relaxed = true)
     private val recordRepository: OutboxRecordRepository = mockk(relaxed = true)
     private val recordProcessorChain: OutboxRecordProcessor = mockk(relaxed = true)
     private val partitionCoordinator: PartitionCoordinator = mockk(relaxed = true)
@@ -22,7 +27,7 @@ class OutboxProcessingSchedulerTest {
 
     private val properties =
         OutboxProperties().apply {
-            batchSize = 100
+            polling.batchSize = 100
             processing.stopOnFirstFailure = false
         }
 
@@ -32,6 +37,8 @@ class OutboxProcessingSchedulerTest {
     fun setUp() {
         scheduler =
             OutboxProcessingScheduler(
+                trigger = trigger,
+                taskScheduler = taskScheduler,
                 recordRepository = recordRepository,
                 recordProcessorChain = recordProcessorChain,
                 partitionCoordinator = partitionCoordinator,
@@ -41,6 +48,29 @@ class OutboxProcessingSchedulerTest {
             )
 
         every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+    }
+
+    @Test
+    fun `registerJob schedules processing once`() {
+        val scheduledFuture: ScheduledFuture<*> = mockk(relaxed = true)
+        every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
+
+        scheduler.registerJob()
+        scheduler.registerJob()
+
+        verify(exactly = 1) { taskScheduler.schedule(any(), trigger) }
+    }
+
+    @Test
+    fun `unregisterJob cancels scheduled task when present`() {
+        val scheduledFuture: ScheduledFuture<*> = mockk(relaxed = true)
+        every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
+        scheduler.registerJob()
+
+        scheduler.unregisterJob()
+        scheduler.unregisterJob()
+
+        verify(exactly = 1) { scheduledFuture.cancel(false) }
     }
 
     @Test
@@ -105,6 +135,25 @@ class OutboxProcessingSchedulerTest {
 
     @Test
     fun `process respects batch size configuration`() {
+        properties.polling.batchSize = 50
+
+        prepareFindRecordKeysInPartitions(emptyList())
+
+        scheduler.process()
+
+        verify {
+            recordRepository.findRecordKeysInPartitions(
+                partitions = any(),
+                status = any(),
+                batchSize = 50,
+                ignoreRecordKeysWithPreviousFailure = any(),
+            )
+        }
+    }
+
+    @Test
+    fun `process respects batch size deprecated configuration`() {
+        properties.polling.batchSize = 100
         properties.batchSize = 50
 
         prepareFindRecordKeysInPartitions(emptyList())

@@ -20,6 +20,8 @@ import io.namastack.outbox.processor.RetryOutboxRecordProcessor
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
+import io.namastack.outbox.trigger.OutboxPollingTrigger
+import io.namastack.outbox.trigger.OutboxPollingTriggerFactory
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.config.BeanDefinition
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -38,6 +40,7 @@ import org.springframework.context.annotation.Role
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.core.task.SimpleAsyncTaskExecutor
 import org.springframework.core.task.TaskExecutor
+import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
@@ -462,23 +465,50 @@ class OutboxCoreAutoConfiguration {
     }
 
     /**
+     * Creates the polling trigger for outbox record processing.
+     *
+     * The trigger determines when the next polling cycle should occur. The implementation
+     * is selected based on the configured polling strategy:
+     * - **fixed**: Uses fixed delay between polling cycles (default 2000ms)
+     * - **adaptive**: Dynamically adjusts delay based on workload (min 1000ms, max 64000ms)
+     *
+     * @param properties Configuration properties containing polling settings
+     * @param clock Clock for time calculations
+     * @return OutboxPollingTrigger implementation based on configuration
+     * @see io.namastack.outbox.trigger.FixedPollingTrigger
+     * @see io.namastack.outbox.trigger.AdaptivePollingTrigger
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxPollingTrigger(
+        properties: OutboxProperties,
+        clock: Clock,
+    ): OutboxPollingTrigger =
+        OutboxPollingTriggerFactory.create(
+            properties = properties,
+            clock = clock,
+        )
+
+    /**
      * Scheduler for outbox record processing with partition coordination.
      *
      * Loads record keys from assigned partitions in batches and dispatches them
      * for parallel processing. Each record is processed through the processor chain
      * which handles dispatching, retry logic, fallback invocation, and failure marking.
      *
+     * @param trigger Polling trigger that determines when the next processing cycle should occur
      * @param recordRepository Repository for loading records
      * @param recordProcessorChain Root processor of the chain (PrimaryOutboxRecordProcessor)
      * @param partitionCoordinator Coordinator for partition assignments
      * @param properties Configuration properties
      * @param clock Clock for time calculations
-     * @param beanFactory Factory for retrieving the outboxTaskExecutor bean
+     * @param beanFactory Factory for retrieving the outboxTaskExecutor and outboxDefaultScheduler beans
      * @return OutboxProcessingScheduler for coordinated processing
      */
     @Bean
     @ConditionalOnMissingBean
     fun outboxProcessingScheduler(
+        trigger: OutboxPollingTrigger,
         recordRepository: OutboxRecordRepository,
         recordProcessorChain: OutboxRecordProcessor,
         partitionCoordinator: PartitionCoordinator,
@@ -486,9 +516,12 @@ class OutboxCoreAutoConfiguration {
         clock: Clock,
         beanFactory: BeanFactory,
     ): OutboxProcessingScheduler {
+        val taskScheduler = beanFactory.getBean("outboxDefaultScheduler") as TaskScheduler
         val taskExecutor = beanFactory.getBean("outboxTaskExecutor") as TaskExecutor
 
         return OutboxProcessingScheduler(
+            trigger = trigger,
+            taskScheduler = taskScheduler,
             recordRepository = recordRepository,
             recordProcessorChain = recordProcessorChain,
             partitionCoordinator = partitionCoordinator,
