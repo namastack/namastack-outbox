@@ -311,7 +311,7 @@ resource "aws_ecs_service" "performance_processor" {
   name            = "performance-processor"
   cluster         = aws_ecs_cluster.loadtest_cluster.id
   task_definition = aws_ecs_task_definition.performance_processor.arn
-  desired_count   = 8
+  desired_count   = 3
   launch_type     = "FARGATE"
 
   network_configuration {
@@ -349,8 +349,16 @@ resource "aws_ecs_task_definition" "performance_producer" {
 
     environment = [
       {
+        name  = "SPRING_R2DBC_NAME",
+        value = aws_db_instance.loadtest_db.db_name
+      },
+      {
         name  = "SPRING_R2DBC_URL",
-        value = "r2dbc:postgresql://${aws_db_proxy.loadtest_proxy.endpoint}:5432/${aws_db_instance.loadtest_db.db_name}"
+        value = "r2dbc:postgresql://${aws_db_proxy.loadtest_proxy.endpoint}:5432"
+      },
+      {
+        name  = "SPRING_R2DBC_PROPERTIES_SSLMODE",
+        value = "require"
       }
     ]
 
