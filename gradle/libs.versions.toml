@@ -25,6 +25,7 @@ spring-boot-starter-data-jdbc-test = { module = "org.springframework.boot:spring
 spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator" }
 spring-tx = { module = "org.springframework:spring-tx" }
 spring-jdbc = { module = "org.springframework:spring-jdbc" }
+spring-kafka = { module = "org.springframework.kafka:spring-kafka" }
 
 # Jakarta dependencies
 jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api" }
