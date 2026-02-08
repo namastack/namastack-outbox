@@ -275,6 +275,25 @@ class OutboxRouteTest {
                 .containsEntry("bifunction", "value3")
                 .hasSize(3)
         }
+
+        @Test
+        fun `multiple headers() calls accumulate`() {
+            val route =
+                OutboxRoute
+                    .Builder(selector)
+                    .apply {
+                        target("test")
+                        headers { _, _ -> mapOf("first" to "one") }
+                        headers { _, _ -> mapOf("second" to "two") }
+                        headers { _, meta -> mapOf("tenant" to meta.context["tenant"]!!) }
+                    }.build()
+
+            assertThat(route.headers("payload", metadata))
+                .containsEntry("first", "one")
+                .containsEntry("second", "two")
+                .containsEntry("tenant", "acme")
+                .hasSize(3)
+        }
     }
 
     @Nested

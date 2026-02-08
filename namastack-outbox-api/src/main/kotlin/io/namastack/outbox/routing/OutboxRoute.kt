@@ -201,7 +201,7 @@ class OutboxRoute internal constructor(
         }
 
         /**
-         * Adds a single static header.
+         * Adds a single static header. Header is merged with any existing headers.
          */
         fun header(
             key: String,
@@ -215,7 +215,7 @@ class OutboxRoute internal constructor(
         }
 
         /**
-         * Adds a single dynamic header.
+         * Adds a single dynamic header. Header is merged with any existing headers.
          */
         @JvmSynthetic
         fun header(
@@ -230,7 +230,7 @@ class OutboxRoute internal constructor(
         }
 
         /**
-         * Adds a single dynamic header (Java-friendly).
+         * Adds a single dynamic header (Java-friendly). Header is merged with any existing headers.
          */
         fun header(
             key: String,
@@ -244,18 +244,26 @@ class OutboxRoute internal constructor(
         }
 
         /**
-         * Sets a headers provider.
+         * Sets a headers provider. Headers are merged with any existing headers.
          */
         @JvmSynthetic
         fun headers(provider: (Any, OutboxRecordMetadata) -> Map<String, String>) {
-            this.headersProvider = BiFunction { payload, metadata -> provider(payload, metadata) }
+            val existing = this.headersProvider
+            this.headersProvider =
+                BiFunction { payload, metadata ->
+                    existing.apply(payload, metadata) + provider(payload, metadata)
+                }
         }
 
         /**
-         * Sets a headers provider (Java-friendly).
+         * Sets a headers provider (Java-friendly). Headers are merged with any existing headers.
          */
         fun headers(provider: BiFunction<Any, OutboxRecordMetadata, Map<String, String>>) {
-            this.headersProvider = provider
+            val existing = this.headersProvider
+            this.headersProvider =
+                BiFunction { payload, metadata ->
+                    existing.apply(payload, metadata) + provider.apply(payload, metadata)
+                }
         }
 
         /**
