@@ -30,11 +30,11 @@ import java.util.function.Consumer
  * @param configurer Lambda to configure routing rules
  * @return A [KafkaOutboxRouting] instance
  */
-fun kafkaOutboxRouting(configurer: OutboxRoutingConfigurer.() -> Unit): KafkaOutboxRouting {
-    val builder = OutboxRoutingConfigurer()
+fun kafkaOutboxRouting(configurer: KafkaOutboxRouting.Builder.() -> Unit): KafkaOutboxRouting {
+    val builder = KafkaOutboxRouting.builder()
     builder.configurer()
 
-    return KafkaOutboxRouting(builder)
+    return builder.build()
 }
 
 /**
@@ -76,16 +76,9 @@ fun kafkaOutboxRouting(configurer: OutboxRoutingConfigurer.() -> Unit): KafkaOut
  * @since 1.1.0
  */
 class KafkaOutboxRouting(
-    configurer: OutboxRoutingConfigurer,
-) : OutboxRouting(configurer) {
-    companion object {
-        /**
-         * Creates a new builder for routing configuration (Java-friendly).
-         */
-        @JvmStatic
-        fun builder(): Builder = Builder()
-    }
-
+    rules: List<OutboxRoute>,
+    defaultRule: OutboxRoute?,
+) : OutboxRouting(rules, defaultRule) {
     /**
      * Resolves the Kafka topic for a given payload and metadata.
      *
@@ -96,11 +89,28 @@ class KafkaOutboxRouting(
         metadata: OutboxRecordMetadata,
     ): String = resolveTarget(payload, metadata)
 
+    companion object {
+        /**
+         * Creates a new builder for routing configuration (Java-friendly).
+         */
+        @JvmStatic
+        fun builder(): Builder = Builder()
+    }
+
     /**
      * Java-friendly builder for [KafkaOutboxRouting].
      */
     class Builder {
         private val configurer = OutboxRoutingConfigurer()
+
+        fun route(
+            selector: OutboxPayloadSelector,
+            routeConfigurer: OutboxRoute.Builder.() -> Unit,
+        ): Builder {
+            configurer.route(selector, routeConfigurer)
+
+            return this
+        }
 
         fun route(
             selector: OutboxPayloadSelector,
@@ -111,12 +121,22 @@ class KafkaOutboxRouting(
             return this
         }
 
+        fun defaults(routeConfigurer: OutboxRoute.Builder.() -> Unit): Builder {
+            configurer.defaults(routeConfigurer)
+
+            return this
+        }
+
         fun defaults(routeConfigurer: Consumer<OutboxRoute.Builder>): Builder {
             configurer.defaults(routeConfigurer)
 
             return this
         }
 
-        fun build(): KafkaOutboxRouting = KafkaOutboxRouting(configurer)
+        fun build(): KafkaOutboxRouting =
+            KafkaOutboxRouting(
+                rules = configurer.rules(),
+                defaultRule = configurer.defaultRule(),
+            )
     }
 }

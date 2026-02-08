@@ -134,9 +134,9 @@ class KafkaOutboxRoutingTest {
 
             val result =
                 builder
-                    .route(OutboxPayloadSelector.type(String::class.java)) { it.target("strings") }
-                    .route(OutboxPayloadSelector.type(Int::class.javaObjectType)) { it.target("ints") }
-                    .defaults { it.target("default") }
+                    .route(OutboxPayloadSelector.type(String::class.java)) { target("strings") }
+                    .route(OutboxPayloadSelector.type(Int::class.javaObjectType)) { target("ints") }
+                    .defaults { target("default") }
 
             assertThat(result).isSameAs(builder)
         }
@@ -146,8 +146,8 @@ class KafkaOutboxRoutingTest {
             val routing =
                 KafkaOutboxRouting
                     .builder()
-                    .route(OutboxPayloadSelector.type(String::class.java)) { it.target("strings") }
-                    .route(OutboxPayloadSelector.type(Int::class.javaObjectType)) { it.target("ints") }
+                    .route(OutboxPayloadSelector.type(String::class.java)) { target("strings") }
+                    .route(OutboxPayloadSelector.type(Int::class.javaObjectType)) { target("ints") }
                     .build()
 
             assertThat(routing.resolveTopic("test", metadata)).isEqualTo("strings")

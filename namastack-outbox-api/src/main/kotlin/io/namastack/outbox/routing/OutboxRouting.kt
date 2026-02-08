@@ -28,8 +28,27 @@ import io.namastack.outbox.handler.OutboxRecordMetadata
  * @since 1.1.0
  */
 abstract class OutboxRouting(
-    private val configurer: OutboxRoutingConfigurer,
+    private val rules: List<OutboxRoute>,
+    private val defaultRule: OutboxRoute?,
 ) {
+    /**
+     * Finds the matching rule for the given payload and metadata.
+     *
+     * @return The first matching rule, or the default rule, or null if no match
+     */
+    fun findRule(
+        payload: Any,
+        metadata: OutboxRecordMetadata,
+    ): OutboxRoute? {
+        for (rule in rules) {
+            if (rule.matches(payload, metadata)) {
+                return rule
+            }
+        }
+
+        return defaultRule
+    }
+
     /**
      * Resolves the target destination for a given payload and metadata.
      *
@@ -38,7 +57,9 @@ abstract class OutboxRouting(
     fun resolveTarget(
         payload: Any,
         metadata: OutboxRecordMetadata,
-    ): String = configurer.resolveTarget(payload, metadata)
+    ): String =
+        findRule(payload, metadata)?.target(payload, metadata)
+            ?: throw IllegalStateException("No routing rule found for payload type: ${payload::class.java.name}")
 
     /**
      * Extracts the routing key for a given payload and metadata.
@@ -46,7 +67,7 @@ abstract class OutboxRouting(
     fun extractKey(
         payload: Any,
         metadata: OutboxRecordMetadata,
-    ): String? = configurer.extractKey(payload, metadata)
+    ): String? = findRule(payload, metadata)?.key(payload, metadata)
 
     /**
      * Builds headers/attributes for a given payload and metadata.
@@ -54,7 +75,7 @@ abstract class OutboxRouting(
     fun buildHeaders(
         payload: Any,
         metadata: OutboxRecordMetadata,
-    ): Map<String, String> = configurer.buildHeaders(payload, metadata)
+    ): Map<String, String> = findRule(payload, metadata)?.headers(payload, metadata) ?: emptyMap()
 
     /**
      * Maps the payload to a different representation before sending.
@@ -62,7 +83,7 @@ abstract class OutboxRouting(
     fun mapPayload(
         payload: Any,
         metadata: OutboxRecordMetadata,
-    ): Any = configurer.findRule(payload, metadata)?.mapping(payload, metadata) ?: payload
+    ): Any = findRule(payload, metadata)?.mapping(payload, metadata) ?: payload
 
     /**
      * Checks if the payload should be externalized.
@@ -71,5 +92,5 @@ abstract class OutboxRouting(
     fun shouldExternalize(
         payload: Any,
         metadata: OutboxRecordMetadata,
-    ): Boolean = configurer.findRule(payload, metadata)?.filter(payload, metadata) ?: true
+    ): Boolean = findRule(payload, metadata)?.filter(payload, metadata) ?: true
 }

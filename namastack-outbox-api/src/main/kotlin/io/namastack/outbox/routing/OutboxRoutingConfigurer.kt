@@ -1,6 +1,5 @@
 package io.namastack.outbox.routing
 
-import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.routing.selector.OutboxPayloadSelector
 import java.util.function.Consumer
 
@@ -90,50 +89,4 @@ class OutboxRoutingConfigurer {
      * Returns the default rule, if configured.
      */
     fun defaultRule(): OutboxRoute? = defaultRule
-
-    /**
-     * Finds the matching rule for the given payload and metadata.
-     *
-     * @return The first matching rule, or the default rule, or null if no match
-     */
-    fun findRule(
-        payload: Any,
-        metadata: OutboxRecordMetadata,
-    ): OutboxRoute? {
-        for (rule in rules) {
-            if (rule.matches(payload, metadata)) {
-                return rule
-            }
-        }
-
-        return defaultRule
-    }
-
-    /**
-     * Resolves the target destination for a given payload and metadata.
-     *
-     * @throws IllegalStateException if no matching route is found
-     */
-    fun resolveTarget(
-        payload: Any,
-        metadata: OutboxRecordMetadata,
-    ): String =
-        findRule(payload, metadata)?.target(payload, metadata)
-            ?: throw IllegalStateException("No routing rule found for payload type: ${payload::class.java.name}")
-
-    /**
-     * Extracts the routing key for a given payload and metadata.
-     */
-    fun extractKey(
-        payload: Any,
-        metadata: OutboxRecordMetadata,
-    ): String? = findRule(payload, metadata)?.key(payload, metadata)
-
-    /**
-     * Builds headers/attributes for a given payload and metadata.
-     */
-    fun buildHeaders(
-        payload: Any,
-        metadata: OutboxRecordMetadata,
-    ): Map<String, String> = findRule(payload, metadata)?.headers(payload, metadata) ?: emptyMap()
 }
