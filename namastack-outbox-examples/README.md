@@ -19,6 +19,7 @@ This directory contains various example projects demonstrating different feature
 
 ### 🔌 Integration Patterns
 
+- **[namastack-outbox-example-kafka](namastack-outbox-example-kafka)** - Externalizing outbox records to Apache Kafka
 - **[namastack-outbox-example-multicaster](namastack-outbox-example-multicaster)** - Transaction isolation between Spring events and outbox
 - **[namastack-outbox-example-tracing](namastack-outbox-example-tracing)** - Distributed tracing with OpenTelemetry and Micrometer
 

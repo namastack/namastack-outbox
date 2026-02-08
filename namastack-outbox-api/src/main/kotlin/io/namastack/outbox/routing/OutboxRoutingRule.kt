@@ -3,6 +3,7 @@ package io.namastack.outbox.routing
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.routing.selector.OutboxPayloadSelector
 import java.util.function.BiFunction
+import java.util.function.BiPredicate
 
 /**
  * A routing rule that defines how outbox payloads are externalized.
@@ -11,6 +12,8 @@ import java.util.function.BiFunction
  * - [target] - destination (Kafka topic, RabbitMQ exchange, SNS topic, etc.)
  * - [key] - routing/partition key
  * - [headers] - message headers/attributes
+ * - [mapping] - payload transformation
+ * - [filter] - predicate to skip externalization
  *
  * Rules are evaluated in declaration order - first match wins.
  *
@@ -21,6 +24,8 @@ import java.util.function.BiFunction
  *     .target("orders")
  *     .key { payload, metadata -> (payload as OrderEvent).orderId }
  *     .headers { _, metadata -> metadata.context }
+ *     .mapping { payload, _ -> (payload as OrderEvent).toPublicEvent() }
+ *     .filter { payload, _ -> (payload as OrderEvent).status != "CANCELLED" }
  *     .build()
  * ```
  *
@@ -30,6 +35,8 @@ import java.util.function.BiFunction
  * OutboxRoutingRule.builder(OutboxPayloadSelector.type(OrderEvent.class))
  *     .target("orders")
  *     .key((payload, metadata) -> ((OrderEvent) payload).getOrderId())
+ *     .mapping((payload, metadata) -> ((OrderEvent) payload).toPublicEvent())
+ *     .filter((payload, metadata) -> !((OrderEvent) payload).getStatus().equals("CANCELLED"))
  *     .build();
  * ```
  *
@@ -41,6 +48,8 @@ class OutboxRoutingRule private constructor(
     private val targetResolver: BiFunction<Any, OutboxRecordMetadata, String>,
     private val keyExtractor: BiFunction<Any, OutboxRecordMetadata, String?>,
     private val headersProvider: BiFunction<Any, OutboxRecordMetadata, Map<String, String>>,
+    private val payloadMapper: BiFunction<Any, OutboxRecordMetadata, Any>,
+    private val filterPredicate: BiPredicate<Any, OutboxRecordMetadata>,
 ) {
     /**
      * Resolves the target destination for the given payload and metadata.
@@ -66,6 +75,23 @@ class OutboxRoutingRule private constructor(
         metadata: OutboxRecordMetadata,
     ): Map<String, String> = headersProvider.apply(payload, metadata)
 
+    /**
+     * Maps the payload to a different representation.
+     */
+    fun mapping(
+        payload: Any,
+        metadata: OutboxRecordMetadata,
+    ): Any = payloadMapper.apply(payload, metadata)
+
+    /**
+     * Tests if the payload should be externalized.
+     * Returns true if the payload passes the filter, false to skip externalization.
+     */
+    fun filter(
+        payload: Any,
+        metadata: OutboxRecordMetadata,
+    ): Boolean = filterPredicate.test(payload, metadata)
+
     companion object {
         /**
          * Creates a builder for a routing rule with the given selector.
@@ -85,6 +111,10 @@ class OutboxRoutingRule private constructor(
             BiFunction { _, metadata -> metadata.key }
         private var headersProvider: BiFunction<Any, OutboxRecordMetadata, Map<String, String>> =
             BiFunction { _, _ -> emptyMap() }
+        private var payloadMapper: BiFunction<Any, OutboxRecordMetadata, Any> =
+            BiFunction { payload, _ -> payload }
+        private var filterPredicate: BiPredicate<Any, OutboxRecordMetadata> =
+            BiPredicate { _, _ -> true }
 
         /**
          * Sets a static target destination.
@@ -143,6 +173,38 @@ class OutboxRoutingRule private constructor(
         }
 
         /**
+         * Sets a payload mapper.
+         */
+        fun mapping(mapper: (Any, OutboxRecordMetadata) -> Any): Builder {
+            this.payloadMapper = BiFunction { payload, metadata -> mapper(payload, metadata) }
+            return this
+        }
+
+        /**
+         * Sets a payload mapper (Java-friendly).
+         */
+        fun mapping(mapper: BiFunction<Any, OutboxRecordMetadata, Any>): Builder {
+            this.payloadMapper = mapper
+            return this
+        }
+
+        /**
+         * Sets a filter predicate. If the predicate returns false, the payload is not externalized.
+         */
+        fun filter(predicate: (Any, OutboxRecordMetadata) -> Boolean): Builder {
+            this.filterPredicate = BiPredicate { payload, metadata -> predicate(payload, metadata) }
+            return this
+        }
+
+        /**
+         * Sets a filter predicate (Java-friendly). If the predicate returns false, the payload is not externalized.
+         */
+        fun filter(predicate: BiPredicate<Any, OutboxRecordMetadata>): Builder {
+            this.filterPredicate = predicate
+            return this
+        }
+
+        /**
          * Builds the routing rule.
          *
          * @throws IllegalStateException if target is not configured
@@ -157,6 +219,8 @@ class OutboxRoutingRule private constructor(
                 targetResolver = target,
                 keyExtractor = keyExtractor,
                 headersProvider = headersProvider,
+                payloadMapper = payloadMapper,
+                filterPredicate = filterPredicate,
             )
         }
     }

@@ -12,15 +12,18 @@ import org.apache.kafka.common.TopicPartition
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.kafka.core.KafkaOperations
 import org.springframework.kafka.support.SendResult
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutionException
 
+@DisplayName("KafkaOutboxHandler")
 class KafkaOutboxHandlerTest {
     private lateinit var kafkaOperations: KafkaOperations<String, Any>
-    private lateinit var routingConfiguration: KafkaRoutingConfiguration
     private lateinit var handler: KafkaOutboxHandler
 
     private val metadata =
@@ -28,142 +31,306 @@ class KafkaOutboxHandlerTest {
             key = "order-123",
             handlerId = "test-handler",
             createdAt = Instant.now(),
-            context = mapOf("tenant" to "acme", "correlationId" to "corr-456"),
+            context = mapOf("tenant" to "acme"),
         )
 
     @BeforeEach
     fun setUp() {
         kafkaOperations = mockk()
-        routingConfiguration =
-            KafkaRoutingConfiguration
-                .create()
-                .routing {
-                    route(OutboxPayloadSelector.type(OrderCreatedEvent::class.java)) {
-                        topic("orders")
-                        key { payload, _ -> (payload as OrderCreatedEvent).orderId }
-                        headers { _, meta -> meta.context }
-                    }
+    }
+
+    @Nested
+    @DisplayName("handle()")
+    inner class Handle {
+        @Test
+        fun `sends payload to resolved topic`() {
+            val routing =
+                kafkaRouting {
+                    defaults { topic("default-topic") }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
+
+            val recordSlot = slot<ProducerRecord<String, Any>>()
+            every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("default-topic")
+
+            handler.handle("test-payload", metadata)
+
+            assertThat(recordSlot.captured.topic()).isEqualTo("default-topic")
+            assertThat(recordSlot.captured.value()).isEqualTo("test-payload")
+        }
+
+        @Test
+        fun `sends payload with correct key`() {
+            val routing =
+                kafkaRouting {
                     defaults {
-                        topic("domain-events")
+                        topic("events")
+                        key { _, meta -> meta.key }
                     }
                 }
-        handler = KafkaOutboxHandler(kafkaOperations, routingConfiguration)
-    }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-    @Test
-    fun `sends payload to correct topic`() {
-        val recordSlot = slot<ProducerRecord<String, Any>>()
-        every { kafkaOperations.send(capture(recordSlot)) } returns completedFuture()
+            val recordSlot = slot<ProducerRecord<String, Any>>()
+            every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("events")
 
-        val payload = OrderCreatedEvent("order-123")
-        handler.handle(payload, metadata)
+            handler.handle("test-payload", metadata)
 
-        verify { kafkaOperations.send(any<ProducerRecord<String, Any>>()) }
-        assertThat(recordSlot.captured.topic()).isEqualTo("orders")
-    }
+            assertThat(recordSlot.captured.key()).isEqualTo("order-123")
+        }
 
-    @Test
-    fun `sends payload with correct key`() {
-        val recordSlot = slot<ProducerRecord<String, Any>>()
-        every { kafkaOperations.send(capture(recordSlot)) } returns completedFuture()
+        @Test
+        fun `sends payload with headers`() {
+            val routing =
+                kafkaRouting {
+                    defaults {
+                        topic("events")
+                        headers { _, meta -> meta.context }
+                    }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-        val payload = OrderCreatedEvent("my-order-id")
-        handler.handle(payload, metadata)
+            val recordSlot = slot<ProducerRecord<String, Any>>()
+            every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("events")
 
-        assertThat(recordSlot.captured.key()).isEqualTo("my-order-id")
-    }
+            handler.handle("test-payload", metadata)
 
-    @Test
-    fun `sends payload with headers from configuration`() {
-        val recordSlot = slot<ProducerRecord<String, Any>>()
-        every { kafkaOperations.send(capture(recordSlot)) } returns completedFuture()
+            val headers = recordSlot.captured.headers()
+            assertThat(headers.lastHeader("tenant").value()).isEqualTo("acme".toByteArray())
+        }
 
-        val payload = OrderCreatedEvent("order-123")
-        handler.handle(payload, metadata)
+        @Test
+        fun `applies payload mapping before sending`() {
+            val routing =
+                kafkaRouting {
+                    defaults {
+                        topic("events")
+                        mapping { payload, _ -> (payload as String).uppercase() }
+                    }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-        val headers = recordSlot.captured.headers()
-        assertThat(headers.lastHeader("tenant")?.value()?.toString(Charsets.UTF_8)).isEqualTo("acme")
-        assertThat(headers.lastHeader("correlationId")?.value()?.toString(Charsets.UTF_8)).isEqualTo("corr-456")
-    }
+            val recordSlot = slot<ProducerRecord<String, Any>>()
+            every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("events")
 
-    @Test
-    fun `sends payload as value`() {
-        val recordSlot = slot<ProducerRecord<String, Any>>()
-        every { kafkaOperations.send(capture(recordSlot)) } returns completedFuture()
+            handler.handle("test-payload", metadata)
 
-        val payload = OrderCreatedEvent("order-123")
-        handler.handle(payload, metadata)
+            assertThat(recordSlot.captured.value()).isEqualTo("TEST-PAYLOAD")
+        }
 
-        assertThat(recordSlot.captured.value()).isSameAs(payload)
-    }
+        @Test
+        fun `skips sending when filter returns false`() {
+            val routing =
+                kafkaRouting {
+                    defaults {
+                        topic("events")
+                        filter { payload, _ -> (payload as String) != "skip-me" }
+                    }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-    @Test
-    fun `uses default route for unmatched payload types`() {
-        val recordSlot = slot<ProducerRecord<String, Any>>()
-        every { kafkaOperations.send(capture(recordSlot)) } returns completedFuture()
+            handler.handle("skip-me", metadata)
 
-        val payload = "some-string-payload"
-        handler.handle(payload, metadata)
+            verify(exactly = 0) { kafkaOperations.send(any<ProducerRecord<String, Any>>()) }
+        }
 
-        assertThat(recordSlot.captured.topic()).isEqualTo("domain-events")
-    }
+        @Test
+        fun `sends when filter returns true`() {
+            val routing =
+                kafkaRouting {
+                    defaults {
+                        topic("events")
+                        filter { payload, _ -> (payload as String) != "skip-me" }
+                    }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-    @Test
-    fun `uses metadata key when no custom key extractor`() {
-        val recordSlot = slot<ProducerRecord<String, Any>>()
-        every { kafkaOperations.send(capture(recordSlot)) } returns completedFuture()
+            every { kafkaOperations.send(any<ProducerRecord<String, Any>>()) } returns successFuture("events")
 
-        // String payload uses default route which doesn't have custom key extractor
-        val payload = "some-string-payload"
-        handler.handle(payload, metadata)
+            handler.handle("send-me", metadata)
 
-        assertThat(recordSlot.captured.key()).isEqualTo("order-123")
-    }
+            verify(exactly = 1) { kafkaOperations.send(any<ProducerRecord<String, Any>>()) }
+        }
 
-    @Test
-    fun `throws exception when kafka send fails`() {
-        val cause = RuntimeException("Kafka connection failed")
-        every { kafkaOperations.send(any<ProducerRecord<String, Any>>()) } returns failedFuture(cause)
-
-        val payload = OrderCreatedEvent("order-123")
-
-        assertThatThrownBy { handler.handle(payload, metadata) }
-            .isSameAs(cause)
-    }
-
-    @Test
-    fun `throws exception when kafka send fails with checked exception`() {
-        val cause = Exception("Kafka error")
-        every { kafkaOperations.send(any<ProducerRecord<String, Any>>()) } returns failedFuture(cause)
-
-        val payload = OrderCreatedEvent("order-123")
-
-        assertThatThrownBy { handler.handle(payload, metadata) }
-            .isSameAs(cause)
-    }
-
-    private fun completedFuture(): CompletableFuture<SendResult<String, Any>> {
-        val recordMetadata =
-            RecordMetadata(
-                TopicPartition("test-topic", 0),
-                0L,
-                0,
-                0L,
-                0,
-                0,
+        @Test
+        fun `routes to correct topic based on payload type`() {
+            data class OrderEvent(
+                val orderId: String,
             )
-        val producerRecord = ProducerRecord<String, Any>("test-topic", "test-key", "test-value")
-        val sendResult = SendResult(producerRecord, recordMetadata)
+
+            data class PaymentEvent(
+                val paymentId: String,
+            )
+
+            val routing =
+                kafkaRouting {
+                    route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
+                        topic("orders")
+                    }
+                    route(OutboxPayloadSelector.type(PaymentEvent::class.java)) {
+                        topic("payments")
+                    }
+                    defaults { topic("events") }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
+
+            val recordSlot = slot<ProducerRecord<String, Any>>()
+            every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("orders")
+
+            handler.handle(OrderEvent("order-1"), metadata)
+
+            assertThat(recordSlot.captured.topic()).isEqualTo("orders")
+        }
+
+        @Test
+        fun `uses dynamic topic resolver`() {
+            data class Event(
+                val type: String,
+            )
+
+            val routing =
+                kafkaRouting {
+                    defaults {
+                        topic { payload, _ -> "events-${(payload as Event).type}" }
+                    }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
+
+            val recordSlot = slot<ProducerRecord<String, Any>>()
+            every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("events-created")
+
+            handler.handle(Event("created"), metadata)
+
+            assertThat(recordSlot.captured.topic()).isEqualTo("events-created")
+        }
+    }
+
+    @Nested
+    @DisplayName("error handling")
+    inner class ErrorHandling {
+        @Test
+        fun `throws cause when ExecutionException occurs`() {
+            val routing =
+                kafkaRouting {
+                    defaults { topic("events") }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
+
+            val cause = RuntimeException("Kafka unavailable")
+            val future = CompletableFuture<SendResult<String, Any>>()
+            future.completeExceptionally(cause)
+
+            every { kafkaOperations.send(any<ProducerRecord<String, Any>>()) } returns future
+
+            assertThatThrownBy { handler.handle("payload", metadata) }
+                .isInstanceOf(RuntimeException::class.java)
+                .hasMessage("Kafka unavailable")
+        }
+
+        @Test
+        fun `throws ExecutionException when cause is null`() {
+            val routing =
+                kafkaRouting {
+                    defaults { topic("events") }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
+
+            val future = CompletableFuture<SendResult<String, Any>>()
+            future.completeExceptionally(ExecutionException(null))
+
+            every { kafkaOperations.send(any<ProducerRecord<String, Any>>()) } returns future
+
+            assertThatThrownBy { handler.handle("payload", metadata) }
+                .isInstanceOf(ExecutionException::class.java)
+        }
+
+        @Test
+        fun `restores interrupt flag when InterruptedException occurs`() {
+            val routing =
+                kafkaRouting {
+                    defaults { topic("events") }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
+
+            every { kafkaOperations.send(any<ProducerRecord<String, Any>>()) } answers {
+                Thread.currentThread().interrupt()
+                throw InterruptedException("Interrupted")
+            }
+
+            assertThatThrownBy { handler.handle("payload", metadata) }
+                .isInstanceOf(InterruptedException::class.java)
+
+            assertThat(Thread.currentThread().isInterrupted).isTrue()
+
+            // Clear the interrupt flag for other tests
+            Thread.interrupted()
+        }
+    }
+
+    @Nested
+    @DisplayName("full configuration")
+    inner class FullConfiguration {
+        @Test
+        fun `applies all routing options correctly`() {
+            data class OrderEvent(
+                val orderId: String,
+                val status: String,
+            )
+
+            data class PublicOrderEvent(
+                val id: String,
+            )
+
+            val routing =
+                kafkaRouting {
+                    route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
+                        topic("orders")
+                        key { event, _ -> (event as OrderEvent).orderId }
+                        headers { _, meta -> mapOf("tenant" to (meta.context["tenant"] ?: "unknown")) }
+                        mapping { event, _ -> PublicOrderEvent((event as OrderEvent).orderId) }
+                        filter { event, _ -> (event as OrderEvent).status != "CANCELLED" }
+                    }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
+
+            val recordSlot = slot<ProducerRecord<String, Any>>()
+            every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("orders")
+
+            handler.handle(OrderEvent("order-456", "CREATED"), metadata)
+
+            val record = recordSlot.captured
+            assertThat(record.topic()).isEqualTo("orders")
+            assertThat(record.key()).isEqualTo("order-456")
+            assertThat(record.value()).isEqualTo(PublicOrderEvent("order-456"))
+            assertThat(record.headers().lastHeader("tenant").value()).isEqualTo("acme".toByteArray())
+        }
+
+        @Test
+        fun `filters out cancelled orders`() {
+            data class OrderEvent(
+                val orderId: String,
+                val status: String,
+            )
+
+            val routing =
+                kafkaRouting {
+                    route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
+                        topic("orders")
+                        filter { event, _ -> (event as OrderEvent).status != "CANCELLED" }
+                    }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
+
+            handler.handle(OrderEvent("order-789", "CANCELLED"), metadata)
+
+            verify(exactly = 0) { kafkaOperations.send(any<ProducerRecord<String, Any>>()) }
+        }
+    }
+
+    private fun successFuture(topic: String): CompletableFuture<SendResult<String, Any>> {
+        val recordMetadata = RecordMetadata(TopicPartition(topic, 0), 0, 0, 0, 0, 0)
+        val sendResult = mockk<SendResult<String, Any>>()
+        every { sendResult.recordMetadata } returns recordMetadata
+
         return CompletableFuture.completedFuture(sendResult)
     }
-
-    private fun failedFuture(cause: Throwable): CompletableFuture<SendResult<String, Any>> {
-        val future = CompletableFuture<SendResult<String, Any>>()
-        future.completeExceptionally(cause)
-        return future
-    }
-
-    data class OrderCreatedEvent(
-        val orderId: String,
-    )
 }

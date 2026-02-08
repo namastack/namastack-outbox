@@ -1,6 +1,10 @@
 package io.namastack.outbox.routing.selector
 
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.routing.selector.OutboxPayloadSelector.Companion.annotation
+import io.namastack.outbox.routing.selector.OutboxPayloadSelector.Companion.contextValue
+import io.namastack.outbox.routing.selector.OutboxPayloadSelector.Companion.predicate
+import io.namastack.outbox.routing.selector.OutboxPayloadSelector.Companion.type
 import java.util.function.BiPredicate
 
 /**

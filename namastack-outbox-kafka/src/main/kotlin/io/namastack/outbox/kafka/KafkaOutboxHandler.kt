@@ -11,43 +11,63 @@ import java.util.concurrent.ExecutionException
 /**
  * Outbox handler that sends payloads to Kafka topics.
  *
- * Uses [KafkaRoutingConfiguration] to determine the topic, key, and headers
- * for each payload. This is a generic handler that processes all outbox records.
+ * Uses [KafkaOutboxRouting] to determine the topic, key, headers,
+ * payload mapping, and filtering for each payload.
  *
- * ## Example Configuration
+ * This handler is autoconfigured when Spring Kafka is on the classpath.
+ * You only need to provide a custom [KafkaOutboxRouting] bean if you
+ * want to override the default routing behavior.
+ *
+ * ## Example Custom Routing (Kotlin)
  *
  * ```kotlin
  * @Configuration
  * class KafkaOutboxConfig {
  *
  *     @Bean
- *     fun kafkaRoutingConfiguration() = KafkaRoutingConfiguration.create()
- *         .routing {
- *             route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
- *                 topic("orders")
- *                 key { event, _ -> (event as OrderEvent).orderId }
- *             }
- *             defaults {
- *                 topic("domain-events")
- *             }
+ *     fun kafkaRoutingConfiguration() = kafkaRouting {
+ *         route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
+ *             topic("orders")
+ *             key { event, _ -> (event as OrderEvent).orderId }
+ *             mapping { event, _ -> (event as OrderEvent).toPublicEvent() }
+ *             filter { event, _ -> (event as OrderEvent).status != "CANCELLED" }
  *         }
+ *         defaults {
+ *             topic("domain-events")
+ *         }
+ *     }
+ * }
+ * ```
+ *
+ * ## Example Custom Routing (Java)
+ *
+ * ```java
+ * @Configuration
+ * public class KafkaOutboxConfig {
  *
  *     @Bean
- *     fun kafkaOutboxHandler(
- *         kafkaOperations: KafkaOperations<String, Any>,
- *         routingConfiguration: KafkaRoutingConfiguration,
- *     ) = KafkaOutboxHandler(kafkaOperations, routingConfiguration)
+ *     public KafkaOutboxRouting kafkaRoutingConfiguration() {
+ *         return KafkaOutboxRouting.builder()
+ *             .route(OutboxPayloadSelector.type(OrderEvent.class), rule -> rule
+ *                 .topic("orders")
+ *                 .key((event, metadata) -> ((OrderEvent) event).getOrderId())
+ *                 .mapping((event, metadata) -> ((OrderEvent) event).toPublicEvent())
+ *                 .filter((event, metadata) -> !((OrderEvent) event).getStatus().equals("CANCELLED"))
+ *             )
+ *             .defaults(rule -> rule.topic("domain-events"))
+ *             .build();
+ *     }
  * }
  * ```
  *
  * @param kafkaOperations Spring Kafka operations for sending messages
- * @param routingConfiguration Configuration for routing payloads to topics
+ * @param routing Configuration for routing payloads to topics
  * @author Roland Beisel
  * @since 1.1.0
  */
 class KafkaOutboxHandler(
     private val kafkaOperations: KafkaOperations<String, Any>,
-    private val routingConfiguration: KafkaRoutingConfiguration,
+    private val routing: KafkaOutboxRouting,
 ) : OutboxHandler {
     private val logger = LoggerFactory.getLogger(KafkaOutboxHandler::class.java)
 
@@ -55,19 +75,40 @@ class KafkaOutboxHandler(
         payload: Any,
         metadata: OutboxRecordMetadata,
     ) {
-        val topic = routingConfiguration.resolveTopic(payload, metadata)
-        val key = routingConfiguration.extractKey(payload, metadata)
-        val headers = routingConfiguration.buildHeaders(payload, metadata)
+        if (!routing.shouldExternalize(payload, metadata)) {
+            logger.debug("Skipping outbox record due to filter: handlerId={}", metadata.handlerId)
+            return
+        }
 
-        val record = ProducerRecord<String, Any>(topic, null, key, payload, buildKafkaHeaders(headers))
+        val topic = routing.resolveTopic(payload, metadata)
+        val key = routing.extractKey(payload, metadata)
+        val headers = routing.buildHeaders(payload, metadata)
+        val mappedPayload = routing.mapPayload(payload, metadata)
 
-        logger.debug(
-            "Sending outbox record to Kafka: topic={}, key={}, handlerId={}",
-            topic,
-            key,
-            metadata.handlerId,
-        )
+        val record = createProducerRecord(topic, key, mappedPayload, headers)
 
+        logger.debug("Sending outbox record to Kafka: topic={}, key={}, handlerId={}", topic, key, metadata.handlerId)
+
+        send(record, topic, key, metadata)
+    }
+
+    private fun createProducerRecord(
+        topic: String,
+        key: String?,
+        payload: Any,
+        headers: Map<String, String>,
+    ): ProducerRecord<String, Any> {
+        val kafkaHeaders = headers.map { (k, v) -> RecordHeader(k, v.toByteArray(Charsets.UTF_8)) }
+
+        return ProducerRecord(topic, null, key, payload, kafkaHeaders)
+    }
+
+    private fun send(
+        record: ProducerRecord<String, Any>,
+        topic: String,
+        key: String?,
+        metadata: OutboxRecordMetadata,
+    ) {
         try {
             val result = kafkaOperations.send(record).get()
             logger.debug(
@@ -97,7 +138,4 @@ class KafkaOutboxHandler(
             throw ex
         }
     }
-
-    private fun buildKafkaHeaders(headers: Map<String, String>): List<RecordHeader> =
-        headers.map { (key, value) -> RecordHeader(key, value.toByteArray(Charsets.UTF_8)) }
 }

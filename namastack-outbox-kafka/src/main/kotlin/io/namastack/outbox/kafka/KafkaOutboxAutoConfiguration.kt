@@ -1,9 +1,7 @@
 package io.namastack.outbox.kafka
 
-import io.namastack.outbox.OutboxCoreAutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -19,7 +17,7 @@ import org.springframework.kafka.core.KafkaOperations
  * - Property `namastack.outbox.kafka.enabled` is `true` (default)
  *
  * Users can override the default configuration by providing their own
- * [KafkaRoutingConfiguration] or [KafkaOutboxHandler] beans.
+ * [KafkaOutboxRouting] or [KafkaOutboxHandler] beans.
  *
  * ## Default Behavior
  *
@@ -39,46 +37,42 @@ import org.springframework.kafka.core.KafkaOperations
  *
  * ## Custom Routing
  *
- * For full control, provide your own [KafkaRoutingConfiguration] bean:
+ * For full control, provide your own [KafkaOutboxRouting] bean:
  *
  * ```kotlin
  * @Bean
- * fun kafkaRoutingConfiguration() = KafkaRoutingConfiguration.create()
- *     .routing {
- *         route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
- *             topic("orders")
- *             key { event, _ -> (event as OrderEvent).orderId }
- *         }
- *         defaults {
- *             topic("domain-events")
- *         }
+ * fun kafkaRoutingConfiguration() = kafkaRouting {
+ *     route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
+ *         topic("orders")
+ *         key { event, _ -> (event as OrderEvent).orderId }
  *     }
+ *     defaults {
+ *         topic("domain-events")
+ *     }
+ * }
  * ```
  *
  * @author Roland Beisel
  * @since 1.1.0
  */
-@AutoConfiguration(after = [OutboxCoreAutoConfiguration::class])
-@ConditionalOnClass(KafkaOperations::class)
+@AutoConfiguration
+@ConditionalOnBean(KafkaOperations::class)
 @ConditionalOnProperty(name = ["namastack.outbox.kafka.enabled"], havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(KafkaOutboxProperties::class)
 class KafkaOutboxAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
-    fun kafkaRoutingConfiguration(properties: KafkaOutboxProperties): KafkaRoutingConfiguration =
-        KafkaRoutingConfiguration
-            .create()
-            .routing {
-                defaults {
-                    topic(properties.defaultTopic)
-                }
+    fun kafkaOutboxRouting(properties: KafkaOutboxProperties): KafkaOutboxRouting =
+        kafkaRouting {
+            defaults {
+                topic(properties.defaultTopic)
             }
+        }
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnBean(KafkaOperations::class)
     fun kafkaOutboxHandler(
         kafkaOperations: KafkaOperations<String, Any>,
-        routingConfiguration: KafkaRoutingConfiguration,
+        routingConfiguration: KafkaOutboxRouting,
     ): KafkaOutboxHandler = KafkaOutboxHandler(kafkaOperations, routingConfiguration)
 }

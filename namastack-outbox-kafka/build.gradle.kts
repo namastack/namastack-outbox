@@ -8,15 +8,13 @@ description = "namastack-outbox-kafka"
 
 dependencies {
     implementation(project(":namastack-outbox-api"))
-    implementation(project(":namastack-outbox-core"))
 
-    implementation(platform(libs.spring.boot.bom))
-    implementation(libs.spring.boot)
-    implementation(libs.spring.boot.autoconfigure)
-    implementation(libs.spring.boot.starter.logging)
-
+    compileOnly(platform(libs.spring.boot.bom))
+    compileOnly(libs.spring.boot.autoconfigure)
     compileOnly(libs.spring.kafka)
+    compileOnly(libs.slf4j.api)
 
+    testImplementation(platform(libs.spring.boot.bom))
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.kafka)
     testImplementation(libs.assertj.core)

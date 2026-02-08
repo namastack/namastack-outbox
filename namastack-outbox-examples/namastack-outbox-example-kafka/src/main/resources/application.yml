@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: namastack-outbox-example-h2
+
+  datasource:
+    url: jdbc:h2:mem:demo;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+
+  kafka:
+    bootstrap-servers: "localhost:9092"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: "myGroup"
+
+namastack:
+  outbox:
+    instance:
+      graceful-shutdown-timeout-seconds: 2
+    kafka:
+      default-topic: customers
+
+logging:
+  level:
+    root: warn
+    io.namastack: debug
