@@ -1,0 +1,24 @@
+{
+  "groups": [
+    {
+      "name": "namastack.outbox.kafka",
+      "type": "io.namastack.outbox.kafka.KafkaOutboxProperties",
+      "description": "Configuration properties for Kafka outbox integration."
+    }
+  ],
+  "properties": [
+    {
+      "name": "namastack.outbox.kafka.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether Kafka outbox integration is enabled.",
+      "defaultValue": true
+    },
+    {
+      "name": "namastack.outbox.kafka.default-topic",
+      "type": "java.lang.String",
+      "description": "Default Kafka topic for outbox events.",
+      "defaultValue": "outbox-events"
+    }
+  ],
+  "hints": []
+}
