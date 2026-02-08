@@ -80,7 +80,7 @@ class KafkaOutboxHandler(
             return
         }
 
-        val topic = routing.resolveTarget(payload, metadata)
+        val topic = routing.resolveTopic(payload, metadata)
         val key = routing.extractKey(payload, metadata)
         val headers = routing.buildHeaders(payload, metadata)
         val mappedPayload = routing.mapPayload(payload, metadata)

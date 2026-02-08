@@ -13,9 +13,9 @@ data class KafkaOutboxProperties(
     /**
      * Whether Kafka outbox integration is enabled.
      */
-    val enabled: Boolean = true,
+    var enabled: Boolean = true,
     /**
      * Default Kafka topic for outbox events.
      */
-    val defaultTopic: String = "outbox-events",
+    var defaultTopic: String = "outbox-events",
 )
