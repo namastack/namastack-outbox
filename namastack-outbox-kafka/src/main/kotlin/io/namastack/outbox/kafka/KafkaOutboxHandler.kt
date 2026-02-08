@@ -66,7 +66,7 @@ import java.util.concurrent.ExecutionException
  * @since 1.1.0
  */
 class KafkaOutboxHandler(
-    private val kafkaOperations: KafkaOperations<String, Any>,
+    private val kafkaOperations: KafkaOperations<Any, Any>,
     private val routing: KafkaOutboxRouting,
 ) : OutboxHandler {
     private val logger = LoggerFactory.getLogger(KafkaOutboxHandler::class.java)
@@ -97,14 +97,14 @@ class KafkaOutboxHandler(
         key: String?,
         payload: Any,
         headers: Map<String, String>,
-    ): ProducerRecord<String, Any> {
+    ): ProducerRecord<Any, Any> {
         val kafkaHeaders = headers.map { (k, v) -> RecordHeader(k, v.toByteArray(Charsets.UTF_8)) }
 
         return ProducerRecord(topic, null, key, payload, kafkaHeaders)
     }
 
     private fun send(
-        record: ProducerRecord<String, Any>,
+        record: ProducerRecord<Any, Any>,
         topic: String,
         key: String?,
         metadata: OutboxRecordMetadata,

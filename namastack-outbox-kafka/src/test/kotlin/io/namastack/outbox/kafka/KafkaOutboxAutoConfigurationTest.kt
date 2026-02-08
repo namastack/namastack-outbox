@@ -6,6 +6,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.NoSuchBeanDefinitionException
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
@@ -78,22 +79,13 @@ class KafkaOutboxAutoConfigurationTest {
         }
 
         @Test
-        fun `does not create handler when one is already provided`() {
-            contextRunner()
-                .withUserConfiguration(ConfigWithKafkaOperations::class.java, ConfigWithCustomHandler::class.java)
-                .run { context ->
-                    assertThat(context).hasSingleBean(KafkaOutboxHandler::class.java)
-                    assertThat(context.getBean<KafkaOutboxHandler>())
-                        .isSameAs(context.getBean<ConfigWithCustomHandler>().customHandler)
-                }
-        }
-
-        @Test
-        fun `does not create handler when KafkaOperations bean is missing`() {
+        fun `throws exception when KafkaOperations bean is missing`() {
             contextRunner()
                 .run { context ->
-                    assertThat(context).doesNotHaveBean(KafkaOutboxHandler::class.java)
-                    assertThat(context).doesNotHaveBean(KafkaOutboxRouting::class.java)
+                    assertThat(context).hasFailed()
+                    assertThat(context.startupFailure).hasRootCauseInstanceOf(
+                        NoSuchBeanDefinitionException::class.java,
+                    )
                 }
         }
     }
@@ -147,7 +139,7 @@ class KafkaOutboxAutoConfigurationTest {
     class ConfigWithKafkaOperations {
         @Bean
         @Suppress("UNCHECKED_CAST")
-        fun kafkaOperations(): KafkaOperations<String, Any> = mockk(relaxed = true)
+        fun kafkaOperations(): KafkaOperations<Any, Any> = mockk(relaxed = true)
     }
 
     @Configuration

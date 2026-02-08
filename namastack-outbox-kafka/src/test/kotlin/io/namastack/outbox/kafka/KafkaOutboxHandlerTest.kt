@@ -23,7 +23,7 @@ import java.util.concurrent.ExecutionException
 
 @DisplayName("KafkaOutboxHandler")
 class KafkaOutboxHandlerTest {
-    private lateinit var kafkaOperations: KafkaOperations<String, Any>
+    private lateinit var kafkaOperations: KafkaOperations<Any, Any>
     private lateinit var handler: KafkaOutboxHandler
 
     private val metadata =
@@ -50,7 +50,7 @@ class KafkaOutboxHandlerTest {
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-            val recordSlot = slot<ProducerRecord<String, Any>>()
+            val recordSlot = slot<ProducerRecord<Any, Any>>()
             every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("default-topic")
 
             handler.handle("test-payload", metadata)
@@ -70,7 +70,7 @@ class KafkaOutboxHandlerTest {
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-            val recordSlot = slot<ProducerRecord<String, Any>>()
+            val recordSlot = slot<ProducerRecord<Any, Any>>()
             every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("events")
 
             handler.handle("test-payload", metadata)
@@ -89,7 +89,7 @@ class KafkaOutboxHandlerTest {
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-            val recordSlot = slot<ProducerRecord<String, Any>>()
+            val recordSlot = slot<ProducerRecord<Any, Any>>()
             every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("events")
 
             handler.handle("test-payload", metadata)
@@ -109,7 +109,7 @@ class KafkaOutboxHandlerTest {
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-            val recordSlot = slot<ProducerRecord<String, Any>>()
+            val recordSlot = slot<ProducerRecord<Any, Any>>()
             every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("events")
 
             handler.handle("test-payload", metadata)
@@ -130,7 +130,7 @@ class KafkaOutboxHandlerTest {
 
             handler.handle("skip-me", metadata)
 
-            verify(exactly = 0) { kafkaOperations.send(any<ProducerRecord<String, Any>>()) }
+            verify(exactly = 0) { kafkaOperations.send(any<ProducerRecord<Any, Any>>()) }
         }
 
         @Test
@@ -144,11 +144,11 @@ class KafkaOutboxHandlerTest {
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-            every { kafkaOperations.send(any<ProducerRecord<String, Any>>()) } returns successFuture("events")
+            every { kafkaOperations.send(any<ProducerRecord<Any, Any>>()) } returns successFuture("events")
 
             handler.handle("send-me", metadata)
 
-            verify(exactly = 1) { kafkaOperations.send(any<ProducerRecord<String, Any>>()) }
+            verify(exactly = 1) { kafkaOperations.send(any<ProducerRecord<Any, Any>>()) }
         }
 
         @Test
@@ -173,7 +173,7 @@ class KafkaOutboxHandlerTest {
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-            val recordSlot = slot<ProducerRecord<String, Any>>()
+            val recordSlot = slot<ProducerRecord<Any, Any>>()
             every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("orders")
 
             handler.handle(OrderEvent("order-1"), metadata)
@@ -195,7 +195,7 @@ class KafkaOutboxHandlerTest {
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-            val recordSlot = slot<ProducerRecord<String, Any>>()
+            val recordSlot = slot<ProducerRecord<Any, Any>>()
             every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("events-created")
 
             handler.handle(Event("created"), metadata)
@@ -216,10 +216,10 @@ class KafkaOutboxHandlerTest {
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
             val cause = RuntimeException("Kafka unavailable")
-            val future = CompletableFuture<SendResult<String, Any>>()
+            val future = CompletableFuture<SendResult<Any, Any>>()
             future.completeExceptionally(cause)
 
-            every { kafkaOperations.send(any<ProducerRecord<String, Any>>()) } returns future
+            every { kafkaOperations.send(any<ProducerRecord<Any, Any>>()) } returns future
 
             assertThatThrownBy { handler.handle("payload", metadata) }
                 .isInstanceOf(RuntimeException::class.java)
@@ -234,10 +234,10 @@ class KafkaOutboxHandlerTest {
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-            val future = CompletableFuture<SendResult<String, Any>>()
+            val future = CompletableFuture<SendResult<Any, Any>>()
             future.completeExceptionally(ExecutionException(null))
 
-            every { kafkaOperations.send(any<ProducerRecord<String, Any>>()) } returns future
+            every { kafkaOperations.send(any<ProducerRecord<Any, Any>>()) } returns future
 
             assertThatThrownBy { handler.handle("payload", metadata) }
                 .isInstanceOf(ExecutionException::class.java)
@@ -251,7 +251,7 @@ class KafkaOutboxHandlerTest {
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-            every { kafkaOperations.send(any<ProducerRecord<String, Any>>()) } answers {
+            every { kafkaOperations.send(any<ProducerRecord<Any, Any>>()) } answers {
                 Thread.currentThread().interrupt()
                 throw InterruptedException("Interrupted")
             }
@@ -292,7 +292,7 @@ class KafkaOutboxHandlerTest {
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
-            val recordSlot = slot<ProducerRecord<String, Any>>()
+            val recordSlot = slot<ProducerRecord<Any, Any>>()
             every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("orders")
 
             handler.handle(OrderEvent("order-456", "CREATED"), metadata)
@@ -322,13 +322,13 @@ class KafkaOutboxHandlerTest {
 
             handler.handle(OrderEvent("order-789", "CANCELLED"), metadata)
 
-            verify(exactly = 0) { kafkaOperations.send(any<ProducerRecord<String, Any>>()) }
+            verify(exactly = 0) { kafkaOperations.send(any<ProducerRecord<Any, Any>>()) }
         }
     }
 
-    private fun successFuture(topic: String): CompletableFuture<SendResult<String, Any>> {
+    private fun successFuture(topic: String): CompletableFuture<SendResult<Any, Any>> {
         val recordMetadata = RecordMetadata(TopicPartition(topic, 0), 0, 0, 0, 0, 0)
-        val sendResult = mockk<SendResult<String, Any>>()
+        val sendResult = mockk<SendResult<Any, Any>>()
         every { sendResult.recordMetadata } returns recordMetadata
 
         return CompletableFuture.completedFuture(sendResult)

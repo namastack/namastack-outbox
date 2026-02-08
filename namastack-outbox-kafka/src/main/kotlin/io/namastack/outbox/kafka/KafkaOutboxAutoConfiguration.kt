@@ -1,12 +1,13 @@
 package io.namastack.outbox.kafka
 
 import org.springframework.boot.autoconfigure.AutoConfiguration
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.kafka.core.KafkaOperations
+import org.springframework.kafka.core.KafkaTemplate
 
 /**
  * Auto-configuration for Kafka outbox integration.
@@ -56,7 +57,7 @@ import org.springframework.kafka.core.KafkaOperations
  * @since 1.1.0
  */
 @AutoConfiguration
-@ConditionalOnBean(KafkaOperations::class)
+@ConditionalOnClass(KafkaTemplate::class)
 @ConditionalOnProperty(name = ["namastack.outbox.kafka.enabled"], havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(KafkaOutboxProperties::class)
 class KafkaOutboxAutoConfiguration {
@@ -70,9 +71,8 @@ class KafkaOutboxAutoConfiguration {
         }
 
     @Bean
-    @ConditionalOnMissingBean
     fun kafkaOutboxHandler(
-        kafkaOperations: KafkaOperations<String, Any>,
+        kafkaOperations: KafkaOperations<Any, Any>,
         routingConfiguration: KafkaOutboxRouting,
     ): KafkaOutboxHandler = KafkaOutboxHandler(kafkaOperations, routingConfiguration)
 }
