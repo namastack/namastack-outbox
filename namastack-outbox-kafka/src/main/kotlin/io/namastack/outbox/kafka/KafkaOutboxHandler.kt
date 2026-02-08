@@ -25,15 +25,15 @@ import java.util.concurrent.ExecutionException
  * class KafkaOutboxConfig {
  *
  *     @Bean
- *     fun kafkaRoutingConfiguration() = kafkaRouting {
+ *     fun kafkaOutboxRouting() = kafkaOutboxRouting {
  *         route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
- *             topic("orders")
- *             key { event, _ -> (event as OrderEvent).orderId }
- *             mapping { event, _ -> (event as OrderEvent).toPublicEvent() }
- *             filter { event, _ -> (event as OrderEvent).status != "CANCELLED" }
+ *             target("orders")
+ *             key { payload, _ -> (payload as OrderEvent).orderId }
+ *             mapping { payload, _ -> (payload as OrderEvent).toPublicEvent() }
+ *             filter { payload, _ -> (payload as OrderEvent).status != "CANCELLED" }
  *         }
  *         defaults {
- *             topic("domain-events")
+ *             target("domain-events")
  *         }
  *     }
  * }
@@ -46,15 +46,15 @@ import java.util.concurrent.ExecutionException
  * public class KafkaOutboxConfig {
  *
  *     @Bean
- *     public KafkaOutboxRouting kafkaRoutingConfiguration() {
+ *     public KafkaOutboxRouting kafkaOutboxRouting() {
  *         return KafkaOutboxRouting.builder()
- *             .route(OutboxPayloadSelector.type(OrderEvent.class), rule -> rule
- *                 .topic("orders")
- *                 .key((event, metadata) -> ((OrderEvent) event).getOrderId())
- *                 .mapping((event, metadata) -> ((OrderEvent) event).toPublicEvent())
- *                 .filter((event, metadata) -> !((OrderEvent) event).getStatus().equals("CANCELLED"))
+ *             .route(OutboxPayloadSelector.type(OrderEvent.class), route -> route
+ *                 .target("orders")
+ *                 .key((payload, metadata) -> ((OrderEvent) payload).getOrderId())
+ *                 .mapping((payload, metadata) -> ((OrderEvent) payload).toPublicEvent())
+ *                 .filter((payload, metadata) -> !((OrderEvent) payload).getStatus().equals("CANCELLED"))
  *             )
- *             .defaults(rule -> rule.topic("domain-events"))
+ *             .defaults(route -> route.target("domain-events"))
  *             .build();
  *     }
  * }
@@ -80,7 +80,7 @@ class KafkaOutboxHandler(
             return
         }
 
-        val topic = routing.resolveTopic(payload, metadata)
+        val topic = routing.resolveTarget(payload, metadata)
         val key = routing.extractKey(payload, metadata)
         val headers = routing.buildHeaders(payload, metadata)
         val mappedPayload = routing.mapPayload(payload, metadata)

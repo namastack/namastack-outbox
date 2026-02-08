@@ -24,21 +24,21 @@ import java.util.function.BiPredicate
  * ## Example (Kotlin)
  *
  * ```kotlin
- * routing {
+ * outboxRouting {
  *     // First match wins - order matters!
  *     route(OutboxPayloadSelector.type(OrderPlacedEvent::class.java)) {
- *         topic("order-placed")
+ *         target("order-placed")
  *     }
  *     route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
- *         topic("orders")  // Fallback for other OrderEvent subtypes
+ *         target("orders")  // Fallback for other OrderEvent subtypes
  *     }
  *     route(OutboxPayloadSelector.predicate { _, metadata ->
  *         metadata.context["priority"] == "high"
  *     }) {
- *         topic("high-priority")
+ *         target("high-priority")
  *     }
  *     defaults {
- *         topic("domain-events")
+ *         target("domain-events")
  *     }
  * }
  * ```
@@ -46,17 +46,17 @@ import java.util.function.BiPredicate
  * ## Example (Java)
  *
  * ```java
- * routing(r -> r
- *     .route(OutboxPayloadSelector.type(OrderPlacedEvent.class), rule -> rule
- *         .topic("order-placed")
+ * OutboxRouting.builder()
+ *     .route(OutboxPayloadSelector.type(OrderPlacedEvent.class), route -> route
+ *         .target("order-placed")
  *     )
- *     .route(OutboxPayloadSelector.type(OrderEvent.class), rule -> rule
- *         .topic("orders")
+ *     .route(OutboxPayloadSelector.type(OrderEvent.class), route -> route
+ *         .target("orders")
  *     )
- *     .defaults(rule -> rule
- *         .topic("domain-events")
+ *     .defaults(route -> route
+ *         .target("domain-events")
  *     )
- * );
+ *     .build();
  * ```
  *
  * @author Roland Beisel

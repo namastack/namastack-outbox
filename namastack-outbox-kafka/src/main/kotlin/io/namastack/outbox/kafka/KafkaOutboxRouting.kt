@@ -1,10 +1,10 @@
 package io.namastack.outbox.kafka
 
 import io.namastack.outbox.handler.OutboxRecordMetadata
-import io.namastack.outbox.routing.OutboxRouteBuilder
+import io.namastack.outbox.routing.OutboxRoute
+import io.namastack.outbox.routing.OutboxRouting
 import io.namastack.outbox.routing.OutboxRoutingConfigurer
 import io.namastack.outbox.routing.selector.OutboxPayloadSelector
-import java.util.function.BiFunction
 import java.util.function.Consumer
 
 /**
@@ -13,24 +13,24 @@ import java.util.function.Consumer
  * ## Example (Kotlin)
  *
  * ```kotlin
- * val config = kafkaRouting {
+ * val routing = kafkaOutboxRouting {
  *     route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
- *         topic("orders")
- *         key { event, _ -> (event as OrderEvent).orderId }
+ *         target("orders")
+ *         key { payload, _ -> (payload as OrderEvent).orderId }
  *         headers { _, metadata -> metadata.context }
- *         mapping { event, _ -> (event as OrderEvent).toPublicEvent() }
- *         filter { event, _ -> (event as OrderEvent).status != "CANCELLED" }
+ *         mapping { payload, _ -> (payload as OrderEvent).toPublicEvent() }
+ *         filter { payload, _ -> (payload as OrderEvent).status != "CANCELLED" }
  *     }
  *     defaults {
- *         topic("domain-events")
+ *         target("domain-events")
  *     }
  * }
  * ```
  *
  * @param configurer Lambda to configure routing rules
- * @return An immutable [KafkaOutboxRouting]
+ * @return A [KafkaOutboxRouting] instance
  */
-fun kafkaRouting(configurer: OutboxRoutingConfigurer.() -> Unit): KafkaOutboxRouting {
+fun kafkaOutboxRouting(configurer: OutboxRoutingConfigurer.() -> Unit): KafkaOutboxRouting {
     val builder = OutboxRoutingConfigurer()
     builder.configurer()
 
@@ -38,38 +38,21 @@ fun kafkaRouting(configurer: OutboxRoutingConfigurer.() -> Unit): KafkaOutboxRou
 }
 
 /**
- * Configuration for routing outbox events to Kafka.
+ * Kafka-specific routing configuration for outbox events.
  *
- * This is a thin wrapper around [OutboxRoutingConfigurer] that provides
- * Kafka-specific method names like [resolveTopic] instead of `resolveTarget`.
+ * Extends [OutboxRouting] with Kafka-specific method naming (e.g., [resolveTopic]).
  *
  * ## Example (Kotlin)
  *
  * ```kotlin
  * @Bean
- * fun kafkaRoutingConfiguration() = kafkaRouting {
- *     // Route OrderEvent to "orders" topic
+ * fun kafkaOutboxRouting() = kafkaOutboxRouting {
  *     route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
- *         topic("orders")
- *         key { event, _ -> (event as OrderEvent).orderId }
- *         headers { _, metadata -> metadata.context }
- *         mapping { event, _ -> (event as OrderEvent).toPublicEvent() }
- *         filter { event, _ -> (event as OrderEvent).status != "CANCELLED" }
+ *         target("orders")
+ *         key { payload, _ -> (payload as OrderEvent).orderId }
  *     }
- *
- *     // Route by annotation
- *     route(OutboxPayloadSelector.annotation(HighPriority::class.java)) {
- *         topic("high-priority-events")
- *     }
- *
- *     // Route by context value
- *     route(OutboxPayloadSelector.contextValue("tenant", "premium")) {
- *         topic("premium-events")
- *     }
- *
- *     // Default route for unmatched payloads
  *     defaults {
- *         topic("domain-events")
+ *         target("domain-events")
  *     }
  * }
  * ```
@@ -78,50 +61,26 @@ fun kafkaRouting(configurer: OutboxRoutingConfigurer.() -> Unit): KafkaOutboxRou
  *
  * ```java
  * @Bean
- * public KafkaOutboxRouting kafkaRoutingConfiguration() {
+ * public KafkaOutboxRouting kafkaOutboxRouting() {
  *     return KafkaOutboxRouting.builder()
- *         // Route OrderEvent to "orders" topic
- *         .route(OutboxPayloadSelector.type(OrderEvent.class), rule -> rule
- *             .topic("orders")
- *             .key((event, metadata) -> ((OrderEvent) event).getOrderId())
- *             .headers((event, metadata) -> metadata.getContext())
- *             .mapping((event, metadata) -> ((OrderEvent) event).toPublicEvent())
- *             .filter((event, metadata) -> !((OrderEvent) event).getStatus().equals("CANCELLED"))
+ *         .route(OutboxPayloadSelector.type(OrderEvent.class), route -> route
+ *             .target("orders")
+ *             .key((payload, metadata) -> ((OrderEvent) payload).getOrderId())
  *         )
- *         // Route by annotation
- *         .route(OutboxPayloadSelector.annotation(HighPriority.class), rule -> rule
- *             .topic("high-priority-events")
- *         )
- *         // Route by context value
- *         .route(OutboxPayloadSelector.contextValue("tenant", "premium"), rule -> rule
- *             .topic("premium-events")
- *         )
- *         // Default route for unmatched payloads
- *         .defaults(rule -> rule.topic("domain-events"))
+ *         .defaults(route -> route.target("domain-events"))
  *         .build();
  * }
  * ```
  *
- * ## Available Route Configuration Options
- *
- * | Method | Description |
- * |--------|-------------|
- * | `topic(String)` | Static Kafka topic name |
- * | `topic((Any, OutboxRecordMetadata) -> String)` | Dynamic topic resolver |
- * | `key((Any, OutboxRecordMetadata) -> String?)` | Partition key extractor |
- * | `headers((Any, OutboxRecordMetadata) -> Map<String, String>)` | Kafka headers provider |
- * | `mapping((Any, OutboxRecordMetadata) -> Any)` | Payload transformer |
- * | `filter((Any, OutboxRecordMetadata) -> Boolean)` | Predicate to skip externalization |
- *
  * @author Roland Beisel
  * @since 1.1.0
  */
-class KafkaOutboxRouting internal constructor(
-    private val configurer: OutboxRoutingConfigurer,
-) {
+class KafkaOutboxRouting(
+    configurer: OutboxRoutingConfigurer,
+) : OutboxRouting(configurer) {
     companion object {
         /**
-         * Creates a new builder for Kafka routing configuration (Java-friendly).
+         * Creates a new builder for routing configuration (Java-friendly).
          */
         @JvmStatic
         fun builder(): Builder = Builder()
@@ -135,40 +94,7 @@ class KafkaOutboxRouting internal constructor(
     fun resolveTopic(
         payload: Any,
         metadata: OutboxRecordMetadata,
-    ): String = configurer.resolveTarget(payload, metadata)
-
-    /**
-     * Extracts the routing key for a given payload and metadata.
-     */
-    fun extractKey(
-        payload: Any,
-        metadata: OutboxRecordMetadata,
-    ): String? = configurer.extractKey(payload, metadata)
-
-    /**
-     * Builds Kafka headers for a given payload and metadata.
-     */
-    fun buildHeaders(
-        payload: Any,
-        metadata: OutboxRecordMetadata,
-    ): Map<String, String> = configurer.buildHeaders(payload, metadata)
-
-    /**
-     * Maps the payload to a different representation before sending to Kafka.
-     */
-    fun mapPayload(
-        payload: Any,
-        metadata: OutboxRecordMetadata,
-    ): Any = configurer.findRule(payload, metadata)?.mapping(payload, metadata) ?: payload
-
-    /**
-     * Checks if the payload should be externalized to Kafka.
-     * Returns false if the payload is filtered out.
-     */
-    fun shouldExternalize(
-        payload: Any,
-        metadata: OutboxRecordMetadata,
-    ): Boolean = configurer.findRule(payload, metadata)?.filter(payload, metadata) ?: true
+    ): String = resolveTarget(payload, metadata)
 
     /**
      * Java-friendly builder for [KafkaOutboxRouting].
@@ -178,14 +104,14 @@ class KafkaOutboxRouting internal constructor(
 
         fun route(
             selector: OutboxPayloadSelector,
-            routeConfigurer: Consumer<OutboxRouteBuilder>,
+            routeConfigurer: Consumer<OutboxRoute.Builder>,
         ): Builder {
             configurer.route(selector, routeConfigurer)
 
             return this
         }
 
-        fun defaults(routeConfigurer: Consumer<OutboxRouteBuilder>): Builder {
+        fun defaults(routeConfigurer: Consumer<OutboxRoute.Builder>): Builder {
             configurer.defaults(routeConfigurer)
 
             return this
@@ -194,18 +120,3 @@ class KafkaOutboxRouting internal constructor(
         fun build(): KafkaOutboxRouting = KafkaOutboxRouting(configurer)
     }
 }
-
-/**
- * Sets a static Kafka topic.
- */
-fun OutboxRouteBuilder.topic(topic: String) = target(topic)
-
-/**
- * Sets a dynamic Kafka topic resolver.
- */
-fun OutboxRouteBuilder.topic(resolver: (Any, OutboxRecordMetadata) -> String) = target(resolver)
-
-/**
- * Sets a dynamic Kafka topic resolver (Java-friendly).
- */
-fun OutboxRouteBuilder.topic(resolver: BiFunction<Any, OutboxRecordMetadata, String>) = target(resolver)

@@ -42,13 +42,13 @@ import org.springframework.kafka.core.KafkaTemplate
  *
  * ```kotlin
  * @Bean
- * fun kafkaRoutingConfiguration() = kafkaRouting {
+ * fun kafkaOutboxRouting() = kafkaOutboxRouting {
  *     route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
- *         topic("orders")
- *         key { event, _ -> (event as OrderEvent).orderId }
+ *         target("orders")
+ *         key { payload, _ -> (payload as OrderEvent).orderId }
  *     }
  *     defaults {
- *         topic("domain-events")
+ *         target("domain-events")
  *     }
  * }
  * ```
@@ -64,9 +64,9 @@ class KafkaOutboxAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun kafkaOutboxRouting(properties: KafkaOutboxProperties): KafkaOutboxRouting =
-        kafkaRouting {
+        kafkaOutboxRouting {
             defaults {
-                topic(properties.defaultTopic)
+                target(properties.defaultTopic)
             }
         }
 

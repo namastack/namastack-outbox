@@ -45,8 +45,8 @@ class KafkaOutboxHandlerTest {
         @Test
         fun `sends payload to resolved topic`() {
             val routing =
-                kafkaRouting {
-                    defaults { topic("default-topic") }
+                kafkaOutboxRouting {
+                    defaults { target("default-topic") }
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
@@ -62,9 +62,9 @@ class KafkaOutboxHandlerTest {
         @Test
         fun `sends payload with correct key`() {
             val routing =
-                kafkaRouting {
+                kafkaOutboxRouting {
                     defaults {
-                        topic("events")
+                        target("events")
                         key { _, meta -> meta.key }
                     }
                 }
@@ -81,9 +81,9 @@ class KafkaOutboxHandlerTest {
         @Test
         fun `sends payload with headers`() {
             val routing =
-                kafkaRouting {
+                kafkaOutboxRouting {
                     defaults {
-                        topic("events")
+                        target("events")
                         headers { _, meta -> meta.context }
                     }
                 }
@@ -101,9 +101,9 @@ class KafkaOutboxHandlerTest {
         @Test
         fun `applies payload mapping before sending`() {
             val routing =
-                kafkaRouting {
+                kafkaOutboxRouting {
                     defaults {
-                        topic("events")
+                        target("events")
                         mapping { payload, _ -> (payload as String).uppercase() }
                     }
                 }
@@ -120,9 +120,9 @@ class KafkaOutboxHandlerTest {
         @Test
         fun `skips sending when filter returns false`() {
             val routing =
-                kafkaRouting {
+                kafkaOutboxRouting {
                     defaults {
-                        topic("events")
+                        target("events")
                         filter { payload, _ -> (payload as String) != "skip-me" }
                     }
                 }
@@ -136,9 +136,9 @@ class KafkaOutboxHandlerTest {
         @Test
         fun `sends when filter returns true`() {
             val routing =
-                kafkaRouting {
+                kafkaOutboxRouting {
                     defaults {
-                        topic("events")
+                        target("events")
                         filter { payload, _ -> (payload as String) != "skip-me" }
                     }
                 }
@@ -162,14 +162,14 @@ class KafkaOutboxHandlerTest {
             )
 
             val routing =
-                kafkaRouting {
+                kafkaOutboxRouting {
                     route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
-                        topic("orders")
+                        target("orders")
                     }
                     route(OutboxPayloadSelector.type(PaymentEvent::class.java)) {
-                        topic("payments")
+                        target("payments")
                     }
-                    defaults { topic("events") }
+                    defaults { target("events") }
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
@@ -188,9 +188,9 @@ class KafkaOutboxHandlerTest {
             )
 
             val routing =
-                kafkaRouting {
+                kafkaOutboxRouting {
                     defaults {
-                        topic { payload, _ -> "events-${(payload as Event).type}" }
+                        target { payload, _ -> "events-${(payload as Event).type}" }
                     }
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
@@ -210,8 +210,8 @@ class KafkaOutboxHandlerTest {
         @Test
         fun `throws cause when ExecutionException occurs`() {
             val routing =
-                kafkaRouting {
-                    defaults { topic("events") }
+                kafkaOutboxRouting {
+                    defaults { target("events") }
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
@@ -229,8 +229,8 @@ class KafkaOutboxHandlerTest {
         @Test
         fun `throws ExecutionException when cause is null`() {
             val routing =
-                kafkaRouting {
-                    defaults { topic("events") }
+                kafkaOutboxRouting {
+                    defaults { target("events") }
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
@@ -246,8 +246,8 @@ class KafkaOutboxHandlerTest {
         @Test
         fun `restores interrupt flag when InterruptedException occurs`() {
             val routing =
-                kafkaRouting {
-                    defaults { topic("events") }
+                kafkaOutboxRouting {
+                    defaults { target("events") }
                 }
             handler = KafkaOutboxHandler(kafkaOperations, routing)
 
@@ -281,9 +281,9 @@ class KafkaOutboxHandlerTest {
             )
 
             val routing =
-                kafkaRouting {
+                kafkaOutboxRouting {
                     route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
-                        topic("orders")
+                        target("orders")
                         key { event, _ -> (event as OrderEvent).orderId }
                         headers { _, meta -> mapOf("tenant" to (meta.context["tenant"] ?: "unknown")) }
                         mapping { event, _ -> PublicOrderEvent((event as OrderEvent).orderId) }
@@ -312,9 +312,9 @@ class KafkaOutboxHandlerTest {
             )
 
             val routing =
-                kafkaRouting {
+                kafkaOutboxRouting {
                     route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
-                        topic("orders")
+                        target("orders")
                         filter { event, _ -> (event as OrderEvent).status != "CANCELLED" }
                     }
                 }

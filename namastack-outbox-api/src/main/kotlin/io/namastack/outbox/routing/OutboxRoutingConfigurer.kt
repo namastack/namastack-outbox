@@ -14,8 +14,8 @@ import java.util.function.Consumer
  * @since 1.1.0
  */
 class OutboxRoutingConfigurer {
-    private val rules = mutableListOf<OutboxRoutingRule>()
-    private var defaultRule: OutboxRoutingRule? = null
+    private val rules = mutableListOf<OutboxRoute>()
+    private var defaultRule: OutboxRoute? = null
 
     /**
      * Adds a routing rule for payloads matching the given selector.
@@ -26,11 +26,12 @@ class OutboxRoutingConfigurer {
      */
     fun route(
         selector: OutboxPayloadSelector,
-        configurer: OutboxRouteBuilder.() -> Unit,
+        configurer: OutboxRoute.Builder.() -> Unit,
     ): OutboxRoutingConfigurer {
-        val builder = OutboxRouteBuilder(selector)
+        val builder = OutboxRoute.Builder(selector)
         builder.configurer()
         rules.add(builder.build())
+
         return this
     }
 
@@ -43,11 +44,12 @@ class OutboxRoutingConfigurer {
      */
     fun route(
         selector: OutboxPayloadSelector,
-        configurer: Consumer<OutboxRouteBuilder>,
+        configurer: Consumer<OutboxRoute.Builder>,
     ): OutboxRoutingConfigurer {
-        val builder = OutboxRouteBuilder(selector)
+        val builder = OutboxRoute.Builder(selector)
         configurer.accept(builder)
         rules.add(builder.build())
+
         return this
     }
 
@@ -57,10 +59,11 @@ class OutboxRoutingConfigurer {
      * @param configurer Lambda to configure the default route
      * @return This configurer for chaining
      */
-    fun defaults(configurer: OutboxRouteBuilder.() -> Unit): OutboxRoutingConfigurer {
-        val builder = OutboxRouteBuilder(OutboxPayloadSelector.predicate { _, _ -> true })
+    fun defaults(configurer: OutboxRoute.Builder.() -> Unit): OutboxRoutingConfigurer {
+        val builder = OutboxRoute.Builder(OutboxPayloadSelector.predicate { _, _ -> true })
         builder.configurer()
         defaultRule = builder.build()
+
         return this
     }
 
@@ -70,22 +73,23 @@ class OutboxRoutingConfigurer {
      * @param configurer Consumer to configure the default route
      * @return This configurer for chaining
      */
-    fun defaults(configurer: Consumer<OutboxRouteBuilder>): OutboxRoutingConfigurer {
-        val builder = OutboxRouteBuilder(OutboxPayloadSelector.predicate { _, _ -> true })
+    fun defaults(configurer: Consumer<OutboxRoute.Builder>): OutboxRoutingConfigurer {
+        val builder = OutboxRoute.Builder(OutboxPayloadSelector.predicate { _, _ -> true })
         configurer.accept(builder)
         defaultRule = builder.build()
+
         return this
     }
 
     /**
      * Returns the configured rules.
      */
-    fun rules(): List<OutboxRoutingRule> = rules.toList()
+    fun rules(): List<OutboxRoute> = rules.toList()
 
     /**
      * Returns the default rule, if configured.
      */
-    fun defaultRule(): OutboxRoutingRule? = defaultRule
+    fun defaultRule(): OutboxRoute? = defaultRule
 
     /**
      * Finds the matching rule for the given payload and metadata.
@@ -95,9 +99,9 @@ class OutboxRoutingConfigurer {
     fun findRule(
         payload: Any,
         metadata: OutboxRecordMetadata,
-    ): OutboxRoutingRule? {
+    ): OutboxRoute? {
         for (rule in rules) {
-            if (rule.selector.matches(payload, metadata)) {
+            if (rule.matches(payload, metadata)) {
                 return rule
             }
         }

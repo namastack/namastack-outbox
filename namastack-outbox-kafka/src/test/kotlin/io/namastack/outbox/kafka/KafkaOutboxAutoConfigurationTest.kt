@@ -146,16 +146,23 @@ class KafkaOutboxAutoConfigurationTest {
     class ConfigWithCustomRouting {
         @Bean
         fun kafkaOutboxRouting(): KafkaOutboxRouting =
-            kafkaRouting {
+            kafkaOutboxRouting {
                 defaults {
-                    topic("custom-topic")
+                    target("custom-topic")
                 }
             }
     }
 
     @Configuration
     class ConfigWithCustomHandler {
-        val customHandler = KafkaOutboxHandler(mockk(relaxed = true), kafkaRouting { defaults { topic("test") } })
+        val customHandler =
+            KafkaOutboxHandler(
+                kafkaOperations = mockk(relaxed = true),
+                routing =
+                    kafkaOutboxRouting {
+                        defaults { target("test") }
+                    },
+            )
 
         @Bean
         fun kafkaOutboxHandler(): KafkaOutboxHandler = customHandler
