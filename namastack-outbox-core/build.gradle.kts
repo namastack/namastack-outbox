@@ -14,9 +14,9 @@ dependencies {
     implementation(libs.spring.boot.autoconfigure)
     implementation(libs.spring.tx)
     implementation(libs.commons.codec)
+    implementation(libs.kotlin.reflect)
 
     compileOnly(libs.jakarta.annotation.api)
-    compileOnly(libs.kotlin.reflect)
     compileOnly(libs.slf4j.api)
 
     testImplementation(libs.spring.boot.starter.test)
