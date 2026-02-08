@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    jacoco
 }
 
 description = "namastack-outbox-api"
