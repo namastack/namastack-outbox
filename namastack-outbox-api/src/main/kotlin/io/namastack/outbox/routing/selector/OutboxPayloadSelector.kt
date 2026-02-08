@@ -77,6 +77,14 @@ sealed interface OutboxPayloadSelector {
 
     companion object {
         /**
+         * Creates a selector that matches all payloads.
+         *
+         * @return A selector that always matches
+         */
+        @JvmStatic
+        fun all(): OutboxPayloadSelector = PredicateSelector { _, _ -> true }
+
+        /**
          * Creates a selector that matches payloads by type (including subtypes).
          *
          * @param T The payload type

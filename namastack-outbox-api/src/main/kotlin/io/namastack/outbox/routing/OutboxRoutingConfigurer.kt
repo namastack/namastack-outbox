@@ -60,7 +60,7 @@ class OutboxRoutingConfigurer {
      * @return This configurer for chaining
      */
     fun defaults(configurer: OutboxRoute.Builder.() -> Unit): OutboxRoutingConfigurer {
-        val builder = OutboxRoute.Builder(OutboxPayloadSelector.predicate { _, _ -> true })
+        val builder = OutboxRoute.Builder(OutboxPayloadSelector.all())
         builder.configurer()
         defaultRule = builder.build()
 
@@ -74,7 +74,7 @@ class OutboxRoutingConfigurer {
      * @return This configurer for chaining
      */
     fun defaults(configurer: Consumer<OutboxRoute.Builder>): OutboxRoutingConfigurer {
-        val builder = OutboxRoute.Builder(OutboxPayloadSelector.predicate { _, _ -> true })
+        val builder = OutboxRoute.Builder(OutboxPayloadSelector.all())
         configurer.accept(builder)
         defaultRule = builder.build()
 
