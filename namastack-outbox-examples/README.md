@@ -19,6 +19,8 @@ This directory contains various example projects demonstrating different feature
 
 ### 🔌 Integration Patterns
 
+- **[namastack-outbox-example-kafka](namastack-outbox-example-kafka)** - Externalizing outbox records to Apache Kafka (Kotlin)
+- **[namastack-outbox-example-kafka-java](namastack-outbox-example-kafka-java)** - Externalizing outbox records to Apache Kafka (Java)
 - **[namastack-outbox-example-multicaster](namastack-outbox-example-multicaster)** - Transaction isolation between Spring events and outbox
 - **[namastack-outbox-example-tracing](namastack-outbox-example-tracing)** - Distributed tracing with OpenTelemetry and Micrometer
 
@@ -40,6 +42,7 @@ This directory contains various example projects demonstrating different feature
 ### ☕ Language Support
 
 - **[namastack-outbox-example-java](namastack-outbox-example-java)** - Pure Java implementation (no Kotlin required)
+- **[namastack-outbox-example-kafka-java](namastack-outbox-example-kafka-java)** - Kafka integration with Java builder API
 
 ## Quick Start
 

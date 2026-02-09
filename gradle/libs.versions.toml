@@ -18,13 +18,14 @@ spring-boot = { module = "org.springframework.boot:spring-boot" }
 spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure" }
 spring-boot-hibernate = { module = "org.springframework.boot:spring-boot-hibernate" }
 spring-boot-jdbc = { module = "org.springframework.boot:spring-boot-jdbc" }
-spring-boot-starter-logging = { module = "org.springframework.boot:spring-boot-starter-logging" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 spring-boot-starter-data-jpa-test = { module = "org.springframework.boot:spring-boot-starter-data-jpa-test" }
 spring-boot-starter-data-jdbc-test = { module = "org.springframework.boot:spring-boot-starter-data-jdbc-test" }
 spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator" }
 spring-tx = { module = "org.springframework:spring-tx" }
 spring-jdbc = { module = "org.springframework:spring-jdbc" }
+spring-core = { module = "org.springframework:spring-core" }
+spring-kafka = { module = "org.springframework.kafka:spring-kafka" }
 
 # Jakarta dependencies
 jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api" }
@@ -51,6 +52,9 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 
 # Metrics dependencies
 micrometer-core = { module = "io.micrometer:micrometer-core" }
+
+# Logging dependencies
+slf4j-api = { module = "org.slf4j:slf4j-api" }
 
 # Common dependencies
 commons-codec = { module = "commons-codec:commons-codec" }
