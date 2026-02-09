@@ -15,6 +15,10 @@ data class RabbitOutboxProperties(
      */
     var enabled: Boolean = true,
     /**
+     * Whether to configure RabbitTemplate to use Jackson JSON message conversion.
+     */
+    var enableJson: Boolean = true,
+    /**
      * Default Rabbit exchange for outbox events.
      */
     var defaultExchange: String = "outbox-events",

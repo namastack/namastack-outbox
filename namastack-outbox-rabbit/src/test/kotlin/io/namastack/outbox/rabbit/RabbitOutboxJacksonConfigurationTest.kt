@@ -26,9 +26,11 @@ class RabbitOutboxJacksonConfigurationTest {
     inner class RabbitTemplateCustomizerTests {
         @Test
         fun `creates customizer bean by default`() {
-            contextRunner().run { context ->
-                assertThat(context).hasSingleBean(RabbitTemplateCustomizer::class.java)
-            }
+            contextRunner()
+                .withUserConfiguration(ConfigWithRabbitTemplate::class.java)
+                .run { context ->
+                    assertThat(context).hasSingleBean(RabbitTemplateCustomizer::class.java)
+                }
         }
 
         @Test
@@ -59,11 +61,8 @@ class RabbitOutboxJacksonConfigurationTest {
     class ConfigWithRabbitTemplate {
         @Bean
         fun rabbitTemplate() = RabbitTemplate(mockk(relaxed = true))
-    }
 
-    @Configuration
-    class ConfigWithCustomJsonMapper {
         @Bean
-        fun jsonMapper(): JsonMapper = JsonMapper.builder().build()
+        fun jsonMapper() = mockk<JsonMapper>(relaxed = true)
     }
 }
