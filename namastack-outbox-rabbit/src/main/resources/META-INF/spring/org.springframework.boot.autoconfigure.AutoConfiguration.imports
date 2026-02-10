@@ -1,0 +1,2 @@
+io.namastack.outbox.rabbit.RabbitOutboxAutoConfiguration
+io.namastack.outbox.rabbit.RabbitOutboxJacksonConfiguration

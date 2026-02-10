@@ -1,0 +1,30 @@
+{
+  "groups": [
+    {
+      "name": "namastack.outbox.rabbit",
+      "type": "io.namastack.outbox.rabbit.RabbitOutboxProperties",
+      "description": "Configuration properties for Rabbit outbox integration."
+    }
+  ],
+  "properties": [
+    {
+      "name": "namastack.outbox.rabbit.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether Rabbit outbox integration is enabled.",
+      "defaultValue": true
+    },
+    {
+      "name": "namastack.outbox.rabbit.enable-json",
+      "type": "java.lang.Boolean",
+      "description": "Whether to configure RabbitTemplate to use Jackson JSON message conversion (requires JsonMapper on the classpath).",
+      "defaultValue": true
+    },
+    {
+      "name": "namastack.outbox.rabbit.default-exchange",
+      "type": "java.lang.String",
+      "description": "Default Rabbit exchange for outbox events.",
+      "defaultValue": "outbox-events"
+    }
+  ],
+  "hints": []
+}

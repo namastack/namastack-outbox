@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="DemoApplication Rabbit &amp; Java" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <module name="namastack-outbox-example-rabbit-java.main" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="io.namastack.demo.DemoApplication" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
