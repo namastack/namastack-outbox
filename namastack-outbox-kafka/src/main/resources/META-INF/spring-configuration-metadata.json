@@ -18,6 +18,12 @@
       "type": "java.lang.String",
       "description": "Default Kafka topic for outbox events.",
       "defaultValue": "outbox-events"
+    },
+    {
+      "name": "namastack.outbox.kafka.enable-json",
+      "type": "java.lang.Boolean",
+      "description": "Whether to enable JSON support for Kafka outbox integration.",
+      "defaultValue": true
     }
   ],
   "hints": []

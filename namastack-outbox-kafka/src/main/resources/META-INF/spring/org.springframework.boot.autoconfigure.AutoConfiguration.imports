@@ -1,1 +1,2 @@
 io.namastack.outbox.kafka.KafkaOutboxAutoConfiguration
+io.namastack.outbox.kafka.KafkaOutboxJacksonConfiguration

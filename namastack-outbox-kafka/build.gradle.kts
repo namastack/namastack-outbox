@@ -12,6 +12,7 @@ dependencies {
     compileOnly(platform(libs.spring.boot.bom))
     compileOnly(libs.spring.boot.autoconfigure)
     compileOnly(libs.spring.kafka)
+    compileOnly(libs.spring.boot.kafka)
     compileOnly(libs.slf4j.api)
 
     testImplementation(platform(libs.spring.boot.bom))
