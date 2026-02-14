@@ -7,11 +7,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration
 import org.springframework.context.annotation.PropertySource
 import org.springframework.kafka.core.KafkaTemplate
-import tools.jackson.databind.json.JsonMapper
 
 @AutoConfiguration
 @AutoConfigureBefore(KafkaAutoConfiguration::class)
-@ConditionalOnClass(KafkaTemplate::class, JsonMapper::class)
+@ConditionalOnClass(KafkaTemplate::class)
 @ConditionalOnProperty(
     name = ["namastack.outbox.kafka.enable-json"],
     havingValue = "true",
