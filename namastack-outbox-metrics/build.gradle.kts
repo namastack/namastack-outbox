@@ -15,8 +15,6 @@ dependencies {
     implementation(libs.micrometer.core)
 
     testImplementation(libs.spring.boot.starter.test)
-    testImplementation(libs.assertj.core)
     testImplementation(libs.mockk)
-    testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

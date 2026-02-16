@@ -1,8 +1,10 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Examples Docker Compose" type="CompoundRunConfigurationType">
+    <toRun name="Example Kafka: Docker Compose" type="docker-deploy" />
     <toRun name="Example MariaDB: Docker Compose" type="docker-deploy" />
     <toRun name="Example MySQL: Docker Compose" type="docker-deploy" />
     <toRun name="Example PostgreSQL: Docker Compose" type="docker-deploy" />
+    <toRun name="Example Rabbit: Docker Compose" type="docker-deploy" />
     <toRun name="Example SQLServer: Docker Compose" type="docker-deploy" />
     <toRun name="Example Tracing: Docker Compose" type="docker-deploy" />
     <method v="2" />

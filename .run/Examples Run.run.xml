@@ -7,11 +7,15 @@
     <toRun name="DemoApplication H2" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication JDBC" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Java" type="SpringBootApplicationConfigurationType" />
+    <toRun name="DemoApplication Kafka" type="SpringBootApplicationConfigurationType" />
+    <toRun name="DemoApplication Kafka &amp; Java" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication MariaDB" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Microsoft SQL Server" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Multicaster" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication MySQL" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication PostgreSQL" type="SpringBootApplicationConfigurationType" />
+    <toRun name="DemoApplication Rabbit" type="SpringBootApplicationConfigurationType" />
+    <toRun name="DemoApplication Rabbit &amp; Java" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Retry" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Table Prefix JDBC" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Table Prefix JPA" type="SpringBootApplicationConfigurationType" />

@@ -15,17 +15,13 @@ dependencies {
     implementation(libs.spring.tx)
     implementation(libs.spring.boot.autoconfigure)
     implementation(libs.spring.boot.jdbc)
-    compileOnly(libs.spring.boot)
 
     testImplementation(project(":namastack-outbox-jackson"))
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.boot.starter.data.jdbc.test)
-    testImplementation(libs.jackson.databind)
-    testImplementation(libs.jackson.module.kotlin)
-    testImplementation(libs.assertj.core)
     testImplementation(libs.mockk)
     testImplementation(libs.h2)
-    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.jackson.module.kotlin)
 
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
