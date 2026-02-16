@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import jakarta.persistence.EntityManager
@@ -30,7 +31,7 @@ import java.time.Clock
  */
 @AutoConfiguration
 @AutoConfigureAfter(TransactionAutoConfiguration::class)
-@AutoConfigureBefore(OutboxCoreAutoConfiguration::class)
+@AutoConfigureBefore(OutboxCoreInfrastructureAutoConfiguration::class)
 @ConditionalOnClass(EntityManagerFactory::class, OutboxService::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class JpaOutboxAutoConfiguration {

@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigureBefore
@@ -14,13 +15,13 @@ import tools.jackson.module.kotlin.kotlinModule
  *
  * Provides OutboxPayloadSerializer bean for outbox event persistence.
  * Uses an existing JsonMapper bean if available, otherwise creates a default one.
- * Loads before OutboxCoreAutoConfiguration to ensure serializer is available.
+ * Loads before OutboxCoreInfrastructureAutoConfiguration to ensure serializer is available.
  *
  * @author Roland Beisel
  * @since 0.3.0
  */
 @AutoConfiguration
-@AutoConfigureBefore(OutboxCoreAutoConfiguration::class)
+@AutoConfigureBefore(OutboxCoreInfrastructureAutoConfiguration::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class OutboxJacksonAutoConfiguration {
     /**

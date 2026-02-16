@@ -1,5 +1,10 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
+import io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
+import io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
+import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
+import io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration
 import org.springframework.boot.autoconfigure.task.TaskSchedulingAutoConfiguration
@@ -32,7 +37,11 @@ import org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_EACH_T
 @ImportAutoConfiguration(
     TaskExecutionAutoConfiguration::class,
     TaskSchedulingAutoConfiguration::class,
-    OutboxCoreAutoConfiguration::class,
+    OutboxCoreInfrastructureAutoConfiguration::class,
+    OutboxCoreThreadingAutoConfiguration::class,
+    OutboxCoreProcessingAutoConfiguration::class,
+    OutboxCoreSchedulingAutoConfiguration::class,
+    OutboxCoreMulticasterAutoConfiguration::class,
     JpaOutboxAutoConfiguration::class,
     OutboxJacksonAutoConfiguration::class,
 )

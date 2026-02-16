@@ -5,7 +5,6 @@ import io.namastack.outbox.JdbcOutboxPartitionAssignmentRepository
 import io.namastack.outbox.JdbcOutboxRecordEntityMapper
 import io.namastack.outbox.JdbcOutboxRecordRepository
 import io.namastack.outbox.JdbcTableNameResolver
-import io.namastack.outbox.OutboxCoreAutoConfiguration
 import io.namastack.outbox.OutboxPayloadSerializer
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
@@ -45,7 +44,7 @@ import javax.sql.DataSource
         JdbcClientAutoConfiguration::class,
     ],
 )
-@AutoConfigureBefore(OutboxCoreAutoConfiguration::class)
+@AutoConfigureBefore(OutboxCoreInfrastructureAutoConfiguration::class)
 @ConditionalOnClass(JdbcClient::class, OutboxService::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(JdbcOutboxConfigurationProperties::class)
