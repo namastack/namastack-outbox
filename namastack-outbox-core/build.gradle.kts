@@ -20,8 +20,6 @@ dependencies {
     compileOnly(libs.slf4j.api)
 
     testImplementation(libs.spring.boot.starter.test)
-    testImplementation(libs.assertj.core)
     testImplementation(libs.mockk)
-    testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
