@@ -1,2 +1,5 @@
-io.namastack.outbox.OutboxCoreAutoConfiguration
-
+io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
+io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
+io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
+io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
+io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration

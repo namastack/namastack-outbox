@@ -2,6 +2,11 @@ package io.namastack.outbox
 
 import io.mockk.every
 import io.mockk.mockk
+import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
+import io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
+import io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
+import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
+import io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
@@ -40,7 +45,11 @@ class OutboxCoreAutoConfigurationTest {
                 AutoConfigurations.of(
                     TaskExecutionAutoConfiguration::class.java,
                     TaskSchedulingAutoConfiguration::class.java,
-                    OutboxCoreAutoConfiguration::class.java,
+                    OutboxCoreInfrastructureAutoConfiguration::class.java,
+                    OutboxCoreThreadingAutoConfiguration::class.java,
+                    OutboxCoreProcessingAutoConfiguration::class.java,
+                    OutboxCoreSchedulingAutoConfiguration::class.java,
+                    OutboxCoreMulticasterAutoConfiguration::class.java,
                 ),
             ).withPropertyValues("namastack.outbox.instance.graceful-shutdown-timeout-seconds=0")
 
