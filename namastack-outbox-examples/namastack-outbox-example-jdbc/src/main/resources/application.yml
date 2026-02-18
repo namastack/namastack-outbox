@@ -8,11 +8,6 @@ spring:
     username: sa
     password:
 
-namastack:
-  outbox:
-    instance:
-      graceful-shutdown-timeout-seconds: 2
-
 logging:
   level:
     root: warn

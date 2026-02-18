@@ -19,11 +19,6 @@ spring:
     username: guest
     password: guest
 
-namastack:
-  outbox:
-    instance:
-      graceful-shutdown-timeout-seconds: 2
-
 logging:
   level:
     root: warn

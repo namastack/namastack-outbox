@@ -640,8 +640,6 @@ outbox:
   retry:
     policy: exponential
     max-retries: 3
-  instance:
-    graceful-shutdown-timeout-seconds: 15
   jdbc:
     schema-initialization:
       enabled: true
@@ -656,8 +654,6 @@ namastack:
     retry:
       policy: exponential
       max-retries: 3
-    instance:
-      graceful-shutdown-timeout-seconds: 15
     jdbc:
       schema-initialization:
         enabled: true

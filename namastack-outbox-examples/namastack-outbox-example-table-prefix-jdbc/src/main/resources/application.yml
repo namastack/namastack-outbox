@@ -10,8 +10,6 @@ spring:
 
 namastack:
   outbox:
-    instance:
-      graceful-shutdown-timeout-seconds: 2
     jdbc:
       schema-name: myschema
       table-prefix: prefix_

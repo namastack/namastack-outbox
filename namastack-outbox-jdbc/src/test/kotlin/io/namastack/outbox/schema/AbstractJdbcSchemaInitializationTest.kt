@@ -27,7 +27,6 @@ import javax.sql.DataSource
     classes = [TestApplication::class],
     properties = [
         "namastack.outbox.jdbc.schema-initialization.enabled=true",
-        "namastack.outbox.instance.graceful-shutdown-timeout-seconds=0",
         "namastack.outbox.polling.fixed.interval=300",
     ],
 )

@@ -12,6 +12,10 @@ import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /**
  * Scheduler for processing outbox records with partition-aware distribution.
@@ -45,101 +49,106 @@ class OutboxProcessingScheduler(
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
+
     private var scheduledTask: ScheduledFuture<*>? = null
+
+    private val lock = ReentrantLock()
+    private val processingComplete = lock.newCondition()
+    private val shuttingDown = AtomicBoolean(false)
+    private val processingActive = AtomicBoolean(false)
 
     /**
      * Registers the outbox processing job with the task scheduler.
      *
-     * This method is automatically invoked after dependency injection is complete.
-     * It schedules the [process] method to run according to the configured [trigger].
-     * The method is idempotent - if a task is already scheduled, no additional task is created.
-     *
-     * Thread-safe through synchronization.
+     * Automatically invoked after dependency injection. Schedules [process] to run
+     * according to the configured [trigger]. Idempotent - no duplicate scheduling.
      */
     @PostConstruct
-    @Synchronized
-    fun registerJob() {
-        if (scheduledTask == null) {
+    fun registerJob(): Unit =
+        lock.withLock {
+            if (scheduledTask != null) {
+                log.trace("OutboxProcessingScheduler already scheduled")
+                return
+            }
+
             scheduledTask = taskScheduler.schedule(this::process, trigger)
             log.info("OutboxProcessingScheduler scheduled with trigger: {}", trigger.javaClass.simpleName)
-        } else {
-            log.trace("OutboxProcessingScheduler already scheduled")
         }
-    }
 
     /**
-     * Unregisters the outbox processing job from the task scheduler.
+     * Unregisters the outbox processing job and performs graceful shutdown.
      *
-     * This method is automatically invoked during application shutdown.
-     * It attempts to cancel the scheduled task gracefully (without interrupting if already running).
-     * After cancellation, the task reference is cleared.
-     *
-     * Thread-safe through synchronization.
+     * Automatically invoked during application shutdown. Sets shutdown flag to prevent
+     * new processing cycles, cancels the scheduled task, and waits for any currently
+     * running cycle to complete (up to [OutboxProperties.Processing.shutdownTimeoutSeconds]).
      */
     @PreDestroy
-    @Synchronized
     fun unregisterJob() {
-        val cancelled = scheduledTask?.cancel(false) ?: false
-        if (cancelled) {
-            log.info("OutboxProcessingScheduler task cancel")
-        }
-        scheduledTask = null
+        log.info("Initiating OutboxProcessingScheduler shutdown...")
+
+        shuttingDown.set(true)
+        cancelScheduledTask()
+        awaitProcessingComplete()
+
+        log.info("OutboxProcessingScheduler shutdown complete")
     }
 
     /**
-     * Scheduled processing cycle.
+     * Main processing cycle. Invoked by the scheduler according to the configured trigger.
      *
-     * Steps:
-     * 1. Get assigned partitions
-     * 2. Load record keys in batch
-     * 3. Submit each key to TaskExecutor for parallel processing
-     * 4. Wait for all tasks to complete
-     *
-     * Each record is processed through the processor chain which handles
-     * dispatching, retry logic, fallback invocation, and failure marking.
+     * Loads record keys from assigned partitions and processes them in parallel.
+     * Each record is handled by the processor chain (handler → retry → fallback → failure).
      */
     fun process() {
-        var recordKeyCount = 0
+        if (shuttingDown.get()) {
+            log.debug("Skipping processing cycle - shutdown in progress")
+            return
+        }
+
+        markProcessingActive()
+        var processedCount = 0
+
         try {
-            val assignedPartitions = partitionCoordinator.getAssignedPartitionNumbers()
-            if (assignedPartitions.isEmpty()) return
-
-            log.debug("Processing {} partitions: {}", assignedPartitions.size, assignedPartitions.sorted())
-
-            val recordKeys =
-                recordRepository.findRecordKeysInPartitions(
-                    partitions = assignedPartitions,
-                    status = NEW,
-                    batchSize = properties.batchSize ?: properties.polling.batchSize,
-                    ignoreRecordKeysWithPreviousFailure = properties.processing.stopOnFirstFailure,
-                )
-
-            recordKeyCount = recordKeys.size
-
-            if (recordKeys.isNotEmpty()) {
-                log.debug("Found {} record keys to process", recordKeyCount)
-                processBatch(recordKeys)
-                log.debug("Finished processing {} record keys", recordKeyCount)
-            }
+            processedCount = processAssignedPartitions()
         } catch (ex: Exception) {
             log.error("Error during outbox processing", ex)
         } finally {
-            trigger.onTaskComplete(recordKeyCount)
+            trigger.onTaskComplete(processedCount)
+            markProcessingInactive()
         }
     }
 
-    /**
-     * Processes batch of record keys in parallel.
-     *
-     * Uses CountDownLatch to wait for all tasks to complete before returning.
-     */
+    private fun processAssignedPartitions(): Int {
+        val partitions = partitionCoordinator.getAssignedPartitionNumbers()
+        if (partitions.isEmpty()) return 0
+
+        log.debug("Processing {} partitions: {}", partitions.size, partitions.sorted())
+
+        val recordKeys = loadRecordKeys(partitions)
+        if (recordKeys.isEmpty()) return 0
+
+        log.debug("Found {} record keys to process", recordKeys.size)
+        processBatch(recordKeys)
+        log.debug("Finished processing {} record keys", recordKeys.size)
+
+        return recordKeys.size
+    }
+
+    private fun loadRecordKeys(partitions: Set<Int>): List<String> =
+        recordRepository.findRecordKeysInPartitions(
+            partitions = partitions,
+            status = NEW,
+            batchSize = properties.batchSize ?: properties.polling.batchSize,
+            ignoreRecordKeysWithPreviousFailure = properties.processing.stopOnFirstFailure,
+        )
+
     private fun processBatch(recordKeys: List<String>) {
         val latch = CountDownLatch(recordKeys.size)
 
-        recordKeys.forEach { recordKey ->
+        recordKeys.forEach { key ->
             taskExecutor.execute {
                 try {
-                    processRecordKey(recordKey)
+                    processRecordKey(key)
                 } finally {
                     latch.countDown()
                 }
@@ -149,13 +158,6 @@ class OutboxProcessingScheduler(
         latch.await()
     }
 
-    /**
-     * Processes all records for a single key sequentially.
-     *
-     * Maintains ordering within key. Each record is passed through the processor chain.
-     * Stops early if record not ready for retry or if processor chain returns false
-     * and stopOnFirstFailure is enabled.
-     */
     private fun processRecordKey(recordKey: String) {
         try {
             val records = recordRepository.findIncompleteRecordsByRecordKey(recordKey)
@@ -164,38 +166,57 @@ class OutboxProcessingScheduler(
             log.trace("Processing {} records for key {}", records.size, recordKey)
 
             for (record in records) {
-                val shouldContinue = processRecord(record, recordKey)
-                if (!shouldContinue) break
+                if (!processRecord(record)) break
             }
         } catch (ex: Exception) {
             log.error("Error processing key {}", recordKey, ex)
         }
     }
 
-    /**
-     * Processes single record. Returns true if processing should continue for this key.
-     */
-    private fun processRecord(
-        record: OutboxRecord<*>,
-        recordKey: String,
-    ): Boolean {
+    private fun processRecord(record: OutboxRecord<*>): Boolean {
         if (!record.canBeRetried(clock)) {
             log.trace("Skipping record {} - not ready for retry", record.id)
-            return shouldContinueProcessing(recordKey)
+            return continueOnFailure()
         }
 
-        return recordProcessorChain.handle(record) || shouldContinueProcessing(recordKey)
+        val success = recordProcessorChain.handle(record)
+
+        return success || continueOnFailure()
     }
 
-    /**
-     * Determines if processing should continue based on stopOnFirstFailure setting.
-     */
-    private fun shouldContinueProcessing(recordKey: String): Boolean {
-        if (properties.processing.stopOnFirstFailure) {
-            log.trace("Stopping key {} processing (stopOnFirstFailure=true)", recordKey)
-            return false
+    private fun continueOnFailure(): Boolean = !properties.processing.stopOnFirstFailure
+
+    private fun cancelScheduledTask(): Unit =
+        lock.withLock {
+            scheduledTask?.cancel(false)?.also { cancelled ->
+                if (cancelled) log.debug("Scheduled task cancelled")
+            }
+            scheduledTask = null
         }
 
-        return true
+    private fun markProcessingActive() {
+        processingActive.set(true)
     }
+
+    private fun markProcessingInactive(): Unit =
+        lock.withLock {
+            processingActive.set(false)
+            processingComplete.signalAll()
+        }
+
+    private fun awaitProcessingComplete(): Unit =
+        lock.withLock {
+            if (!processingActive.get()) return
+
+            val timeout = properties.processing.shutdownTimeoutSeconds
+            log.debug("Waiting up to {}s for current processing cycle to complete...", timeout)
+
+            val completed = processingComplete.await(timeout, TimeUnit.SECONDS)
+
+            if (completed) {
+                log.debug("Processing cycle completed")
+            } else {
+                log.warn("Timeout after {}s, proceeding with shutdown", timeout)
+            }
+        }
 }

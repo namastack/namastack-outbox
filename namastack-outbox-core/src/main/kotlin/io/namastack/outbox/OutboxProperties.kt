@@ -83,6 +83,7 @@ data class OutboxProperties(
      * @param executorCorePoolSize Core pool size for the processing executor
      * @param executorMaxPoolSize Maximum pool size for the processing executor
      * @param executorConcurrencyLimit Concurrency limit for the virtual thread executor (-1 for no limit)
+     * @param shutdownTimeoutSeconds Maximum time in seconds to wait for processing to complete during shutdown (default: 30)
      */
     data class Processing(
         var stopOnFirstFailure: Boolean = true,
@@ -92,6 +93,7 @@ data class OutboxProperties(
         var executorCorePoolSize: Int = 4,
         var executorMaxPoolSize: Int = 8,
         var executorConcurrencyLimit: Int = -1,
+        var shutdownTimeoutSeconds: Long = 30,
     )
 
     /**
@@ -99,13 +101,14 @@ data class OutboxProperties(
      *
      * @param heartbeatIntervalSeconds Interval in seconds between heartbeats
      * @param staleInstanceTimeoutSeconds Timeout in seconds to consider an instance stale
-     * @param gracefulShutdownTimeoutSeconds Timeout in seconds for graceful shutdown
+     * @param gracefulShutdownTimeoutSeconds Optional propagation window (in seconds) after marking an instance
+     *        as shutting down before removing it from the registry. Default: 0 (disabled).
      * @param rebalanceInterval Interval in milliseconds at which partition rebalancing is performed
      */
     data class Instance(
         var heartbeatIntervalSeconds: Long = 5,
         var staleInstanceTimeoutSeconds: Long = 30,
-        var gracefulShutdownTimeoutSeconds: Long = 15,
+        var gracefulShutdownTimeoutSeconds: Long = 0,
         var rebalanceInterval: Long = 10000,
     )
 
