@@ -83,6 +83,7 @@ data class OutboxProperties(
      * @param executorCorePoolSize Core pool size for the processing executor
      * @param executorMaxPoolSize Maximum pool size for the processing executor
      * @param executorConcurrencyLimit Concurrency limit for the virtual thread executor (-1 for no limit)
+     * @param shutdownTimeoutSeconds Maximum time in seconds to wait for processing to complete during shutdown (default: 30)
      */
     data class Processing(
         var stopOnFirstFailure: Boolean = true,
@@ -92,6 +93,7 @@ data class OutboxProperties(
         var executorCorePoolSize: Int = 4,
         var executorMaxPoolSize: Int = 8,
         var executorConcurrencyLimit: Int = -1,
+        var shutdownTimeoutSeconds: Long = 30,
     )
 
     /**
