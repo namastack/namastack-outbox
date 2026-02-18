@@ -99,13 +99,14 @@ data class OutboxProperties(
      *
      * @param heartbeatIntervalSeconds Interval in seconds between heartbeats
      * @param staleInstanceTimeoutSeconds Timeout in seconds to consider an instance stale
-     * @param gracefulShutdownTimeoutSeconds Timeout in seconds for graceful shutdown
+     * @param gracefulShutdownTimeoutSeconds Optional propagation window (in seconds) after marking an instance
+     *        as shutting down before removing it from the registry. Default: 0 (disabled).
      * @param rebalanceInterval Interval in milliseconds at which partition rebalancing is performed
      */
     data class Instance(
         var heartbeatIntervalSeconds: Long = 5,
         var staleInstanceTimeoutSeconds: Long = 30,
-        var gracefulShutdownTimeoutSeconds: Long = 15,
+        var gracefulShutdownTimeoutSeconds: Long = 0,
         var rebalanceInterval: Long = 10000,
     )
 

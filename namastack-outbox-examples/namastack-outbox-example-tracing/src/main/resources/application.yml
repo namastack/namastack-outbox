@@ -35,11 +35,6 @@ management:
         otlp:
           endpoint: http://localhost:4318/v1/logs
 
-namastack:
-  outbox:
-    instance:
-      graceful-shutdown-timeout-seconds: 2
-
 logging:
   pattern:
     correlation: "[${spring.application.name:},%X{traceId:-},%X{spanId:-}] "

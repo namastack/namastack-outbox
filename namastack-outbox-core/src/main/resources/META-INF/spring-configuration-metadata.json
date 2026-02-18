@@ -274,7 +274,7 @@
       "name": "namastack.outbox.instance.graceful-shutdown-timeout-seconds",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
-      "defaultValue": 15,
+      "defaultValue": 0,
       "description": "Timeout in seconds for graceful shutdown of outbox processing instances"
     },
     {

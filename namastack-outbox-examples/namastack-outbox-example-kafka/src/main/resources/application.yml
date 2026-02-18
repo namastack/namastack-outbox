@@ -15,8 +15,6 @@ spring:
 
 namastack:
   outbox:
-    instance:
-      graceful-shutdown-timeout-seconds: 2
     kafka:
       default-topic: customers
 

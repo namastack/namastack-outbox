@@ -13,11 +13,6 @@ spring:
     hibernate:
       ddl-auto: create-drop
 
-namastack:
-  outbox:
-    instance:
-      graceful-shutdown-timeout-seconds: 2
-
 logging:
   level:
     root: info

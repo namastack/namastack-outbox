@@ -154,9 +154,10 @@ Instances automatically coordinate partition assignments and rebalance when topo
 namastack:
   outbox:
     instance:
-      heartbeat-interval-seconds: 5             # How often to send heartbeats
-      stale-instance-timeout-seconds: 30        # When to consider an instance dead
-      graceful-shutdown-timeout-seconds: 15     # Time to wait for graceful shutdown
+      heartbeat-interval-seconds: 5            # How often each instance sends a heartbeat
+      stale-instance-timeout-seconds: 30       # When an instance is considered stale and removed
+      graceful-shutdown-timeout-seconds: 0     # Optional: propagation window on shutdown (default: 0)
+      rebalance-interval: 10000                # How often partitions are recalculated
 ```
 
 !!! example "Scaling Behavior"
@@ -1143,7 +1144,7 @@ You can also pass custom context directly when scheduling records:
             
             // Override or extend context
             outbox.schedule(
-                payload = OrderCreatedEvent(order.id),
+                payload = OrderCreatedEvent(order.id, order.customerId),
                 key = "order-${order.id}",
                 context = mapOf(
                     "correlationId" to command.correlationId,
@@ -1899,7 +1900,6 @@ Jitter randomizes the computed delay within [base - jitter, base + jitter] to av
 OutboxRetryPolicy.builder()
     .fixedBackOff(Duration.ofSeconds(30))
     .jitter(Duration.ofSeconds(5))  // Actual delay: ~25–35 seconds
-    .build()
 ```
 
 **Exception rules and priority:**
@@ -2183,7 +2183,7 @@ When virtual threads are enabled, use the concurrency limit instead of pool size
 namastack:
   outbox:
     processing:
-      executor-concurrency-limit: -1  # -1 for unlimited, or set a specific limit
+      executor-concurrency-limit: -1           # -1 for unlimited, or set a specific limit
 ```
 
 !!! note "Platform Threads"
@@ -2379,9 +2379,10 @@ namastack:
 
     # Instance Coordination Configuration
     instance:
-      graceful-shutdown-timeout-seconds: 15    # Graceful shutdown timeout (default: 15)
-      stale-instance-timeout-seconds: 30       # When to mark instance as dead (default: 30)
-      heartbeat-interval-seconds: 5            # Heartbeat interval (default: 5)
+      graceful-shutdown-timeout-seconds: 0     # Graceful shutdown propagation window (default: 0)
+      stale-instance-timeout-seconds: 30       # When an instance is considered stale and removed (default: 30)
+      heartbeat-interval-seconds: 5            # How often each instance sends a heartbeat (default: 5)
+      rebalance-interval: 10000                # How often partitions are recalculated (default: 10000)
 
     jdbc:
       table-prefix: ""                         # Prefix for table names (default: empty)

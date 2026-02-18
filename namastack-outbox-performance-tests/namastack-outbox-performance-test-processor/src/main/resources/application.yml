@@ -53,7 +53,6 @@ namastack:
     instance:
       heartbeat-interval-seconds: 5
       stale-instance-timeout-seconds: 10
-      graceful-shutdown-timeout-seconds: 2
       rebalance-interval: 10000
     multicaster:
       publish-after-save: false

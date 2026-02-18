@@ -42,7 +42,7 @@ class OutboxCoreAutoConfigurationTest {
                     TaskSchedulingAutoConfiguration::class.java,
                     OutboxCoreAutoConfiguration::class.java,
                 ),
-            ).withPropertyValues("namastack.outbox.instance.graceful-shutdown-timeout-seconds=0")
+            )
 
     @Nested
     @DisplayName("Core Beans")
@@ -185,7 +185,6 @@ class OutboxCoreAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .withPropertyValues(
-                    "namastack.outbox.instance.graceful-shutdown-timeout-seconds=0",
                     "namastack.outbox.instance.stale-instance-timeout-seconds=1",
                     "namastack.outbox.instance.heartbeat-interval-seconds=1",
                 ).run { context ->

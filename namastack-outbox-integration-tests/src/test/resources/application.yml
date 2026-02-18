@@ -15,8 +15,6 @@ namastack:
       fixed:
         delay: 1000
       max-retries: 2
-    instance:
-      graceful-shutdown-timeout-seconds: 0
 
 logging:
   level:
