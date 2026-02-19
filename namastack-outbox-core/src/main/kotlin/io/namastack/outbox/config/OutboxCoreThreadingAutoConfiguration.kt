@@ -49,7 +49,7 @@ class OutboxCoreThreadingAutoConfiguration {
     @ConditionalOnThreading(Threading.PLATFORM)
     fun outboxDefaultScheduler(builder: ThreadPoolTaskSchedulerBuilder): ThreadPoolTaskScheduler =
         builder
-            .poolSize(5)
+            .poolSize(1)
             .threadNamePrefix("outbox-scheduler-")
             .build()
 
@@ -58,25 +58,25 @@ class OutboxCoreThreadingAutoConfiguration {
     @ConditionalOnThreading(Threading.VIRTUAL)
     fun outboxDefaultSchedulerVirtualThreads(builder: SimpleAsyncTaskSchedulerBuilder): SimpleAsyncTaskScheduler =
         builder
-            .concurrencyLimit(5)
+            .concurrencyLimit(1)
             .threadNamePrefix("outbox-scheduler-")
             .build()
 
-    @Bean("outboxRebalancingScheduler", autowireCandidate = false)
-    @ConditionalOnMissingBean(name = ["outboxRebalancingScheduler"])
+    @Bean("outboxHeartbeatScheduler", autowireCandidate = false)
+    @ConditionalOnMissingBean(name = ["outboxHeartbeatScheduler"])
     @ConditionalOnThreading(Threading.PLATFORM)
-    fun outboxRebalancingScheduler(builder: ThreadPoolTaskSchedulerBuilder): ThreadPoolTaskScheduler =
+    fun outboxHeartbeatScheduler(builder: ThreadPoolTaskSchedulerBuilder): ThreadPoolTaskScheduler =
         builder
             .poolSize(1)
-            .threadNamePrefix("outbox-rebalancing-")
+            .threadNamePrefix("outbox-heartbeat-")
             .build()
 
-    @Bean("outboxRebalancingScheduler", autowireCandidate = false)
-    @ConditionalOnMissingBean(name = ["outboxRebalancingScheduler"])
+    @Bean("outboxHeartbeatScheduler", autowireCandidate = false)
+    @ConditionalOnMissingBean(name = ["outboxHeartbeatScheduler"])
     @ConditionalOnThreading(Threading.VIRTUAL)
-    fun outboxRebalancingSchedulerVirtualThreads(builder: SimpleAsyncTaskSchedulerBuilder): SimpleAsyncTaskScheduler =
+    fun outboxHeartbeatSchedulerVirtualThreads(builder: SimpleAsyncTaskSchedulerBuilder): SimpleAsyncTaskScheduler =
         builder
             .concurrencyLimit(1)
-            .threadNamePrefix("outbox-rebalancing-")
+            .threadNamePrefix("outbox-heartbeat-")
             .build()
 }
