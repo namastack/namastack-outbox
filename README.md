@@ -174,7 +174,7 @@ namastack:
         multiplier: 2.0
 ```
 
-For a complete list of all configuration options, see [Configuration Reference](https://outbox.namastack.io/features/#configuration-reference).
+For a complete list of all configuration options, see [Configuration Reference](https://outbox.namastack.io/latest/features/configuration/).
 
 **That's it!** Your records are now reliably persisted and processed.
 
@@ -242,7 +242,7 @@ class MyHandlers {
 1. All matching typed handlers (in registration order)
 2. All generic handlers (catch-all)
 
-For interface-based handlers, see [Handler Documentation](https://outbox.namastack.io/features/).
+For interface-based handlers, see [Handler Documentation](https://outbox.namastack.io/latest/features/).
 
 ---
 
@@ -273,7 +273,7 @@ class OrderHandlers {
 - Access to failure details and metadata via `OutboxFailureContext`
 - Record marked COMPLETED if fallback succeeds
 
-For interface-based fallback handlers, see [Fallback Documentation](https://outbox.namastack.io/features/).
+For interface-based fallback handlers, see [Fallback Documentation](https://outbox.namastack.io/latest/features/handlers/#fallback-handlers).
 
 ---
 
@@ -327,7 +327,7 @@ class OrderHandler {
 - Multiple providers supported (merged automatically)
 - Supports distributed tracing, multi-tenancy, correlation IDs
 
-For complete documentation and examples, see [Context Propagation Documentation](https://outbox.namastack.io/features/).
+For complete documentation and examples, see [Context Propagation Documentation](https://outbox.namastack.io/latest/features/context-propagation/).
 
 ---
 
