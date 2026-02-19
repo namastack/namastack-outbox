@@ -95,7 +95,7 @@ class OutboxInstanceRegistry(
      */
     @Scheduled(
         fixedRateString = $$"${namastack.outbox.instance.heartbeat-interval-seconds:5}000",
-        scheduler = "outboxRebalancingScheduler",
+        scheduler = "outboxHeartbeatScheduler",
     )
     fun performHeartbeatAndCleanup() {
         try {

@@ -51,7 +51,7 @@ class PartitionCoordinator(
         initialDelayString = "0",
         fixedDelayString =
             $$"${namastack.outbox.rebalance-interval:${namastack.outbox.instance.rebalance-interval:10000}}",
-        scheduler = "outboxRebalancingScheduler",
+        scheduler = "outboxDefaultScheduler",
     )
     fun rebalance() {
         log.debug("Starting rebalance for instance {}", currentInstanceId)
