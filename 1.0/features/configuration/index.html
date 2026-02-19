@@ -883,7 +883,6 @@
 <span class="w">    </span><span class="c1"># Processing Configuration</span>
 <span class="w">    </span><span class="nt">processing</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">stop-on-first-failure</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">              </span><span class="c1"># Stop processing on first failure (default: true)</span>
-<span class="w">      </span><span class="nt">publish-after-save</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                 </span><span class="c1"># Publish events to listeners after saving (default: true)</span>
 <span class="w">      </span><span class="nt">delete-completed-records</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">          </span><span class="c1"># Delete records after completion (default: false)</span>
 <span class="w">      </span><span class="nt">executor-core-pool-size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span><span class="w">               </span><span class="c1"># Core threads for processing (default: 4, platform threads)</span>
 <span class="w">      </span><span class="nt">executor-max-pool-size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span><span class="w">                </span><span class="c1"># Maximum threads for processing (default: 8, platform threads)</span>
@@ -892,6 +891,7 @@
 <span class="w">    </span><span class="c1"># Event Multicaster Configuration</span>
 <span class="w">    </span><span class="nt">multicaster</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                            </span><span class="c1"># Enable @OutboxEvent interception (default: true)</span>
+<span class="w">      </span><span class="nt">publish-after-save</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                 </span><span class="c1"># Publish events to listeners after saving (default: true)</span>
 
 <span class="w">    </span><span class="c1"># Instance Coordination Configuration</span>
 <span class="w">    </span><span class="nt">instance</span><span class="p">:</span>
@@ -910,8 +910,6 @@
 <span class="w">    </span><span class="nt">retry</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">policy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">exponential</span><span class="w">                      </span><span class="c1"># Retry policy: fixed|linear|exponential (default: exponential)</span>
 <span class="w">      </span><span class="nt">max-retries</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span><span class="w">                           </span><span class="c1"># Maximum retry attempts (default: 3)</span>
-
-<span class="w">      </span><span class="c1"># Exception Filtering (Since 1.0.0)</span>
 <span class="w">      </span><span class="nt">include-exceptions</span><span class="p">:</span><span class="w">                      </span><span class="c1"># Only retry these exceptions (optional)</span>
 <span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">java.net.SocketTimeoutException</span>
 <span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">org.springframework.web.client.ResourceAccessException</span>
