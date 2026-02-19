@@ -32,17 +32,34 @@ theme:
         icon: material/brightness-7
         name: Switch to light mode
   features:
-    - navigation.instant
+    - navigation.path
+    - navigation.sections
+    - navigation.indexes
+    - navigation.expand
     - navigation.tabs
     - navigation.top
-    - navigation.path
     - toc.follow
     - toc.integrate
 
 nav:
   - Home: index.md
   - Quickstart: quickstart.md
-  - Features: features.md
+  - Features:
+    - Overview: features/index.md
+    - Core Features: features/core.md
+    - Record Scheduling: features/scheduling.md
+    - Processing Chain: features/processing.md
+    - Handlers: features/handlers.md
+    - Context Propagation: features/context-propagation.md
+    - Serialization: features/serialization.md
+    - Retry Mechanisms: features/retry.md
+    - Persistence: features/persistence.md
+    - Virtual Threads: features/virtual-threads.md
+    - Database Support: features/database.md
+    - Monitoring: features/monitoring.md
+    - Configuration: features/configuration.md
+    - Guarantees: features/guarantees.md
+  - Contributing: contributing.md
 
 copyright: >
   Copyright &copy; 2026 namastack.io -
@@ -69,6 +86,8 @@ extra:
       as to measure the effectiveness of our documentation and whether users
       find what they're searching for. With your consent, you're helping us to
       make our documentation better.
+  version:
+    provider: mike
 
 extra_css:
   - stylesheets/extra.css

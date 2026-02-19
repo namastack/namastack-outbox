@@ -23,15 +23,11 @@ hide:
 
     Ensure each event is delivered **at least once**, even if failures occur. Retries and transactional storage guarantee no events are lost.
 
-    [:octicons-arrow-right-24: Learn more](#)
-
 -   :material-database-sync:{ .lg .middle .yellow-icon } __Consistent State and Messages__
 
     ---
 
     Keep your **database and message broker in sync** by storing events within the same transaction as your business data.
-
-    [:octicons-arrow-right-24: Learn more](#)
 
 -   :material-rocket-launch:{ .lg .middle .yellow-icon } __Asynchronous Scalability__
 
@@ -39,15 +35,11 @@ hide:
 
     Offload message publishing to a background process, allowing your main workflow to remain **fast and responsive**.
 
-    [:octicons-arrow-right-24: Learn more](#)
-
 -   :material-cog-outline:{ .lg .middle .yellow-icon } __Simple and Transparent__
 
     ---
 
     Designed for **simplicity** — no complex infrastructure required. Just use your database and a reliable message dispatcher.
-
-    [:octicons-arrow-right-24: Learn more](#)
 
 -   :material-chart-bar:{ .lg .middle .yellow-icon } __Observability and Monitoring__
 
@@ -55,15 +47,11 @@ hide:
 
     Track the status of your outbox events and failures with **metrics, logs, and dashboards**, making it easier to debug and operate reliably.
 
-    [:octicons-arrow-right-24: Learn more](#)
-
 -   :material-lock:{ .lg .middle .yellow-icon } __Transactional Safety__
 
     ---
 
     Outbox ensures your business operations are **atomic** — either both the database update and message dispatch succeed, or neither does.
-
-    [:octicons-arrow-right-24: Learn more](#)
 
 </div>
 

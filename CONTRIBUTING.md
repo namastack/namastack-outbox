@@ -74,6 +74,8 @@ namastack-outbox/
 ├── namastack-outbox-jpa/               # JPA/Hibernate persistence module
 ├── namastack-outbox-jdbc/              # JDBC persistence module
 ├── namastack-outbox-jackson/           # Jackson serialization support
+├── namastack-outbox-kafka/             # Apache Kafka integration
+├── namastack-outbox-rabbit/            # RabbitMQ integration
 ├── namastack-outbox-actuator/          # Spring Boot Actuator endpoints
 ├── namastack-outbox-metrics/           # Micrometer metrics support
 ├── namastack-outbox-starter-jpa/       # JPA starter (convenience dependency)

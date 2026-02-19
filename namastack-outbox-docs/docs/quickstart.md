@@ -276,7 +276,7 @@ Both approaches work equally well. Choose based on your preference:
     namastack.outbox.retry.exponential.multiplier=2.0
     ```
 
-For a complete list of all configuration options, see [Configuration Reference](https://outbox.namastack.io/features/#configuration-reference).
+For a complete list of all configuration options, see [Configuration Reference](features/configuration.md).
 
 **That's it!** Your records are now reliably persisted and processed.
 
@@ -357,7 +357,7 @@ If you prefer using JPA/Hibernate instead of JDBC:
 
 ## Next Steps
 
-- Explore the [Features Guide](features.md) for advanced capabilities
+- Explore the [Features Guide](features/index.md) for advanced capabilities
 - Check out the [API Reference](https://javadoc.io/doc/io.namastack/namastack-outbox-api) for detailed documentation
 - Report issues at [GitHub Issues](https://github.com/namastack/namastack-outbox/issues)
 - Join [GitHub Discussions](https://github.com/namastack/namastack-outbox/discussions) for community support
