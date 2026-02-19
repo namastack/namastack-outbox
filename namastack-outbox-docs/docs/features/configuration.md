@@ -15,7 +15,6 @@ namastack:
     # Processing Configuration
     processing:
       stop-on-first-failure: true              # Stop processing on first failure (default: true)
-      publish-after-save: true                 # Publish events to listeners after saving (default: true)
       delete-completed-records: false          # Delete records after completion (default: false)
       executor-core-pool-size: 4               # Core threads for processing (default: 4, platform threads)
       executor-max-pool-size: 8                # Maximum threads for processing (default: 8, platform threads)
@@ -24,6 +23,7 @@ namastack:
     # Event Multicaster Configuration
     multicaster:
       enabled: true                            # Enable @OutboxEvent interception (default: true)
+      publish-after-save: true                 # Publish events to listeners after saving (default: true)
 
     # Instance Coordination Configuration
     instance:
@@ -42,8 +42,6 @@ namastack:
     retry:
       policy: exponential                      # Retry policy: fixed|linear|exponential (default: exponential)
       max-retries: 3                           # Maximum retry attempts (default: 3)
-      
-      # Exception Filtering (Since 1.0.0)
       include-exceptions:                      # Only retry these exceptions (optional)
         - java.net.SocketTimeoutException
         - org.springframework.web.client.ResourceAccessException
