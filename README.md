@@ -242,7 +242,7 @@ class MyHandlers {
 1. All matching typed handlers (in registration order)
 2. All generic handlers (catch-all)
 
-For interface-based handlers, see [Handler Documentation](https://outbox.namastack.io/latest/features/).
+For interface-based handlers, see [Handler Documentation](https://outbox.namastack.io/latest/features/handlers/).
 
 ---
 
