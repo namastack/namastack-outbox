@@ -3,7 +3,7 @@ site_url: https://outbox.namastack.io
 theme:
   name: material
   logo: assets/namastack_logo.svg
-  favicon: assets/namastack_logo.svg
+  favicon: assets/favicon.png
   custom_dir: overrides
   palette:
     # Palette toggle for automatic mode
