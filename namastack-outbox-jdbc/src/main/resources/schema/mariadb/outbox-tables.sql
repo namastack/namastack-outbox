@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS outbox_record
     status         VARCHAR(20)                NOT NULL,
     record_key     VARCHAR(255)               NOT NULL,
     record_type    VARCHAR(255)               NOT NULL,
-    payload        TEXT                       NOT NULL,
+    payload        TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     context        TEXT DEFAULT NULL          NULL,
     created_at     TIMESTAMP                  NOT NULL,
     completed_at   TIMESTAMP DEFAULT NULL     NULL,
