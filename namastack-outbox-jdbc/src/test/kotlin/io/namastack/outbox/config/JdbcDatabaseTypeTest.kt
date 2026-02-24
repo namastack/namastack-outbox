@@ -51,6 +51,16 @@ class JdbcDatabaseTypeTest {
     }
 
     @Nested
+    inner class OracleTest {
+        @Test
+        fun `has correct schema location`() {
+            assertThat(
+                JdbcDatabaseType.Oracle.schemaLocation,
+            ).isEqualTo("classpath:schema/oracle/outbox-tables.sql")
+        }
+    }
+
+    @Nested
     inner class FromTest {
         @Test
         fun `returns PostgreSQL type for postgresql input`() {
@@ -84,6 +94,13 @@ class JdbcDatabaseTypeTest {
             assertThat(JdbcDatabaseType.from("microsoft sql server")).isEqualTo(JdbcDatabaseType.SQLServer)
             assertThat(JdbcDatabaseType.from("MICROSOFT SQL SERVER")).isEqualTo(JdbcDatabaseType.SQLServer)
             assertThat(JdbcDatabaseType.from("Microsoft SQL Server")).isEqualTo(JdbcDatabaseType.SQLServer)
+        }
+
+        @Test
+        fun `returns Oracle type for oracle input`() {
+            assertThat(JdbcDatabaseType.from("oracle")).isEqualTo(JdbcDatabaseType.Oracle)
+            assertThat(JdbcDatabaseType.from("ORACLE")).isEqualTo(JdbcDatabaseType.Oracle)
+            assertThat(JdbcDatabaseType.from("Oracle")).isEqualTo(JdbcDatabaseType.Oracle)
         }
 
         @Test
