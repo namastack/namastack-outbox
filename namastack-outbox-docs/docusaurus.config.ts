@@ -26,6 +26,8 @@ const config: Config = {
 
   onBrokenLinks: 'ignore',
 
+  trailingSlash: true,
+
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
   // may want to replace "en" with "zh-Hans".
@@ -85,9 +87,9 @@ const config: Config = {
         src: 'img/namastack_logo.svg',
       },
       items: [
-        {to: '/quickstart', label: 'Quickstart', position: 'left'},
-        {to: '/reference', label: 'Reference', position: 'left'},
-        {to: '/contributing', label: 'Contributing', position: 'left'},
+        {to: 'quickstart', label: 'Quickstart', position: 'left'},
+        {to: 'reference', label: 'Reference', position: 'left'},
+        {to: 'contributing', label: 'Contributing', position: 'left'},
         {
           href: 'https://github.com/namastack/namastack-outbox',
           label: 'GitHub',
