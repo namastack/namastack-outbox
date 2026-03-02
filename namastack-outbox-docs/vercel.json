@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/outbox/:path*",
+      "destination": "https://namastack-outbox.vercel.app/:path*"
+    }
+  ]
+}
