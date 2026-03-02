@@ -45,6 +45,7 @@ postgresql = { module = "org.postgresql:postgresql" }
 mysql-connector-j = { module = "com.mysql:mysql-connector-j" }
 mariadb-java-client = { module = "org.mariadb.jdbc:mariadb-java-client" }
 mssql-jdbc = { module = "com.microsoft.sqlserver:mssql-jdbc" }
+oracle-jdbc = { module = "com.oracle.database.jdbc:ojdbc11" }
 
 # Test dependencies
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
@@ -71,6 +72,7 @@ testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.
 testcontainers-mysql = { module = "org.testcontainers:mysql", version.ref = "testcontainers" }
 testcontainers-mariadb = { module = "org.testcontainers:mariadb", version.ref = "testcontainers" }
 testcontainers-mssqlserver = { module = "org.testcontainers:mssqlserver", version.ref = "testcontainers" }
+testcontainers-oracle-xe = { module = "org.testcontainers:oracle-xe", version.ref = "testcontainers" }
 
 [plugins]
 # Kotlin plugins

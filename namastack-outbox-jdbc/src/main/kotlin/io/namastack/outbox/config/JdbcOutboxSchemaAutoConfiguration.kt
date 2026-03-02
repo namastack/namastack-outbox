@@ -17,7 +17,7 @@ import javax.sql.DataSource
  * This configuration handles database schema creation when enabled.
  * Requires a DataSource to be present.
  *
- * @author Roland Beisel
+ * @author Roland Beisel, Khalid Alharisi
  * @since 1.0.0
  */
 @AutoConfiguration
@@ -49,6 +49,7 @@ class JdbcOutboxSchemaAutoConfiguration {
 
         val settings = DatabaseInitializationSettings()
         settings.schemaLocations = mutableListOf(databaseType.schemaLocation)
+        settings.separator = databaseType.statementSeparator
         settings.mode = DatabaseInitializationMode.ALWAYS
 
         return DataSourceScriptDatabaseInitializer(dataSource, settings)
