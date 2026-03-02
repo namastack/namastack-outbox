@@ -1,0 +1,8 @@
+.wrapper {
+  background: var(--ifm-background-surface-color);
+}
+
+.diagramImage {
+  max-width: 100%;
+  height: auto;
+}

@@ -1,0 +1,380 @@
+---
+sidebar_position: 1
+displayed_sidebar: null
+slug: /quickstart
+title: Quickstart
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import VersionedCode from '@site/src/components/VersionedCode';
+
+# Quickstart
+
+**Namastack Outbox for Spring Boot** is a robust Spring Boot library for **Java and Kotlin** projects that implements the
+**Transactional Outbox Pattern** for reliable record publishing in distributed systems. Ensures
+records are never lost through atomic persistence and automatic retry logic
+with handler-based processing and partition-aware horizontal scaling.
+
+This guide will get you up and running in 5 minutes with minimal configuration.
+
+---
+
+## Add Dependency
+
+<Tabs>
+<TabItem value="Gradle" label="Gradle">
+
+<VersionedCode language="kotlin" template= {`dependencies {
+      implementation("io.namastack:namastack-outbox-starter-jdbc:{{versionLabel}}")
+}`} />
+
+</TabItem>
+<TabItem value="Maven" label="Maven">
+
+<VersionedCode language="xml" template= {`<dependency>
+      <groupId>io.namastack</groupId>
+      <artifactId>namastack-outbox-starter-jdbc</artifactId>
+      <version>{{versionLabel}}</version>
+</dependency>`} />
+
+</TabItem>
+</Tabs>
+
+:::note JDBC vs JPA
+We recommend the JDBC starter for quick start as it supports automatic schema creation. For JPA/Hibernate projects, see [JPA Setup](#jpa-setup) below.
+:::
+
+## Enable Scheduling
+
+<Tabs>
+<TabItem value="Kotlin" label="Kotlin">
+
+```kotlin
+@SpringBootApplication
+@EnableScheduling  // Required for automatic outbox processing
+class Application
+
+fun main(args: Array<String>) {
+    runApplication<Application>(*args)
+}
+```
+</TabItem>
+<TabItem value="Java" label="Java">
+
+```java
+@SpringBootApplication
+@EnableScheduling  // Required for automatic outbox processing
+public class Application {
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
+    }
+}
+```
+</TabItem>
+</Tabs>
+
+## Create Handlers
+
+<Tabs>
+<TabItem value="Kotlin" label="Kotlin">
+
+```kotlin
+@Component
+class OrderHandlers {
+    // Typed handler - processes specific payload type
+    @OutboxHandler
+    fun handleOrder(payload: OrderCreatedEvent) {
+        eventPublisher.publish(payload)
+    }
+
+    // Generic handler - processes any payload type
+    @OutboxHandler
+    fun handleAny(payload: Any, metadata: OutboxRecordMetadata) {
+        when (payload) {
+            is OrderCreatedEvent -> eventPublisher.publish(payload)
+            is PaymentProcessedEvent -> paymentService.process(payload)
+            else -> logger.warn("Unknown payload type")
+        }
+    }
+}
+```
+</TabItem>
+<TabItem value="Java" label="Java">
+
+```java
+@Component
+public class OrderHandlers {
+    // Typed handler - processes specific payload type
+    @OutboxHandler
+    public void handleOrder(OrderCreatedEvent payload) {
+        eventPublisher.publish(payload);
+    }
+
+    // Generic handler - processes any payload type
+    @OutboxHandler
+    public void handleAny(Object payload, OutboxRecordMetadata metadata) {
+        if (payload instanceof OrderCreatedEvent) {
+            eventPublisher.publish((OrderCreatedEvent) payload);
+        } else if (payload instanceof PaymentProcessedEvent) {
+            paymentService.process((PaymentProcessedEvent) payload);
+        } else {
+            logger.warn("Unknown payload type");
+        }
+    }
+}
+```
+</TabItem>
+</Tabs>
+
+## Schedule Records Atomically
+
+<Tabs>
+<TabItem value="Kotlin" label="Kotlin">
+
+```kotlin
+@Service
+class OrderService(
+    private val outbox: Outbox,
+    private val orderRepository: OrderRepository
+) {
+    @Transactional
+    fun createOrder(command: CreateOrderCommand) {
+        val order = Order.create(command)
+        orderRepository.save(order)
+
+        // Schedule event - saved atomically with the order
+        outbox.schedule(
+            payload = OrderCreatedEvent(order.id, order.customerId),
+            key = "order-${order.id}"  // Groups records for ordered processing
+        )
+    }
+}
+```
+</TabItem>
+<TabItem value="Java" label="Java">
+
+```java
+@Service
+public class OrderService {
+    private final Outbox outbox;
+    private final OrderRepository orderRepository;
+
+    public OrderService(Outbox outbox, OrderRepository orderRepository) {
+        this.outbox = outbox;
+        this.orderRepository = orderRepository;
+    }
+
+    @Transactional
+    public void createOrder(CreateOrderCommand command) {
+        Order order = Order.create(command);
+        orderRepository.save(order);
+
+        // Schedule event - saved atomically with the order
+        outbox.schedule(
+            new OrderCreatedEvent(order.getId(), order.getCustomerId()),
+            "order-" + order.getId()  // Groups records for ordered processing
+        );
+    }
+}
+```
+</TabItem>
+</Tabs>
+
+## Alternative: Using Spring's ApplicationEventPublisher
+
+If you prefer Spring's native event publishing, annotate your events with `@OutboxEvent`:
+
+<Tabs>
+<TabItem value="Kotlin" label="Kotlin">
+
+```kotlin
+@OutboxEvent(
+    key = "#this.orderId",  // SpEL: uses 'orderId' field
+    context = [
+        OutboxContextEntry(key = "customerId", value = "#this.customerId"),
+        OutboxContextEntry(key = "region", value = "#this.region")
+    ]
+)
+data class OrderCreatedEvent(
+    val orderId: String,
+    val customerId: String,
+    val region: String,
+    val amount: BigDecimal
+)
+
+@Service
+class OrderService(
+    private val orderRepository: OrderRepository,
+    private val eventPublisher: ApplicationEventPublisher
+) {
+    @Transactional
+    fun createOrder(command: CreateOrderCommand) {
+        val order = Order.create(command)
+        orderRepository.save(order)
+
+        // Publish event - automatically saved to outbox atomically
+        eventPublisher.publishEvent(
+            OrderCreatedEvent(order.id, order.customerId, order.region, order.amount)
+        )
+    }
+}
+```
+</TabItem>
+<TabItem value="Java" label="Java">
+
+```java
+@OutboxEvent(
+    key = "#this.orderId",  // SpEL: uses 'orderId' field
+    context = {
+        @OutboxContextEntry(key = "customerId", value = "#this.customerId"),
+        @OutboxContextEntry(key = "region", value = "#this.region")
+    }
+)
+public class OrderCreatedEvent {
+    private String orderId;
+    private String customerId;
+    private String region;
+    private BigDecimal amount;
+    // constructor, getters...
+}
+
+@Service
+public class OrderService {
+    private final OrderRepository orderRepository;
+    private final ApplicationEventPublisher eventPublisher;
+
+    public OrderService(OrderRepository orderRepository,
+                       ApplicationEventPublisher eventPublisher) {
+        this.orderRepository = orderRepository;
+        this.eventPublisher = eventPublisher;
+    }
+
+    @Transactional
+    public void createOrder(CreateOrderCommand command) {
+        Order order = Order.create(command);
+        orderRepository.save(order);
+
+        // Publish event - automatically saved to outbox atomically
+        eventPublisher.publishEvent(
+            new OrderCreatedEvent(order.getId(), order.getCustomerId(),
+                                 order.getRegion(), order.getAmount())
+        );
+    }
+}
+```
+</TabItem>
+</Tabs>
+
+Both approaches work equally well. Choose based on your preference:
+
+- **Explicit `outbox.schedule()`**: More control, clearer intent, supports any payload type
+- **`@OutboxEvent` + `ApplicationEventPublisher`**: More Spring idiomatic for domain events
+
+## Configure (Optional)
+
+<Tabs>
+<TabItem value="YAML" label="YAML">
+
+```yaml
+namastack:
+  outbox:
+    poll-interval: 2000
+    batch-size: 10
+    retry:
+      policy: "exponential"
+      max-retries: 3
+      exponential:
+        initial-delay: 1000
+        max-delay: 60000
+        multiplier: 2.0
+```
+</TabItem>
+<TabItem value="Properties" label="Properties">
+
+```properties
+namastack.outbox.poll-interval=2000
+namastack.outbox.batch-size=10
+namastack.outbox.retry.policy=exponential
+namastack.outbox.retry.max-retries=3
+namastack.outbox.retry.exponential.initial-delay=1000
+namastack.outbox.retry.exponential.max-delay=60000
+namastack.outbox.retry.exponential.multiplier=2.0
+```
+</TabItem>
+</Tabs>
+
+For a complete list of all configuration options, see [Configuration Reference](reference/configuration.md).
+
+**That's it!** Your records are now reliably persisted and processed.
+
+---
+
+## Supported Databases
+
+Any JPA/JDBC-compatible database is supported. Automatic schema creation is available in the JDBC module for:
+
+- H2 (development)
+- MySQL / MariaDB
+- PostgreSQL
+- SQL Server
+
+**Schema Files for Flyway/Liquibase:**
+
+If you manage your database schema manually, you can find the SQL schema files here:
+👉 [Schema Files on GitHub](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema)
+
+---
+
+## JPA Setup
+
+<Tabs>
+<TabItem value="Gradle" label="Gradle">
+
+<VersionedCode language="kotlin" template= {`dependencies {
+      implementation("io.namastack:namastack-outbox-starter-jpa:{{versionLabel}}")
+}`} />
+
+</TabItem>
+<TabItem value="Maven" label="Maven">
+
+<VersionedCode language="xml" template= {`<dependency>
+      <groupId>io.namastack</groupId>
+      <artifactId>namastack-outbox-starter-jpa</artifactId>
+      <version>{{versionLabel}}</version>
+</dependency>`} />
+
+</TabItem>
+</Tabs>
+
+:::warning Schema Management Required
+The JPA module does **not** support automatic schema creation. Choose one of these options:
+
+**Option 1: Hibernate DDL Auto (Development only)**
+```yaml
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create  # or create-drop
+```
+
+**Option 2: Flyway/Liquibase (Recommended for Production)**
+
+Use the [SQL schema files](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema) from our repository and configure Hibernate to validate:
+```yaml
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+```
+:::
+
+---
+
+## Next Steps
+
+- Explore the [Reference Section](reference) for advanced capabilities
+- Check out the [API Reference](https://javadoc.io/doc/io.namastack/namastack-outbox-api) for detailed documentation
+- Report issues at [GitHub Issues](https://github.com/namastack/namastack-outbox/issues)
+- Join [GitHub Discussions](https://github.com/namastack/namastack-outbox/discussions) for community support
+

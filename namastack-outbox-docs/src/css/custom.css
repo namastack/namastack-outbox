@@ -1,0 +1,61 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* You can override the default Infima variables here. */
+:root {
+  --ifm-color-primary: #c99a00;           /* deep amber */
+  --ifm-color-primary-dark: #b88d00;
+  --ifm-color-primary-darker: #a67f00;
+  --ifm-color-primary-darkest: #8a6a00;
+
+  --ifm-color-primary-light: #d6aa1a;
+  --ifm-color-primary-lighter: #e0b733;
+  --ifm-color-primary-lightest: #ebc966;
+
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.08);
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme='dark'] {
+  --ifm-color-primary: #ffe66f;           /* brighter for contrast */
+  --ifm-color-primary-dark: #ffde59;
+  --ifm-color-primary-darker: #f5cf3f;
+  --ifm-color-primary-darkest: #d4b62a;
+
+  --ifm-color-primary-light: #fff08c;
+  --ifm-color-primary-lighter: #fff4a8;
+  --ifm-color-primary-lightest: #fff8c4;
+
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.08);
+}
+
+.hero__title {
+  color: #FFFFFF;
+  margin-bottom: 0px;
+}
+
+.hero__subtitle {
+  color: #FFFFFF;
+  margin-bottom: 0px;
+}
+
+.hero__logo {
+  width: clamp(100px, 15vw, 200px);
+  height: auto;
+}
+
+.button {
+  display: flex;
+  flex-wrap: wrap;          /* allows stacking */
+  justify-content: center;  /* center buttons horizontally */
+  align-items: center;      /* center buttons when stacked */
+  gap: 1rem;                /* space between buttons */
+}
+
+.hero {
+  background: none;
+}

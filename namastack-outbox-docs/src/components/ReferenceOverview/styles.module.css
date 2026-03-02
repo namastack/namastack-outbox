@@ -1,0 +1,13 @@
+.featureCard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.featureCard .card__body {
+  flex: 1;
+}
+
+.featureCard .card__footer {
+  margin-top: auto;
+}
