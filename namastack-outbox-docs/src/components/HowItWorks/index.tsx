@@ -7,8 +7,8 @@ const HowItWorks: React.FC = () => {
 
   const imageSrc =
     colorMode === "dark"
-      ? "img/landing/diagram_dark.svg"
-      : "img/landing/diagram_light.svg";
+      ? "/outbox/img/landing/diagram_dark.svg"
+      : "/outbox/img/landing/diagram_light.svg";
 
   return (
     <section className={`padding-vert--xl ${styles.wrapper}`}>
