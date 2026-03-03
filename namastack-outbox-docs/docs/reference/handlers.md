@@ -1,7 +1,7 @@
 ---
 title: Handlers
 description: Type-safe and generic handlers for processing outbox records, including fallback handlers for graceful degradation.
-sidebar_position: 4
+sidebar_position: 3
 ---
 
 import Tabs from '@theme/Tabs';

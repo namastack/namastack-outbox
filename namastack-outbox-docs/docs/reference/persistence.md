@@ -1,7 +1,7 @@
 ---
-title: Persistence
+title: Persistence Modules
 description: Choose between JPA and JDBC persistence modules.
-sidebar_position: 8
+sidebar_position: 2
 ---
 
 import Tabs from '@theme/Tabs';

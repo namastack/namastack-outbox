@@ -14,6 +14,7 @@ Any JPA/JDBC-compatible database is supported. Automatic schema creation (JDBC m
 - ✅ MySQL / MariaDB
 - ✅ PostgreSQL
 - ✅ SQL Server
+- ✅ Oracle
 
 ---
 

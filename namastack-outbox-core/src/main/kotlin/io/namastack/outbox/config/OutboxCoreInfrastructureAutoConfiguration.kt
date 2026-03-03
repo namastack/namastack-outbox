@@ -31,7 +31,7 @@ import org.springframework.context.annotation.Role
 import java.time.Clock
 
 @AutoConfiguration
-@AutoConfigurationPackage
+@AutoConfigurationPackage(basePackages = ["io.namastack.outbox"])
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(OutboxProperties::class)
 class OutboxCoreInfrastructureAutoConfiguration {

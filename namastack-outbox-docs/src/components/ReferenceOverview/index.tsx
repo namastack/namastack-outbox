@@ -1,87 +1,129 @@
 import type {ReactNode} from 'react';
 import clsx from 'clsx';
 import styles from './styles.module.css';
-import { IconShieldCheckeredFilled } from '@tabler/icons-react';
+import {
+  IconFileSettingsFilled,
+  IconShieldCheckeredFilled,
+  IconDatabase,
+  IconCalendarEventFilled,
+  IconReplaceFilled,
+  IconDeviceHeartMonitorFilled,
+  IconManualGearboxFilled,
+  IconSignRightFilled,
+  IconDropletsFilled,
+  IconChartBar,
+  IconTableFilled,
+  IconBrandSketchFilled,
+  IconArrowBigRightLinesFilled,
+  IconMessage2Bolt,
+} from '@tabler/icons-react';
+import { useActiveVersion } from '@docusaurus/plugin-content-docs/client';
 
-// Mapping of reference categories to their metadata
 const referenceCategories = [
+  {
+    title: 'Configuration',
+    icon: IconFileSettingsFilled,
+    description: 'Complete reference of all configuration options.',
+    link: 'configuration',
+    excludeInVersion: [],
+  },
   {
     title: 'Core Features',
     icon: IconShieldCheckeredFilled,
     description: 'Transactional outbox pattern, record ordering, and hash-based partitioning for horizontal scaling.',
     link: 'core',
+    excludeInVersion: [],
+  },
+  {
+    title: 'Persistence Modules',
+    icon: IconDatabase,
+    description: 'Choose between JPA and JDBC persistence modules.',
+    link: 'persistence',
+    excludeInVersion: [],
   },
   {
     title: 'Record Scheduling',
-    icon: IconShieldCheckeredFilled,
+    icon: IconCalendarEventFilled,
     description: 'Schedule records via the Outbox Service API or use Spring\'s event system with @OutboxEvent.',
     link: 'scheduling',
-  },
-  {
-    title: 'Processing Chain',
-    icon: IconShieldCheckeredFilled,
-    description: 'Chain of Responsibility pattern for processing records through multiple stages.',
-    link: 'processing',
+    excludeInVersion: [],
   },
   {
     title: 'Handlers',
-    icon: IconShieldCheckeredFilled,
+    icon: IconReplaceFilled,
     description: 'Type-safe and generic handlers for processing outbox records, including fallback handlers for graceful degradation.',
     link: 'handlers',
+    excludeInVersion: [],
   },
   {
-    title: 'Context Propagation',
-    icon: IconShieldCheckeredFilled,
-    description: 'Preserve trace IDs, tenant info, and other metadata across async boundaries.',
-    link: 'context-propagation',
+    title: 'Messaging Integrations',
+    icon: IconMessage2Bolt,
+    description: 'Production-ready Kafka and RabbitMQ handlers with flexible routing and configuration.',
+    link: 'messaging',
+    excludeInVersion: ['1.0.0'],
   },
   {
-    title: 'Serialization',
-    icon: IconShieldCheckeredFilled,
-    description: 'Flexible payload serialization with Jackson or custom serializers.',
-    link: 'serialization',
+    title: 'Polling Strategies',
+    icon: IconDeviceHeartMonitorFilled,
+    description: 'Supports both fixed and adaptive polling strategies for efficient and responsive outbox processing.',
+    link: 'polling',
+    excludeInVersion: ["1.0.0"],
+  },
+  {
+    title: 'Processing Chain',
+    icon: IconManualGearboxFilled,
+    description: 'Chain of Responsibility pattern for processing records through multiple stages.',
+    link: 'processing',
+    excludeInVersion: [],
   },
   {
     title: 'Retry Mechanisms',
-    icon: IconShieldCheckeredFilled,
+    icon: IconSignRightFilled,
     description: 'Sophisticated retry strategies with exponential backoff, jitter, and exception filtering.',
     link: 'retry',
+    excludeInVersion: [],
   },
   {
-    title: 'Persistence',
-    icon: IconShieldCheckeredFilled,
-    description: 'Choose between JPA and JDBC persistence modules.',
-    link: 'persistence',
+    title: 'Context Propagation',
+    icon: IconDropletsFilled,
+    description: 'Preserve trace IDs, tenant info, and other metadata across async boundaries.',
+    link: 'context-propagation',
+    excludeInVersion: [],
   },
   {
     title: 'Monitoring',
-    icon: IconShieldCheckeredFilled,
+    icon: IconChartBar,
     description: 'Built-in metrics with Micrometer and Spring Boot Actuator integration.',
     link: 'monitoring',
-  },
-  {
-    title: 'Configuration',
-    icon: IconShieldCheckeredFilled,
-    description: 'Complete reference of all configuration options.',
-    link: 'configuration',
+    excludeInVersion: [],
   },
   {
     title: 'Virtual Threads Support',
-    icon: IconShieldCheckeredFilled,
+    icon: IconTableFilled,
     description: 'Automatic virtual threads integration for better scalability.',
     link: 'virtual-threads',
+    excludeInVersion: [],
   },
   {
     title: 'Database Support',
-    icon: IconShieldCheckeredFilled,
+    icon: IconDatabase,
     description: 'Supported databases and schema management.',
     link: 'database',
+    excludeInVersion: [],
+  },
+  {
+    title: 'Serialization',
+    icon: IconArrowBigRightLinesFilled,
+    description: 'Flexible payload serialization with Jackson or custom serializers.',
+    link: 'serialization',
+    excludeInVersion: [],
   },
   {
     title: 'Reliability Guarantees',
-    icon: IconShieldCheckeredFilled,
+    icon: IconBrandSketchFilled,
     description: 'What the library guarantees and what it does not.',
     link: 'guarantees',
+    excludeInVersion: [],
   },
 ];
 
@@ -107,13 +149,17 @@ function ReferenceCard({title, icon: Icon, description, link}: {title: string, i
 }
 
 export default function ReferenceOverview(): ReactNode {
+  const activeVersion = useActiveVersion();
+  const currentVersion = activeVersion?.name || 'current';
   return (
     <section>
       <div className="container">
         <div className="row">
-          {referenceCategories.map((props, idx) => (
-            <ReferenceCard key={idx} {...props} />
-          ))}
+          {referenceCategories
+            .filter(cat => !cat.excludeInVersion.includes(currentVersion))
+            .map((props, idx) => (
+              <ReferenceCard key={idx} {...props} />
+            ))}
         </div>
       </div>
     </section>

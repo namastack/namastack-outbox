@@ -1,7 +1,7 @@
 ---
 title: Processing Chain
 description: Chain of Responsibility pattern for processing records through multiple stages.
-sidebar_position: 3
+sidebar_position: 5
 ---
 
 # Processing Chain

@@ -1,7 +1,7 @@
 ---
 title: Configuration
 description: Complete reference of all configuration options.
-sidebar_position: 10
+sidebar_position: 1
 ---
 
 # Configuration Reference
@@ -16,7 +16,7 @@ namastack:
     # Polling Configuration
     poll-interval: 2000                        # Milliseconds between polling cycles (default: 2000)
     rebalance-interval: 10000                  # Milliseconds between rebalance checks (default: 10000)
-    batch-size: 10                             # Records per poll cycle (default: 10)
+    batch-size: 10                             # Record keys per poll cycle (default: 10)
 
     # Processing Configuration
     processing:

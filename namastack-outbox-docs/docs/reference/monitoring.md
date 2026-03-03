@@ -1,7 +1,7 @@
 ---
 title: Monitoring
 description: Built-in metrics with Micrometer and Spring Boot Actuator integration.
-sidebar_position: 9
+sidebar_position: 10
 ---
 
 import Tabs from '@theme/Tabs';

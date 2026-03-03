@@ -1,7 +1,7 @@
 ---
 title: Serialization
 description: Flexible payload serialization with Jackson or custom serializers.
-sidebar_position: 6
+sidebar_position: 12
 ---
 
 import Tabs from '@theme/Tabs';

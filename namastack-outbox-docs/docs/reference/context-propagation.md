@@ -1,7 +1,7 @@
 ---
 title: Context Propagation
 description: Preserve trace IDs, tenant info, and other metadata across async boundaries.
-sidebar_position: 5
+sidebar_position: 8
 ---
 
 import Tabs from '@theme/Tabs';
