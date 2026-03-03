@@ -1,11 +1,19 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 
-const CDN_P5    = 'https://cdnjs.cloudflare.com/ajax/libs/p5.js/2.0.5/p5.min.js';
-const CDN_THREE = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js';
-const CDN_VANTA = 'https://cdn.jsdelivr.net/npm/vanta@0.5.24/dist/vanta.topology.min.js';
+declare global {
+  interface Window {
+    VANTA?: { TOPOLOGY?: (opts: any) => any };
+    THREE?: any;
+  }
+}
 
-function loadScript(src) {
+const CDN_P5    = '/outbox/vendor/p5.min.js';
+const CDN_THREE = '/outbox/vendor/three.min.js';
+const CDN_VANTA = '/outbox/vendor/vanta.topology.min.js';
+
+function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (typeof document === 'undefined') return resolve();
     if (document.querySelector(`script[src="${src}"]`)) {
       resolve();
       return;
@@ -21,19 +29,47 @@ function loadScript(src) {
 
 const RESIZE_DEBOUNCE_MS = 200;
 
+interface VantaBackgroundProps {
+  children?: React.ReactNode;
+  options?: Record<string, unknown>;
+  style?: React.CSSProperties;
+  className?: string;
+  minHeight?: string;
+}
+
 export default function VantaBackground({
   children,
   options = {},
   style = {},
   className = '',
   minHeight = '10vh',
-}) {
-  const containerRef  = useRef(null);
-  const vantaRef      = useRef(null);
-  const resizeTimer   = useRef(null);
+}: VantaBackgroundProps) {
+  const containerRef  = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const vantaRef      = useRef<any>(null);
+  const resizeTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const optionsRef    = useRef(options);
   const [ready, setReady] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Determine whether to enable Vanta based on user preferences / device
+  const shouldEnableVanta = () => {
+    try {
+      // If the options explicitly set force: true, allow Vanta
+      if ((optionsRef.current as any)?.force === true) return true;
+      // Respect reduced-motion
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+      // Respect Save-Data
+      // @ts-ignore
+      if (navigator && (navigator as any).connection && (navigator as any).connection.saveData) return false;
+      // Skip on narrow viewports (mobile) to improve LCP
+      if (window.innerWidth && window.innerWidth < 768) return false;
+    } catch (e) {
+      // If any checks fail, default to enabling Vanta
+      return true;
+    }
+    return true;
+  }
 
   useEffect(() => {
     optionsRef.current = options;
@@ -43,12 +79,19 @@ export default function VantaBackground({
     let cancelled = false;
     async function loadDeps() {
       try {
-        await loadScript(CDN_P5);
+        // Only load scripts if Vanta should run
+        if (!shouldEnableVanta()) {
+          if (!cancelled) setReady(false);
+          return;
+        }
+
         await loadScript(CDN_THREE);
+        await loadScript(CDN_P5);
         await loadScript(CDN_VANTA);
+
         if (!cancelled) setReady(true);
-      } catch (err) {
-        if (!cancelled) setError(err.message);
+      } catch (err: unknown) {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
       }
     }
     loadDeps();
@@ -63,19 +106,23 @@ export default function VantaBackground({
       vantaRef.current = null;
     }
 
-    vantaRef.current = window.VANTA.TOPOLOGY({
-      el:              containerRef.current,
-      mouseControls:   false,
-      touchControls:   false,
-      gyroControls:    false,
-      minHeight:       200.0,
-      minWidth:        200.0,
-      scale:           1.0,
-      scaleMobile:     1.0,
-      color:           0x3b82f6,
-      backgroundColor: 0x0f172a,
-      ...optionsRef.current,
-    });
+    try {
+      vantaRef.current = window.VANTA.TOPOLOGY({
+        el:              containerRef.current,
+        mouseControls:   false,
+        touchControls:   false,
+        gyroControls:    false,
+        minHeight:       200.0,
+        minWidth:        200.0,
+        scale:           1.0,
+        scaleMobile:     1.0,
+        color:           0x3b82f6,
+        backgroundColor: 0x0f172a,
+        ...optionsRef.current,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
   }, []);
 
   useEffect(() => {
@@ -98,7 +145,7 @@ export default function VantaBackground({
         vantaRef.current = null;
       }
 
-      clearTimeout(resizeTimer.current);
+      if (resizeTimer.current) clearTimeout(resizeTimer.current);
       resizeTimer.current = setTimeout(() => {
         initVanta();
       }, RESIZE_DEBOUNCE_MS);
@@ -107,7 +154,7 @@ export default function VantaBackground({
     window.addEventListener('resize', onResize);
     return () => {
       window.removeEventListener('resize', onResize);
-      clearTimeout(resizeTimer.current);
+      if (resizeTimer.current) clearTimeout(resizeTimer.current);
     };
   }, [ready, initVanta]);
 
