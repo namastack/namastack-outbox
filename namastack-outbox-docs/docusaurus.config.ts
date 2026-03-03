@@ -74,7 +74,7 @@ const config: Config = {
 
   themeConfig: {
     // Replace with your project's social card
-    image: 'img/namastack_logo.svg',
+    image: 'img/og-image-v3.png',
     colorMode: {
       defaultMode: 'dark',
       disableSwitch: false,
