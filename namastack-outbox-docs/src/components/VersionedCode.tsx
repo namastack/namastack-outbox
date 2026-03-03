@@ -14,7 +14,6 @@ export default function VersionedCode({language, template}: Props) {
     versionLabel: version.label,
   };
 
-console.log(version.version)
   const code = template.replace(/{{(\w+)}}/g, (_, key) => {
     return key in vars ? String(vars[key as keyof typeof vars]) : `{{${key}}}`;
   });
