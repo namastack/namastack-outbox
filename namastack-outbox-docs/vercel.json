@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/outbox/",
+      "permanent": true
+    }
+  ]
+}
