@@ -33,7 +33,7 @@ with handler-based processing and partition-aware horizontal scaling.
 
 ## 📖 Documentation
 
-For detailed information about features, configuration, and advanced topics, visit the **[complete documentation](https://outbox.namastack.io)**.
+For detailed information about features, configuration, and advanced topics, visit the **[complete documentation](https://www.namastack.io/outbox)**.
 
 Quick links:
 - [API Reference (Javadoc)](https://javadoc.io/doc/io.namastack/namastack-outbox-api)
@@ -174,7 +174,7 @@ namastack:
         multiplier: 2.0
 ```
 
-For a complete list of all configuration options, see [Configuration Reference](https://outbox.namastack.io/latest/features/configuration/).
+For a complete list of all configuration options, see [Configuration Reference](https://www.namastack.io/outbox/reference/configuration/).
 
 **That's it!** Your records are now reliably persisted and processed.
 
@@ -242,7 +242,7 @@ class MyHandlers {
 1. All matching typed handlers (in registration order)
 2. All generic handlers (catch-all)
 
-For interface-based handlers, see [Handler Documentation](https://outbox.namastack.io/latest/features/handlers/).
+For interface-based handlers, see [Handler Documentation](https://www.namastack.io/outbox/reference/handlers/).
 
 ---
 
@@ -273,7 +273,7 @@ class OrderHandlers {
 - Access to failure details and metadata via `OutboxFailureContext`
 - Record marked COMPLETED if fallback succeeds
 
-For interface-based fallback handlers, see [Fallback Documentation](https://outbox.namastack.io/latest/features/handlers/#fallback-handlers).
+For interface-based fallback handlers, see [Fallback Documentation](https://www.namastack.io/outbox/reference/handlers/).
 
 ---
 
@@ -327,7 +327,7 @@ class OrderHandler {
 - Multiple providers supported (merged automatically)
 - Supports distributed tracing, multi-tenancy, correlation IDs
 
-For complete documentation and examples, see [Context Propagation Documentation](https://outbox.namastack.io/latest/features/context-propagation/).
+For complete documentation and examples, see [Context Propagation Documentation](https://www.namastack.io/outbox/reference/context-propagation/).
 
 ---
 
@@ -592,7 +592,7 @@ If you manage your database schema manually with Flyway or Liquibase, you can fi
 
 ## Support
 
-- 📖 [Documentation](https://outbox.namastack.io)
+- 📖 [Documentation](https://www.namastack.io/outbox/)
 - 🐛 [Issues](https://github.com/namastack/namastack-outbox/issues)
 - 💬 [Discussions](https://github.com/namastack/namastack-outbox/discussions)
 - 📦 [Example Projects](namastack-outbox-examples)
@@ -607,6 +607,6 @@ Apache License 2.0 - See [LICENSE](./LICENSE)
 
 ## Acknowledgments
 
-- Built with ❤️ by [Namastack](https://namastack.io)
+- Built with ❤️ by [Namastack](https://www.namastack.io)
 - Inspired by the [Transactional Outbox Pattern](https://microservices.io/patterns/data/transactional-outbox.html)
 - Powered by Spring Boot & Kotlin
