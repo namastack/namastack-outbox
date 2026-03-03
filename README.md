@@ -1,4 +1,4 @@
-[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/namastack/namastack-outbox/releases/tag/v1.0.0)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue)](https://github.com/namastack/namastack-outbox/releases/tag/v1.1.0)
 [![CodeFactor](https://www.codefactor.io/repository/github/namastack/namastack-outbox/badge)](https://www.codefactor.io/repository/github/namastack/namastack-outbox)
 [![codecov](https://codecov.io/github/namastack/namastack-outbox/graph/badge.svg?token=TZS1OQB4XC)](https://codecov.io/github/namastack/namastack-outbox)
 [![javadoc](https://javadoc.io/badge2/io.namastack/namastack-outbox-core/javadoc.svg)](https://javadoc.io/doc/io.namastack/namastack-outbox-core)
@@ -54,7 +54,7 @@ Quick links:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jdbc:1.0.0")
+    implementation("io.namastack:namastack-outbox-starter-jdbc:1.1.0")
 }
 ```
 
@@ -64,7 +64,7 @@ dependencies {
 <dependency>
     <groupId>io.namastack</groupId>
     <artifactId>namastack-outbox-starter-jdbc</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
@@ -190,7 +190,7 @@ If you prefer using JPA/Hibernate instead of JDBC, use the JPA starter:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.0.0")
+    implementation("io.namastack:namastack-outbox-starter-jpa:1.1.0")
 }
 ```
 
@@ -474,6 +474,31 @@ class OutboxConfig {
 > **Tip:** A `OutboxRetryPolicy.Builder` bean named `outboxRetryPolicyBuilder` is automatically configured based on your `application.yml` settings. You can inject it to retain property-driven defaults and add programmatic customizations.
 
 ---
+
+## Messaging Integrations
+
+Namastack Outbox provides ready-to-use modules for Kafka and RabbitMQ, enabling seamless event publishing to these messaging systems. These modules offer:
+
+- **Auto-configuration**: Instantly enabled if Spring Kafka or Spring AMQP is present.
+- **Flexible Routing**: Route events to topics/exchanges, set keys, headers, and custom payload mapping.
+- **Type-safe Handlers**: Use annotation-based or interface-based handlers for messaging events.
+- **Header Mapping**: Easily propagate trace IDs, tenant info, and other metadata as message headers.
+- **JSON Serialization**: Built-in Jackson 3.x support for payload serialization.
+
+**Quickstart:**
+
+Add the dependency to your build:
+
+```gradle
+// Kafka
+implementation("io.namastack:namastack-outbox-kafka:1.1.0")
+// RabbitMQ
+implementation("io.namastack:namastack-outbox-rabbit:1.1.0")
+```
+
+See [Messaging Integrations Documentation](https://www.namastack.io/outbox/reference/messaging) for full usage and configuration details.
+
+--- 
 
 ## How It Works
 
