@@ -51,7 +51,7 @@ const CookieConsentComponent = () => {
   const disableGA = (CookieConsent: any) => {
     window[`ga-disable-${GA_ID}`] = true;
 
-    CookieConsent.eraseCookies(/^(?!cc_cookie$)/);
+    CookieConsent.eraseCookies(/^(?!cc_cookie$)/, '/', '.namastack.io');
   };
 
   return (
