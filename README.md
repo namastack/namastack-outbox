@@ -10,24 +10,28 @@
 
 # Namastack Outbox for Spring Boot
 
-A robust Spring Boot library for **Java and Kotlin** projects that implements the 
-**Transactional Outbox Pattern** for reliable record publishing in distributed systems. Ensures 
-records are never lost through atomic persistence and automatic retry logic
-with handler-based processing and partition-aware horizontal scaling.
+Namastack Outbox is a modern, production-grade library for **Spring Boot** (Java & Kotlin) that implements the **Transactional Outbox Pattern** for reliable, scalable, and observable event-driven architectures. It guarantees that business events are never lost, are processed exactly once per handler, and can be published to any system—whether via custom handlers, Kafka, RabbitMQ, or other integrations.
+
+**Why Namastack Outbox?**
+- No more lost messages: Atomic persistence with your business data.
+- Effortless horizontal scaling: Partition-aware, distributed processing.
+- Built for observability: Metrics, tracing, and context propagation out of the box.
+- Zero vendor lock-in: Works with any JPA-compatible database, JDBC, or messaging system.
+- Fast to production: Sensible defaults, auto-configuration, and deep Spring Boot integration.
 
 ## Key Features
 
-- ✅ **Transactional Atomicity**: Records saved in same transaction as domain data
-- ✅ **Zero Message Loss**: Database-backed with at-least-once delivery
-- ✅ **Horizontal Scaling**: Automatic partition assignment across instances
-- ✅ **Automatic Retry**: Exponential backoff, fixed delay, linear with optional jitter
-- ✅ **Handler-Based**: Annotation-based or interface-based handler registration
-- ✅ **Type-Safe Handlers**: Generic or typed handler support
-- ✅ **Fallback Handlers**: Graceful degradation when retries are exhausted
-- ✅ **Flexible Payloads**: Store any type - events, commands, notifications, etc.
-- ✅ **Context Propagation**: Trace IDs, tenant info, correlation IDs across async boundaries
-- ✅ **Ordered Processing**: Records with same key processed sequentially
-- ✅ **Built-in Metrics**: Micrometer integration for monitoring
+- **Transactional Guarantees**: Outbox records are persisted atomically with your business data - no lost events, ever.
+- **At-Least-Once Delivery**: Robust retry logic with exponential backoff, linear, fixed, and jittered strategies.
+- **Horizontal Scaling**: Partitioned processing with automatic rebalancing for high availability and throughput.
+- **Flexible Handler Model**: Type-safe, annotation-based, or interface-based handlers for any payload type.
+- **Fallback & Dead Letter Handling**: Graceful degradation and custom fallback logic for failed records.
+- **Context Propagation**: Trace IDs, tenant info, and correlation IDs flow across async boundaries.
+- **Observability**: Built-in Micrometer metrics, health checks, and tracing support.
+- **Messaging Integrations**: Ready-to-use Kafka and RabbitMQ handlers with flexible routing and header mapping.
+- **Adaptive Polling**: Dynamically adjusts polling interval based on workload for optimal DB efficiency (since 1.1.0).
+- **Broad Database Support**: Works with H2, MySQL, MariaDB, PostgreSQL, SQL Server, and Oracle.
+- **Zero Vendor Lock-In**: Use with JDBC, JPA, or your own persistence layer.
 
 ---
 
