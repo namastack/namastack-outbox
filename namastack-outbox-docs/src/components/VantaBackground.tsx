@@ -1,21 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 
-/**
- * VantaBackground
- *
- * Docusaurus-compatible Vanta.js TOPOLOGY background component.
- * - Scripts loaded client-side only (via useEffect)
- * - Handles window resize by debounced destroy + reinit to avoid p5 canvas errors
- *
- * Props:
- *   children    – content rendered on top of the animation
- *   options     – Vanta TOPOLOGY options to override defaults
- *   style       – additional styles for the wrapper div
- *   className   – additional class names for the wrapper div
- *   minHeight   – minimum height of the container (default: '100vh')
- */
-
 const CDN_P5    = 'https://cdnjs.cloudflare.com/ajax/libs/p5.js/2.0.5/p5.min.js';
+const CDN_THREE = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js';
 const CDN_VANTA = 'https://cdn.jsdelivr.net/npm/vanta@0.5.24/dist/vanta.topology.min.js';
 
 function loadScript(src) {
@@ -58,6 +44,7 @@ export default function VantaBackground({
     async function loadDeps() {
       try {
         await loadScript(CDN_P5);
+        await loadScript(CDN_THREE);
         await loadScript(CDN_VANTA);
         if (!cancelled) setReady(true);
       } catch (err) {

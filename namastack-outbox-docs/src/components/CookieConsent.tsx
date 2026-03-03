@@ -1,24 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import pluginConfig from './CookieConsentConfig';
 
 const GA_ID = 'G-7T0WYS15SK';
 
 const CookieConsentComponent = () => {
-  const [enableGA, setEnableGA] = useState(false);
-  const ccRef = useRef(null);
+  const ccRef = useRef<any>(null);
+  const gaLoadedRef = useRef(false);
 
   useEffect(() => {
     import('vanilla-cookieconsent').then((CookieConsent) => {
       ccRef.current = CookieConsent;
 
       const handleConsentChange = () => {
-        if (CookieConsent.acceptedCategory("analytics")) {
-          window[`ga-disable-${GA_ID}`] = false;
-          setEnableGA(true);
+        if (CookieConsent.acceptedCategory('analytics')) {
+          enableGA();
         } else {
-          window[`ga-disable-${GA_ID}`] = true;
-          setEnableGA(false);
-          CookieConsent.eraseCookies(/^(?!cc_cookie$)/);
+          disableGA(CookieConsent);
         }
       };
 
@@ -30,23 +27,43 @@ const CookieConsentComponent = () => {
     });
   }, []);
 
+  const enableGA = () => {
+    window[`ga-disable-${GA_ID}`] = false;
+
+    if (gaLoadedRef.current) return;
+    gaLoadedRef.current = true;
+
+    const script = document.createElement('script');
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
+    script.async = true;
+    document.head.appendChild(script);
+
+    script.onload = () => {
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){ window.dataLayer.push(arguments); }
+      window.gtag = gtag;
+
+      gtag('js', new Date());
+      gtag('config', GA_ID, { anonymize_ip: true });
+    };
+  };
+
+  const disableGA = (CookieConsent: any) => {
+    window[`ga-disable-${GA_ID}`] = true;
+
+    CookieConsent.eraseCookies(/^(?!cc_cookie$)/);
+  };
+
   return (
-    <>
-      {enableGA && (
-        <>
-          <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} />
-          <script dangerouslySetInnerHTML={{ __html: `
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${GA_ID}');
-          `}} />
-        </>
-      )}
-      <a href="#" onClick={() => ccRef.current?.showPreferences()}>
-        Show Cookie Preferences
-      </a>
-    </>
+    <a
+      href="#"
+      onClick={(e) => {
+        e.preventDefault();
+        ccRef.current?.showPreferences();
+      }}
+    >
+      Show Cookie Preferences
+    </a>
   );
 };
 
