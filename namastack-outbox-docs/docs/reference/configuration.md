@@ -14,9 +14,18 @@ namastack:
     enabled: true                              # Enable outbox functionality (default: true)
 
     # Polling Configuration
-    poll-interval: 2000                        # Milliseconds between polling cycles (default: 2000)
-    rebalance-interval: 10000                  # Milliseconds between rebalance checks (default: 10000)
-    batch-size: 10                             # Record keys per poll cycle (default: 10)
+    polling:
+      trigger: fixed                          # Polling strategy: fixed|adaptive (default: fixed)
+      batch-size: 10                          # Record keys per poll cycle (default: 10)
+      fixed:
+        interval: 2000                        # Milliseconds between polling cycles (default: 2000)
+      adaptive:
+        min-interval: 1000                    # Minimum ms between cycles (default: 1000)
+        max-interval: 8000                    # Maximum ms between cycles (default: 8000)
+    # Legacy (deprecated)
+    poll-interval: 2000                       # (deprecated) Use polling.fixed.interval
+    rebalance-interval: 10000                 # (deprecated) Use instance.rebalance-interval
+    batch-size: 10                            # (deprecated) Use polling.batch-size
 
     # Processing Configuration
     processing:
@@ -73,6 +82,18 @@ namastack:
       
       # Jitter Configuration (can be used with any policy)
       jitter: 0                                # Max random jitter in milliseconds (default: 0)
+
+    # Kafka Integration
+    kafka:
+      enabled: true                           # Enable Kafka outbox integration (default: true)
+      default-topic: outbox-events            # Default Kafka topic (default: outbox-events)
+      enable-json: true                       # Enable JSON support (default: true)
+
+    # RabbitMQ Integration
+    rabbit:
+      enabled: true                           # Enable Rabbit outbox integration (default: true)
+      default-exchange: outbox-events         # Default Rabbit exchange (default: outbox-events)
+      enable-json: true                       # Enable JSON support (default: true)
 ```
 
 ---

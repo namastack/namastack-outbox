@@ -22,11 +22,13 @@ import TabItem from '@theme/TabItem';
 
 - Suitable for predictable workloads or when a steady polling rate is desired.
 
-**Configuration:**
+**Configuration Options:**
 
-- `namastack.outbox.polling.trigger=fixed` (default)
-- `namastack.outbox.polling.fixed.interval` (default: `2000` ms)  
-  The interval in milliseconds between polling cycles.
+| Property                                  | Default   | Description                                  |
+|-------------------------------------------|-----------|----------------------------------------------|
+| `namastack.outbox.polling.trigger`        | `fixed`   | Selects polling strategy                     |
+| `namastack.outbox.polling.fixed.interval` | `2000` ms | Interval in milliseconds between poll cycles |
+| `namastack.outbox.polling.batch-size`     | `10`      | Max record keys to process per poll          |
 
 </TabItem>
 <TabItem value="adaptive" label="Adaptive Polling (since v1.1.0)">
@@ -42,13 +44,14 @@ import TabItem from '@theme/TabItem';
 
 - Reduces unnecessary database queries during idle periods, while maintaining responsiveness under load.
 
-**Configuration:**
+**Configuration Options:**
 
-- `namastack.outbox.polling.trigger=adaptive`
-- `namastack.outbox.polling.adaptive.min-interval` (default: `1000` ms)  
-  Minimum interval between polling cycles.
-- `namastack.outbox.polling.adaptive.max-interval` (default: `8000` ms)  
-  Maximum interval between polling cycles.
+| Property                                         | Default    | Description                             |
+|--------------------------------------------------|------------|-----------------------------------------|
+| `namastack.outbox.polling.trigger`               | `adaptive` | Selects polling strategy                |
+| `namastack.outbox.polling.adaptive.min-interval` | `1000` ms  | Minimum interval between polling cycles |
+| `namastack.outbox.polling.adaptive.max-interval` | `8000` ms  | Maximum interval between polling cycles |
+| `namastack.outbox.polling.batch-size`            | `10`       | Max record keys to process per poll     |
 
 </TabItem>
 </Tabs>
