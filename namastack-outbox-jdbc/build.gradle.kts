@@ -28,10 +28,12 @@ dependencies {
     testImplementation(libs.testcontainers.mysql)
     testImplementation(libs.testcontainers.mariadb)
     testImplementation(libs.testcontainers.mssqlserver)
+    testImplementation(libs.testcontainers.oracle.xe)
 
     testRuntimeOnly(libs.junit.platform.launcher)
     testRuntimeOnly(libs.postgresql)
     testRuntimeOnly(libs.mysql.connector.j)
     testRuntimeOnly(libs.mariadb.java.client)
     testRuntimeOnly(libs.mssql.jdbc)
+    testRuntimeOnly(libs.oracle.jdbc)
 }

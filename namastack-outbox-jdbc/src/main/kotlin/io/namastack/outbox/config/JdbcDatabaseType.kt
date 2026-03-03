@@ -15,11 +15,12 @@ package io.namastack.outbox.config
  *
  * @param schemaLocation Classpath location of the database-specific schema script
  *
- * @author Roland Beisel
+ * @author Roland Beisel, Khalid Alharisi
  * @since 1.0.0
  */
 sealed class JdbcDatabaseType(
     val schemaLocation: String,
+    val statementSeparator: String = ";",
 ) {
     /**
      * PostgreSQL database type.
@@ -71,6 +72,19 @@ sealed class JdbcDatabaseType(
         schemaLocation = "classpath:schema/sqlserver/outbox-tables.sql",
     )
 
+    /**
+     * Oracle database type.
+     *
+     * Oracle Database is a high-performance, converged relational database designed to handle
+     * complex enterprise workloads.
+     *
+     * The minimum supported Oracle Database version is 18c. Older versions may work, but they are not tested.
+     */
+    data object Oracle : JdbcDatabaseType(
+        schemaLocation = "classpath:schema/oracle/outbox-tables.sql",
+        statementSeparator = "/",
+    )
+
     companion object {
         /**
          * Resolves a database type from its name.
@@ -89,6 +103,7 @@ sealed class JdbcDatabaseType(
                 "h2" -> H2
                 "mariadb" -> MariaDB
                 "microsoft sql server" -> SQLServer
+                "oracle" -> Oracle
                 else -> throw IllegalArgumentException("Unsupported database type: $databaseName")
             }
     }
