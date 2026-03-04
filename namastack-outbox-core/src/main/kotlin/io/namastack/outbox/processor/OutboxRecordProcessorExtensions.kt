@@ -41,4 +41,4 @@ internal fun OutboxRecord<*>.toFailureContext(
  *
  * @return OutboxRecordMetadata with key, handlerId, createdAt, and context
  */
-internal fun OutboxRecord<*>.toMetadata() = OutboxRecordMetadata(key, handlerId, createdAt, context)
+internal fun OutboxRecord<*>.toMetadata() = OutboxRecordMetadata(key, handlerId, createdAt, failureCount, context)

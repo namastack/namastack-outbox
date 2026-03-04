@@ -51,7 +51,7 @@ The `HandlerSpanFactory`:
 Start the Grafana LGTM stack:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 This provides:
@@ -62,7 +62,7 @@ This provides:
 
 1. Start Grafana LGTM:
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
 2. Run the application:

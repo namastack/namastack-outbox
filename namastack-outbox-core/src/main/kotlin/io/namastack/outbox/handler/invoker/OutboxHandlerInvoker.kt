@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.invoker
 
+import io.namastack.outbox.handler.OutboxHandlerInterceptor
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
@@ -21,6 +22,7 @@ import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
  */
 class OutboxHandlerInvoker(
     private val handlerRegistry: OutboxHandlerRegistry,
+    private val interceptors: List<OutboxHandlerInterceptor>,
 ) {
     /**
      * Dispatches a record to its registered handler.
@@ -59,9 +61,23 @@ class OutboxHandlerInvoker(
             handlerRegistry.getHandlerById(metadata.handlerId)
                 ?: throw IllegalStateException("No handler with id ${metadata.handlerId}")
 
-        when (handler) {
-            is TypedHandlerMethod -> handler.invoke(payload, metadata)
-            is GenericHandlerMethod -> handler.invoke(payload, metadata)
+        val targetInvocation: () -> Unit = {
+            when (handler) {
+                is TypedHandlerMethod -> handler.invoke(payload, metadata)
+                is GenericHandlerMethod -> handler.invoke(payload, metadata)
+            }
         }
+
+        interceptors
+            .asReversed()
+            .fold(targetInvocation) { next, interceptor ->
+                {
+                    interceptor.intercept(
+                        payload = payload,
+                        metadata = metadata,
+                        next = next,
+                    )
+                }
+            }.invoke()
     }
 }

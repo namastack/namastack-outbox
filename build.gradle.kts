@@ -24,6 +24,7 @@ dependencies {
     jacocoAggregation(project(":namastack-outbox-jdbc"))
     jacocoAggregation(project(":namastack-outbox-jpa"))
     jacocoAggregation(project(":namastack-outbox-metrics"))
+    jacocoAggregation(project(":namastack-outbox-tracing"))
 }
 
 val javaVersion = 17

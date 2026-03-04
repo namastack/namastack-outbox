@@ -23,7 +23,7 @@ class OutboxFallbackHandlerInvokerTest {
 
     @BeforeEach
     fun setUp() {
-        invoker = OutboxFallbackHandlerInvoker(fallbackHandlerRegistry)
+        invoker = OutboxFallbackHandlerInvoker(fallbackHandlerRegistry, emptyList())
     }
 
     @Test

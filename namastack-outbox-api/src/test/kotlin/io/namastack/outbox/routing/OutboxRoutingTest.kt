@@ -14,6 +14,7 @@ class OutboxRoutingTest {
             key = "test-key",
             handlerId = "test-handler",
             createdAt = Instant.now(),
+            failureCount = 0,
             context = mapOf("tenant" to "acme"),
         )
 
@@ -486,6 +487,7 @@ class OutboxRoutingTest {
                     key = "test-key",
                     handlerId = "test-handler",
                     createdAt = Instant.now(),
+                    failureCount = 0,
                     context = mapOf("tenant" to "other"),
                 )
             assertThat(routing.shouldExternalize("test", otherMetadata)).isFalse()

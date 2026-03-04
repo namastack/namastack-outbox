@@ -135,6 +135,7 @@ class TypedHandlerMethodTest {
             key = "test-key",
             handlerId = "test-handler",
             createdAt = java.time.Instant.now(),
+            failureCount = 0,
             context = emptyMap(),
         )
 

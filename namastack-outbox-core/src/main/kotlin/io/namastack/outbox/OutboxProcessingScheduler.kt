@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.micrometer.observation.annotation.Observed
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessor
@@ -7,6 +8,7 @@ import io.namastack.outbox.trigger.OutboxPollingTrigger
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
@@ -38,7 +40,7 @@ import kotlin.concurrent.withLock
  * @author Roland Beisel
  * @since 0.2.0
  */
-class OutboxProcessingScheduler(
+open class OutboxProcessingScheduler(
     private val trigger: OutboxPollingTrigger,
     private val taskScheduler: TaskScheduler,
     private val recordRepository: OutboxRecordRepository,
@@ -57,6 +59,10 @@ class OutboxProcessingScheduler(
     private val shuttingDown = AtomicBoolean(false)
     private val processingActive = AtomicBoolean(false)
 
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private lateinit var self: OutboxProcessingScheduler
+
     /**
      * Registers the outbox processing job with the task scheduler.
      *
@@ -71,7 +77,7 @@ class OutboxProcessingScheduler(
                 return
             }
 
-            scheduledTask = taskScheduler.schedule(this::process, trigger)
+            scheduledTask = taskScheduler.schedule(self::process, trigger)
             log.info("OutboxProcessingScheduler scheduled with trigger: {}", trigger.javaClass.simpleName)
         }
 
@@ -99,7 +105,8 @@ class OutboxProcessingScheduler(
      * Loads record keys from assigned partitions and processes them in parallel.
      * Each record is handled by the processor chain (handler → retry → fallback → failure).
      */
-    fun process() {
+    @Observed(name = "outbox.processing.cycle", contextualName = "task outboxProcessingScheduler.process")
+    open fun process() {
         if (shuttingDown.get()) {
             log.debug("Skipping processing cycle - shutdown in progress")
             return

@@ -132,6 +132,7 @@ class KafkaOutboxAutoConfigurationTest {
             key = "test-key",
             handlerId = "test-handler",
             createdAt = Instant.now(),
+            failureCount = 0,
             context = emptyMap(),
         )
 
