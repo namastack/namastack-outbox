@@ -10,3 +10,9 @@ dependencies {
     testImplementation(libs.gatling.app)
     testImplementation(libs.gatling.highcharts)
 }
+
+test {
+    // This project contains Gatling simulations (run via Gatling tasks), not JUnit tests.
+    // Prevent Gradle from failing the build when no JUnit tests are discovered.
+    failOnNoDiscoveredTests = false
+}
