@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.micrometer.observation.ObservationRegistry
 import io.micrometer.observation.annotation.Observed
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionCoordinator
@@ -8,9 +9,10 @@ import io.namastack.outbox.trigger.OutboxPollingTrigger
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.TaskScheduler
+import org.springframework.scheduling.support.ScheduledMethodRunnable
+import java.lang.reflect.Method
 import java.time.Clock
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ScheduledFuture
@@ -43,6 +45,7 @@ import kotlin.concurrent.withLock
 open class OutboxProcessingScheduler(
     private val trigger: OutboxPollingTrigger,
     private val taskScheduler: TaskScheduler,
+    private val observationRegistry: ObservationRegistry,
     private val recordRepository: OutboxRecordRepository,
     private val recordProcessorChain: OutboxRecordProcessor,
     private val partitionCoordinator: PartitionCoordinator,
@@ -50,6 +53,12 @@ open class OutboxProcessingScheduler(
     private val properties: OutboxProperties,
     private val clock: Clock,
 ) {
+    companion object {
+        const val SCHEDULER_NAME: String = "outboxDefaultScheduler"
+        private val SCHEDULE_METHOD_NAME: String = (OutboxProcessingScheduler::process).name
+        private val SCHEDULE_METHOD: Method = OutboxProcessingScheduler::class.java.getMethod(SCHEDULE_METHOD_NAME)
+    }
+
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
     private var scheduledTask: ScheduledFuture<*>? = null
@@ -58,10 +67,6 @@ open class OutboxProcessingScheduler(
     private val processingComplete = lock.newCondition()
     private val shuttingDown = AtomicBoolean(false)
     private val processingActive = AtomicBoolean(false)
-
-    @Autowired
-    @org.springframework.context.annotation.Lazy
-    private lateinit var self: OutboxProcessingScheduler
 
     /**
      * Registers the outbox processing job with the task scheduler.
@@ -77,7 +82,8 @@ open class OutboxProcessingScheduler(
                 return
             }
 
-            scheduledTask = taskScheduler.schedule(self::process, trigger)
+            val runnable = ScheduledMethodRunnable(this, SCHEDULE_METHOD, SCHEDULER_NAME) { observationRegistry }
+            scheduledTask = taskScheduler.schedule(runnable, trigger)
             log.info("OutboxProcessingScheduler scheduled with trigger: {}", trigger.javaClass.simpleName)
         }
 
@@ -106,7 +112,7 @@ open class OutboxProcessingScheduler(
      * Each record is handled by the processor chain (handler → retry → fallback → failure).
      */
     @Observed(name = "outbox.processing.cycle", contextualName = "task outboxProcessingScheduler.process")
-    open fun process() {
+    fun process() {
         if (shuttingDown.get()) {
             log.debug("Skipping processing cycle - shutdown in progress")
             return

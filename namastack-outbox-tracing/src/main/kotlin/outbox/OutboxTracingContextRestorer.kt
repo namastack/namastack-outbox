@@ -1,15 +1,16 @@
 package io.namastack.outbox
 
-import io.micrometer.tracing.Span
-import io.micrometer.tracing.Tracer
+import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.handler.OutboxFailureContext
 import io.namastack.outbox.handler.OutboxFallbackHandlerInterceptor
 import io.namastack.outbox.handler.OutboxHandlerInterceptor
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.observability.OutboxObservationDocumentation
+import io.namastack.outbox.observability.OutboxProcessObservationContext
+import io.namastack.outbox.observability.OutboxProcessObservationContextCarrier
 
 class OutboxTracingContextRestorer(
-    private val spanFactory: OutboxSpanFactory,
-    private val tracer: Tracer,
+    private val observationRegistry: ObservationRegistry,
 ) : OutboxHandlerInterceptor,
     OutboxFallbackHandlerInterceptor {
     override fun intercept(
@@ -17,9 +18,14 @@ class OutboxTracingContextRestorer(
         metadata: OutboxRecordMetadata,
         next: () -> Unit,
     ) {
-        val span = spanFactory.createHandlerSpan(metadata) ?: return next()
-
-        runWithSpan(span, next)
+        val observation =
+            OutboxObservationDocumentation.OUTBOX_RECORD_PROCESS.observation(
+                null,
+                OutboxObservationDocumentation.DefaultOutboxProcessObservationConvention.INSTANCE,
+                { OutboxProcessObservationContext(OutboxProcessObservationContextCarrier(payload, metadata)) },
+                observationRegistry,
+            )
+        observation.observe(next)
     }
 
     override fun intercept(
@@ -27,22 +33,6 @@ class OutboxTracingContextRestorer(
         context: OutboxFailureContext,
         next: () -> Unit,
     ) {
-        val span = spanFactory.createFallbackHandlerSpan(context) ?: return next()
-
-        runWithSpan(span, next)
-    }
-
-    private fun runWithSpan(
-        span: Span,
-        next: () -> Unit,
-    ) {
-        try {
-            return tracer.withSpan(span).use { next() }
-        } catch (ex: Exception) {
-            span.error(ex)
-            throw ex
-        } finally {
-            span.end()
-        }
+        // Fallback handler interception
     }
 }

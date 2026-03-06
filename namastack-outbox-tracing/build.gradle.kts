@@ -14,6 +14,7 @@ dependencies {
     implementation(libs.spring.boot.autoconfigure)
     implementation(libs.spring.boot.tracing)
     implementation(libs.micrometer.tracing)
+    implementation(libs.micrometer.observation)
     implementation(libs.slf4j.api)
 
     testImplementation(libs.spring.boot.starter.test)

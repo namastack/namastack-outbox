@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.micrometer.observation.ObservationRegistry
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -10,7 +11,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.core.task.SyncTaskExecutor
 import org.springframework.scheduling.TaskScheduler
-import org.springframework.test.util.ReflectionTestUtils
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
@@ -40,6 +40,7 @@ class OutboxProcessingSchedulerTest {
             OutboxProcessingScheduler(
                 trigger = trigger,
                 taskScheduler = taskScheduler,
+                observationRegistry = ObservationRegistry.NOOP,
                 recordRepository = recordRepository,
                 recordProcessorChain = recordProcessorChain,
                 partitionCoordinator = partitionCoordinator,
@@ -47,7 +48,6 @@ class OutboxProcessingSchedulerTest {
                 properties = properties,
                 clock = clock,
             )
-        ReflectionTestUtils.setField(scheduler, "self", scheduler)
 
         every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
     }

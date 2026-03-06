@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.micrometer.observation.ObservationRegistry
 import io.micrometer.tracing.Tracer
 import io.micrometer.tracing.propagation.Propagator
 import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
@@ -28,15 +29,6 @@ internal class OutboxTracingAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    fun outboxSpanFactory(
-        tracer: Tracer,
-        propagator: Propagator,
-    ): OutboxSpanFactory = OutboxSpanFactory(tracer, propagator)
-
-    @Bean
-    @ConditionalOnMissingBean
-    fun outboxTracingContextRestorer(
-        spanFactory: OutboxSpanFactory,
-        tracer: Tracer,
-    ): OutboxTracingContextRestorer = OutboxTracingContextRestorer(spanFactory, tracer)
+    fun outboxTracingContextRestorer(observationRegistry: ObservationRegistry): OutboxTracingContextRestorer =
+        OutboxTracingContextRestorer(observationRegistry)
 }
