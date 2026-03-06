@@ -1,7 +1,8 @@
 package io.namastack.outbox.handler.invoker
 
-import io.namastack.outbox.handler.OutboxFailureContext
+import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
+import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.slf4j.LoggerFactory
 
 /**
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory
  * @since 1.0.0
  */
 open class OutboxFallbackHandlerInvoker(
+    private val retryPolicyRegistry: OutboxRetryPolicyRegistry,
     private val fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
 ) {
     private val log = LoggerFactory.getLogger(OutboxFallbackHandlerInvoker::class.java)
@@ -25,19 +27,16 @@ open class OutboxFallbackHandlerInvoker(
      * Looks up fallback handler by handlerId and invokes it with payload and
      * failure context. If no fallback is registered, logs debug and returns false.
      *
-     * @param payload Record payload
-     * @param context Failure details
+     * @param record The record to process
      * @return true if fallback handler was invoked, false if no handler registered or payload is null
      */
-    fun dispatch(
-        payload: Any?,
-        context: OutboxFailureContext,
-    ): Boolean {
-        if (payload == null) return false
+    fun dispatch(record: OutboxRecord<*>): Boolean {
+        val payload = record.payload ?: return false
+        val context = record.toFailureContext(getFailureException(record), retryPolicyRegistry)
 
         val fallbackHandler =
-            fallbackHandlerRegistry.getByHandlerId(context.handlerId) ?: run {
-                log.debug("No fallback handler registered for handlerId: {}", context.handlerId)
+            fallbackHandlerRegistry.getByHandlerId(record.handlerId) ?: run {
+                log.debug("No fallback handler registered for handlerId: {}", record.handlerId)
                 return false
             }
 
@@ -45,4 +44,13 @@ open class OutboxFallbackHandlerInvoker(
 
         return true
     }
+
+    /**
+     * Gets failure exception from record.
+     * Exception must exist since this processor only handles failed records.
+     */
+    private fun getFailureException(record: OutboxRecord<*>): Throwable =
+        checkNotNull(record.failureException) {
+            "Expected failure exception in record ${record.id} but found none"
+        }
 }

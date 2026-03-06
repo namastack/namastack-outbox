@@ -37,7 +37,7 @@ class PrimaryOutboxRecordProcessor(
     override fun handle(record: OutboxRecord<*>): Boolean {
         try {
             log.trace("Dispatching record {} to handler {}", record.id, record.handlerId)
-            handlerInvoker.dispatch(record.payload, record.toMetadata())
+            handlerInvoker.dispatch(record)
 
             completeRecord(record, recordRepository, properties, clock)
 

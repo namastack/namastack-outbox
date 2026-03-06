@@ -3,6 +3,8 @@ package io.namastack.outbox.handler
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.namastack.outbox.OutboxRecord
+import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
@@ -26,96 +28,109 @@ class OutboxHandlerInvokerTest {
 
     @Test
     fun `dispatches to typed handler with payload only`() {
-        val payload = "test-payload"
-        val metadata = OutboxRecordMetadata("test-key", "handler-1", now, emptyMap())
+        val (record, metadata) = createRecord(handlerId = "handler-1")
         val typedHandler = mockk<TypedHandlerMethod>()
 
         every { handlerRegistry.getHandlerById("handler-1") } returns typedHandler
-        every { typedHandler.invoke(payload, metadata) } returns Unit
+        every { typedHandler.invoke(any(), any()) } returns Unit
 
-        invoker.dispatch(payload, metadata)
+        invoker.dispatch(record)
 
-        verify { typedHandler.invoke(payload, metadata) }
+        verify { typedHandler.invoke(record.payload!!, metadata) }
     }
 
     @Test
     fun `dispatches to generic handler with payload and metadata`() {
-        val payload: Any = "test-payload"
-        val metadata = OutboxRecordMetadata("test-key", "handler-2", now, emptyMap())
+        val (record, metadata) = createRecord(handlerId = "handler-2")
         val genericHandler = mockk<GenericHandlerMethod>()
 
         every { handlerRegistry.getHandlerById("handler-2") } returns genericHandler
-        every { genericHandler.invoke(payload, metadata) } returns Unit
+        every { genericHandler.invoke(any(), any()) } returns Unit
 
-        invoker.dispatch(payload, metadata)
+        invoker.dispatch(record)
 
-        verify { genericHandler.invoke(payload, metadata) }
+        verify { genericHandler.invoke(record.payload!!, metadata) }
     }
 
     @Test
     fun `skips processing when payload is null`() {
-        val metadata = OutboxRecordMetadata("test-key", "handler-1", now, emptyMap())
+        val (record, _) = createRecord(payload = null)
 
-        invoker.dispatch(null, metadata)
+        invoker.dispatch(record)
 
         verify(exactly = 0) { handlerRegistry.getHandlerById(any()) }
     }
 
     @Test
     fun `throws IllegalStateException when handler not found`() {
-        val payload = "test-payload"
-        val metadata = OutboxRecordMetadata("test-key", "unknown-handler", now, emptyMap())
+        val (record, _) = createRecord(handlerId = "unknown-handler")
 
         every { handlerRegistry.getHandlerById("unknown-handler") } returns null
 
         assertThatThrownBy {
-            invoker.dispatch(payload, metadata)
+            invoker.dispatch(record)
         }.isInstanceOf(IllegalStateException::class.java)
             .hasMessageContaining("No handler with id unknown-handler")
     }
 
     @Test
     fun `propagates exception from typed handler`() {
-        val payload = "test-payload"
-        val metadata = OutboxRecordMetadata("test-key", "failing-handler", now, emptyMap())
+        val (record, _) = createRecord(handlerId = "failing-handler")
         val typedHandler = mockk<TypedHandlerMethod>()
         val exception = RuntimeException("Handler error")
 
         every { handlerRegistry.getHandlerById("failing-handler") } returns typedHandler
-        every { typedHandler.invoke(payload, metadata) } throws exception
+        every { typedHandler.invoke(any(), any()) } throws exception
 
         assertThatThrownBy {
-            invoker.dispatch(payload, metadata)
+            invoker.dispatch(record)
         }.isSameAs(exception)
     }
 
     @Test
     fun `propagates exception from generic handler`() {
-        val payload: Any = "test-payload"
-        val metadata = OutboxRecordMetadata("test-key", "failing-handler", now, emptyMap())
+        val (record, _) = createRecord(handlerId = "failing-handler")
         val genericHandler = mockk<GenericHandlerMethod>()
         val exception = IllegalStateException("Handler error")
 
         every { handlerRegistry.getHandlerById("failing-handler") } returns genericHandler
-        every { genericHandler.invoke(payload, metadata) } throws exception
+        every { genericHandler.invoke(any(), any()) } throws exception
 
         assertThatThrownBy {
-            invoker.dispatch(payload, metadata)
+            invoker.dispatch(record)
         }.isSameAs(exception)
     }
 
-    @Test
-    fun `looks up handler by ID from metadata`() {
-        val payload = "test"
-        val handlerId = "my.custom.Handler#handle(java.lang.String)"
-        val metadata = OutboxRecordMetadata("test-key", handlerId, now, emptyMap())
-        val handler = mockk<TypedHandlerMethod>()
-
-        every { handlerRegistry.getHandlerById(handlerId) } returns handler
-        every { handler.invoke(any(), any()) } returns Unit
-
-        invoker.dispatch(payload, metadata)
-
-        verify { handlerRegistry.getHandlerById(handlerId) }
+    private fun createRecord(
+        id: String = "test-payload",
+        key: String = "test-key",
+        handlerId: String = "handler-1",
+        payload: Any? = "test-payload",
+        createdAt: Instant = now,
+    ): Pair<OutboxRecord<Any?>, OutboxRecordMetadata> {
+        val record =
+            OutboxRecord.restore(
+                id = id,
+                recordKey = key,
+                payload = payload,
+                context = emptyMap(),
+                createdAt = createdAt,
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                failureCount = 0,
+                failureException = null,
+                failureReason = null,
+                partition = 1,
+                nextRetryAt = createdAt,
+                handlerId = handlerId,
+            )
+        val metadata =
+            OutboxRecordMetadata(
+                key = key,
+                handlerId = handlerId,
+                createdAt = now,
+                context = emptyMap(),
+            )
+        return record to metadata
     }
 }

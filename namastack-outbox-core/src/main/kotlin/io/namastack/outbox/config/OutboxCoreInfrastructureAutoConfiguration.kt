@@ -54,9 +54,11 @@ class OutboxCoreInfrastructureAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun outboxFallbackHandlerInvoker(
+        retryPolicyRegistry: OutboxRetryPolicyRegistry,
         outboxFallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
     ): OutboxFallbackHandlerInvoker =
         OutboxFallbackHandlerInvoker(
+            retryPolicyRegistry = retryPolicyRegistry,
             fallbackHandlerRegistry = outboxFallbackHandlerRegistry,
         )
 

@@ -1,6 +1,6 @@
 package io.namastack.outbox.handler.invoker
 
-import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
@@ -44,20 +44,17 @@ open class OutboxHandlerInvoker(
      * invoker.dispatch(OrderCreatedEvent(...), metadata)
      * ```
      *
-     * @param payload The record payload to process
-     * @param metadata Record metadata containing handler ID and context
+     * @param record The record to process
      * @throws IllegalStateException if no handler with the given ID exists
      * @throws Exception the original exception thrown by the handler (will trigger retries)
      */
-    fun dispatch(
-        payload: Any?,
-        metadata: OutboxRecordMetadata,
-    ) {
-        if (payload == null) return
+    fun dispatch(record: OutboxRecord<*>) {
+        val payload = record.payload ?: return
+        val metadata = record.toMetadata()
 
         val handler =
-            handlerRegistry.getHandlerById(metadata.handlerId)
-                ?: throw IllegalStateException("No handler with id ${metadata.handlerId}")
+            handlerRegistry.getHandlerById(record.handlerId)
+                ?: throw IllegalStateException("No handler with id ${record.handlerId}")
 
         when (handler) {
             is TypedHandlerMethod -> handler.invoke(payload, metadata)
