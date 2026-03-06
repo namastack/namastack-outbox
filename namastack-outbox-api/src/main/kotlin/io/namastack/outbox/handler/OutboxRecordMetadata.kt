@@ -36,6 +36,5 @@ data class OutboxRecordMetadata(
     val key: String,
     val handlerId: String,
     val createdAt: Instant,
-    val failureCount: Int,
     val context: Map<String, String>,
 )

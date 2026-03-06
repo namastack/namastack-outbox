@@ -303,7 +303,6 @@ class GenericHandlerMethodFactoryTest {
                     key = "test-key",
                     handlerId = "handler-1",
                     createdAt = Instant.now(),
-                    failureCount = 0,
                     context = mapOf("traceId" to "test-trace-id"),
                 )
 
@@ -329,7 +328,6 @@ class GenericHandlerMethodFactoryTest {
                     key = "test-key",
                     handlerId = "handler-1",
                     createdAt = Instant.now(),
-                    failureCount = 0,
                     context = mapOf("traceId" to "test-trace-id"),
                 )
 

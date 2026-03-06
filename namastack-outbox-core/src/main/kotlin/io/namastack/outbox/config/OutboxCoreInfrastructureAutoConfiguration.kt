@@ -6,11 +6,7 @@ import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
-import io.namastack.outbox.context.OutboxContextRestorer
-import io.namastack.outbox.context.OutboxContextRestoringInterceptor
-import io.namastack.outbox.handler.OutboxFallbackHandlerInterceptor
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
-import io.namastack.outbox.handler.OutboxHandlerInterceptor
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
@@ -50,29 +46,18 @@ class OutboxCoreInfrastructureAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    fun outboxContextRestoringInterceptor(restorers: List<OutboxContextRestorer>): OutboxContextRestoringInterceptor =
-        OutboxContextRestoringInterceptor(restorers = restorers)
-
-    @Bean
-    @ConditionalOnMissingBean
-    fun outboxHandlerInvoker(
-        outboxHandlerRegistry: OutboxHandlerRegistry,
-        interceptors: List<OutboxHandlerInterceptor>,
-    ): OutboxHandlerInvoker =
+    fun outboxHandlerInvoker(outboxHandlerRegistry: OutboxHandlerRegistry): OutboxHandlerInvoker =
         OutboxHandlerInvoker(
             handlerRegistry = outboxHandlerRegistry,
-            interceptors = interceptors,
         )
 
     @Bean
     @ConditionalOnMissingBean
     fun outboxFallbackHandlerInvoker(
         outboxFallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
-        interceptors: List<OutboxFallbackHandlerInterceptor>,
     ): OutboxFallbackHandlerInvoker =
         OutboxFallbackHandlerInvoker(
             fallbackHandlerRegistry = outboxFallbackHandlerRegistry,
-            interceptors = interceptors,
         )
 
     @Bean

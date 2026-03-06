@@ -1,7 +1,6 @@
 package io.namastack.outbox.handler.invoker
 
 import io.namastack.outbox.handler.OutboxFailureContext
-import io.namastack.outbox.handler.OutboxFallbackHandlerInterceptor
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import org.slf4j.LoggerFactory
 
@@ -15,9 +14,8 @@ import org.slf4j.LoggerFactory
  * @author Roland Beisel
  * @since 1.0.0
  */
-class OutboxFallbackHandlerInvoker(
+open class OutboxFallbackHandlerInvoker(
     private val fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
-    private val interceptors: List<OutboxFallbackHandlerInterceptor>,
 ) {
     private val log = LoggerFactory.getLogger(OutboxFallbackHandlerInvoker::class.java)
 
@@ -43,21 +41,7 @@ class OutboxFallbackHandlerInvoker(
                 return false
             }
 
-        val targetInvocation: () -> Unit = {
-            fallbackHandler.invoke(payload, context)
-        }
-
-        interceptors
-            .asReversed()
-            .fold(targetInvocation) { next, interceptor ->
-                {
-                    interceptor.intercept(
-                        payload = payload,
-                        context = context,
-                        next = next,
-                    )
-                }
-            }.invoke()
+        fallbackHandler.invoke(payload, context)
 
         return true
     }

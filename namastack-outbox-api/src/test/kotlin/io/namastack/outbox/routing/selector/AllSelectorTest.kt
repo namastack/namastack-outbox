@@ -11,7 +11,6 @@ class AllSelectorTest {
             key = "test-key",
             handlerId = "test-handler",
             createdAt = Instant.now(),
-            failureCount = 0,
             context = emptyMap(),
         )
 
@@ -46,7 +45,6 @@ class AllSelectorTest {
                 key = "different-key",
                 handlerId = "other-handler",
                 createdAt = Instant.now(),
-                failureCount = 0,
                 context = mapOf("tenant" to "acme", "priority" to "high"),
             )
 

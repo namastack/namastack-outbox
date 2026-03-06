@@ -14,7 +14,6 @@ class RabbitOutboxRoutingTest {
             key = "order-123",
             handlerId = "test-handler",
             createdAt = Instant.now(),
-            failureCount = 0,
             context = mapOf("tenant" to "acme"),
         )
 

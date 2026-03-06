@@ -16,7 +16,6 @@ class OutboxRouteTest {
             key = "test-key",
             handlerId = "test-handler",
             createdAt = Instant.now(),
-            failureCount = 0,
             context = mapOf("tenant" to "acme"),
         )
 
@@ -420,7 +419,6 @@ class OutboxRouteTest {
                     key = "test-key",
                     handlerId = "test-handler",
                     createdAt = Instant.now(),
-                    failureCount = 0,
                     context = mapOf("tenant" to "other"),
                 )
             assertThat(route.filter("payload", otherMetadata)).isFalse()

@@ -46,23 +46,14 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
 
         override fun getLowCardinalityKeyValues(context: OutboxProcessObservationContext): KeyValues =
             KeyValues.of(
-                LowCardinalityKeyNames.OPERATION.withValue("handler"),
-                LowCardinalityKeyNames.HANDLER_ID.withValue(context.carrier?.metadata?.handlerId ?: "unknown"),
+                LowCardinalityKeyNames.OPERATION.withValue(context.getOperation()),
+                LowCardinalityKeyNames.HANDLER_ID.withValue(context.getHandlerId()),
             )
 
         override fun getHighCardinalityKeyValues(context: OutboxProcessObservationContext): KeyValues =
             KeyValues.of(
-                HighCardinalityKeyNames.RECORD_KEY.withValue(context.carrier?.metadata?.key ?: "unknown"),
-                HighCardinalityKeyNames.DELIVERY_ATTEMPT.withValue(getDeliveryAttempt(context)),
+                HighCardinalityKeyNames.RECORD_KEY.withValue(context.getKey()),
+                HighCardinalityKeyNames.DELIVERY_ATTEMPT.withValue(context.getDeliveryAttempt().toString()),
             )
-
-        private fun getDeliveryAttempt(context: OutboxProcessObservationContext): String {
-            val attempt =
-                context.carrier
-                    ?.metadata
-                    ?.failureCount
-                    ?.plus(1L)
-            return attempt?.toString() ?: "unknown"
-        }
     }
 }

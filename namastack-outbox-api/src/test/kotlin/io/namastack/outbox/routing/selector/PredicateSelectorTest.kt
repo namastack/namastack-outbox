@@ -11,7 +11,6 @@ class PredicateSelectorTest {
             key = "test-key",
             handlerId = "test-handler",
             createdAt = Instant.now(),
-            failureCount = 0,
             context = mapOf("priority" to "high", "tenant" to "acme"),
         )
 

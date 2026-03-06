@@ -1,7 +1,6 @@
 package io.namastack.outbox
 
 import io.micrometer.observation.ObservationRegistry
-import io.micrometer.observation.annotation.Observed
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessor
@@ -111,7 +110,6 @@ open class OutboxProcessingScheduler(
      * Loads record keys from assigned partitions and processes them in parallel.
      * Each record is handled by the processor chain (handler → retry → fallback → failure).
      */
-    @Observed(name = "outbox.processing.cycle", contextualName = "task outboxProcessingScheduler.process")
     fun process() {
         if (shuttingDown.get()) {
             log.debug("Skipping processing cycle - shutdown in progress")
