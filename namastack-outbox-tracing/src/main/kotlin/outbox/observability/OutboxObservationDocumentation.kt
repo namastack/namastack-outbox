@@ -8,7 +8,7 @@ import io.micrometer.observation.docs.ObservationDocumentation
 
 enum class OutboxObservationDocumentation : ObservationDocumentation {
     OUTBOX_RECORD_PROCESS {
-        override fun getDefaultConvention(): Class<out ObservationConvention<out Observation.Context>>? =
+        override fun getDefaultConvention(): Class<out ObservationConvention<out Observation.Context>> =
             DefaultOutboxProcessObservationConvention::class.java
 
         override fun getLowCardinalityKeyNames(): Array<out KeyName> = LowCardinalityKeyNames.entries.toTypedArray()
@@ -17,15 +17,20 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
     }, ;
 
     enum class LowCardinalityKeyNames : KeyName {
-        OPERATION {
-            override fun asString(): String = "outbox.handler.operation"
+        HANDLER_TYPE {
+            override fun asString(): String = "outbox.handler.type"
         },
+
         HANDLER_ID {
             override fun asString(): String = "outbox.handler.id"
         },
     }
 
     enum class HighCardinalityKeyNames : KeyName {
+        RECORD_ID {
+            override fun asString(): String = "outbox.record.id"
+        },
+
         RECORD_KEY {
             override fun asString(): String = "outbox.record.key"
         },
@@ -46,13 +51,14 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
 
         override fun getLowCardinalityKeyValues(context: OutboxProcessObservationContext): KeyValues =
             KeyValues.of(
-                LowCardinalityKeyNames.OPERATION.withValue(context.getOperation()),
+                LowCardinalityKeyNames.HANDLER_TYPE.withValue(context.getHandlerType().toString()),
                 LowCardinalityKeyNames.HANDLER_ID.withValue(context.getHandlerId()),
             )
 
         override fun getHighCardinalityKeyValues(context: OutboxProcessObservationContext): KeyValues =
             KeyValues.of(
-                HighCardinalityKeyNames.RECORD_KEY.withValue(context.getKey()),
+                HighCardinalityKeyNames.RECORD_ID.withValue(context.getRecordId()),
+                HighCardinalityKeyNames.RECORD_KEY.withValue(context.getRecordKey()),
                 HighCardinalityKeyNames.DELIVERY_ATTEMPT.withValue(context.getDeliveryAttempt().toString()),
             )
     }

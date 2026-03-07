@@ -4,22 +4,30 @@ import io.micrometer.observation.transport.ReceiverContext
 import io.namastack.outbox.OutboxRecord
 
 class OutboxProcessObservationContext(
-    private val carrier: OutboxRecord<*>,
-    private val operation: String,
-) : ReceiverContext<OutboxRecord<*>>(
-        { carrier: OutboxRecord<*>, key: String ->
-            carrier.context[key]
-        },
-    ) {
+    private val record: OutboxRecord<*>,
+    private val handlerType: HandlerType,
+) : ReceiverContext<OutboxRecord<*>>({ carrier: OutboxRecord<*>, key: String -> carrier.context[key] }) {
     init {
-        setCarrier(carrier)
+        setCarrier(record)
     }
 
-    fun getKey(): String = carrier.key
+    fun getHandlerType(): HandlerType = handlerType
 
-    fun getHandlerId(): String = carrier.handlerId
+    fun getHandlerId(): String = record.handlerId
 
-    fun getDeliveryAttempt(): Int = carrier.failureCount + 1
+    fun getRecordId(): String = record.id
 
-    fun getOperation(): String = operation
+    fun getRecordKey(): String = record.key
+
+    fun getDeliveryAttempt(): Int = record.failureCount + 1
+
+    enum class HandlerType(
+        val value: String,
+    ) {
+        HANDLER("handler"),
+        FALLBACK("fallback"),
+        ;
+
+        override fun toString(): String = value
+    }
 }

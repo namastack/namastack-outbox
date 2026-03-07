@@ -12,7 +12,6 @@ dependencies {
 
     implementation(platform(libs.spring.boot.bom))
     implementation(libs.spring.boot.autoconfigure)
-    implementation("org.springframework:spring-aop")
     implementation(libs.spring.boot.tracing)
     implementation(libs.micrometer.tracing)
     implementation(libs.micrometer.observation)

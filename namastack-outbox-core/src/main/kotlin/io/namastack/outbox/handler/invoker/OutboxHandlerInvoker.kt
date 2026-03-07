@@ -48,7 +48,7 @@ open class OutboxHandlerInvoker(
      * @throws IllegalStateException if no handler with the given ID exists
      * @throws Exception the original exception thrown by the handler (will trigger retries)
      */
-    fun dispatch(record: OutboxRecord<*>) {
+    open fun dispatch(record: OutboxRecord<*>) {
         val payload = record.payload ?: return
         val metadata = record.toMetadata()
 

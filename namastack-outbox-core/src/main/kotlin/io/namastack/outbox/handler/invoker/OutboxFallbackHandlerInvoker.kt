@@ -30,7 +30,7 @@ open class OutboxFallbackHandlerInvoker(
      * @param record The record to process
      * @return true if fallback handler was invoked, false if no handler registered or payload is null
      */
-    fun dispatch(record: OutboxRecord<*>): Boolean {
+    open fun dispatch(record: OutboxRecord<*>): Boolean {
         val payload = record.payload ?: return false
         val context = record.toFailureContext(getFailureException(record), retryPolicyRegistry)
 
