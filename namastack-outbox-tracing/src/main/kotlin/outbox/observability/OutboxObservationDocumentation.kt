@@ -17,8 +17,8 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
     }, ;
 
     enum class LowCardinalityKeyNames : KeyName {
-        HANDLER_TYPE {
-            override fun asString(): String = "outbox.handler.type"
+        HANDLER_KIND {
+            override fun asString(): String = "outbox.handler.kind"
         },
 
         HANDLER_ID {
@@ -45,13 +45,13 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
             val INSTANCE = DefaultOutboxProcessObservationConvention()
         }
 
-        override fun getName(): String = "outbox.records.process"
+        override fun getName(): String = "outbox.record.process"
 
         override fun getContextualName(context: OutboxProcessObservationContext): String = "outbox process"
 
         override fun getLowCardinalityKeyValues(context: OutboxProcessObservationContext): KeyValues =
             KeyValues.of(
-                LowCardinalityKeyNames.HANDLER_TYPE.withValue(context.getHandlerType().toString()),
+                LowCardinalityKeyNames.HANDLER_KIND.withValue(context.getHandlerKind().toString()),
                 LowCardinalityKeyNames.HANDLER_ID.withValue(context.getHandlerId()),
             )
 

@@ -5,13 +5,13 @@ import io.namastack.outbox.OutboxRecord
 
 class OutboxProcessObservationContext(
     private val record: OutboxRecord<*>,
-    private val handlerType: HandlerType,
+    private val handlerKind: HandlerKind,
 ) : ReceiverContext<OutboxRecord<*>>({ carrier: OutboxRecord<*>, key: String -> carrier.context[key] }) {
     init {
         setCarrier(record)
     }
 
-    fun getHandlerType(): HandlerType = handlerType
+    fun getHandlerKind(): HandlerKind = handlerKind
 
     fun getHandlerId(): String = record.handlerId
 
@@ -21,10 +21,10 @@ class OutboxProcessObservationContext(
 
     fun getDeliveryAttempt(): Int = record.failureCount + 1
 
-    enum class HandlerType(
+    enum class HandlerKind(
         val value: String,
     ) {
-        HANDLER("handler"),
+        PRIMARY("primary"),
         FALLBACK("fallback"),
         ;
 

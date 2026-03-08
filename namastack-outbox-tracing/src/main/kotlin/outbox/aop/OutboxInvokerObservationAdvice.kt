@@ -12,7 +12,7 @@ import org.aopalliance.intercept.MethodInvocation
  * so async outbox processing continues the right tracing/observation context.
  */
 internal class OutboxInvokerObservationAdvice(
-    private val handlerType: OutboxProcessObservationContext.HandlerType,
+    private val handlerKind: OutboxProcessObservationContext.HandlerKind,
     private val observationRegistrySupplier: () -> ObservationRegistry,
 ) : MethodInterceptor {
     private val observationRegistry: ObservationRegistry by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
@@ -27,7 +27,7 @@ internal class OutboxInvokerObservationAdvice(
             OutboxObservationDocumentation.OUTBOX_RECORD_PROCESS.observation(
                 null,
                 OutboxObservationDocumentation.DefaultOutboxProcessObservationConvention.INSTANCE,
-                { OutboxProcessObservationContext(record, handlerType) },
+                { OutboxProcessObservationContext(record, handlerKind) },
                 observationRegistry,
             )
 

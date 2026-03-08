@@ -8,7 +8,7 @@ import io.namastack.outbox.aop.OutboxInvokerObservationAdvice
 import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
-import io.namastack.outbox.observability.OutboxProcessObservationContext.HandlerType
+import io.namastack.outbox.observability.OutboxProcessObservationContext.HandlerKind
 import org.springframework.aop.Advisor
 import org.springframework.aop.support.DefaultPointcutAdvisor
 import org.springframework.beans.factory.ObjectProvider
@@ -39,7 +39,7 @@ internal class OutboxObservationAutoConfiguration {
     @ConditionalOnMissingBean(name = ["outboxObservabilityHandlerAdvisor"])
     fun outboxObservabilityHandlerAdvisor(observationRegistry: ObjectProvider<ObservationRegistry>): Advisor {
         val pointcut = OutboxInvokerMatcherPointcut(OutboxHandlerInvoker::class.java)
-        val advice = OutboxInvokerObservationAdvice(HandlerType.HANDLER, observationRegistry::getObject)
+        val advice = OutboxInvokerObservationAdvice(HandlerKind.PRIMARY, observationRegistry::getObject)
         return DefaultPointcutAdvisor(pointcut, advice)
     }
 
@@ -47,7 +47,7 @@ internal class OutboxObservationAutoConfiguration {
     @ConditionalOnMissingBean(name = ["outboxObservabilityFallbackAdvisor"])
     fun outboxObservabilityFallbackAdvisor(observationRegistry: ObjectProvider<ObservationRegistry>): Advisor {
         val pointcut = OutboxInvokerMatcherPointcut(OutboxFallbackHandlerInvoker::class.java)
-        val advice = OutboxInvokerObservationAdvice(HandlerType.FALLBACK, observationRegistry::getObject)
+        val advice = OutboxInvokerObservationAdvice(HandlerKind.FALLBACK, observationRegistry::getObject)
         return DefaultPointcutAdvisor(pointcut, advice)
     }
 }
