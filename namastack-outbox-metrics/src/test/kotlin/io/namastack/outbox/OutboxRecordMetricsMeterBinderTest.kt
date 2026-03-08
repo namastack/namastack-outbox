@@ -6,6 +6,7 @@ import io.mockk.mockk
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.observability.OutboxMeters
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -33,21 +34,21 @@ class OutboxRecordMetricsMeterBinderTest {
 
         assertThat(
             meterRegistry
-                .get("outbox.records.count")
+                .get(OutboxMeters.RECORDS_COUNT.getName())
                 .tag("status", "new")
                 .gauge()
                 .value(),
         ).isEqualTo(15.0)
         assertThat(
             meterRegistry
-                .get("outbox.records.count")
+                .get(OutboxMeters.RECORDS_COUNT.getName())
                 .tag("status", "failed")
                 .gauge()
                 .value(),
         ).isEqualTo(3.0)
         assertThat(
             meterRegistry
-                .get("outbox.records.count")
+                .get(OutboxMeters.RECORDS_COUNT.getName())
                 .tag("status", "completed")
                 .gauge()
                 .value(),
@@ -64,21 +65,21 @@ class OutboxRecordMetricsMeterBinderTest {
 
         assertThat(
             meterRegistry
-                .get("outbox.records.count")
+                .get(OutboxMeters.RECORDS_COUNT.getName())
                 .tag("status", "new")
                 .gauge()
                 .value(),
         ).isEqualTo(0.0)
         assertThat(
             meterRegistry
-                .get("outbox.records.count")
+                .get(OutboxMeters.RECORDS_COUNT.getName())
                 .tag("status", "failed")
                 .gauge()
                 .value(),
         ).isEqualTo(0.0)
         assertThat(
             meterRegistry
-                .get("outbox.records.count")
+                .get(OutboxMeters.RECORDS_COUNT.getName())
                 .tag("status", "completed")
                 .gauge()
                 .value(),
@@ -95,21 +96,21 @@ class OutboxRecordMetricsMeterBinderTest {
 
         assertThat(
             meterRegistry
-                .get("outbox.records.count")
+                .get(OutboxMeters.RECORDS_COUNT.getName())
                 .tag("status", "new")
                 .gauge()
                 .value(),
         ).isEqualTo(1000000.0)
         assertThat(
             meterRegistry
-                .get("outbox.records.count")
+                .get(OutboxMeters.RECORDS_COUNT.getName())
                 .tag("status", "failed")
                 .gauge()
                 .value(),
         ).isEqualTo(500000.0)
         assertThat(
             meterRegistry
-                .get("outbox.records.count")
+                .get(OutboxMeters.RECORDS_COUNT.getName())
                 .tag("status", "completed")
                 .gauge()
                 .value(),
@@ -124,13 +125,13 @@ class OutboxRecordMetricsMeterBinderTest {
 
         meterBinder.bindTo(meterRegistry)
 
-        val newGauge = meterRegistry.get("outbox.records.count").tag("status", "new").gauge()
-        val failedGauge = meterRegistry.get("outbox.records.count").tag("status", "failed").gauge()
-        val completedGauge = meterRegistry.get("outbox.records.count").tag("status", "completed").gauge()
+        val newGauge = meterRegistry.get(OutboxMeters.RECORDS_COUNT.getName()).tag("status", "new").gauge()
+        val failedGauge = meterRegistry.get(OutboxMeters.RECORDS_COUNT.getName()).tag("status", "failed").gauge()
+        val completedGauge = meterRegistry.get(OutboxMeters.RECORDS_COUNT.getName()).tag("status", "completed").gauge()
 
-        assertThat(newGauge.getId().description).isEqualTo("Count of outbox records by status")
-        assertThat(failedGauge.getId().description).isEqualTo("Count of outbox records by status")
-        assertThat(completedGauge.getId().description).isEqualTo("Count of outbox records by status")
+        assertThat(newGauge.getId().description).isEqualTo(OutboxMeters.RECORDS_COUNT.description)
+        assertThat(failedGauge.getId().description).isEqualTo(OutboxMeters.RECORDS_COUNT.description)
+        assertThat(completedGauge.getId().description).isEqualTo(OutboxMeters.RECORDS_COUNT.description)
 
         assertThat(newGauge.getId().getTag("status")).isEqualTo("new")
         assertThat(failedGauge.getId().getTag("status")).isEqualTo("failed")
@@ -147,7 +148,7 @@ class OutboxRecordMetricsMeterBinderTest {
 
         assertThat(
             meterRegistry
-                .get("outbox.records.count")
+                .get(OutboxMeters.RECORDS_COUNT.getName())
                 .tag("status", "new")
                 .gauge()
                 .value(),
@@ -157,7 +158,7 @@ class OutboxRecordMetricsMeterBinderTest {
 
         assertThat(
             meterRegistry
-                .get("outbox.records.count")
+                .get(OutboxMeters.RECORDS_COUNT.getName())
                 .tag("status", "new")
                 .gauge()
                 .value(),
@@ -171,7 +172,7 @@ class OutboxRecordMetricsMeterBinderTest {
         meterBinder.bindTo(meterRegistry)
 
         val meters = meterRegistry.meters
-        val outboxRecordMeters = meters.filter { it.id.name == "outbox.records.count" }
+        val outboxRecordMeters = meters.filter { it.id.name == OutboxMeters.RECORDS_COUNT.getName() }
 
         assertThat(outboxRecordMeters).hasSize(3)
         assertThat(outboxRecordMeters.map { it.id.getTag("status") })

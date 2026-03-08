@@ -3,6 +3,7 @@ package io.namastack.outbox
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.every
 import io.mockk.mockk
+import io.namastack.outbox.observability.OutboxMeters
 import io.namastack.outbox.partition.PartitionProcessingStats
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -43,20 +44,28 @@ class OutboxPartitionMetricsMeterBinderTest {
 
         meterBinder.bindTo(meterRegistry)
 
-        assertThat(meterRegistry.get("outbox.partitions.assigned.count").gauge().value()).isEqualTo(3.0)
-        assertThat(meterRegistry.get("outbox.partitions.pending.records.total").gauge().value()).isEqualTo(23.0)
-        assertThat(meterRegistry.get("outbox.partitions.pending.records.max").gauge().value()).isEqualTo(10.0)
+        assertThat(meterRegistry.get(OutboxMeters.PARTITIONS_ASSIGNED_COUNT.getName()).gauge().value()).isEqualTo(3.0)
         assertThat(
-            meterRegistry.get("outbox.partitions.pending.records.avg").gauge().value(),
+            meterRegistry.get(OutboxMeters.PARTITIONS_PENDING_RECORDS_TOTAL.getName()).gauge().value(),
+        ).isEqualTo(23.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.PARTITIONS_PENDING_RECORDS_MAX.getName()).gauge().value(),
+        ).isEqualTo(10.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.PARTITIONS_PENDING_RECORDS_AVG.getName()).gauge().value(),
         ).isEqualTo(7.666666666666667)
-        assertThat(meterRegistry.get("outbox.cluster.instances.total").gauge().value()).isEqualTo(2.0)
-        assertThat(meterRegistry.get("outbox.cluster.partitions.total").gauge().value()).isEqualTo(256.0)
-        assertThat(meterRegistry.get("outbox.cluster.partitions.avg_per_instance").gauge().value()).isEqualTo(128.0)
-        assertThat(meterRegistry.get("outbox.cluster.partitions.unassigned.count").gauge().value()).isEqualTo(5.0)
+        assertThat(meterRegistry.get(OutboxMeters.CLUSTER_INSTANCES_TOTAL.getName()).gauge().value()).isEqualTo(2.0)
+        assertThat(meterRegistry.get(OutboxMeters.CLUSTER_PARTITIONS_TOTAL.getName()).gauge().value()).isEqualTo(256.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.CLUSTER_PARTITIONS_AVG_PER_INSTANCE.getName()).gauge().value(),
+        ).isEqualTo(128.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.CLUSTER_PARTITIONS_UNASSIGNED_COUNT.getName()).gauge().value(),
+        ).isEqualTo(5.0)
         // Check one flag gauge (partition 7 unassigned)
         assertThat(
             meterRegistry
-                .get("outbox.cluster.partitions.unassigned.flag")
+                .get(OutboxMeters.CLUSTER_PARTITIONS_UNASSIGNED_FLAG.getName())
                 .tag("partition", "7")
                 .gauge()
                 .value(),
@@ -64,7 +73,7 @@ class OutboxPartitionMetricsMeterBinderTest {
         // Check a partition not in list (e.g. 8) -> 0.0
         assertThat(
             meterRegistry
-                .get("outbox.cluster.partitions.unassigned.flag")
+                .get(OutboxMeters.CLUSTER_PARTITIONS_UNASSIGNED_FLAG.getName())
                 .tag("partition", "8")
                 .gauge()
                 .value(),
@@ -76,8 +85,8 @@ class OutboxPartitionMetricsMeterBinderTest {
         val stats =
             PartitionProcessingStats(
                 instanceId = "test-instance",
-                assignedPartitions = emptyList(),
-                pendingRecordsPerPartition = emptyMap(),
+                assignedPartitions = emptyList<Int>(),
+                pendingRecordsPerPartition = emptyMap<Int, Long>(),
                 totalPendingRecords = 0L,
             )
 
@@ -93,17 +102,27 @@ class OutboxPartitionMetricsMeterBinderTest {
 
         meterBinder.bindTo(meterRegistry)
 
-        assertThat(meterRegistry.get("outbox.partitions.assigned.count").gauge().value()).isEqualTo(0.0)
-        assertThat(meterRegistry.get("outbox.partitions.pending.records.total").gauge().value()).isEqualTo(0.0)
-        assertThat(meterRegistry.get("outbox.partitions.pending.records.max").gauge().value()).isEqualTo(0.0)
-        assertThat(meterRegistry.get("outbox.partitions.pending.records.avg").gauge().value()).isEqualTo(0.0)
-        assertThat(meterRegistry.get("outbox.cluster.instances.total").gauge().value()).isEqualTo(0.0)
-        assertThat(meterRegistry.get("outbox.cluster.partitions.total").gauge().value()).isEqualTo(256.0)
-        assertThat(meterRegistry.get("outbox.cluster.partitions.avg_per_instance").gauge().value()).isEqualTo(0.0)
-        assertThat(meterRegistry.get("outbox.cluster.partitions.unassigned.count").gauge().value()).isEqualTo(256.0)
+        assertThat(meterRegistry.get(OutboxMeters.PARTITIONS_ASSIGNED_COUNT.getName()).gauge().value()).isEqualTo(0.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.PARTITIONS_PENDING_RECORDS_TOTAL.getName()).gauge().value(),
+        ).isEqualTo(0.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.PARTITIONS_PENDING_RECORDS_MAX.getName()).gauge().value(),
+        ).isEqualTo(0.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.PARTITIONS_PENDING_RECORDS_AVG.getName()).gauge().value(),
+        ).isEqualTo(0.0)
+        assertThat(meterRegistry.get(OutboxMeters.CLUSTER_INSTANCES_TOTAL.getName()).gauge().value()).isEqualTo(0.0)
+        assertThat(meterRegistry.get(OutboxMeters.CLUSTER_PARTITIONS_TOTAL.getName()).gauge().value()).isEqualTo(256.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.CLUSTER_PARTITIONS_AVG_PER_INSTANCE.getName()).gauge().value(),
+        ).isEqualTo(0.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.CLUSTER_PARTITIONS_UNASSIGNED_COUNT.getName()).gauge().value(),
+        ).isEqualTo(256.0)
         assertThat(
             meterRegistry
-                .get("outbox.cluster.partitions.unassigned.flag")
+                .get(OutboxMeters.CLUSTER_PARTITIONS_UNASSIGNED_FLAG.getName())
                 .tag("partition", "0")
                 .gauge()
                 .value(),
@@ -132,17 +151,27 @@ class OutboxPartitionMetricsMeterBinderTest {
 
         meterBinder.bindTo(meterRegistry)
 
-        assertThat(meterRegistry.get("outbox.partitions.assigned.count").gauge().value()).isEqualTo(1.0)
-        assertThat(meterRegistry.get("outbox.partitions.pending.records.total").gauge().value()).isEqualTo(42.0)
-        assertThat(meterRegistry.get("outbox.partitions.pending.records.max").gauge().value()).isEqualTo(42.0)
-        assertThat(meterRegistry.get("outbox.partitions.pending.records.avg").gauge().value()).isEqualTo(42.0)
-        assertThat(meterRegistry.get("outbox.cluster.instances.total").gauge().value()).isEqualTo(1.0)
-        assertThat(meterRegistry.get("outbox.cluster.partitions.total").gauge().value()).isEqualTo(256.0)
-        assertThat(meterRegistry.get("outbox.cluster.partitions.avg_per_instance").gauge().value()).isEqualTo(256.0)
-        assertThat(meterRegistry.get("outbox.cluster.partitions.unassigned.count").gauge().value()).isEqualTo(255.0)
+        assertThat(meterRegistry.get(OutboxMeters.PARTITIONS_ASSIGNED_COUNT.getName()).gauge().value()).isEqualTo(1.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.PARTITIONS_PENDING_RECORDS_TOTAL.getName()).gauge().value(),
+        ).isEqualTo(42.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.PARTITIONS_PENDING_RECORDS_MAX.getName()).gauge().value(),
+        ).isEqualTo(42.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.PARTITIONS_PENDING_RECORDS_AVG.getName()).gauge().value(),
+        ).isEqualTo(42.0)
+        assertThat(meterRegistry.get(OutboxMeters.CLUSTER_INSTANCES_TOTAL.getName()).gauge().value()).isEqualTo(1.0)
+        assertThat(meterRegistry.get(OutboxMeters.CLUSTER_PARTITIONS_TOTAL.getName()).gauge().value()).isEqualTo(256.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.CLUSTER_PARTITIONS_AVG_PER_INSTANCE.getName()).gauge().value(),
+        ).isEqualTo(256.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.CLUSTER_PARTITIONS_UNASSIGNED_COUNT.getName()).gauge().value(),
+        ).isEqualTo(255.0)
         assertThat(
             meterRegistry
-                .get("outbox.cluster.partitions.unassigned.flag")
+                .get(OutboxMeters.CLUSTER_PARTITIONS_UNASSIGNED_FLAG.getName())
                 .tag("partition", "7")
                 .gauge()
                 .value(),
@@ -171,13 +200,23 @@ class OutboxPartitionMetricsMeterBinderTest {
 
         meterBinder.bindTo(meterRegistry)
 
-        assertThat(meterRegistry.get("outbox.partitions.assigned.count").gauge().value()).isEqualTo(3.0)
-        assertThat(meterRegistry.get("outbox.partitions.pending.records.total").gauge().value()).isEqualTo(0.0)
-        assertThat(meterRegistry.get("outbox.partitions.pending.records.max").gauge().value()).isEqualTo(0.0)
-        assertThat(meterRegistry.get("outbox.partitions.pending.records.avg").gauge().value()).isEqualTo(0.0)
-        assertThat(meterRegistry.get("outbox.cluster.instances.total").gauge().value()).isEqualTo(3.0)
-        assertThat(meterRegistry.get("outbox.cluster.partitions.total").gauge().value()).isEqualTo(256.0)
-        assertThat(meterRegistry.get("outbox.cluster.partitions.avg_per_instance").gauge().value()).isEqualTo(85.33)
-        assertThat(meterRegistry.get("outbox.cluster.partitions.unassigned.count").gauge().value()).isEqualTo(250.0)
+        assertThat(meterRegistry.get(OutboxMeters.PARTITIONS_ASSIGNED_COUNT.getName()).gauge().value()).isEqualTo(3.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.PARTITIONS_PENDING_RECORDS_TOTAL.getName()).gauge().value(),
+        ).isEqualTo(0.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.PARTITIONS_PENDING_RECORDS_MAX.getName()).gauge().value(),
+        ).isEqualTo(0.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.PARTITIONS_PENDING_RECORDS_AVG.getName()).gauge().value(),
+        ).isEqualTo(0.0)
+        assertThat(meterRegistry.get(OutboxMeters.CLUSTER_INSTANCES_TOTAL.getName()).gauge().value()).isEqualTo(3.0)
+        assertThat(meterRegistry.get(OutboxMeters.CLUSTER_PARTITIONS_TOTAL.getName()).gauge().value()).isEqualTo(256.0)
+        assertThat(
+            meterRegistry.get(OutboxMeters.CLUSTER_PARTITIONS_AVG_PER_INSTANCE.getName()).gauge().value(),
+        ).isEqualTo(85.33)
+        assertThat(
+            meterRegistry.get(OutboxMeters.CLUSTER_PARTITIONS_UNASSIGNED_COUNT.getName()).gauge().value(),
+        ).isEqualTo(250.0)
     }
 }

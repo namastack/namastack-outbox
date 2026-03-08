@@ -6,6 +6,8 @@ import io.micrometer.core.instrument.binder.MeterBinder
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.observability.OutboxMeters
+import io.namastack.outbox.observability.OutboxMeters.Keys
 
 /**
  * Micrometer meter binder for outbox record metrics.
@@ -33,9 +35,11 @@ class OutboxRecordMetricsMeterBinder(
 
         statuses.forEach { status ->
             Gauge
-                .builder("outbox.records.count") { outboxRecordStatusRepository.countByStatus(status) }
+                .builder(OutboxMeters.RECORDS_COUNT.getName()) {
+                    outboxRecordStatusRepository.countByStatus(status)
+                }.description(OutboxMeters.RECORDS_COUNT.description)
                 .description("Count of outbox records by status")
-                .tag("status", status.name.lowercase())
+                .tag(Keys.RecordStatus.asString(), status.name.lowercase())
                 .register(meterRegistry)
         }
     }

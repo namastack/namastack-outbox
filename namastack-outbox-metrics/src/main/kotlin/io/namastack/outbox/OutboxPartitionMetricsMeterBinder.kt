@@ -3,6 +3,8 @@ package io.namastack.outbox
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.binder.MeterBinder
+import io.namastack.outbox.observability.OutboxMeters
+import io.namastack.outbox.observability.OutboxMeters.Keys
 import io.namastack.outbox.partition.PartitionHasher
 
 /**
@@ -29,69 +31,69 @@ class OutboxPartitionMetricsMeterBinder(
      */
     override fun bindTo(meterRegistry: MeterRegistry) {
         Gauge
-            .builder("outbox.partitions.assigned.count") {
+            .builder(OutboxMeters.PARTITIONS_ASSIGNED_COUNT.getName()) {
                 partitionMetricsProvider.getProcessingStats().assignedPartitions.size
-            }.description("Number of partitions assigned to this instance")
+            }.description(OutboxMeters.PARTITIONS_ASSIGNED_COUNT.description)
             .register(meterRegistry)
 
         Gauge
-            .builder("outbox.partitions.pending.records.total") {
+            .builder(OutboxMeters.PARTITIONS_PENDING_RECORDS_TOTAL.getName()) {
                 partitionMetricsProvider.getProcessingStats().totalPendingRecords
-            }.description("Total number of pending records across all assigned partitions")
+            }.description(OutboxMeters.PARTITIONS_PENDING_RECORDS_TOTAL.description)
             .register(meterRegistry)
 
         Gauge
-            .builder("outbox.partitions.pending.records.max") {
+            .builder(OutboxMeters.PARTITIONS_PENDING_RECORDS_MAX.getName()) {
                 val stats = partitionMetricsProvider.getProcessingStats()
                 stats.pendingRecordsPerPartition.values
                     .maxOrNull()
                     ?.toDouble() ?: 0.0
-            }.description("Maximum number of pending records in any assigned partition")
+            }.description(OutboxMeters.PARTITIONS_PENDING_RECORDS_MAX.description)
             .register(meterRegistry)
 
         Gauge
-            .builder("outbox.partitions.pending.records.avg") {
+            .builder(OutboxMeters.PARTITIONS_PENDING_RECORDS_AVG.getName()) {
                 val stats = partitionMetricsProvider.getProcessingStats()
                 if (stats.assignedPartitions.isEmpty()) {
                     0.0
                 } else {
                     stats.pendingRecordsPerPartition.values.average()
                 }
-            }.description("Average number of pending records per assigned partition")
+            }.description(OutboxMeters.PARTITIONS_PENDING_RECORDS_AVG.description)
             .register(meterRegistry)
 
         Gauge
-            .builder("outbox.cluster.instances.total") {
+            .builder(OutboxMeters.CLUSTER_INSTANCES_TOTAL.getName()) {
                 partitionMetricsProvider.getPartitionStats().totalInstances
-            }.description("Total number of active instances in the outbox cluster")
+            }.description(OutboxMeters.CLUSTER_INSTANCES_TOTAL.description)
             .register(meterRegistry)
 
         Gauge
-            .builder("outbox.cluster.partitions.total") {
+            .builder(OutboxMeters.CLUSTER_PARTITIONS_TOTAL.getName()) {
                 partitionMetricsProvider.getPartitionStats().totalPartitions
-            }.description("Total number of partitions in the outbox cluster")
+            }.description(OutboxMeters.CLUSTER_PARTITIONS_TOTAL.description)
             .register(meterRegistry)
 
         Gauge
-            .builder("outbox.cluster.partitions.avg_per_instance") {
+            .builder(OutboxMeters.CLUSTER_PARTITIONS_AVG_PER_INSTANCE.getName()) {
                 partitionMetricsProvider.getPartitionStats().averagePartitionsPerInstance
-            }.description("Average number of partitions assigned per instance")
+            }.description(OutboxMeters.CLUSTER_PARTITIONS_AVG_PER_INSTANCE.description)
             .register(meterRegistry)
 
         Gauge
-            .builder("outbox.cluster.partitions.unassigned.count") {
+            .builder(OutboxMeters.CLUSTER_PARTITIONS_UNASSIGNED_COUNT.getName()) {
                 partitionMetricsProvider.getPartitionStats().unassignedPartitionsCount.toDouble()
-            }.description("Number of partitions currently unassigned (no instance owner)")
+            }.description(OutboxMeters.CLUSTER_PARTITIONS_UNASSIGNED_COUNT.description)
             .register(meterRegistry)
 
         // Per-partition unassigned flag (1 = unassigned, 0 = assigned)
         for (partition in 0 until PartitionHasher.TOTAL_PARTITIONS) {
             Gauge
-                .builder("outbox.cluster.partitions.unassigned.flag") {
+                .builder(OutboxMeters.CLUSTER_PARTITIONS_UNASSIGNED_FLAG.getName()) {
                     val stats = partitionMetricsProvider.getPartitionStats()
                     if (stats.unassignedPartitionNumbers.contains(partition)) 1.0 else 0.0
-                }.tag("partition", partition.toString())
-                .description("1 if partition is currently unassigned, else 0")
+                }.tag(Keys.Partition.asString(), partition.toString())
+                .description(OutboxMeters.CLUSTER_PARTITIONS_UNASSIGNED_FLAG.description)
                 .register(meterRegistry)
         }
     }

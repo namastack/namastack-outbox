@@ -3,6 +3,7 @@ package io.namastack.outbox
 import io.micrometer.tracing.Tracer
 import io.micrometer.tracing.propagation.Propagator
 import io.namastack.outbox.context.OutboxContextProvider
+import io.namastack.outbox.observability.OutboxObservationDocumentation
 import org.slf4j.LoggerFactory
 
 /**
@@ -13,7 +14,7 @@ import org.slf4j.LoggerFactory
  * the current span context into the outbox record's context map during scheduling.
  *
  * The serialized context is stored alongside the outbox record and later restored
- * by [OutboxTracingContextRestorer] during async processing, maintaining trace continuity
+ * by [OutboxObservationDocumentation] during async processing, maintaining trace continuity
  * across the async boundary.
  *
  * @param tracer Micrometer tracer for accessing current span
