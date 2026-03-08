@@ -45,7 +45,7 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
             val INSTANCE = DefaultOutboxProcessObservationConvention()
         }
 
-        override fun getName(): String = "outbox.record.process"
+        override fun getName(): String = "outbox.records.process"
 
         override fun getContextualName(context: OutboxProcessObservationContext): String = "outbox process"
 
