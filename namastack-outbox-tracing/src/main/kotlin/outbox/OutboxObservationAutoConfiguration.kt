@@ -27,7 +27,7 @@ import org.springframework.context.annotation.Bean
 @ConditionalOnClass(OutboxService::class)
 @ConditionalOnBean(value = [Tracer::class, Propagator::class])
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
-internal class OutboxTracingAutoConfiguration {
+internal class OutboxObservationAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun outboxTracingContextProvider(

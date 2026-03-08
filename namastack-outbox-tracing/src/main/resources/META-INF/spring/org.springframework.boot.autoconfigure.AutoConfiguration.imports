@@ -1,2 +1,2 @@
-io.namastack.outbox.OutboxTracingAutoConfiguration
+io.namastack.outbox.OutboxObservationAutoConfiguration
 
