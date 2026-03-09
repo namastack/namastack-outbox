@@ -1,6 +1,5 @@
 package io.namastack.demo
 
-import io.micrometer.tracing.Tracer
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import org.slf4j.LoggerFactory
@@ -8,8 +7,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class GenericOutboxHandler(
-    private val handlerSpanFactory: HandlerSpanFactory,
-    private val tracer: Tracer,
+    private val externalBroker: ExternalBroker
 ) : OutboxHandler {
     private val logger = LoggerFactory.getLogger(GenericOutboxHandler::class.java)
 
@@ -17,13 +15,7 @@ class GenericOutboxHandler(
         payload: Any,
         metadata: OutboxRecordMetadata,
     ) {
-        val span =
-            handlerSpanFactory.create("publish payload", metadata)
-                ?: throw IllegalStateException("Could not create span.")
-
-        tracer.runWithSpan(span) {
-            logger.info("[Handler] Publish {}: {}", payload::class.simpleName, metadata.key)
-            ExternalBroker.publish(payload, metadata.key)
-        }
+        logger.info("[Handler] Publish {}: {}", payload::class.simpleName, metadata.key)
+        externalBroker.publish(payload, metadata.key)
     }
 }

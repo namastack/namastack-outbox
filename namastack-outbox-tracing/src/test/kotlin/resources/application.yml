@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+namastack:
+  outbox:
+    retry:
+      policy: "fixed"
+      fixed:
+        delay: 100
+      max-retries: 2
+
+logging:
+  level:
+    root: warn
+    io.namastack.outbox: trace

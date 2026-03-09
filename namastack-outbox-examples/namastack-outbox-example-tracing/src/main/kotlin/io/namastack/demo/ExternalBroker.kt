@@ -1,10 +1,14 @@
 package io.namastack.demo
 
+import io.micrometer.observation.annotation.Observed
 import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Component
 
-object ExternalBroker {
+@Component
+class ExternalBroker {
     private val logger = LoggerFactory.getLogger(ExternalBroker::class.java)
 
+    @Observed(name = "external.broker.publish", contextualName = "publish event to broker")
     fun publish(
         event: Any,
         key: String,

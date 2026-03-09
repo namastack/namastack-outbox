@@ -258,6 +258,75 @@ When you provide manual context, it's merged with context from registered `Outbo
 
 ---
 
+## Tracing Context Propagation
+
+The `namastack-outbox-tracing` module provides **automatic, zero-configuration** trace propagation.
+No custom `OutboxContextProvider` bean is needed — simply add the dependency and a compatible
+Spring Boot tracing bridge (e.g. OpenTelemetry or Brave):
+
+<Tabs>
+<TabItem value="gradle" label="Gradle">
+
+```kotlin
+dependencies {
+    implementation("io.namastack:namastack-outbox-starter-jpa:<version>")
+    implementation("io.namastack:namastack-outbox-tracing:<version>")
+    // Tracing bridge of your choice
+    implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
+}
+```
+
+</TabItem>
+<TabItem value="maven" label="Maven">
+
+```xml
+<dependency>
+    <groupId>io.namastack</groupId>
+    <artifactId>namastack-outbox-tracing</artifactId>
+    <version>VERSION</version>
+</dependency>
+```
+
+</TabItem>
+</Tabs>
+
+When a `Tracer` and `Propagator` bean are present, the library auto-registers
+`OutboxTracingContextProvider`, which:
+
+1. **On schedule** — serializes the current span context (e.g. `traceparent`, `tracestate`,
+   baggage headers) into the outbox record's context map using the configured Micrometer
+   `Propagator` (W3C Trace Context format by default).
+2. **On process** — reads those headers from `record.context` and restores the span as a child of
+   the original producer trace, keeping the full call chain visible end-to-end in your tracing
+   backend.
+
+If no active span exists at scheduling time, or if serialization fails, an empty map is returned
+and processing continues without tracing — so there is no risk of blocking record scheduling.
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant Provider as OutboxTracingContextProvider
+    participant DB as Outbox Table
+    participant Scheduler as Scheduler
+    participant Advice as ObservationAdvice (AOP)
+    participant Handler as Handler
+
+    App->>Provider: Request current tracing context
+    Provider-->>App: {traceparent, tracestate, ...}
+    App->>DB: Save record + context
+    Note over DB: Context stored as JSON
+
+    Scheduler->>DB: Poll records
+    DB-->>Scheduler: Record + context
+    Scheduler->>Advice: Invoke
+    Advice->>Advice: Observation restores child span
+    Advice->>Handler: Invoke
+
+```
+
+---
+
 ## Use Cases
 
 **Common use cases for context propagation:**
