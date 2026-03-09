@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessor
@@ -9,6 +10,8 @@ import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.TaskScheduler
+import org.springframework.scheduling.support.ScheduledMethodRunnable
+import java.lang.reflect.Method
 import java.time.Clock
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ScheduledFuture
@@ -41,6 +44,7 @@ import kotlin.concurrent.withLock
 class OutboxProcessingScheduler(
     private val trigger: OutboxPollingTrigger,
     private val taskScheduler: TaskScheduler,
+    private val observationRegistry: () -> ObservationRegistry,
     private val recordRepository: OutboxRecordRepository,
     private val recordProcessorChain: OutboxRecordProcessor,
     private val partitionCoordinator: PartitionCoordinator,
@@ -48,6 +52,12 @@ class OutboxProcessingScheduler(
     private val properties: OutboxProperties,
     private val clock: Clock,
 ) {
+    companion object {
+        const val SCHEDULER_NAME: String = "outboxDefaultScheduler"
+        private val SCHEDULE_METHOD_NAME: String = (OutboxProcessingScheduler::process).name
+        private val SCHEDULE_METHOD: Method = OutboxProcessingScheduler::class.java.getMethod(SCHEDULE_METHOD_NAME)
+    }
+
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
     private var scheduledTask: ScheduledFuture<*>? = null
@@ -71,7 +81,8 @@ class OutboxProcessingScheduler(
                 return
             }
 
-            scheduledTask = taskScheduler.schedule(this::process, trigger)
+            val runnable = ScheduledMethodRunnable(this, SCHEDULE_METHOD, SCHEDULER_NAME, observationRegistry)
+            scheduledTask = taskScheduler.schedule(runnable, trigger)
             log.info("OutboxProcessingScheduler scheduled with trigger: {}", trigger.javaClass.simpleName)
         }
 
