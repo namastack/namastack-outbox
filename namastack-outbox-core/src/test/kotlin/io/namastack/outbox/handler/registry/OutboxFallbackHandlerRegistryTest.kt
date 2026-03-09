@@ -43,6 +43,25 @@ class OutboxFallbackHandlerRegistryTest {
     }
 
     @Test
+    fun `returns true when fallback handler registered for handler ID`() {
+        val handlerId = "handler-1"
+        val fallbackHandler = mockk<OutboxFallbackHandlerMethod>()
+
+        registry.register(handlerId, fallbackHandler)
+
+        val result = registry.existsByHandlerId(handlerId)
+
+        assertThat(result).isTrue()
+    }
+
+    @Test
+    fun `returns false when no fallback handler registered for handler ID via exists check`() {
+        val result = registry.existsByHandlerId("non-existent-handler")
+
+        assertThat(result).isFalse()
+    }
+
+    @Test
     fun `returns null when no fallback handler registered for handler ID`() {
         val result = registry.getByHandlerId("non-existent-handler")
 

@@ -12,7 +12,6 @@ import io.namastack.outbox.handler.method.fallback.OutboxFallbackHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
-import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -43,9 +42,8 @@ class OutboxFallbackHandlerInvokerTest {
         every { fallbackHandlerRegistry.getByHandlerId("handler-id") } returns fallbackHandler
         every { fallbackHandler.invoke(any(), any()) } just runs
 
-        val rs = invoker.dispatch(record)
+        invoker.dispatch(record)
 
-        assertThat(rs).isTrue
         verify { fallbackHandler.invoke(record.payload!!, context) }
     }
 
@@ -53,30 +51,32 @@ class OutboxFallbackHandlerInvokerTest {
     fun `skips processing when payload is null`() {
         val (record, _) = createRecord(payload = null)
 
-        val rs = invoker.dispatch(record)
+        invoker.dispatch(record)
 
-        assertThat(rs).isFalse
         verify(exactly = 0) { fallbackHandlerRegistry.getByHandlerId(any()) }
     }
 
     @Test
-    fun `skips processing when failureException is null`() {
+    fun `throws when failureException is null`() {
         val (record, _) = createRecord(lastFailure = null)
 
         assertThatThrownBy {
             invoker.dispatch(record)
         }.isInstanceOf(IllegalStateException::class.java)
+            .hasMessage("Expected failure exception in record ${record.id} but found none")
     }
 
     @Test
-    fun `skips processing when no fallback handler registered`() {
+    fun `throws when no fallback handler registered`() {
         val (record, _) = createRecord(handlerId = "handler-without-fallback")
 
         every { fallbackHandlerRegistry.getByHandlerId("handler-without-fallback") } returns null
 
-        val rs = invoker.dispatch(record)
+        assertThatThrownBy {
+            invoker.dispatch(record)
+        }.isInstanceOf(IllegalStateException::class.java)
+            .hasMessage("No fallback handler with id handler-without-fallback")
 
-        assertThat(rs).isFalse
         verify { fallbackHandlerRegistry.getByHandlerId("handler-without-fallback") }
     }
 
