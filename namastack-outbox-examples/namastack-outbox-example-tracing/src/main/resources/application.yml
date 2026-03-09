@@ -36,9 +36,6 @@ management:
           endpoint: http://localhost:4318/v1/logs
 
 logging:
-  pattern:
-    correlation: "[${spring.application.name:},%X{traceId:-},%X{spanId:-}] "
-  include-application-name: false
   level:
     root: warn
     io.namastack.demo: debug

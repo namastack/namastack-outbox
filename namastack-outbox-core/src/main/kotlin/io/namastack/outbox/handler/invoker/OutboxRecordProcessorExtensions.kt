@@ -1,4 +1,4 @@
-package io.namastack.outbox.processor
+package io.namastack.outbox.handler.invoker
 
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.OutboxFailureContext

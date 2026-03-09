@@ -13,7 +13,7 @@ import java.time.Clock
  * On success: marks record as COMPLETED or deletes it.
  * On failure: increments failure count, stores exception, passes to next processor in chain.
  *
- * @param handlerInvoker Dispatcher for handlers
+ * @param handlerInvoker Invoker for handlers
  * @param recordRepository Repository for persisting record state
  * @param properties Configuration
  * @param clock Clock for completion timestamp
@@ -32,12 +32,13 @@ class PrimaryOutboxRecordProcessor(
     /**
      * Processes record by dispatching to its handler.
      *
-     * @return true if handler succeeded, false if next processor should process
+     * @return true if the handler succeeded, false if the handler failed and no further
+     *   processor in the chain handled the record
      */
     override fun handle(record: OutboxRecord<*>): Boolean {
         try {
             log.trace("Dispatching record {} to handler {}", record.id, record.handlerId)
-            handlerInvoker.dispatch(record.payload, record.toMetadata())
+            handlerInvoker.dispatch(record)
 
             completeRecord(record, recordRepository, properties, clock)
 

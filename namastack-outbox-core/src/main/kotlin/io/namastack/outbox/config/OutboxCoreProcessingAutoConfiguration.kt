@@ -2,6 +2,8 @@ package io.namastack.outbox.config
 
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
+import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.processor.FallbackOutboxRecordProcessor
 import io.namastack.outbox.processor.OutboxRecordProcessor
 import io.namastack.outbox.processor.PermanentFailureOutboxRecordProcessor
@@ -20,8 +22,8 @@ class OutboxCoreProcessingAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun outboxRecordProcessorChain(
-        handlerInvoker: io.namastack.outbox.handler.invoker.OutboxHandlerInvoker,
-        fallbackHandlerInvoker: io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker,
+        handlerInvoker: OutboxHandlerInvoker,
+        fallbackHandlerInvoker: OutboxFallbackHandlerInvoker,
         recordRepository: OutboxRecordRepository,
         retryPolicyRegistry: OutboxRetryPolicyRegistry,
         properties: OutboxProperties,
@@ -29,14 +31,7 @@ class OutboxCoreProcessingAutoConfiguration {
     ): OutboxRecordProcessor {
         val primary = PrimaryOutboxRecordProcessor(handlerInvoker, recordRepository, properties, clock)
         val retry = RetryOutboxRecordProcessor(retryPolicyRegistry, recordRepository, clock)
-        val fallback =
-            FallbackOutboxRecordProcessor(
-                recordRepository = recordRepository,
-                fallbackHandlerInvoker = fallbackHandlerInvoker,
-                retryPolicyRegistry = retryPolicyRegistry,
-                properties = properties,
-                clock = clock,
-            )
+        val fallback = FallbackOutboxRecordProcessor(recordRepository, fallbackHandlerInvoker, properties, clock)
         val permanentFailure = PermanentFailureOutboxRecordProcessor(recordRepository)
 
         primary
