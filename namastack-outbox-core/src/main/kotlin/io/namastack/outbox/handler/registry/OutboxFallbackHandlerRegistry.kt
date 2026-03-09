@@ -26,6 +26,14 @@ class OutboxFallbackHandlerRegistry {
     private val fallbackHandlersByHandlerId = mutableMapOf<String, OutboxFallbackHandlerMethod>()
 
     /**
+     * Checks whether a fallback handler is registered for the given handler ID.
+     *
+     * @param id The unique handler ID (from metadata.handlerId)
+     * @return `true` if a fallback handler is registered for the given ID, `false` otherwise
+     */
+    fun existsByHandlerId(id: String): Boolean = fallbackHandlersByHandlerId.containsKey(id)
+
+    /**
      * Retrieves the fallback handler for a specific handler by its unique ID.
      *
      * Used by the outbox processing scheduler to find the fallback handler to invoke

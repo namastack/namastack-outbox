@@ -4,6 +4,7 @@ import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
+import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import org.slf4j.LoggerFactory
 import java.time.Clock
 
@@ -23,6 +24,7 @@ import java.time.Clock
  */
 class FallbackOutboxRecordProcessor(
     private val recordRepository: OutboxRecordRepository,
+    private val fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
     private val fallbackHandlerInvoker: OutboxFallbackHandlerInvoker,
     private val properties: OutboxProperties,
     private val clock: Clock,
@@ -32,15 +34,19 @@ class FallbackOutboxRecordProcessor(
     /**
      * Processes record by dispatching to fallback handler.
      *
-     * @return true if the fallback handler succeeded, false if no fallback handler was
-     *   registered or the fallback failed and no further processor in the chain handled the record
+     * If no fallback handler is registered, delegates to the next processor in the chain.
+     * If the fallback handler throws, stores the exception on the record and delegates to the next processor.
+     *
+     * @return true if the fallback handler succeeded, otherwise the result of the next processor in the chain
      */
     override fun handle(record: OutboxRecord<*>): Boolean {
         try {
+            if (!fallbackHandlerRegistry.existsByHandlerId(record.handlerId)) {
+                log.debug("No fallback handler registered for handlerId: {}", record.handlerId)
+                return handleNext(record)
+            }
             log.debug("Dispatching record {} to fallback handler", record.id)
-            val success = fallbackHandlerInvoker.dispatch(record)
-
-            if (!success) return handleNext(record)
+            fallbackHandlerInvoker.dispatch(record)
 
             completeRecord(record, recordRepository, properties, clock)
 

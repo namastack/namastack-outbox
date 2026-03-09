@@ -9,6 +9,7 @@ import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
+import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -18,6 +19,7 @@ import java.time.ZoneOffset
 
 class FallbackOutboxRecordProcessorTest {
     private lateinit var recordRepository: OutboxRecordRepository
+    private lateinit var fallbackHandlerRegistry: OutboxFallbackHandlerRegistry
     private lateinit var fallbackHandlerInvoker: OutboxFallbackHandlerInvoker
     private lateinit var properties: OutboxProperties
     private lateinit var clock: Clock
@@ -27,6 +29,7 @@ class FallbackOutboxRecordProcessorTest {
     @BeforeEach
     fun setUp() {
         recordRepository = mockk()
+        fallbackHandlerRegistry = mockk()
         fallbackHandlerInvoker = mockk()
         properties = OutboxProperties()
         clock = Clock.fixed(Instant.parse("2024-01-01T10:00:00Z"), ZoneOffset.UTC)
@@ -35,6 +38,7 @@ class FallbackOutboxRecordProcessorTest {
         processor =
             FallbackOutboxRecordProcessor(
                 recordRepository,
+                fallbackHandlerRegistry,
                 fallbackHandlerInvoker,
                 properties,
                 clock,
@@ -47,7 +51,8 @@ class FallbackOutboxRecordProcessorTest {
         val record = createFailedRecord()
         properties.processing.deleteCompletedRecords = false
 
-        every { fallbackHandlerInvoker.dispatch(any()) } returns true
+        every { fallbackHandlerRegistry.existsByHandlerId(any()) } returns true
+        justRun { fallbackHandlerInvoker.dispatch(any()) }
         every { recordRepository.save(any() as OutboxRecord<*>) } returns record
 
         val result = processor.handle(record)
@@ -58,6 +63,7 @@ class FallbackOutboxRecordProcessorTest {
         assertThat(record.failureCount).isEqualTo(4)
         assertThat(record.failureException).hasMessage("Handler failed")
 
+        verify { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) }
         verify { fallbackHandlerInvoker.dispatch(record) }
         verify { recordRepository.save(record) }
         verify(exactly = 0) { recordRepository.deleteById(any()) }
@@ -69,7 +75,8 @@ class FallbackOutboxRecordProcessorTest {
         val record = createFailedRecord()
         properties.processing.deleteCompletedRecords = true
 
-        every { fallbackHandlerInvoker.dispatch(any()) } returns true
+        every { fallbackHandlerRegistry.existsByHandlerId(any()) } returns true
+        justRun { fallbackHandlerInvoker.dispatch(any()) }
         justRun { recordRepository.deleteById(any()) }
 
         val result = processor.handle(record)
@@ -78,6 +85,7 @@ class FallbackOutboxRecordProcessorTest {
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
         assertThat(record.completedAt).isNull()
 
+        verify { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) }
         verify { fallbackHandlerInvoker.dispatch(record) }
         verify { recordRepository.deleteById(record.id) }
         verify(exactly = 0) { recordRepository.save(any() as OutboxRecord<*>) }
@@ -85,10 +93,10 @@ class FallbackOutboxRecordProcessorTest {
     }
 
     @Test
-    fun `handle delegates to the next processor without mutating the record when fallback dispatch returns false`() {
+    fun `handle delegates to the next processor without mutating the record when no fallback handler is registered`() {
         val record = createFailedRecord()
 
-        every { fallbackHandlerInvoker.dispatch(any()) } returns false
+        every { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) } returns false
         every { nextProcessor.handle(any()) } returns false
 
         val result = processor.handle(record)
@@ -100,8 +108,9 @@ class FallbackOutboxRecordProcessorTest {
         assertThat(record.failureException).hasMessage("Handler failed")
         assertThat(record.failureReason).isEqualTo("Existing failure")
 
-        verify { fallbackHandlerInvoker.dispatch(record) }
+        verify { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) }
         verify { nextProcessor.handle(record) }
+        verify(exactly = 0) { fallbackHandlerInvoker.dispatch(any()) }
         verify(exactly = 0) { recordRepository.save(any() as OutboxRecord<*>) }
         verify(exactly = 0) { recordRepository.deleteById(any()) }
     }
@@ -111,6 +120,7 @@ class FallbackOutboxRecordProcessorTest {
         val record = createFailedRecord()
         val fallbackException = IllegalStateException("Fallback failed")
 
+        every { fallbackHandlerRegistry.existsByHandlerId(any()) } returns true
         every { fallbackHandlerInvoker.dispatch(any()) } throws fallbackException
         every { nextProcessor.handle(any()) } returns false
 
@@ -123,6 +133,7 @@ class FallbackOutboxRecordProcessorTest {
         assertThat(record.failureException).isEqualTo(fallbackException)
         assertThat(record.failureReason).isEqualTo("Fallback failed")
 
+        verify { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) }
         verify { fallbackHandlerInvoker.dispatch(record) }
         verify { nextProcessor.handle(record) }
         verify(exactly = 0) { recordRepository.save(any() as OutboxRecord<*>) }
@@ -134,6 +145,7 @@ class FallbackOutboxRecordProcessorTest {
         val record = createFailedRecord(failureReason = "Existing failure")
         val fallbackException = IllegalStateException()
 
+        every { fallbackHandlerRegistry.existsByHandlerId(any()) } returns true
         every { fallbackHandlerInvoker.dispatch(any()) } throws fallbackException
         every { nextProcessor.handle(any()) } returns false
 
@@ -144,40 +156,44 @@ class FallbackOutboxRecordProcessorTest {
     }
 
     @Test
-    fun `handle returns false when fallback dispatch returns false and no next processor exists`() {
+    fun `handle returns false when no fallback handler is registered and no next processor exists`() {
         val record = createFailedRecord()
         val processorWithoutNext =
             FallbackOutboxRecordProcessor(
                 recordRepository,
+                fallbackHandlerRegistry,
                 fallbackHandlerInvoker,
                 properties,
                 clock,
             )
 
-        every { fallbackHandlerInvoker.dispatch(any()) } returns false
+        every { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) } returns false
 
         val result = processorWithoutNext.handle(record)
 
         assertThat(result).isFalse()
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
         assertThat(record.completedAt).isNull()
+        verify { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) }
+        verify(exactly = 0) { fallbackHandlerInvoker.dispatch(any()) }
         verify(exactly = 0) { recordRepository.save(any() as OutboxRecord<*>) }
         verify(exactly = 0) { recordRepository.deleteById(any()) }
     }
 
     @Test
-    fun `handle returns the next processor result when fallback dispatch returns false`() {
+    fun `handle returns the next processor result when no fallback handler is registered`() {
         val record = createFailedRecord()
 
-        every { fallbackHandlerInvoker.dispatch(any()) } returns false
+        every { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) } returns false
         every { nextProcessor.handle(any()) } returns true
 
         val result = processor.handle(record)
 
         assertThat(result).isTrue()
 
-        verify { fallbackHandlerInvoker.dispatch(record) }
+        verify { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) }
         verify { nextProcessor.handle(record) }
+        verify(exactly = 0) { fallbackHandlerInvoker.dispatch(any()) }
     }
 
     private fun createFailedRecord(

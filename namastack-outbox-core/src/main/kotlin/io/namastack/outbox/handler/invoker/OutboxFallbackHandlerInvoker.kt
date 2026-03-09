@@ -3,7 +3,6 @@ package io.namastack.outbox.handler.invoker
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
-import org.slf4j.LoggerFactory
 
 /**
  * Invokes fallback handlers for failed outbox records.
@@ -20,32 +19,25 @@ open class OutboxFallbackHandlerInvoker(
     private val retryPolicyRegistry: OutboxRetryPolicyRegistry,
     private val fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
 ) {
-    private val log = LoggerFactory.getLogger(OutboxFallbackHandlerInvoker::class.java)
-
     /**
      * Invokes the fallback handler for a failed record.
      *
      * Looks up the fallback handler by handlerId from the record's metadata and invokes it
-     * with the record's payload and failure context. If no fallback handler is registered
-     * or the payload is null, logs debug and returns false.
+     * with the record's payload and failure context. Returns early if the payload is null.
      *
      * @param record The failed record to dispatch to a fallback handler
-     * @return true if the fallback handler was invoked successfully, false if no handler is
-     *   registered for the record's handlerId or the record's payload is null
+     * @throws IllegalStateException if no fallback handler is registered for the record's handlerId
+     * or if the record does not contain a failure exception (which is expected for failed records)
      */
-    open fun dispatch(record: OutboxRecord<*>): Boolean {
-        val payload = record.payload ?: return false
+    open fun dispatch(record: OutboxRecord<*>) {
+        val payload = record.payload ?: return
         val context = record.toFailureContext(getFailureException(record), retryPolicyRegistry)
 
         val fallbackHandler =
-            fallbackHandlerRegistry.getByHandlerId(record.handlerId) ?: run {
-                log.debug("No fallback handler registered for handlerId: {}", record.handlerId)
-                return false
-            }
+            fallbackHandlerRegistry.getByHandlerId(record.handlerId)
+                ?: throw IllegalStateException("No fallback handler with id ${record.handlerId}")
 
         fallbackHandler.invoke(payload, context)
-
-        return true
     }
 
     /**
