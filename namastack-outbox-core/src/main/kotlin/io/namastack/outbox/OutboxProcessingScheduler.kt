@@ -31,6 +31,7 @@ import kotlin.concurrent.withLock
  *
  * @param trigger Polling trigger that determines when the next processing cycle should occur
  * @param taskScheduler Spring TaskScheduler for scheduling the processing job
+ * @param observationRegistry Supplier for obtaining the Micrometer [ObservationRegistry]
  * @param recordRepository Repository for loading records
  * @param recordProcessorChain Root processor of the chain (typically PrimaryOutboxRecordProcessor)
  * @param partitionCoordinator Coordinator for partition assignments
@@ -54,6 +55,7 @@ class OutboxProcessingScheduler(
 ) {
     companion object {
         const val SCHEDULER_NAME: String = "outboxDefaultScheduler"
+
         private val SCHEDULE_METHOD_NAME: String = (OutboxProcessingScheduler::process).name
         private val SCHEDULE_METHOD: Method = OutboxProcessingScheduler::class.java.getMethod(SCHEDULE_METHOD_NAME)
     }
