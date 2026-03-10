@@ -26,8 +26,8 @@ import org.slf4j.LoggerFactory
  * @param tracer Micrometer [Tracer] used to access the currently active span.
  * @param propagator Micrometer [Propagator] used to inject trace headers into the context map.
  *
- * @author Roland Beisel
- * @since 1.0.0
+ * @author Aleksander Zamojski
+ * @since 1.2.0
  */
 class OutboxTracingContextProvider(
     private val tracer: Tracer,

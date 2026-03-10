@@ -26,6 +26,9 @@ import org.aopalliance.intercept.MethodInvocation
  * @param handlerKind Whether this advice instruments the primary or the fallback handler.
  * @param observationRegistrySupplier Lazy supplier for the [ObservationRegistry]; resolved once
  *   on first use to avoid early-initialization ordering issues.
+ *
+ * @author Aleksander Zamojski
+ * @since 1.2.0
  */
 internal class OutboxInvokerObservationAdvice(
     private val handlerKind: OutboxProcessObservationContext.HandlerKind,

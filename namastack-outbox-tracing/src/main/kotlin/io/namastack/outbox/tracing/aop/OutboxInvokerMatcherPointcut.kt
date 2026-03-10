@@ -16,6 +16,9 @@ import java.lang.reflect.Method
  * and one for [OutboxFallbackHandlerInvoker] (fallback).
  *
  * @param invokerClass The exact invoker class whose `dispatch` method should be intercepted.
+ *
+ * @author Aleksander Zamojski
+ * @since 1.2.0
  */
 internal class OutboxInvokerMatcherPointcut(
     private val invokerClass: Class<*>,
