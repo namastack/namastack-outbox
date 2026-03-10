@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.micrometer.observation.ObservationRegistry
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -39,6 +40,7 @@ class OutboxProcessingSchedulerTest {
             OutboxProcessingScheduler(
                 trigger = trigger,
                 taskScheduler = taskScheduler,
+                observationRegistry = { ObservationRegistry.NOOP },
                 recordRepository = recordRepository,
                 recordProcessorChain = recordProcessorChain,
                 partitionCoordinator = partitionCoordinator,

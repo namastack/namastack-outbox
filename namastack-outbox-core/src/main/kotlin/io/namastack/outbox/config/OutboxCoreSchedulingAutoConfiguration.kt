@@ -1,5 +1,6 @@
 package io.namastack.outbox.config
 
+import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
@@ -8,6 +9,7 @@ import io.namastack.outbox.processor.OutboxRecordProcessor
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import io.namastack.outbox.trigger.OutboxPollingTriggerFactory
 import org.springframework.beans.factory.BeanFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -34,6 +36,7 @@ class OutboxCoreSchedulingAutoConfiguration {
     @ConditionalOnMissingBean
     fun outboxProcessingScheduler(
         trigger: OutboxPollingTrigger,
+        observationRegistry: ObjectProvider<ObservationRegistry>,
         recordRepository: OutboxRecordRepository,
         recordProcessorChain: OutboxRecordProcessor,
         partitionCoordinator: PartitionCoordinator,
@@ -41,12 +44,13 @@ class OutboxCoreSchedulingAutoConfiguration {
         clock: Clock,
         beanFactory: BeanFactory,
     ): OutboxProcessingScheduler {
-        val taskScheduler = beanFactory.getBean("outboxDefaultScheduler") as TaskScheduler
+        val taskScheduler = beanFactory.getBean(OutboxProcessingScheduler.SCHEDULER_NAME) as TaskScheduler
         val taskExecutor = beanFactory.getBean("outboxTaskExecutor") as TaskExecutor
 
         return OutboxProcessingScheduler(
             trigger = trigger,
             taskScheduler = taskScheduler,
+            observationRegistry = { observationRegistry.getIfAvailable { ObservationRegistry.NOOP } },
             recordRepository = recordRepository,
             recordProcessorChain = recordProcessorChain,
             partitionCoordinator = partitionCoordinator,
