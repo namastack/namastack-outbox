@@ -42,6 +42,9 @@ import org.springframework.context.annotation.Bean
  *    restores the producer span as a child span and attaches outbox-specific tags.
  * 3. A fallback-handler advisor — identical to the primary advisor but targets
  *    [OutboxFallbackHandlerInvoker.dispatch] and sets the handler kind to `fallback`.
+ *
+ * @author Aleksander Zamojski
+ * @since 1.2.0
  */
 @AutoConfiguration(
     before = [OutboxCoreInfrastructureAutoConfiguration::class],
