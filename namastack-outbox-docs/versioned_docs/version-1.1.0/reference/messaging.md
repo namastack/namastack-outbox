@@ -68,7 +68,10 @@ class KafkaOutboxConfig {
         route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
             target("orders")
             key { payload, _ -> (payload as OrderEvent).orderId }
-            headers { payload, metadata -> mapOf("custom-header" to "value", "traceId" to metadata.context["traceId"]) }
+            headers { payload, metadata -> mapOf(
+                "custom-header" to "value",
+                "traceId" to metadata.context["traceId"])
+            }
             mapping { payload, _ -> (payload as OrderEvent).toPublicEvent() }
             filter { payload, _ -> (payload as OrderEvent).status != "CANCELLED" }
         }
@@ -88,13 +91,16 @@ public class KafkaOutboxConfig {
     @Bean
     public KafkaOutboxRouting kafkaOutboxRouting() {
         return KafkaOutboxRouting.builder()
-            .route(OutboxPayloadSelector.type(OrderEvent.class), route -> route
-                .target("orders")
-                .key((payload, metadata) -> ((OrderEvent) payload).getOrderId())
-                .headers((payload, metadata) -> Map.of("custom-header", "value", "traceId", metadata.getContext().get("traceId")))
-                .mapping((payload, metadata) -> ((OrderEvent) payload).toPublicEvent())
-                .filter((payload, metadata) -> !((OrderEvent) payload).getStatus().equals("CANCELLED"))
-            )
+            .route(OutboxPayloadSelector.type(OrderEvent.class), route -> {
+                route.target("orders");
+                route.key((payload, metadata) -> ((OrderEvent) payload).getOrderId());
+                route.headers((payload, metadata) -> Map.of(
+                    "custom-header", "value",
+                    "traceId", metadata.getContext().get("traceId")
+                ));
+                route.mapping((payload, metadata) -> ((OrderEvent) payload).toPublicEvent());
+                route.filter((payload, metadata) -> !((OrderEvent) payload).getStatus().equals("CANCELLED"));
+            })
             .defaults(route -> route.target("domain-events"))
             .build();
     }
@@ -148,19 +154,19 @@ class RabbitOutboxConfig {
 ```java
 @Configuration
 public class RabbitOutboxConfig {
-    @Bean
-    public RabbitOutboxRouting rabbitOutboxRouting() {
-        return RabbitOutboxRouting.builder()
-            .route(OutboxPayloadSelector.type(OrderEvent.class), route -> route
-                .target("orders-exchange")
-                .key((payload, metadata) -> ((OrderEvent) payload).getOrderId())
-                .headers((payload, metadata) -> Map.of("custom-header", "value", "traceId", metadata.getContext().get("traceId")))
-                .mapping((payload, metadata) -> ((OrderEvent) payload).toPublicEvent())
-                .filter((payload, metadata) -> !((OrderEvent) payload).getStatus().equals("CANCELLED"))
-            )
-            .defaults(route -> route.target("domain-events"))
-            .build();
-    }
+  @Bean
+  public RabbitOutboxRouting rabbitOutboxRouting() {
+    return RabbitOutboxRouting.builder()
+        .route(OutboxPayloadSelector.type(OrderEvent.class), route -> {
+          route.target("orders-exchange");
+          route.key((payload, metadata) -> ((OrderEvent) payload).getOrderId());
+          route.headers((payload, metadata) -> Map.of("custom-header", "value", "traceId", metadata.getContext().get("traceId")));
+          route.mapping((payload, metadata) -> ((OrderEvent) payload).toPublicEvent());
+          route.filter((payload, metadata) -> !((OrderEvent) payload).getStatus().equals("CANCELLED"));
+        })
+        .defaults(route -> route.target("domain-events"))
+        .build();
+  }
 }
 ```
 
