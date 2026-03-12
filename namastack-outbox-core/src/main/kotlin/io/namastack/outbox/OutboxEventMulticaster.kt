@@ -187,8 +187,9 @@ class OutboxEventMulticaster(
         val key = resolveEventKey(payload, annotation) ?: UUID.randomUUID().toString()
         val context = resolveContext(payload, annotation) ?: emptyMap()
 
-        val outbox = outboxProvider.getIfAvailable()
-            ?: throw IllegalStateException("No Outbox bean available to schedule @OutboxEvent")
+        val outbox =
+            outboxProvider.getIfAvailable()
+                ?: throw IllegalStateException("No Outbox bean available to schedule @OutboxEvent")
 
         outbox.schedule(payload, key, context)
     }
