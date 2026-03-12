@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.namastack.outbox.annotation.OutboxEvent
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.ApplicationEvent
 import org.springframework.context.PayloadApplicationEvent
 import org.springframework.context.event.ApplicationEventMulticaster
@@ -41,7 +42,7 @@ import java.util.concurrent.ConcurrentHashMap
  * @since 0.3.0
  */
 class OutboxEventMulticaster(
-    private val outbox: Outbox,
+    private val outboxProvider: ObjectProvider<Outbox>,
     private val outboxProperties: OutboxProperties,
     private val delegateEventMulticaster: SimpleApplicationEventMulticaster,
 ) : ApplicationEventMulticaster by delegateEventMulticaster {
@@ -185,6 +186,10 @@ class OutboxEventMulticaster(
 
         val key = resolveEventKey(payload, annotation) ?: UUID.randomUUID().toString()
         val context = resolveContext(payload, annotation) ?: emptyMap()
+
+        val outbox = outboxProvider.getIfAvailable()
+            ?: throw IllegalStateException("No Outbox bean available to schedule @OutboxEvent")
+
         outbox.schedule(payload, key, context)
     }
 
