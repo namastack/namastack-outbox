@@ -1,5 +1,6 @@
 package io.namastack.outbox.partition
 
+import io.namastack.outbox.OpenForProxy
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
 import org.slf4j.LoggerFactory
@@ -23,6 +24,7 @@ import java.time.Clock
  * @author Roland Beisel
  * @since 0.2.0
  */
+@OpenForProxy
 class PartitionCoordinator(
     private val instanceRegistry: OutboxInstanceRegistry,
     private val partitionAssignmentRepository: PartitionAssignmentRepository,
