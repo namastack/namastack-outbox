@@ -4,6 +4,7 @@ import io.namastack.outbox.Outbox
 import io.namastack.outbox.OutboxEventMulticaster
 import io.namastack.outbox.OutboxProperties
 import org.springframework.beans.factory.BeanFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -17,12 +18,12 @@ class OutboxCoreMulticasterAutoConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnProperty(name = ["namastack.outbox.multicaster.enabled"], havingValue = "true", matchIfMissing = true)
     fun outboxApplicationEventMulticaster(
-        outbox: Outbox,
+        outboxProvider: ObjectProvider<Outbox>,
         beanFactory: BeanFactory,
         outboxProperties: OutboxProperties,
     ): OutboxEventMulticaster =
         OutboxEventMulticaster(
-            outbox = outbox,
+            outboxProvider = outboxProvider,
             outboxProperties = outboxProperties,
             delegateEventMulticaster = SimpleApplicationEventMulticaster(beanFactory),
         )
