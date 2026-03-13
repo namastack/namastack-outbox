@@ -6,6 +6,10 @@ plugins {
 
 description = "namastack-outbox-core"
 
+allOpen {
+    annotation("io.namastack.outbox.OpenForProxy")
+}
+
 dependencies {
     implementation(project(":namastack-outbox-api"))
 

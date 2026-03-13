@@ -42,6 +42,7 @@ import kotlin.concurrent.withLock
  * @author Roland Beisel
  * @since 0.2.0
  */
+@OpenForProxy
 class OutboxProcessingScheduler(
     private val trigger: OutboxPollingTrigger,
     private val taskScheduler: TaskScheduler,

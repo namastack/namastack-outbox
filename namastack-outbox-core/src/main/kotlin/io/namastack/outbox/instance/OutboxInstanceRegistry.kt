@@ -1,5 +1,6 @@
 package io.namastack.outbox.instance
 
+import io.namastack.outbox.OpenForProxy
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
 import jakarta.annotation.PostConstruct
@@ -31,6 +32,7 @@ import java.util.UUID
  * @author Roland Beisel
  * @since 0.2.0
  */
+@OpenForProxy
 class OutboxInstanceRegistry(
     private val instanceRepository: OutboxInstanceRepository,
     private val properties: OutboxProperties,
