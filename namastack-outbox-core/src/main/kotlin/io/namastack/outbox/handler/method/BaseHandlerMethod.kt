@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.method
 
+import io.namastack.outbox.handler.method.internal.ReflectionUtils
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 
@@ -28,7 +29,7 @@ abstract class BaseHandlerMethod(
      * ID remains stable across restarts for persistent record association.
      */
     protected fun buildId(): String {
-        val className = bean::class.java.name
+        val className = ReflectionUtils.getTargetClass(bean).name
         val methodName = method.name
         val paramTypes = method.parameterTypes.joinToString(",") { it.name }
 
