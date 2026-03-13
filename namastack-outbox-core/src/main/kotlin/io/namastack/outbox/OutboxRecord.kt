@@ -117,7 +117,7 @@ class OutboxRecord<T> internal constructor(
      * @param clock Clock to use for determining the current time
      * @return true if the record can be retried, false otherwise
      */
-    internal fun canBeRetried(clock: Clock): Boolean = nextRetryAt.isBefore(Instant.now(clock)) && status == NEW
+    internal fun canBeRetried(clock: Clock): Boolean = !nextRetryAt.isAfter(Instant.now(clock)) && status == NEW
 
     /**
      * Checks if the maximum number of retries has been exhausted.

@@ -188,7 +188,7 @@ class OutboxRecordTest {
         }
 
         @Test
-        fun `should return false when nextRetryAt equals current time`() {
+        fun `should return true when nextRetryAt equals current time`() {
             val record =
                 outboxRecord(
                     status = OutboxRecordStatus.NEW,
@@ -198,7 +198,7 @@ class OutboxRecordTest {
 
             val result = record.canBeRetried(clock)
 
-            assertThat(result).isFalse()
+            assertThat(result).isTrue()
         }
     }
 
