@@ -47,13 +47,20 @@ class OutboxCoreInfrastructureAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun outboxHandlerInvoker(outboxHandlerRegistry: OutboxHandlerRegistry): OutboxHandlerInvoker =
-        OutboxHandlerInvoker(outboxHandlerRegistry)
+        OutboxHandlerInvoker(
+            handlerRegistry = outboxHandlerRegistry,
+        )
 
     @Bean
     @ConditionalOnMissingBean
     fun outboxFallbackHandlerInvoker(
+        retryPolicyRegistry: OutboxRetryPolicyRegistry,
         outboxFallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
-    ): OutboxFallbackHandlerInvoker = OutboxFallbackHandlerInvoker(outboxFallbackHandlerRegistry)
+    ): OutboxFallbackHandlerInvoker =
+        OutboxFallbackHandlerInvoker(
+            retryPolicyRegistry = retryPolicyRegistry,
+            fallbackHandlerRegistry = outboxFallbackHandlerRegistry,
+        )
 
     @Bean
     @ConditionalOnMissingBean

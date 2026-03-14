@@ -11,6 +11,22 @@ import TabItem from '@theme/TabItem';
 
 Context propagation preserves important metadata (trace IDs, tenant info, correlation IDs, user context) across the async boundary between scheduling and processing.
 
+---
+
+## Tracing Context Propagation
+
+The `namastack-outbox-tracing` module provides **automatic, zero-configuration** trace propagation.
+No custom `OutboxContextProvider` bean is needed.
+
+:::info
+**See the Observability guide for full details.**
+
+For observations, tracing, and the zero-configuration tracing module, see the
+[Observability](../observability#observations--tracing) section.
+:::
+
+---
+
 ## How It Works
 
 Context is captured when records are scheduled and restored when handlers are invoked:
