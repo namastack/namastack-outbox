@@ -5,7 +5,9 @@ import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.observability.OutboxObservationDocumentation
+import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxProcessObservationConvention
 import io.namastack.outbox.observability.OutboxProcessObservationContext
+import io.namastack.outbox.observability.OutboxProcessObservationConvention
 import org.aopalliance.intercept.MethodInterceptor
 import org.aopalliance.intercept.MethodInvocation
 
@@ -26,13 +28,16 @@ import org.aopalliance.intercept.MethodInvocation
  * @param handlerKind Whether this advice instruments the primary or the fallback handler.
  * @param observationRegistrySupplier Lazy supplier for the [ObservationRegistry]; resolved once
  *   on first use to avoid early-initialization ordering issues.
+ * @param customOutboxConventionSupplier Optional lazy supplier for a custom [OutboxProcessObservationConvention].
+ *   If no bean is present, the default convention will be used.
  *
- * @author Aleksander Zamojski
+ * @author Aleksander Zamojski, Roland Beisel
  * @since 1.2.0
  */
 internal class OutboxInvokerObservationAdvice(
     private val handlerKind: OutboxProcessObservationContext.HandlerKind,
     private val observationRegistrySupplier: () -> ObservationRegistry,
+    private val customOutboxConventionSupplier: () -> OutboxProcessObservationConvention?,
 ) : MethodInterceptor {
     /**
      * [ObservationRegistry] resolved lazily on the first [invoke] call so that the bean is
@@ -40,6 +45,14 @@ internal class OutboxInvokerObservationAdvice(
      */
     private val observationRegistry: ObservationRegistry by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         observationRegistrySupplier()
+    }
+
+    /**
+     * [OutboxProcessObservationConvention] resolved lazily on the first [invoke] call so that the bean is
+     * fully initialized before it is accessed.
+     */
+    private val customOutboxConvention: OutboxProcessObservationConvention? by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        customOutboxConventionSupplier()
     }
 
     /**
@@ -59,8 +72,8 @@ internal class OutboxInvokerObservationAdvice(
 
         val observation =
             OutboxObservationDocumentation.OUTBOX_RECORD_PROCESS.observation(
-                null,
-                OutboxObservationDocumentation.DefaultOutboxProcessObservationConvention.INSTANCE,
+                customOutboxConvention,
+                DefaultOutboxProcessObservationConvention.INSTANCE,
                 { OutboxProcessObservationContext(record, handlerKind) },
                 observationRegistry,
             )

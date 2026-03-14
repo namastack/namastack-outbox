@@ -10,6 +10,7 @@ import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.observability.OutboxObservationDocumentation
 import io.namastack.outbox.observability.OutboxProcessObservationContext.HandlerKind
+import io.namastack.outbox.observability.OutboxProcessObservationConvention
 import io.namastack.outbox.tracing.aop.OutboxInvokerMatcherPointcut
 import io.namastack.outbox.tracing.aop.OutboxInvokerObservationAdvice
 import io.namastack.outbox.tracing.context.OutboxTracingContextProvider
@@ -43,7 +44,7 @@ import org.springframework.context.annotation.Bean
  * 3. A fallback-handler advisor — identical to the primary advisor but targets
  *    [OutboxFallbackHandlerInvoker.dispatch] and sets the handler kind to `fallback`.
  *
- * @author Aleksander Zamojski
+ * @author Aleksander Zamojski, Roland Beisel
  * @since 1.2.0
  */
 @AutoConfiguration(
@@ -78,13 +79,23 @@ internal class OutboxTracingAutoConfiguration {
      * initialized beans during application context startup.
      *
      * @param observationRegistry Lazy provider for the application's [ObservationRegistry].
+     * @param customOutboxConvention Optional provider for a custom [OutboxProcessObservationConvention].
+     *   If no bean is present, the default convention will be used.
      * @return An [Advisor] that applies [OutboxInvokerObservationAdvice] to the primary invoker.
      */
     @Bean
     @ConditionalOnMissingBean(name = ["outboxObservabilityHandlerAdvisor"])
-    fun outboxHandlerObservabilityAdvisor(observationRegistry: ObjectProvider<ObservationRegistry>): Advisor {
+    fun outboxHandlerObservabilityAdvisor(
+        observationRegistry: ObjectProvider<ObservationRegistry>,
+        customOutboxConvention: ObjectProvider<OutboxProcessObservationConvention>,
+    ): Advisor {
         val pointcut = OutboxInvokerMatcherPointcut(OutboxHandlerInvoker::class.java)
-        val advice = OutboxInvokerObservationAdvice(HandlerKind.PRIMARY, observationRegistry::getObject)
+        val advice =
+            OutboxInvokerObservationAdvice(
+                handlerKind = HandlerKind.PRIMARY,
+                observationRegistrySupplier = observationRegistry::getObject,
+                customOutboxConventionSupplier = customOutboxConvention::getIfAvailable,
+            )
         return DefaultPointcutAdvisor(pointcut, advice)
     }
 
@@ -97,13 +108,23 @@ internal class OutboxTracingAutoConfiguration {
      * initialized beans during application context startup.
      *
      * @param observationRegistry Lazy provider for the application's [ObservationRegistry].
+     * @param customOutboxConvention Optional provider for a custom [OutboxProcessObservationConvention].
+     *   If no bean is present, the default convention will be used.
      * @return An [Advisor] that applies [OutboxInvokerObservationAdvice] to the fallback invoker.
      */
     @Bean
     @ConditionalOnMissingBean(name = ["outboxObservabilityFallbackAdvisor"])
-    fun outboxFallbackObservabilityAdvisor(observationRegistry: ObjectProvider<ObservationRegistry>): Advisor {
+    fun outboxFallbackObservabilityAdvisor(
+        observationRegistry: ObjectProvider<ObservationRegistry>,
+        customOutboxConvention: ObjectProvider<OutboxProcessObservationConvention>,
+    ): Advisor {
         val pointcut = OutboxInvokerMatcherPointcut(OutboxFallbackHandlerInvoker::class.java)
-        val advice = OutboxInvokerObservationAdvice(HandlerKind.FALLBACK, observationRegistry::getObject)
+        val advice =
+            OutboxInvokerObservationAdvice(
+                handlerKind = HandlerKind.FALLBACK,
+                observationRegistrySupplier = observationRegistry::getObject,
+                customOutboxConventionSupplier = customOutboxConvention::getIfAvailable,
+            )
         return DefaultPointcutAdvisor(pointcut, advice)
     }
 }
