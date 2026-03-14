@@ -17,6 +17,7 @@ import io.namastack.outbox.tracing.context.OutboxTracingContextProvider
 import org.springframework.aop.Advisor
 import org.springframework.aop.support.DefaultPointcutAdvisor
 import org.springframework.beans.factory.ObjectProvider
+import org.springframework.beans.factory.config.BeanDefinition
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
@@ -24,6 +25,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.micrometer.tracing.autoconfigure.MicrometerTracingAutoConfiguration
 import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Role
 
 /**
  * Spring Boot auto-configuration that wires distributed tracing and Micrometer observations into
@@ -70,61 +72,67 @@ internal class OutboxTracingAutoConfiguration {
         propagator: Propagator,
     ): OutboxTracingContextProvider = OutboxTracingContextProvider(tracer, propagator)
 
-    /**
-     * Registers the Spring AOP advisor that wraps every [OutboxHandlerInvoker.dispatch] call in
-     * an [OutboxObservationDocumentation.OUTBOX_RECORD_PROCESS] observation with
-     * [HandlerKind.PRIMARY].
-     *
-     * The [ObservationRegistry] is retrieved lazily via [ObjectProvider] to avoid fetching not
-     * initialized beans during application context startup.
-     *
-     * @param observationRegistry Lazy provider for the application's [ObservationRegistry].
-     * @param customOutboxConvention Optional provider for a custom [OutboxProcessObservationConvention].
-     *   If no bean is present, the default convention will be used.
-     * @return An [Advisor] that applies [OutboxInvokerObservationAdvice] to the primary invoker.
-     */
-    @Bean
-    @ConditionalOnMissingBean(name = ["outboxObservabilityHandlerAdvisor"])
-    fun outboxHandlerObservabilityAdvisor(
-        observationRegistry: ObjectProvider<ObservationRegistry>,
-        customOutboxConvention: ObjectProvider<OutboxProcessObservationConvention>,
-    ): Advisor {
-        val pointcut = OutboxInvokerMatcherPointcut(OutboxHandlerInvoker::class.java)
-        val advice =
-            OutboxInvokerObservationAdvice(
-                handlerKind = HandlerKind.PRIMARY,
-                observationRegistrySupplier = observationRegistry::getObject,
-                customOutboxConventionSupplier = customOutboxConvention::getIfAvailable,
-            )
-        return DefaultPointcutAdvisor(pointcut, advice)
-    }
+    companion object {
+        /**
+         * Registers the Spring AOP advisor that wraps every [OutboxHandlerInvoker.dispatch] call in
+         * an [OutboxObservationDocumentation.OUTBOX_RECORD_PROCESS] observation with
+         * [HandlerKind.PRIMARY].
+         *
+         * The [ObservationRegistry] is retrieved lazily via [ObjectProvider] to avoid fetching not
+         * initialized beans during application context startup.
+         *
+         * @param observationRegistry Lazy provider for the application's [ObservationRegistry].
+         * @param customOutboxConvention Optional provider for a custom [OutboxProcessObservationConvention].
+         *   If no bean is present, the default convention will be used.
+         * @return An [Advisor] that applies [OutboxInvokerObservationAdvice] to the primary invoker.
+         */
+        @Bean
+        @ConditionalOnMissingBean(name = ["outboxObservabilityHandlerAdvisor"])
+        @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+        @JvmStatic
+        fun outboxHandlerObservabilityAdvisor(
+            observationRegistry: ObjectProvider<ObservationRegistry>,
+            customOutboxConvention: ObjectProvider<OutboxProcessObservationConvention>,
+        ): Advisor {
+            val pointcut = OutboxInvokerMatcherPointcut(OutboxHandlerInvoker::class.java)
+            val advice =
+                OutboxInvokerObservationAdvice(
+                    handlerKind = HandlerKind.PRIMARY,
+                    observationRegistrySupplier = observationRegistry::getObject,
+                    customOutboxConventionSupplier = customOutboxConvention::getIfAvailable,
+                )
+            return DefaultPointcutAdvisor(pointcut, advice)
+        }
 
-    /**
-     * Registers the Spring AOP advisor that wraps every [OutboxFallbackHandlerInvoker.dispatch]
-     * call in an [OutboxObservationDocumentation.OUTBOX_RECORD_PROCESS] observation with
-     * [HandlerKind.FALLBACK].
-     *
-     * The [ObservationRegistry] is retrieved lazily via [ObjectProvider] to avoid fetching not
-     * initialized beans during application context startup.
-     *
-     * @param observationRegistry Lazy provider for the application's [ObservationRegistry].
-     * @param customOutboxConvention Optional provider for a custom [OutboxProcessObservationConvention].
-     *   If no bean is present, the default convention will be used.
-     * @return An [Advisor] that applies [OutboxInvokerObservationAdvice] to the fallback invoker.
-     */
-    @Bean
-    @ConditionalOnMissingBean(name = ["outboxObservabilityFallbackAdvisor"])
-    fun outboxFallbackObservabilityAdvisor(
-        observationRegistry: ObjectProvider<ObservationRegistry>,
-        customOutboxConvention: ObjectProvider<OutboxProcessObservationConvention>,
-    ): Advisor {
-        val pointcut = OutboxInvokerMatcherPointcut(OutboxFallbackHandlerInvoker::class.java)
-        val advice =
-            OutboxInvokerObservationAdvice(
-                handlerKind = HandlerKind.FALLBACK,
-                observationRegistrySupplier = observationRegistry::getObject,
-                customOutboxConventionSupplier = customOutboxConvention::getIfAvailable,
-            )
-        return DefaultPointcutAdvisor(pointcut, advice)
+        /**
+         * Registers the Spring AOP advisor that wraps every [OutboxFallbackHandlerInvoker.dispatch]
+         * call in an [OutboxObservationDocumentation.OUTBOX_RECORD_PROCESS] observation with
+         * [HandlerKind.FALLBACK].
+         *
+         * The [ObservationRegistry] is retrieved lazily via [ObjectProvider] to avoid fetching not
+         * initialized beans during application context startup.
+         *
+         * @param observationRegistry Lazy provider for the application's [ObservationRegistry].
+         * @param customOutboxConvention Optional provider for a custom [OutboxProcessObservationConvention].
+         *   If no bean is present, the default convention will be used.
+         * @return An [Advisor] that applies [OutboxInvokerObservationAdvice] to the fallback invoker.
+         */
+        @Bean
+        @ConditionalOnMissingBean(name = ["outboxObservabilityFallbackAdvisor"])
+        @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+        @JvmStatic
+        fun outboxFallbackObservabilityAdvisor(
+            observationRegistry: ObjectProvider<ObservationRegistry>,
+            customOutboxConvention: ObjectProvider<OutboxProcessObservationConvention>,
+        ): Advisor {
+            val pointcut = OutboxInvokerMatcherPointcut(OutboxFallbackHandlerInvoker::class.java)
+            val advice =
+                OutboxInvokerObservationAdvice(
+                    handlerKind = HandlerKind.FALLBACK,
+                    observationRegistrySupplier = observationRegistry::getObject,
+                    customOutboxConventionSupplier = customOutboxConvention::getIfAvailable,
+                )
+            return DefaultPointcutAdvisor(pointcut, advice)
+        }
     }
 }
