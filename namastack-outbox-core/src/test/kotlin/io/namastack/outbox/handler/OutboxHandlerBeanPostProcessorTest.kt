@@ -10,10 +10,13 @@ import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
+import org.aopalliance.intercept.MethodInterceptor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.aop.framework.ProxyFactory
 import kotlin.reflect.KClass
 
 @DisplayName("OutboxHandlerBeanPostProcessor")
@@ -282,5 +285,112 @@ class OutboxHandlerBeanPostProcessorTest {
         verify(exactly = 1) { handlerRegistry.register(any()) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
+    }
+
+    @Nested
+    @DisplayName("Legacy alias registration for CGLIB proxies")
+    inner class LegacyAliasTests {
+        private val realHandlerRegistry = OutboxHandlerRegistry()
+        private val realFallbackRegistry = OutboxFallbackHandlerRegistry()
+
+        private lateinit var proxyProcessor: OutboxHandlerBeanPostProcessor
+
+        @BeforeEach
+        fun setUp() {
+            proxyProcessor =
+                OutboxHandlerBeanPostProcessor(realHandlerRegistry, realFallbackRegistry, retryPolicyRegistry)
+        }
+
+        @Test
+        fun `registers legacy alias when bean is a CGLIB proxy`() {
+            val targetBean = OpenAnnotatedTypedHandler()
+            val proxiedBean = createCglibProxy(targetBean)
+
+            proxyProcessor.postProcessAfterInitialization(proxiedBean, "bean")
+
+            // Stable ID (target class name) should work
+            val stableId = realHandlerRegistry.getHandlersForPayloadType(String::class).first().id
+            assertThat(realHandlerRegistry.getHandlerById(stableId)).isNotNull
+
+            // Legacy ID (proxy class name) should also work
+            val legacyId = buildLegacyId(proxiedBean, stableId)
+            assertThat(realHandlerRegistry.getHandlerById(legacyId)).isNotNull
+
+            // Both should resolve to the same handler
+            assertThat(realHandlerRegistry.getHandlerById(stableId))
+                .isSameAs(realHandlerRegistry.getHandlerById(legacyId))
+        }
+
+        @Test
+        fun `does not register legacy alias when bean is not proxied`() {
+            val bean = OpenAnnotatedTypedHandler()
+
+            proxyProcessor.postProcessAfterInitialization(bean, "bean")
+
+            val stableId = realHandlerRegistry.getHandlersForPayloadType(String::class).first().id
+            assertThat(stableId).doesNotContain("\$\$SpringCGLIB\$\$")
+
+            // Only the stable ID should be registered (no alias needed)
+            assertThat(realHandlerRegistry.getHandlerById(stableId)).isNotNull
+        }
+
+        @Test
+        fun `registers legacy alias for fallback handler when bean is a CGLIB proxy`() {
+            val targetBean = OpenAnnotatedTypedHandlerWithFallback()
+            val proxiedBean = createCglibProxy(targetBean)
+
+            proxyProcessor.postProcessAfterInitialization(proxiedBean, "bean")
+
+            val stableId = realHandlerRegistry.getHandlersForPayloadType(String::class).first().id
+            val legacyId = buildLegacyId(proxiedBean, stableId)
+
+            // Both IDs should resolve to the same fallback handler
+            assertThat(realFallbackRegistry.getByHandlerId(stableId)).isNotNull
+            assertThat(realFallbackRegistry.getByHandlerId(legacyId)).isNotNull
+            assertThat(realFallbackRegistry.getByHandlerId(stableId))
+                .isSameAs(realFallbackRegistry.getByHandlerId(legacyId))
+        }
+
+        private fun createCglibProxy(target: Any): Any {
+            val proxyFactory = ProxyFactory(target)
+            proxyFactory.isProxyTargetClass = true
+            proxyFactory.addAdvice(MethodInterceptor { it.proceed() })
+            return proxyFactory.proxy
+        }
+
+        private fun buildLegacyId(
+            proxiedBean: Any,
+            stableId: String,
+        ): String {
+            val methodPart = stableId.substringAfter("#")
+            return "${proxiedBean::class.java.name}#$methodPart"
+        }
+    }
+}
+
+@Suppress("UNUSED_PARAMETER")
+open class OpenAnnotatedTypedHandler {
+    @io.namastack.outbox.annotation.OutboxHandler
+    open fun handle(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {
+    }
+}
+
+@Suppress("UNUSED_PARAMETER")
+open class OpenAnnotatedTypedHandlerWithFallback {
+    @io.namastack.outbox.annotation.OutboxHandler
+    open fun handle(
+        payload: String,
+        metadata: OutboxRecordMetadata,
+    ) {
+    }
+
+    @io.namastack.outbox.annotation.OutboxFallbackHandler
+    open fun handleFailure(
+        payload: String,
+        context: OutboxFailureContext,
+    ) {
     }
 }
