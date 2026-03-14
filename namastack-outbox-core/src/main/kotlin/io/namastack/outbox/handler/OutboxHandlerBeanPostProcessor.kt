@@ -1,6 +1,5 @@
 package io.namastack.outbox.handler
 
-import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.handler.scanner.HandlerScanResult
@@ -71,7 +70,6 @@ internal class OutboxHandlerBeanPostProcessor(
         // 2. For each result: register handler + fallback + retry policy + legacy alias
         scanResults.forEach { result ->
             val handler = result.handler
-            val legacyId = buildLegacyId(handler)
 
             // a. Register handler
             handlerRegistry.register(handler)
@@ -87,7 +85,9 @@ internal class OutboxHandlerBeanPostProcessor(
                 .forEach { policy -> retryPolicyRegistry.register(handler.id, policy) }
 
             // d. Register legacy alias if bean is an AOP proxy (backward compatibility)
-            legacyId?.let { registerLegacyAliases(it, result) }
+            if (handler.id != handler.legacyId) {
+                registerLegacyAliases(handler.legacyId, result)
+            }
         }
 
         return bean
@@ -112,19 +112,5 @@ internal class OutboxHandlerBeanPostProcessor(
         retryPolicyScanners
             .mapNotNull { it.scan(handler) }
             .forEach { policy -> retryPolicyRegistry.registerAlias(legacyId, policy) }
-    }
-
-    /**
-     * Builds a legacy handler ID using the bean's runtime class name (which may include
-     * CGLIB proxy suffixes like `$$SpringCGLIB$$0`).
-     *
-     * Returns null if the legacy ID would be identical to the stable ID (i.e., the bean is not proxied).
-     */
-    private fun buildLegacyId(handler: OutboxHandlerMethod): String? {
-        val method = handler.method
-        val runtimeClassName = handler.bean::class.java.name
-        val legacyId = "$runtimeClassName#${method.name}(${method.parameterTypes.joinToString(",") { it.name }})"
-
-        return legacyId.takeIf { it != handler.id }
     }
 }

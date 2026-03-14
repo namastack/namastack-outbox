@@ -309,16 +309,16 @@ class OutboxHandlerBeanPostProcessorTest {
             proxyProcessor.postProcessAfterInitialization(proxiedBean, "bean")
 
             // Stable ID (target class name) should work
-            val stableId = realHandlerRegistry.getHandlersForPayloadType(String::class).first().id
-            assertThat(realHandlerRegistry.getHandlerById(stableId)).isNotNull
+            val handler = realHandlerRegistry.getHandlersForPayloadType(String::class).first()
+            assertThat(realHandlerRegistry.getHandlerById(handler.id)).isNotNull
 
             // Legacy ID (proxy class name) should also work
-            val legacyId = buildLegacyId(proxiedBean, stableId)
-            assertThat(realHandlerRegistry.getHandlerById(legacyId)).isNotNull
+            assertThat(handler.legacyId).isNotEqualTo(handler.id)
+            assertThat(realHandlerRegistry.getHandlerById(handler.legacyId)).isNotNull
 
             // Both should resolve to the same handler
-            assertThat(realHandlerRegistry.getHandlerById(stableId))
-                .isSameAs(realHandlerRegistry.getHandlerById(legacyId))
+            assertThat(realHandlerRegistry.getHandlerById(handler.id))
+                .isSameAs(realHandlerRegistry.getHandlerById(handler.legacyId))
         }
 
         @Test
@@ -341,14 +341,14 @@ class OutboxHandlerBeanPostProcessorTest {
 
             proxyProcessor.postProcessAfterInitialization(proxiedBean, "bean")
 
-            val stableId = realHandlerRegistry.getHandlersForPayloadType(String::class).first().id
-            val legacyId = buildLegacyId(proxiedBean, stableId)
+            val handler = realHandlerRegistry.getHandlersForPayloadType(String::class).first()
+            assertThat(handler.legacyId).isNotEqualTo(handler.id)
 
             // Both IDs should resolve to the same fallback handler
-            assertThat(realFallbackRegistry.getByHandlerId(stableId)).isNotNull
-            assertThat(realFallbackRegistry.getByHandlerId(legacyId)).isNotNull
-            assertThat(realFallbackRegistry.getByHandlerId(stableId))
-                .isSameAs(realFallbackRegistry.getByHandlerId(legacyId))
+            assertThat(realFallbackRegistry.getByHandlerId(handler.id)).isNotNull
+            assertThat(realFallbackRegistry.getByHandlerId(handler.legacyId)).isNotNull
+            assertThat(realFallbackRegistry.getByHandlerId(handler.id))
+                .isSameAs(realFallbackRegistry.getByHandlerId(handler.legacyId))
         }
 
         private fun createCglibProxy(target: Any): Any {
@@ -356,14 +356,6 @@ class OutboxHandlerBeanPostProcessorTest {
             proxyFactory.isProxyTargetClass = true
             proxyFactory.addAdvice(MethodInterceptor { it.proceed() })
             return proxyFactory.proxy
-        }
-
-        private fun buildLegacyId(
-            proxiedBean: Any,
-            stableId: String,
-        ): String {
-            val methodPart = stableId.substringAfter("#")
-            return "${proxiedBean::class.java.name}#$methodPart"
         }
     }
 }
