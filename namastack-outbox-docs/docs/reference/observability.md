@@ -1,6 +1,6 @@
 ---
-title: Monitoring
-description: Built-in metrics with Micrometer and Spring Boot Actuator integration.
+title: Observability
+description: Built-in metrics, distributed tracing, and programmatic monitoring with Micrometer, OpenTelemetry, and Spring Boot Actuator.
 sidebar_position: 10
 ---
 
@@ -8,11 +8,12 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import VersionedCode from '@site/src/components/VersionedCode';
 
-# Monitoring & Observability
+# Observability
 
 ## Metrics Module
 
-The `namastack-outbox-metrics` module provides automatic integration with Spring Boot Actuator and Micrometer:
+The `namastack-outbox-metrics` module provides automatic integration with Spring Boot Actuator and 
+Micrometer:
 
 <Tabs>
 <TabItem value="gradle" label="Gradle">
@@ -204,18 +205,18 @@ This applies to **both** the primary handler and the fallback handler, each prod
 
 **Low-cardinality** (safe to use as metric/trace dimensions):
 
-| Tag key              | Values                 | Description                                              |
-|----------------------|------------------------|----------------------------------------------------------|
-| `outbox.handler.kind`| `primary` / `fallback` | Whether the primary or fallback handler processed the record |
-| `outbox.handler.id`  | handler name           | Identifier of the handler that processed the record      |
+| Tag key               | Values                 | Description                                                  |
+|-----------------------|------------------------|--------------------------------------------------------------|
+| `outbox.handler.kind` | `primary` / `fallback` | Whether the primary or fallback handler processed the record |
+| `outbox.handler.id`   | handler name           | Identifier of the handler that processed the record          |
 
 **High-cardinality** (for traces and log correlation only, not metric dimensions):
 
-| Tag key                  | Example value                          | Description                                          |
-|--------------------------|----------------------------------------|------------------------------------------------------|
-| `outbox.record.id`       | `3fa85f64-5717-4562-b3fc-2c963f66afa6` | Unique identifier (UUID) of the outbox record        |
-| `outbox.record.key`      | `order-42`                             | Business key of the outbox record                    |
-| `outbox.delivery.attempt`| `2`                                    | Current attempt number (`failureCount + 1`)          |
+| Tag key                   | Example value                          | Description                                   |
+|---------------------------|----------------------------------------|-----------------------------------------------|
+| `outbox.record.id`        | `3fa85f64-5717-4562-b3fc-2c963f66afa6` | Unique identifier (UUID) of the outbox record |
+| `outbox.record.key`       | `order-42`                             | Business key of the outbox record             |
+| `outbox.delivery.attempt` | `2`                                    | Current attempt number (`failureCount + 1`)   |
 
 :::tip See also
 
@@ -224,4 +225,56 @@ own context alongside tracing (e.g. tenant ID, correlation ID), or how to manual
 context at scheduling time, see [Context Propagation](./context-propagation.md).
 
 :::
+
+#### Custom Observation
+
+You can override the default observation naming and tag convention by providing your own
+implementation of `OutboxProcessObservationConvention` and registering it as a Spring bean.
+
+When the tracing auto-configuration is active the AOP advice (`OutboxInvokerObservationAdvice`) will
+use a custom convention bean if present; otherwise it falls back to
+`OutboxObservationDocumentation.DefaultOutboxProcessObservationConvention`.
+
+Example: a minimal custom convention that changes the observation name and adds a `tenant` tag
+when present in the record context.
+
+```kotlin
+@Configuration
+class CustomOutboxObservationConfig {
+    @Bean
+    fun customOutboxConvention(): OutboxProcessObservationConvention =
+        object : OutboxProcessObservationConvention {
+            override fun getName(): String = "myapp.outbox.process"
+
+            override fun getContextualName(context: OutboxProcessObservationContext): String = "outbox process"
+
+            override fun getLowCardinalityKeyValues(context: OutboxProcessObservationContext) =
+                KeyValues.of(
+                    OutboxObservationDocumentation.LowCardinalityKeyNames.HANDLER_KIND.withValue(context.getHandlerKind().toString()),
+                    OutboxObservationDocumentation.LowCardinalityKeyNames.HANDLER_ID.withValue(context.getHandlerId()),
+                    // optional tenant tag (low-cardinality if you control cardinality)
+                    KeyName.of("tenant").withValue(context.record.context["tenant"] ?: "")
+                )
+
+            override fun getHighCardinalityKeyValues(context: OutboxProcessObservationContext) =
+                KeyValues.of(
+                    OutboxObservationDocumentation.HighCardinalityKeyNames.RECORD_ID.withValue(context.getRecordId()),
+                    OutboxObservationDocumentation.HighCardinalityKeyNames.RECORD_KEY.withValue(context.getRecordKey()),
+                    OutboxObservationDocumentation.HighCardinalityKeyNames.DELIVERY_ATTEMPT.withValue(context.getDeliveryAttempt().toString()),
+                )
+        }
+}
+```
+
+Important notes:
+
+- The `OutboxProcessObservationConvention` implementation must implement
+  `ObservationConvention<OutboxProcessObservationContext>` (the API exposes the
+  `OutboxProcessObservationConvention` interface to simplify this).
+- Keep high-cardinality values out of low-cardinality keys to avoid cardinality explosion in metrics backends.
+- Register the bean in any auto-config or `@Configuration` class; the library will pick it up automatically.
+
+If you need a completely custom observation lifecycle (e.g., additional spans around multiple handlers
+or custom error handling), consider writing a custom `Advisor` using `OutboxInvokerObservationAdvice` as
+a reference or extending the auto-configuration with your own `@Bean` of type `Advisor`.
 
