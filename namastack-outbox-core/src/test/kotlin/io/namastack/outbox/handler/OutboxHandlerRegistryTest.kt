@@ -165,6 +165,50 @@ class OutboxHandlerRegistryTest {
     }
 
     @Nested
+    @DisplayName("registerAlias()")
+    inner class RegisterAliasTests {
+        @Test
+        fun `should allow lookup by alias ID`() {
+            val handler = createMockTypedHandler("stable-id", TestPayload::class)
+            registry.register(handler)
+            registry.registerAlias("legacy-id", handler)
+
+            assertThat(registry.getHandlerById("legacy-id")).isEqualTo(handler)
+        }
+
+        @Test
+        fun `should still allow lookup by stable ID after alias registration`() {
+            val handler = createMockTypedHandler("stable-id", TestPayload::class)
+            registry.register(handler)
+            registry.registerAlias("legacy-id", handler)
+
+            assertThat(registry.getHandlerById("stable-id")).isEqualTo(handler)
+        }
+
+        @Test
+        fun `should not add alias to typed handlers list`() {
+            val handler = createMockTypedHandler("stable-id", TestPayload::class)
+            registry.register(handler)
+            registry.registerAlias("legacy-id", handler)
+
+            val typedHandlers = registry.getHandlersForPayloadType(TestPayload::class)
+            assertThat(typedHandlers).hasSize(1)
+        }
+
+        @Test
+        fun `should silently ignore alias if ID already exists`() {
+            val handler1 = createMockTypedHandler("existing-id", TestPayload::class)
+            val handler2 = createMockTypedHandler("other-id", AnotherPayload::class)
+            registry.register(handler1)
+            registry.register(handler2)
+
+            registry.registerAlias("existing-id", handler2)
+
+            assertThat(registry.getHandlerById("existing-id")).isEqualTo(handler1)
+        }
+    }
+
+    @Nested
     @DisplayName("Handler Discovery Integration")
     inner class IntegrationTests {
         @Test

@@ -114,4 +114,25 @@ class OutboxHandlerRegistry {
             "Duplicate handler ID detected: ${handlerMethod.id}"
         }
     }
+
+    /**
+     * Registers a legacy alias ID that points to the same handler.
+     *
+     * Used for backward compatibility when handler IDs in existing database records
+     * were generated using CGLIB proxy class names. The alias allows those old records
+     * to still find their handler after upgrading to stable (non-proxy) IDs.
+     *
+     * Unlike [register], this method:
+     * - Only adds to the ID-based lookup map (not to typed/generic handler lists)
+     * - Silently ignores if the alias ID is already registered
+     *
+     * @param aliasId The legacy handler ID to register as an alias
+     * @param handlerMethod The handler method this alias should resolve to
+     */
+    internal fun registerAlias(
+        aliasId: String,
+        handlerMethod: OutboxHandlerMethod,
+    ) {
+        handlersById.putIfAbsent(aliasId, handlerMethod)
+    }
 }
