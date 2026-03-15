@@ -2,6 +2,7 @@ package io.namastack.outbox.handler
 
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
+import io.namastack.outbox.handler.scanner.HandlerScanResult
 import io.namastack.outbox.handler.scanner.RetryPolicyScanner
 import io.namastack.outbox.handler.scanner.handler.AnnotatedHandlerScanner
 import io.namastack.outbox.handler.scanner.handler.InterfaceHandlerScanner
@@ -51,8 +52,9 @@ internal class OutboxHandlerBeanPostProcessor(
      * Scans for handlers and their fallbacks, then registers them:
      * 1. Scan bean for handlers using all scanners
      * 2. Register handler in handler registry
-     * 3. Register fallback (if present) with handler.id
-     * 4. Register retry policy for handler
+     * 3. Register legacy alias if bean is an AOP proxy (backward compatibility)
+     * 4. Register fallback (if present) with handler.id
+     * 5. Register retry policy for handler
      *
      * @param bean The newly instantiated bean
      * @param beanName The bean name in Spring context
@@ -65,27 +67,50 @@ internal class OutboxHandlerBeanPostProcessor(
         // 1. Scan for all handlers and their fallbacks in this bean
         val scanResults = handlerScanners.flatMap { it.scan(bean) }
 
-        // 2. For each result: register handler + fallback + retry policy
+        // 2. For each result: register handler + fallback + retry policy + legacy alias
         scanResults.forEach { result ->
             val handler = result.handler
-            val handlerId = handler.id
 
             // a. Register handler
             handlerRegistry.register(handler)
 
             // b. Register fallback if present (1:1 mapping)
-            result.fallback?.let { fallbackHandlerMethod ->
-                fallbackHandlerRegistry.register(handlerId, fallbackHandlerMethod)
+            result.fallback?.let { fallback ->
+                fallbackHandlerRegistry.register(handler.id, fallback)
             }
 
             // c. Register retry policy for this handler
             retryPolicyScanners
                 .mapNotNull { it.scan(handler) }
-                .forEach { policy ->
-                    retryPolicyRegistry.register(handlerId, policy)
-                }
+                .forEach { policy -> retryPolicyRegistry.register(handler.id, policy) }
+
+            // d. Register legacy alias if bean is an AOP proxy (backward compatibility)
+            if (handler.id != handler.legacyId) {
+                registerLegacyAliases(handler.legacyId, result)
+            }
         }
 
         return bean
+    }
+
+    /**
+     * Registers legacy alias IDs in all registries for backward compatibility
+     * with existing database records that reference CGLIB proxy class names.
+     */
+    private fun registerLegacyAliases(
+        legacyId: String,
+        result: HandlerScanResult,
+    ) {
+        val handler = result.handler
+
+        handlerRegistry.registerAlias(legacyId, handler)
+
+        result.fallback?.let { fallback ->
+            fallbackHandlerRegistry.registerAlias(legacyId, fallback)
+        }
+
+        retryPolicyScanners
+            .mapNotNull { it.scan(handler) }
+            .forEach { policy -> retryPolicyRegistry.registerAlias(legacyId, policy) }
     }
 }

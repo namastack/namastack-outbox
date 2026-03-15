@@ -60,4 +60,23 @@ class OutboxFallbackHandlerRegistry {
             "Multiple fallback handlers for handler ID detected: $handlerId"
         }
     }
+
+    /**
+     * Registers a legacy alias ID that points to the same fallback handler.
+     *
+     * Used for backward compatibility when handler IDs in existing database records
+     * were generated using CGLIB proxy class names.
+     *
+     * @param aliasId The legacy handler ID to register as an alias
+     * @param fallbackHandlerMethod The fallback handler method this alias should resolve to
+     * @throws IllegalStateException if the alias ID is already registered
+     */
+    internal fun registerAlias(
+        aliasId: String,
+        fallbackHandlerMethod: OutboxFallbackHandlerMethod,
+    ) {
+        check(fallbackHandlersByHandlerId.putIfAbsent(aliasId, fallbackHandlerMethod) == null) {
+            "Duplicate fallback alias ID detected: $aliasId"
+        }
+    }
 }

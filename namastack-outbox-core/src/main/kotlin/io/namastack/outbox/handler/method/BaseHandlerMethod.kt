@@ -37,6 +37,23 @@ abstract class BaseHandlerMethod(
     }
 
     /**
+     * Legacy identifier using the bean's runtime class name, which may include
+     * CGLIB proxy suffixes like `$$SpringCGLIB$$0`.
+     */
+    val legacyId: String = buildLegacyId()
+
+    /**
+     * Builds a legacy handler ID using the bean's runtime class name.
+     */
+    protected fun buildLegacyId(): String {
+        val className = bean::class.java.name
+        val methodName = method.name
+        val paramTypes = method.parameterTypes.joinToString(",") { it.name }
+
+        return "$className#$methodName($paramTypes)"
+    }
+
+    /**
      * Invokes handler method via reflection, unwrapping InvocationTargetException
      * to expose the actual exception for retry policies and error handlers.
      *

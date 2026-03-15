@@ -59,6 +59,25 @@ class OutboxRetryPolicyRegistry(
     }
 
     /**
+     * Registers a legacy alias ID that points to the same retry policy.
+     *
+     * Used for backward compatibility when handler IDs in existing database records
+     * were generated using CGLIB proxy class names.
+     *
+     * @param aliasId The legacy handler ID to register as an alias
+     * @param policy The retry policy this alias should resolve to
+     * @throws IllegalStateException if the alias ID is already registered
+     */
+    fun registerAlias(
+        aliasId: String,
+        policy: OutboxRetryPolicy,
+    ) {
+        check(policiesById.putIfAbsent(aliasId, policy) == null) {
+            "Duplicate retry policy alias ID detected: $aliasId"
+        }
+    }
+
+    /**
      * Retrieves the retry policy for a specific handler method.
      *
      * Returns the registered policy for the handler, or the default policy
