@@ -1,10 +1,14 @@
 package io.namastack.demo
 
+import io.micrometer.observation.annotation.Observed
 import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Component
 
-object ExternalMailService {
+@Component
+class ExternalMailService {
     private val logger = LoggerFactory.getLogger(ExternalMailService::class.java)
 
+    @Observed(name = "external.mail.send", contextualName = "send email")
     fun send(email: String) {
         Thread.sleep((50..150).random().toLong())
 
