@@ -6,6 +6,7 @@ import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -196,15 +197,14 @@ class OutboxHandlerRegistryTest {
         }
 
         @Test
-        fun `should silently ignore alias if ID already exists`() {
+        fun `should throw on duplicate alias ID`() {
             val handler1 = createMockTypedHandler("existing-id", TestPayload::class)
             val handler2 = createMockTypedHandler("other-id", AnotherPayload::class)
             registry.register(handler1)
             registry.register(handler2)
 
-            registry.registerAlias("existing-id", handler2)
-
-            assertThat(registry.getHandlerById("existing-id")).isEqualTo(handler1)
+            assertThatThrownBy { registry.registerAlias("existing-id", handler2) }
+                .isInstanceOf(IllegalStateException::class.java)
         }
     }
 

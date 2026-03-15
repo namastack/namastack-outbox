@@ -104,15 +104,15 @@ class OutboxFallbackHandlerRegistryTest {
     }
 
     @Test
-    fun `alias silently ignores if ID already exists`() {
+    fun `alias throws on duplicate ID`() {
         val handlerId = "handler-1"
         val fallbackHandler1 = mockk<OutboxFallbackHandlerMethod>()
         val fallbackHandler2 = mockk<OutboxFallbackHandlerMethod>()
 
         registry.register(handlerId, fallbackHandler1)
-        registry.registerAlias(handlerId, fallbackHandler2)
 
-        assertThat(registry.getByHandlerId(handlerId)).isSameAs(fallbackHandler1)
+        assertThatThrownBy { registry.registerAlias(handlerId, fallbackHandler2) }
+            .isInstanceOf(IllegalStateException::class.java)
     }
 
     @Test

@@ -122,17 +122,19 @@ class OutboxHandlerRegistry {
      * were generated using CGLIB proxy class names. The alias allows those old records
      * to still find their handler after upgrading to stable (non-proxy) IDs.
      *
-     * Unlike [register], this method:
-     * - Only adds to the ID-based lookup map (not to typed/generic handler lists)
-     * - Silently ignores if the alias ID is already registered
+     * Unlike [register], this method only adds to the ID-based lookup map
+     * (not to typed/generic handler lists).
      *
      * @param aliasId The legacy handler ID to register as an alias
      * @param handlerMethod The handler method this alias should resolve to
+     * @throws IllegalStateException if the alias ID is already registered
      */
     internal fun registerAlias(
         aliasId: String,
         handlerMethod: OutboxHandlerMethod,
     ) {
-        handlersById.putIfAbsent(aliasId, handlerMethod)
+        check(handlersById.putIfAbsent(aliasId, handlerMethod) == null) {
+            "Duplicate alias ID detected: $aliasId"
+        }
     }
 }

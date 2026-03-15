@@ -66,12 +66,15 @@ class OutboxRetryPolicyRegistry(
      *
      * @param aliasId The legacy handler ID to register as an alias
      * @param policy The retry policy this alias should resolve to
+     * @throws IllegalStateException if the alias ID is already registered
      */
     fun registerAlias(
         aliasId: String,
         policy: OutboxRetryPolicy,
     ) {
-        policiesById.putIfAbsent(aliasId, policy)
+        check(policiesById.putIfAbsent(aliasId, policy) == null) {
+            "Duplicate retry policy alias ID detected: $aliasId"
+        }
     }
 
     /**
