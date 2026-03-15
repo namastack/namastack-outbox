@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.invoker
 
+import io.namastack.outbox.OpenForProxy
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
@@ -15,7 +16,8 @@ import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
  * @author Roland Beisel
  * @since 1.0.0
  */
-open class OutboxFallbackHandlerInvoker(
+@OpenForProxy
+class OutboxFallbackHandlerInvoker(
     private val retryPolicyRegistry: OutboxRetryPolicyRegistry,
     private val fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
 ) {
@@ -29,7 +31,7 @@ open class OutboxFallbackHandlerInvoker(
      * @throws IllegalStateException if no fallback handler is registered for the record's handlerId
      * or if the record does not contain a failure exception (which is expected for failed records)
      */
-    open fun dispatch(record: OutboxRecord<*>) {
+    fun dispatch(record: OutboxRecord<*>) {
         val payload = record.payload ?: return
         val context = record.toFailureContext(getFailureException(record), retryPolicyRegistry)
 
