@@ -5,9 +5,8 @@ import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessor
 import io.namastack.outbox.trigger.OutboxPollingTrigger
-import jakarta.annotation.PostConstruct
-import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
+import org.springframework.context.SmartLifecycle
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.support.ScheduledMethodRunnable
@@ -16,7 +15,7 @@ import java.time.Clock
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -53,7 +52,7 @@ class OutboxProcessingScheduler(
     private val taskExecutor: TaskExecutor,
     private val properties: OutboxProperties,
     private val clock: Clock,
-) {
+) : SmartLifecycle {
     companion object {
         const val SCHEDULER_NAME: String = "outboxDefaultScheduler"
 
@@ -63,12 +62,10 @@ class OutboxProcessingScheduler(
 
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
+    private val beanState = BeanState(properties.processing.shutdownTimeoutSeconds)
     private var scheduledTask: ScheduledFuture<*>? = null
 
-    private val lock = ReentrantLock()
-    private val processingComplete = lock.newCondition()
-    private val shuttingDown = AtomicBoolean(false)
-    private val processingActive = AtomicBoolean(false)
+    override fun getPhase(): Int = 0
 
     /**
      * Registers the outbox processing job with the task scheduler.
@@ -76,18 +73,13 @@ class OutboxProcessingScheduler(
      * Automatically invoked after dependency injection. Schedules [process] to run
      * according to the configured [trigger]. Idempotent - no duplicate scheduling.
      */
-    @PostConstruct
-    fun registerJob(): Unit =
-        lock.withLock {
-            if (scheduledTask != null) {
-                log.trace("OutboxProcessingScheduler already scheduled")
-                return
-            }
-
+    override fun start() {
+        beanState.scheduleJob {
             val runnable = ScheduledMethodRunnable(this, SCHEDULE_METHOD, SCHEDULER_NAME, observationRegistry)
             scheduledTask = taskScheduler.schedule(runnable, trigger)
-            log.info("OutboxProcessingScheduler scheduled with trigger: {}", trigger.javaClass.simpleName)
+            log.info("OutboxProcessingScheduler scheduled (trigger={})", trigger.javaClass.simpleName)
         }
+    }
 
     /**
      * Unregisters the outbox processing job and performs graceful shutdown.
@@ -96,16 +88,22 @@ class OutboxProcessingScheduler(
      * new processing cycles, cancels the scheduled task, and waits for any currently
      * running cycle to complete (up to [OutboxProperties.Processing.shutdownTimeoutSeconds]).
      */
-    @PreDestroy
-    fun unregisterJob() {
+    override fun stop() {
         log.info("Initiating OutboxProcessingScheduler shutdown...")
-
-        shuttingDown.set(true)
-        cancelScheduledTask()
-        awaitProcessingComplete()
-
+        beanState.cancelScheduledJob {
+            scheduledTask?.cancel(false)?.also { cancelled ->
+                if (cancelled) {
+                    log.debug("Cancelled scheduled outbox task")
+                } else {
+                    log.debug("Scheduled outbox task cancellation was not applied (already cancelled or completed)")
+                }
+            }
+            scheduledTask = null
+        }
         log.info("OutboxProcessingScheduler shutdown complete")
     }
+
+    override fun isRunning(): Boolean = beanState.isStarted()
 
     /**
      * Main processing cycle. Invoked by the scheduler according to the configured trigger.
@@ -114,12 +112,8 @@ class OutboxProcessingScheduler(
      * Each record is handled by the processor chain (handler → retry → fallback → failure).
      */
     fun process() {
-        if (shuttingDown.get()) {
-            log.debug("Skipping processing cycle - shutdown in progress")
-            return
-        }
+        if (!beanState.startProcessing()) return
 
-        markProcessingActive()
         var processedCount = 0
 
         try {
@@ -128,7 +122,7 @@ class OutboxProcessingScheduler(
             log.error("Error during outbox processing", ex)
         } finally {
             trigger.onTaskComplete(processedCount)
-            markProcessingInactive()
+            beanState.stopProcessing()
         }
     }
 
@@ -200,37 +194,109 @@ class OutboxProcessingScheduler(
 
     private fun continueOnFailure(): Boolean = !properties.processing.stopOnFirstFailure
 
-    private fun cancelScheduledTask(): Unit =
-        lock.withLock {
-            scheduledTask?.cancel(false)?.also { cancelled ->
-                if (cancelled) log.debug("Scheduled task cancelled")
-            }
-            scheduledTask = null
+    class BeanState(
+        private val shutdownTimeoutSeconds: Long,
+    ) {
+        enum class State {
+            STOPPED,
+            IDLE,
+            RUNNING,
+            SHUTTING_DOWN,
         }
 
-    private fun markProcessingActive() {
-        processingActive.set(true)
+        private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
+
+        private val lock = ReentrantLock()
+        private val processingComplete = lock.newCondition()
+        private val state = AtomicReference(State.STOPPED)
+
+        fun isStarted(): Boolean = state.get() != State.STOPPED
+
+        fun scheduleJob(schedule: () -> Unit) =
+            lock.withLock {
+                if (state.get() == State.STOPPED) {
+                    schedule.invoke()
+                    transitionTo(State.IDLE, "scheduler registered")
+                } else {
+                    log.trace("Ignoring schedule request because scheduler is already active (state={})", state.get())
+                }
+            }
+
+        fun startProcessing(): Boolean =
+            lock.withLock {
+                return if (state.get() == State.IDLE) {
+                    transitionTo(State.RUNNING, "processing cycle started")
+                    true
+                } else {
+                    log.trace("Skipping processing cycle because scheduler is not idle (state={})", state.get())
+                    false
+                }
+            }
+
+        fun stopProcessing(): Unit =
+            lock.withLock {
+                if (state.get() == State.RUNNING) {
+                    transitionTo(State.IDLE, "processing cycle finished")
+                } else if (state.get() == State.SHUTTING_DOWN) {
+                    log.trace("Processing cycle finished during shutdown. Notifying waiting thread")
+                    processingComplete.signalAll()
+                } else {
+                    log.trace("Ignoring stopProcessing because scheduler is not running (state={})", state.get())
+                }
+            }
+
+        fun cancelScheduledJob(cancel: () -> Unit) =
+            lock.withLock {
+                when (state.get()) {
+                    State.IDLE -> {
+                        cancel.invoke()
+                        transitionTo(State.STOPPED, "scheduler cancelled while idle")
+                    }
+
+                    State.RUNNING -> {
+                        cancel.invoke()
+                        transitionTo(State.SHUTTING_DOWN, "scheduler cancelled while processing")
+                        awaitProcessingComplete()
+                        transitionTo(State.STOPPED, "shutdown finished")
+                    }
+
+                    State.SHUTTING_DOWN -> {
+                        log.trace("Already shutting down. Awaiting processing completion")
+                        awaitProcessingComplete()
+                        transitionTo(State.STOPPED, "shutdown finished")
+                    }
+
+                    State.STOPPED -> {
+                        log.trace("Ignoring cancel request because scheduler is already stopped")
+                    }
+                }
+            }
+
+        private fun awaitProcessingComplete() {
+            log.debug("Waiting for processing cycle to complete (timeout={}s)", shutdownTimeoutSeconds)
+
+            try {
+                val completed = processingComplete.await(shutdownTimeoutSeconds, TimeUnit.SECONDS)
+                if (completed) {
+                    log.trace("Processing cycle completed while shutting down")
+                } else {
+                    log.warn("Shutdown timeout reached after {}s; forcing shutdown", shutdownTimeoutSeconds)
+                }
+            } catch (ex: InterruptedException) {
+                Thread.currentThread().interrupt()
+                log.warn("Interrupted while waiting for processing cycle completion; forcing shutdown", ex)
+            }
+        }
+
+        private fun transitionTo(
+            newState: State,
+            reason: String,
+        ) {
+            val oldState = state.get()
+            if (oldState != newState) {
+                log.trace("BeanState transition: {} -> {} ({})", oldState, newState, reason)
+                state.set(newState)
+            }
+        }
     }
-
-    private fun markProcessingInactive(): Unit =
-        lock.withLock {
-            processingActive.set(false)
-            processingComplete.signalAll()
-        }
-
-    private fun awaitProcessingComplete(): Unit =
-        lock.withLock {
-            if (!processingActive.get()) return
-
-            val timeout = properties.processing.shutdownTimeoutSeconds
-            log.debug("Waiting up to {}s for current processing cycle to complete...", timeout)
-
-            val completed = processingComplete.await(timeout, TimeUnit.SECONDS)
-
-            if (completed) {
-                log.debug("Processing cycle completed")
-            } else {
-                log.warn("Timeout after {}s, proceeding with shutdown", timeout)
-            }
-        }
 }
