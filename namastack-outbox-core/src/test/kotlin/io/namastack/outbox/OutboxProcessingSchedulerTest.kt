@@ -4,7 +4,7 @@ import io.micrometer.observation.ObservationRegistry
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import io.namastack.outbox.OutboxProcessingScheduler.BeanState
+import io.namastack.outbox.OutboxProcessingScheduler.SchedulerLifecycleStateMachine.LifecycleState
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessor
 import io.namastack.outbox.trigger.OutboxPollingTrigger
@@ -91,8 +91,8 @@ class OutboxProcessingSchedulerTest {
     @Nested
     @DisplayName("Stop")
     inner class StopTestCase {
-        fun getState(): BeanState.State {
-            val beanStateField = OutboxProcessingScheduler::class.java.getDeclaredField("beanState")
+        fun getLifecycleState(): LifecycleState {
+            val beanStateField = OutboxProcessingScheduler::class.java.getDeclaredField("lifecycle")
             beanStateField.isAccessible = true
             val beanState = beanStateField.get(scheduler)
 
@@ -100,7 +100,7 @@ class OutboxProcessingSchedulerTest {
             stateField.isAccessible = true
             val state = stateField.get(beanState) as AtomicReference<*>
 
-            return state.get() as BeanState.State
+            return state.get() as LifecycleState
         }
 
         @Test
@@ -158,21 +158,21 @@ class OutboxProcessingSchedulerTest {
                 await()
                     .atMost(2, SECONDS)
                     .untilAsserted {
-                        assertThat(getState()).isEqualTo(BeanState.State.RUNNING)
+                        assertThat(getLifecycleState()).isEqualTo(LifecycleState.RUNNING)
                     }
 
                 val stopFuture = executor.submit<Unit> { scheduler.stop() }
                 await()
                     .atMost(2, SECONDS)
                     .untilAsserted {
-                        assertThat(getState()).isEqualTo(BeanState.State.SHUTTING_DOWN)
+                        assertThat(getLifecycleState()).isEqualTo(LifecycleState.SHUTTING_DOWN)
                     }
 
                 allowProcessingToFinish.countDown()
                 await()
                     .atMost(2, SECONDS)
                     .untilAsserted {
-                        assertThat(getState()).isEqualTo(BeanState.State.STOPPED)
+                        assertThat(getLifecycleState()).isEqualTo(LifecycleState.STOPPED)
                         assertThat(scheduler.isRunning()).isFalse()
                     }
 
@@ -208,7 +208,7 @@ class OutboxProcessingSchedulerTest {
                 await()
                     .atMost(2, SECONDS)
                     .untilAsserted {
-                        assertThat(getState()).isEqualTo(BeanState.State.RUNNING)
+                        assertThat(getLifecycleState()).isEqualTo(LifecycleState.RUNNING)
                     }
 
                 val stopFuture1 = executor.submit<Unit> { scheduler.stop() }
@@ -216,14 +216,14 @@ class OutboxProcessingSchedulerTest {
                 await()
                     .atMost(2, SECONDS)
                     .untilAsserted {
-                        assertThat(getState()).isEqualTo(BeanState.State.SHUTTING_DOWN)
+                        assertThat(getLifecycleState()).isEqualTo(LifecycleState.SHUTTING_DOWN)
                     }
 
                 allowProcessingToFinish.countDown()
                 await()
                     .atMost(2, SECONDS)
                     .untilAsserted {
-                        assertThat(getState()).isEqualTo(BeanState.State.STOPPED)
+                        assertThat(getLifecycleState()).isEqualTo(LifecycleState.STOPPED)
                         assertThat(scheduler.isRunning()).isFalse()
                     }
 
@@ -277,14 +277,14 @@ class OutboxProcessingSchedulerTest {
                 await()
                     .atMost(2, SECONDS)
                     .untilAsserted {
-                        assertThat(getState()).isEqualTo(BeanState.State.RUNNING)
+                        assertThat(getLifecycleState()).isEqualTo(LifecycleState.RUNNING)
                     }
 
                 val stopFuture = executor.submit<Unit> { scheduler.stop() }
                 await()
                     .atMost(2, SECONDS)
                     .untilAsserted {
-                        assertThat(getState()).isEqualTo(BeanState.State.STOPPED)
+                        assertThat(getLifecycleState()).isEqualTo(LifecycleState.STOPPED)
                         assertThat(scheduler.isRunning()).isFalse()
                     }
 
@@ -323,7 +323,7 @@ class OutboxProcessingSchedulerTest {
                 await()
                     .atMost(2, SECONDS)
                     .untilAsserted {
-                        assertThat(getState()).isEqualTo(BeanState.State.RUNNING)
+                        assertThat(getLifecycleState()).isEqualTo(LifecycleState.RUNNING)
                     }
 
                 val stopThreadInterruptedOnExit = AtomicBoolean(false)
@@ -334,7 +334,7 @@ class OutboxProcessingSchedulerTest {
                 await()
                     .atMost(2, SECONDS)
                     .untilAsserted {
-                        assertThat(getState()).isEqualTo(BeanState.State.SHUTTING_DOWN)
+                        assertThat(getLifecycleState()).isEqualTo(LifecycleState.SHUTTING_DOWN)
                     }
 
                 // Trigger InterruptedException inside awaitProcessingComplete()
@@ -343,7 +343,7 @@ class OutboxProcessingSchedulerTest {
                 await()
                     .atMost(2, SECONDS)
                     .untilAsserted {
-                        assertThat(getState()).isEqualTo(BeanState.State.STOPPED)
+                        assertThat(getLifecycleState()).isEqualTo(LifecycleState.STOPPED)
                         assertThat(scheduler.isRunning()).isFalse()
                         assertThat(stopThreadInterruptedOnExit.get()).isTrue()
                     }
