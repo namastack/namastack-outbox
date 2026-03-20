@@ -76,7 +76,7 @@ class GracefulShutdownIntegrationTest {
         val shutdownCompleted = AtomicBoolean(false)
         val shutdownThread =
             Thread {
-                outboxProcessingScheduler.unregisterJob()
+                outboxProcessingScheduler.stop()
                 shutdownCompleted.set(true)
             }
         shutdownThread.start()
@@ -109,7 +109,7 @@ class GracefulShutdownIntegrationTest {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `process skips new cycles after shutdown is initiated`() {
         // Given: Shutdown has been initiated (no records yet)
-        outboxProcessingScheduler.unregisterJob()
+        outboxProcessingScheduler.stop()
 
         // When: Create a record after shutdown
         createRecord("new-key", "new-payload")

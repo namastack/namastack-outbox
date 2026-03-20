@@ -49,6 +49,51 @@ class OutboxInstanceRegistryTest {
     }
 
     @Nested
+    @DisplayName("Lifecycle")
+    inner class LifecycleTests {
+        @Test
+        fun `start registers instance and marks running`() {
+            registry.start()
+
+            verify(exactly = 1) { instanceRepository.save(any()) }
+            assertThat(registry.isRunning()).isTrue()
+            assertThat(registry.getCurrentInstanceId()).isNotNull()
+        }
+
+        @Test
+        fun `stop deregisters instance and marks not running`() {
+            registry.start()
+
+            registry.stop()
+
+            verify(exactly = 1) {
+                instanceRepository.updateStatus(
+                    instanceId = registry.getCurrentInstanceId(),
+                    status = SHUTTING_DOWN,
+                    timestamp = now,
+                )
+            }
+            verify(exactly = 1) { instanceRepository.deleteById(registry.getCurrentInstanceId()) }
+            assertThat(registry.isRunning()).isFalse()
+        }
+
+        @Test
+        fun `stop marks not running even when repository throws`() {
+            every { instanceRepository.updateStatus(any(), any(), any()) } throws RuntimeException("DB error")
+
+            registry.start()
+            registry.stop()
+
+            assertThat(registry.isRunning()).isFalse()
+        }
+
+        @Test
+        fun `is not running before start`() {
+            assertThat(registry.isRunning()).isFalse()
+        }
+    }
+
+    @Nested
     @DisplayName("Instance Registration")
     inner class InstanceRegistration {
         @Test
@@ -56,7 +101,7 @@ class OutboxInstanceRegistryTest {
             registry.registerInstance()
 
             verify(exactly = 1) { instanceRepository.save(any()) }
-            assertThat(registry.getCurrentInstanceId()).isNotNull
+            assertThat(registry.getCurrentInstanceId()).isNotNull()
         }
 
         @Test
@@ -233,7 +278,8 @@ class OutboxInstanceRegistryTest {
     inner class GracefulShutdown {
         @Test
         fun `perform graceful shutdown`() {
-            registry.gracefulShutdown()
+            registry.start()
+            registry.stop()
 
             verify(exactly = 1) {
                 instanceRepository.updateStatus(
@@ -243,13 +289,15 @@ class OutboxInstanceRegistryTest {
                 )
             }
             verify(exactly = 1) { instanceRepository.deleteById(registry.getCurrentInstanceId()) }
+            assertThat(registry.isRunning()).isFalse()
         }
 
         @Test
         fun `handle shutdown exception gracefully`() {
             every { instanceRepository.updateStatus(any(), any(), any()) } throws RuntimeException("DB error")
 
-            registry.gracefulShutdown()
+            registry.start()
+            registry.stop()
 
             verify(exactly = 1) {
                 instanceRepository.updateStatus(
@@ -258,13 +306,15 @@ class OutboxInstanceRegistryTest {
                     timestamp = now,
                 )
             }
+            assertThat(registry.isRunning()).isFalse()
         }
 
         @Test
         fun `handle delete exception during shutdown`() {
             every { instanceRepository.deleteById(any()) } throws RuntimeException("Delete error")
 
-            registry.gracefulShutdown()
+            registry.start()
+            registry.stop()
 
             verify(exactly = 1) {
                 instanceRepository.updateStatus(
@@ -274,6 +324,7 @@ class OutboxInstanceRegistryTest {
                 )
             }
             verify(exactly = 1) { instanceRepository.deleteById(registry.getCurrentInstanceId()) }
+            assertThat(registry.isRunning()).isFalse()
         }
     }
 
@@ -288,10 +339,12 @@ class OutboxInstanceRegistryTest {
                 )
             val customRegistry = OutboxInstanceRegistry(instanceRepository, customProperties, clock)
 
-            customRegistry.gracefulShutdown()
+            customRegistry.start()
+            customRegistry.stop()
 
             verify(exactly = 1) { instanceRepository.updateStatus(any(), SHUTTING_DOWN, now) }
             verify(exactly = 1) { instanceRepository.deleteById(any()) }
+            assertThat(customRegistry.isRunning()).isFalse()
         }
 
         @Test

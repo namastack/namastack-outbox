@@ -3,15 +3,15 @@ package io.namastack.outbox.instance
 import io.namastack.outbox.OpenForProxy
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
-import jakarta.annotation.PostConstruct
-import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
+import org.springframework.context.SmartLifecycle
 import org.springframework.scheduling.annotation.Scheduled
 import java.net.InetAddress
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Registry service for managing outbox processor instances in a distributed system.
@@ -24,6 +24,10 @@ import java.util.UUID
  *
  * Enables horizontal scaling across multiple application instances by maintaining
  * a persistent registry of active processors with regular heartbeat updates.
+ *
+ * Implements [SmartLifecycle] so that Spring automatically registers the instance on context
+ * startup and deregisters it on context stop (including test context teardown). This prevents
+ * stale instance entries in shared databases when Spring test contexts are cycled.
  *
  * @param instanceRepository Repository for persisting instance data
  * @param properties Configuration properties for outbox instance management
@@ -38,11 +42,59 @@ class OutboxInstanceRegistry(
     private val properties: OutboxProperties,
     private val clock: Clock,
     private val currentInstanceId: String = UUID.randomUUID().toString(),
-) {
+) : SmartLifecycle {
     private val log = LoggerFactory.getLogger(OutboxInstanceRegistry::class.java)
 
     private val staleInstanceTimeout = Duration.ofSeconds(properties.instance.staleInstanceTimeoutSeconds)
     private val gracefulShutdownTimeout = Duration.ofSeconds(properties.instance.gracefulShutdownTimeoutSeconds)
+
+    private val running = AtomicBoolean(false)
+
+    override fun getPhase(): Int = 0
+
+    override fun isRunning(): Boolean = running.get()
+
+    /**
+     * Registers this instance on startup.
+     *
+     * Creates an [OutboxInstance] entry in the repository with the current host and port,
+     * then marks this lifecycle as running.
+     *
+     * @throws Exception if registration fails
+     */
+    override fun start() {
+        registerInstance()
+        running.set(true)
+    }
+
+    /**
+     * Performs graceful shutdown of this instance.
+     *
+     * Marks the instance as shutting down in the registry, waits for other instances
+     * to notice the status change, then removes it completely. This allows other instances
+     * to redistribute work before shutdown completes.
+     */
+    override fun stop() {
+        try {
+            log.info("Initiating graceful shutdown for instance {}", currentInstanceId)
+
+            instanceRepository.updateStatus(
+                currentInstanceId,
+                OutboxInstanceStatus.SHUTTING_DOWN,
+                Instant.now(clock),
+            )
+
+            Thread.sleep(gracefulShutdownTimeout.toMillis())
+
+            instanceRepository.deleteById(currentInstanceId)
+
+            log.info("Graceful shutdown completed for instance {}", currentInstanceId)
+        } catch (ex: Exception) {
+            log.error("Error during graceful shutdown of instance {}", currentInstanceId, ex)
+        } finally {
+            running.set(false)
+        }
+    }
 
     /** Returns all active instances (status ACTIVE). */
     fun getActiveInstances(): List<OutboxInstance> = instanceRepository.findActiveInstances()
@@ -60,14 +112,12 @@ class OutboxInstanceRegistry(
     fun getActiveInstanceCount(): Long = instanceRepository.countByStatus(ACTIVE)
 
     /**
-     * Registers this instance on startup and sets up shutdown hook.
+     * Registers this instance and sets up the persistent entry in the repository.
      *
-     * Creates an OutboxInstance entry in the repository with the current host
-     * and port information, then registers a JVM shutdown hook for graceful cleanup.
+     * Creates an [OutboxInstance] entry with the current host and port information.
      *
      * @throws Exception if registration fails
      */
-    @PostConstruct
     fun registerInstance() {
         try {
             val hostname = InetAddress.getLocalHost().hostName
@@ -173,34 +223,6 @@ class OutboxInstanceRegistry(
      */
     private fun reregisterInstance() {
         registerInstance()
-    }
-
-    /**
-     * Performs graceful shutdown of this instance.
-     *
-     * Marks the instance as shutting down in the registry, waits for other instances
-     * to notice the status change, then removes it completely. This allows other instances
-     * to redistribute work before shutdown completes.
-     */
-    @PreDestroy
-    fun gracefulShutdown() {
-        try {
-            log.info("Initiating graceful shutdown for instance {}", currentInstanceId)
-
-            instanceRepository.updateStatus(
-                currentInstanceId,
-                OutboxInstanceStatus.SHUTTING_DOWN,
-                Instant.now(clock),
-            )
-
-            Thread.sleep(gracefulShutdownTimeout.toMillis())
-
-            instanceRepository.deleteById(currentInstanceId)
-
-            log.info("Graceful shutdown completed for instance {}", currentInstanceId)
-        } catch (ex: Exception) {
-            log.error("Error during graceful shutdown of instance {}", currentInstanceId, ex)
-        }
     }
 
     /**

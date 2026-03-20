@@ -95,7 +95,6 @@ class OutboxMetricsAutoConfigurationTest {
         @Bean
         fun outboxInstanceRegistry(): OutboxInstanceRegistry {
             val mock = mockk<OutboxInstanceRegistry>(relaxed = true)
-            io.mockk.every { mock.registerInstance() } returns Unit
             io.mockk.every { mock.getCurrentInstanceId() } returns "test-instance"
             return mock
         }
@@ -112,7 +111,6 @@ class OutboxMetricsAutoConfigurationTest {
         @Bean
         fun outboxInstanceRegistry(): OutboxInstanceRegistry {
             val mock = mockk<OutboxInstanceRegistry>(relaxed = true)
-            io.mockk.every { mock.registerInstance() } returns Unit
             io.mockk.every { mock.getCurrentInstanceId() } returns "test-instance"
             return mock
         }
@@ -129,7 +127,6 @@ class OutboxMetricsAutoConfigurationTest {
         @Bean
         fun outboxInstanceRegistry(): OutboxInstanceRegistry {
             val mock = mockk<OutboxInstanceRegistry>(relaxed = true)
-            io.mockk.every { mock.registerInstance() } returns Unit
             io.mockk.every { mock.getCurrentInstanceId() } returns "test-instance"
             return mock
         }
@@ -146,7 +143,6 @@ class OutboxMetricsAutoConfigurationTest {
         @Bean
         fun outboxInstanceRegistry(): OutboxInstanceRegistry {
             val mock = mockk<OutboxInstanceRegistry>(relaxed = true)
-            io.mockk.every { mock.registerInstance() } returns Unit
             io.mockk.every { mock.getCurrentInstanceId() } returns "test-instance"
             return mock
         }
@@ -178,7 +174,6 @@ class OutboxMetricsAutoConfigurationTest {
         @Bean
         fun outboxInstanceRegistry(): OutboxInstanceRegistry {
             val mock = mockk<OutboxInstanceRegistry>(relaxed = true)
-            io.mockk.every { mock.registerInstance() } returns Unit
             io.mockk.every { mock.getCurrentInstanceId() } returns "test-instance"
             return mock
         }
