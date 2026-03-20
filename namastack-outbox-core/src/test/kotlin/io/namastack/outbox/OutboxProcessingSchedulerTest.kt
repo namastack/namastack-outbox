@@ -64,33 +64,8 @@ class OutboxProcessingSchedulerTest {
     }
 
     @Nested
-    @DisplayName("Start")
-    inner class StartTestCase {
-        @Test
-        fun `schedules processing`() {
-            every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
-
-            scheduler.start()
-
-            assertThat(scheduler.isRunning()).isTrue()
-            verify(exactly = 1) { taskScheduler.schedule(any(), trigger) }
-        }
-
-        @Test
-        fun `schedules processing once`() {
-            every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
-
-            scheduler.start()
-            scheduler.start()
-
-            assertThat(scheduler.isRunning()).isTrue()
-            verify(exactly = 1) { taskScheduler.schedule(any(), trigger) }
-        }
-    }
-
-    @Nested
-    @DisplayName("Stop")
-    inner class StopTestCase {
+    @DisplayName("Lifecycle")
+    inner class LifecycleTests {
         fun getLifecycleState(): LifecycleState {
             val beanStateField = OutboxProcessingScheduler::class.java.getDeclaredField("lifecycle")
             beanStateField.isAccessible = true
@@ -104,14 +79,35 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
-        fun `do not cancel scheduled task if is was not started`() {
+        fun `start schedules processing`() {
+            every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
+
+            scheduler.start()
+
+            assertThat(scheduler.isRunning()).isTrue()
+            verify(exactly = 1) { taskScheduler.schedule(any(), trigger) }
+        }
+
+        @Test
+        fun `start schedules processing once`() {
+            every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
+
+            scheduler.start()
+            scheduler.start()
+
+            assertThat(scheduler.isRunning()).isTrue()
+            verify(exactly = 1) { taskScheduler.schedule(any(), trigger) }
+        }
+
+        @Test
+        fun `stop do not cancel scheduled task if is was not started`() {
             scheduler.stop()
 
             assertThat(scheduler.isRunning()).isFalse()
         }
 
         @Test
-        fun `cancels scheduled task`() {
+        fun `stop cancels scheduled task`() {
             every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
             scheduler.start()
 
@@ -122,7 +118,7 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
-        fun `cancels scheduled task once`() {
+        fun `stop cancels scheduled task once`() {
             every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
             scheduler.start()
 
@@ -134,7 +130,7 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
-        fun `waits for running processing to finish before stopping`() {
+        fun `stop waits for running processing to finish before stopping`() {
             every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
             scheduler.start()
 
@@ -184,7 +180,7 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
-        fun `waits for running processing to finish before stopping multi threads`() {
+        fun `stop waits for running processing to finish before stopping multi threads`() {
             every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
             scheduler.start()
 
@@ -236,7 +232,7 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
-        fun `stops after shutdown timeout when processing is still running`() {
+        fun `stop cancels after shutdown timeout when processing is still running`() {
             val properties =
                 OutboxProperties().apply {
                     processing.shutdownTimeoutSeconds = 0
@@ -297,7 +293,7 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
-        fun `stops after InterruptedException when processing is still running`() {
+        fun `stop cancels after InterruptedException when processing is still running`() {
             every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
             scheduler.start()
 

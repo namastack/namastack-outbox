@@ -35,7 +35,7 @@ import kotlin.concurrent.withLock
  * @param recordProcessorChain Root processor of the chain (typically PrimaryOutboxRecordProcessor)
  * @param partitionCoordinator Coordinator for partition assignments
  * @param taskExecutor Executor for parallel key processing
- * @param properties Configuration properties (batch size, retry behavior, and shutdown timeout)
+ * @param properties Configuration properties
  * @param clock Clock for time calculations
  *
  * @author Roland Beisel
@@ -65,7 +65,15 @@ class OutboxProcessingScheduler(
     private val lifecycle = SchedulerLifecycleStateMachine(properties.processing.shutdownTimeoutSeconds)
     private var scheduledTask: ScheduledFuture<*>? = null
 
+    /**
+     * Starts this lifecycle bean after [io.namastack.outbox.instance.OutboxInstanceRegistry] (`phase = 0`).
+     */
     override fun getPhase(): Int = 1
+
+    /**
+     * Returns `true` while this lifecycle is active (idle, running, or shutting down).
+     */
+    override fun isRunning(): Boolean = lifecycle.isStarted()
 
     /**
      * Registers the outbox processing job with the task scheduler.
@@ -102,11 +110,6 @@ class OutboxProcessingScheduler(
         }
         log.info("OutboxProcessingScheduler shutdown complete")
     }
-
-    /**
-     * Returns `true` while this lifecycle is active (idle, running, or shutting down).
-     */
-    override fun isRunning(): Boolean = lifecycle.isStarted()
 
     /**
      * Main processing cycle. Invoked by the scheduler according to the configured trigger.
