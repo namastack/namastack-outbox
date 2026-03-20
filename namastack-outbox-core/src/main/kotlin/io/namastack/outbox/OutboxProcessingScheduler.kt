@@ -65,10 +65,7 @@ class OutboxProcessingScheduler(
     private val lifecycle = SchedulerLifecycleStateMachine(properties.processing.shutdownTimeoutSeconds)
     private var scheduledTask: ScheduledFuture<*>? = null
 
-    /**
-     * Uses the default [SmartLifecycle] phase so startup/shutdown ordering is coordinated by Spring defaults.
-     */
-    override fun getPhase(): Int = 0
+    override fun getPhase(): Int = 1
 
     /**
      * Registers the outbox processing job with the task scheduler.

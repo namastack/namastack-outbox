@@ -7,7 +7,7 @@ package io.namastack.outbox
  * This is required for classes that are instantiated via `@Bean` factory methods (and thus lack
  * Spring stereotype annotations like `@Component`) but may still need to be proxied by CGLIB
  * at runtime — for example, when OpenTelemetry or other AOP-based instrumentation wraps beans
- * that contain `@Scheduled`, `@PostConstruct`, or `@PreDestroy` methods.
+ * that contain `@Scheduled` methods or implement `SmartLifecycle`.
  *
  * Without this annotation, Kotlin classes are `final` by default, and CGLIB cannot create a
  * subclass proxy — leading to `BeanCreationException` at startup.
