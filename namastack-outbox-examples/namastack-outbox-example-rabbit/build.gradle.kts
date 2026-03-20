@@ -1,5 +1,5 @@
 plugins {
-    id("org.springframework.boot") version "4.0.3"
+    id("org.springframework.boot") version "4.0.4"
     id("io.spring.dependency-management") version "1.1.7"
     id("org.jetbrains.kotlin.plugin.jpa") version "2.2.21"
     kotlin("jvm") version "2.2.20"
@@ -21,8 +21,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-amqp")
     implementation("org.springframework.boot:spring-boot-starter-json")
     implementation("org.springframework.boot:spring-boot-flyway")
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.1.1-SNAPSHOT")
-    implementation("io.namastack:namastack-outbox-rabbit:1.1.1-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jpa:1.2.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-rabbit:1.2.0-SNAPSHOT")
     runtimeOnly("com.h2database:h2")
 }
 
