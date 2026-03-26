@@ -2,6 +2,7 @@
 # Kotlin and Plugin versions
 kotlin = "2.3.20"
 springBoot = "4.0.5"
+springCloudAws = "4.0.0"
 dependencyManagement = "1.1.7"
 ktlint = "14.2.0"
 dokka = "2.2.0"
@@ -33,6 +34,11 @@ spring-jdbc = { module = "org.springframework:spring-jdbc" }
 spring-kafka = { module = "org.springframework.kafka:spring-kafka" }
 spring-rabbit = { module = "org.springframework.amqp:spring-rabbit" }
 spring-tx = { module = "org.springframework:spring-tx" }
+
+# Spring Cloud AWS
+spring-cloud-aws-bom = { module = "io.awspring.cloud:spring-cloud-aws-dependencies", version.ref = "springCloudAws" }
+spring-cloud-aws-sns = { module = "io.awspring.cloud:spring-cloud-aws-sns" }
+spring-cloud-aws-autoconfigure = { module = "io.awspring.cloud:spring-cloud-aws-autoconfigure" }
 
 # Jakarta dependencies
 jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api" }
