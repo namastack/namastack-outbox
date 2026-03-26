@@ -1,16 +1,16 @@
 ---
 title: Messaging Integrations
-description: Ready-to-use handlers and configuration for Kafka and RabbitMQ integrations.
+description: Ready-to-use handlers and configuration for Kafka, RabbitMQ, and SNS integrations.
 sidebar_position: 4.5
 ---
 
 # Messaging Integrations
 
-Namastack Outbox provides first-class support for sending outbox events to Kafka and RabbitMQ. These modules offer ready-to-use handlers, flexible routing, and simple configuration.
+Namastack Outbox provides first-class support for sending outbox events to Kafka, RabbitMQ, and AWS SNS. These modules offer ready-to-use handlers, flexible routing, and simple configuration.
 
-## Quickstart: Adding Kafka or RabbitMQ Support
+## Quickstart: Adding Kafka, RabbitMQ, or SNS Support
 
-To use the Kafka or RabbitMQ modules, simply add the corresponding dependency to your project:
+To use the Kafka, RabbitMQ, or SNS modules, simply add the corresponding dependency to your project:
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -22,6 +22,7 @@ import VersionedCode from '@site/src/components/VersionedCode';
 <VersionedCode language="kotlin" template= {`dependencies {
       implementation("io.namastack:namastack-outbox-kafka:{{versionLabel}}")
       implementation("io.namastack:namastack-outbox-rabbit:{{versionLabel}}")
+      implementation("io.namastack:namastack-outbox-sns:{{versionLabel}}")
 }`} />
 
 </TabItem>
@@ -40,12 +41,18 @@ import VersionedCode from '@site/src/components/VersionedCode';
         <artifactId>namastack-outbox-rabbit</artifactId>
         <version>{{versionLabel}}</version>
     </dependency>
+    <!-- For SNS integration -->
+    <dependency>
+        <groupId>io.namastack</groupId>
+        <artifactId>namastack-outbox-sns</artifactId>
+        <version>{{versionLabel}}</version>
+    </dependency>
 </dependencies>`} />
 
 </TabItem>
 </Tabs>
 
-Both modules are optional and can be included as needed. They are auto-configured if Spring Kafka or Spring AMQP is present on the classpath.
+All modules are optional and can be included as needed. They are auto-configured if the corresponding Spring integration is present on the classpath.
 
 ---
 
@@ -182,6 +189,78 @@ public class RabbitOutboxConfig {
 | `namastack.outbox.rabbit.enable-json`      | `true`          | Enable Jackson JSON message conversion for RabbitTemplate |
 
 </TabItem>
+<TabItem value="sns" label="SNS Integration">
+
+- **Handler:** `SnsOutboxHandler` automatically sends outbox events to AWS SNS topics.
+- **Routing:** Customizable via a `SnsOutboxRouting` bean. Define target topic ARN, message group ID (key), message attributes (headers), payload mapping, and filtering per payload type.
+- **Message Attributes:** Use the `headers` configurer to set custom SNS message attributes for each message.
+- **Auto-configuration:** Enabled if Spring Cloud AWS SNS is present.
+
+:::info FIFO Topics & Ordering
+When using SNS FIFO topics, the `key` configurer sets the **message group ID**, which preserves ordering per key. Records with the same key are sent **synchronously**, so a failure on one record stops processing of subsequent records with the same key.
+:::
+
+<Tabs>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@Configuration
+class SnsOutboxConfig {
+    @Bean
+    fun snsOutboxRouting() = snsOutboxRouting {
+        route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
+            target("arn:aws:sns:us-east-1:123456789012:orders.fifo")
+            key { payload, _ -> (payload as OrderEvent).orderId }
+            headers { payload, metadata -> mapOf(
+                "custom-header" to "value",
+                "traceId" to (metadata.context["traceId"] ?: ""))
+            }
+            mapping { payload, _ -> (payload as OrderEvent).toPublicEvent() }
+            filter { payload, _ -> (payload as OrderEvent).status != "CANCELLED" }
+        }
+        defaults {
+            target("arn:aws:sns:us-east-1:123456789012:domain-events")
+        }
+    }
+}
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+@Configuration
+public class SnsOutboxConfig {
+    @Bean
+    public SnsOutboxRouting snsOutboxRouting() {
+        return SnsOutboxRouting.builder()
+            .route(OutboxPayloadSelector.type(OrderEvent.class), route -> {
+                route.target("arn:aws:sns:us-east-1:123456789012:orders.fifo");
+                route.key((payload, metadata) -> ((OrderEvent) payload).getOrderId());
+                route.headers((payload, metadata) -> Map.of(
+                    "custom-header", "value",
+                    "traceId", metadata.getContext().getOrDefault("traceId", "")
+                ));
+                route.mapping((payload, metadata) -> ((OrderEvent) payload).toPublicEvent());
+                route.filter((payload, metadata) -> !((OrderEvent) payload).getStatus().equals("CANCELLED"));
+            })
+            .defaults(route -> route.target("arn:aws:sns:us-east-1:123456789012:domain-events"))
+            .build();
+    }
+}
+```
+
+</TabItem>
 </Tabs>
 
-Both modules are optional and can be included as needed. They provide a fast path to production-ready messaging integration with minimal configuration.
+**Configuration Properties**
+
+| Property                                    | Default                                                    | Description                                      |
+|---------------------------------------------|------------------------------------------------------------|--------------------------------------------------|
+| `namastack.outbox.sns.enabled`              | `true`                                                     | Enable SNS outbox integration                    |
+| `namastack.outbox.sns.default-topic-arn`    | `arn:aws:sns:us-east-1:000000000000:outbox-events`         | Default SNS topic ARN for outbox events          |
+
+</TabItem>
+</Tabs>
+
+All modules are optional and can be included as needed. They provide a fast path to production-ready messaging integration with minimal configuration.
