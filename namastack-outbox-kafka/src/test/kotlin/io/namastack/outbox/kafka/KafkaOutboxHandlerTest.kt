@@ -182,6 +182,36 @@ class KafkaOutboxHandlerTest {
         }
 
         @Test
+        fun `skips sending when routes do not match`() {
+            data class OrderEvent(
+                val orderId: String,
+            )
+
+            data class PaymentEvent(
+                val paymentId: String,
+            )
+
+            data class UserEvent(
+                val userId: String,
+            )
+
+            val routing =
+                kafkaOutboxRouting {
+                    route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
+                        target("orders")
+                    }
+                    route(OutboxPayloadSelector.type(PaymentEvent::class.java)) {
+                        target("payments")
+                    }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
+
+            handler.handle(UserEvent("user-1"), metadata)
+
+            verify(exactly = 0) { kafkaOperations.send(any<ProducerRecord<Any, Any>>()) }
+        }
+
+        @Test
         fun `uses dynamic topic resolver`() {
             data class Event(
                 val type: String,
