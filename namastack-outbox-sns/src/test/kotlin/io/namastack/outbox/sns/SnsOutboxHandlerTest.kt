@@ -178,6 +178,39 @@ class SnsOutboxHandlerTest {
         }
 
         @Test
+        fun `skips sending when routes do not match`() {
+            data class OrderEvent(
+                val orderId: String,
+            )
+
+            data class PaymentEvent(
+                val paymentId: String,
+            )
+
+            data class UserEvent(
+                val userId: String,
+            )
+
+            val ordersArn = "arn:aws:sns:us-east-1:123456789012:orders"
+            val paymentsArn = "arn:aws:sns:us-east-1:123456789012:payments"
+
+            val routing =
+                snsOutboxRouting {
+                    route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
+                        target(ordersArn)
+                    }
+                    route(OutboxPayloadSelector.type(PaymentEvent::class.java)) {
+                        target(paymentsArn)
+                    }
+                }
+            handler = SnsOutboxHandler(snsOperations, routing)
+
+            handler.handle(UserEvent("user-1"), metadata)
+
+            verify(exactly = 0) { snsOperations.sendNotification(any<String>(), any<SnsNotification<*>>()) }
+        }
+
+        @Test
         fun `uses dynamic topic ARN resolver`() {
             data class Event(
                 val type: String,
