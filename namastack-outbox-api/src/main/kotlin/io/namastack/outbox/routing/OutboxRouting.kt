@@ -92,5 +92,5 @@ abstract class OutboxRouting(
     fun shouldExternalize(
         payload: Any,
         metadata: OutboxRecordMetadata,
-    ): Boolean = findRule(payload, metadata)?.filter(payload, metadata) ?: true
+    ): Boolean = findRule(payload, metadata)?.filter(payload, metadata) ?: false
 }
