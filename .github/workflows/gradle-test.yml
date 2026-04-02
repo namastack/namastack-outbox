@@ -35,7 +35,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Build and run tests
-        run: ./gradlew clean build
+        run: ./gradlew clean build --no-build-cache --rerun-tasks
 
       - name: Upload coverage report (artifact)
         if: matrix.java == '21'
