@@ -24,8 +24,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-flyway")
     implementation("io.awspring.cloud:spring-cloud-aws-starter-sns:3.4.0")
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.2.0-SNAPSHOT")
-    implementation("io.namastack:namastack-outbox-sns:1.2.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jpa:1.3.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-sns:1.3.0-SNAPSHOT")
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -34,4 +34,3 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
-

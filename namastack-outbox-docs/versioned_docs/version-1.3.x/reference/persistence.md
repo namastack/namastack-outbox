@@ -89,7 +89,7 @@ namastack:
 ```
 
 <Admonition type="note" title="Database Detection">
-The JDBC module automatically detects your database type and uses the appropriate schema. Supported databases: PostgreSQL, MySQL, MariaDB, H2, SQL Server, Oracle.
+The JDBC module automatically detects your database type and uses the appropriate schema. Supported databases: PostgreSQL, MySQL, MariaDB, H2, SQL Server.
 </Admonition>
 
 ### Custom Table Prefix and Schema Name

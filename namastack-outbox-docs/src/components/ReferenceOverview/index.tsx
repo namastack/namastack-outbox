@@ -2,22 +2,22 @@ import type {ReactNode} from 'react';
 import clsx from 'clsx';
 import styles from './styles.module.css';
 import {
-  IconFileSettingsFilled,
-  IconShieldCheckeredFilled,
-  IconDatabase,
-  IconCalendarEventFilled,
-  IconReplaceFilled,
-  IconDeviceHeartMonitorFilled,
-  IconManualGearboxFilled,
-  IconSignRightFilled,
-  IconDropletsFilled,
-  IconChartBar,
-  IconTableFilled,
-  IconBrandSketchFilled,
   IconArrowBigRightLinesFilled,
+  IconBrandSketchFilled,
+  IconCalendarEventFilled,
+  IconChartBar,
+  IconDatabase,
+  IconDeviceHeartMonitorFilled,
+  IconDropletsFilled,
+  IconFileSettingsFilled,
+  IconManualGearboxFilled,
   IconMessage2Bolt,
+  IconReplaceFilled,
+  IconShieldCheckeredFilled,
+  IconSignRightFilled,
+  IconTableFilled,
 } from '@tabler/icons-react';
-import { useActiveVersion } from '@docusaurus/plugin-content-docs/client';
+import {useActiveVersion} from '@docusaurus/plugin-content-docs/client';
 
 const referenceCategories = [
   {
@@ -203,29 +203,35 @@ function isCategoryVisibleForVersion(cat: any, currentVersion: string) {
   return true;
 }
 
-function ReferenceCard({title, icon: Icon, description, link}: {title: string, icon: any, description: string, link: string}) {
+function ReferenceCard({title, icon: Icon, description, link}: {
+  title: string,
+  icon: any,
+  description: string,
+  link: string
+}) {
   return (
-    <div className={clsx('col col--6', 'margin-bottom--lg')}>
-      <div className={clsx(styles.featureCard, 'card')}>
-        <div className="card__header" style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-          <Icon size={28} style={{marginRight: 8}} />
-          <h3 style={{margin: 0}}>{title}</h3>
-        </div>
-        <div className="card__body">
-          <p>{description}</p>
-        </div>
-        <div className="card__footer">
-          <a className="button button--secondary button--block" href={link}>
-            Read more
-          </a>
+      <div className={clsx('col col--6', 'margin-bottom--lg')}>
+        <div className={clsx(styles.featureCard, 'card')}>
+          <div className="card__header"
+               style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+            <Icon size={28} style={{marginRight: 8}}/>
+            <h3 style={{margin: 0}}>{title}</h3>
+          </div>
+          <div className="card__body">
+            <p>{description}</p>
+          </div>
+          <div className="card__footer">
+            <a className="button button--secondary button--block" href={link}>
+              Read more
+            </a>
+          </div>
         </div>
       </div>
-    </div>
   );
 }
 
 export default function ReferenceOverview(): ReactNode {
-  const activeVersion = useActiveVersion();
+  const activeVersion = useActiveVersion(undefined);
   // In some Docusaurus setups the active version name may be 'current' (non-numeric).
   // For development/unreleased docs we want to treat 'current' as 'next' so
   // `sinceVersion` comparisons behave intuitively and unreleased features appear.
@@ -233,17 +239,16 @@ export default function ReferenceOverview(): ReactNode {
   const currentVersion = rawName === 'current' || !rawName ? 'next' : rawName;
 
   return (
-    <section>
-      <div className="container">
-        <div className="row">
-          {referenceCategories
-            .filter((cat) => isCategoryVisibleForVersion(cat, currentVersion))
-            .map((props, idx) => (
-              <ReferenceCard key={idx} {...props} />
-            ))}
-          )}
+      <section>
+        <div className="container">
+          <div className="row">
+            {referenceCategories
+                .filter((cat) => isCategoryVisibleForVersion(cat, currentVersion))
+                .map((props, idx) => (
+                    <ReferenceCard key={idx} {...props} />
+                ))}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
   );
 }
