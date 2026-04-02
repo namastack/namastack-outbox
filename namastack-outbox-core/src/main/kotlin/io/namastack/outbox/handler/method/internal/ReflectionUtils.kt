@@ -51,10 +51,15 @@ internal object ReflectionUtils {
         methodName: String,
         parameterCount: Int,
     ): Method {
-        val targetClass = getTargetClass(bean)
-        return targetClass.methods
-            .filter { !it.isBridge && !it.isSynthetic }
-            .first { it.name == methodName && it.parameterCount == parameterCount }
+        val method =
+            getTargetClass(bean)
+                .methods
+                .filter { !it.isBridge && !it.isSynthetic }
+                .first { it.name == methodName && it.parameterCount == parameterCount }
+
+        method.trySetAccessible()
+
+        return method
     }
 
     /**
@@ -82,5 +87,6 @@ internal object ReflectionUtils {
             .asSequence()
             .filterNot { it.isBridge && it.isSynthetic }
             .filter { AnnotatedElementUtils.findMergedAnnotation(it, annotationClass) != null }
+            .onEach { it.trySetAccessible() }
     }
 }

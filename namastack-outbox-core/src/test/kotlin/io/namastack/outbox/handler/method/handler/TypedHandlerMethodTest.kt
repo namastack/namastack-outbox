@@ -171,6 +171,28 @@ class TypedHandlerMethodTest {
         }
     }
 
+    @Nested
+    @DisplayName("invoke() accessibility edge cases")
+    inner class AccessibilityEdgeCases {
+        @Test
+        fun `should invoke public handle method in package-private class`() {
+            class PackagePrivateHandler {
+                fun handle(payload: String) {
+                    received = payload
+                }
+
+                var received: String? = null
+            }
+
+            val handler = PackagePrivateHandler()
+            val method = handler::class.java.getMethod("handle", String::class.java)
+            val typedHandler = TypedHandlerMethod(handler, method)
+
+            typedHandler.invoke("edge-case", createMetadata())
+            assertThat(handler.received).isEqualTo("edge-case")
+        }
+    }
+
     private fun createMetadata(): OutboxRecordMetadata =
         OutboxRecordMetadata(
             key = "test-key",

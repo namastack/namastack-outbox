@@ -94,6 +94,16 @@ class ReflectionUtilsTest {
     }
 
     @Test
+    fun `findMethod sets accessible on public method in package-private class`() {
+        class PackagePrivateClass {
+            fun exposed(param: String) {}
+        }
+        val bean = PackagePrivateClass()
+        val method = ReflectionUtils.findMethod(bean, "exposed", 1)
+        assertThat(method.canAccess(bean)).isTrue()
+    }
+
+    @Test
     fun `findAnnotatedMethods finds all methods with annotation`() {
         val bean = TestAnnotatedBean()
 
@@ -151,6 +161,20 @@ class ReflectionUtilsTest {
 
         assertThat(result).hasSizeGreaterThanOrEqualTo(2)
         assertThat(result.map { it.name }).contains("annotatedMethod1", "annotatedMethod2")
+    }
+
+    @Test
+    fun `findAnnotatedMethods sets accessible on public annotated method in package-private class`() {
+        class PackagePrivateAnnotatedClass {
+            @TestAnnotation("pkg-private")
+            fun exposed() {}
+        }
+        val bean = PackagePrivateAnnotatedClass()
+        val methods = ReflectionUtils.findAnnotatedMethods(bean, TestAnnotation::class.java).toList()
+        assertThat(methods).hasSize(1)
+
+        val method = methods.first()
+        assertThat(method.canAccess(bean) || method.isAccessible).isTrue()
     }
 
     // Test beans

@@ -62,6 +62,9 @@ abstract class BaseHandlerMethod(
      */
     protected fun invokeMethod(vararg args: Any?) {
         try {
+            if (!method.canAccess(bean)) {
+                method.trySetAccessible()
+            }
             method.invoke(bean, *args)
         } catch (ex: InvocationTargetException) {
             throw ex.targetException
