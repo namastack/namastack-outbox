@@ -6,8 +6,7 @@ sidebar_position: 4.5
 
 # Messaging Integrations
 
-Namastack Outbox provides first-class support for sending outbox events to Kafka, RabbitMQ, and 
-AWS SNS. These modules offer ready-to-use handlers, flexible routing, and simple configuration.
+Namastack Outbox provides first-class support for sending outbox events to Kafka, RabbitMQ, and AWS SNS. These modules offer ready-to-use handlers, flexible routing, and simple configuration.
 
 ## Quickstart: Adding Kafka, RabbitMQ, or SNS Support
 
@@ -53,8 +52,7 @@ import VersionedCode from '@site/src/components/VersionedCode';
 </TabItem>
 </Tabs>
 
-All modules are optional and can be included as needed. They are auto-configured if the 
-corresponding Spring integration is present on the classpath.
+All modules are optional and can be included as needed. They are auto-configured if the corresponding Spring integration is present on the classpath.
 
 ---
 
@@ -265,5 +263,4 @@ public class SnsOutboxConfig {
 </TabItem>
 </Tabs>
 
-All modules are optional and can be included as needed. They provide a fast path to production-ready
-messaging integration with minimal configuration.
+All modules are optional and can be included as needed. They provide a fast path to production-ready messaging integration with minimal configuration.
