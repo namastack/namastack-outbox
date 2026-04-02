@@ -32,21 +32,21 @@ jobs:
           distribution: oracle
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Build and run tests
         run: ./gradlew clean build
 
       - name: Upload coverage report (artifact)
         if: matrix.java == '21'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: jacoco-coverage
           path: build/reports/jacoco/testCodeCoverageReport/html
 
       - name: Upload coverage report to Codecov
         if: matrix.java == '21'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./build/reports/jacoco/testCodeCoverageReport/testCodeCoverageReport.xml
