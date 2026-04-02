@@ -25,8 +25,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-amqp")
     implementation("org.springframework.boot:spring-boot-starter-json")
     implementation("org.springframework.boot:spring-boot-flyway")
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.3.0-SNAPSHOT")
-    implementation("io.namastack:namastack-outbox-rabbit:1.3.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jpa:1.3.1-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-rabbit:1.3.1-SNAPSHOT")
     runtimeOnly("com.h2database:h2")
 }
 

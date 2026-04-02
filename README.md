@@ -1,4 +1,4 @@
-[![Version](https://img.shields.io/badge/version-1.3.0-blue)](https://github.com/namastack/namastack-outbox/releases/tag/v1.3.0)
+[![Version](https://img.shields.io/badge/version-1.3.1-blue)](https://github.com/namastack/namastack-outbox/releases/tag/v1.3.1)
 [![CodeFactor](https://www.codefactor.io/repository/github/namastack/namastack-outbox/badge)](https://www.codefactor.io/repository/github/namastack/namastack-outbox)
 [![codecov](https://codecov.io/github/namastack/namastack-outbox/graph/badge.svg?token=TZS1OQB4XC)](https://codecov.io/github/namastack/namastack-outbox)
 [![javadoc](https://javadoc.io/badge2/io.namastack/namastack-outbox-core/javadoc.svg)](https://javadoc.io/doc/io.namastack/namastack-outbox-core)
@@ -54,7 +54,7 @@ Quick links:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jdbc:1.3.0")
+    implementation("io.namastack:namastack-outbox-starter-jdbc:1.3.1")
 }
 ```
 
@@ -190,7 +190,7 @@ If you prefer using JPA/Hibernate instead of JDBC, use the JPA starter:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.3.0")
+    implementation("io.namastack:namastack-outbox-starter-jpa:1.3.1")
 }
 ```
 
@@ -491,11 +491,11 @@ Add the dependency to your build:
 
 ```gradle
 // Kafka
-implementation("io.namastack:namastack-outbox-kafka:1.3.0")
+implementation("io.namastack:namastack-outbox-kafka:1.3.1")
 // RabbitMQ
-implementation("io.namastack:namastack-outbox-rabbit:1.3.0")
+implementation("io.namastack:namastack-outbox-rabbit:1.3.1")
 // SNS
-implementation("io.namastack:namastack-outbox-sns:1.3.0")
+implementation("io.namastack:namastack-outbox-sns:1.3.1")
 ```
 
 See [Messaging Integrations Documentation](https://www.namastack.io/outbox/reference/messaging) for full usage and configuration details.

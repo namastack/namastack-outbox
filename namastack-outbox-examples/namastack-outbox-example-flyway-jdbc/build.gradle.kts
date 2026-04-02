@@ -19,7 +19,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jdbc")
     implementation("org.springframework.boot:spring-boot-flyway")
-    implementation("io.namastack:namastack-outbox-starter-jdbc:1.3.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jdbc:1.3.1-SNAPSHOT")
     runtimeOnly("com.h2database:h2")
 }
 
