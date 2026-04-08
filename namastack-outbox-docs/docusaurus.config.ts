@@ -72,7 +72,22 @@ const config: Config = {
           versions: versionConfig,
         },
         sitemap: {
-          ignorePatterns: sitemapIgnorePatterns,
+          changefreq: 'weekly' as const,
+          priority: 0.5,
+          ignorePatterns: [
+            ...sitemapIgnorePatterns,
+            '/outbox/search/**',
+          ],
+          async createSitemapItems({defaultCreateSitemapItems, ...params}) {
+            const items = await defaultCreateSitemapItems({...params});
+            return items.map((item) => {
+              // Give the homepage and quickstart higher priority
+              if (item.url.endsWith('/outbox/') || item.url.includes('/quickstart/')) {
+                return {...item, priority: 0.8};
+              }
+              return item;
+            });
+          },
         },
         theme: {
           customCss: './src/css/custom.css',
