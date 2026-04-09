@@ -113,3 +113,30 @@ This prevents all outbox beans from being created, useful for:
 - Running tests without outbox processing
 - Temporarily disabling outbox in specific environments
 - Conditional feature flags
+
+---
+
+## Automatic Scheduling
+
+Namastack Outbox automatically enables Spring's `@EnableScheduling` when included as a dependency. This is required for internal components like the polling scheduler, partition rebalancer, and instance heartbeat to function.
+
+:::info No manual setup needed
+You do **not** need to add `@EnableScheduling` to your application class — the library handles this automatically.
+:::
+
+**How it works:**
+
+- If your application does **not** already have `@EnableScheduling`, the library enables it via auto-configuration.
+- If your application **already** has `@EnableScheduling`, the library detects the existing `ScheduledAnnotationBeanPostProcessor` bean and skips its own activation — no duplicate registration occurs.
+- If the outbox is disabled (`namastack.outbox.enabled=false`), scheduling is **not** activated by the library.
+
+**Opting out:**
+
+If you need to prevent the library from enabling scheduling (e.g., in a test slice), disable the outbox entirely:
+
+```yaml
+namastack:
+  outbox:
+    enabled: false
+```
+

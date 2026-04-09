@@ -1,15 +1,13 @@
 package io.namastack.demo;
 
 import io.namastack.demo.customer.CustomerService;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.scheduling.annotation.EnableScheduling;
 
-@EnableScheduling
 @SpringBootApplication
 public class DemoApplication implements CommandLineRunner {
 
@@ -26,7 +24,7 @@ public class DemoApplication implements CommandLineRunner {
   }
 
   @Override
-  public void run(@NotNull String... args) throws Exception {
+  public void run(String @NonNull ... args) throws Exception {
     logger.info("=== Namastack Outbox Demo ===");
 
     logger.info("Register: John Wayne");
