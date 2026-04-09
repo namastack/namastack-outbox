@@ -14,13 +14,21 @@ import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.TaskScheduler
+import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor
 import java.time.Clock
 
 @AutoConfiguration
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class OutboxCoreSchedulingAutoConfiguration {
+    @Configuration
+    @EnableScheduling
+    @ConditionalOnMissingBean(ScheduledAnnotationBeanPostProcessor::class)
+    class OutboxEnableSchedulingConfiguration
+
     @Bean
     @ConditionalOnMissingBean
     fun outboxPollingTrigger(

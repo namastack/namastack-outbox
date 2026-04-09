@@ -45,34 +45,9 @@ This guide will get you up and running in 5 minutes with minimal configuration.
 We recommend the JDBC starter for quick start as it supports automatic schema creation. For JPA/Hibernate projects, see [JPA Setup](#jpa-setup) below.
 :::
 
-## Enable Scheduling
-
-<Tabs>
-<TabItem value="Kotlin" label="Kotlin">
-
-```kotlin
-@SpringBootApplication
-@EnableScheduling  // Required for automatic outbox processing
-class Application
-
-fun main(args: Array<String>) {
-    runApplication<Application>(*args)
-}
-```
-</TabItem>
-<TabItem value="Java" label="Java">
-
-```java
-@SpringBootApplication
-@EnableScheduling  // Required for automatic outbox processing
-public class Application {
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
-    }
-}
-```
-</TabItem>
-</Tabs>
+:::tip Scheduling is automatic
+Spring's `@EnableScheduling` is activated automatically by the library — no manual setup required. See [Configuration → Automatic Scheduling](reference/configuration#automatic-scheduling) for details.
+:::
 
 ## Create Handlers
 

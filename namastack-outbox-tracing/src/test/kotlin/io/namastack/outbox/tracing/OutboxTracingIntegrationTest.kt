@@ -14,7 +14,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment
 import org.springframework.context.annotation.Import
-import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.stereotype.Component
 import java.util.concurrent.TimeUnit.SECONDS
 import java.util.concurrent.atomic.AtomicReference
@@ -75,7 +74,6 @@ class OutboxTracingIntegrationTest {
         val value: String,
     )
 
-    @EnableScheduling
     @SpringBootApplication
     class TestApplication
 

@@ -15,7 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
-import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.stereotype.Component
 import org.springframework.test.annotation.DirtiesContext
 import java.util.concurrent.TimeUnit
@@ -70,7 +69,6 @@ abstract class AbstractJdbcSchemaInitializationTest {
         return false
     }
 
-    @EnableScheduling
     @SpringBootApplication
     class TestApplication
 

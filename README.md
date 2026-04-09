@@ -70,19 +70,7 @@ dependencies {
 
 > **Note:** We use the JDBC starter here for automatic schema creation. For JPA/Hibernate projects, see [JPA Setup](#jpa-setup) below.
 
-### 2. Enable Scheduling
-
-```kotlin
-@SpringBootApplication
-@EnableScheduling  // Required for automatic outbox processing
-class Application
-
-fun main(args: Array<String>) {
-    runApplication<Application>(*args)
-}
-```
-
-### 3. Create Handlers
+### 2. Create Handlers
 
 ```kotlin
 @Component
@@ -105,7 +93,7 @@ class OrderHandlers {
 }
 ```
 
-### 4. Schedule Records Atomically
+### 3. Schedule Records Atomically
 
 ```kotlin
 @Service
@@ -162,7 +150,7 @@ Both approaches work equally well. Choose based on your preference:
 - **Explicit `outbox.schedule()`**: More control, clearer intent, supports any payload type
 - **`@OutboxEvent` + `ApplicationEventPublisher`**: More Spring idiomatic for domain events
 
-### 5. Configure (Optional)
+### 4. Configure (Optional)
 
 ```yaml
 namastack:
