@@ -45,8 +45,7 @@ other integrations.
 
 ## Documentation
 
-For detailed information about features, configuration, and advanced topics, visit the *
-*[complete documentation](https://www.namastack.io/outbox)**.
+For detailed information about features, configuration, and advanced topics, visit the **[complete documentation](https://www.namastack.io/outbox)**.
 
 Quick links:
 
