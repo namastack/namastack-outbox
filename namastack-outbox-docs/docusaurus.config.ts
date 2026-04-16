@@ -1,7 +1,26 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
-import remarkVariables from './src/plugins/remark-variables';
+import versions from './versions.json';
+
+// First entry in versions.json is the latest stable version
+const latestVersion = versions[0];
+const olderVersions = versions.slice(1);
+
+// Build version config: latest gets indexed, all others get noIndex
+const versionConfig: Record<string, {label: string; noIndex?: boolean}> = {
+  current: {label: 'Next', noIndex: true},
+  [latestVersion]: {label: latestVersion},
+};
+for (const v of olderVersions) {
+  versionConfig[v] = {label: v, noIndex: true};
+}
+
+// Sitemap ignore patterns: exclude old versions and "next"
+const sitemapIgnorePatterns = [
+  '/outbox/next/**',
+  ...olderVersions.map((v) => `/outbox/${v}/**`),
+];
 
 const config: Config = {
   title: 'Namastack Outbox',
@@ -49,6 +68,26 @@ const config: Config = {
         docs: {
           routeBasePath: '/',
           sidebarPath: './sidebars.ts',
+          lastVersion: latestVersion,
+          versions: versionConfig,
+        },
+        sitemap: {
+          changefreq: 'weekly' as const,
+          priority: 0.5,
+          ignorePatterns: [
+            ...sitemapIgnorePatterns,
+            '/outbox/search/**',
+          ],
+          async createSitemapItems({defaultCreateSitemapItems, ...params}) {
+            const items = await defaultCreateSitemapItems({...params});
+            return items.map((item) => {
+              // Give the homepage and quickstart higher priority
+              if (item.url.endsWith('/outbox/') || item.url.includes('/quickstart/')) {
+                return {...item, priority: 0.8};
+              }
+              return item;
+            });
+          },
         },
         theme: {
           customCss: './src/css/custom.css',
@@ -69,6 +108,10 @@ const config: Config = {
         highlightSearchTermsOnTargetPage: true,
         docsRouteBasePath: '/',
       },
+    ],
+    [
+      './plugins/canonical-fix-plugin',
+      {},
     ],
   ],
 

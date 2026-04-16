@@ -449,6 +449,21 @@ class OutboxRoutingTest {
         fun `returns true by default`() {
             val routing =
                 testRouting {
+                    route(OutboxPayloadSelector.type(Int::class.javaObjectType)) {
+                        target("ints")
+                    }
+                    defaults {
+                        target("default")
+                    }
+                }
+
+            assertThat(routing.shouldExternalize("test", metadata)).isTrue()
+        }
+
+        @Test
+        fun `returns true when matching route by default`() {
+            val routing =
+                testRouting {
                     route(OutboxPayloadSelector.type(String::class.java)) {
                         target("strings")
                     }
@@ -458,7 +473,7 @@ class OutboxRoutingTest {
         }
 
         @Test
-        fun `returns true when no matching route`() {
+        fun `returns false when no matching route`() {
             val routing =
                 testRouting {
                     route(OutboxPayloadSelector.type(Int::class.javaObjectType)) {
@@ -466,7 +481,7 @@ class OutboxRoutingTest {
                     }
                 }
 
-            assertThat(routing.shouldExternalize("string-payload", metadata)).isTrue()
+            assertThat(routing.shouldExternalize("string-payload", metadata)).isFalse()
         }
 
         @Test
@@ -635,10 +650,10 @@ class OutboxRoutingTest {
         }
 
         @Test
-        fun `empty routing returns true from shouldExternalize`() {
+        fun `empty routing returns false from shouldExternalize`() {
             val routing = TestOutboxRouting(emptyList(), null)
 
-            assertThat(routing.shouldExternalize("test", metadata)).isTrue()
+            assertThat(routing.shouldExternalize("test", metadata)).isFalse()
         }
 
         @Test

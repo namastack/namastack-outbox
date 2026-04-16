@@ -5,6 +5,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.aop.framework.ProxyFactory
 
 @DisplayName("TypedHandlerMethod")
 class TypedHandlerMethodTest {
@@ -127,6 +128,68 @@ class TypedHandlerMethodTest {
             val typedHandler = TypedHandlerMethod(handler, method)
 
             assertThat(typedHandler.paramType).isEqualTo(TestPayload::class)
+        }
+    }
+
+    @Nested
+    @DisplayName("CGLIB Proxy ID Stability")
+    inner class ProxyIdStabilityTests {
+        private val targetBean = TestHandler()
+        private val method = TestHandler::class.java.getMethod("handle", String::class.java)
+
+        @Test
+        fun `handler ID uses target class name not CGLIB proxy class name`() {
+            val proxiedBean = createCglibProxy(targetBean)
+            val handlerFromTarget = TypedHandlerMethod(targetBean, method)
+            val handlerFromProxy = TypedHandlerMethod(proxiedBean, method)
+
+            assertThat(handlerFromProxy.id).isEqualTo(handlerFromTarget.id)
+        }
+
+        @Test
+        fun `handler ID contains original class name not proxy class name`() {
+            val proxiedBean = createCglibProxy(targetBean)
+            val handlerFromProxy = TypedHandlerMethod(proxiedBean, method)
+
+            assertThat(handlerFromProxy.id).contains("TestHandler")
+            assertThat(handlerFromProxy.id).doesNotContain("CGLIB")
+            assertThat(handlerFromProxy.id).doesNotContain("$$")
+        }
+
+        private fun createCglibProxy(bean: Any): Any {
+            val proxyFactory = ProxyFactory(bean)
+            proxyFactory.isProxyTargetClass = true
+            proxyFactory.addAdvice(org.aopalliance.intercept.MethodInterceptor { it.proceed() })
+
+            return proxyFactory.proxy
+        }
+
+        open inner class TestHandler {
+            open fun handle(payload: String) {
+                // no-op
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("invoke() accessibility edge cases")
+    inner class AccessibilityEdgeCases {
+        @Test
+        fun `should invoke public handle method in package-private class`() {
+            class PackagePrivateHandler {
+                fun handle(payload: String) {
+                    received = payload
+                }
+
+                var received: String? = null
+            }
+
+            val handler = PackagePrivateHandler()
+            val method = handler::class.java.getMethod("handle", String::class.java)
+            val typedHandler = TypedHandlerMethod(handler, method)
+
+            typedHandler.invoke("edge-case", createMetadata())
+            assertThat(handler.received).isEqualTo("edge-case")
         }
     }
 

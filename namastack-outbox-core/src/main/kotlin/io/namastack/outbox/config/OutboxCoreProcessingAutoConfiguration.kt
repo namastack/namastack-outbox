@@ -2,6 +2,9 @@ package io.namastack.outbox.config
 
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
+import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
+import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.processor.FallbackOutboxRecordProcessor
 import io.namastack.outbox.processor.OutboxRecordProcessor
 import io.namastack.outbox.processor.PermanentFailureOutboxRecordProcessor
@@ -20,8 +23,9 @@ class OutboxCoreProcessingAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun outboxRecordProcessorChain(
-        handlerInvoker: io.namastack.outbox.handler.invoker.OutboxHandlerInvoker,
-        fallbackHandlerInvoker: io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker,
+        handlerInvoker: OutboxHandlerInvoker,
+        fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
+        fallbackHandlerInvoker: OutboxFallbackHandlerInvoker,
         recordRepository: OutboxRecordRepository,
         retryPolicyRegistry: OutboxRetryPolicyRegistry,
         properties: OutboxProperties,
@@ -32,8 +36,8 @@ class OutboxCoreProcessingAutoConfiguration {
         val fallback =
             FallbackOutboxRecordProcessor(
                 recordRepository = recordRepository,
+                fallbackHandlerRegistry = fallbackHandlerRegistry,
                 fallbackHandlerInvoker = fallbackHandlerInvoker,
-                retryPolicyRegistry = retryPolicyRegistry,
                 properties = properties,
                 clock = clock,
             )

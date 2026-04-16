@@ -1,0 +1,25 @@
+{
+  "groups": [
+    {
+      "name": "namastack.outbox.sns",
+      "type": "io.namastack.outbox.sns.SnsOutboxProperties",
+      "description": "Configuration properties for SNS outbox integration."
+    }
+  ],
+  "properties": [
+    {
+      "name": "namastack.outbox.sns.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether SNS outbox integration is enabled.",
+      "defaultValue": true
+    },
+    {
+      "name": "namastack.outbox.sns.default-topic-arn",
+      "type": "java.lang.String",
+      "description": "Default SNS topic ARN for outbox events.",
+      "defaultValue": "arn:aws:sns:us-east-1:000000000000:outbox-events"
+    }
+  ],
+  "hints": []
+}
+

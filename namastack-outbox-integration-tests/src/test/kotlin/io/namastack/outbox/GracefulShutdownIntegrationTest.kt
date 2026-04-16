@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.context.annotation.Import
-import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.stereotype.Component
 import org.springframework.test.context.TestPropertySource
 import org.springframework.transaction.annotation.Propagation
@@ -76,7 +75,7 @@ class GracefulShutdownIntegrationTest {
         val shutdownCompleted = AtomicBoolean(false)
         val shutdownThread =
             Thread {
-                outboxProcessingScheduler.unregisterJob()
+                outboxProcessingScheduler.stop()
                 shutdownCompleted.set(true)
             }
         shutdownThread.start()
@@ -109,7 +108,7 @@ class GracefulShutdownIntegrationTest {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `process skips new cycles after shutdown is initiated`() {
         // Given: Shutdown has been initiated (no records yet)
-        outboxProcessingScheduler.unregisterJob()
+        outboxProcessingScheduler.stop()
 
         // When: Create a record after shutdown
         createRecord("new-key", "new-payload")
@@ -175,7 +174,6 @@ class GracefulShutdownIntegrationTest {
         }
     }
 
-    @EnableScheduling
     @SpringBootApplication
     class TestApplication
 }

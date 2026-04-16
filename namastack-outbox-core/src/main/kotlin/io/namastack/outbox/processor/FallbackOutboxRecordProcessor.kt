@@ -4,7 +4,7 @@ import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
-import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
+import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import org.slf4j.LoggerFactory
 import java.time.Clock
 
@@ -15,8 +15,7 @@ import java.time.Clock
  * On failure: stores fallback exception, passes to next processor in chain.
  *
  * @param recordRepository Repository for persisting record state
- * @param fallbackHandlerInvoker Dispatcher for fallback handlers
- * @param retryPolicyRegistry Registry for retry policies
+ * @param fallbackHandlerInvoker Invoker for fallback handlers
  * @param properties Configuration
  * @param clock Clock for completion timestamp
  *
@@ -25,8 +24,8 @@ import java.time.Clock
  */
 class FallbackOutboxRecordProcessor(
     private val recordRepository: OutboxRecordRepository,
+    private val fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
     private val fallbackHandlerInvoker: OutboxFallbackHandlerInvoker,
-    private val retryPolicyRegistry: OutboxRetryPolicyRegistry,
     private val properties: OutboxProperties,
     private val clock: Clock,
 ) : OutboxRecordProcessor() {
@@ -35,20 +34,19 @@ class FallbackOutboxRecordProcessor(
     /**
      * Processes record by dispatching to fallback handler.
      *
-     * @return true if fallback handler succeeded, false if next processor should process
+     * If no fallback handler is registered, delegates to the next processor in the chain.
+     * If the fallback handler throws, stores the exception on the record and delegates to the next processor.
+     *
+     * @return true if the fallback handler succeeded, otherwise the result of the next processor in the chain
      */
     override fun handle(record: OutboxRecord<*>): Boolean {
         try {
-            val failureException = getFailureException(record)
-
+            if (!fallbackHandlerRegistry.existsByHandlerId(record.handlerId)) {
+                log.debug("No fallback handler registered for handlerId: {}", record.handlerId)
+                return handleNext(record)
+            }
             log.debug("Dispatching record {} to fallback handler", record.id)
-            val success =
-                fallbackHandlerInvoker.dispatch(
-                    payload = record.payload,
-                    context = record.toFailureContext(failureException, retryPolicyRegistry),
-                )
-
-            if (!success) return handleNext(record)
+            fallbackHandlerInvoker.dispatch(record)
 
             completeRecord(record, recordRepository, properties, clock)
 
@@ -61,13 +59,4 @@ class FallbackOutboxRecordProcessor(
             return handleNext(record)
         }
     }
-
-    /**
-     * Gets failure exception from record.
-     * Exception must exist since this processor only handles failed records.
-     */
-    private fun getFailureException(record: OutboxRecord<*>): Throwable =
-        checkNotNull(record.failureException) {
-            "Expected failure exception in record ${record.id} but found none"
-        }
 }

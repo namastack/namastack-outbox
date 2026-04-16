@@ -6,6 +6,7 @@ import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -161,6 +162,49 @@ class OutboxHandlerRegistryTest {
         fun `should return null for unknown ID`() {
             val result = registry.getHandlerById("unknown-id")
             assertThat(result).isNull()
+        }
+    }
+
+    @Nested
+    @DisplayName("registerAlias()")
+    inner class RegisterAliasTests {
+        @Test
+        fun `should allow lookup by alias ID`() {
+            val handler = createMockTypedHandler("stable-id", TestPayload::class)
+            registry.register(handler)
+            registry.registerAlias("legacy-id", handler)
+
+            assertThat(registry.getHandlerById("legacy-id")).isEqualTo(handler)
+        }
+
+        @Test
+        fun `should still allow lookup by stable ID after alias registration`() {
+            val handler = createMockTypedHandler("stable-id", TestPayload::class)
+            registry.register(handler)
+            registry.registerAlias("legacy-id", handler)
+
+            assertThat(registry.getHandlerById("stable-id")).isEqualTo(handler)
+        }
+
+        @Test
+        fun `should not add alias to typed handlers list`() {
+            val handler = createMockTypedHandler("stable-id", TestPayload::class)
+            registry.register(handler)
+            registry.registerAlias("legacy-id", handler)
+
+            val typedHandlers = registry.getHandlersForPayloadType(TestPayload::class)
+            assertThat(typedHandlers).hasSize(1)
+        }
+
+        @Test
+        fun `should throw on duplicate alias ID`() {
+            val handler1 = createMockTypedHandler("existing-id", TestPayload::class)
+            val handler2 = createMockTypedHandler("other-id", AnotherPayload::class)
+            registry.register(handler1)
+            registry.register(handler2)
+
+            assertThatThrownBy { registry.registerAlias("existing-id", handler2) }
+                .isInstanceOf(IllegalStateException::class.java)
         }
     }
 

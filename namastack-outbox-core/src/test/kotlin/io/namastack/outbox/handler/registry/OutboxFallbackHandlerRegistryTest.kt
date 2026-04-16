@@ -43,6 +43,25 @@ class OutboxFallbackHandlerRegistryTest {
     }
 
     @Test
+    fun `returns true when fallback handler registered for handler ID`() {
+        val handlerId = "handler-1"
+        val fallbackHandler = mockk<OutboxFallbackHandlerMethod>()
+
+        registry.register(handlerId, fallbackHandler)
+
+        val result = registry.existsByHandlerId(handlerId)
+
+        assertThat(result).isTrue()
+    }
+
+    @Test
+    fun `returns false when no fallback handler registered for handler ID via exists check`() {
+        val result = registry.existsByHandlerId("non-existent-handler")
+
+        assertThat(result).isFalse()
+    }
+
+    @Test
     fun `returns null when no fallback handler registered for handler ID`() {
         val result = registry.getByHandlerId("non-existent-handler")
 
@@ -88,6 +107,31 @@ class OutboxFallbackHandlerRegistryTest {
 
         val result = registry.getByHandlerId("handler-2")
         assertThat(result).isNull()
+    }
+
+    @Test
+    fun `registers alias and allows lookup by alias ID`() {
+        val handlerId = "stable-id"
+        val aliasId = "legacy-id"
+        val fallbackHandler = mockk<OutboxFallbackHandlerMethod>()
+
+        registry.register(handlerId, fallbackHandler)
+        registry.registerAlias(aliasId, fallbackHandler)
+
+        assertThat(registry.getByHandlerId(aliasId)).isSameAs(fallbackHandler)
+        assertThat(registry.getByHandlerId(handlerId)).isSameAs(fallbackHandler)
+    }
+
+    @Test
+    fun `alias throws on duplicate ID`() {
+        val handlerId = "handler-1"
+        val fallbackHandler1 = mockk<OutboxFallbackHandlerMethod>()
+        val fallbackHandler2 = mockk<OutboxFallbackHandlerMethod>()
+
+        registry.register(handlerId, fallbackHandler1)
+
+        assertThatThrownBy { registry.registerAlias(handlerId, fallbackHandler2) }
+            .isInstanceOf(IllegalStateException::class.java)
     }
 
     @Test

@@ -1,5 +1,5 @@
 plugins {
-    id("org.springframework.boot") version "4.0.3"
+    id("org.springframework.boot") version "4.0.4"
     id("io.spring.dependency-management") version "1.1.7"
     kotlin("jvm") version "2.2.20"
     kotlin("plugin.spring") version "2.2.21"
@@ -17,7 +17,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
-    implementation("io.namastack:namastack-outbox-starter-jdbc:1.1.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jdbc:1.4.0-SNAPSHOT")
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentCache
@@ -11,6 +12,7 @@ import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.transaction.annotation.Propagation
@@ -23,6 +25,7 @@ import java.util.concurrent.TimeUnit.SECONDS
 
 @DirtiesContext
 @OutboxIntegrationTest
+@ImportAutoConfiguration(exclude = [OutboxCoreSchedulingAutoConfiguration::class])
 class PartitioningIntegrationTest {
     private val clock: Clock = Clock.systemDefaultZone()
 

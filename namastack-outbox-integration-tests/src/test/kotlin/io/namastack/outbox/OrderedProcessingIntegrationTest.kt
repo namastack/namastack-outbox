@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.context.annotation.Import
-import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.stereotype.Component
 import org.springframework.test.context.TestPropertySource
 import org.springframework.transaction.annotation.Propagation
@@ -100,7 +99,6 @@ class OrderedProcessingIntegrationTest {
         }
     }
 
-    @EnableScheduling
     @SpringBootApplication
     class TestApplication
 }

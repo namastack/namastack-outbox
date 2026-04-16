@@ -26,6 +26,14 @@ class OutboxFallbackHandlerRegistry {
     private val fallbackHandlersByHandlerId = mutableMapOf<String, OutboxFallbackHandlerMethod>()
 
     /**
+     * Checks whether a fallback handler is registered for the given handler ID.
+     *
+     * @param id The unique handler ID (from metadata.handlerId)
+     * @return `true` if a fallback handler is registered for the given ID, `false` otherwise
+     */
+    fun existsByHandlerId(id: String): Boolean = fallbackHandlersByHandlerId.containsKey(id)
+
+    /**
      * Retrieves the fallback handler for a specific handler by its unique ID.
      *
      * Used by the outbox processing scheduler to find the fallback handler to invoke
@@ -58,6 +66,25 @@ class OutboxFallbackHandlerRegistry {
     ) {
         check(fallbackHandlersByHandlerId.putIfAbsent(handlerId, fallbackHandlerMethod) == null) {
             "Multiple fallback handlers for handler ID detected: $handlerId"
+        }
+    }
+
+    /**
+     * Registers a legacy alias ID that points to the same fallback handler.
+     *
+     * Used for backward compatibility when handler IDs in existing database records
+     * were generated using CGLIB proxy class names.
+     *
+     * @param aliasId The legacy handler ID to register as an alias
+     * @param fallbackHandlerMethod The fallback handler method this alias should resolve to
+     * @throws IllegalStateException if the alias ID is already registered
+     */
+    internal fun registerAlias(
+        aliasId: String,
+        fallbackHandlerMethod: OutboxFallbackHandlerMethod,
+    ) {
+        check(fallbackHandlersByHandlerId.putIfAbsent(aliasId, fallbackHandlerMethod) == null) {
+            "Duplicate fallback alias ID detected: $aliasId"
         }
     }
 }

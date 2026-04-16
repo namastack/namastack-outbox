@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: namastack-outbox-example-sns
+
+  datasource:
+    url: jdbc:h2:mem:demo;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+
+  cloud:
+    aws:
+      region:
+        static: us-east-1
+      credentials:
+        access-key: test
+        secret-key: test
+      sns:
+        endpoint: http://localhost:4566
+      sqs:
+        endpoint: http://localhost:4566
+
+namastack:
+  outbox:
+    sns:
+      default-topic-arn: arn:aws:sns:us-east-1:000000000000:customers
+
+logging:
+  level:
+    root: info
+    io.namastack: debug
+

@@ -1,10 +1,11 @@
 [versions]
 # Kotlin and Plugin versions
-kotlin = "2.3.10"
-springBoot = "4.0.3"
+kotlin = "2.3.20"
+springBoot = "4.0.5"
+springCloudAws = "4.0.0"
 dependencyManagement = "1.1.7"
-ktlint = "14.1.0"
-dokka = "2.1.0"
+ktlint = "14.2.0"
+dokka = "2.2.0"
 publish = "0.36.0"
 
 # Dependency versions
@@ -13,11 +14,14 @@ testcontainers = "1.21.4"
 
 [libraries]
 # Spring Boot dependencies
-spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot"}
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
 spring-boot = { module = "org.springframework.boot:spring-boot" }
 spring-boot-amqp = { module = "org.springframework.boot:spring-boot-amqp" }
 spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator" }
 spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure" }
+spring-boot-tracing = { module = "org.springframework.boot:spring-boot-micrometer-tracing" }
+spring-boot-opentelemetry = { module = "org.springframework.boot:spring-boot-opentelemetry" }
+spring-boot-micrometer-opentelemetry = { module = "org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry" }
 spring-boot-hibernate = { module = "org.springframework.boot:spring-boot-hibernate" }
 spring-boot-jdbc = { module = "org.springframework.boot:spring-boot-jdbc" }
 spring-boot-kafka = { module = "org.springframework.boot:spring-boot-kafka" }
@@ -33,6 +37,11 @@ spring-jdbc = { module = "org.springframework:spring-jdbc" }
 spring-kafka = { module = "org.springframework.kafka:spring-kafka" }
 spring-rabbit = { module = "org.springframework.amqp:spring-rabbit" }
 spring-tx = { module = "org.springframework:spring-tx" }
+
+# Spring Cloud AWS
+spring-cloud-aws-bom = { module = "io.awspring.cloud:spring-cloud-aws-dependencies", version.ref = "springCloudAws" }
+spring-cloud-aws-sns = { module = "io.awspring.cloud:spring-cloud-aws-sns" }
+spring-cloud-aws-autoconfigure = { module = "io.awspring.cloud:spring-cloud-aws-autoconfigure" }
 
 # Jakarta dependencies
 jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api" }
@@ -58,6 +67,9 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 
 # Metrics dependencies
 micrometer-core = { module = "io.micrometer:micrometer-core" }
+micrometer-observation = { module = "io.micrometer:micrometer-observation" }
+micrometer-tracing = { module = "io.micrometer:micrometer-tracing" }
+micrometer-tracing-bridge-otel = { module = "io.micrometer:micrometer-tracing-bridge-otel" }
 
 # Logging dependencies
 slf4j-api = { module = "org.slf4j:slf4j-api" }

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.ApplicationContext
 import org.springframework.context.PayloadApplicationEvent
 import org.springframework.context.event.ContextRefreshedEvent
@@ -23,6 +24,7 @@ import java.math.BigDecimal
 @DisplayName("OutboxEventMulticaster")
 class OutboxEventMulticasterTest {
     private var outbox = mockk<Outbox>(relaxed = true)
+    private var outboxProvider = mockk<ObjectProvider<Outbox>>(relaxed = true)
     private var outboxProperties = OutboxProperties(multicaster = OutboxProperties.Multicaster(publishAfterSave = true))
     private var delegateEventMulticaster = mockk<SimpleApplicationEventMulticaster>()
 
@@ -34,12 +36,13 @@ class OutboxEventMulticasterTest {
 
         eventMulticaster =
             OutboxEventMulticaster(
-                outbox = outbox,
+                outboxProvider = outboxProvider,
                 outboxProperties = outboxProperties,
                 delegateEventMulticaster = delegateEventMulticaster,
             )
 
         every { delegateEventMulticaster.multicastEvent(any(), any()) } answers { }
+        every { outboxProvider.getIfAvailable() } returns outbox
     }
 
     @AfterEach
@@ -113,7 +116,7 @@ class OutboxEventMulticasterTest {
             val localProperties = OutboxProperties(multicaster = OutboxProperties.Multicaster(publishAfterSave = false))
             val localMulticaster =
                 OutboxEventMulticaster(
-                    outbox = outbox,
+                    outboxProvider = outboxProvider,
                     outboxProperties = localProperties,
                     delegateEventMulticaster = delegateEventMulticaster,
                 )
@@ -130,11 +133,26 @@ class OutboxEventMulticasterTest {
         }
 
         @Test
+        fun `should throw when no outbox bean available`() {
+            every { outboxProvider.getIfAvailable() } returns null
+
+            val event = PayloadApplicationEvent(this, AnnotatedEvent(id = "agg-1"))
+
+            assertThatThrownBy {
+                eventMulticaster.multicastEvent(event)
+            }.isInstanceOf(IllegalStateException::class.java)
+                .hasMessage("No Outbox bean available to schedule @OutboxEvent")
+
+            verify(exactly = 0) { delegateEventMulticaster.multicastEvent(any(), any()) }
+            verify(exactly = 0) { outbox.schedule(any(), any(), any()) }
+        }
+
+        @Test
         fun `should not publish to delegate when deprecated publishAfterSave is false`() {
             val localProperties = OutboxProperties(processing = OutboxProperties.Processing(publishAfterSave = false))
             val localMulticaster =
                 OutboxEventMulticaster(
-                    outbox = outbox,
+                    outboxProvider = outboxProvider,
                     outboxProperties = localProperties,
                     delegateEventMulticaster = delegateEventMulticaster,
                 )

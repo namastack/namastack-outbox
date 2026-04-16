@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Import
-import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
@@ -185,7 +184,6 @@ class EventMulticasterIntegrationTest {
         val handledEvents = ConcurrentHashMap<String, MutableList<Any>>()
     }
 
-    @EnableScheduling
     @SpringBootApplication
     class TestApplication
 }

@@ -206,6 +206,38 @@ class RabbitOutboxHandlerTest {
         }
 
         @Test
+        fun `skips sending when routes do not match`() {
+            data class OrderEvent(
+                val orderId: String,
+            )
+
+            data class PaymentEvent(
+                val paymentId: String,
+            )
+
+            data class UserEvent(
+                val userId: String,
+            )
+
+            val routing =
+                rabbitOutboxRouting {
+                    route(OutboxPayloadSelector.type(OrderEvent::class.java)) {
+                        target("orders")
+                    }
+                    route(OutboxPayloadSelector.type(PaymentEvent::class.java)) {
+                        target("payments")
+                    }
+                }
+            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
+
+            handler.handle(UserEvent("user-1"), metadata)
+
+            verify(exactly = 0) {
+                rabbitMessageOperations.convertAndSend(any<String>(), any(), any(), any<Map<String, String>>())
+            }
+        }
+
+        @Test
         fun `uses dynamic exchange resolver`() {
             data class Event(
                 val type: String,
