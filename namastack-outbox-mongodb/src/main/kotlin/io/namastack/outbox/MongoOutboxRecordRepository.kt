@@ -17,6 +17,7 @@ import java.time.Instant
 internal open class MongoOutboxRecordRepository(
     private val mongoTemplate: MongoTemplate,
     private val entityMapper: MongoOutboxRecordEntityMapper,
+    private val clock: java.time.Clock,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
 
@@ -45,18 +46,9 @@ internal open class MongoOutboxRecordRepository(
     /**
      * Finds record keys in specified partitions that are ready for processing.
      *
-     * When [ignoreRecordKeysWithPreviousFailure] is false, uses a single aggregation
-     * pipeline for atomic execution.
-     *
-     * When [ignoreRecordKeysWithPreviousFailure] is true, uses a two-step approach:
-     * 1. Find candidate records via aggregation pipeline
-     * 2. For each candidate, check if older incomplete records exist
-     *
-     * Note: The two-step approach has a small theoretic race window between steps.
-     * In practice, the partition system ensures only one instance processes each
-     * partition at a time, eliminating concurrent access during normal operation.
-     * Race conditions can only occur during the brief rebalancing window when an
-     * instance fails.
+     * This implementation uses an atomic aggregation pipeline to ensure strict FIFO
+     * processing per recordKey. It identifies the oldest incomplete record for each
+     * key and only returns the key if that specific oldest record is ready.
      */
     override fun findRecordKeysInPartitions(
         partitions: Set<Int>,
@@ -64,78 +56,49 @@ internal open class MongoOutboxRecordRepository(
         batchSize: Int,
         ignoreRecordKeysWithPreviousFailure: Boolean
     ): List<String> {
-        val now = Instant.now()
+        val now = Instant.now(clock)
 
-        if (!ignoreRecordKeysWithPreviousFailure) {
-            return findRecordKeysSimple(partitions, status, now, batchSize)
-        }
+        val matchIncomplete = Aggregation.match(
+            Criteria.where("partitionNo").`in`(partitions)
+                .and("completedAt").`is`(null)
+        )
 
-        return findRecordKeysWithFailureFilter(partitions, status, now, batchSize)
-    }
+        val sortOldestFirst = Aggregation.sort(
+            Sort.by(
+                Sort.Order.asc("recordKey"),
+                Sort.Order.asc("createdAt")
+            )
+        )
 
-    /**
-     * Simple query using aggregation pipeline: find distinct record keys in partitions,
-     * ordered by oldest createdAt. This is a single atomic database operation.
-     */
-    private fun findRecordKeysSimple(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-        now: Instant,
-        batchSize: Int
-    ): List<String> {
-        val aggregation = Aggregation.newAggregation(
-            Aggregation.match(
-                Criteria.where("partitionNo").`in`(partitions)
-                    .and("status").`is`(status)
-                    .and("nextRetryAt").lte(now)
-            ),
-            Aggregation.sort(Sort.by(Sort.Order.asc("createdAt"))),
-            Aggregation.group("recordKey")
-                .first("createdAt").`as`("minCreatedAt"),
-            Aggregation.sort(Sort.by(Sort.Order.asc("minCreatedAt"))),
+        // Group by recordKey and take the absolute oldest record (the "blocker")
+        val groupByRecordKey = Aggregation.group("recordKey")
+            .first(Aggregation.ROOT).`as`("oldestDoc")
+
+        // Only process if the oldest record for this key matches our target status and retry time
+        // If the 'ignoreRecordKeysWithPreviousFailure' is false, it's simpler but we stick to the
+        // atomic pipeline for safety and consistency.
+        val filterReady = Aggregation.match(
+            Criteria.where("oldestDoc.status").`is`(status.name)
+                .and("oldestDoc.nextRetryAt").lte(now)
+        )
+
+        val finalAggregation = Aggregation.newAggregation(
+            matchIncomplete,
+            sortOldestFirst,
+            groupByRecordKey,
+            filterReady,
+            Aggregation.sort(Sort.by(Sort.Order.asc("oldestDoc.createdAt"))),
             Aggregation.limit(batchSize.toLong()),
+            Aggregation.project()
+                .andExclude("_id")
+                .and("_id").`as`("recordKey")
         )
 
         return mongoTemplate.aggregate(
-            aggregation,
+            finalAggregation,
             MongoOutboxRecordEntity.COLLECTION_NAME,
-            RecordKeyResult::class.java
-        ).mappedResults.map { it.id }
-    }
-
-    /**
-     * Advanced query: find record keys, filtering out keys with older incomplete records.
-     *
-     * Uses aggregation to find candidates, then checks for blockers.
-     * The partition ownership model ensures this is safe under normal operation.
-     */
-    private fun findRecordKeysWithFailureFilter(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-        now: Instant,
-        batchSize: Int
-    ): List<String> {
-        val criteria = Criteria.where("partitionNo").`in`(partitions)
-            .and("status").`is`(status)
-            .and("nextRetryAt").lte(now)
-
-        val query = Query(criteria)
-            .with(Sort.by(Sort.Order.asc("createdAt")))
-            .limit(batchSize * 5)
-
-        val records = mongoTemplate.find(query, MongoOutboxRecordEntity::class.java)
-
-        return records.filter { record ->
-            val olderIncompleteQuery = Query(
-                Criteria.where("recordKey").`is`(record.recordKey)
-                    .and("completedAt").`is`(null)
-                    .and("createdAt").lt(record.createdAt)
-            ).limit(1)
-            !mongoTemplate.exists(olderIncompleteQuery, MongoOutboxRecordEntity::class.java)
-        }
-            .map { it.recordKey }
-            .distinct()
-            .take(batchSize)
+            RecordKeyDto::class.java
+        ).mappedResults.map { it.recordKey }
     }
 
     override fun countByStatus(status: OutboxRecordStatus): Long {
@@ -178,9 +141,9 @@ internal open class MongoOutboxRecordRepository(
 }
 
 /**
- * DTO for aggregation pipeline result — maps _id field from $group stage.
+ * Result DTO for the aggregation pipeline.
+ * Extracts the recordKey field from the project stage.
  */
-internal data class RecordKeyResult(
-    val id: String = "",
-    val minCreatedAt: Instant? = null,
+internal data class RecordKeyDto(
+    val recordKey: String = "",
 )

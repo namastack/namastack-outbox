@@ -21,7 +21,7 @@ internal data class MongoOutboxPartitionAssignmentEntity(
     val instanceId: String?,
     
     @Version
-    val version: Long = 0,
+    val version: Long? = null,
     
     val updatedAt: Instant,
 )

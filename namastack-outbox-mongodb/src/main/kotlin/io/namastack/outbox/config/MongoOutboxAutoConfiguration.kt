@@ -53,28 +53,33 @@ class MongoOutboxAutoConfiguration {
     internal fun outboxMongoTransactionTemplate(beanFactory: BeanFactory): TransactionTemplate =
         TransactionTemplate(beanFactory.getBean<MongoTransactionManager>("outboxMongoTransactionManager"))
 
+    /**
+     * Provides a default Clock bean if none is configured.
+     *
+     * @return System default zone clock
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun clock(): java.time.Clock = java.time.Clock.systemDefaultZone()
+
     @Bean
     @ConditionalOnMissingBean
     internal fun mongoOutboxRecordEntityMapper(serializer: OutboxPayloadSerializer): MongoOutboxRecordEntityMapper =
         MongoOutboxRecordEntityMapper(serializer)
 
-    @Bean
-    @ConditionalOnMissingBean
+    @Bean(name = ["outboxRecordRepository", "outboxRecordStatusRepository"])
+    @ConditionalOnMissingBean(OutboxRecordRepository::class, OutboxRecordStatusRepository::class)
     internal fun outboxRecordRepository(
         mongoTemplate: MongoTemplate,
         entityMapper: MongoOutboxRecordEntityMapper,
-    ): OutboxRecordRepository = MongoOutboxRecordRepository(mongoTemplate, entityMapper)
+        clock: java.time.Clock,
+    ): MongoOutboxRecordRepository = MongoOutboxRecordRepository(mongoTemplate, entityMapper, clock)
 
     @Bean
     @ConditionalOnMissingBean
-    internal fun outboxRecordStatusRepository(
+    internal fun outboxInstanceRepository(
         mongoTemplate: MongoTemplate,
-        entityMapper: MongoOutboxRecordEntityMapper,
-    ): OutboxRecordStatusRepository = MongoOutboxRecordRepository(mongoTemplate, entityMapper)
-
-    @Bean
-    @ConditionalOnMissingBean
-    internal fun outboxInstanceRepository(mongoTemplate: MongoTemplate): OutboxInstanceRepository =
+    ): OutboxInstanceRepository =
         MongoOutboxInstanceRepository(mongoTemplate)
 
     @Bean

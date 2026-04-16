@@ -18,7 +18,12 @@ import java.time.Instant
     CompoundIndex(name = "record_key_created_idx", def = "{'recordKey': 1, 'createdAt': 1}"),
     CompoundIndex(name = "partition_status_retry_idx", def = "{'partitionNo': 1, 'status': 1, 'nextRetryAt': 1}"),
     CompoundIndex(name = "status_retry_idx", def = "{'status': 1, 'nextRetryAt': 1}"),
-    CompoundIndex(name = "record_key_completed_created_idx", def = "{'recordKey': 1, 'completedAt': 1, 'createdAt': 1}")
+    CompoundIndex(name = "record_key_completed_created_idx", def = "{'recordKey': 1, 'completedAt': 1, 'createdAt': 1}"),
+    CompoundIndex(
+        name = "fifo_pipeline_idx",
+        def = "{'partitionNo': 1, 'recordKey': 1, 'createdAt': 1}",
+        useGeneratedName = false
+    )
 )
 internal data class MongoOutboxRecordEntity(
     @Id

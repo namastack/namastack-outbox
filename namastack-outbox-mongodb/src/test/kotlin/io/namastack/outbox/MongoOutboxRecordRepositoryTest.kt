@@ -40,7 +40,7 @@ class MongoOutboxRecordRepositoryTest {
         val serializer = JacksonOutboxPayloadSerializer(mapper)
         val entityMapper = MongoOutboxRecordEntityMapper(serializer)
 
-        repository = MongoOutboxRecordRepository(mongoTemplate, entityMapper)
+        repository = MongoOutboxRecordRepository(mongoTemplate, entityMapper, clock)
         mongoTemplate.dropCollection(MongoOutboxRecordEntity::class.java)
     }
 

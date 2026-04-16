@@ -13,7 +13,7 @@ internal object MongoOutboxPartitionAssignmentEntityMapper {
         MongoOutboxPartitionAssignmentEntity(
             partitionNumber = assignment.partitionNumber,
             instanceId = assignment.instanceId,
-            version = assignment.version ?: 0,
+            version = assignment.version,
             updatedAt = assignment.updatedAt,
         )
 
