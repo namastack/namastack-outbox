@@ -57,21 +57,21 @@ internal open class MongoOutboxInstanceRepository(
     }
 
     override fun updateHeartbeat(instanceId: String, timestamp: Instant): Boolean {
-        val query = Query(Criteria.where("instanceId").`is`(instanceId))
+        val query = Query(Criteria.where("_id").`is`(instanceId))
         val update = Update().set("lastHeartbeat", timestamp).set("updatedAt", timestamp)
         val result = mongoTemplate.updateFirst(query, update, MongoOutboxInstanceEntity::class.java)
         return result.modifiedCount > 0
     }
 
     override fun updateStatus(instanceId: String, status: OutboxInstanceStatus, timestamp: Instant): Boolean {
-        val query = Query(Criteria.where("instanceId").`is`(instanceId))
+        val query = Query(Criteria.where("_id").`is`(instanceId))
         val update = Update().set("status", status).set("updatedAt", timestamp)
         val result = mongoTemplate.updateFirst(query, update, MongoOutboxInstanceEntity::class.java)
         return result.modifiedCount > 0
     }
 
     override fun deleteById(instanceId: String): Boolean {
-        val query = Query(Criteria.where("instanceId").`is`(instanceId))
+        val query = Query(Criteria.where("_id").`is`(instanceId))
         val result = mongoTemplate.remove(query, MongoOutboxInstanceEntity::class.java)
         return result.deletedCount > 0
     }
