@@ -3,8 +3,10 @@ package io.namastack.outbox
 import io.namastack.outbox.partition.PartitionAssignment
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import org.springframework.dao.OptimisticLockingFailureException
+import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
+import java.sql.ResultSet
 import java.sql.Timestamp
 
 /**
@@ -26,6 +28,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
     private val tableNameResolver: JdbcTableNameResolver,
 ) : PartitionAssignmentRepository {
     private val tableName = tableNameResolver.outboxPartitionAssignment
+    private val rowMapper = JdbcOutboxPartitionAssignmentEntityRowMapper()
 
     /**
      * Query to select all partition assignments ordered by partition number.
@@ -79,7 +82,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
     override fun findAll(): Set<PartitionAssignment> =
         jdbcClient
             .sql(findAllQuery)
-            .query(JdbcOutboxPartitionAssignmentEntity::class.java)
+            .query(rowMapper)
             .list()
             .filterNotNull()
             .map { JdbcOutboxPartitionAssignmentEntityMapper.map(it) }
@@ -92,7 +95,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
         jdbcClient
             .sql(findByInstanceIdQuery)
             .param("instanceId", instanceId)
-            .query(JdbcOutboxPartitionAssignmentEntity::class.java)
+            .query(rowMapper)
             .list()
             .filterNotNull()
             .map { JdbcOutboxPartitionAssignmentEntityMapper.map(it) }
@@ -180,5 +183,21 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
             .param("version", 0) // Initial version is 0
             .param("updatedAt", Timestamp.from(entity.updatedAt))
             .update()
+    }
+
+    private class JdbcOutboxPartitionAssignmentEntityRowMapper : RowMapper<JdbcOutboxPartitionAssignmentEntity> {
+        override fun mapRow(
+            rs: ResultSet,
+            rowNum: Int,
+        ): JdbcOutboxPartitionAssignmentEntity {
+            val value = rs.getLong("version")
+            val version: Long? = if (rs.wasNull()) null else value
+            return JdbcOutboxPartitionAssignmentEntity(
+                partitionNumber = rs.getInt("partition_number"),
+                instanceId = rs.getString("instance_id"),
+                version = version,
+                updatedAt = rs.getTimestamp("updated_at").toInstant(),
+            )
+        }
     }
 }
