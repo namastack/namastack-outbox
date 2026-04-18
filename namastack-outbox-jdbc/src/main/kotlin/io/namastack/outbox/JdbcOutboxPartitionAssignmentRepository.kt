@@ -189,15 +189,12 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
         override fun mapRow(
             rs: ResultSet,
             rowNum: Int,
-        ): JdbcOutboxPartitionAssignmentEntity {
-            val value = rs.getLong("version")
-            val version: Long? = if (rs.wasNull()) null else value
-            return JdbcOutboxPartitionAssignmentEntity(
+        ): JdbcOutboxPartitionAssignmentEntity =
+            JdbcOutboxPartitionAssignmentEntity(
                 partitionNumber = rs.getInt("partition_number"),
                 instanceId = rs.getString("instance_id"),
-                version = version,
+                version = rs.getLong("version"),
                 updatedAt = rs.getTimestamp("updated_at").toInstant(),
             )
-        }
     }
 }
