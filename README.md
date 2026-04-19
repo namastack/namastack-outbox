@@ -12,9 +12,9 @@
 
 Namastack Outbox is a modern, production-grade library for **Spring Boot** (Java & Kotlin) that
 implements the **Transactional Outbox Pattern** for reliable, scalable, and observable event-driven
-architectures. It guarantees that business events are never lost, are processed exactly once per
-handler, and can be published to any system-whether via custom handlers, Kafka, RabbitMQ, SNS, or
-other integrations.
+architectures. It guarantees that business events are never lost, are delivered on an at-least-once
+basis to matching handlers, and can be published to any system, whether via custom handlers, Kafka,
+RabbitMQ, SNS, or other integrations.
 
 ## Key Features
 
