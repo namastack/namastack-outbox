@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.data.mongodb.MongoDatabaseFactory
 import org.springframework.data.mongodb.MongoTransactionManager
 import org.springframework.data.mongodb.core.MongoTemplate
+import java.time.Clock
 import org.springframework.transaction.support.TransactionTemplate
 
 /**
@@ -27,7 +28,7 @@ import org.springframework.transaction.support.TransactionTemplate
 @AutoConfiguration
 @AutoConfigureBefore(OutboxCoreInfrastructureAutoConfiguration::class)
 @ConditionalOnClass(MongoTemplate::class)
-@ConditionalOnProperty(name = ["namastack.outbox.mongodb.enabled"], havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class MongoOutboxAutoConfiguration {
 
     /**
@@ -60,7 +61,7 @@ class MongoOutboxAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    fun clock(): java.time.Clock = java.time.Clock.systemDefaultZone()
+    fun clock(): Clock = Clock.systemDefaultZone()
 
     @Bean
     @ConditionalOnMissingBean
@@ -72,7 +73,7 @@ class MongoOutboxAutoConfiguration {
     internal fun outboxRecordRepository(
         mongoTemplate: MongoTemplate,
         entityMapper: MongoOutboxRecordEntityMapper,
-        clock: java.time.Clock,
+        clock: Clock,
     ): MongoOutboxRecordRepository = MongoOutboxRecordRepository(mongoTemplate, entityMapper, clock)
 
     @Bean
