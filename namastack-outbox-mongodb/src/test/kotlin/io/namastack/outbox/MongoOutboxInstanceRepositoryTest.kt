@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import com.mongodb.client.MongoClients
+import io.namastack.outbox.config.MongoOutboxConfigurationProperties
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceStatus
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
@@ -37,7 +38,11 @@ class MongoOutboxInstanceRepositoryTest {
     fun setUp() {
         val client = MongoClients.create(mongodb.connectionString)
         mongoTemplate = MongoTemplate(client, "testdb")
-        repository = MongoOutboxInstanceRepository(mongoTemplate)
+        repository =
+            MongoOutboxInstanceRepository(
+                mongoTemplate,
+                MongoCollectionNameResolver(MongoOutboxConfigurationProperties()),
+            )
         mongoTemplate.dropCollection<MongoOutboxInstanceEntity>()
     }
 

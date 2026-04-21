@@ -18,6 +18,7 @@ internal open class MongoOutboxRecordRepository(
     private val mongoTemplate: MongoTemplate,
     private val entityMapper: MongoOutboxRecordEntityMapper,
     private val clock: Clock,
+    private val collectionNameResolver: MongoCollectionNameResolver,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
     /**
@@ -31,7 +32,7 @@ internal open class MongoOutboxRecordRepository(
      */
     override fun <T> save(record: OutboxRecord<T>): OutboxRecord<T> {
         val entity = entityMapper.map(record)
-        mongoTemplate.save(entity)
+        mongoTemplate.save(entity, collectionNameResolver.outboxRecords)
         return record
     }
 
@@ -73,7 +74,7 @@ internal open class MongoOutboxRecordRepository(
             ).with(Sort.by(Sort.Order.asc("createdAt")))
 
         return mongoTemplate
-            .find(query, MongoOutboxRecordEntity::class.java)
+            .find(query, MongoOutboxRecordEntity::class.java, collectionNameResolver.outboxRecords)
             .map { entityMapper.map(it) }
     }
 
@@ -111,7 +112,7 @@ internal open class MongoOutboxRecordRepository(
         return mongoTemplate
             .aggregate(
                 aggregation,
-                MongoOutboxRecordEntity.COLLECTION_NAME,
+                collectionNameResolver.outboxRecords,
                 RecordKeyDto::class.java,
             ).mappedResults
             .map { it.recordKey }
@@ -225,7 +226,7 @@ internal open class MongoOutboxRecordRepository(
      */
     override fun countByStatus(status: OutboxRecordStatus): Long {
         val query = Query(Criteria.where("status").`is`(status))
-        return mongoTemplate.count(query, MongoOutboxRecordEntity::class.java)
+        return mongoTemplate.count(query, collectionNameResolver.outboxRecords)
     }
 
     /**
@@ -247,7 +248,7 @@ internal open class MongoOutboxRecordRepository(
                     .and("status")
                     .`is`(status),
             )
-        return mongoTemplate.count(query, MongoOutboxRecordEntity::class.java)
+        return mongoTemplate.count(query, collectionNameResolver.outboxRecords)
     }
 
     /**
@@ -257,7 +258,7 @@ internal open class MongoOutboxRecordRepository(
      */
     override fun deleteByStatus(status: OutboxRecordStatus) {
         val query = Query(Criteria.where("status").`is`(status))
-        mongoTemplate.remove(query, MongoOutboxRecordEntity::class.java)
+        mongoTemplate.remove(query, collectionNameResolver.outboxRecords)
     }
 
     /**
@@ -278,7 +279,7 @@ internal open class MongoOutboxRecordRepository(
                     .and("status")
                     .`is`(status),
             )
-        mongoTemplate.remove(query, MongoOutboxRecordEntity::class.java)
+        mongoTemplate.remove(query, collectionNameResolver.outboxRecords)
     }
 
     /**
@@ -288,7 +289,7 @@ internal open class MongoOutboxRecordRepository(
      */
     override fun deleteById(id: String) {
         val query = Query(Criteria.where("_id").`is`(id))
-        mongoTemplate.remove(query, MongoOutboxRecordEntity::class.java)
+        mongoTemplate.remove(query, collectionNameResolver.outboxRecords)
     }
 
     /**
@@ -302,7 +303,7 @@ internal open class MongoOutboxRecordRepository(
             Query(Criteria.where("status").`is`(status))
                 .with(Sort.by(Sort.Order.asc("createdAt")))
         return mongoTemplate
-            .find(query, MongoOutboxRecordEntity::class.java)
+            .find(query, MongoOutboxRecordEntity::class.java, collectionNameResolver.outboxRecords)
             .map { entityMapper.map(it) }
     }
 }

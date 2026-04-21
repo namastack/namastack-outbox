@@ -18,6 +18,7 @@ import java.time.Instant
  */
 internal open class MongoOutboxInstanceRepository(
     private val mongoTemplate: MongoTemplate,
+    private val collectionNameResolver: MongoCollectionNameResolver,
 ) : OutboxInstanceRepository {
     /**
      * Saves an outbox instance. Inserts or updates the instance document.
@@ -27,7 +28,7 @@ internal open class MongoOutboxInstanceRepository(
      */
     override fun save(instance: OutboxInstance): OutboxInstance {
         val entity = MongoOutboxInstanceEntityMapper.map(instance)
-        mongoTemplate.save(entity)
+        mongoTemplate.save(entity, collectionNameResolver.outboxInstances)
 
         return instance
     }
@@ -40,7 +41,7 @@ internal open class MongoOutboxInstanceRepository(
      */
     override fun findById(instanceId: String): OutboxInstance? =
         mongoTemplate
-            .findById(instanceId, MongoOutboxInstanceEntity::class.java)
+            .findById(instanceId, MongoOutboxInstanceEntity::class.java, collectionNameResolver.outboxInstances)
             ?.let { MongoOutboxInstanceEntityMapper.map(it) }
 
     /**
@@ -52,7 +53,7 @@ internal open class MongoOutboxInstanceRepository(
         val query = Query().with(Sort.by(Sort.Order.asc("createdAt")))
 
         return mongoTemplate
-            .find(query, MongoOutboxInstanceEntity::class.java)
+            .find(query, MongoOutboxInstanceEntity::class.java, collectionNameResolver.outboxInstances)
             .map { MongoOutboxInstanceEntityMapper.map(it) }
     }
 
@@ -68,7 +69,7 @@ internal open class MongoOutboxInstanceRepository(
                 .with(Sort.by(Sort.Order.desc("lastHeartbeat")))
 
         return mongoTemplate
-            .find(query, MongoOutboxInstanceEntity::class.java)
+            .find(query, MongoOutboxInstanceEntity::class.java, collectionNameResolver.outboxInstances)
             .map { MongoOutboxInstanceEntityMapper.map(it) }
     }
 
@@ -96,7 +97,7 @@ internal open class MongoOutboxInstanceRepository(
             ).with(Sort.by(Sort.Order.asc("lastHeartbeat")))
 
         return mongoTemplate
-            .find(query, MongoOutboxInstanceEntity::class.java)
+            .find(query, MongoOutboxInstanceEntity::class.java, collectionNameResolver.outboxInstances)
             .map { MongoOutboxInstanceEntityMapper.map(it) }
     }
 
@@ -113,7 +114,7 @@ internal open class MongoOutboxInstanceRepository(
     ): Boolean {
         val query = Query(Criteria.where("_id").`is`(instanceId))
         val update = Update().set("lastHeartbeat", timestamp).set("updatedAt", timestamp)
-        val result = mongoTemplate.updateFirst(query, update, MongoOutboxInstanceEntity::class.java)
+        val result = mongoTemplate.updateFirst(query, update, collectionNameResolver.outboxInstances)
 
         return result.modifiedCount > 0
     }
@@ -133,7 +134,7 @@ internal open class MongoOutboxInstanceRepository(
     ): Boolean {
         val query = Query(Criteria.where("_id").`is`(instanceId))
         val update = Update().set("status", status).set("updatedAt", timestamp)
-        val result = mongoTemplate.updateFirst(query, update, MongoOutboxInstanceEntity::class.java)
+        val result = mongoTemplate.updateFirst(query, update, collectionNameResolver.outboxInstances)
 
         return result.modifiedCount > 0
     }
@@ -146,7 +147,7 @@ internal open class MongoOutboxInstanceRepository(
      */
     override fun deleteById(instanceId: String): Boolean {
         val query = Query(Criteria.where("_id").`is`(instanceId))
-        val result = mongoTemplate.remove(query, MongoOutboxInstanceEntity::class.java)
+        val result = mongoTemplate.remove(query, collectionNameResolver.outboxInstances)
 
         return result.deletedCount > 0
     }
@@ -160,6 +161,6 @@ internal open class MongoOutboxInstanceRepository(
     override fun countByStatus(status: OutboxInstanceStatus): Long {
         val query = Query(Criteria.where("status").`is`(status))
 
-        return mongoTemplate.count(query, MongoOutboxInstanceEntity::class.java)
+        return mongoTemplate.count(query, collectionNameResolver.outboxInstances)
     }
 }

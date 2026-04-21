@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import com.mongodb.client.MongoClients
+import io.namastack.outbox.config.MongoOutboxConfigurationProperties
 import io.namastack.outbox.partition.PartitionAssignment
 import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
 import org.assertj.core.api.Assertions.assertThat
@@ -39,7 +40,12 @@ class MongoOutboxPartitionAssignmentRepositoryTest {
         val transactionManager = MongoTransactionManager(dbFactory)
         val transactionTemplate = TransactionTemplate(transactionManager)
 
-        repository = MongoOutboxPartitionAssignmentRepository(mongoTemplate, transactionTemplate)
+        repository =
+            MongoOutboxPartitionAssignmentRepository(
+                mongoTemplate,
+                transactionTemplate,
+                MongoCollectionNameResolver(MongoOutboxConfigurationProperties()),
+            )
         mongoTemplate.dropCollection<MongoOutboxPartitionAssignmentEntity>()
     }
 

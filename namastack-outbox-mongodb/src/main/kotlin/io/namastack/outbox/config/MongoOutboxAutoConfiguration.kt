@@ -1,5 +1,6 @@
 package io.namastack.outbox.config
 
+import io.namastack.outbox.MongoCollectionNameResolver
 import io.namastack.outbox.MongoOutboxInstanceRepository
 import io.namastack.outbox.MongoOutboxPartitionAssignmentRepository
 import io.namastack.outbox.MongoOutboxRecordEntityMapper
@@ -17,6 +18,7 @@ import org.springframework.boot.autoconfigure.AutoConfigureBefore
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.mongodb.autoconfigure.MongoAutoConfiguration
 import org.springframework.boot.transaction.autoconfigure.TransactionAutoConfiguration
 import org.springframework.context.annotation.Bean
@@ -42,6 +44,7 @@ import java.time.Clock
 @AutoConfigureBefore(OutboxCoreInfrastructureAutoConfiguration::class)
 @ConditionalOnClass(MongoTemplate::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
+@EnableConfigurationProperties(MongoOutboxConfigurationProperties::class)
 class MongoOutboxAutoConfiguration {
     /**
      * Provides a default Clock bean if none is configured.
@@ -51,6 +54,18 @@ class MongoOutboxAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun clock(): Clock = Clock.systemDefaultZone()
+
+    /**
+     * Creates the collection name resolver for MongoDB operations.
+     *
+     * @param properties Configuration properties for collection prefix
+     * @return Collection name resolver for constructing collection names
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    internal fun mongoCollectionNameResolver(
+        properties: MongoOutboxConfigurationProperties,
+    ): MongoCollectionNameResolver = MongoCollectionNameResolver(properties)
 
     /**
      * Creates a MongoTransactionManager for multi-document transaction support.
@@ -104,7 +119,9 @@ class MongoOutboxAutoConfiguration {
         mongoTemplate: MongoTemplate,
         entityMapper: MongoOutboxRecordEntityMapper,
         clock: Clock,
-    ): MongoOutboxRecordRepository = MongoOutboxRecordRepository(mongoTemplate, entityMapper, clock)
+        collectionNameResolver: MongoCollectionNameResolver,
+    ): MongoOutboxRecordRepository =
+        MongoOutboxRecordRepository(mongoTemplate, entityMapper, clock, collectionNameResolver)
 
     /**
      * Creates a MongoDB-based outbox instance repository.
@@ -114,8 +131,10 @@ class MongoOutboxAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    internal fun outboxInstanceRepository(mongoTemplate: MongoTemplate): OutboxInstanceRepository =
-        MongoOutboxInstanceRepository(mongoTemplate)
+    internal fun outboxInstanceRepository(
+        mongoTemplate: MongoTemplate,
+        collectionNameResolver: MongoCollectionNameResolver,
+    ): OutboxInstanceRepository = MongoOutboxInstanceRepository(mongoTemplate, collectionNameResolver)
 
     /**
      * Creates a MongoDB-based outbox partition assignment repository.
@@ -129,9 +148,10 @@ class MongoOutboxAutoConfiguration {
     internal fun partitionAssignmentRepository(
         mongoTemplate: MongoTemplate,
         beanFactory: BeanFactory,
+        collectionNameResolver: MongoCollectionNameResolver,
     ): PartitionAssignmentRepository {
         val transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxMongoTransactionTemplate")
 
-        return MongoOutboxPartitionAssignmentRepository(mongoTemplate, transactionTemplate)
+        return MongoOutboxPartitionAssignmentRepository(mongoTemplate, transactionTemplate, collectionNameResolver)
     }
 }

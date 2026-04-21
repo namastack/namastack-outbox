@@ -4,6 +4,7 @@ import com.mongodb.client.MongoClients
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.config.MongoOutboxConfigurationProperties
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.BeforeEach
@@ -43,7 +44,13 @@ class MongoOutboxRecordRepositoryTest {
         val serializer = JacksonOutboxPayloadSerializer(mapper)
         val entityMapper = MongoOutboxRecordEntityMapper(serializer)
 
-        repository = MongoOutboxRecordRepository(mongoTemplate, entityMapper, clock)
+        repository =
+            MongoOutboxRecordRepository(
+                mongoTemplate,
+                entityMapper,
+                clock,
+                MongoCollectionNameResolver(MongoOutboxConfigurationProperties()),
+            )
         mongoTemplate.dropCollection<MongoOutboxRecordEntity>()
     }
 

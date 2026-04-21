@@ -21,6 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate
 internal open class MongoOutboxPartitionAssignmentRepository(
     private val mongoTemplate: MongoTemplate,
     private val transactionTemplate: TransactionTemplate,
+    private val collectionNameResolver: MongoCollectionNameResolver,
 ) : PartitionAssignmentRepository {
     /**
      * Finds all partition assignments ordered by partition number.
@@ -31,8 +32,11 @@ internal open class MongoOutboxPartitionAssignmentRepository(
         val query = Query().with(Sort.by(Sort.Order.asc("partitionNumber")))
 
         return mongoTemplate
-            .find(query, MongoOutboxPartitionAssignmentEntity::class.java)
-            .map { MongoOutboxPartitionAssignmentEntityMapper.map(it) }
+            .find(
+                query,
+                MongoOutboxPartitionAssignmentEntity::class.java,
+                collectionNameResolver.outboxPartitionAssignments,
+            ).map { MongoOutboxPartitionAssignmentEntityMapper.map(it) }
             .toSet()
     }
 
@@ -46,8 +50,11 @@ internal open class MongoOutboxPartitionAssignmentRepository(
         val query = Query(Criteria.where("instanceId").`is`(instanceId))
 
         return mongoTemplate
-            .find(query, MongoOutboxPartitionAssignmentEntity::class.java)
-            .map { MongoOutboxPartitionAssignmentEntityMapper.map(it) }
+            .find(
+                query,
+                MongoOutboxPartitionAssignmentEntity::class.java,
+                collectionNameResolver.outboxPartitionAssignments,
+            ).map { MongoOutboxPartitionAssignmentEntityMapper.map(it) }
             .toSet()
     }
 
@@ -66,7 +73,7 @@ internal open class MongoOutboxPartitionAssignmentRepository(
                 val entity = MongoOutboxPartitionAssignmentEntityMapper.map(assignment)
 
                 try {
-                    mongoTemplate.save(entity)
+                    mongoTemplate.save(entity, collectionNameResolver.outboxPartitionAssignments)
                 } catch (e: OptimisticLockingFailureException) {
                     throw OptimisticLockingFailureException(
                         "Partition assignment with partition number ${assignment.partitionNumber} " +
