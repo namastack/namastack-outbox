@@ -6,23 +6,24 @@ import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.springframework.data.mongodb.MongoTransactionManager
 import org.springframework.data.mongodb.core.MongoTemplate
+import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory
+import org.springframework.data.mongodb.core.dropCollection
+import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.containers.MongoDBContainer
-import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import java.time.Clock
 import java.time.Instant
-import org.springframework.data.mongodb.MongoTransactionManager
-import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory
-import org.springframework.transaction.support.TransactionTemplate
 
 @Testcontainers
 class MongoOutboxPartitionAssignmentRepositoryTest {
-
     companion object {
-        @Container
         @JvmStatic
-        val mongodb = MongoDBContainer("mongo:8.0")
+        val mongodb: MongoDBContainer =
+            MongoDBContainer("mongo:8.0")
+                .withReuse(true)
+                .apply { start() }
     }
 
     private val clock = Clock.systemUTC()
@@ -34,12 +35,12 @@ class MongoOutboxPartitionAssignmentRepositoryTest {
         val client = MongoClients.create(mongodb.connectionString)
         val dbFactory = SimpleMongoClientDatabaseFactory(client, "testdb")
         mongoTemplate = MongoTemplate(dbFactory)
-        
+
         val transactionManager = MongoTransactionManager(dbFactory)
         val transactionTemplate = TransactionTemplate(transactionManager)
-        
+
         repository = MongoOutboxPartitionAssignmentRepository(mongoTemplate, transactionTemplate)
-        mongoTemplate.dropCollection(MongoOutboxPartitionAssignmentEntity::class.java)
+        mongoTemplate.dropCollection<MongoOutboxPartitionAssignmentEntity>()
     }
 
     @Test
@@ -116,10 +117,12 @@ class MongoOutboxPartitionAssignmentRepositoryTest {
 
         // Re-fetch to get versions, then claim for instance-2
         val existing = repository.findByInstanceId("instance-1")
-        val updated = existing.map { assignment ->
-            assignment.claim("instance-2", clock)
-            assignment
-        }.toSet()
+        val updated =
+            existing
+                .map { assignment ->
+                    assignment.claim("instance-2", clock)
+                    assignment
+                }.toSet()
 
         repository.saveAll(updated)
 

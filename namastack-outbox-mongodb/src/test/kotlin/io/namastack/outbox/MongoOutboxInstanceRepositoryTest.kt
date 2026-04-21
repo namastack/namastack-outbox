@@ -3,14 +3,16 @@ package io.namastack.outbox
 import com.mongodb.client.MongoClients
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceStatus
-import io.namastack.outbox.instance.OutboxInstanceStatus.*
+import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
+import io.namastack.outbox.instance.OutboxInstanceStatus.DEAD
+import io.namastack.outbox.instance.OutboxInstanceStatus.SHUTTING_DOWN
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.data.mongodb.core.MongoTemplate
+import org.springframework.data.mongodb.core.dropCollection
 import org.testcontainers.containers.MongoDBContainer
-import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import java.time.Clock
 import java.time.Instant
@@ -19,11 +21,12 @@ import java.time.temporal.ChronoUnit.MINUTES
 
 @Testcontainers
 class MongoOutboxInstanceRepositoryTest {
-
     companion object {
-        @Container
         @JvmStatic
-        val mongodb = MongoDBContainer("mongo:8.0")
+        val mongodb: MongoDBContainer =
+            MongoDBContainer("mongo:8.0")
+                .withReuse(true)
+                .apply { start() }
     }
 
     private val clock: Clock = Clock.systemDefaultZone()
@@ -35,7 +38,7 @@ class MongoOutboxInstanceRepositoryTest {
         val client = MongoClients.create(mongodb.connectionString)
         mongoTemplate = MongoTemplate(client, "testdb")
         repository = MongoOutboxInstanceRepository(mongoTemplate)
-        mongoTemplate.dropCollection(MongoOutboxInstanceEntity::class.java)
+        mongoTemplate.dropCollection<MongoOutboxInstanceEntity>()
     }
 
     @Test

@@ -6,7 +6,7 @@ import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
-import java.util.*
+import java.util.UUID
 
 class MongoOutboxRecordEntityMapperTest {
     private val serializer = mockk<OutboxPayloadSerializer>()
@@ -16,21 +16,22 @@ class MongoOutboxRecordEntityMapperTest {
     fun `maps domain record to entity`() {
         val payload = "test-payload"
         val context = mapOf("traceId" to "123")
-        val record = OutboxRecord.restore(
-            id = UUID.randomUUID().toString(),
-            recordKey = "key",
-            payload = payload,
-            context = context,
-            partition = 1,
-            createdAt = Instant.now(),
-            status = OutboxRecordStatus.NEW,
-            completedAt = null,
-            failureCount = 0,
-            failureReason = null,
-            nextRetryAt = Instant.now(),
-            handlerId = "handler",
-            failureException = null
-        )
+        val record =
+            OutboxRecord.restore(
+                id = UUID.randomUUID().toString(),
+                recordKey = "key",
+                payload = payload,
+                context = context,
+                partition = 1,
+                createdAt = Instant.now(),
+                status = OutboxRecordStatus.NEW,
+                completedAt = null,
+                failureCount = 0,
+                failureReason = null,
+                nextRetryAt = Instant.now(),
+                handlerId = "handler",
+                failureException = null,
+            )
 
         every { serializer.serialize(payload) } returns "serialized-payload"
         every { serializer.serialize(context) } returns "serialized-context"
@@ -46,24 +47,26 @@ class MongoOutboxRecordEntityMapperTest {
 
     @Test
     fun `maps entity to domain record`() {
-        val entity = MongoOutboxRecordEntity(
-            id = UUID.randomUUID().toString(),
-            status = OutboxRecordStatus.NEW,
-            recordKey = "key",
-            recordType = String::class.java.name,
-            payload = "serialized-payload",
-            context = "serialized-context",
-            partitionNo = 1,
-            createdAt = Instant.now(),
-            completedAt = null,
-            failureCount = 0,
-            failureReason = null,
-            nextRetryAt = Instant.now(),
-            handlerId = "handler"
-        )
+        val entity =
+            MongoOutboxRecordEntity(
+                id = UUID.randomUUID().toString(),
+                status = OutboxRecordStatus.NEW,
+                recordKey = "key",
+                recordType = String::class.java.name,
+                payload = "serialized-payload",
+                context = "serialized-context",
+                partitionNo = 1,
+                createdAt = Instant.now(),
+                completedAt = null,
+                failureCount = 0,
+                failureReason = null,
+                nextRetryAt = Instant.now(),
+                handlerId = "handler",
+            )
 
         every { serializer.deserialize("serialized-payload", any<Class<*>>()) } returns "test-payload"
-        every { serializer.deserialize("serialized-context", any<Class<Map<String, String>>>()) } returns mapOf("traceId" to "123")
+        every { serializer.deserialize("serialized-context", any<Class<Map<String, String>>>()) } returns
+            mapOf("traceId" to "123")
 
         val record = mapper.map(entity)
 

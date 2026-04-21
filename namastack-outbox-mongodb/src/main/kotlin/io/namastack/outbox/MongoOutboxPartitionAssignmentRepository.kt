@@ -8,7 +8,6 @@ import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
 import org.springframework.transaction.support.TransactionTemplate
-import java.time.Instant
 
 /**
  * MongoDB implementation of the PartitionAssignmentRepository interface.
@@ -17,23 +16,37 @@ import java.time.Instant
  * reassignment, preventing split-brain scenarios during rebalancing.
  *
  * @author Stellar Hold
- * @since 1.1.0
+ * @since 1.5.0
  */
 internal open class MongoOutboxPartitionAssignmentRepository(
     private val mongoTemplate: MongoTemplate,
     private val transactionTemplate: TransactionTemplate,
 ) : PartitionAssignmentRepository {
-
+    /**
+     * Finds all partition assignments ordered by partition number.
+     *
+     * @return set of all partition assignments
+     */
     override fun findAll(): Set<PartitionAssignment> {
         val query = Query().with(Sort.by(Sort.Order.asc("partitionNumber")))
-        return mongoTemplate.find(query, MongoOutboxPartitionAssignmentEntity::class.java)
+
+        return mongoTemplate
+            .find(query, MongoOutboxPartitionAssignmentEntity::class.java)
             .map { MongoOutboxPartitionAssignmentEntityMapper.map(it) }
             .toSet()
     }
 
+    /**
+     * Finds partition assignments by instance ID.
+     *
+     * @param instanceId the instance ID to filter by
+     * @return set of partition assignments for the given instance
+     */
     override fun findByInstanceId(instanceId: String): Set<PartitionAssignment> {
         val query = Query(Criteria.where("instanceId").`is`(instanceId))
-        return mongoTemplate.find(query, MongoOutboxPartitionAssignmentEntity::class.java)
+
+        return mongoTemplate
+            .find(query, MongoOutboxPartitionAssignmentEntity::class.java)
             .map { MongoOutboxPartitionAssignmentEntityMapper.map(it) }
             .toSet()
     }
@@ -44,9 +57,6 @@ internal open class MongoOutboxPartitionAssignmentRepository(
      * This ensures all-or-nothing semantics: if any partition save fails
      * (e.g., due to optimistic lock version mismatch), ALL changes are
      * rolled back — preventing inconsistent partition ownership state.
-     *
-     * Mirrors the JDBC implementation which wraps saveAll in
-     * transactionTemplate.execute {}.
      */
     override fun saveAll(partitionAssignments: Set<PartitionAssignment>) {
         if (partitionAssignments.isEmpty()) return
@@ -54,13 +64,14 @@ internal open class MongoOutboxPartitionAssignmentRepository(
         transactionTemplate.executeWithoutResult {
             partitionAssignments.forEach { assignment ->
                 val entity = MongoOutboxPartitionAssignmentEntityMapper.map(assignment)
+
                 try {
                     mongoTemplate.save(entity)
                 } catch (e: OptimisticLockingFailureException) {
                     throw OptimisticLockingFailureException(
                         "Partition assignment with partition number ${assignment.partitionNumber} " +
                             "was updated by another instance (version mismatch)",
-                        e
+                        e,
                     )
                 }
             }

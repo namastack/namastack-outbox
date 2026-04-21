@@ -10,18 +10,15 @@ import java.time.Instant
  * Entity representing a partition assignment in MongoDB.
  *
  * @author Stellar Hold
- * @since 1.1.0
+ * @since 1.5.0
  */
 @Document(collection = "outbox_partition_assignments")
 internal data class MongoOutboxPartitionAssignmentEntity(
     @Id
     val partitionNumber: Int,
-    
     @Indexed
     val instanceId: String?,
-    
     @Version
     val version: Long? = null,
-    
     val updatedAt: Instant,
 )

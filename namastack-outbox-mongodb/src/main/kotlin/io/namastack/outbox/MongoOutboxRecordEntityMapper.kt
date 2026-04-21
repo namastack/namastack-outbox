@@ -4,11 +4,18 @@ package io.namastack.outbox
  * Mapper utility for converting between OutboxRecord domain objects and MongoOutboxRecordEntity entities.
  *
  * @author Stellar Hold
- * @since 1.1.0
+ * @since 1.5.0
  */
 internal class MongoOutboxRecordEntityMapper(
     private val serializer: OutboxPayloadSerializer,
 ) {
+    /**
+     * Maps an [OutboxRecord] domain object to a [MongoOutboxRecordEntity] for MongoDB persistence.
+     *
+     * @param record the domain object to map
+     * @return the corresponding MongoDB entity
+     * @throws IllegalArgumentException if the record payload is null
+     */
     fun map(record: OutboxRecord<*>): MongoOutboxRecordEntity {
         val payload = record.payload ?: throw IllegalArgumentException("record payload cannot be null")
 
@@ -33,14 +40,22 @@ internal class MongoOutboxRecordEntityMapper(
         )
     }
 
+    /**
+     * Maps a [MongoOutboxRecordEntity] from MongoDB to an [OutboxRecord] domain object.
+     *
+     * @param entity the MongoDB entity to map
+     * @return the corresponding domain object
+     * @throws IllegalStateException if the record type class cannot be found
+     */
     fun map(entity: MongoOutboxRecordEntity): OutboxRecord<*> {
         val clazz = resolveClass(entity.recordType)
         val payload = serializer.deserialize(entity.payload, clazz)
 
         @Suppress("UNCHECKED_CAST")
-        val context = entity.context?.let {
-            serializer.deserialize(it, Map::class.java as Class<Map<String, String>>)
-        } ?: emptyMap()
+        val context =
+            entity.context?.let {
+                serializer.deserialize(it, Map::class.java as Class<Map<String, String>>)
+            } ?: emptyMap()
 
         return OutboxRecord.restore(
             id = entity.id,
@@ -59,6 +74,13 @@ internal class MongoOutboxRecordEntityMapper(
         )
     }
 
+    /**
+     * Resolves a class by its fully qualified name using the current thread's context class loader.
+     *
+     * @param className the fully qualified class name to resolve
+     * @return the resolved class
+     * @throws IllegalStateException if the class cannot be found
+     */
     private fun resolveClass(className: String): Class<*> =
         try {
             Thread.currentThread().contextClassLoader.loadClass(className)

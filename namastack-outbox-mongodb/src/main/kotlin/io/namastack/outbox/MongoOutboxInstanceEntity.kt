@@ -11,7 +11,7 @@ import java.time.Instant
  * Entity representing an outbox instance in MongoDB.
  *
  * @author Stellar Hold
- * @since 1.1.0
+ * @since 1.5.0
  */
 @Document(collection = "outbox_instances")
 @CompoundIndex(name = "status_heartbeat_idx", def = "{'status': 1, 'lastHeartbeat': 1}")
@@ -20,15 +20,11 @@ internal data class MongoOutboxInstanceEntity(
     val instanceId: String,
     val hostname: String,
     val port: Int,
-    
     @Indexed
     val status: OutboxInstanceStatus,
-    
     val startedAt: Instant,
-    
     @Indexed
     val lastHeartbeat: Instant,
-    
     val createdAt: Instant,
     val updatedAt: Instant,
 )

@@ -1,14 +1,16 @@
 package io.namastack.outbox
 
 import com.mongodb.client.MongoClients
-import io.namastack.outbox.OutboxRecordStatus.*
+import io.namastack.outbox.OutboxRecordStatus.COMPLETED
+import io.namastack.outbox.OutboxRecordStatus.FAILED
+import io.namastack.outbox.OutboxRecordStatus.NEW
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.data.mongodb.core.MongoTemplate
+import org.springframework.data.mongodb.core.dropCollection
 import org.testcontainers.containers.MongoDBContainer
-import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import tools.jackson.databind.json.JsonMapper
 import tools.jackson.module.kotlin.kotlinModule
@@ -16,15 +18,16 @@ import java.time.Clock
 import java.time.Instant
 import java.time.temporal.ChronoUnit.MILLIS
 import java.time.temporal.ChronoUnit.MINUTES
-import java.util.*
+import java.util.UUID
 
 @Testcontainers
 class MongoOutboxRecordRepositoryTest {
-
     companion object {
-        @Container
         @JvmStatic
-        val mongodb = MongoDBContainer("mongo:8.0")
+        val mongodb: MongoDBContainer =
+            MongoDBContainer("mongo:8.0")
+                .withReuse(true)
+                .apply { start() }
     }
 
     private val clock: Clock = Clock.systemDefaultZone()
@@ -41,7 +44,7 @@ class MongoOutboxRecordRepositoryTest {
         val entityMapper = MongoOutboxRecordEntityMapper(serializer)
 
         repository = MongoOutboxRecordRepository(mongoTemplate, entityMapper, clock)
-        mongoTemplate.dropCollection(MongoOutboxRecordEntity::class.java)
+        mongoTemplate.dropCollection<MongoOutboxRecordEntity>()
     }
 
     // ==================== Basic CRUD ====================
@@ -49,11 +52,13 @@ class MongoOutboxRecordRepositoryTest {
     @Test
     fun `saves an entity`() {
         val recordKey = UUID.randomUUID().toString()
-        val record = OutboxRecord.Builder<String>()
-            .key(recordKey)
-            .payload("payload")
-            .handlerId("handlerId")
-            .build(clock)
+        val record =
+            OutboxRecord
+                .Builder<String>()
+                .key(recordKey)
+                .payload("payload")
+                .handlerId("handlerId")
+                .build(clock)
 
         repository.save(record)
 
@@ -72,29 +77,32 @@ class MongoOutboxRecordRepositoryTest {
     @Test
     fun `updates an entity`() {
         val recordKey = UUID.randomUUID().toString()
-        val record = OutboxRecord.Builder<String>()
-            .key(recordKey)
-            .payload("payload")
-            .handlerId("handlerId")
-            .build(clock)
+        val record =
+            OutboxRecord
+                .Builder<String>()
+                .key(recordKey)
+                .payload("payload")
+                .handlerId("handlerId")
+                .build(clock)
 
         repository.save(record)
 
-        val updatedRecord = OutboxRecord.restore(
-            id = record.id,
-            recordKey = record.key,
-            payload = record.payload,
-            context = record.context,
-            partition = 1,
-            createdAt = record.createdAt,
-            status = record.status,
-            completedAt = record.completedAt,
-            failureCount = record.failureCount + 1,
-            failureReason = "some failure",
-            nextRetryAt = record.nextRetryAt,
-            handlerId = record.handlerId,
-            failureException = null,
-        )
+        val updatedRecord =
+            OutboxRecord.restore(
+                id = record.id,
+                recordKey = record.key,
+                payload = record.payload,
+                context = record.context,
+                partition = 1,
+                createdAt = record.createdAt,
+                status = record.status,
+                completedAt = record.completedAt,
+                failureCount = record.failureCount + 1,
+                failureReason = "some failure",
+                nextRetryAt = record.nextRetryAt,
+                handlerId = record.handlerId,
+                failureException = null,
+            )
 
         repository.save(updatedRecord)
 
@@ -282,11 +290,13 @@ class MongoOutboxRecordRepositoryTest {
     @Test
     fun `deletes record by id`() {
         val recordKey = UUID.randomUUID().toString()
-        val record = OutboxRecord.Builder<String>()
-            .key(recordKey)
-            .payload("payload")
-            .handlerId("handlerId")
-            .build(clock)
+        val record =
+            OutboxRecord
+                .Builder<String>()
+                .key(recordKey)
+                .payload("payload")
+                .handlerId("handlerId")
+                .build(clock)
 
         repository.save(record)
         assertThat(repository.findIncompleteRecordsByRecordKey(recordKey)).hasSize(1)
@@ -589,21 +599,22 @@ class MongoOutboxRecordRepositoryTest {
         partition: Int,
         createdAt: Instant,
     ): OutboxRecord<String> {
-        val record = OutboxRecord.restore(
-            id = UUID.randomUUID().toString(),
-            recordKey = recordKey,
-            payload = "payload",
-            context = mapOf("key1" to "value1", "key2" to "value2"),
-            partition = partition,
-            createdAt = createdAt,
-            status = status,
-            completedAt = null,
-            failureCount = 0,
-            failureReason = null,
-            nextRetryAt = createdAt,
-            handlerId = "handlerId",
-            failureException = null,
-        )
+        val record =
+            OutboxRecord.restore(
+                id = UUID.randomUUID().toString(),
+                recordKey = recordKey,
+                payload = "payload",
+                context = mapOf("key1" to "value1", "key2" to "value2"),
+                partition = partition,
+                createdAt = createdAt,
+                status = status,
+                completedAt = null,
+                failureCount = 0,
+                failureReason = null,
+                nextRetryAt = createdAt,
+                handlerId = "handlerId",
+                failureException = null,
+            )
 
         repository.save(record)
         return record
@@ -614,23 +625,24 @@ class MongoOutboxRecordRepositoryTest {
         status: OutboxRecordStatus,
         partition: Int,
         createdAt: Instant,
-        nextRetryAt: Instant = createdAt
+        nextRetryAt: Instant = createdAt,
     ) {
-        val record = OutboxRecord.restore(
-            id = UUID.randomUUID().toString(),
-            recordKey = recordKey,
-            payload = "payload",
-            context = emptyMap(),
-            partition = partition,
-            createdAt = createdAt,
-            status = status,
-            completedAt = if (status == COMPLETED) createdAt else null,
-            failureCount = 0,
-            failureReason = null,
-            nextRetryAt = nextRetryAt,
-            handlerId = "handler",
-            failureException = null
-        )
+        val record =
+            OutboxRecord.restore(
+                id = UUID.randomUUID().toString(),
+                recordKey = recordKey,
+                payload = "payload",
+                context = emptyMap(),
+                partition = partition,
+                createdAt = createdAt,
+                status = status,
+                completedAt = if (status == COMPLETED) createdAt else null,
+                failureCount = 0,
+                failureReason = null,
+                nextRetryAt = nextRetryAt,
+                handlerId = "handler",
+                failureException = null,
+            )
         repository.save(record)
     }
 }

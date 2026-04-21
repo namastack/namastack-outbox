@@ -11,12 +11,11 @@ dependencies {
     implementation(project(":namastack-outbox-core"))
 
     implementation(platform(libs.spring.boot.bom))
-    implementation(libs.spring.boot.starter.data.mongodb)
+    implementation(libs.spring.boot.data.mongodb)
     implementation(libs.spring.tx)
     implementation(libs.spring.boot.autoconfigure)
 
     testImplementation(project(":namastack-outbox-jackson"))
-    testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.boot.starter.data.mongodb.test)
     testImplementation(libs.mockk)
     testImplementation(libs.jackson.module.kotlin)

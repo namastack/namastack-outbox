@@ -6,9 +6,15 @@ import io.namastack.outbox.partition.PartitionAssignment
  * Mapper between PartitionAssignment domain objects and MongoOutboxPartitionAssignmentEntity entities.
  *
  * @author Stellar Hold
- * @since 1.1.0
+ * @since 1.5.0
  */
 internal object MongoOutboxPartitionAssignmentEntityMapper {
+    /**
+     * Maps a [PartitionAssignment] domain object to a [MongoOutboxPartitionAssignmentEntity] for MongoDB persistence.
+     *
+     * @param assignment the domain object to map
+     * @return the corresponding MongoDB entity
+     */
     fun map(assignment: PartitionAssignment): MongoOutboxPartitionAssignmentEntity =
         MongoOutboxPartitionAssignmentEntity(
             partitionNumber = assignment.partitionNumber,
@@ -17,6 +23,12 @@ internal object MongoOutboxPartitionAssignmentEntityMapper {
             updatedAt = assignment.updatedAt,
         )
 
+    /**
+     * Maps a [MongoOutboxPartitionAssignmentEntity] from MongoDB to a [PartitionAssignment] domain object.
+     *
+     * @param entity the MongoDB entity to map
+     * @return the corresponding domain object
+     */
     fun map(entity: MongoOutboxPartitionAssignmentEntity): PartitionAssignment =
         PartitionAssignment(
             partitionNumber = entity.partitionNumber,
