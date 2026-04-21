@@ -5,6 +5,7 @@ import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.aggregation.Aggregation
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
+import java.time.Clock
 import java.time.Instant
 
 /**
@@ -16,7 +17,7 @@ import java.time.Instant
 internal open class MongoOutboxRecordRepository(
     private val mongoTemplate: MongoTemplate,
     private val entityMapper: MongoOutboxRecordEntityMapper,
-    private val clock: java.time.Clock,
+    private val clock: Clock,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
     /**
