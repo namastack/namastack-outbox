@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: namastack-outbox-example-mongodb
+
+  mongodb:
+    uri: mongodb://localhost:27017/outbox_example
+
+namastack:
+  outbox:
+    mongodb:
+      collection-prefix: app_
+
+logging:
+  level:
+    root: warn
+    io.namastack.demo: info
+    #org.springframework.data.mongodb.core: debug
