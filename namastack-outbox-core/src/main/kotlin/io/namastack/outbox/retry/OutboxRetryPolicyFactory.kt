@@ -1,7 +1,6 @@
 package io.namastack.outbox.retry
 
 import io.namastack.outbox.OutboxProperties
-import java.time.Duration
 
 /**
  * Factory for creating retry policy instances based on configuration.
@@ -68,26 +67,26 @@ internal object OutboxRetryPolicyFactory {
             "fixed" -> {
                 builder
                     .fixedBackOff(
-                        delay = Duration.ofMillis(retryProperties.fixed.delay),
-                    ).jitter(jitter = Duration.ofMillis(retryProperties.jitter))
+                        delay = retryProperties.fixed.delay,
+                    ).jitter(jitter = retryProperties.jitter)
             }
 
             "linear" -> {
                 builder
                     .linearBackoff(
-                        initialDelay = Duration.ofMillis(retryProperties.linear.initialDelay),
-                        increment = Duration.ofMillis(retryProperties.linear.increment),
-                        maxDelay = Duration.ofMillis(retryProperties.linear.maxDelay),
-                    ).jitter(jitter = Duration.ofMillis(retryProperties.jitter))
+                        initialDelay = retryProperties.linear.initialDelay,
+                        increment = retryProperties.linear.increment,
+                        maxDelay = retryProperties.linear.maxDelay,
+                    ).jitter(jitter = retryProperties.jitter)
             }
 
             "exponential" -> {
                 builder
                     .exponentialBackoff(
-                        initialDelay = Duration.ofMillis(retryProperties.exponential.initialDelay),
+                        initialDelay = retryProperties.exponential.initialDelay,
                         multiplier = retryProperties.exponential.multiplier,
-                        maxDelay = Duration.ofMillis(retryProperties.exponential.maxDelay),
-                    ).jitter(jitter = Duration.ofMillis(retryProperties.jitter))
+                        maxDelay = retryProperties.exponential.maxDelay,
+                    ).jitter(jitter = retryProperties.jitter)
             }
 
             else -> {

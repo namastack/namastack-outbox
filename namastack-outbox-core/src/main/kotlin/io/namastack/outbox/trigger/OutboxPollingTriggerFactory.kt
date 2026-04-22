@@ -2,7 +2,6 @@ package io.namastack.outbox.trigger
 
 import io.namastack.outbox.OutboxProperties
 import java.time.Clock
-import java.time.Duration
 
 /**
  * Factory for creating [OutboxPollingTrigger] instances based on configuration properties.
@@ -43,15 +42,15 @@ internal object OutboxPollingTriggerFactory {
         return when (name.lowercase()) {
             "fixed" -> {
                 FixedPollingTrigger(
-                    delay = Duration.ofMillis(properties.pollInterval ?: properties.polling.fixed.interval),
+                    delay = properties.pollInterval ?: properties.polling.fixed.interval,
                     clock = clock,
                 )
             }
 
             "adaptive" -> {
                 AdaptivePollingTrigger(
-                    minDelay = Duration.ofMillis(properties.polling.adaptive.minInterval),
-                    maxDelay = Duration.ofMillis(properties.polling.adaptive.maxInterval),
+                    minDelay = properties.polling.adaptive.minInterval,
+                    maxDelay = properties.polling.adaptive.maxInterval,
                     batchSize = properties.batchSize ?: properties.polling.batchSize,
                     clock = clock,
                 )
