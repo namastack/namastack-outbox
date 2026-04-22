@@ -29,8 +29,8 @@ class OutboxInstanceRegistryTest {
         OutboxProperties(
             instance =
                 OutboxProperties.Instance(
-                    staleInstanceTimeoutSeconds = 2,
-                    heartbeatIntervalSeconds = 1,
+                    staleInstanceTimeout = Duration.ofSeconds(2),
+                    heartbeatInterval = Duration.ofSeconds(1),
                 ),
         )
 
@@ -335,7 +335,7 @@ class OutboxInstanceRegistryTest {
         fun `use custom graceful shutdown timeout`() {
             val customProperties =
                 properties.copy(
-                    instance = properties.instance.copy(gracefulShutdownTimeoutSeconds = 2),
+                    instance = properties.instance.copy(gracefulShutdownTimeout = Duration.ofSeconds(2)),
                 )
             val customRegistry = OutboxInstanceRegistry(instanceRepository, customProperties, clock)
 
@@ -351,7 +351,7 @@ class OutboxInstanceRegistryTest {
         fun `use custom stale instance timeout`() {
             val customProperties =
                 properties.copy(
-                    instance = properties.instance.copy(staleInstanceTimeoutSeconds = 5),
+                    instance = properties.instance.copy(staleInstanceTimeout = Duration.ofSeconds(5)),
                 )
             val customRegistry = OutboxInstanceRegistry(instanceRepository, customProperties, clock)
             val expectedCutoff = now.minus(Duration.ofSeconds(5))

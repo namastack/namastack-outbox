@@ -13,7 +13,7 @@ namastack:
     retry:
       policy: "fixed"
       fixed:
-        delay: 1000
+        delay: "1s"
       max-retries: 2
 
 logging:

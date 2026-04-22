@@ -45,8 +45,18 @@ class OutboxInstanceRegistry(
 ) : SmartLifecycle {
     private val log = LoggerFactory.getLogger(OutboxInstanceRegistry::class.java)
 
-    private val staleInstanceTimeout = Duration.ofSeconds(properties.instance.staleInstanceTimeoutSeconds)
-    private val gracefulShutdownTimeout = Duration.ofSeconds(properties.instance.gracefulShutdownTimeoutSeconds)
+    private val staleInstanceTimeout =
+        if (properties.instance.staleInstanceTimeoutSeconds != null) {
+            Duration.ofSeconds(properties.instance.staleInstanceTimeoutSeconds!!)
+        } else {
+            properties.instance.staleInstanceTimeout
+        }
+    private val gracefulShutdownTimeout =
+        if (properties.instance.gracefulShutdownTimeoutSeconds != null) {
+            Duration.ofSeconds(properties.instance.gracefulShutdownTimeoutSeconds!!)
+        } else {
+            properties.instance.gracefulShutdownTimeout
+        }
 
     private val running = AtomicBoolean(false)
 
@@ -146,7 +156,7 @@ class OutboxInstanceRegistry(
      * Combines update & pruning to reduce scheduling overhead.
      */
     @Scheduled(
-        fixedRateString = $$"${namastack.outbox.instance.heartbeat-interval-seconds:5}000",
+        fixedRateString = $$"${namastack.outbox.instance.heartbeat-interval:5000}",
         scheduler = "outboxHeartbeatScheduler",
     )
     fun performHeartbeatAndCleanup() {

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.core.task.SyncTaskExecutor
 import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.util.concurrent.CountDownLatch
@@ -235,7 +236,7 @@ class OutboxProcessingSchedulerTest {
         fun `stop cancels after shutdown timeout when processing is still running`() {
             val properties =
                 OutboxProperties().apply {
-                    processing.shutdownTimeoutSeconds = 0
+                    processing.shutdownTimeout = Duration.ofSeconds(0)
                 }
             scheduler =
                 OutboxProcessingScheduler(

@@ -43,7 +43,7 @@ class OutboxRetryPolicyFactoryTest {
                 val prop =
                     properties(
                         policy = "fixed",
-                        fixedDelayMs = 3000,
+                        fixedDelay = Duration.ofSeconds(3),
                     )
                 val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
 
@@ -57,8 +57,8 @@ class OutboxRetryPolicyFactoryTest {
                 val prop =
                     properties(
                         policy = "fixed",
-                        fixedDelayMs = 5000,
-                        jitterMs = 2000,
+                        fixedDelay = Duration.ofSeconds(5),
+                        jitter = Duration.ofSeconds(2),
                     )
                 val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
 
@@ -83,9 +83,9 @@ class OutboxRetryPolicyFactoryTest {
                 val prop =
                     properties(
                         policy = "linear",
-                        linearInitialMs = 1000,
-                        linearIncrementMs = 2000,
-                        linearMaxMs = 7000,
+                        linearInitial = Duration.ofSeconds(1),
+                        linearIncrement = Duration.ofSeconds(2),
+                        linearMax = Duration.ofSeconds(7),
                     )
                 val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
 
@@ -102,10 +102,10 @@ class OutboxRetryPolicyFactoryTest {
                 val prop =
                     properties(
                         policy = "linear",
-                        linearInitialMs = 1000,
-                        linearIncrementMs = 2000,
-                        linearMaxMs = 7000,
-                        jitterMs = 500,
+                        linearInitial = Duration.ofSeconds(1),
+                        linearIncrement = Duration.ofSeconds(2),
+                        linearMax = Duration.ofSeconds(7),
+                        jitter = Duration.ofMillis(500),
                     )
                 val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
 
@@ -130,9 +130,9 @@ class OutboxRetryPolicyFactoryTest {
                 val prop =
                     properties(
                         policy = "exponential",
-                        exponentialInitialMs = 1000,
+                        exponentialInitial = Duration.ofSeconds(1),
                         exponentialMultiplier = 2.0,
-                        exponentialMaxMs = 9000,
+                        exponentialMax = Duration.ofSeconds(9),
                     )
                 val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
 
@@ -149,10 +149,10 @@ class OutboxRetryPolicyFactoryTest {
                 val prop =
                     properties(
                         policy = "exponential",
-                        exponentialInitialMs = 1000,
+                        exponentialInitial = Duration.ofSeconds(1),
                         exponentialMultiplier = 2.0,
-                        exponentialMaxMs = 9000,
-                        jitterMs = 500,
+                        exponentialMax = Duration.ofSeconds(9),
+                        jitter = Duration.ofMillis(500),
                     )
                 val policy = OutboxRetryPolicyFactory.createDefault(prop).build()
 
@@ -227,14 +227,14 @@ class OutboxRetryPolicyFactoryTest {
     private fun properties(
         maxRetries: Int? = null,
         policy: String? = null,
-        fixedDelayMs: Long? = null,
-        linearInitialMs: Long? = null,
-        linearIncrementMs: Long? = null,
-        linearMaxMs: Long? = null,
-        exponentialInitialMs: Long? = null,
+        fixedDelay: Duration? = null,
+        linearInitial: Duration? = null,
+        linearIncrement: Duration? = null,
+        linearMax: Duration? = null,
+        exponentialInitial: Duration? = null,
         exponentialMultiplier: Double? = null,
-        exponentialMaxMs: Long? = null,
-        jitterMs: Long? = null,
+        exponentialMax: Duration? = null,
+        jitter: Duration? = null,
         include: Set<String>? = null,
         exclude: Set<String>? = null,
     ): OutboxProperties.Retry {
@@ -242,14 +242,14 @@ class OutboxRetryPolicyFactoryTest {
 
         maxRetries?.let { properties.maxRetries = it }
         policy?.let { properties.policy = it }
-        fixedDelayMs?.let { properties.fixed.delay = it }
-        linearInitialMs?.let { properties.linear.initialDelay = it }
-        linearIncrementMs?.let { properties.linear.increment = it }
-        linearMaxMs?.let { properties.linear.maxDelay = it }
-        exponentialInitialMs?.let { properties.exponential.initialDelay = it }
+        fixedDelay?.let { properties.fixed.delay = it }
+        linearInitial?.let { properties.linear.initialDelay = it }
+        linearIncrement?.let { properties.linear.increment = it }
+        linearMax?.let { properties.linear.maxDelay = it }
+        exponentialInitial?.let { properties.exponential.initialDelay = it }
         exponentialMultiplier?.let { properties.exponential.multiplier = it }
-        exponentialMaxMs?.let { properties.exponential.maxDelay = it }
-        jitterMs?.let { properties.jitter = it }
+        exponentialMax?.let { properties.exponential.maxDelay = it }
+        jitter?.let { properties.jitter = it }
         include?.let { properties.includeExceptions = it }
         exclude?.let { properties.excludeExceptions = it }
 
