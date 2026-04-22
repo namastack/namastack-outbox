@@ -39,7 +39,7 @@ other integrations.
 - **Virtual Thread Support** - Automatic detection and use of virtual threads when available.
 - **Auto-Configuration** - Sensible defaults, automatic `@EnableScheduling`, and deep Spring Boot
   integration.
-- **Broad Database Support** - H2, MySQL, MariaDB, PostgreSQL, SQL Server, and Oracle.
+- **Broad Database Support** - H2, MySQL, MariaDB, PostgreSQL, SQL Server, Oracle, and MongoDB.
 
 ---
 
@@ -79,7 +79,7 @@ dependencies {
 ```
 
 > **Note:** The JDBC starter includes automatic schema creation. For JPA/Hibernate projects,
-> see [JPA Setup](#jpa-setup) below.
+> see [JPA Setup](#jpa-setup) below. For MongoDB projects, see [MongoDB Setup](#mongodb-setup) below.
 
 ### 2. Create Handlers
 
@@ -232,6 +232,39 @@ complete example.
 
 ---
 
+## MongoDB Setup
+
+For MongoDB projects, use the MongoDB starter:
+
+```gradle
+dependencies {
+    implementation("io.namastack:namastack-outbox-starter-mongodb:1.5.0")
+}
+```
+
+The MongoDB module automatically creates collections and indexes on startup via Spring Data MongoDB's
+`auto-index-creation`. No manual schema management is required.
+
+For production environments, you can manage indexes manually using the provided
+[mongosh setup script](https://github.com/namastack/namastack-outbox/blob/main/namastack-outbox-mongodb/src/main/resources/schema/mongodb-setup.js).
+See the [MongoDB Schema documentation](https://www.namastack.io/outbox/reference/mongodb-schema/) for details.
+
+### Custom Collection Prefix
+
+Customize collection names for multi-tenant deployments or naming conventions:
+
+```yaml
+namastack:
+  outbox:
+    mongodb:
+      collection-prefix: "myapp_"   # Results in: myapp_outbox_records, myapp_outbox_instances, etc.
+```
+
+See [example-mongodb](namastack-outbox-examples/namastack-outbox-example-mongodb) for a
+complete example.
+
+---
+
 ## Features at a Glance
 
 ### Handlers
@@ -372,17 +405,20 @@ The library auto-configures everything you need with sensible defaults:
 
 ## Supported Databases
 
-| Database   | Auto Schema (JDBC) | Tested |
-|------------|:------------------:|:------:|
-| H2         |         ✅          |   ✅    |
-| MySQL      |         ✅          |   ✅    |
-| MariaDB    |         ✅          |   ✅    |
-| PostgreSQL |         ✅          |   ✅    |
-| SQL Server |         ✅          |   ✅    |
-| Oracle     |         ✅          |   ✅    |
+| Database   |  Auto Schema  | Tested |
+|------------|:-------------:|:------:|
+| H2         |       ✅       |   ✅    |
+| MySQL      |       ✅       |   ✅    |
+| MariaDB    |       ✅       |   ✅    |
+| PostgreSQL |       ✅       |   ✅    |
+| SQL Server |       ✅       |   ✅    |
+| Oracle     |       ✅       |   ✅    |
+| MongoDB    |       ✅       |   ✅    |
 
 Schema files for
 Flyway/Liquibase: [Schema Files on GitHub](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema)
+
+MongoDB setup script: [mongodb-setup.js on GitHub](https://github.com/namastack/namastack-outbox/blob/main/namastack-outbox-mongodb/src/main/resources/schema/mongodb-setup.js)
 
 ---
 
@@ -401,6 +437,7 @@ Flyway/Liquibase: [Schema Files on GitHub](https://github.com/namastack/namastac
 | [example-tracing](namastack-outbox-examples/namastack-outbox-example-tracing)                     | Distributed tracing with Micrometer          |
 | [example-flyway-jpa](namastack-outbox-examples/namastack-outbox-example-flyway-jpa)               | Flyway schema management                     |
 | [example-table-prefix-jdbc](namastack-outbox-examples/namastack-outbox-example-table-prefix-jdbc) | Custom table prefixes                        |
+| [example-mongodb](namastack-outbox-examples/namastack-outbox-example-mongodb)                     | MongoDB with custom collection prefixes      |
 
 → [All examples](namastack-outbox-examples)
 

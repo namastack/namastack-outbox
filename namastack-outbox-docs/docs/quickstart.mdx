@@ -41,8 +41,8 @@ This guide will get you up and running in 5 minutes with minimal configuration.
 </TabItem>
 </Tabs>
 
-:::note JDBC vs JPA
-We recommend the JDBC starter for quick start as it supports automatic schema creation. For JPA/Hibernate projects, see [JPA Setup](#jpa-setup) below.
+:::note JDBC vs JPA vs MongoDB
+We recommend the JDBC starter for quick start as it supports automatic schema creation. For JPA/Hibernate projects, see [JPA Setup](#jpa-setup) below. For MongoDB projects, see [MongoDB Setup](#mongodb-setup) below.
 :::
 
 :::tip Scheduling is automatic
@@ -293,6 +293,9 @@ Any JPA/JDBC-compatible database is supported. Automatic schema creation is avai
 - MySQL / MariaDB
 - PostgreSQL
 - SQL Server
+- Oracle
+
+MongoDB is also supported via the dedicated MongoDB starter. See [MongoDB Setup](#mongodb-setup) below.
 
 **Schema Files for Flyway/Liquibase:**
 
@@ -343,6 +346,44 @@ spring:
       ddl-auto: validate
 ```
 :::
+
+---
+
+## MongoDB Setup
+
+<Tabs>
+<TabItem value="Gradle" label="Gradle">
+
+<VersionedCode language="kotlin" template= {`dependencies {
+      implementation("io.namastack:namastack-outbox-starter-mongodb:{{versionLabel}}")
+}`} />
+
+</TabItem>
+<TabItem value="Maven" label="Maven">
+
+<VersionedCode language="xml" template= {`<dependency>
+      <groupId>io.namastack</groupId>
+      <artifactId>namastack-outbox-starter-mongodb</artifactId>
+      <version>{{versionLabel}}</version>
+</dependency>`} />
+
+</TabItem>
+</Tabs>
+
+:::tip Automatic Collections
+The MongoDB module automatically creates collections and indexes. Ensure `spring.data.mongodb.auto-index-creation` is set to `true` in your configuration.
+:::
+
+For production environments, you can disable auto-index creation and manage collections and indexes manually using the provided [mongosh setup script](reference/mongodb-schema.md).
+
+You can optionally customize collection names with a prefix:
+
+```yaml
+namastack:
+  outbox:
+    mongodb:
+      collection-prefix: "myapp_"
+```
 
 ---
 

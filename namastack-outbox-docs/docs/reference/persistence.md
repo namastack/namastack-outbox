@@ -1,6 +1,6 @@
 ---
 title: Persistence Modules
-description: Choose between JPA and JDBC persistence modules.
+description: Choose between JPA, JDBC, and MongoDB persistence modules.
 sidebar_position: 2
 ---
 
@@ -10,7 +10,7 @@ import VersionedCode from '@site/src/components/VersionedCode';
 
 # Persistence Modules
 
-Namastack Outbox provides two persistence modules to choose from based on your needs.
+Namastack Outbox provides three persistence modules to choose from based on your needs.
 
 ## JPA Module
 
@@ -131,3 +131,58 @@ namastack:
 
 Use the SQL schema files as templates and adjust table names:
 👉 [Schema Files on GitHub](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema)
+
+---
+
+## MongoDB Module
+
+The MongoDB module uses Spring Data MongoDB for document-based persistence. Best for projects already using MongoDB.
+
+<Tabs>
+<TabItem value="Gradle" label="Gradle">
+
+<VersionedCode language="kotlin" template= {`dependencies {
+      implementation("io.namastack:namastack-outbox-starter-mongodb:{{versionLabel}}")
+}`} />
+
+</TabItem>
+<TabItem value="Maven" label="Maven">
+
+<VersionedCode language="xml" template= {`<dependency>
+      <groupId>io.namastack</groupId>
+      <artifactId>namastack-outbox-starter-mongodb</artifactId>
+      <version>{{versionLabel}}</version>
+</dependency>`} />
+
+</TabItem>
+</Tabs>
+
+**Benefits:**
+
+- No SQL or relational database required
+- Automatic collection and index creation via Spring Data MongoDB
+- Support for custom collection prefixes
+- Single-document atomicity for most operations
+
+### Custom Collection Prefix
+
+The MongoDB module supports custom collection naming for multi-tenant deployments or naming conventions:
+
+```yaml
+namastack:
+  outbox:
+    mongodb:
+      collection-prefix: "myapp_"         # Results in: myapp_outbox_records, myapp_outbox_instances, etc.
+```
+
+**Examples:**
+
+| Configuration                   | Resulting Collection Name |
+|---------------------------------|---------------------------|
+| Default                         | `outbox_records`          |
+| `collection-prefix: "app_"`     | `app_outbox_records`      |
+| `collection-prefix: "tenant1_"` | `tenant1_outbox_records`  |
+
+<Admonition type="note" title="Index Creation">
+Ensure `spring.data.mongodb.auto-index-creation` is set to `true` (or manage indexes manually) so that the required indexes for outbox collections are created automatically. For production environments, consider using the [manual setup script](mongodb-schema.md) instead.
+</Admonition>

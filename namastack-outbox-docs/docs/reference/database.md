@@ -16,6 +16,10 @@ Any JPA/JDBC-compatible database is supported. Automatic schema creation (JDBC m
 - ✅ SQL Server
 - ✅ Oracle
 
+### MongoDB
+
+MongoDB is supported via the dedicated MongoDB module (`namastack-outbox-starter-mongodb`). Collections and indexes are created automatically via Spring Data MongoDB. For manual index management, see [MongoDB Schema](mongodb-schema.md). For setup details, see [Persistence Modules → MongoDB](persistence#mongodb-module).
+
 ---
 
 ## Schema Management
