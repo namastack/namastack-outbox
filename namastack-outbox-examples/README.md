@@ -35,6 +35,7 @@ This directory contains various example projects demonstrating different feature
 - **[namastack-outbox-example-mariadb](namastack-outbox-example-mariadb)** - MariaDB database integration
 - **[namastack-outbox-example-postgresql](namastack-outbox-example-postgresql)** - PostgreSQL database integration
 - **[namastack-outbox-example-sqlserver](namastack-outbox-example-sqlserver)** - SQL Server database integration
+- **[namastack-outbox-example-mongodb](namastack-outbox-example-mongodb)** - MongoDB database integration
 
 ### 🏷️ Table Naming & Schema Management
 
