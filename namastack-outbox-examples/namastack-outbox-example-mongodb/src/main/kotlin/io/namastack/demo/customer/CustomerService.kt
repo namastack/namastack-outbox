@@ -1,16 +1,18 @@
 package io.namastack.demo.customer
 
-import io.namastack.outbox.Outbox
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class CustomerService(
     private val customerRepository: CustomerRepository,
-    private val outbox: Outbox,
+    private val applicationEventPublisher: ApplicationEventPublisher,
 ) {
     private val logger = LoggerFactory.getLogger(CustomerService::class.java)
 
+    @Transactional
     fun register(
         firstname: String,
         lastname: String,
@@ -21,28 +23,24 @@ class CustomerService(
         val customerId = customer.id
 
         customerRepository.save(customer)
-        logger.info("[Service] Saved to DB: {}", customerId)
 
-        outbox.schedule(
-            payload =
-                CustomerRegisteredEvent(
-                    id = customerId,
-                    firstname = customer.firstname,
-                    lastname = customer.lastname,
-                    email = customer.email,
-                ),
-            key = customerId,
+        applicationEventPublisher.publishEvent(
+            CustomerRegisteredEvent(
+                id = customerId,
+                firstname = customer.firstname,
+                lastname = customer.lastname,
+                email = customer.email,
+            ),
         )
-        logger.info("[Service] Scheduled to Outbox: {}", customerId)
 
         return customer
     }
 
+    @Transactional
     fun remove(customerId: String) {
         logger.info("[Service] Remove: {}", customerId)
         customerRepository.deleteById(customerId)
 
-        outbox.schedule(payload = CustomerRemovedEvent(customerId), key = customerId)
-        logger.info("[Service] Scheduled to Outbox: {}", customerId)
+        applicationEventPublisher.publishEvent(CustomerRemovedEvent(customerId))
     }
 }
