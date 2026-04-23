@@ -3,8 +3,10 @@ package io.namastack.outbox
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.instance.OutboxInstanceStatus
+import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
+import java.sql.ResultSet
 import java.sql.Timestamp
 import java.time.Instant
 
@@ -27,6 +29,7 @@ internal open class JdbcOutboxInstanceRepository(
     private val tableNameResolver: JdbcTableNameResolver,
 ) : OutboxInstanceRepository {
     private val tableName = tableNameResolver.outboxInstance
+    private val rowMapper = JdbcOutboxInstanceEntityRowMapper()
 
     /**
      * Query to update an existing instance.
@@ -146,7 +149,7 @@ internal open class JdbcOutboxInstanceRepository(
         jdbcClient
             .sql(findByIdQuery)
             .param("instanceId", instanceId)
-            .query(JdbcOutboxInstanceEntity::class.java)
+            .query(rowMapper)
             .optional()
             .map { JdbcOutboxInstanceEntityMapper.map(it) }
             .orElse(null)
@@ -157,7 +160,7 @@ internal open class JdbcOutboxInstanceRepository(
     override fun findAll(): List<OutboxInstance> =
         jdbcClient
             .sql(findAllQuery)
-            .query(JdbcOutboxInstanceEntity::class.java)
+            .query(rowMapper)
             .list()
             .filterNotNull()
             .map { JdbcOutboxInstanceEntityMapper.map(it) }
@@ -169,7 +172,7 @@ internal open class JdbcOutboxInstanceRepository(
         jdbcClient
             .sql(findByStatusQuery)
             .param("status", status.name)
-            .query(JdbcOutboxInstanceEntity::class.java)
+            .query(rowMapper)
             .list()
             .filterNotNull()
             .map { JdbcOutboxInstanceEntityMapper.map(it) }
@@ -189,7 +192,7 @@ internal open class JdbcOutboxInstanceRepository(
             .sql(findStaleHeartbeatQueryTemplate)
             .param("cutoffTime", Timestamp.from(cutoffTime))
             .param("statuses", activeStatuses)
-            .query(JdbcOutboxInstanceEntity::class.java)
+            .query(rowMapper)
             .list()
             .filterNotNull()
             .map { JdbcOutboxInstanceEntityMapper.map(it) }
@@ -286,5 +289,22 @@ internal open class JdbcOutboxInstanceRepository(
             .param("createdAt", Timestamp.from(entity.createdAt))
             .param("updatedAt", Timestamp.from(entity.updatedAt))
             .update()
+    }
+
+    private class JdbcOutboxInstanceEntityRowMapper : RowMapper<JdbcOutboxInstanceEntity> {
+        override fun mapRow(
+            rs: ResultSet,
+            rowNum: Int,
+        ): JdbcOutboxInstanceEntity =
+            JdbcOutboxInstanceEntity(
+                instanceId = rs.getString("instance_id"),
+                hostname = rs.getString("hostname"),
+                port = rs.getInt("port"),
+                status = OutboxInstanceStatus.valueOf(rs.getString("status")),
+                startedAt = rs.getTimestamp("started_at").toInstant(),
+                lastHeartbeat = rs.getTimestamp("last_heartbeat").toInstant(),
+                createdAt = rs.getTimestamp("created_at").toInstant(),
+                updatedAt = rs.getTimestamp("updated_at").toInstant(),
+            )
     }
 }
