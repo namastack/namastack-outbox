@@ -46,7 +46,7 @@ import java.time.Clock
 @ConditionalOnClass(MongoTemplate::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(MongoOutboxConfigurationProperties::class)
-@EnableTransactionManagement
+@EnableTransactionManagement(proxyTargetClass = true)
 class MongoOutboxAutoConfiguration {
     /**
      * Provides a default Clock bean if none is configured.
