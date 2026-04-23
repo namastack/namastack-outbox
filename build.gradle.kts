@@ -26,6 +26,7 @@ dependencies {
     jacocoAggregation(project(":namastack-outbox-jpa"))
     jacocoAggregation(project(":namastack-outbox-kafka"))
     jacocoAggregation(project(":namastack-outbox-metrics"))
+    jacocoAggregation(project(":namastack-outbox-mongodb"))
     jacocoAggregation(project(":namastack-outbox-rabbit"))
     jacocoAggregation(project(":namastack-outbox-sns"))
     jacocoAggregation(project(":namastack-outbox-tracing"))

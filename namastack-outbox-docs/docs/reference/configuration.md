@@ -53,6 +53,9 @@ namastack:
       schema-initialization:
         enabled: true                          # Auto-create tables on startup (default: true)
 
+    mongodb:
+      collection-prefix: ""                    # Prefix for collection names (default: empty)
+
     # Retry Configuration
     retry:
       policy: exponential                      # Retry policy: fixed|linear|exponential (default: exponential)
