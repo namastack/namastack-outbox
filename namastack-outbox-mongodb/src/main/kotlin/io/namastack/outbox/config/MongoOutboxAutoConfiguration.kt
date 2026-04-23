@@ -25,6 +25,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.data.mongodb.MongoDatabaseFactory
 import org.springframework.data.mongodb.MongoTransactionManager
 import org.springframework.data.mongodb.core.MongoTemplate
+import org.springframework.transaction.annotation.EnableTransactionManagement
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 
@@ -45,6 +46,7 @@ import java.time.Clock
 @ConditionalOnClass(MongoTemplate::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(MongoOutboxConfigurationProperties::class)
+@EnableTransactionManagement
 class MongoOutboxAutoConfiguration {
     /**
      * Provides a default Clock bean if none is configured.
