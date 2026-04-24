@@ -194,11 +194,34 @@ class OutboxCoreAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .withPropertyValues(
-                    "namastack.outbox.instance.stale-instance-timeout-seconds=1",
-                    "namastack.outbox.instance.heartbeat-interval-seconds=1",
+                    "namastack.outbox.instance.stale-instance-timeout=1m",
+                    "namastack.outbox.instance.heartbeat-interval=1h",
+                    "namastack.outbox.instance.graceful-shutdown-timeout=500ms",
                 ).run { context ->
                     assertThat(context).hasNotFailed()
                     assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
+                    val properties = assertThat(context).getBean(OutboxProperties::class.java).actual()
+                    assertThat(properties.instance.staleInstanceTimeout.seconds).isEqualTo(60)
+                    assertThat(properties.instance.heartbeatInterval.toMinutes()).isEqualTo(60)
+                    assertThat(properties.instance.gracefulShutdownTimeout.toMillis()).isEqualTo(500)
+                }
+        }
+
+        @Test
+        fun `applies deprectaed instance configuration properties`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues(
+                    "namastack.outbox.instance.stale-instance-timeout-seconds=1",
+                    "namastack.outbox.instance.heartbeat-interval-seconds=1",
+                    "namastack.outbox.instance.graceful-shutdown-timeout-seconds=1",
+                ).run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
+                    val properties = assertThat(context).getBean(OutboxProperties::class.java).actual()
+                    assertThat(properties.instance.staleInstanceTimeout.seconds).isEqualTo(1)
+                    assertThat(properties.instance.heartbeatInterval.seconds).isEqualTo(1)
+                    assertThat(properties.instance.gracefulShutdownTimeout.seconds).isEqualTo(1)
                 }
         }
     }
