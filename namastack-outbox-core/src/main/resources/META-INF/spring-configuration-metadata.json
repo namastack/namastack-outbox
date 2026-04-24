@@ -271,7 +271,7 @@
       "description": "Concurrency limit for the SimpleAsyncTaskExecutor used for parallel processing of record keys when virtual threads are enabled. Default: -1 (no limit)."
     },
     {
-      "name": "namastack.outbox.processing.shutdown-timeout-secods",
+      "name": "namastack.outbox.processing.shutdown-timeout-seconds",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": 30,

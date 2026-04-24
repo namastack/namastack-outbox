@@ -28,6 +28,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Role
+import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
 
 @AutoConfiguration
@@ -68,7 +69,8 @@ class OutboxCoreInfrastructureAutoConfiguration {
         instanceRepository: OutboxInstanceRepository,
         properties: OutboxProperties,
         clock: Clock,
-    ): OutboxInstanceRegistry = OutboxInstanceRegistry(instanceRepository, properties, clock)
+        taskScheduler: TaskScheduler,
+    ): OutboxInstanceRegistry = OutboxInstanceRegistry(instanceRepository, properties, clock, taskScheduler)
 
     @Bean
     @ConditionalOnMissingBean
