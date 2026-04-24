@@ -208,7 +208,7 @@ class OutboxCoreAutoConfigurationTest {
         }
 
         @Test
-        fun `applies deprectaed instance configuration properties`() {
+        fun `applies deprecated instance configuration properties`() {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .withPropertyValues(
@@ -222,6 +222,34 @@ class OutboxCoreAutoConfigurationTest {
                     assertThat(properties.instance.staleInstanceTimeout.seconds).isEqualTo(1)
                     assertThat(properties.instance.heartbeatInterval.seconds).isEqualTo(1)
                     assertThat(properties.instance.gracefulShutdownTimeout.seconds).isEqualTo(1)
+                }
+        }
+
+        @Test
+        fun `applies shutdown timeout configuration property`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues(
+                    "namastack.outbox.processing.shutdown-timeout=500ms",
+                ).run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
+                    val properties = assertThat(context).getBean(OutboxProperties::class.java).actual()
+                    assertThat(properties.processing.shutdownTimeout.toMillis()).isEqualTo(500)
+                }
+        }
+
+        @Test
+        fun `applies deprecated shutdown timeout configuration property`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues(
+                    "namastack.outbox.processing.shutdown-timeout-seconds=1",
+                ).run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
+                    val properties = assertThat(context).getBean(OutboxProperties::class.java).actual()
+                    assertThat(properties.processing.shutdownTimeout.seconds).isEqualTo(1)
                 }
         }
     }
