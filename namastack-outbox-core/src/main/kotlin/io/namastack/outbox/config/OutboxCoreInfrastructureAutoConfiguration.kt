@@ -2,6 +2,7 @@ package io.namastack.outbox.config
 
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.Outbox
+import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
@@ -71,16 +72,18 @@ class OutboxCoreInfrastructureAutoConfiguration {
         instanceRepository: OutboxInstanceRepository,
         properties: OutboxProperties,
         clock: Clock,
-        taskScheduler: TaskScheduler,
+        beanFactory: BeanFactory,
         observationRegistry: ObjectProvider<ObservationRegistry>,
-    ): OutboxInstanceRegistry =
-        OutboxInstanceRegistry(
+    ): OutboxInstanceRegistry {
+        val taskScheduler = beanFactory.getBean(OutboxProcessingScheduler.SCHEDULER_NAME) as TaskScheduler
+        return OutboxInstanceRegistry(
             instanceRepository,
             properties,
             clock,
             taskScheduler,
             { observationRegistry.getIfAvailable { ObservationRegistry.NOOP } },
         )
+    }
 
     @Bean
     @ConditionalOnMissingBean
