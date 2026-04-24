@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.scheduling.TaskScheduler
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
@@ -28,6 +29,9 @@ import java.util.concurrent.TimeUnit.SECONDS
 @ImportAutoConfiguration(exclude = [OutboxCoreSchedulingAutoConfiguration::class])
 class PartitioningIntegrationTest {
     private val clock: Clock = Clock.systemDefaultZone()
+
+    @Autowired
+    private lateinit var taskScheduler: TaskScheduler
 
     @Autowired
     private lateinit var partitionAssignmentRepository: PartitionAssignmentRepository
@@ -139,6 +143,7 @@ class PartitioningIntegrationTest {
                 instanceRepository = instanceRepository,
                 properties = outboxProperties,
                 clock = clock,
+                taskScheduler = taskScheduler,
             )
 
         instanceRegistry.registerInstance()

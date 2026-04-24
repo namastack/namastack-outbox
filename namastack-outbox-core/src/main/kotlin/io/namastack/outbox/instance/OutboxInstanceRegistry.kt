@@ -3,12 +3,12 @@ package io.namastack.outbox.instance
 import io.namastack.outbox.OpenForProxy
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
+import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.scheduling.TaskScheduler
 import java.net.InetAddress
 import java.time.Clock
-import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * @param instanceRepository Repository for persisting instance data
  * @param properties Configuration properties for outbox instance management
  * @param clock Clock for consistent time-based operations
+ * @param taskScheduler TaskScheduler used to schedule the heartbeat
  *
  * @author Roland Beisel
  * @since 0.2.0
@@ -41,22 +42,14 @@ class OutboxInstanceRegistry(
     private val instanceRepository: OutboxInstanceRepository,
     private val properties: OutboxProperties,
     private val clock: Clock,
+    private val taskScheduler: TaskScheduler,
     private val currentInstanceId: String = UUID.randomUUID().toString(),
 ) : SmartLifecycle {
     private val log = LoggerFactory.getLogger(OutboxInstanceRegistry::class.java)
 
-    private val staleInstanceTimeout =
-        if (properties.instance.staleInstanceTimeoutSeconds != null) {
-            Duration.ofSeconds(properties.instance.staleInstanceTimeoutSeconds!!)
-        } else {
-            properties.instance.staleInstanceTimeout
-        }
-    private val gracefulShutdownTimeout =
-        if (properties.instance.gracefulShutdownTimeoutSeconds != null) {
-            Duration.ofSeconds(properties.instance.gracefulShutdownTimeoutSeconds!!)
-        } else {
-            properties.instance.gracefulShutdownTimeout
-        }
+    private val staleInstanceTimeout = properties.instance.staleInstanceTimeout
+
+    private val gracefulShutdownTimeout = properties.instance.gracefulShutdownTimeout
 
     private val running = AtomicBoolean(false)
 
@@ -151,15 +144,17 @@ class OutboxInstanceRegistry(
         }
     }
 
+    @PostConstruct
+    fun scheduleHeartbeat() {
+        val rate = properties.instance.heartbeatInterval
+        taskScheduler.scheduleAtFixedRate({ performHeartbeatAndCleanup() }, rate)
+    }
+
     /**
      * Periodic heartbeat + stale cleanup trigger.
      * Combines update & pruning to reduce scheduling overhead.
      */
-    @Scheduled(
-        fixedRateString = $$"${namastack.outbox.instance.heartbeat-interval:5000}",
-        scheduler = "outboxHeartbeatScheduler",
-    )
-    fun performHeartbeatAndCleanup() {
+    internal fun performHeartbeatAndCleanup() {
         try {
             sendHeartbeat()
             cleanupStaleInstances()

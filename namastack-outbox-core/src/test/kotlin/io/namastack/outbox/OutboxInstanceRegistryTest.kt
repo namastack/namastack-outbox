@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -25,12 +26,13 @@ class OutboxInstanceRegistryTest {
     private val now = Instant.now(clock)
 
     private val instanceRepository = mockk<OutboxInstanceRepository>()
+    private val taskScheduler = mockk<TaskScheduler>()
     private val properties =
         OutboxProperties(
             instance =
                 OutboxProperties.Instance(
-                    staleInstanceTimeout = Duration.ofSeconds(2),
-                    heartbeatInterval = Duration.ofSeconds(1),
+                    staleInstanceTimeoutValue = Duration.ofSeconds(2),
+                    heartbeatIntervalValue = Duration.ofSeconds(1),
                 ),
         )
 
@@ -38,7 +40,7 @@ class OutboxInstanceRegistryTest {
 
     @BeforeEach
     fun setUp() {
-        registry = OutboxInstanceRegistry(instanceRepository, properties, clock)
+        registry = OutboxInstanceRegistry(instanceRepository, properties, clock, taskScheduler)
 
         every { instanceRepository.save(any()) } returns mockk()
         every { instanceRepository.findActiveInstances() } returns emptyList()
@@ -335,9 +337,9 @@ class OutboxInstanceRegistryTest {
         fun `use custom graceful shutdown timeout`() {
             val customProperties =
                 properties.copy(
-                    instance = properties.instance.copy(gracefulShutdownTimeout = Duration.ofSeconds(2)),
+                    instance = properties.instance.copy(gracefulShutdownTimeoutValue = Duration.ofSeconds(2)),
                 )
-            val customRegistry = OutboxInstanceRegistry(instanceRepository, customProperties, clock)
+            val customRegistry = OutboxInstanceRegistry(instanceRepository, customProperties, clock, taskScheduler)
 
             customRegistry.start()
             customRegistry.stop()
@@ -351,9 +353,9 @@ class OutboxInstanceRegistryTest {
         fun `use custom stale instance timeout`() {
             val customProperties =
                 properties.copy(
-                    instance = properties.instance.copy(staleInstanceTimeout = Duration.ofSeconds(5)),
+                    instance = properties.instance.copy(staleInstanceTimeoutValue = Duration.ofSeconds(5)),
                 )
-            val customRegistry = OutboxInstanceRegistry(instanceRepository, customProperties, clock)
+            val customRegistry = OutboxInstanceRegistry(instanceRepository, customProperties, clock, taskScheduler)
             val expectedCutoff = now.minus(Duration.ofSeconds(5))
 
             customRegistry.performHeartbeatAndCleanup()

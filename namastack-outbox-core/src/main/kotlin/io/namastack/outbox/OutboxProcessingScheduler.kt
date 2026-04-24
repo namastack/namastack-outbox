@@ -63,14 +63,8 @@ class OutboxProcessingScheduler(
 
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
-    private val lifecycle =
-        SchedulerLifecycleStateMachine(
-            if (properties.processing.shutdownTimeoutSeconds != null) {
-                Duration.ofSeconds(properties.processing.shutdownTimeoutSeconds!!)
-            } else {
-                properties.processing.shutdownTimeout
-            },
-        )
+    private val lifecycle = SchedulerLifecycleStateMachine(properties.processing.shutdownTimeout)
+
     private var scheduledTask: ScheduledFuture<*>? = null
 
     /**
