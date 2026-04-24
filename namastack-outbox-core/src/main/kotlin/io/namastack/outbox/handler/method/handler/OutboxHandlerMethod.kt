@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.method.handler
 
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.BaseHandlerMethod
 import java.lang.reflect.Method
 
@@ -17,4 +18,14 @@ import java.lang.reflect.Method
 sealed class OutboxHandlerMethod(
     bean: Any,
     method: Method,
-) : BaseHandlerMethod(bean, method)
+) : BaseHandlerMethod(bean, method) {
+    /**
+     * Determines whether this handler should be scheduled for the given payload.
+     *
+     * Default implementation returns true for all handlers.
+     */
+    open fun supportsScheduling(
+        payload: Any,
+        metadata: OutboxRecordMetadata,
+    ): Boolean = true
+}

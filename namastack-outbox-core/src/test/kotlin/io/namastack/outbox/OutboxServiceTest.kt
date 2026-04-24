@@ -112,6 +112,21 @@ class OutboxServiceTest {
         }
 
         @Test
+        fun `should not create record for generic handler when supports returns false`() {
+            val payload = TestPayload("test-id")
+            val context = mapOf("key1" to "value1")
+            val genericHandler = createGenericMockHandler("generic-handler", supports = false)
+
+            every { contextCollector.collectContext() } returns emptyMap()
+            every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns emptyList()
+            every { handlerRegistry.getGenericHandlers() } returns listOf(genericHandler)
+
+            outboxService.schedule(payload, "test-key", context)
+
+            verify(exactly = 0) { outboxRecordRepository.save(any() as OutboxRecord<Any>) }
+        }
+
+        @Test
         fun `should deduplicate handlers`() {
             val payload = TestPayload("test-id")
             val context = mapOf("key1" to "value1")
@@ -544,12 +559,17 @@ class OutboxServiceTest {
     private fun createTypedMockHandler(id: String): TypedHandlerMethod {
         val handler = mockk<TypedHandlerMethod>()
         every { handler.id } returns id
+        every { handler.supportsScheduling(any(), any()) } returns true
         return handler
     }
 
-    private fun createGenericMockHandler(id: String): GenericHandlerMethod {
+    private fun createGenericMockHandler(
+        id: String,
+        supports: Boolean = true,
+    ): GenericHandlerMethod {
         val handler = mockk<GenericHandlerMethod>()
         every { handler.id } returns id
+        every { handler.supportsScheduling(any(), any()) } returns supports
         return handler
     }
 
