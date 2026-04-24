@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.micrometer.observation.ObservationRegistry
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -24,9 +25,10 @@ import java.time.ZoneOffset
 class OutboxInstanceRegistryTest {
     private val clock = Clock.fixed(Instant.parse("2025-10-25T10:00:00Z"), ZoneOffset.UTC)
     private val now = Instant.now(clock)
+    private val observationRegistry = { ObservationRegistry.NOOP }
 
     private val instanceRepository = mockk<OutboxInstanceRepository>()
-    private val taskScheduler = mockk<TaskScheduler>()
+    private val taskScheduler = mockk<TaskScheduler>(relaxed = true)
     private val properties =
         OutboxProperties(
             instance =
@@ -40,7 +42,7 @@ class OutboxInstanceRegistryTest {
 
     @BeforeEach
     fun setUp() {
-        registry = OutboxInstanceRegistry(instanceRepository, properties, clock, taskScheduler)
+        registry = OutboxInstanceRegistry(instanceRepository, properties, clock, taskScheduler, observationRegistry)
 
         every { instanceRepository.save(any()) } returns mockk()
         every { instanceRepository.findActiveInstances() } returns emptyList()
@@ -339,7 +341,14 @@ class OutboxInstanceRegistryTest {
                 properties.copy(
                     instance = properties.instance.copy(gracefulShutdownTimeoutValue = Duration.ofSeconds(2)),
                 )
-            val customRegistry = OutboxInstanceRegistry(instanceRepository, customProperties, clock, taskScheduler)
+            val customRegistry =
+                OutboxInstanceRegistry(
+                    instanceRepository,
+                    customProperties,
+                    clock,
+                    taskScheduler,
+                    observationRegistry,
+                )
 
             customRegistry.start()
             customRegistry.stop()
@@ -355,7 +364,14 @@ class OutboxInstanceRegistryTest {
                 properties.copy(
                     instance = properties.instance.copy(staleInstanceTimeoutValue = Duration.ofSeconds(5)),
                 )
-            val customRegistry = OutboxInstanceRegistry(instanceRepository, customProperties, clock, taskScheduler)
+            val customRegistry =
+                OutboxInstanceRegistry(
+                    instanceRepository,
+                    customProperties,
+                    clock,
+                    taskScheduler,
+                    observationRegistry,
+                )
             val expectedCutoff = now.minus(Duration.ofSeconds(5))
 
             customRegistry.performHeartbeatAndCleanup()
