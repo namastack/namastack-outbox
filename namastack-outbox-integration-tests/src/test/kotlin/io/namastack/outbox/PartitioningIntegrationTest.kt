@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.mockk.mockk
 import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
@@ -15,6 +14,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.context.annotation.Import
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.transaction.annotation.Propagation
@@ -28,10 +28,12 @@ import java.util.concurrent.TimeUnit.SECONDS
 @DirtiesContext
 @OutboxIntegrationTest
 @ImportAutoConfiguration(exclude = [OutboxCoreSchedulingAutoConfiguration::class])
+@Import(TaskSchedulerConfiguration::class)
 class PartitioningIntegrationTest {
     private val clock: Clock = Clock.systemDefaultZone()
 
-    private val taskScheduler: TaskScheduler = mockk()
+    @Autowired
+    private lateinit var taskScheduler: TaskScheduler
 
     @Autowired
     private lateinit var partitionAssignmentRepository: PartitionAssignmentRepository
