@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.mockk.mockk
 import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
@@ -30,8 +31,7 @@ import java.util.concurrent.TimeUnit.SECONDS
 class PartitioningIntegrationTest {
     private val clock: Clock = Clock.systemDefaultZone()
 
-    @Autowired
-    private lateinit var taskScheduler: TaskScheduler
+    private val taskScheduler: TaskScheduler = mockk()
 
     @Autowired
     private lateinit var partitionAssignmentRepository: PartitionAssignmentRepository
