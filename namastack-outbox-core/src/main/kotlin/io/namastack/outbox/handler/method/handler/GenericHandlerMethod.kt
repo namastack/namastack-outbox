@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.method.handler
 
+import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import java.lang.reflect.Method
 
@@ -18,6 +19,11 @@ class GenericHandlerMethod(
     bean: Any,
     method: Method,
 ) : OutboxHandlerMethod(bean, method) {
+    override fun supportsScheduling(
+        payload: Any,
+        metadata: OutboxRecordMetadata,
+    ): Boolean = (bean as? OutboxHandler)?.supports(payload, metadata) ?: true
+
     /**
      * Invokes handler with payload and metadata via reflection.
      *

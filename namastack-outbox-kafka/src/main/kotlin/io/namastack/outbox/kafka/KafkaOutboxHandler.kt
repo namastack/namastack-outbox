@@ -71,11 +71,16 @@ class KafkaOutboxHandler(
 ) : OutboxHandler {
     private val logger = LoggerFactory.getLogger(KafkaOutboxHandler::class.java)
 
+    override fun supports(
+        payload: Any,
+        metadata: OutboxRecordMetadata,
+    ): Boolean = routing.shouldExternalize(payload, metadata)
+
     override fun handle(
         payload: Any,
         metadata: OutboxRecordMetadata,
     ) {
-        if (!routing.shouldExternalize(payload, metadata)) {
+        if (!supports(payload, metadata)) {
             logger.debug("Skipping outbox record due to filter: handlerId={}", metadata.handlerId)
             return
         }

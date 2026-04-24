@@ -32,6 +32,22 @@ package io.namastack.outbox.handler
  */
 interface OutboxHandler {
     /**
+     * Determines whether this handler supports scheduling for a given payload.
+     *
+     * Called before an outbox record is created. Return `false` to prevent
+     * record creation for this handler.
+     *
+     * Default implementation is `true` for backward compatibility.
+     *
+     * @param payload The record payload of any type
+     * @param metadata Record metadata containing context information
+     */
+    fun supports(
+        payload: Any,
+        metadata: OutboxRecordMetadata,
+    ): Boolean = true
+
+    /**
      * Handles an outbox record.
      *
      * @param payload The record payload of any type
