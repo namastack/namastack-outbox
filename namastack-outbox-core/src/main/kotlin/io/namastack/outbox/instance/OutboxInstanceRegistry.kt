@@ -1,12 +1,14 @@
 package io.namastack.outbox.instance
 
+import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OpenForProxy
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
-import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
 import org.springframework.scheduling.TaskScheduler
+import org.springframework.scheduling.support.ScheduledMethodRunnable
+import java.lang.reflect.Method
 import java.net.InetAddress
 import java.time.Clock
 import java.time.Instant
@@ -43,8 +45,16 @@ class OutboxInstanceRegistry(
     private val properties: OutboxProperties,
     private val clock: Clock,
     private val taskScheduler: TaskScheduler,
+    private val observationRegistry: () -> ObservationRegistry,
     private val currentInstanceId: String = UUID.randomUUID().toString(),
 ) : SmartLifecycle {
+    companion object {
+        const val SCHEDULER_NAME: String = "outboxHeartbeatScheduler"
+
+        private val SCHEDULE_METHOD_NAME: String = (OutboxInstanceRegistry::performHeartbeatAndCleanup).name
+        private val SCHEDULE_METHOD: Method = OutboxInstanceRegistry::class.java.getMethod(SCHEDULE_METHOD_NAME)
+    }
+
     private val log = LoggerFactory.getLogger(OutboxInstanceRegistry::class.java)
 
     private val staleInstanceTimeout = properties.instance.staleInstanceTimeout
@@ -68,6 +78,10 @@ class OutboxInstanceRegistry(
     override fun start() {
         registerInstance()
         running.set(true)
+        val rate = properties.instance.heartbeatInterval
+        taskScheduler.scheduleAtFixedRate({ performHeartbeatAndCleanup() }, rate)
+        val runnable = ScheduledMethodRunnable(this, SCHEDULE_METHOD, SCHEDULER_NAME, observationRegistry)
+        taskScheduler.scheduleAtFixedRate(runnable, rate)
     }
 
     /**
@@ -144,17 +158,11 @@ class OutboxInstanceRegistry(
         }
     }
 
-    @PostConstruct
-    fun scheduleHeartbeat() {
-        val rate = properties.instance.heartbeatInterval
-        taskScheduler.scheduleAtFixedRate({ performHeartbeatAndCleanup() }, rate)
-    }
-
     /**
      * Periodic heartbeat + stale cleanup trigger.
      * Combines update & pruning to reduce scheduling overhead.
      */
-    internal fun performHeartbeatAndCleanup() {
+    fun performHeartbeatAndCleanup() {
         try {
             sendHeartbeat()
             cleanupStaleInstances()

@@ -1,5 +1,6 @@
 package io.namastack.outbox.config
 
+import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.Outbox
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
@@ -20,6 +21,7 @@ import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.springframework.beans.factory.BeanFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.config.BeanDefinition
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
@@ -70,7 +72,15 @@ class OutboxCoreInfrastructureAutoConfiguration {
         properties: OutboxProperties,
         clock: Clock,
         taskScheduler: TaskScheduler,
-    ): OutboxInstanceRegistry = OutboxInstanceRegistry(instanceRepository, properties, clock, taskScheduler)
+        observationRegistry: ObjectProvider<ObservationRegistry>,
+    ): OutboxInstanceRegistry =
+        OutboxInstanceRegistry(
+            instanceRepository,
+            properties,
+            clock,
+            taskScheduler,
+            { observationRegistry.getIfAvailable { ObservationRegistry.NOOP } },
+        )
 
     @Bean
     @ConditionalOnMissingBean

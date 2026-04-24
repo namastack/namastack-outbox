@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
@@ -146,6 +147,7 @@ class PartitioningIntegrationTest {
                 properties = outboxProperties,
                 clock = clock,
                 taskScheduler = taskScheduler,
+                observationRegistry = { ObservationRegistry.NOOP },
             )
 
         instanceRegistry.registerInstance()
