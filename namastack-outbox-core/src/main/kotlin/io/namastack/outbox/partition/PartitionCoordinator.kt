@@ -1,12 +1,15 @@
 package io.namastack.outbox.partition
 
 import io.namastack.outbox.OpenForProxy
+import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.scheduling.annotation.Scheduled
 import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 
 /**
  * Central orchestrator for partition ownership management.
@@ -29,10 +32,13 @@ class PartitionCoordinator(
     private val instanceRegistry: OutboxInstanceRegistry,
     private val partitionAssignmentRepository: PartitionAssignmentRepository,
     private val partitionAssignmentCache: PartitionAssignmentCache,
+    private val partitionDrainTracker: PartitionDrainTracker = PartitionDrainTracker(),
+    private val properties: OutboxProperties = OutboxProperties(),
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(PartitionCoordinator::class.java)
     private val currentInstanceId by lazy { instanceRegistry.getCurrentInstanceId() }
+    private val leaseDuration = Duration.ofSeconds(properties.partition.leaseDurationSeconds)
 
     /**
      * Return currently owned partition numbers (cached until next rebalance).
@@ -65,7 +71,9 @@ class PartitionCoordinator(
                 return
             }
 
+            renewOwnedLeases(partitionContext)
             claimStalePartitions(partitionContext)
+            startDrainingSurplusPartitions(partitionContext)
             releaseSurplusPartitions(partitionContext)
         } finally {
             partitionAssignmentCache.evictAll()
@@ -88,6 +96,7 @@ class PartitionCoordinator(
             currentInstanceId = currentInstanceId,
             activeInstanceIds = activeInstanceIds,
             partitionAssignments = partitionAssignments,
+            now = Instant.now(clock),
         )
     }
 
@@ -132,6 +141,7 @@ class PartitionCoordinator(
                     partitionNumber = partitionNumber,
                     instanceId = currentInstanceId,
                     clock = clock,
+                    leaseDuration = leaseDuration,
                     version = null,
                 )
             }.toSet()
@@ -141,12 +151,27 @@ class PartitionCoordinator(
      * Only partitions that are not assigned to any active instance are considered.
      * Updates ownership to the current instance.
      */
+    private fun renewOwnedLeases(partitionContext: PartitionContext) {
+        val ownedAssignments = partitionContext.getOwnedPartitionAssignments()
+        if (ownedAssignments.isEmpty()) return
+
+        ownedAssignments.forEach { partitionAssignment ->
+            partitionAssignment.renewLease(currentInstanceId, clock, leaseDuration)
+        }
+
+        try {
+            partitionAssignmentRepository.saveAll(ownedAssignments)
+        } catch (_: Exception) {
+            log.debug("Could not renew partition leases for instance {}", currentInstanceId)
+        }
+    }
+
     private fun claimStalePartitions(partitionContext: PartitionContext) {
         val partitionsToClaim = partitionContext.getPartitionAssignmentsToClaim()
         if (partitionsToClaim.isEmpty()) return
 
         partitionsToClaim.forEach { partitionAssignment ->
-            partitionAssignment.claim(currentInstanceId, clock)
+            partitionAssignment.claim(currentInstanceId, clock, leaseDuration)
         }
 
         val partitionNumbersToClaim = partitionsToClaim.map { it.partitionNumber }
@@ -172,11 +197,48 @@ class PartitionCoordinator(
     }
 
     /**
-     * Releases surplus partitions owned by the current instance to achieve a balanced distribution.
-     * Only partitions assigned to this instance are considered for release.
+     * Marks surplus partitions as draining so the owner stops taking new work.
+     */
+    private fun startDrainingSurplusPartitions(partitionContext: PartitionContext) {
+        val partitionsToDrain = partitionContext.getPartitionAssignmentsToStartDraining()
+        if (partitionsToDrain.isEmpty()) return
+
+        partitionsToDrain.forEach { partitionAssignment ->
+            partitionAssignment.markDraining(currentInstanceId, clock, leaseDuration)
+        }
+
+        val partitionNumbersToDrain = partitionsToDrain.map { it.partitionNumber }
+
+        try {
+            partitionAssignmentRepository.saveAll(partitionsToDrain)
+        } catch (_: Exception) {
+            log.debug(
+                "Could not mark partitions {} as draining for instance {}",
+                partitionNumbersToDrain,
+                currentInstanceId,
+            )
+            return
+        }
+
+        log.debug(
+            "Successfully marked {} partitions as draining for instance {}: {}",
+            partitionsToDrain.size,
+            currentInstanceId,
+            partitionNumbersToDrain,
+        )
+    }
+
+    /**
+     * Releases draining partitions once the current instance has no local work in flight for them.
      */
     private fun releaseSurplusPartitions(partitionContext: PartitionContext) {
-        val partitionsToRelease = partitionContext.getPartitionAssignmentsToRelease()
+        val releaseCandidates = partitionContext.getPartitionAssignmentsToRelease()
+        if (releaseCandidates.isEmpty()) return
+
+        val partitionsToRelease =
+            releaseCandidates.filterNot { assignment ->
+                partitionDrainTracker.hasInFlightRecords(setOf(assignment.partitionNumber))
+            }.toSet()
         if (partitionsToRelease.isEmpty()) return
 
         partitionsToRelease.forEach { partitionAssignment ->

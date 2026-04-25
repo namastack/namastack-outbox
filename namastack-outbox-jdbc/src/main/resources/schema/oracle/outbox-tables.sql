@@ -68,10 +68,11 @@ BEGIN
                 partition_number NUMBER(10) PRIMARY KEY,
                 instance_id      VARCHAR2(255),
                 version          NUMBER(19) DEFAULT 0 NOT NULL,
-                updated_at       TIMESTAMP WITH TIME ZONE NOT NULL
+                updated_at       TIMESTAMP WITH TIME ZONE NOT NULL,
+                lease_expires_at TIMESTAMP WITH TIME ZONE,
+                draining         NUMBER(1) DEFAULT 0 NOT NULL
             )';
         EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_part_inst_id ON outbox_partition (instance_id)';
     END IF;
 END;
 /
-

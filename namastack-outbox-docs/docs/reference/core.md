@@ -163,7 +163,15 @@ namastack:
       stale-instance-timeout-seconds: 30       # When an instance is considered stale and removed
       graceful-shutdown-timeout-seconds: 0     # Optional: propagation window on shutdown (default: 0)
       rebalance-interval: 10000                # How often partitions are recalculated
+    partition:
+      lease-duration-seconds: 30               # How long partition ownership remains valid without renewal
 ```
+
+### Lease-based Ownership and Draining
+
+Partition ownership uses leases. Active owners renew leases on each rebalance cycle. If an owner stops renewing, the lease expires and other active instances can claim the partition.
+
+To avoid abrupt handoff, surplus partitions are first marked as draining. Draining partitions stop accepting new work on the current instance and are only released after local in-flight processing completes.
 
 <Tabs>
 <TabItem value="3instances" label="3 Instances">

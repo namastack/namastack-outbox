@@ -1,6 +1,7 @@
 package io.namastack.outbox.partition
 
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 
 /**
@@ -20,9 +21,18 @@ data class PartitionAssignment(
     val partitionNumber: Int,
     var instanceId: String?,
     var updatedAt: Instant,
+    var leaseExpiresAt: Instant? = null,
+    var draining: Boolean = false,
     val version: Long? = null,
 ) {
     companion object {
+        fun create(
+            partitionNumber: Int,
+            instanceId: String,
+            clock: Clock,
+            version: Long?,
+        ): PartitionAssignment = create(partitionNumber, instanceId, clock, Duration.ofSeconds(30), version)
+
         /**
          * Creates a new partition assignment.
          *
@@ -35,6 +45,7 @@ data class PartitionAssignment(
             partitionNumber: Int,
             instanceId: String,
             clock: Clock,
+            leaseDuration: Duration,
             version: Long?,
         ): PartitionAssignment {
             val now = Instant.now(clock)
@@ -42,6 +53,8 @@ data class PartitionAssignment(
                 partitionNumber = partitionNumber,
                 instanceId = instanceId,
                 updatedAt = now,
+                leaseExpiresAt = now.plus(leaseDuration),
+                draining = false,
                 version = version,
             )
         }
@@ -57,11 +70,45 @@ data class PartitionAssignment(
     fun claim(
         instanceId: String,
         clock: Clock,
+        leaseDuration: Duration = Duration.ofSeconds(30),
     ) {
         val now = Instant.now(clock)
 
         this.instanceId = instanceId
         this.updatedAt = now
+        this.leaseExpiresAt = now.plus(leaseDuration)
+        this.draining = false
+    }
+
+    /**
+     * Extends this lease while retaining ownership.
+     */
+    fun renewLease(
+        currentInstanceId: String,
+        clock: Clock,
+        leaseDuration: Duration,
+    ) {
+        ensureOwnedBy(currentInstanceId)
+
+        val now = Instant.now(clock)
+        this.updatedAt = now
+        this.leaseExpiresAt = now.plus(leaseDuration)
+    }
+
+    /**
+     * Marks the partition as draining so the owner stops taking new work for it.
+     */
+    fun markDraining(
+        currentInstanceId: String,
+        clock: Clock,
+        leaseDuration: Duration,
+    ) {
+        ensureOwnedBy(currentInstanceId)
+
+        val now = Instant.now(clock)
+        this.updatedAt = now
+        this.leaseExpiresAt = now.plus(leaseDuration)
+        this.draining = true
     }
 
     /**
@@ -76,15 +123,27 @@ data class PartitionAssignment(
         currentInstanceId: String,
         clock: Clock,
     ) {
-        if (instanceId != currentInstanceId) {
-            throw IllegalStateException(
-                "Could not release partition assignment with partition number $partitionNumber. Instance $currentInstanceId does not own this partition assignment.",
-            )
-        }
+        ensureOwnedBy(currentInstanceId)
 
         val now = Instant.now(clock)
 
         this.instanceId = null
         this.updatedAt = now
+        this.leaseExpiresAt = null
+        this.draining = false
+    }
+
+    fun isLeaseExpired(now: Instant): Boolean = leaseExpiresAt?.let { !it.isAfter(now) } ?: false
+
+    fun isClaimable(now: Instant): Boolean = instanceId == null || isLeaseExpired(now)
+
+    fun isProcessable(now: Instant): Boolean = instanceId != null && !draining && !isLeaseExpired(now)
+
+    private fun ensureOwnedBy(currentInstanceId: String) {
+        if (instanceId != currentInstanceId) {
+            throw IllegalStateException(
+                "Could not update partition assignment with partition number $partitionNumber. Instance $currentInstanceId does not own this partition assignment.",
+            )
+        }
     }
 }

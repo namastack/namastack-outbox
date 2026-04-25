@@ -18,6 +18,8 @@ internal object JdbcOutboxPartitionAssignmentEntityMapper {
             instanceId = partition.instanceId,
             version = partition.version,
             updatedAt = partition.updatedAt,
+            leaseExpiresAt = partition.leaseExpiresAt,
+            draining = partition.draining,
         )
 
     /**
@@ -29,5 +31,7 @@ internal object JdbcOutboxPartitionAssignmentEntityMapper {
             instanceId = entity.instanceId,
             version = entity.version,
             updatedAt = entity.updatedAt,
+            leaseExpiresAt = entity.leaseExpiresAt,
+            draining = entity.draining,
         )
 }

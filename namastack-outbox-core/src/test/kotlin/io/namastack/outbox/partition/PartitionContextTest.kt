@@ -68,18 +68,18 @@ class PartitionContextTest {
     }
 
     @Test
-    fun `getStalePartitionAssignments returns assignments from inactive instances`() {
+    fun `getClaimablePartitionAssignments returns expired assignments from inactive instances`() {
         val assignments =
             setOf(
                 PartitionAssignment.create(0, "i-1", clock, null),
-                PartitionAssignment.create(1, "i-old", clock, null),
+                PartitionAssignment(1, "i-old", Instant.now(clock), leaseExpiresAt = null),
                 PartitionAssignment.create(2, "i-2", clock, null),
-                PartitionAssignment.create(3, "i-gone", clock, null),
+                PartitionAssignment(3, "i-gone", Instant.now(clock), leaseExpiresAt = null),
             )
         val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments)
-        val stale = ctx.getStalePartitionAssignments().map { it.partitionNumber }.sorted()
+        val claimable = ctx.getClaimablePartitionAssignments().map { it.partitionNumber }.sorted()
 
-        assertThat(stale).containsExactly(1, 3)
+        assertThat(claimable).containsExactly(1, 3)
     }
 
     @Test
@@ -168,7 +168,7 @@ class PartitionContextTest {
     }
 
     @Test
-    fun `getPartitionAssignmentsToRelease returns empty when no surplus`() {
+    fun `getPartitionAssignmentsToRelease returns empty when no draining partitions exist`() {
         val assignments = (0..127).map { PartitionAssignment.create(it, "i-1", clock, null) }.toSet()
         val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments)
 
@@ -176,15 +176,33 @@ class PartitionContextTest {
     }
 
     @Test
-    fun `getPartitionAssignmentsToRelease returns last N assignments to release`() {
+    fun `getPartitionAssignmentsToStartDraining returns last N assignments to release`() {
         val i1Partitions = (0..149).map { PartitionAssignment.create(it, "i-1", clock, null) }.toSet()
         val i2Partitions = (150..255).map { PartitionAssignment.create(it, "i-2", clock, null) }.toSet()
         val assignments = i1Partitions + i2Partitions
 
         val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments)
-        val toRelease = ctx.getPartitionAssignmentsToRelease()
+        val toRelease = ctx.getPartitionAssignmentsToStartDraining()
 
         assertThat(toRelease.map { it.partitionNumber }).containsExactlyInAnyOrder(*(128..149).toList().toTypedArray())
+    }
+
+    @Test
+    fun `getPartitionAssignmentsToRelease returns owned draining partitions`() {
+        val i1NonDraining = (0..127).map { PartitionAssignment.create(it, "i-1", clock, null) }.toSet()
+        val i1Draining =
+            (128..149)
+                .map { partitionNumber ->
+                    PartitionAssignment.create(partitionNumber, "i-1", clock, null).apply {
+                        markDraining("i-1", clock, java.time.Duration.ofSeconds(30))
+                    }
+                }.toSet()
+        val i2Partitions = (150..255).map { PartitionAssignment.create(it, "i-2", clock, null) }.toSet()
+
+        val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), i1NonDraining + i1Draining + i2Partitions)
+
+        assertThat(ctx.getPartitionAssignmentsToRelease().map { it.partitionNumber })
+            .containsExactlyInAnyOrder(*(128..149).toList().toTypedArray())
     }
 
     @Test
@@ -196,7 +214,7 @@ class PartitionContextTest {
     }
 
     @Test
-    fun `getPartitionAssignmentsToClaim returns empty when no stale partitions`() {
+    fun `getPartitionAssignmentsToClaim returns empty when no claimable partitions`() {
         val i1Partitions = (0..9).map { PartitionAssignment.create(it, "i-1", clock, null) }.toSet()
         val i2Partitions = (10..255).map { PartitionAssignment.create(it, "i-2", clock, null) }.toSet()
         val assignments = i1Partitions + i2Partitions
@@ -207,10 +225,13 @@ class PartitionContextTest {
     }
 
     @Test
-    fun `getPartitionAssignmentsToClaim returns empty when insufficient stale partitions`() {
+    fun `getPartitionAssignmentsToClaim returns empty when insufficient claimable partitions`() {
         val i1Partitions = (0..55).map { PartitionAssignment.create(it, "i-1", clock, null) }.toSet()
         val i2Partitions = (56..155).map { PartitionAssignment.create(it, "i-2", clock, null) }.toSet()
-        val stalePartitions = (156..205).map { PartitionAssignment.create(it, "i-old", clock, null) }.toSet()
+        val stalePartitions =
+            (156..205)
+                .map { PartitionAssignment(it, "i-old", Instant.now(clock), leaseExpiresAt = null) }
+                .toSet()
         val assignments = i1Partitions + i2Partitions + stalePartitions
 
         val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments)
@@ -219,10 +240,13 @@ class PartitionContextTest {
     }
 
     @Test
-    fun `getPartitionAssignmentsToClaim returns first N stale assignments`() {
+    fun `getPartitionAssignmentsToClaim returns first N claimable assignments`() {
         val i1Partitions = (0..99).map { PartitionAssignment.create(it, "i-1", clock, null) }.toSet()
         val i2Partitions = (100..127).map { PartitionAssignment.create(it, "i-2", clock, null) }.toSet()
-        val stalePartitions = (128..177).map { PartitionAssignment.create(it, "i-old", clock, null) }.toSet()
+        val stalePartitions =
+            (128..177)
+                .map { PartitionAssignment(it, "i-old", Instant.now(clock), leaseExpiresAt = null) }
+                .toSet()
         val assignments = i1Partitions + i2Partitions + stalePartitions
 
         val ctx = PartitionContext("i-1", setOf("i-1", "i-2"), assignments)

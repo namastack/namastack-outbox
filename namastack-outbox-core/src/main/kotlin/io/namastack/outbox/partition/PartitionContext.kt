@@ -1,5 +1,6 @@
 package io.namastack.outbox.partition
 
+import java.time.Instant
 import kotlin.math.max
 
 /**
@@ -18,6 +19,7 @@ data class PartitionContext(
     val currentInstanceId: String,
     val activeInstanceIds: Set<String>,
     val partitionAssignments: Set<PartitionAssignment>,
+    val now: Instant = Instant.now(),
 ) {
     /**
      * The number of partitions this instance should own according to the distribution algorithm.
@@ -33,6 +35,12 @@ data class PartitionContext(
      * Returns the number of partitions currently owned by this instance.
      */
     fun countOwnedPartitionAssignments(): Int = partitionAssignments.count { it.instanceId == currentInstanceId }
+
+    /**
+     * Returns the number of partitions owned by this instance that are already draining.
+     */
+    fun countOwnedDrainingPartitionAssignments(): Int =
+        partitionAssignments.count { it.instanceId == currentInstanceId && it.draining }
 
     /**
      * Returns the number of partitions that should be released by this instance to reach a balanced state.
@@ -62,8 +70,12 @@ data class PartitionContext(
     /**
      * Returns all partition assignments whose owner is not among active instances (stale candidates).
      */
-    fun getStalePartitionAssignments(): Set<PartitionAssignment> =
-        partitionAssignments.filterNot { it.instanceId in activeInstanceIds }.toSet()
+    fun getClaimablePartitionAssignments(): Set<PartitionAssignment> =
+        partitionAssignments
+            .filter { assignment ->
+                assignment.isClaimable(now) ||
+                    (assignment.leaseExpiresAt == null && assignment.instanceId !in activeInstanceIds)
+            }.toSet()
 
     /**
      * Returns all partition numbers that are currently unassigned (instanceId == null).
@@ -81,13 +93,27 @@ data class PartitionContext(
      *
      * @return Set of partition assignments to release
      */
+    fun getPartitionAssignmentsToStartDraining(): Set<PartitionAssignment> {
+        val count = max(0, countOwnedPartitionAssignments() - targetPartitionCount - countOwnedDrainingPartitionAssignments())
+        if (count == 0) return emptySet()
+
+        return getOwnedPartitionAssignments()
+            .filterNot { it.draining }
+            .sortedBy { it.partitionNumber }
+            .takeLast(count)
+            .toSet()
+    }
+
+    /**
+     * Returns owned draining partitions that can be fully released once in-flight work is done.
+     */
     fun getPartitionAssignmentsToRelease(): Set<PartitionAssignment> {
         val count = countPartitionsToRelease()
         if (count == 0) return emptySet()
 
         return getOwnedPartitionAssignments()
+            .filter { it.draining }
             .sortedBy { it.partitionNumber }
-            .takeLast(count)
             .toSet()
     }
 
@@ -107,12 +133,12 @@ data class PartitionContext(
         val partitionsToClaimCount = countPartitionsToClaim()
         if (partitionsToClaimCount == 0) return emptySet()
 
-        val stalePartitionAssignments = getStalePartitionAssignments()
-        if (stalePartitionAssignments.isEmpty()) return emptySet()
+        val claimableAssignments = getClaimablePartitionAssignments()
+        if (claimableAssignments.isEmpty()) return emptySet()
 
-        if (partitionsToClaimCount > stalePartitionAssignments.size) return emptySet()
+        if (partitionsToClaimCount > claimableAssignments.size) return emptySet()
 
-        return stalePartitionAssignments
+        return claimableAssignments
             .sortedBy { it.partitionNumber }
             .take(partitionsToClaimCount)
             .toSet()

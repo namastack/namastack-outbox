@@ -38,4 +38,8 @@ internal data class OutboxPartitionAssignmentEntity(
     val version: Long? = null,
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant,
+    @Column(name = "lease_expires_at")
+    var leaseExpiresAt: Instant? = null,
+    @Column(name = "draining", nullable = false)
+    var draining: Boolean = false,
 )

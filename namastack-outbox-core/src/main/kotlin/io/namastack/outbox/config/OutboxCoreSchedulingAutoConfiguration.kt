@@ -5,6 +5,7 @@ import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.partition.PartitionCoordinator
+import io.namastack.outbox.partition.PartitionDrainTracker
 import io.namastack.outbox.processor.OutboxRecordProcessor
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import io.namastack.outbox.trigger.OutboxPollingTriggerFactory
@@ -48,6 +49,7 @@ class OutboxCoreSchedulingAutoConfiguration {
         recordRepository: OutboxRecordRepository,
         recordProcessorChain: OutboxRecordProcessor,
         partitionCoordinator: PartitionCoordinator,
+        partitionDrainTracker: PartitionDrainTracker,
         properties: OutboxProperties,
         clock: Clock,
         beanFactory: BeanFactory,
@@ -62,6 +64,7 @@ class OutboxCoreSchedulingAutoConfiguration {
             recordRepository = recordRepository,
             recordProcessorChain = recordProcessorChain,
             partitionCoordinator = partitionCoordinator,
+            partitionDrainTracker = partitionDrainTracker,
             taskExecutor = taskExecutor,
             properties = properties,
             clock = clock,

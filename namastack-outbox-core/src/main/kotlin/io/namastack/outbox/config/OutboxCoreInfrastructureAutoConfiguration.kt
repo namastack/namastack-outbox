@@ -16,6 +16,7 @@ import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentCache
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
+import io.namastack.outbox.partition.PartitionDrainTracker
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
@@ -76,12 +77,16 @@ class OutboxCoreInfrastructureAutoConfiguration {
         instanceRegistry: OutboxInstanceRegistry,
         partitionAssignmentRepository: PartitionAssignmentRepository,
         partitionAssignmentCache: PartitionAssignmentCache,
+        partitionDrainTracker: PartitionDrainTracker,
+        properties: OutboxProperties,
         clock: Clock,
     ): PartitionCoordinator =
         PartitionCoordinator(
             instanceRegistry = instanceRegistry,
             partitionAssignmentRepository = partitionAssignmentRepository,
             partitionAssignmentCache = partitionAssignmentCache,
+            partitionDrainTracker = partitionDrainTracker,
+            properties = properties,
             clock = clock,
         )
 
@@ -93,6 +98,10 @@ class OutboxCoreInfrastructureAutoConfiguration {
         PartitionAssignmentCache(
             partitionAssignmentRepository = partitionAssignmentRepository,
         )
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun partitionDrainTracker(): PartitionDrainTracker = PartitionDrainTracker()
 
     @Bean("outboxRetryPolicy")
     @ConditionalOnMissingBean(name = ["outboxRetryPolicy"])

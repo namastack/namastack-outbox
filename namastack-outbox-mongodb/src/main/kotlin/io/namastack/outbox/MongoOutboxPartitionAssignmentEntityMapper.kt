@@ -21,6 +21,8 @@ internal object MongoOutboxPartitionAssignmentEntityMapper {
             instanceId = assignment.instanceId,
             version = assignment.version,
             updatedAt = assignment.updatedAt,
+            leaseExpiresAt = assignment.leaseExpiresAt,
+            draining = assignment.draining,
         )
 
     /**
@@ -35,5 +37,7 @@ internal object MongoOutboxPartitionAssignmentEntityMapper {
             instanceId = entity.instanceId,
             version = entity.version,
             updatedAt = entity.updatedAt,
+            leaseExpiresAt = entity.leaseExpiresAt,
+            draining = entity.draining,
         )
 }

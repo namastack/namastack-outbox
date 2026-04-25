@@ -51,7 +51,9 @@ CREATE TABLE outbox_partition
     partition_number INT          NOT NULL,
     instance_id      VARCHAR(255),
     version          BIGINT       NOT NULL DEFAULT 0,
-    updated_at       DATETIME2(6) NOT NULL
+    updated_at       DATETIME2(6) NOT NULL,
+    lease_expires_at DATETIME2(6) NULL,
+    draining         BIT          NOT NULL DEFAULT 0,
         PRIMARY KEY (partition_number),
     INDEX idx_outbox_partition_instance_id (instance_id)
 );

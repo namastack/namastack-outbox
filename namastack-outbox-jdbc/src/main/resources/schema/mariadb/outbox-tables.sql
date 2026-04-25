@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS outbox_partition
     instance_id      VARCHAR(255),
     version          BIGINT    NOT NULL DEFAULT 0,
     updated_at       TIMESTAMP NOT NULL,
+    lease_expires_at TIMESTAMP NULL,
+    draining         BOOLEAN   NOT NULL DEFAULT FALSE,
     INDEX idx_outbox_partition_instance_id (instance_id)
 ) ENGINE = InnoDB;
-
 

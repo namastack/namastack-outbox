@@ -152,7 +152,7 @@ class PartitionCoordinatorTest {
 
             partitionCoordinator.rebalance()
 
-            verify(exactly = 1) { partitionAssignmentRepository.saveAll(any()) }
+            verify(atLeast = 1) { partitionAssignmentRepository.saveAll(any()) }
         }
 
         @Test
@@ -206,7 +206,7 @@ class PartitionCoordinatorTest {
 
             partitionCoordinator.rebalance()
 
-            verify(exactly = 1) { partitionAssignmentRepository.saveAll(any()) }
+            verify(atLeast = 1) { partitionAssignmentRepository.saveAll(any()) }
         }
 
         @Test
@@ -224,7 +224,7 @@ class PartitionCoordinatorTest {
 
             partitionCoordinator.rebalance()
 
-            verify(exactly = 1) { partitionAssignmentRepository.saveAll(any()) }
+            verify(atLeast = 1) { partitionAssignmentRepository.saveAll(any()) }
         }
 
         @Test

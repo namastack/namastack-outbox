@@ -3,6 +3,8 @@ package io.namastack.outbox
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionCoordinator
+import io.namastack.outbox.partition.PartitionDrainTracker
+import io.namastack.outbox.partition.PartitionHasher
 import io.namastack.outbox.processor.OutboxRecordProcessor
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.slf4j.LoggerFactory
@@ -49,6 +51,7 @@ class OutboxProcessingScheduler(
     private val recordRepository: OutboxRecordRepository,
     private val recordProcessorChain: OutboxRecordProcessor,
     private val partitionCoordinator: PartitionCoordinator,
+    private val partitionDrainTracker: PartitionDrainTracker = PartitionDrainTracker(),
     private val taskExecutor: TaskExecutor,
     private val properties: OutboxProperties,
     private val clock: Clock,
@@ -174,6 +177,8 @@ class OutboxProcessingScheduler(
     }
 
     private fun processRecordKey(recordKey: String) {
+        val partitionNumber = PartitionHasher.getPartitionForRecordKey(recordKey)
+        partitionDrainTracker.start(partitionNumber)
         try {
             val records = recordRepository.findIncompleteRecordsByRecordKey(recordKey)
             if (records.isEmpty()) return
@@ -185,6 +190,8 @@ class OutboxProcessingScheduler(
             }
         } catch (ex: Exception) {
             log.error("Error processing key {}", recordKey, ex)
+        } finally {
+            partitionDrainTracker.finish(partitionNumber)
         }
     }
 

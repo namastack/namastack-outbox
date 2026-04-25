@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
+import java.time.Instant
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit.SECONDS
@@ -97,6 +98,12 @@ class PartitioningIntegrationTest {
 
         // remove bootstrap instance so all its partitions become stale
         instanceRepository.deleteById(instanceId1)
+        val expiredAssignments =
+            partitionAssignmentRepository.findAll().map { assignment ->
+                assignment.leaseExpiresAt = Instant.now(clock).minusSeconds(1)
+                assignment
+            }.toSet()
+        partitionAssignmentRepository.saveAll(expiredAssignments)
 
         val instanceId2 = "instance-2"
         val instanceId3 = "instance-3"

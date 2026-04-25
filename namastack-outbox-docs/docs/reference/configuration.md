@@ -46,6 +46,8 @@ namastack:
       stale-instance-timeout-seconds: 30       # When an instance is considered stale and removed (default: 30)
       heartbeat-interval-seconds: 5            # How often each instance sends a heartbeat (default: 5)
       rebalance-interval: 10000                # How often partitions are recalculated (default: 10000)
+    partition:
+      lease-duration-seconds: 30               # Partition ownership lease TTL (default: 30)
 
     jdbc:
       table-prefix: ""                         # Prefix for table names (default: empty)
@@ -110,6 +112,23 @@ namastack:
   outbox:
     enabled: false
 ```
+
+---
+
+## Partition Lease
+
+Partition ownership is lease-based. Each owner periodically renews its lease and partitions become claimable when the lease expires.
+
+```yaml
+namastack:
+  outbox:
+    partition:
+      lease-duration-seconds: 30
+```
+
+- Lower values speed up failover after a crash but increase sensitivity to short pauses.
+- Higher values reduce churn but can delay failover.
+- During rebalance, surplus partitions are first marked as draining and released after in-flight local work completes.
 
 This prevents all outbox beans from being created, useful for:
 

@@ -19,8 +19,10 @@ class PartitionAssignmentCache(
      */
     fun getAssignedPartitionNumbers(instanceId: String): Set<Int> =
         cache.computeIfAbsent(instanceId) { id ->
+            val now = java.time.Instant.now()
             partitionAssignmentRepository
                 .findByInstanceId(id)
+                .filter { it.isProcessable(now) }
                 .map { it.partitionNumber }
                 .toSet()
         }

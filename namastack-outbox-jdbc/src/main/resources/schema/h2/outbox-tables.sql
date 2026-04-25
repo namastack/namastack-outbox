@@ -33,7 +33,9 @@ CREATE TABLE IF NOT EXISTS outbox_partition
     partition_number INTEGER PRIMARY KEY,
     instance_id      VARCHAR(255),
     version          BIGINT                   NOT NULL DEFAULT 0,
-    updated_at       TIMESTAMP WITH TIME ZONE NOT NULL
+    updated_at       TIMESTAMP WITH TIME ZONE NOT NULL,
+    lease_expires_at TIMESTAMP WITH TIME ZONE,
+    draining         BOOLEAN                  NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX IF NOT EXISTS idx_outbox_record_record_key_created

@@ -34,6 +34,7 @@ data class OutboxProperties(
     var polling: Polling = Polling(),
     var retry: Retry = Retry(),
     var processing: Processing = Processing(),
+    var partition: Partition = Partition(),
     var instance: Instance = Instance(),
     var multicaster: Multicaster = Multicaster(),
 ) {
@@ -94,6 +95,15 @@ data class OutboxProperties(
         var executorMaxPoolSize: Int = 8,
         var executorConcurrencyLimit: Int = -1,
         var shutdownTimeoutSeconds: Long = 30,
+    )
+
+    /**
+     * Configuration for partition lease ownership and draining.
+     *
+     * @param leaseDurationSeconds How long a partition lease remains valid without renewal
+     */
+    data class Partition(
+        var leaseDurationSeconds: Long = 30,
     )
 
     /**

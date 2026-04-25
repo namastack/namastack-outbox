@@ -16,4 +16,6 @@ internal data class JdbcOutboxPartitionAssignmentEntity(
     val instanceId: String?,
     val version: Long?,
     val updatedAt: Instant,
+    val leaseExpiresAt: Instant? = null,
+    val draining: Boolean = false,
 )

@@ -54,7 +54,8 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
     private val updatePartitionQuery =
         """
         UPDATE $tableName
-        SET instance_id = :instanceId, version = :version, updated_at = :updatedAt
+        SET instance_id = :instanceId, version = :version, updated_at = :updatedAt,
+            lease_expires_at = :leaseExpiresAt, draining = :draining
         WHERE partition_number = :partitionNumber AND version = :originalVersion
         """.toSingleLine()
 
@@ -72,8 +73,8 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
      */
     private val insertPartitionQuery =
         """
-        INSERT INTO $tableName (partition_number, instance_id, version, updated_at)
-        VALUES (:partitionNumber, :instanceId, :version, :updatedAt)
+        INSERT INTO $tableName (partition_number, instance_id, version, updated_at, lease_expires_at, draining)
+        VALUES (:partitionNumber, :instanceId, :version, :updatedAt, :leaseExpiresAt, :draining)
         """.toSingleLine()
 
     /**
@@ -144,6 +145,8 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
             .param("instanceId", entity.instanceId)
             .param("version", newVersion)
             .param("updatedAt", Timestamp.from(entity.updatedAt))
+            .param("leaseExpiresAt", entity.leaseExpiresAt?.let { Timestamp.from(it) })
+            .param("draining", entity.draining)
             .param("partitionNumber", entity.partitionNumber)
             .param("originalVersion", originalVersion ?: 0)
             .update()
@@ -182,6 +185,8 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
             .param("instanceId", entity.instanceId)
             .param("version", 0) // Initial version is 0
             .param("updatedAt", Timestamp.from(entity.updatedAt))
+            .param("leaseExpiresAt", entity.leaseExpiresAt?.let { Timestamp.from(it) })
+            .param("draining", entity.draining)
             .update()
     }
 
@@ -195,6 +200,8 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
                 instanceId = rs.getString("instance_id"),
                 version = rs.getLong("version"),
                 updatedAt = rs.getTimestamp("updated_at").toInstant(),
+                leaseExpiresAt = rs.getTimestamp("lease_expires_at")?.toInstant(),
+                draining = rs.getBoolean("draining"),
             )
     }
 }

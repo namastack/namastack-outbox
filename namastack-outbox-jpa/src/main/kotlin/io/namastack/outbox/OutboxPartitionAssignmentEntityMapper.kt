@@ -17,6 +17,8 @@ internal object OutboxPartitionAssignmentEntityMapper {
             partitionNumber = partition.partitionNumber,
             instanceId = partition.instanceId,
             updatedAt = partition.updatedAt,
+            leaseExpiresAt = partition.leaseExpiresAt,
+            draining = partition.draining,
             version = partition.version,
         )
 
@@ -28,6 +30,8 @@ internal object OutboxPartitionAssignmentEntityMapper {
             partitionNumber = entity.partitionNumber,
             instanceId = entity.instanceId,
             updatedAt = entity.updatedAt,
+            leaseExpiresAt = entity.leaseExpiresAt,
+            draining = entity.draining,
             version = entity.version,
         )
 
