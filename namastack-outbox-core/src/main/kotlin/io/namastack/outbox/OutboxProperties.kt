@@ -84,7 +84,7 @@ data class OutboxProperties(
      * @param executorCorePoolSize Core pool size for the processing executor
      * @param executorMaxPoolSize Maximum pool size for the processing executor
      * @param executorConcurrencyLimit Concurrency limit for the virtual thread executor (-1 for no limit)
-     * @param shutdownTimeoutSeconds Maximum time in seconnds to wait for processing to complete during shutdown (default: 30)
+     * @param shutdownTimeoutSeconds Maximum time in seconds to wait for processing to complete during shutdown (default: 30)
      * @param shutdownTimeoutValue Maximum time to wait for processing to complete during shutdown (default: 30s)
      */
     data class Processing(
