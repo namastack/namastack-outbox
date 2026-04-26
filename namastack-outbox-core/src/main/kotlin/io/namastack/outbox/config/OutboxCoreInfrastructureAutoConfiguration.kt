@@ -1,6 +1,8 @@
 package io.namastack.outbox.config
 
+import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.Outbox
+import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
@@ -20,6 +22,7 @@ import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.springframework.beans.factory.BeanFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.config.BeanDefinition
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
@@ -28,6 +31,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Role
+import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
 
 @AutoConfiguration
@@ -68,7 +72,18 @@ class OutboxCoreInfrastructureAutoConfiguration {
         instanceRepository: OutboxInstanceRepository,
         properties: OutboxProperties,
         clock: Clock,
-    ): OutboxInstanceRegistry = OutboxInstanceRegistry(instanceRepository, properties, clock)
+        beanFactory: BeanFactory,
+        observationRegistry: ObjectProvider<ObservationRegistry>,
+    ): OutboxInstanceRegistry {
+        val taskScheduler = beanFactory.getBean(OutboxProcessingScheduler.SCHEDULER_NAME) as TaskScheduler
+        return OutboxInstanceRegistry(
+            instanceRepository,
+            properties,
+            clock,
+            taskScheduler,
+            { observationRegistry.getIfAvailable { ObservationRegistry.NOOP } },
+        )
+    }
 
     @Bean
     @ConditionalOnMissingBean

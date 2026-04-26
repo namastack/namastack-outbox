@@ -254,26 +254,26 @@ Both approaches work equally well. Choose based on your preference:
 ```yaml
 namastack:
   outbox:
-    poll-interval: 2000
+    poll-interval: 2s
     batch-size: 10
     retry:
       policy: "exponential"
       max-retries: 3
       exponential:
-        initial-delay: 1000
-        max-delay: 60000
+        initial-delay: 1s
+        max-delay: 1m
         multiplier: 2.0
 ```
 </TabItem>
 <TabItem value="Properties" label="Properties">
 
 ```properties
-namastack.outbox.poll-interval=2000
+namastack.outbox.poll-interval=2s
 namastack.outbox.batch-size=10
 namastack.outbox.retry.policy=exponential
 namastack.outbox.retry.max-retries=3
-namastack.outbox.retry.exponential.initial-delay=1000
-namastack.outbox.retry.exponential.max-delay=60000
+namastack.outbox.retry.exponential.initial-delay=1s
+namastack.outbox.retry.exponential.max-delay=1m
 namastack.outbox.retry.exponential.multiplier=2.0
 ```
 </TabItem>
