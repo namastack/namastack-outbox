@@ -82,7 +82,7 @@ namastack:
       
       # Exponential Backoff Policy
       exponential:
-        initial-delay: 1s                      # Initial delay (default: 1s)
+        initial-delay: 2s                      # Initial delay (default: 2s)
         max-delay: 1m                          # Maximum delay cap (default: 1m)
         multiplier: 2.0                        # Backoff multiplier (default: 2.0)
       

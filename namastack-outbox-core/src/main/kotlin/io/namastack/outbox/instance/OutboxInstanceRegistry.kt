@@ -13,6 +13,7 @@ import java.net.InetAddress
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -62,6 +63,7 @@ class OutboxInstanceRegistry(
     private val gracefulShutdownTimeout = properties.instance.gracefulShutdownTimeout
 
     private val running = AtomicBoolean(false)
+    private var scheduledHeartbeat: ScheduledFuture<*>? = null
 
     override fun getPhase(): Int = 0
 
@@ -79,9 +81,8 @@ class OutboxInstanceRegistry(
         registerInstance()
         running.set(true)
         val rate = properties.instance.heartbeatInterval
-        taskScheduler.scheduleAtFixedRate({ performHeartbeatAndCleanup() }, rate)
         val runnable = ScheduledMethodRunnable(this, SCHEDULE_METHOD, SCHEDULER_NAME, observationRegistry)
-        taskScheduler.scheduleAtFixedRate(runnable, rate)
+        scheduledHeartbeat = taskScheduler.scheduleAtFixedRate(runnable, rate)
     }
 
     /**
@@ -94,6 +95,7 @@ class OutboxInstanceRegistry(
     override fun stop() {
         try {
             log.info("Initiating graceful shutdown for instance {}", currentInstanceId)
+            scheduledHeartbeat?.cancel(false)
 
             instanceRepository.updateStatus(
                 currentInstanceId,
@@ -125,7 +127,7 @@ class OutboxInstanceRegistry(
     /** True if the given instance currently has status ACTIVE. */
     fun isInstanceActive(instanceId: String): Boolean = instanceRepository.findById(instanceId)?.status == ACTIVE
 
-    /** Number of ACTIVE instances. */
+    /** Number of active instances. */
     fun getActiveInstanceCount(): Long = instanceRepository.countByStatus(ACTIVE)
 
     /**
