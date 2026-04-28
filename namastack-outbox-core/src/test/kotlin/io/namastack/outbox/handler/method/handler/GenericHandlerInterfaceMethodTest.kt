@@ -7,8 +7,8 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import java.time.Instant
 
-@DisplayName("GenericHandlerMethod")
-class GenericHandlerMethodTest {
+@DisplayName("GenericHandlerInterfaceMethod")
+class GenericHandlerInterfaceMethodTest {
     @Test
     fun `supportsScheduling delegates to OutboxHandler supports`() {
         val bean = ConditionalGenericHandler(supported = false)
@@ -18,27 +18,11 @@ class GenericHandlerMethodTest {
                 Any::class.java,
                 OutboxRecordMetadata::class.java,
             )
-        val handler = GenericHandlerMethod(bean, method)
+        val handler = GenericHandlerInterfaceMethod(bean, method)
 
         val supported = handler.supportsScheduling("payload", metadata())
 
         assertThat(supported).isFalse()
-    }
-
-    @Test
-    fun `supportsScheduling defaults to true for non OutboxHandler beans`() {
-        val bean = AnnotatedStyleGenericHandler()
-        val method =
-            bean::class.java.getMethod(
-                "handle",
-                Any::class.java,
-                OutboxRecordMetadata::class.java,
-            )
-        val handler = GenericHandlerMethod(bean, method)
-
-        val supported = handler.supportsScheduling("payload", metadata())
-
-        assertThat(supported).isTrue()
     }
 
     private fun metadata() =
@@ -58,16 +42,6 @@ class GenericHandlerMethodTest {
         ): Boolean = supported
 
         override fun handle(
-            payload: Any,
-            metadata: OutboxRecordMetadata,
-        ) {
-            // no-op
-        }
-    }
-
-    private class AnnotatedStyleGenericHandler {
-        @Suppress("UNUSED_PARAMETER")
-        fun handle(
             payload: Any,
             metadata: OutboxRecordMetadata,
         ) {
