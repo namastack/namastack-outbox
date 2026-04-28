@@ -38,6 +38,7 @@ class OutboxServiceTest {
     inner class ScheduleTests {
         @Test
         fun `should create record for single handler`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val context = mapOf("key1" to "value1")
             val handler = createTypedMockHandler("handler1")
@@ -45,18 +46,19 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, context) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
-            outboxService.schedule(payload, "test-key", context)
+            outboxService.schedule(payload, key, context)
 
-            assertThat(recordSlot.captured.key).isEqualTo("test-key")
+            assertThat(recordSlot.captured.key).isEqualTo(key)
             assertThat(recordSlot.captured.payload).isEqualTo(payload)
             assertThat(recordSlot.captured.handlerId).isEqualTo("handler1")
         }
 
         @Test
         fun `should create separate records for multiple handlers`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val context = mapOf("key1" to "value1")
             val handler1 = createTypedMockHandler("handler1")
@@ -65,10 +67,10 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler1, handler2)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, context) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
 
-            outboxService.schedule(payload, "test-key", context)
+            outboxService.schedule(payload, key, context)
 
             assertThat(recordSlots).hasSize(2)
             assertThat(recordSlots[0].handlerId).isEqualTo("handler1")
@@ -77,6 +79,7 @@ class OutboxServiceTest {
 
         @Test
         fun `should set status to NEW for created records`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val context = mapOf("key1" to "value1")
             val handler = createTypedMockHandler("handler1")
@@ -84,16 +87,17 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, context) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
-            outboxService.schedule(payload, "test-key", context)
+            outboxService.schedule(payload, key, context)
 
             assertThat(recordSlot.captured.status).isEqualTo(OutboxRecordStatus.NEW)
         }
 
         @Test
         fun `should include generic handlers in records`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val context = mapOf("key1" to "value1")
             val typedHandler = createTypedMockHandler("typed-handler")
@@ -102,32 +106,18 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(typedHandler)
-            every { handlerRegistry.getGenericHandlers() } returns listOf(genericHandler)
+            every { handlerRegistry.getGenericHandlers(payload, key, context) } returns listOf(genericHandler)
             every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
 
-            outboxService.schedule(payload, "test-key", context)
+            outboxService.schedule(payload, key, context)
 
             assertThat(recordSlots).hasSize(2)
             assertThat(recordSlots.map { it.handlerId }).contains("typed-handler", "generic-handler")
         }
 
         @Test
-        fun `should not create record for generic handler when supports returns false`() {
-            val payload = TestPayload("test-id")
-            val context = mapOf("key1" to "value1")
-            val genericHandler = createGenericMockHandler("generic-handler", supports = false)
-
-            every { contextCollector.collectContext() } returns emptyMap()
-            every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns emptyList()
-            every { handlerRegistry.getGenericHandlers() } returns listOf(genericHandler)
-
-            outboxService.schedule(payload, "test-key", context)
-
-            verify(exactly = 0) { outboxRecordRepository.save(any() as OutboxRecord<Any>) }
-        }
-
-        @Test
         fun `should deduplicate handlers`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val context = mapOf("key1" to "value1")
             val handler = createTypedMockHandler("handler1")
@@ -135,16 +125,17 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler, handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, context) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
 
-            outboxService.schedule(payload, "test-key", context)
+            outboxService.schedule(payload, key, context)
 
             assertThat(recordSlots).hasSize(1)
         }
 
         @Test
         fun `should set createdAt to current time`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val context = mapOf("key1" to "value1")
             val handler = createTypedMockHandler("handler1")
@@ -152,16 +143,17 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, context) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
-            outboxService.schedule(payload, "test-key", context)
+            outboxService.schedule(payload, key, context)
 
             assertThat(recordSlot.captured.createdAt).isEqualTo(now)
         }
 
         @Test
         fun `should persist all created records`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val context = mapOf("key1" to "value1")
             val handler1 = createTypedMockHandler("handler1")
@@ -171,30 +163,32 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns
                 listOf(handler1, handler2, handler3)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, context) } returns emptyList()
             every { outboxRecordRepository.save(any() as OutboxRecord<Any>) } returns mockk()
 
-            outboxService.schedule(payload, "test-key", context)
+            outboxService.schedule(payload, key, context)
 
             verify(exactly = 3) { outboxRecordRepository.save(any() as OutboxRecord<Any>) }
         }
 
         @Test
         fun `should handle empty handler list gracefully`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val context = mapOf("key1" to "value1")
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns emptyList()
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, context) } returns emptyList()
 
-            outboxService.schedule(payload, "test-key", context)
+            outboxService.schedule(payload, key, context)
 
             verify(exactly = 0) { outboxRecordRepository.save(any() as OutboxRecord<Any>) }
         }
 
         @Test
         fun `should only use generic handlers when no typed handlers exist`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val context = mapOf("key1" to "value1")
             val genericHandler = createGenericMockHandler("generic-only")
@@ -202,16 +196,17 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns emptyList()
-            every { handlerRegistry.getGenericHandlers() } returns listOf(genericHandler)
+            every { handlerRegistry.getGenericHandlers(payload, key, context) } returns listOf(genericHandler)
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
-            outboxService.schedule(payload, "test-key", context)
+            outboxService.schedule(payload, key, context)
 
             assertThat(recordSlot.captured.handlerId).isEqualTo("generic-only")
         }
 
         @Test
         fun `should create record with correct payload type`() {
+            val key = "test-key"
             val payload = TestPayload("test-id-123")
             val context = mapOf("key1" to "value1")
             val handler = createTypedMockHandler("handler1")
@@ -219,10 +214,10 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, context) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
-            outboxService.schedule(payload, "test-key", context)
+            outboxService.schedule(payload, key, context)
 
             assertThat((recordSlot.captured.payload as TestPayload).testId).isEqualTo("test-id-123")
         }
@@ -239,7 +234,7 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, any(), emptyMap()) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload)
@@ -259,7 +254,7 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, any(), context) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, context)
@@ -279,7 +274,7 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(any(), any(), emptyMap()) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
 
             outboxService.schedule(payload1)
@@ -297,7 +292,7 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, any(), emptyMap()) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload)
@@ -316,7 +311,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns
                 listOf(handler1, handler2)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, any(), emptyMap()) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
 
             outboxService.schedule(payload)
@@ -333,7 +328,7 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, any(), emptyMap()) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload)
@@ -351,7 +346,7 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, any(), emptyMap()) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload)
@@ -368,7 +363,7 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(typedHandler)
-            every { handlerRegistry.getGenericHandlers() } returns listOf(genericHandler)
+            every { handlerRegistry.getGenericHandlers(payload, any(), emptyMap()) } returns listOf(genericHandler)
             every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
 
             outboxService.schedule(payload)
@@ -389,7 +384,7 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, any(), emptyMap()) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload)
@@ -399,22 +394,24 @@ class OutboxServiceTest {
 
         @Test
         fun `should use empty context if not provided - Double Parameters`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val handler = createTypedMockHandler("handler1")
             val recordSlot = slot<OutboxRecord<Any>>()
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, emptyMap()) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
-            outboxService.schedule(payload, "test-key")
+            outboxService.schedule(payload, key)
 
             assertThat(recordSlot.captured.context).isEmpty()
         }
 
         @Test
         fun `should include additional context`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val context = mapOf("key1" to "value1")
             val handler = createTypedMockHandler("handler1")
@@ -422,10 +419,10 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, context) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
-            outboxService.schedule(payload, "test-key", context)
+            outboxService.schedule(payload, key, context)
 
             assertThat(recordSlot.captured.context)
                 .containsEntry("key1", "value1")
@@ -434,6 +431,7 @@ class OutboxServiceTest {
 
         @Test
         fun `should include global context`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val globalContext = mapOf("global1" to "value1", "global2" to "value2")
             val handler = createTypedMockHandler("handler1")
@@ -441,10 +439,10 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns globalContext
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, globalContext) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
-            outboxService.schedule(payload, "test-key")
+            outboxService.schedule(payload, key)
 
             assertThat(recordSlot.captured.context)
                 .containsEntry("global1", "value1")
@@ -454,6 +452,7 @@ class OutboxServiceTest {
 
         @Test
         fun `should merge global and additional context`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val globalContext = mapOf("global1" to "value1", "global2" to "value2")
             val additionalContext = mapOf("additional1" to "value3")
@@ -462,10 +461,11 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns globalContext
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, globalContext + additionalContext) } returns
+                emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
-            outboxService.schedule(payload, "test-key", additionalContext)
+            outboxService.schedule(payload, key, additionalContext)
 
             assertThat(recordSlot.captured.context)
                 .containsEntry("global1", "value1")
@@ -476,6 +476,7 @@ class OutboxServiceTest {
 
         @Test
         fun `should give precedence to additional context over global context on key conflicts`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val globalContext = mapOf("key" to "global-value", "other" to "value")
             val additionalContext = mapOf("key" to "additional-value")
@@ -484,10 +485,11 @@ class OutboxServiceTest {
 
             every { contextCollector.collectContext() } returns globalContext
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, globalContext + additionalContext) } returns
+                emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
-            outboxService.schedule(payload, "test-key", additionalContext)
+            outboxService.schedule(payload, key, additionalContext)
 
             assertThat(recordSlot.captured.context)
                 .containsEntry("key", "additional-value")
@@ -501,6 +503,7 @@ class OutboxServiceTest {
     inner class PolymorphismTests {
         @Test
         fun `should collect handlers from superclass`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val baseEventHandler = createTypedMockHandler("base-event-handler")
             val recordSlot = slot<OutboxRecord<Any>>()
@@ -508,16 +511,17 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns emptyList()
             every { handlerRegistry.getHandlersForPayloadType(BaseEvent::class) } returns listOf(baseEventHandler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, emptyMap()) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
-            outboxService.schedule(payload, "test-key")
+            outboxService.schedule(payload, key)
 
             assertThat(recordSlot.captured.handlerId).isEqualTo("base-event-handler")
         }
 
         @Test
         fun `should collect handlers from interface`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val domainEventHandler = createTypedMockHandler("domain-event-handler")
             val recordSlot = slot<OutboxRecord<Any>>()
@@ -526,16 +530,17 @@ class OutboxServiceTest {
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns emptyList()
             every { handlerRegistry.getHandlersForPayloadType(BaseEvent::class) } returns emptyList()
             every { handlerRegistry.getHandlersForPayloadType(DomainEvent::class) } returns listOf(domainEventHandler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, emptyMap()) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
 
-            outboxService.schedule(payload, "test-key")
+            outboxService.schedule(payload, key)
 
             assertThat(recordSlot.captured.handlerId).isEqualTo("domain-event-handler")
         }
 
         @Test
         fun `should collect handlers from payload type, superclass and interface`() {
+            val key = "test-key"
             val payload = TestPayload("test-id")
             val typedHandler = createTypedMockHandler("typed")
             val baseEventHandler = createTypedMockHandler("base")
@@ -546,10 +551,10 @@ class OutboxServiceTest {
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(typedHandler)
             every { handlerRegistry.getHandlersForPayloadType(BaseEvent::class) } returns listOf(baseEventHandler)
             every { handlerRegistry.getHandlersForPayloadType(DomainEvent::class) } returns listOf(domainEventHandler)
-            every { handlerRegistry.getGenericHandlers() } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, key, emptyMap()) } returns emptyList()
             every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
 
-            outboxService.schedule(payload, "test-key")
+            outboxService.schedule(payload, key)
 
             assertThat(recordSlots).hasSize(3)
             assertThat(recordSlots.map { it.handlerId }).containsExactly("typed", "base", "domain")
@@ -559,17 +564,12 @@ class OutboxServiceTest {
     private fun createTypedMockHandler(id: String): TypedHandlerMethod {
         val handler = mockk<TypedHandlerMethod>()
         every { handler.id } returns id
-        every { handler.supportsScheduling(any(), any()) } returns true
         return handler
     }
 
-    private fun createGenericMockHandler(
-        id: String,
-        supports: Boolean = true,
-    ): GenericHandlerMethod {
+    private fun createGenericMockHandler(id: String): GenericHandlerMethod {
         val handler = mockk<GenericHandlerMethod>()
         every { handler.id } returns id
-        every { handler.supportsScheduling(any(), any()) } returns supports
         return handler
     }
 

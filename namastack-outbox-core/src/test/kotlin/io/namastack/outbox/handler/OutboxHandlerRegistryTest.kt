@@ -11,15 +11,19 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 import kotlin.reflect.KClass
 
 @DisplayName("OutboxHandlerRegistry")
 class OutboxHandlerRegistryTest {
+    private val clock = Clock.fixed(Instant.parse("2025-09-25T10:00:00Z"), ZoneOffset.UTC)
     private lateinit var registry: OutboxHandlerRegistry
 
     @BeforeEach
     fun setUp() {
-        registry = OutboxHandlerRegistry()
+        registry = OutboxHandlerRegistry(clock)
     }
 
     @Nested
@@ -92,7 +96,7 @@ class OutboxHandlerRegistryTest {
 
             registry.register(handler)
 
-            val result = registry.getGenericHandlers()
+            val result = registry.getGenericHandlers(1, "key", emptyMap())
             assertThat(result).contains(handler)
         }
 
@@ -104,8 +108,18 @@ class OutboxHandlerRegistryTest {
             registry.register(handler1)
             registry.register(handler2)
 
-            val result = registry.getGenericHandlers()
+            val result = registry.getGenericHandlers(1, "key", emptyMap())
             assertThat(result).hasSize(2).contains(handler1, handler2)
+        }
+
+        @Test
+        fun `should not return generic handlers when supports returns false`() {
+            val handler = createMockGenericHandler("generic-handler", false)
+
+            registry.register(handler)
+
+            val result = registry.getGenericHandlers(1, "key", emptyMap())
+            assertThat(result).isEmpty()
         }
 
         @Test
@@ -220,7 +234,7 @@ class OutboxHandlerRegistryTest {
             registry.register(genericHandler)
 
             val typedResult = registry.getHandlersForPayloadType(TestPayload::class)
-            val genericResult = registry.getGenericHandlers()
+            val genericResult = registry.getGenericHandlers(1, "key", emptyMap())
 
             assertThat(typedResult).contains(typedHandler)
             assertThat(genericResult).contains(genericHandler)
@@ -244,8 +258,8 @@ class OutboxHandlerRegistryTest {
             val handler = createMockGenericHandler("generic")
             registry.register(handler)
 
-            val result1 = registry.getGenericHandlers()
-            val result2 = registry.getGenericHandlers()
+            val result1 = registry.getGenericHandlers(1, "key", emptyMap())
+            val result2 = registry.getGenericHandlers(1, "key", emptyMap())
 
             assertThat(result1).isEqualTo(result2)
             assertThat(result1).isNotSameAs(result2)
@@ -262,9 +276,13 @@ class OutboxHandlerRegistryTest {
         return handler
     }
 
-    private fun createMockGenericHandler(id: String): GenericHandlerMethod {
+    private fun createMockGenericHandler(
+        id: String,
+        supports: Boolean = true,
+    ): GenericHandlerMethod {
         val handler = mockk<GenericHandlerMethod>()
         every { handler.id } returns id
+        every { handler.supportsScheduling(any(), any()) } returns supports
         return handler
     }
 

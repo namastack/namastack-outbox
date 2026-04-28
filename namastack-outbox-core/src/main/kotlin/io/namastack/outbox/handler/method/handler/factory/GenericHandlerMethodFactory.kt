@@ -2,6 +2,8 @@ package io.namastack.outbox.handler.method.handler.factory
 
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.handler.method.handler.GenericHandlerAnnotationMethod
+import io.namastack.outbox.handler.method.handler.GenericHandlerInterfaceMethod
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.method.internal.ReflectionUtils
@@ -35,13 +37,13 @@ class GenericHandlerMethodFactory : OutboxHandlerMethodFactory {
     override fun create(
         bean: Any,
         method: Method,
-    ): OutboxHandlerMethod = GenericHandlerMethod(bean, method)
+    ): OutboxHandlerMethod = GenericHandlerAnnotationMethod(bean, method)
 
     /**
      * Creates generic handler from OutboxHandler interface.
      */
     fun createFromInterface(bean: OutboxHandler): GenericHandlerMethod {
         val method = ReflectionUtils.findMethod(bean, "handle", 2)
-        return GenericHandlerMethod(bean, method)
+        return GenericHandlerInterfaceMethod(bean, method)
     }
 }
