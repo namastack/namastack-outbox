@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.method.handler
 
+import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import java.lang.reflect.Method
 
@@ -11,30 +12,18 @@ import java.lang.reflect.Method
  * @param bean Bean containing the handler method
  * @param method Handler method (must have Any + OutboxRecordMetadata parameters)
  *
- * @author Roland Beisel
- * @since 0.4.0
+ * @author Aleksander Zamojski
+ * @since 1.5.0
  */
-sealed class GenericHandlerMethod(
-    bean: Any,
+class GenericHandlerInterfaceMethod(
+    bean: OutboxHandler,
     method: Method,
-) : OutboxHandlerMethod(bean, method) {
+) : GenericHandlerMethod(bean, method) {
     /**
      * Determines whether this handler should be scheduled for the given payload.
      */
-    abstract fun supportsScheduling(
+    override fun supportsScheduling(
         payload: Any,
         metadata: OutboxRecordMetadata,
-    ): Boolean
-
-    /**
-     * Invokes handler with payload and metadata via reflection.
-     *
-     * @param payload Record payload (any type)
-     * @param metadata Record context information
-     * @throws Throwable Original exception from handler (triggers retry logic)
-     */
-    fun invoke(
-        payload: Any,
-        metadata: OutboxRecordMetadata,
-    ) = invokeMethod(payload, metadata)
+    ): Boolean = (bean as OutboxHandler).supports(payload, metadata)
 }

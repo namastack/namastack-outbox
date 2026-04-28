@@ -123,7 +123,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
-        internal fun outboxHandlerRegistry(): OutboxHandlerRegistry = OutboxHandlerRegistry()
+        internal fun outboxHandlerRegistry(clock: Clock): OutboxHandlerRegistry = OutboxHandlerRegistry(clock)
 
         @Bean
         @ConditionalOnMissingBean

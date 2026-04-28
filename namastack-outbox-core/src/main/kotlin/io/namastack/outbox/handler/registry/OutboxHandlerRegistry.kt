@@ -1,8 +1,11 @@
 package io.namastack.outbox.handler.registry
 
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
+import java.time.Clock
+import java.time.Instant
 import kotlin.reflect.KClass
 
 /**
@@ -20,7 +23,9 @@ import kotlin.reflect.KClass
  * @author Roland Beisel
  * @since 0.4.0
  */
-class OutboxHandlerRegistry {
+class OutboxHandlerRegistry(
+    private val clock: Clock,
+) {
     /**
      * Map of all handlers indexed by their unique ID.
      * Used for direct handler lookup via metadata.handlerId.
@@ -70,7 +75,23 @@ class OutboxHandlerRegistry {
      *
      * @return Copy of generic handlers list
      */
-    fun getGenericHandlers(): List<GenericHandlerMethod> = genericHandlers.toList()
+    fun getGenericHandlers(
+        payload: Any,
+        key: String,
+        context: Map<String, String>,
+    ): List<GenericHandlerMethod> =
+        genericHandlers
+            .filter { handler ->
+                val createdAt = Instant.now(clock)
+                val metadata =
+                    OutboxRecordMetadata(
+                        key = key,
+                        handlerId = handler.id,
+                        createdAt = createdAt,
+                        context = context,
+                    )
+                handler.supportsScheduling(payload, metadata)
+            }.toList()
 
     /**
      * Registers a handler method.
