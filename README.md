@@ -189,6 +189,7 @@ eventPublisher.publishEvent(OrderCreatedEvent(order.id, order.customerId))
 
 ### 4. Configure (Optional)
 
+
 ```yaml
 namastack:
   outbox:
@@ -196,13 +197,13 @@ namastack:
       batch-size: 10
       trigger: fixed        # or "adaptive"
       fixed:
-        interval: 2000
+        interval: 2s
     retry:
       policy: exponential
       max-retries: 3
       exponential:
-        initial-delay: 1000
-        max-delay: 60000
+        initial-delay: 1s
+        max-delay: 60s
         multiplier: 2.0
 ```
 
