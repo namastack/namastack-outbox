@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.scheduling.TriggerContext
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 
@@ -27,7 +28,7 @@ class OutboxPollingTriggerFactoryTest {
             val prop =
                 properties(
                     pollingTrigger = "fixed",
-                    fixedInterval = 3000,
+                    fixedInterval = Duration.ofSeconds(3),
                 )
             every { triggerContext.lastCompletion() } returns instant
 
@@ -42,7 +43,7 @@ class OutboxPollingTriggerFactoryTest {
         fun `fixed trigger using deprecated pollInterval`() {
             val prop =
                 properties(
-                    pollInterval = 3000,
+                    pollInterval = Duration.ofSeconds(3),
                     pollingTrigger = "fixed",
                 )
             every { triggerContext.lastCompletion() } returns instant
@@ -61,8 +62,8 @@ class OutboxPollingTriggerFactoryTest {
             properties(
                 pollingBatchSize = 20,
                 pollingTrigger = "adaptive",
-                adaptiveMinInterval = 2000,
-                adaptiveMaxInterval = 4000,
+                adaptiveMinInterval = Duration.ofSeconds(2),
+                adaptiveMaxInterval = Duration.ofSeconds(4),
             )
         every { triggerContext.lastCompletion() } returns instant
 
@@ -90,13 +91,13 @@ class OutboxPollingTriggerFactoryTest {
     }
 
     private fun properties(
-        pollInterval: Long? = null,
+        pollInterval: Duration? = null,
         batchSize: Int? = null,
         pollingBatchSize: Int? = null,
         pollingTrigger: String? = null,
-        fixedInterval: Long? = null,
-        adaptiveMinInterval: Long? = null,
-        adaptiveMaxInterval: Long? = null,
+        fixedInterval: Duration? = null,
+        adaptiveMinInterval: Duration? = null,
+        adaptiveMaxInterval: Duration? = null,
     ): OutboxProperties {
         val properties = OutboxProperties()
 

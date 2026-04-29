@@ -36,24 +36,24 @@ namastack:
       policy: exponential
       max-retries: 3
       exponential:
-        initial-delay: 1000
-        max-delay: 60000
+        initial-delay: "1s"
+        max-delay: "1m"
         multiplier: 2.0
-      jitter: 1000
+      jitter: "1s"
     polling:
       batch-size: 1200
       trigger: fixed
       fixed:
-        interval: 1000
+        interval: "1s"
     processing:
       stop-on-first-failure: true
       delete-completed-records: true
       executor-core-pool-size: 16
       executor-max-pool-size: 32
     instance:
-      heartbeat-interval-seconds: 5
-      stale-instance-timeout-seconds: 10
-      rebalance-interval: 10000
+      heartbeat-interval: "5s"
+      stale-instance-timeout: "10s"
+      rebalance-interval: "10s"
     multicaster:
       publish-after-save: false
 

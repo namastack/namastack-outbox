@@ -12,6 +12,7 @@ import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.support.ScheduledMethodRunnable
 import java.lang.reflect.Method
 import java.time.Clock
+import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -62,7 +63,8 @@ class OutboxProcessingScheduler(
 
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
-    private val lifecycle = SchedulerLifecycleStateMachine(properties.processing.shutdownTimeoutSeconds)
+    private val lifecycle = SchedulerLifecycleStateMachine(properties.processing.effectiveShutdownTimeout)
+
     private var scheduledTask: ScheduledFuture<*>? = null
 
     /**
@@ -94,7 +96,7 @@ class OutboxProcessingScheduler(
      *
      * Automatically invoked during application shutdown. Cancels future scheduling and,
      * if a cycle is currently running, blocks until completion, timeout, or interruption
-     * (up to [OutboxProperties.Processing.shutdownTimeoutSeconds]).
+     * (up to [OutboxProperties.Processing.shutdownTimeout]).
      */
     override fun stop() {
         log.info("Initiating OutboxProcessingScheduler shutdown...")
@@ -207,10 +209,10 @@ class OutboxProcessingScheduler(
      * It coordinates job registration, processing execution, and graceful shutdown,
      * including waiting for an in-flight cycle to complete with a bounded timeout.
      *
-     * @param shutdownTimeoutSeconds Maximum time to wait for an active cycle during shutdown
+     * @param shutdownTimeout Maximum time to wait for an active cycle during shutdown
      */
     class SchedulerLifecycleStateMachine(
-        private val shutdownTimeoutSeconds: Long,
+        private val shutdownTimeout: Duration,
     ) {
         /**
          * Lifecycle states for scheduler registration and processing execution.
@@ -331,14 +333,14 @@ class OutboxProcessingScheduler(
             }
 
         private fun awaitProcessingComplete() {
-            log.debug("Waiting for processing cycle to complete (timeout={}s)", shutdownTimeoutSeconds)
+            log.debug("Waiting for processing cycle to complete (timeout={}ms)", shutdownTimeout.toMillis())
 
             try {
-                val completed = processingComplete.await(shutdownTimeoutSeconds, TimeUnit.SECONDS)
+                val completed = processingComplete.await(shutdownTimeout.toMillis(), TimeUnit.MILLISECONDS)
                 if (completed) {
                     log.trace("Processing cycle completed while shutting down")
                 } else {
-                    log.warn("Shutdown timeout reached after {}s; forcing shutdown", shutdownTimeoutSeconds)
+                    log.warn("Shutdown timeout reached after {}ms; forcing shutdown", shutdownTimeout.toMillis())
                 }
             } catch (ex: InterruptedException) {
                 Thread.currentThread().interrupt()

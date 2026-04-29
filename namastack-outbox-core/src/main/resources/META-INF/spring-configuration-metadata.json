@@ -76,10 +76,10 @@
     },
     {
       "name": "namastack.outbox.poll-interval",
-      "type": "java.lang.Long",
+      "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties",
-      "defaultValue": 2000,
-      "description": "Interval in milliseconds at which the outbox is polled",
+      "defaultValue": "2s",
+      "description": "Interval at which the outbox is polled",
       "deprecation": {
         "reason": "Use polling.fixed.interval or polling.adaptive.min-interval/max-interval instead",
         "replacement": "namastack.outbox.polling.fixed.interval"
@@ -98,10 +98,10 @@
     },
     {
       "name": "namastack.outbox.rebalance-interval",
-      "type": "java.lang.Long",
+      "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties",
-      "defaultValue": 10000,
-      "description": "Interval in milliseconds at which partition rebalancing is triggered",
+      "defaultValue": "10s",
+      "description": "Interval at which partition rebalancing is triggered",
       "deprecation": {
         "reason": "Use instance.rebalanceInterval instead",
         "replacement": "namastack.outbox.instance.rebalance-interval"
@@ -123,24 +123,24 @@
     },
     {
       "name": "namastack.outbox.polling.fixed.interval",
-      "type": "java.lang.Long",
+      "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties$Polling$FixedPolling",
-      "defaultValue": 2000,
-      "description": "Fixed interval in milliseconds between polling cycles"
+      "defaultValue": "2s",
+      "description": "Fixed interval between polling cycles"
     },
     {
       "name": "namastack.outbox.polling.adaptive.min-interval",
-      "type": "java.lang.Long",
+      "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties$Polling$AdaptivePolling",
-      "defaultValue": 1000,
-      "description": "Minimum interval in milliseconds between polling cycles for adaptive polling"
+      "defaultValue": "1s",
+      "description": "Minimum interval between polling cycles for adaptive polling"
     },
     {
       "name": "namastack.outbox.polling.adaptive.max-interval",
-      "type": "java.lang.Long",
+      "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties$Polling$AdaptivePolling",
-      "defaultValue": 8000,
-      "description": "Maximum interval in milliseconds between polling cycles for adaptive polling"
+      "defaultValue": "8s",
+      "description": "Maximum interval between polling cycles for adaptive polling"
     },
     {
       "name": "namastack.outbox.retry.max-retries",
@@ -158,45 +158,45 @@
     },
     {
       "name": "namastack.outbox.retry.fixed.delay",
-      "type": "java.lang.Long",
+      "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$FixedRetry",
-      "defaultValue": 5000,
-      "description": "Fixed delay in milliseconds between retry attempts for fixed delay retry policy"
+      "defaultValue": "5s",
+      "description": "Fixed delay between retry attempts for fixed delay retry policy"
     },
     {
       "name": "namastack.outbox.retry.linear.initial-delay",
-      "type": "java.lang.Long",
+      "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$LinearRetry",
-      "defaultValue": 2000,
-      "description": "Initial delay in milliseconds for linear backoff retry policy"
+      "defaultValue": "2s",
+      "description": "Initial delay for linear backoff retry policy"
     },
     {
       "name": "namastack.outbox.retry.linear.increment",
-      "type": "java.lang.Long",
+      "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$LinearRetry",
-      "defaultValue": 2000,
-      "description": "Amount in milliseconds to add for each subsequent retry"
+      "defaultValue": "2s",
+      "description": "Amount to add for each subsequent retry"
     },
     {
       "name": "namastack.outbox.retry.linear.max-delay",
-      "type": "java.lang.Long",
+      "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$LinearRetry",
-      "defaultValue": 60000,
-      "description": "Maximum delay in milliseconds for linear backoff retry policy"
+      "defaultValue": "1m",
+      "description": "Maximum delay for linear backoff retry policy"
     },
     {
       "name": "namastack.outbox.retry.exponential.initial-delay",
-      "type": "java.lang.Long",
+      "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$ExponentialRetry",
-      "defaultValue": 2000,
-      "description": "Initial delay in milliseconds for exponential backoff retry policy"
+      "defaultValue": "2s",
+      "description": "Initial delay for exponential backoff retry policy"
     },
     {
       "name": "namastack.outbox.retry.exponential.max-delay",
-      "type": "java.lang.Long",
+      "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry$ExponentialRetry",
-      "defaultValue": 60000,
-      "description": "Maximum delay in milliseconds for exponential backoff retry policy"
+      "defaultValue": "1m",
+      "description": "Maximum delay for exponential backoff retry policy"
     },
     {
       "name": "namastack.outbox.retry.exponential.multiplier",
@@ -207,10 +207,10 @@
     },
     {
       "name": "namastack.outbox.retry.jitter",
-      "type": "java.lang.Long",
+      "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties$Retry",
-      "defaultValue": 0,
-      "description": "Maximum jitter in milliseconds to add or subtract from each delay. A random value between -jitter and +jitter is applied. Default: 0 (no jitter)."
+      "defaultValue": "0ms",
+      "description": "Maximum jitter to add or subtract from each delay. A random value between -jitter and +jitter is applied. Default: 0 (no jitter)."
     },
     {
       "name": "namastack.outbox.retry.include-exceptions",
@@ -275,35 +275,79 @@
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
       "defaultValue": 30,
-      "description": "Maximum time in seconds to wait for the current processing cycle to complete during application shutdown. If the timeout is exceeded, shutdown proceeds without waiting for completion. Default: 30."
+      "description": "Maximum time in seconds to wait for the current processing cycle to complete during application shutdown. If the timeout is exceeded, shutdown proceeds without waiting for completion. Default: 30.",
+      "deprecation": {
+        "reason": "Use shutdown-timeout instead",
+        "replacement": "namastack.outbox.processing.shutdown-timeout"
+      }
+    },
+    {
+      "name": "namastack.outbox.processing.shutdown-timeout",
+      "type": "java.time.Duration",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
+      "defaultValue": "30s",
+      "description": "Maximum time to wait for the current processing cycle to complete during application shutdown. If the timeout is exceeded, shutdown proceeds without waiting for completion. Default: 30s."
     },
     {
       "name": "namastack.outbox.instance.graceful-shutdown-timeout-seconds",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
       "defaultValue": 0,
-      "description": "Timeout in seconds for graceful shutdown of outbox processing instances"
+      "description": "Timeout in seconds for graceful shutdown of outbox processing instances",
+      "deprecation": {
+        "reason": "Use graceful-shutdown-timeout instead",
+        "replacement": "namastack.outbox.instance.graceful-shutdown-timeout"
+      }
+    },
+    {
+      "name": "namastack.outbox.instance.graceful-shutdown-timeout",
+      "type": "java.time.Duration",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
+      "defaultValue": "0s",
+      "description": "Timeout for graceful shutdown of outbox processing instances"
     },
     {
       "name": "namastack.outbox.instance.stale-instance-timeout-seconds",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
       "defaultValue": 30,
-      "description": "Timeout in seconds to consider an instance stale and remove it from active instances"
+      "description": "Timeout in seconds to consider an instance stale and remove it from active instances",
+      "deprecation": {
+        "reason": "Use stale-instance-timeout instead",
+        "replacement": "namastack.outbox.instance.stale-instance-timeout"
+      }
+    },
+    {
+      "name": "namastack.outbox.instance.stale-instance-timeout",
+      "type": "java.time.Duration",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
+      "defaultValue": "30s",
+      "description": "Timeout to consider an instance stale and remove it from active instances"
     },
     {
       "name": "namastack.outbox.instance.heartbeat-interval-seconds",
       "type": "java.lang.Long",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
       "defaultValue": 5,
-      "description": "Interval in seconds between instance heartbeats to indicate the instance is still active"
+      "description": "Interval in seconds between instance heartbeats to indicate the instance is still active",
+      "deprecation": {
+        "reason": "Use heartbeat-interval instead",
+        "replacement": "namastack.outbox.instance.heartbeat-interval"
+      }
+    },
+    {
+      "name": "namastack.outbox.instance.heartbeat-interval",
+      "type": "java.time.Duration",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
+      "defaultValue": "5s",
+      "description": "Interval between instance heartbeats to indicate the instance is still active"
     },
     {
       "name": "namastack.outbox.instance.rebalance-interval",
-      "type": "java.lang.Long",
+      "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties$Instance",
-      "defaultValue": 10000,
-      "description": "Interval in milliseconds at which partition rebalancing is performed"
+      "defaultValue": "10s",
+      "description": "Interval at which partition rebalancing is performed"
     },
     {
       "name": "namastack.outbox.multicaster.enabled",

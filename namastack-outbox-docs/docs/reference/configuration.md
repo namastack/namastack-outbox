@@ -15,17 +15,17 @@ namastack:
 
     # Polling Configuration
     polling:
-      trigger: fixed                          # Polling strategy: fixed|adaptive (default: fixed)
-      batch-size: 10                          # Record keys per poll cycle (default: 10)
+      trigger: fixed                           # Polling strategy: fixed|adaptive (default: fixed)
+      batch-size: 10                           # Record keys per poll cycle (default: 10)
       fixed:
-        interval: 2000                        # Milliseconds between polling cycles (default: 2000)
+        interval: 2s                           # interval between polling cycles (default: 2s)
       adaptive:
-        min-interval: 1000                    # Minimum ms between cycles (default: 1000)
-        max-interval: 8000                    # Maximum ms between cycles (default: 8000)
+        min-interval: 1s                       # Minimum ms between cycles (default: 1s)
+        max-interval: 8s                       # Maximum ms between cycles (default: 8s)
     # Legacy (deprecated)
-    poll-interval: 2000                       # (deprecated) Use polling.fixed.interval
-    rebalance-interval: 10000                 # (deprecated) Use instance.rebalance-interval
-    batch-size: 10                            # (deprecated) Use polling.batch-size
+    poll-interval: 2s                          # (deprecated) Use polling.fixed.interval
+    rebalance-interval: 10s                    # (deprecated) Use instance.rebalance-interval
+    batch-size: 10                             # (deprecated) Use polling.batch-size
 
     # Processing Configuration
     processing:
@@ -34,6 +34,8 @@ namastack:
       executor-core-pool-size: 4               # Core threads for processing (default: 4, platform threads)
       executor-max-pool-size: 8                # Maximum threads for processing (default: 8, platform threads)
       executor-concurrency-limit: -1           # Concurrency limit for virtual threads (default: -1 unlimited)
+      shutdown-timeout-seconds: 30             # (deprecated) Use shutdown-timeout
+      shutdown-timeout: 30s                    # Maximum time to wait for processing to complete during shutdown (default: 30s)
 
     # Event Multicaster Configuration
     multicaster:
@@ -42,10 +44,13 @@ namastack:
 
     # Instance Coordination Configuration
     instance:
-      graceful-shutdown-timeout-seconds: 0     # Graceful shutdown propagation window (default: 0)
-      stale-instance-timeout-seconds: 30       # When an instance is considered stale and removed (default: 30)
-      heartbeat-interval-seconds: 5            # How often each instance sends a heartbeat (default: 5)
-      rebalance-interval: 10000                # How often partitions are recalculated (default: 10000)
+      graceful-shutdown-timeout-seconds: 0     # (deprecated) Use graceful-shutdown-timeout
+      stale-instance-timeout-seconds: 30       # (deprecated) Use stale-instance-timeout
+      heartbeat-interval-seconds: 5            # (deprecated) Use heartbeat-interval
+      graceful-shutdown-timeout: 0s            # Graceful shutdown propagation window (default: 0s)
+      stale-instance-timeout: 30s              # When an instance is considered stale and removed (default: 30s)
+      heartbeat-interval: 5s                   # How often each instance sends a heartbeat (default: 5s)
+      rebalance-interval: 10s                  # How often partitions are recalculated (default: 10s)
 
     jdbc:
       table-prefix: ""                         # Prefix for table names (default: empty)
@@ -69,34 +74,39 @@ namastack:
       
       # Fixed Delay Policy
       fixed:
-        delay: 5000                            # Delay in milliseconds (default: 5000)
+        delay: 5s                              # Delay (default: 5s)
       
       # Linear Backoff Policy
       linear:
-        initial-delay: 2000                    # Initial delay in milliseconds (default: 2000)
-        increment: 2000                        # Increment per retry in milliseconds (default: 2000)
-        max-delay: 60000                       # Maximum delay cap in milliseconds (default: 60000)
+        initial-delay: 2s                      # Initial delay  (default: 2s)
+        increment: 2s                          # Increment per retry (default: 2s)
+        max-delay: 1m                          # Maximum delay cap (default: 1m)
       
       # Exponential Backoff Policy
       exponential:
-        initial-delay: 1000                    # Initial delay in milliseconds (default: 1000)
-        max-delay: 60000                       # Maximum delay cap in milliseconds (default: 60000)
+        initial-delay: 2s                      # Initial delay (default: 2s)
+        max-delay: 1m                          # Maximum delay cap (default: 1m)
         multiplier: 2.0                        # Backoff multiplier (default: 2.0)
       
       # Jitter Configuration (can be used with any policy)
-      jitter: 0                                # Max random jitter in milliseconds (default: 0)
+      jitter: 0s                               # Max random jitter (default: 0s)
 
     # Kafka Integration
     kafka:
-      enabled: true                           # Enable Kafka outbox integration (default: true)
-      default-topic: outbox-events            # Default Kafka topic (default: outbox-events)
-      enable-json: true                       # Enable JSON support (default: true)
+      enabled: true                            # Enable Kafka outbox integration (default: true)
+      default-topic: outbox-events             # Default Kafka topic (default: outbox-events)
+      enable-json: true                        # Enable JSON support (default: true)
 
     # RabbitMQ Integration
     rabbit:
-      enabled: true                           # Enable Rabbit outbox integration (default: true)
-      default-exchange: outbox-events         # Default Rabbit exchange (default: outbox-events)
-      enable-json: true                       # Enable JSON support (default: true)
+      enabled: true                            # Enable Rabbit outbox integration (default: true)
+      default-exchange: outbox-events          # Default Rabbit exchange (default: outbox-events)
+      enable-json: true                        # Enable JSON support (default: true)
+
+    # SNS Integration
+    sns:
+      enabled: true                            # Enable SNS outbox integration (default: true)
+      default-topic-arn: arn:aws:sns:us-east-1:000000000000:outbox-events   # Default SNS topic ARN (default: arn:aws:sns:us-east-1:000000000000:outbox-events)
 ```
 
 ---
@@ -142,4 +152,3 @@ namastack:
   outbox:
     enabled: false
 ```
-

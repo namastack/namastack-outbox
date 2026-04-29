@@ -28,7 +28,7 @@ namastack:
       policy: "fixed"
       max-retries: 5
       fixed:
-        delay: 5000  # 5 seconds between retries
+        delay: 5s  # 5 seconds between retries
 ```
 
 **Use Case:** Simple scenarios with consistent retry intervals
@@ -46,9 +46,9 @@ namastack:
       policy: "linear"
       max-retries: 5
       linear:
-        initial-delay: 2000    # Start with 2 seconds
-        increment: 2000        # Add 2 seconds each retry
-        max-delay: 60000       # Cap at 1 minute
+        initial-delay: 2s    # Start with 2 seconds
+        increment: 2s        # Add 2 seconds each retry
+        max-delay: 60s       # Cap at 1 minute
 ```
 
 **Use Case:** Gradually increasing delays for services that need time to recover
@@ -66,9 +66,9 @@ namastack:
       policy: "exponential"
       max-retries: 3
       exponential:
-        initial-delay: 1000    # Start with 1 second
-        max-delay: 60000       # Cap at 1 minute
-        multiplier: 2.0        # Double each time
+        initial-delay: 1s    # Start with 1 second
+        max-delay: 60s       # Cap at 1 minute
+        multiplier: 2.0      # Double each time
 ```
 
 **Use Case:** Handles transient failures gracefully without overwhelming downstream services
@@ -86,10 +86,10 @@ namastack:
       policy: "exponential"  # Can also be "fixed" or "linear"
       max-retries: 7
       exponential:
-        initial-delay: 2000
-        max-delay: 60000
+        initial-delay: 2s
+        max-delay: 60s
         multiplier: 2.0
-      jitter: 1000  # Add [-1000ms, 1000ms] random delay
+      jitter: 1s  # Add [-1s, 1s] random delay
 ```
 
 **Benefits:** Prevents coordinated retry storms when multiple instances retry simultaneously

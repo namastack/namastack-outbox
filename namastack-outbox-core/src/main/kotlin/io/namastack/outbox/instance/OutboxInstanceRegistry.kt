@@ -1,16 +1,19 @@
 package io.namastack.outbox.instance
 
+import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OpenForProxy
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.scheduling.TaskScheduler
+import org.springframework.scheduling.support.ScheduledMethodRunnable
+import java.lang.reflect.Method
 import java.net.InetAddress
 import java.time.Clock
-import java.time.Duration
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -32,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * @param instanceRepository Repository for persisting instance data
  * @param properties Configuration properties for outbox instance management
  * @param clock Clock for consistent time-based operations
+ * @param taskScheduler TaskScheduler used to schedule the heartbeat
  *
  * @author Roland Beisel
  * @since 0.2.0
@@ -41,14 +45,24 @@ class OutboxInstanceRegistry(
     private val instanceRepository: OutboxInstanceRepository,
     private val properties: OutboxProperties,
     private val clock: Clock,
+    private val taskScheduler: TaskScheduler,
+    private val observationRegistry: () -> ObservationRegistry,
     private val currentInstanceId: String = UUID.randomUUID().toString(),
 ) : SmartLifecycle {
+    companion object {
+        const val SCHEDULER_NAME: String = "outboxHeartbeatScheduler"
+
+        private val SCHEDULE_METHOD_NAME: String = (OutboxInstanceRegistry::performHeartbeatAndCleanup).name
+        private val SCHEDULE_METHOD: Method = OutboxInstanceRegistry::class.java.getMethod(SCHEDULE_METHOD_NAME)
+    }
+
     private val log = LoggerFactory.getLogger(OutboxInstanceRegistry::class.java)
 
-    private val staleInstanceTimeout = Duration.ofSeconds(properties.instance.staleInstanceTimeoutSeconds)
-    private val gracefulShutdownTimeout = Duration.ofSeconds(properties.instance.gracefulShutdownTimeoutSeconds)
+    private val staleInstanceTimeout = properties.instance.effectiveStaleInstanceTimeout
+    private val gracefulShutdownTimeout = properties.instance.effectiveGracefulShutdownTimeout
 
     private val running = AtomicBoolean(false)
+    private var scheduledHeartbeat: ScheduledFuture<*>? = null
 
     override fun getPhase(): Int = 0
 
@@ -65,6 +79,9 @@ class OutboxInstanceRegistry(
     override fun start() {
         registerInstance()
         running.set(true)
+        val rate = properties.instance.effectiveHeartbeatInterval
+        val runnable = ScheduledMethodRunnable(this, SCHEDULE_METHOD, SCHEDULER_NAME, observationRegistry)
+        scheduledHeartbeat = taskScheduler.scheduleAtFixedRate(runnable, rate)
     }
 
     /**
@@ -77,6 +94,7 @@ class OutboxInstanceRegistry(
     override fun stop() {
         try {
             log.info("Initiating graceful shutdown for instance {}", currentInstanceId)
+            scheduledHeartbeat?.cancel(false)
 
             instanceRepository.updateStatus(
                 currentInstanceId,
@@ -108,7 +126,7 @@ class OutboxInstanceRegistry(
     /** True if the given instance currently has status ACTIVE. */
     fun isInstanceActive(instanceId: String): Boolean = instanceRepository.findById(instanceId)?.status == ACTIVE
 
-    /** Number of ACTIVE instances. */
+    /** Number of active instances. */
     fun getActiveInstanceCount(): Long = instanceRepository.countByStatus(ACTIVE)
 
     /**
@@ -145,10 +163,6 @@ class OutboxInstanceRegistry(
      * Periodic heartbeat + stale cleanup trigger.
      * Combines update & pruning to reduce scheduling overhead.
      */
-    @Scheduled(
-        fixedRateString = $$"${namastack.outbox.instance.heartbeat-interval-seconds:5}000",
-        scheduler = "outboxHeartbeatScheduler",
-    )
     fun performHeartbeatAndCleanup() {
         try {
             sendHeartbeat()
