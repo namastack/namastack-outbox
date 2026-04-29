@@ -43,6 +43,20 @@ class KafkaOutboxHandlerTest {
     @DisplayName("handle()")
     inner class Handle {
         @Test
+        fun `supports returns false when filter excludes payload`() {
+            val routing =
+                kafkaOutboxRouting {
+                    defaults {
+                        target("events")
+                        filter { payload, _ -> (payload as String) != "skip-me" }
+                    }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing)
+
+            assertThat(handler.supports("skip-me", metadata)).isFalse()
+        }
+
+        @Test
         fun `sends payload to resolved topic`() {
             val routing =
                 kafkaOutboxRouting {

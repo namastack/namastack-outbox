@@ -165,7 +165,7 @@ class OutboxService(
         val context = contextCollector.collectContext() + additionalContext
 
         // Discover all applicable handlers for this payload type
-        val handlerIds = collectHandlers(payload).map { it.id }.toSet()
+        val handlerIds = collectHandlers(payload, key, context).map { it.id }.toSet()
 
         // Create separate record for each handler
         // Each record has independent retry/processing state
@@ -489,7 +489,11 @@ class OutboxService(
      * @param payload The domain object to find handlers for
      * @return List of all applicable handler methods (empty if no handlers found)
      */
-    private fun collectHandlers(payload: Any): List<OutboxHandlerMethod> {
+    private fun collectHandlers(
+        payload: Any,
+        key: String,
+        context: Map<String, String>,
+    ): List<OutboxHandlerMethod> {
         val collected = linkedSetOf<OutboxHandlerMethod>()
         val visited = mutableSetOf<KClass<*>>()
 
@@ -519,7 +523,7 @@ class OutboxService(
 
         // Add generic handlers last (fallback for any payload type)
         // These are invoked after type-specific handlers
-        collected += handlerRegistry.getGenericHandlers()
+        collected += handlerRegistry.getGenericHandlers(payload, key, context)
 
         return collected.toList()
     }

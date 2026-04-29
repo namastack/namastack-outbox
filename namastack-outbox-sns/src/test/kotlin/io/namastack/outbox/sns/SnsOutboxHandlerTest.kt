@@ -39,6 +39,20 @@ class SnsOutboxHandlerTest {
     @DisplayName("handle()")
     inner class Handle {
         @Test
+        fun `supports returns false when filter excludes payload`() {
+            val routing =
+                snsOutboxRouting {
+                    defaults {
+                        target("arn:aws:sns:us-east-1:123456789012:events")
+                        filter { payload, _ -> (payload as String) != "skip-me" }
+                    }
+                }
+            handler = SnsOutboxHandler(snsOperations, routing)
+
+            assertThat(handler.supports("skip-me", metadata)).isFalse()
+        }
+
+        @Test
         fun `sends payload to resolved topic ARN`() {
             val topicArn = "arn:aws:sns:us-east-1:123456789012:default-topic"
             val routing =
