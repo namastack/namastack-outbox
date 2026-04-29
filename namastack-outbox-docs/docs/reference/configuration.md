@@ -15,17 +15,17 @@ namastack:
 
     # Polling Configuration
     polling:
-      trigger: fixed                          # Polling strategy: fixed|adaptive (default: fixed)
-      batch-size: 10                          # Record keys per poll cycle (default: 10)
+      trigger: fixed                           # Polling strategy: fixed|adaptive (default: fixed)
+      batch-size: 10                           # Record keys per poll cycle (default: 10)
       fixed:
-        interval: 2s                          # interval between polling cycles (default: 2s)
+        interval: 2s                           # interval between polling cycles (default: 2s)
       adaptive:
-        min-interval: 1s                      # Minimum ms between cycles (default: 1s)
-        max-interval: 8s                      # Maximum ms between cycles (default: 8s)
+        min-interval: 1s                       # Minimum ms between cycles (default: 1s)
+        max-interval: 8s                       # Maximum ms between cycles (default: 8s)
     # Legacy (deprecated)
-    poll-interval: 2s                         # (deprecated) Use polling.fixed.interval
-    rebalance-interval: 10s                   # (deprecated) Use instance.rebalance-interval
-    batch-size: 10                            # (deprecated) Use polling.batch-size
+    poll-interval: 2s                          # (deprecated) Use polling.fixed.interval
+    rebalance-interval: 10s                    # (deprecated) Use instance.rebalance-interval
+    batch-size: 10                             # (deprecated) Use polling.batch-size
 
     # Processing Configuration
     processing:
@@ -34,6 +34,8 @@ namastack:
       executor-core-pool-size: 4               # Core threads for processing (default: 4, platform threads)
       executor-max-pool-size: 8                # Maximum threads for processing (default: 8, platform threads)
       executor-concurrency-limit: -1           # Concurrency limit for virtual threads (default: -1 unlimited)
+      shutdown-timeout-seconds: 30             # (deprecated) Use shutdown-timeout
+      shutdown-timeout: 30s                    # Maximum time to wait for processing to complete during shutdown (default: 30s)
 
     # Event Multicaster Configuration
     multicaster:
@@ -91,15 +93,20 @@ namastack:
 
     # Kafka Integration
     kafka:
-      enabled: true                           # Enable Kafka outbox integration (default: true)
-      default-topic: outbox-events            # Default Kafka topic (default: outbox-events)
-      enable-json: true                       # Enable JSON support (default: true)
+      enabled: true                            # Enable Kafka outbox integration (default: true)
+      default-topic: outbox-events             # Default Kafka topic (default: outbox-events)
+      enable-json: true                        # Enable JSON support (default: true)
 
     # RabbitMQ Integration
     rabbit:
-      enabled: true                           # Enable Rabbit outbox integration (default: true)
-      default-exchange: outbox-events         # Default Rabbit exchange (default: outbox-events)
-      enable-json: true                       # Enable JSON support (default: true)
+      enabled: true                            # Enable Rabbit outbox integration (default: true)
+      default-exchange: outbox-events          # Default Rabbit exchange (default: outbox-events)
+      enable-json: true                        # Enable JSON support (default: true)
+
+    # SNS Integration
+    sns:
+      enabled: true                            # Enable SNS outbox integration (default: true)
+      default-topic-arn: arn:aws:sns:us-east-1:000000000000:outbox-events   # Default SNS topic ARN (default: arn:aws:sns:us-east-1:000000000000:outbox-events)
 ```
 
 ---
@@ -145,4 +152,3 @@ namastack:
   outbox:
     enabled: false
 ```
-

@@ -24,14 +24,14 @@ import TabItem from '@theme/TabItem';
 
 **Configuration Options:**
 
-| Property                                  | Default   | Description                                  |
-|-------------------------------------------|-----------|----------------------------------------------|
-| `namastack.outbox.polling.trigger`        | `fixed`   | Selects polling strategy                     |
-| `namastack.outbox.polling.fixed.interval` | `2000` ms | Interval in milliseconds between poll cycles |
-| `namastack.outbox.polling.batch-size`     | `10`      | Max record keys to process per poll          |
+| Property                                  | Default | Description                                                                   |
+|-------------------------------------------|---------|-------------------------------------------------------------------------------|
+| `namastack.outbox.polling.trigger`        | `fixed` | Selects polling strategy                                                      |
+| `namastack.outbox.polling.fixed.interval` | `2s`    | Interval between poll cycles (supports duration strings, e.g., `2s`, `500ms`) |
+| `namastack.outbox.polling.batch-size`     | `10`    | Max record keys to process per poll                                           |
 
 </TabItem>
-<TabItem value="adaptive" label="Adaptive Polling (since v1.1.0)">
+<TabItem value="adaptive" label="Adaptive Polling">
 
 **How it works:**
 
@@ -46,12 +46,12 @@ import TabItem from '@theme/TabItem';
 
 **Configuration Options:**
 
-| Property                                         | Default    | Description                             |
-|--------------------------------------------------|------------|-----------------------------------------|
-| `namastack.outbox.polling.trigger`               | `adaptive` | Selects polling strategy                |
-| `namastack.outbox.polling.adaptive.min-interval` | `1000` ms  | Minimum interval between polling cycles |
-| `namastack.outbox.polling.adaptive.max-interval` | `8000` ms  | Maximum interval between polling cycles |
-| `namastack.outbox.polling.batch-size`            | `10`       | Max record keys to process per poll     |
+| Property                                         | Default    | Description                                                         |
+|--------------------------------------------------|------------|---------------------------------------------------------------------|
+| `namastack.outbox.polling.trigger`               | `adaptive` | Selects polling strategy                                            |
+| `namastack.outbox.polling.adaptive.min-interval` | `1s`       | Minimum interval between polling cycles (supports duration strings) |
+| `namastack.outbox.polling.adaptive.max-interval` | `8s`       | Maximum interval between polling cycles (supports duration strings) |
+| `namastack.outbox.polling.batch-size`            | `10`       | Max record keys to process per poll                                 |
 
 </TabItem>
 </Tabs>

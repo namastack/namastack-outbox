@@ -201,9 +201,9 @@ class OutboxCoreAutoConfigurationTest {
                     assertThat(context).hasNotFailed()
                     assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
                     val properties = assertThat(context).getBean(OutboxProperties::class.java).actual()
-                    assertThat(properties.instance.staleInstanceTimeout.seconds).isEqualTo(60)
-                    assertThat(properties.instance.heartbeatInterval.toMinutes()).isEqualTo(60)
-                    assertThat(properties.instance.gracefulShutdownTimeout.toMillis()).isEqualTo(500)
+                    assertThat(properties.instance.effectiveStaleInstanceTimeout.seconds).isEqualTo(60)
+                    assertThat(properties.instance.effectiveHeartbeatInterval.toMinutes()).isEqualTo(60)
+                    assertThat(properties.instance.effectiveGracefulShutdownTimeout.toMillis()).isEqualTo(500)
                 }
         }
 
@@ -219,9 +219,9 @@ class OutboxCoreAutoConfigurationTest {
                     assertThat(context).hasNotFailed()
                     assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
                     val properties = assertThat(context).getBean(OutboxProperties::class.java).actual()
-                    assertThat(properties.instance.staleInstanceTimeout.seconds).isEqualTo(1)
-                    assertThat(properties.instance.heartbeatInterval.seconds).isEqualTo(1)
-                    assertThat(properties.instance.gracefulShutdownTimeout.seconds).isEqualTo(1)
+                    assertThat(properties.instance.effectiveStaleInstanceTimeout.seconds).isEqualTo(1)
+                    assertThat(properties.instance.effectiveHeartbeatInterval.seconds).isEqualTo(1)
+                    assertThat(properties.instance.effectiveGracefulShutdownTimeout.seconds).isEqualTo(1)
                 }
         }
 
@@ -235,7 +235,7 @@ class OutboxCoreAutoConfigurationTest {
                     assertThat(context).hasNotFailed()
                     assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
                     val properties = assertThat(context).getBean(OutboxProperties::class.java).actual()
-                    assertThat(properties.processing.shutdownTimeout.toMillis()).isEqualTo(500)
+                    assertThat(properties.processing.effectiveShutdownTimeout.toMillis()).isEqualTo(500)
                 }
         }
 
@@ -249,7 +249,7 @@ class OutboxCoreAutoConfigurationTest {
                     assertThat(context).hasNotFailed()
                     assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
                     val properties = assertThat(context).getBean(OutboxProperties::class.java).actual()
-                    assertThat(properties.processing.shutdownTimeout.seconds).isEqualTo(1)
+                    assertThat(properties.processing.effectiveShutdownTimeout.seconds).isEqualTo(1)
                 }
         }
     }

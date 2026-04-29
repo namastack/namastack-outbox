@@ -63,7 +63,7 @@ class OutboxProcessingScheduler(
 
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
-    private val lifecycle = SchedulerLifecycleStateMachine(properties.processing.shutdownTimeout)
+    private val lifecycle = SchedulerLifecycleStateMachine(properties.processing.effectiveShutdownTimeout)
 
     private var scheduledTask: ScheduledFuture<*>? = null
 
@@ -96,7 +96,7 @@ class OutboxProcessingScheduler(
      *
      * Automatically invoked during application shutdown. Cancels future scheduling and,
      * if a cycle is currently running, blocks until completion, timeout, or interruption
-     * (up to [OutboxProperties.Processing.shutdownTimeoutSeconds]).
+     * (up to [OutboxProperties.Processing.shutdownTimeout]).
      */
     override fun stop() {
         log.info("Initiating OutboxProcessingScheduler shutdown...")

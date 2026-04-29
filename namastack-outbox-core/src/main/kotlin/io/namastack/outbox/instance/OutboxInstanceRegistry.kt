@@ -58,9 +58,8 @@ class OutboxInstanceRegistry(
 
     private val log = LoggerFactory.getLogger(OutboxInstanceRegistry::class.java)
 
-    private val staleInstanceTimeout = properties.instance.staleInstanceTimeout
-
-    private val gracefulShutdownTimeout = properties.instance.gracefulShutdownTimeout
+    private val staleInstanceTimeout = properties.instance.effectiveStaleInstanceTimeout
+    private val gracefulShutdownTimeout = properties.instance.effectiveGracefulShutdownTimeout
 
     private val running = AtomicBoolean(false)
     private var scheduledHeartbeat: ScheduledFuture<*>? = null
@@ -80,7 +79,7 @@ class OutboxInstanceRegistry(
     override fun start() {
         registerInstance()
         running.set(true)
-        val rate = properties.instance.heartbeatInterval
+        val rate = properties.instance.effectiveHeartbeatInterval
         val runnable = ScheduledMethodRunnable(this, SCHEDULE_METHOD, SCHEDULER_NAME, observationRegistry)
         scheduledHeartbeat = taskScheduler.scheduleAtFixedRate(runnable, rate)
     }

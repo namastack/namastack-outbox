@@ -85,7 +85,7 @@ data class OutboxProperties(
      * @param executorMaxPoolSize Maximum pool size for the processing executor
      * @param executorConcurrencyLimit Concurrency limit for the virtual thread executor (-1 for no limit)
      * @param shutdownTimeoutSeconds Maximum time in seconds to wait for processing to complete during shutdown (default: 30)
-     * @param shutdownTimeoutValue Maximum time to wait for processing to complete during shutdown (default: 30s)
+     * @param shutdownTimeout Maximum time to wait for processing to complete during shutdown (default: 30s)
      */
     data class Processing(
         var stopOnFirstFailure: Boolean = true,
@@ -97,13 +97,13 @@ data class OutboxProperties(
         var executorConcurrencyLimit: Int = -1,
         @Deprecated("Use shutdownTimeout instead")
         var shutdownTimeoutSeconds: Long? = null,
-        private var shutdownTimeoutValue: Duration = Duration.ofSeconds(30),
+        var shutdownTimeout: Duration = Duration.ofSeconds(30),
     ) {
-        var shutdownTimeout: Duration
-            get() = shutdownTimeoutSeconds?.let(Duration::ofSeconds) ?: shutdownTimeoutValue
-            set(value) {
-                shutdownTimeoutValue = value
-            }
+        /**
+         * Returns the effective shutdown timeout, using the deprecated seconds property if set, otherwise the duration property.
+         */
+        val effectiveShutdownTimeout: Duration
+            get() = shutdownTimeoutSeconds?.let(Duration::ofSeconds) ?: shutdownTimeout
     }
 
     /**
@@ -112,9 +112,9 @@ data class OutboxProperties(
      * @param heartbeatIntervalSeconds Interval in seconds between heartbeats
      * @param staleInstanceTimeoutSeconds Timeout in seconds to consider an instance stale
      * @param gracefulShutdownTimeoutSeconds Optional propagation window (in seconds) after marking an instance
-     * @param heartbeatIntervalValue Interval between heartbeats
-     * @param staleInstanceTimeoutValue Timeout to consider an instance stale
-     * @param gracefulShutdownTimeoutValue Optional propagation window after marking an instance
+     * @param heartbeatInterval Interval between heartbeats
+     * @param staleInstanceTimeout Timeout to consider an instance stale
+     * @param gracefulShutdownTimeout Optional propagation window after marking an instance
      *        as shutting down before removing it from the registry. Default: 0 (disabled).
      * @param rebalanceInterval Interval at which partition rebalancing is performed
      */
@@ -125,26 +125,28 @@ data class OutboxProperties(
         var staleInstanceTimeoutSeconds: Long? = null,
         @Deprecated("Use gracefulShutdownTimeout instead")
         var gracefulShutdownTimeoutSeconds: Long? = null,
-        private var heartbeatIntervalValue: Duration = Duration.ofSeconds(5),
-        private var staleInstanceTimeoutValue: Duration = Duration.ofSeconds(30),
-        private var gracefulShutdownTimeoutValue: Duration = Duration.ofSeconds(0),
+        var heartbeatInterval: Duration = Duration.ofSeconds(5),
+        var staleInstanceTimeout: Duration = Duration.ofSeconds(30),
+        var gracefulShutdownTimeout: Duration = Duration.ofSeconds(0),
         var rebalanceInterval: Duration = Duration.ofSeconds(10),
     ) {
-        var heartbeatInterval: Duration
-            get() = heartbeatIntervalSeconds?.let(Duration::ofSeconds) ?: heartbeatIntervalValue
-            set(value) {
-                heartbeatIntervalValue = value
-            }
-        var staleInstanceTimeout: Duration
-            get() = staleInstanceTimeoutSeconds?.let(Duration::ofSeconds) ?: staleInstanceTimeoutValue
-            set(value) {
-                staleInstanceTimeoutValue = value
-            }
-        var gracefulShutdownTimeout: Duration
-            get() = gracefulShutdownTimeoutSeconds?.let(Duration::ofSeconds) ?: gracefulShutdownTimeoutValue
-            set(value) {
-                gracefulShutdownTimeoutValue = value
-            }
+        /**
+         * Returns the effective heartbeat interval, using the deprecated seconds property if set, otherwise the duration property.
+         */
+        val effectiveHeartbeatInterval: Duration
+            get() = heartbeatIntervalSeconds?.let(Duration::ofSeconds) ?: heartbeatInterval
+
+        /**
+         * Returns the effective stale instance timeout, using the deprecated seconds property if set, otherwise the duration property.
+         */
+        val effectiveStaleInstanceTimeout: Duration
+            get() = staleInstanceTimeoutSeconds?.let(Duration::ofSeconds) ?: staleInstanceTimeout
+
+        /**
+         * Returns the effective graceful shutdown timeout, using the deprecated seconds property if set, otherwise the duration property.
+         */
+        val effectiveGracefulShutdownTimeout: Duration
+            get() = gracefulShutdownTimeoutSeconds?.let(Duration::ofSeconds) ?: gracefulShutdownTimeout
     }
 
     /**
