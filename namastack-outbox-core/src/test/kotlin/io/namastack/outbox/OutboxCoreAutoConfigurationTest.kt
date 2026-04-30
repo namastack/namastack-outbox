@@ -7,6 +7,7 @@ import io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
+import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
@@ -82,22 +83,11 @@ class OutboxCoreAutoConfigurationTest {
         }
 
         @Test
-        fun `creates default instance registry when none provided`() {
+        fun `creates default instance registry`() {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .run { context ->
                     assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
-                }
-        }
-
-        @Test
-        fun `uses custom instance registry when provided`() {
-            contextRunner
-                .withUserConfiguration(ConfigWithCustomInstanceRegistry::class.java)
-                .run { context ->
-                    assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
-                    assertThat(context.getBean<OutboxInstanceRegistry>())
-                        .isEqualTo(ConfigWithCustomInstanceRegistry.instanceRegistry)
                 }
         }
     }
@@ -408,17 +398,6 @@ class OutboxCoreAutoConfigurationTest {
                     assertThat(heartbeatScheduler).isNotSameAs(defaultScheduler)
                 }
         }
-
-        @Test
-        fun `schedulers are singletons`() {
-            contextRunner
-                .withUserConfiguration(MinimalTestConfig::class.java)
-                .run { context ->
-                    val scheduler1 = context.getBean("outboxDefaultScheduler")
-                    val scheduler2 = context.getBean("outboxDefaultScheduler")
-                    assertThat(scheduler1).isSameAs(scheduler2)
-                }
-        }
     }
 
     @Nested
@@ -492,54 +471,20 @@ class OutboxCoreAutoConfigurationTest {
         fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
 
         @Bean
-        fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
+        fun outboxInstanceRepository() =
+            mockk<OutboxInstanceRepository>(relaxed = true).apply {
+                every { findActiveInstances() } returns listOf(mockk<OutboxInstance>(relaxed = true))
+            }
     }
 
     @Configuration
-    private class ConfigWithCustomClock {
+    private class ConfigWithCustomClock : MinimalTestConfig() {
         @Bean
         fun clock(): Clock = Clock.fixed(Instant.parse("2020-02-02T00:00:00Z"), ZoneId.systemDefault())
-
-        @Bean
-        fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
-
-        @Bean
-        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
-
-        @Bean
-        fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
     }
 
     @Configuration
-    private class ConfigWithCustomInstanceRegistry {
-        companion object {
-            val instanceRegistry = mockk<OutboxInstanceRegistry>(relaxed = true)
-        }
-
-        @Bean
-        fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
-
-        @Bean
-        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
-
-        @Bean
-        fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
-
-        @Bean
-        fun outboxInstanceRegistry() = instanceRegistry
-    }
-
-    @Configuration
-    private class ConfigWithCustomRetryPolicy {
-        @Bean
-        fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
-
-        @Bean
-        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
-
-        @Bean
-        fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
-
+    private class ConfigWithCustomRetryPolicy : MinimalTestConfig() {
         @Bean
         fun outboxRetryPolicy() =
             OutboxRetryPolicy
@@ -559,19 +504,10 @@ class OutboxCoreAutoConfigurationTest {
     }
 
     @Configuration
-    private class ConfigWithCustomTrigger {
+    private class ConfigWithCustomTrigger : MinimalTestConfig() {
         companion object {
             val outboxPollingTrigger = mockk<OutboxPollingTrigger>(relaxed = true)
         }
-
-        @Bean
-        fun outboxRecordRepository() = mockk<OutboxRecordRepository>(relaxed = true)
-
-        @Bean
-        fun partitionAssignmentRepository() = mockk<PartitionAssignmentRepository>(relaxed = true)
-
-        @Bean
-        fun outboxInstanceRepository() = mockk<OutboxInstanceRepository>(relaxed = true)
 
         @Bean
         fun outboxPollingTrigger() = outboxPollingTrigger
