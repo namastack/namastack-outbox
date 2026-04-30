@@ -22,13 +22,13 @@ class OutboxHandlerRegistryTest {
         key: String = "key",
         handlerId: String = "",
         context: Map<String, String> = emptyMap(),
-    ) =
-        OutboxRecordMetadata(
-            key = key,
-            handlerId = handlerId,
-            createdAt = clock.instant(),
-            context = context,
-        )
+    ) = OutboxRecordMetadata(
+        key = key,
+        handlerId = handlerId,
+        createdAt = clock.instant(),
+        context = context,
+    )
+
     private val clock = Clock.fixed(Instant.parse("2025-09-25T10:00:00Z"), ZoneOffset.UTC)
     private lateinit var registry: OutboxHandlerRegistry
 
