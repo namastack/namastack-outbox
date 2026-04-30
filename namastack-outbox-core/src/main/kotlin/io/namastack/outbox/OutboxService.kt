@@ -5,6 +5,7 @@ import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import java.time.Clock
+import java.time.Instant
 import java.util.UUID
 import kotlin.reflect.KClass
 
@@ -496,7 +497,7 @@ class OutboxService(
         payload: Any,
         key: String,
         context: Map<String, String>,
-        createdAt: java.time.Instant,
+        createdAt: Instant,
     ): List<OutboxHandlerMethod> {
         val collected = linkedSetOf<OutboxHandlerMethod>()
         val visited = mutableSetOf<KClass<*>>()
