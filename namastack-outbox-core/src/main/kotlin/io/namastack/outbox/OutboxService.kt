@@ -164,9 +164,11 @@ class OutboxService(
     ) {
         // Collect context from providers and merge with additional context
         val context = contextCollector.collectContext() + additionalContext
+        val createdAt = clock.instant()
+        val schedulingClock = Clock.fixed(createdAt, clock.zone)
 
         // Discover all applicable handlers for this payload type
-        val handlerIds = collectHandlers(payload, key, context).map { it.id }.toSet()
+        val handlerIds = collectHandlers(payload, key, context, createdAt).map { it.id }.toSet()
 
         // Create separate record for each handler
         // Each record has independent retry/processing state
@@ -178,7 +180,7 @@ class OutboxService(
                     .payload(payload)
                     .context(context)
                     .handlerId(handlerId)
-                    .build(clock)
+                    .build(schedulingClock)
 
             outboxRecordRepository.save(outboxRecord)
         }
@@ -494,6 +496,7 @@ class OutboxService(
         payload: Any,
         key: String,
         context: Map<String, String>,
+        createdAt: java.time.Instant,
     ): List<OutboxHandlerMethod> {
         val collected = linkedSetOf<OutboxHandlerMethod>()
         val visited = mutableSetOf<KClass<*>>()
@@ -529,7 +532,7 @@ class OutboxService(
                 OutboxRecordMetadata(
                     key = key,
                     handlerId = handler.id,
-                    createdAt = clock.instant(),
+                    createdAt = createdAt,
                     context = context,
                 )
             }
