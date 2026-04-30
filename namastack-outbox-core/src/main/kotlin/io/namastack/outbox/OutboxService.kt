@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.context.OutboxContextCollector
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import java.time.Clock
@@ -523,7 +524,14 @@ class OutboxService(
 
         // Add generic handlers last (fallback for any payload type)
         // These are invoked after type-specific handlers
-        collected += handlerRegistry.getGenericHandlers(payload, key, context)
+        val metadata =
+            OutboxRecordMetadata(
+                key = key,
+                handlerId = "",
+                createdAt = clock.instant(),
+                context = context,
+            )
+        collected += handlerRegistry.getGenericHandlers(payload, metadata)
 
         return collected.toList()
     }

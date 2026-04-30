@@ -294,7 +294,7 @@ class OutboxHandlerBeanPostProcessorTest {
     @DisplayName("Legacy alias registration for CGLIB proxies")
     inner class LegacyAliasTests {
         private val clock = Clock.fixed(Instant.parse("2025-09-25T10:00:00Z"), ZoneOffset.UTC)
-        private val realHandlerRegistry = OutboxHandlerRegistry(clock)
+        private val realHandlerRegistry = OutboxHandlerRegistry()
         private val realFallbackRegistry = OutboxFallbackHandlerRegistry()
 
         private lateinit var proxyProcessor: OutboxHandlerBeanPostProcessor
