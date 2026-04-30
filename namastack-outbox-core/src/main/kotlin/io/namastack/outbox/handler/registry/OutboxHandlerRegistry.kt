@@ -1,6 +1,5 @@
 package io.namastack.outbox.handler.registry
 
-import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
@@ -73,14 +72,12 @@ class OutboxHandlerRegistry {
      */
     fun getGenericHandlers(
         payload: Any,
-        metadata: OutboxRecordMetadata,
+        metadataProvider: (GenericHandlerMethod) -> io.namastack.outbox.handler.OutboxRecordMetadata,
     ): List<GenericHandlerMethod> =
         genericHandlers
             .filter { handler ->
-                handler.supportsScheduling(
-                    payload,
-                    metadata.copy(handlerId = handler.id),
-                )
+                val metadata = metadataProvider(handler)
+                handler.supportsScheduling(payload, metadata)
             }.toList()
 
     /**

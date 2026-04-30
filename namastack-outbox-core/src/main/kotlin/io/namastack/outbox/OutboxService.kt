@@ -524,14 +524,15 @@ class OutboxService(
 
         // Add generic handlers last (fallback for any payload type)
         // These are invoked after type-specific handlers
-        val metadata =
-            OutboxRecordMetadata(
-                key = key,
-                handlerId = "",
-                createdAt = clock.instant(),
-                context = context,
-            )
-        collected += handlerRegistry.getGenericHandlers(payload, metadata)
+        collected +=
+            handlerRegistry.getGenericHandlers(payload) { handler ->
+                OutboxRecordMetadata(
+                    key = key,
+                    handlerId = handler.id,
+                    createdAt = clock.instant(),
+                    context = context,
+                )
+            }
 
         return collected.toList()
     }

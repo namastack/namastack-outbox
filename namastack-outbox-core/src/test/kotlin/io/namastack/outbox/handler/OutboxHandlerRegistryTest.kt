@@ -107,7 +107,7 @@ class OutboxHandlerRegistryTest {
 
             registry.register(handler)
 
-            val result = registry.getGenericHandlers(1, metadata())
+            val result = registry.getGenericHandlers(1) { metadata(handlerId = it.id) }
             assertThat(result).contains(handler)
         }
 
@@ -119,7 +119,7 @@ class OutboxHandlerRegistryTest {
             registry.register(handler1)
             registry.register(handler2)
 
-            val result = registry.getGenericHandlers(1, metadata())
+            val result = registry.getGenericHandlers(1) { metadata(handlerId = it.id) }
             assertThat(result).hasSize(2).contains(handler1, handler2)
         }
 
@@ -129,7 +129,7 @@ class OutboxHandlerRegistryTest {
 
             registry.register(handler)
 
-            val result = registry.getGenericHandlers(1, metadata())
+            val result = registry.getGenericHandlers(1) { metadata(handlerId = it.id) }
             assertThat(result).isEmpty()
         }
 
@@ -245,7 +245,7 @@ class OutboxHandlerRegistryTest {
             registry.register(genericHandler)
 
             val typedResult = registry.getHandlersForPayloadType(TestPayload::class)
-            val genericResult = registry.getGenericHandlers(1, metadata())
+            val genericResult = registry.getGenericHandlers(1) { metadata(handlerId = it.id) }
 
             assertThat(typedResult).contains(typedHandler)
             assertThat(genericResult).contains(genericHandler)
@@ -269,8 +269,8 @@ class OutboxHandlerRegistryTest {
             val handler = createMockGenericHandler("generic")
             registry.register(handler)
 
-            val result1 = registry.getGenericHandlers(1, metadata())
-            val result2 = registry.getGenericHandlers(1, metadata())
+            val result1 = registry.getGenericHandlers(1) { metadata(handlerId = it.id) }
+            val result2 = registry.getGenericHandlers(1) { metadata(handlerId = it.id) }
 
             assertThat(result1).isEqualTo(result2)
             assertThat(result1).isNotSameAs(result2)
