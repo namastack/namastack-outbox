@@ -11,6 +11,7 @@
     <toRun name="DemoApplication Kafka &amp; Java" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication MariaDB" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Microsoft SQL Server" type="SpringBootApplicationConfigurationType" />
+    <toRun name="DemoApplication MongoDB" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Multicaster" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication MySQL" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication PostgreSQL" type="SpringBootApplicationConfigurationType" />
