@@ -17,5 +17,5 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
-    implementation("io.namastack:namastack-outbox-starter-mongodb:1.4.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-mongodb:1.5.0-SNAPSHOT")
 }
