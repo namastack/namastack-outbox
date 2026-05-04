@@ -20,8 +20,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-flyway")
     implementation("io.awspring.cloud:spring-cloud-aws-starter-sns:4.0.0")
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.4.0-SNAPSHOT")
-    implementation("io.namastack:namastack-outbox-sns:1.4.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jpa:1.5.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-sns:1.5.0-SNAPSHOT")
     runtimeOnly("com.h2database:h2")
 }
 

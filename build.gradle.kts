@@ -38,7 +38,7 @@ val isRelease = project.hasProperty("release") && project.property("release") ==
 
 allprojects {
     group = "io.namastack"
-    version = "1.4.0" + if (!isRelease) "-SNAPSHOT" else ""
+    version = "1.5.0" + if (!isRelease) "-SNAPSHOT" else ""
 
     repositories {
         mavenLocal()
