@@ -17,4 +17,3 @@ logging:
   level:
     root: warn
     io.namastack.demo: debug
-    io.namastack.outbox: trace

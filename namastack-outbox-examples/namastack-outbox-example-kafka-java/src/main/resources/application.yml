@@ -13,11 +13,6 @@ spring:
     hibernate:
       ddl-auto: create-drop
 
-namastack:
-  outbox:
-    kafka:
-      default-topic: customers
-
 logging:
   level:
     root: warn
