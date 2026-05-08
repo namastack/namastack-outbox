@@ -7,6 +7,8 @@ import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Index
 import jakarta.persistence.Table
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import java.time.Instant
 
 /**
@@ -41,8 +43,10 @@ internal data class OutboxRecordEntity(
     val recordKey: String,
     @Column(name = "record_type", nullable = false)
     val recordType: String,
+    @JdbcTypeCode(SqlTypes.LONG32NVARCHAR)
     @Column(name = "payload", nullable = false)
     val payload: String,
+    @JdbcTypeCode(SqlTypes.LONG32NVARCHAR)
     @Column(name = "context", nullable = true)
     val context: String?,
     @Column(name = "partition_no", nullable = false)
