@@ -56,7 +56,7 @@ function HomepageHeader() {
           <p className="hero__subtitle">{siteConfig.tagline}</p>
           <div className="row">
             <div className="col col--3 col--offset-3">
-              <div className={styles.buttons} className="text--center margin-top--md">
+              <div className={clsx(styles.buttons, "text--center margin-top--md")}>
                 <Link
                   className="button button--secondary button--lg"
                   to="/quickstart">
@@ -66,7 +66,7 @@ function HomepageHeader() {
               </div>
             </div>
             <div className="col col--3 col--offset-0">
-              <div className={styles.buttons} className="text--center margin-top--md">
+              <div className={clsx(styles.buttons, "text--center margin-top--md")}>
                 <Link
                   className="button button--secondary button--lg"
                   to="https://github.com/namastack/namastack-outbox">
