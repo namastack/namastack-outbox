@@ -2,20 +2,20 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+Security updates are provided for the two most recent stable releases.
 
 | Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+|---------|--------------------|
+| 1.5.x   | :white_check_mark: |
+| 1.4.x   | :white_check_mark: |
+| < 1.4   | :x:                |
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+Please **do not** open a public GitHub issue for security vulnerabilities.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+Use GitHub's private vulnerability reporting instead:
+👉 [Report a vulnerability](https://github.com/namastack/namastack-outbox/security/advisories/new)
+
+You can expect an initial response within 72 hours. If the vulnerability is
+confirmed, a fix will be released as soon as possible and credited to the reporter.
