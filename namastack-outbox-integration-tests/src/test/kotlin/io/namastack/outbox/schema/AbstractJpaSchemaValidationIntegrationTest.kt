@@ -16,7 +16,6 @@ import org.springframework.test.annotation.DirtiesContext
     properties = ["spring.jpa.hibernate.ddl-auto=validate"],
 )
 abstract class AbstractJpaSchemaValidationIntegrationTest {
-
     @Test
     fun `JPA entity validates successfully against shipped DDL schema`() {
         // Successful context startup with ddl-auto=validate is the assertion.
