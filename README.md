@@ -7,6 +7,7 @@
 [![GitHub last commit](https://img.shields.io/github/last-commit/namastack/namastack-outbox)](https://github.com/namastack/namastack-outbox/commits/main)
 [![dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot&logoColor=white)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-pink?logo=github)](https://github.com/sponsors/namastack)
 
 # Namastack Outbox for Spring Boot
 
@@ -15,6 +16,29 @@ implements the **Transactional Outbox Pattern** for reliable, scalable, and obse
 architectures. It guarantees that business events are never lost, are delivered on an at-least-once
 basis to matching handlers, and can be published to any system, whether via custom handlers, Kafka,
 RabbitMQ, SNS, or other integrations.
+
+---
+
+## ❤️ Support the Project
+
+Namastack Outbox started as a personal passion project around a problem I kept running into while building distributed systems: reliable event publishing is much harder than it initially looks.
+
+What began as an internal idea slowly evolved into an open-source project focused on making transactional messaging, durable event publication and event-driven Spring Boot architectures easier to build and operate in production.
+
+A lot of time goes into maintaining, improving and documenting open-source software. If Namastack Outbox helps you or your team, sponsoring the project is a great way to support its continued development and long-term sustainability.
+
+Your support helps us dedicate more time to:
+
+* improving documentation and examples
+* building new integrations and features
+* maintaining long-term stability
+* continuing to invest in the Spring and open-source ecosystem
+
+Thank you for supporting open source!
+
+[Become a Sponsor](https://github.com/sponsors/namastack)
+
+---
 
 ## Key Features
 
