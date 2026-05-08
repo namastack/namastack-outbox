@@ -143,6 +143,7 @@ const config: Config = {
         {to: 'quickstart', label: 'Quickstart', position: 'left'},
         {to: 'reference', label: 'Reference', position: 'left'},
         {to: 'contributing', label: 'Contributing', position: 'left'},
+        {to: 'sponsor', label: '❤️ Sponsor', position: 'right'},
         {
           href: 'https://github.com/namastack/namastack-outbox',
           label: 'GitHub',
@@ -197,6 +198,10 @@ const config: Config = {
             {
               label: 'namastack.io',
               href: 'https://www.namastack.io',
+            },
+            {
+              label: '❤️ Sponsor',
+              to: '/sponsor',
             },
             {
               label: 'Legal Notice',

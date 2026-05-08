@@ -6,6 +6,7 @@ import Layout from '@theme/Layout';
 import Head from '@docusaurus/Head';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import HowItWorks from "@site/src/components/HowItWorks";
+import SponsorSection from "@site/src/components/SponsorSection";
 import Heading from '@theme/Heading';
 import Logo from '@site/static/img/namastack_logo.svg';
 import { IconJetpackFilled, IconBrandGithubFilled } from '@tabler/icons-react';
@@ -97,6 +98,7 @@ export default function Home(): ReactNode {
       <main>
         <HomepageFeatures />
         <HowItWorks />
+        <SponsorSection />
       </main>
     </Layout>
   );
