@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
+import Head from '@docusaurus/Head';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import HowItWorks from "@site/src/components/HowItWorks";
 import Heading from '@theme/Heading';
@@ -10,6 +11,27 @@ import Logo from '@site/static/img/namastack_logo.svg';
 import { IconJetpackFilled, IconBrandGithubFilled } from '@tabler/icons-react';
 import styles from './index.module.css';
 import VantaBackground from "../components/VantaBackground";
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Namastack Outbox',
+  description:
+    'Reliable transactional outbox pattern implementation for Spring Boot. ' +
+    'Guarantees at-least-once delivery for distributed event-driven systems ' +
+    'without dual-write problems.',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'JVM',
+  programmingLanguage: ['Java', 'Kotlin'],
+  url: 'https://www.namastack.io/outbox/',
+  softwareVersion: 'See release notes',
+  license: 'https://github.com/namastack/namastack-outbox/blob/main/LICENSE',
+  author: {
+    '@type': 'Organization',
+    name: 'Namastack',
+    url: 'https://www.namastack.io',
+  },
+};
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
@@ -66,6 +88,11 @@ export default function Home(): ReactNode {
     <Layout
       title={`${siteConfig.title}`}
       description="Official documentation for Namastack Outbox - a reliable transactional messaging solution implementing the Outbox Pattern for distributed systems. Learn installation, configuration, integrations, and best practices for building consistent, event-driven architectures.">
+      <Head>
+        <script type="application/ld+json">
+          {JSON.stringify(structuredData)}
+        </script>
+      </Head>
       <HomepageHeader />
       <main>
         <HomepageFeatures />

@@ -16,9 +16,10 @@ for (const v of olderVersions) {
   versionConfig[v] = {label: v, noIndex: true};
 }
 
-// Sitemap ignore patterns: exclude old versions and "next"
+// Sitemap ignore patterns: exclude old versions, "next", and low-value pages
 const sitemapIgnorePatterns = [
   '/outbox/next/**',
+  '/outbox/legal-notice/**',
   ...olderVersions.map((v) => `/outbox/${v}/**`),
 ];
 
@@ -43,7 +44,7 @@ const config: Config = {
   organizationName: 'namastack', // Usually your GitHub org/user name.
   projectName: 'namstack-outbox', // Usually your repo name.
 
-  onBrokenLinks: 'ignore',
+  onBrokenLinks: 'warn',
 
   trailingSlash: true,
 
@@ -118,6 +119,15 @@ const config: Config = {
   themeConfig: {
     // Replace with your project's social card
     image: 'img/og-image-v3.png',
+    metadata: [
+      {
+        name: 'keywords',
+        content:
+          'outbox pattern, spring boot, transactional outbox, transactional messaging, ' +
+          'distributed systems, event-driven architecture, at-least-once delivery, ' +
+          'Java, Kotlin, Spring, microservices, reliable messaging',
+      },
+    ],
     colorMode: {
       defaultMode: 'dark',
       disableSwitch: false,
@@ -136,6 +146,11 @@ const config: Config = {
         {
           href: 'https://github.com/namastack/namastack-outbox',
           label: 'GitHub',
+          position: 'right',
+        },
+        {
+          href: 'https://www.namastack.io',
+          label: 'namastack.io',
           position: 'right',
         },
         {
@@ -178,6 +193,10 @@ const config: Config = {
             {
               label: 'GitHub',
               href: 'https://github.com/namastack/namastack-outbox',
+            },
+            {
+              label: 'namastack.io',
+              href: 'https://www.namastack.io',
             },
             {
               label: 'Legal Notice',

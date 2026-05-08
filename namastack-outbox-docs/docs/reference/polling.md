@@ -1,57 +1,127 @@
 ---
 title: Polling Strategies
-description: Learn about fixed and adaptive polling strategies for outbox processing, including configuration options and use cases.
+description: Learn about fixed and adaptive polling strategies for outbox processing, including configuration options, use cases, and how to choose the right strategy for your workload.
 sidebar_position: 4
 ---
 
 # Polling Strategies
 
-Namastack Outbox supports two polling strategies for processing outbox records:
+Namastack Outbox uses a polling loop to detect and process pending outbox records. The library
+supports two polling strategies — **Fixed** and **Adaptive** — which differ in how the interval
+between poll cycles is managed. Choosing the right strategy depends on the predictability and
+variability of your outbox write workload.
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
+---
 
-<Tabs>
-<TabItem value="fixed" label="Fixed Polling (Default)">
+## Fixed Polling
 
-**How it works:**
-
-- Polls the database at a constant, fixed interval, regardless of workload.
-
-**Use case:**
-
-- Suitable for predictable workloads or when a steady polling rate is desired.
-
-**Configuration Options:**
-
-| Property                                  | Default | Description                                                                   |
-|-------------------------------------------|---------|-------------------------------------------------------------------------------|
-| `namastack.outbox.polling.trigger`        | `fixed` | Selects polling strategy                                                      |
-| `namastack.outbox.polling.fixed.interval` | `2s`    | Interval between poll cycles (supports duration strings, e.g., `2s`, `500ms`) |
-| `namastack.outbox.polling.batch-size`     | `10`    | Max record keys to process per poll                                           |
-
-</TabItem>
-<TabItem value="adaptive" label="Adaptive Polling">
+Fixed polling uses a constant interval between poll cycles, regardless of whether the previous
+cycle found work to do.
 
 **How it works:**
 
-- Dynamically adjusts the polling interval based on workload:
-  - If fewer than 25% of the batch size is processed, the delay doubles (up to max).
-  - If a full batch is processed, the delay halves (down to min).
-  - Otherwise, the delay remains unchanged.
+The polling loop wakes up every `interval` milliseconds, queries the database for pending
+records, and processes up to `batch-size` record keys. It then sleeps for the configured
+interval before repeating — whether the batch was empty or full.
 
-**Use case:**
+**Best for:**
 
-- Reduces unnecessary database queries during idle periods, while maintaining responsiveness under load.
+- Workloads with predictable, steady throughput (e.g., scheduled jobs, regular event streams)
+- Systems where latency consistency is more important than minimizing database queries
+- Development and testing environments where simplicity is preferred
 
-**Configuration Options:**
+**Trade-off:** During idle periods, Fixed polling issues the same number of database queries as
+during peak load. For workloads with significant idle time (nights, weekends), this generates
+unnecessary database traffic.
 
-| Property                                         | Default    | Description                                                         |
-|--------------------------------------------------|------------|---------------------------------------------------------------------|
-| `namastack.outbox.polling.trigger`               | `adaptive` | Selects polling strategy                                            |
-| `namastack.outbox.polling.adaptive.min-interval` | `1s`       | Minimum interval between polling cycles (supports duration strings) |
-| `namastack.outbox.polling.adaptive.max-interval` | `8s`       | Maximum interval between polling cycles (supports duration strings) |
-| `namastack.outbox.polling.batch-size`            | `10`       | Max record keys to process per poll                                 |
+**Configuration:**
 
-</TabItem>
-</Tabs>
+| Property                                  | Default | Description                                                                  |
+|-------------------------------------------|---------|------------------------------------------------------------------------------|
+| `namastack.outbox.polling.trigger`        | `fixed` | Selects the polling strategy                                                 |
+| `namastack.outbox.polling.fixed.interval` | `2s`    | Interval between poll cycles. Supports duration strings: `2s`, `500ms`, `1m` |
+| `namastack.outbox.polling.batch-size`     | `10`    | Maximum number of record keys to process per poll cycle                      |
+
+**Example configuration:**
+
+```yaml
+namastack:
+  outbox:
+    polling:
+      trigger: fixed
+      batch-size: 20
+      fixed:
+        interval: 1s
+```
+
+---
+
+## Adaptive Polling
+
+Adaptive polling dynamically adjusts the interval between poll cycles based on observed
+workload. When the system is busy, it polls more frequently. When it is idle, it backs off to
+reduce unnecessary database load.
+
+**How it works:**
+
+After each poll cycle, the adaptive strategy evaluates how full the batch was:
+
+- If **fewer than 25%** of `batch-size` keys were processed (low load), the interval doubles
+  (up to `max-interval`)
+- If a **full batch** was processed (high load), the interval halves (down to `min-interval`)
+- If load is **between 25% and 100%** of batch size, the interval stays the same
+
+This means the system converges quickly on the minimum interval during bursts, and gradually
+backs off to the maximum interval during quiet periods.
+
+**Best for:**
+
+- Workloads with variable throughput (e.g., user-triggered events, mixed traffic patterns)
+- Production systems where database query cost matters
+- Systems with significant idle periods between activity bursts
+
+**Trade-off:** During sudden traffic spikes, adaptive polling may take a few cycles to converge
+on the minimum interval, adding a small amount of initial latency compared to Fixed polling.
+
+**Configuration:**
+
+| Property                                         | Default    | Description                                                      |
+|--------------------------------------------------|------------|------------------------------------------------------------------|
+| `namastack.outbox.polling.trigger`               | `adaptive` | Selects the polling strategy                                     |
+| `namastack.outbox.polling.adaptive.min-interval` | `1s`       | Minimum interval between polling cycles (floor during high load) |
+| `namastack.outbox.polling.adaptive.max-interval` | `8s`       | Maximum interval between polling cycles (ceiling during idle)    |
+| `namastack.outbox.polling.batch-size`            | `10`       | Maximum number of record keys to process per poll cycle          |
+
+**Example configuration:**
+
+```yaml
+namastack:
+  outbox:
+    polling:
+      trigger: adaptive
+      batch-size: 20
+      adaptive:
+        min-interval: 500ms
+        max-interval: 30s
+```
+
+---
+
+## Choosing a Strategy
+
+| Criterion                          | Fixed             | Adaptive            |
+|------------------------------------|-------------------|---------------------|
+| Workload is steady and predictable | ✅ Preferred       | Works               |
+| Workload is bursty or idle-heavy   | Works             | ✅ Preferred         |
+| Minimizing database queries        | —                 | ✅ Better            |
+| Minimizing processing latency      | ✅ More consistent | Adds warmup latency |
+| Simplicity of configuration        | ✅ One parameter   | Two parameters      |
+
+As a general rule: use **Adaptive** for production deployments and **Fixed** for local
+development or when your SLA requires a guaranteed maximum processing delay.
+
+:::tip Related Configuration
+The `batch-size` property affects how quickly the adaptive strategy reacts to load changes.
+A larger batch size means the strategy is less sensitive to small bursts. See
+[Processing Chain](processing.md) for how records are processed within each batch.
+:::
