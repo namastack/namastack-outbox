@@ -3,9 +3,9 @@ package io.namastack.outbox.schema
 import org.slf4j.LoggerFactory
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
-import org.testcontainers.containers.MariaDBContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.mariadb.MariaDBContainer
 
 @Testcontainers
 class JdbcSchemaInitializationMariaDbIntegrationTest : AbstractJdbcSchemaInitializationTest() {
@@ -14,7 +14,7 @@ class JdbcSchemaInitializationMariaDbIntegrationTest : AbstractJdbcSchemaInitial
 
         @Container
         @JvmStatic
-        val mariadb: MariaDBContainer<*> =
+        val mariadb: MariaDBContainer =
             MariaDBContainer("mariadb:12")
                 .withLogConsumer { log.info(it.utf8StringWithoutLineEnding) }
 

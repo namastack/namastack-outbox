@@ -3,9 +3,9 @@ package io.namastack.outbox.schema
 import org.slf4j.LoggerFactory
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
-import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.postgresql.PostgreSQLContainer
 
 @Testcontainers
 class JpaSchemaValidationPostgresIntegrationTest : AbstractJpaSchemaValidationIntegrationTest() {
@@ -14,7 +14,7 @@ class JpaSchemaValidationPostgresIntegrationTest : AbstractJpaSchemaValidationIn
 
         @Container
         @JvmStatic
-        val postgres: PostgreSQLContainer<*> =
+        val postgres: PostgreSQLContainer =
             PostgreSQLContainer("postgres:18-alpine")
                 .withLogConsumer { log.info(it.utf8StringWithoutLineEnding) }
 

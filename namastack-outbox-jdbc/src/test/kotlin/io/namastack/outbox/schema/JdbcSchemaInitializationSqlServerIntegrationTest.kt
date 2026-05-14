@@ -3,9 +3,11 @@ package io.namastack.outbox.schema
 import org.slf4j.LoggerFactory
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
-import org.testcontainers.containers.MSSQLServerContainer
+import org.testcontainers.containers.startupcheck.MinimumDurationRunningStartupCheckStrategy
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.mssqlserver.MSSQLServerContainer
+import java.time.Duration
 
 @Testcontainers
 class JdbcSchemaInitializationSqlServerIntegrationTest : AbstractJdbcSchemaInitializationTest() {
@@ -14,9 +16,10 @@ class JdbcSchemaInitializationSqlServerIntegrationTest : AbstractJdbcSchemaIniti
 
         @Container
         @JvmStatic
-        val sqlserver: MSSQLServerContainer<*> =
+        val sqlserver: MSSQLServerContainer =
             MSSQLServerContainer("mcr.microsoft.com/mssql/server:2022-latest")
                 .withLogConsumer { log.info(it.utf8StringWithoutLineEnding) }
+                .withStartupCheckStrategy(MinimumDurationRunningStartupCheckStrategy(Duration.ofSeconds(5)))
                 .acceptLicense()
 
         @JvmStatic
