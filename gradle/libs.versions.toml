@@ -10,7 +10,7 @@ publish = "0.36.0"
 
 # Dependency versions
 mockk = "1.14.9"
-testcontainers = "1.21.4"
+testcontainers = "2.0.5"
 
 [libraries]
 # Spring Boot dependencies
@@ -81,13 +81,13 @@ jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
 
 # Testcontainers dependencies
-testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
-testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
-testcontainers-mysql = { module = "org.testcontainers:mysql", version.ref = "testcontainers" }
-testcontainers-mariadb = { module = "org.testcontainers:mariadb", version.ref = "testcontainers" }
-testcontainers-mssqlserver = { module = "org.testcontainers:mssqlserver", version.ref = "testcontainers" }
-testcontainers-oracle-xe = { module = "org.testcontainers:oracle-xe", version.ref = "testcontainers" }
-testcontainers-mongodb = { module = "org.testcontainers:mongodb", version.ref = "testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
+testcontainers-mysql = { module = "org.testcontainers:testcontainers-mysql", version.ref = "testcontainers" }
+testcontainers-mariadb = { module = "org.testcontainers:testcontainers-mariadb", version.ref = "testcontainers" }
+testcontainers-mssqlserver = { module = "org.testcontainers:testcontainers-mssqlserver", version.ref = "testcontainers" }
+testcontainers-oracle-xe = { module = "org.testcontainers:testcontainers-oracle-xe", version.ref = "testcontainers" }
+testcontainers-mongodb = { module = "org.testcontainers:testcontainers-mongodb", version.ref = "testcontainers" }
 
 [plugins]
 # Kotlin plugins

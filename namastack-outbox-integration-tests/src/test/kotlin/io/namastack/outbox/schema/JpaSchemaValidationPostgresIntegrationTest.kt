@@ -8,9 +8,9 @@ import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
 
 @Testcontainers
-class JdbcSchemaInitializationPostgresIntegrationTest : AbstractJdbcSchemaInitializationTest() {
+class JpaSchemaValidationPostgresIntegrationTest : AbstractJpaSchemaValidationIntegrationTest() {
     companion object {
-        private val log = LoggerFactory.getLogger(JdbcSchemaInitializationMySqlIntegrationTest::class.java)
+        private val log = LoggerFactory.getLogger(JpaSchemaValidationPostgresIntegrationTest::class.java)
 
         @Container
         @JvmStatic
@@ -21,14 +21,14 @@ class JdbcSchemaInitializationPostgresIntegrationTest : AbstractJdbcSchemaInitia
         @JvmStatic
         @DynamicPropertySource
         fun registerProperties(registry: DynamicPropertyRegistry) {
-            if (!postgres.isRunning) {
-                postgres.start()
-            }
+            if (!postgres.isRunning) postgres.start()
 
             registry.add("spring.datasource.url") { postgres.jdbcUrl }
             registry.add("spring.datasource.username") { postgres.username }
             registry.add("spring.datasource.password") { postgres.password }
             registry.add("spring.datasource.driver-class-name") { postgres.driverClassName }
+            registry.add("spring.sql.init.schema-locations") { "classpath:schema/postgres/outbox-tables.sql" }
+            registry.add("spring.sql.init.mode") { "always" }
         }
     }
 }

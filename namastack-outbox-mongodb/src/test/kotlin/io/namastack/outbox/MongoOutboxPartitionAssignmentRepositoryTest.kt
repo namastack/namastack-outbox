@@ -12,8 +12,8 @@ import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory
 import org.springframework.data.mongodb.core.dropCollection
 import org.springframework.transaction.support.TransactionTemplate
-import org.testcontainers.containers.MongoDBContainer
 import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.mongodb.MongoDBContainer
 import java.time.Clock
 import java.time.Instant
 
@@ -24,6 +24,7 @@ class MongoOutboxPartitionAssignmentRepositoryTest {
         val mongodb: MongoDBContainer =
             MongoDBContainer("mongo:8.0")
                 .withReuse(true)
+                .withReplicaSet()
                 .apply { start() }
     }
 

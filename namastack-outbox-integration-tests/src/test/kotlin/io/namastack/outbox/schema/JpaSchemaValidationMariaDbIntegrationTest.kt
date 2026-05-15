@@ -8,9 +8,9 @@ import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.mariadb.MariaDBContainer
 
 @Testcontainers
-class JdbcSchemaInitializationMariaDbIntegrationTest : AbstractJdbcSchemaInitializationTest() {
+class JpaSchemaValidationMariaDbIntegrationTest : AbstractJpaSchemaValidationIntegrationTest() {
     companion object {
-        private val log = LoggerFactory.getLogger(JdbcSchemaInitializationMySqlIntegrationTest::class.java)
+        private val log = LoggerFactory.getLogger(JpaSchemaValidationMariaDbIntegrationTest::class.java)
 
         @Container
         @JvmStatic
@@ -21,14 +21,14 @@ class JdbcSchemaInitializationMariaDbIntegrationTest : AbstractJdbcSchemaInitial
         @JvmStatic
         @DynamicPropertySource
         fun registerProperties(registry: DynamicPropertyRegistry) {
-            if (!mariadb.isRunning) {
-                mariadb.start()
-            }
+            if (!mariadb.isRunning) mariadb.start()
 
             registry.add("spring.datasource.url") { mariadb.jdbcUrl }
             registry.add("spring.datasource.username") { mariadb.username }
             registry.add("spring.datasource.password") { mariadb.password }
             registry.add("spring.datasource.driver-class-name") { mariadb.driverClassName }
+            registry.add("spring.sql.init.schema-locations") { "classpath:schema/mariadb/outbox-tables.sql" }
+            registry.add("spring.sql.init.mode") { "always" }
         }
     }
 }

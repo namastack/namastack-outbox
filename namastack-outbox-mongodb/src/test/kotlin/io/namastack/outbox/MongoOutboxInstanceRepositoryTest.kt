@@ -13,8 +13,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.dropCollection
-import org.testcontainers.containers.MongoDBContainer
 import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.mongodb.MongoDBContainer
 import java.time.Clock
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -27,6 +27,7 @@ class MongoOutboxInstanceRepositoryTest {
         val mongodb: MongoDBContainer =
             MongoDBContainer("mongo:8.0")
                 .withReuse(true)
+                .withReplicaSet()
                 .apply { start() }
     }
 

@@ -8,9 +8,9 @@ import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.mysql.MySQLContainer
 
 @Testcontainers
-class JdbcSchemaInitializationMySqlIntegrationTest : AbstractJdbcSchemaInitializationTest() {
+class JpaSchemaValidationMySqlIntegrationTest : AbstractJpaSchemaValidationIntegrationTest() {
     companion object {
-        private val log = LoggerFactory.getLogger(JdbcSchemaInitializationMySqlIntegrationTest::class.java)
+        private val log = LoggerFactory.getLogger(JpaSchemaValidationMySqlIntegrationTest::class.java)
 
         @Container
         @JvmStatic
@@ -21,14 +21,14 @@ class JdbcSchemaInitializationMySqlIntegrationTest : AbstractJdbcSchemaInitializ
         @JvmStatic
         @DynamicPropertySource
         fun registerProperties(registry: DynamicPropertyRegistry) {
-            if (!mysql.isRunning) {
-                mysql.start()
-            }
+            if (!mysql.isRunning) mysql.start()
 
             registry.add("spring.datasource.url") { mysql.jdbcUrl }
             registry.add("spring.datasource.username") { mysql.username }
             registry.add("spring.datasource.password") { mysql.password }
             registry.add("spring.datasource.driver-class-name") { mysql.driverClassName }
+            registry.add("spring.sql.init.schema-locations") { "classpath:schema/mysql/outbox-tables.sql" }
+            registry.add("spring.sql.init.mode") { "always" }
         }
     }
 }

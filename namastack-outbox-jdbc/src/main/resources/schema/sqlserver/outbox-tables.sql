@@ -8,7 +8,7 @@ CREATE TABLE outbox_record
     record_key     VARCHAR(255)  NOT NULL,
     record_type    VARCHAR(255)  NOT NULL,
     payload        NVARCHAR(MAX) NOT NULL,
-    context        VARCHAR(MAX)  NULL,
+    context        NVARCHAR(MAX) NULL,
     created_at     DATETIME2(6)  NOT NULL,
     completed_at   DATETIME2(6)  NULL,
     failure_count  INT           NOT NULL,
