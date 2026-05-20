@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: namastack-outbox-example-modulith
+
+  datasource:
+    url: jdbc:h2:mem:modulith-demo;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+  modulith:
+    events:
+      externalization:
+        enabled: true
+        mode: outbox
+
+  kafka:
+    producer:
+      retries: 0
+      properties:
+        delivery.timeout.ms: 1000
+        properties.request.timeout.ms: 1000
+
+namastack:
+  outbox:
+    retry:
+      policy: fixed
+      fixed:
+        delay: 5000
+      exclude-exceptions:
+        - java.lang.RuntimeException
+
+logging:
+  level:
+    root: warn
+    io.namastack: trace
+    org.springframework.modulith.events.kafka: debug

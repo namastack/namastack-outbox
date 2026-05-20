@@ -67,6 +67,19 @@ Thank you for supporting open source!
 
 ---
 
+## Check out the new Spring Modulith Integration!
+
+Use Namastack Outbox as a production-grade, transactional outbox for [Spring Modulith](https://docs.spring.io/spring-modulith/docs/current/reference/html/)!  
+Seamlessly externalize events with full support for retry, partitioning, observability, and more.
+
+- Effortless migration from Event Publication Registry to real outbox mode
+- Works with both JPA and JDBC persistence
+- All Namastack features available out of the box
+
+[Modulith Example](namastack-outbox-examples/namastack-outbox-example-modulith) &nbsp;|&nbsp; [Read the Modulith Integration Guide](namastack-outbox-docs/docs/reference/modulith.md)
+
+---
+
 ## Documentation
 
 For detailed information about features, configuration, and advanced topics, visit the **[complete documentation](https://www.namastack.io/outbox)**.
@@ -473,20 +486,21 @@ MongoDB setup script: [mongodb-setup.js on GitHub](https://github.com/namastack/
 
 ## Example Projects
 
-| Example                                                                                           | Description                                  |
-|---------------------------------------------------------------------------------------------------|----------------------------------------------|
-| [example-h2](namastack-outbox-examples/namastack-outbox-example-h2)                               | Basic setup with H2 - perfect starting point |
-| [example-java](namastack-outbox-examples/namastack-outbox-example-java)                           | Pure Java implementation                     |
-| [example-annotation](namastack-outbox-examples/namastack-outbox-example-annotation)               | Annotation-based handler registration        |
-| [example-kafka](namastack-outbox-examples/namastack-outbox-example-kafka)                         | Kafka integration                            |
-| [example-rabbit](namastack-outbox-examples/namastack-outbox-example-rabbit)                       | RabbitMQ integration                         |
-| [example-sns](namastack-outbox-examples/namastack-outbox-example-sns)                             | AWS SNS integration                          |
-| [example-retry](namastack-outbox-examples/namastack-outbox-example-retry)                         | Retry policies                               |
-| [example-fallback](namastack-outbox-examples/namastack-outbox-example-fallback)                   | Fallback handlers                            |
-| [example-tracing](namastack-outbox-examples/namastack-outbox-example-tracing)                     | Distributed tracing with Micrometer          |
-| [example-flyway-jpa](namastack-outbox-examples/namastack-outbox-example-flyway-jpa)               | Flyway schema management                     |
-| [example-table-prefix-jdbc](namastack-outbox-examples/namastack-outbox-example-table-prefix-jdbc) | Custom table prefixes                        |
-| [example-mongodb](namastack-outbox-examples/namastack-outbox-example-mongodb)                     | MongoDB with custom collection prefixes      |
+| Example                                                                                           | Description                                       |
+|---------------------------------------------------------------------------------------------------|---------------------------------------------------|
+| [example-h2](namastack-outbox-examples/namastack-outbox-example-h2)                               | Basic setup with H2 - perfect starting point      |
+| [example-java](namastack-outbox-examples/namastack-outbox-example-java)                           | Pure Java implementation                          |
+| [example-annotation](namastack-outbox-examples/namastack-outbox-example-annotation)               | Annotation-based handler registration             |
+| [example-kafka](namastack-outbox-examples/namastack-outbox-example-kafka)                         | Kafka integration                                 |
+| [example-rabbit](namastack-outbox-examples/namastack-outbox-example-rabbit)                       | RabbitMQ integration                              |
+| [example-sns](namastack-outbox-examples/namastack-outbox-example-sns)                             | AWS SNS integration                               |
+| [example-modulith](namastack-outbox-examples/namastack-outbox-example-modulith)                   | Spring Modulith integration with outbox and Kafka |
+| [example-retry](namastack-outbox-examples/namastack-outbox-example-retry)                         | Retry policies                                    |
+| [example-fallback](namastack-outbox-examples/namastack-outbox-example-fallback)                   | Fallback handlers                                 |
+| [example-tracing](namastack-outbox-examples/namastack-outbox-example-tracing)                     | Distributed tracing with Micrometer               |
+| [example-flyway-jpa](namastack-outbox-examples/namastack-outbox-example-flyway-jpa)               | Flyway schema management                          |
+| [example-table-prefix-jdbc](namastack-outbox-examples/namastack-outbox-example-table-prefix-jdbc) | Custom table prefixes                             |
+| [example-mongodb](namastack-outbox-examples/namastack-outbox-example-mongodb)                     | MongoDB with custom collection prefixes           |
 
 → [All examples](namastack-outbox-examples)
 

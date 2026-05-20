@@ -12,6 +12,7 @@ import {
   IconFileSettingsFilled,
   IconManualGearboxFilled,
   IconMessage2Bolt,
+  IconAppsFilled,
   IconReplaceFilled,
   IconShieldCheckeredFilled,
   IconSignRightFilled,
@@ -113,6 +114,13 @@ const referenceCategories = [
     icon: IconArrowBigRightLinesFilled,
     description: 'Flexible payload serialization with Jackson or custom serializers.',
     link: 'serialization/',
+  },
+  {
+    title: 'Spring Modulith Integration',
+    icon: IconAppsFilled,
+    description: 'Outbox-backed event externalization for Spring Modulith with transactional guarantees.',
+    link: 'spring-modulith',
+    sinceVersion: '1.7.0',
   },
   {
     title: 'Reliability Guarantees',

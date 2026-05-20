@@ -25,6 +25,7 @@ This directory contains various example projects demonstrating different feature
 - **[namastack-outbox-example-rabbit-java](namastack-outbox-example-rabbit-java)** - Externalizing outbox records to RabbitMQ (Java)
 - **[namastack-outbox-example-sns](namastack-outbox-example-sns)** - Externalizing outbox records to AWS SNS (Kotlin) via LocalStack
 - **[namastack-outbox-example-sns-java](namastack-outbox-example-sns-java)** - Externalizing outbox records to AWS SNS (Java) via LocalStack
+- **[namastack-outbox-example-modulith](namastack-outbox-example-modulith)** - Spring Modulith example externalizing payment events to Kafka
 - **[namastack-outbox-example-multicaster](namastack-outbox-example-multicaster)** - Transaction isolation between Spring events and outbox
 - **[namastack-outbox-example-tracing](namastack-outbox-example-tracing)** - Distributed tracing with OpenTelemetry and Micrometer
 
