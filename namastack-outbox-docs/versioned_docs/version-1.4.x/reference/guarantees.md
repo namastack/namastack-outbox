@@ -32,5 +32,5 @@ import TabItem from '@theme/TabItem';
 </Tabs>
 
 :::tip Next Steps
-Ready to get started? Check out the [Quick Start Guide](../quickstart) to integrate Namastack Outbox for Spring Boot into your application.
+Ready to get started? Check out the [Quick Start Guide](../quickstart.mdx) to integrate Namastack Outbox for Spring Boot into your application.
 :::

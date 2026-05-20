@@ -22,7 +22,7 @@ automatic schema creation for the following databases:
 MongoDB is supported via the dedicated `namastack-outbox-starter-mongodb` module. Collections
 and indexes are created automatically via Spring Data MongoDB on application startup. For manual
 index management and index definitions, see [MongoDB Schema](mongodb-schema.md). For module
-setup and configuration, see [Persistence Modules → MongoDB](persistence#mongodb-module).
+setup and configuration, see [Persistence Modules → MongoDB](persistence.md#mongodb-module).
 
 ---
 
