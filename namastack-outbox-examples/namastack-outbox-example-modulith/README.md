@@ -46,6 +46,9 @@ spring:
     events:
       externalization:
         enabled: true
+        mode: outbox
 ```
 
-Spring Modulith's default externalization mode is used. The Kafka module registers the event externalizer automatically when `spring-modulith-events-kafka` and Spring Kafka are on the classpath.
+Spring Modulith's outbox externalization mode is enabled explicitly. The Kafka module registers the
+event externalizer, and Spring Modulith delegates the externalized event to Namastack Outbox before
+delivery to Kafka.

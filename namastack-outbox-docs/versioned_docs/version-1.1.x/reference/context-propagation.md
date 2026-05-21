@@ -213,7 +213,7 @@ class OrderService(private val outbox: Outbox) {
         outbox.schedule(
             payload = OrderCreatedEvent(order.id, order.customerId),
             key = "order-${order.id}",
-            context = mapOf(
+            additionalContext = mapOf(
                 "correlationId" to command.correlationId,
                 "userId" to command.userId,
                 "priority" to "high"
