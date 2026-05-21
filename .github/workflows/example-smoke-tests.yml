@@ -1,6 +1,10 @@
 name: Example smoke tests
 
 on:
+  pull_request:
+    branches:
+      - 'main'
+      - 'release/**'
   workflow_dispatch:
 
 permissions:
