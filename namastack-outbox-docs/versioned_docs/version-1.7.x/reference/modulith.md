@@ -106,7 +106,8 @@ milestone or snapshot repository if you are not using a GA release.
 
 <Tabs>
 <TabItem value="Gradle" label="Gradle">
-dependencyManagement {
+
+<VersionedCode language="kotlin" template= {`dependencyManagement {
     imports {
         mavenBom("org.springframework.modulith:spring-modulith-bom:2.1.0-RC1")
     }
@@ -124,7 +125,7 @@ dependencies {
 </TabItem>
 <TabItem value="Maven" label="Maven">
 
-<dependencyManagement>
+<VersionedCode language="xml" template= {`<dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>org.springframework.modulith</groupId>
@@ -164,7 +165,7 @@ dependencies {
 <Tabs>
 <TabItem value="Gradle" label="Gradle">
 
-dependencyManagement {
+<VersionedCode language="kotlin" template= {`dependencyManagement {
     imports {
         mavenBom("org.springframework.modulith:spring-modulith-bom:2.1.0-RC1")
     }
@@ -182,7 +183,7 @@ dependencies {
 </TabItem>
 <TabItem value="Maven" label="Maven">
 
-<dependencyManagement>
+<VersionedCode language="xml" template= {`<dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>org.springframework.modulith</groupId>
