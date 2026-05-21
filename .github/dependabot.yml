@@ -38,3 +38,6 @@ updates:
       interval: "daily"
     ignore:
       - dependency-name: "io.namastack:*"
+    groups:
+      example-dependencies:
+        group-by: dependency-name
