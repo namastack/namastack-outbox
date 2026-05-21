@@ -1,7 +1,7 @@
 name: Example smoke tests
 
 on:
-  pull_request:
+  push:
     branches:
       - 'main'
       - 'release/**'
