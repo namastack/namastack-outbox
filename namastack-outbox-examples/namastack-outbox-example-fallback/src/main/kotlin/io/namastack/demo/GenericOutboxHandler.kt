@@ -22,6 +22,6 @@ class GenericOutboxHandler : OutboxHandlerWithFallback {
         payload: Any,
         context: OutboxFailureContext,
     ) {
-        logger.info("[Handler] Invoking fallback method with context $context")
+        logger.info("[Handler] Invoking interface fallback method with context $context")
     }
 }

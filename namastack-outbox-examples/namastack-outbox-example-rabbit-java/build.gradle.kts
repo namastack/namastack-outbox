@@ -1,6 +1,6 @@
 plugins {
     java
-    id("org.springframework.boot") version "4.0.4"
+    id("org.springframework.boot") version "4.0.6"
     id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -28,6 +28,11 @@ dependencies {
     implementation("io.namastack:namastack-outbox-starter-jpa:1.6.0-SNAPSHOT")
     implementation("io.namastack:namastack-outbox-rabbit:1.6.0-SNAPSHOT")
     runtimeOnly("com.h2database:h2")
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testImplementation("org.testcontainers:testcontainers-rabbitmq")
 }
 
 tasks.withType<Test> {

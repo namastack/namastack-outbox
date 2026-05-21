@@ -13,8 +13,15 @@ spring:
     hibernate:
       ddl-auto: create-drop
 
+namastack:
+  outbox:
+    retry:
+      policy: fixed
+      max-retries: 2
+      fixed:
+        delay: 1000
+
 logging:
   level:
     root: warn
     io.namastack.demo: debug
-    io.namastack.outbox: trace

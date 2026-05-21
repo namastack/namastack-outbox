@@ -24,6 +24,6 @@ class CustomerRegisteredOutboxHandler {
         payload: CustomerRegisteredEvent,
         context: OutboxFailureContext,
     ) {
-        logger.info("[Handler] Invoking fallback method with context $context")
+        logger.info("[Handler] Invoking annotation fallback method with context $context")
     }
 }

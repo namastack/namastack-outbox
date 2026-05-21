@@ -11,3 +11,4 @@ spring:
 logging:
   level:
     root: warn
+    io.namastack.demo: debug

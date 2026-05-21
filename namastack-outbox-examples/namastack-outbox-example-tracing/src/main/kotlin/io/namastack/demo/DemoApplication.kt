@@ -19,8 +19,6 @@ class DemoApplication(
         logger.info("home() has been called")
         customerService.register("firstname", "lastname", "email")
 
-
-
         return "Hello, World!"
     }
 }
