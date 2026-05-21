@@ -15,15 +15,7 @@ spring:
   modulith:
     events:
       externalization:
-        enabled: true
         mode: outbox
-
-  kafka:
-    producer:
-      retries: 0
-      properties:
-        delivery.timeout.ms: 1000
-        properties.request.timeout.ms: 1000
 
 namastack:
   outbox:
