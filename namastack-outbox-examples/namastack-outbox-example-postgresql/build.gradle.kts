@@ -31,7 +31,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-flyway")
     implementation("io.namastack:namastack-outbox-starter-jpa:1.6.0-SNAPSHOT")
     implementation("org.flywaydb:flyway-database-postgresql")
-    runtimeOnly("org.postgresql:postgresql:42.7.7")
+    runtimeOnly("org.postgresql:postgresql:42.7.11")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
