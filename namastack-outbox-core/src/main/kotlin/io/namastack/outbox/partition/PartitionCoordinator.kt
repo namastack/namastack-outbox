@@ -111,7 +111,7 @@ class PartitionCoordinator(
             )
             return
         } catch (e: Exception) {
-            log.error("Failed to bootstrap partitions for instance {}: {}", currentInstanceId, e.message)
+            log.error("Failed to bootstrap partitions for instance {}: {}", currentInstanceId, e.message, e)
             return
         }
 
