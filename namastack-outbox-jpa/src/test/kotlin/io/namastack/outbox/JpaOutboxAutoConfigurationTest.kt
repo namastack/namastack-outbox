@@ -1,6 +1,8 @@
 package io.namastack.outbox
 
 import io.mockk.mockk
+import io.namastack.outbox.event.OutboxEventTypeRegistry
+import io.namastack.outbox.event.OutboxRecordTypeResolver
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import jakarta.persistence.EntityManager
@@ -207,6 +209,9 @@ class JpaOutboxAutoConfigurationTest {
 
         @Bean
         fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
+
+        @Bean
+        fun outboxRecordTypeResolver(): OutboxRecordTypeResolver = OutboxRecordTypeResolver(OutboxEventTypeRegistry())
     }
 
     @Configuration
@@ -219,6 +224,9 @@ class JpaOutboxAutoConfigurationTest {
 
         @Bean
         fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
+
+        @Bean
+        fun outboxRecordTypeResolver(): OutboxRecordTypeResolver = OutboxRecordTypeResolver(OutboxEventTypeRegistry())
     }
 
     @Configuration
@@ -234,6 +242,9 @@ class JpaOutboxAutoConfigurationTest {
 
         @Bean
         fun clock(): Clock = Clock.systemUTC()
+
+        @Bean
+        fun outboxRecordTypeResolver(): OutboxRecordTypeResolver = OutboxRecordTypeResolver(OutboxEventTypeRegistry())
     }
 
     @Configuration
@@ -276,6 +287,9 @@ class JpaOutboxAutoConfigurationTest {
 
         @Bean("outboxTransactionTemplate")
         fun customOutboxTransactionTemplate(): TransactionTemplate = mockk(relaxed = true)
+
+        @Bean
+        fun outboxRecordTypeResolver(): OutboxRecordTypeResolver = OutboxRecordTypeResolver(OutboxEventTypeRegistry())
     }
 
     @Configuration
@@ -294,6 +308,9 @@ class JpaOutboxAutoConfigurationTest {
 
         @Bean("outboxEntityManager")
         fun customOutboxEntityManager(): EntityManager = mockk(relaxed = true)
+
+        @Bean
+        fun outboxRecordTypeResolver(): OutboxRecordTypeResolver = OutboxRecordTypeResolver(OutboxEventTypeRegistry())
     }
 
     @Configuration
@@ -312,5 +329,8 @@ class JpaOutboxAutoConfigurationTest {
 
         @Bean
         fun outboxRecordRepository(): OutboxRecordRepository = mockk(relaxed = true)
+
+        @Bean
+        fun outboxRecordTypeResolver(): OutboxRecordTypeResolver = OutboxRecordTypeResolver(OutboxEventTypeRegistry())
     }
 }

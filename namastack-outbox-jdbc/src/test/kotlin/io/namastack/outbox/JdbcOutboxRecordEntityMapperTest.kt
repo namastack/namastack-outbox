@@ -12,7 +12,7 @@ import java.time.temporal.ChronoUnit.MINUTES
 class JdbcOutboxRecordEntityMapperTest {
     private val innerJsonMapper = jsonMapper { addModule(kotlinModule()) }
     private val serializer = JacksonOutboxPayloadSerializer(innerJsonMapper)
-    private val mapper = JdbcOutboxRecordEntityMapper(serializer)
+    private val mapper = JdbcOutboxRecordEntityMapper(serializer, io.namastack.outbox.event.OutboxRecordTypeResolver(io.namastack.outbox.event.OutboxEventTypeRegistry()))
 
     data class OrderCreatedEvent(
         val orderId: String,

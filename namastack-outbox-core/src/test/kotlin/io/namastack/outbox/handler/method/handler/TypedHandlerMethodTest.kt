@@ -1,7 +1,10 @@
 package io.namastack.outbox.handler.method.handler
 
+import io.namastack.outbox.annotation.OutboxHandler
+import io.namastack.outbox.annotation.OutboxHandlerId
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -172,6 +175,67 @@ class TypedHandlerMethodTest {
     }
 
     @Nested
+    @DisplayName("Logical ID")
+    inner class LogicalIdTests {
+        @Test
+        fun `id uses logical name from @OutboxHandler(id) on method`() {
+            val handler = HandlerWithMethodAnnotation()
+            val method = HandlerWithMethodAnnotation::class.java.getMethod("handle", String::class.java)
+            val typedHandler = TypedHandlerMethod(handler, method)
+
+            assertThat(typedHandler.id).isEqualTo("orders.process")
+        }
+
+        @Test
+        fun `fqcnId still reflects FQCN even when logical id is set`() {
+            val handler = HandlerWithMethodAnnotation()
+            val method = HandlerWithMethodAnnotation::class.java.getMethod("handle", String::class.java)
+            val typedHandler = TypedHandlerMethod(handler, method)
+
+            assertThat(typedHandler.fqcnId).contains("HandlerWithMethodAnnotation#handle")
+            assertThat(typedHandler.fqcnId).isNotEqualTo(typedHandler.id)
+        }
+
+        @Test
+        fun `id falls back to fqcnId when no annotation is present`() {
+            val handler = HandlerWithNoAnnotation()
+            val method = HandlerWithNoAnnotation::class.java.getMethod("handle", String::class.java)
+            val typedHandler = TypedHandlerMethod(handler, method)
+
+            assertThat(typedHandler.id).isEqualTo(typedHandler.fqcnId)
+            assertThat(typedHandler.id).contains("HandlerWithNoAnnotation#handle")
+        }
+
+        @Test
+        fun `id uses value from @OutboxHandlerId on class`() {
+            val handler = HandlerWithClassAnnotation()
+            val method = HandlerWithClassAnnotation::class.java.getMethod("handle", String::class.java)
+            val typedHandler = TypedHandlerMethod(handler, method)
+
+            assertThat(typedHandler.id).isEqualTo("orders.typed")
+        }
+
+        @Test
+        fun `explicitAliases are populated from @OutboxHandler(aliases)`() {
+            val handler = HandlerWithAliases()
+            val method = HandlerWithAliases::class.java.getMethod("handle", String::class.java)
+            val typedHandler = TypedHandlerMethod(handler, method)
+
+            assertThat(typedHandler.explicitAliases).containsExactly("com.old.Handler.handle")
+        }
+
+        @Test
+        fun `invalid id with reserved character throws at construction`() {
+            val handler = HandlerWithInvalidId()
+            val method = HandlerWithInvalidId::class.java.getMethod("handle", String::class.java)
+
+            assertThatThrownBy { TypedHandlerMethod(handler, method) }
+                .isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("reserved characters")
+        }
+    }
+
+    @Nested
     @DisplayName("invoke() accessibility edge cases")
     inner class AccessibilityEdgeCases {
         @Test
@@ -248,4 +312,28 @@ class TypedHandlerMethodTest {
     data class TestPayload(
         val id: String,
     )
+
+    class HandlerWithMethodAnnotation {
+        @OutboxHandler(id = "orders.process")
+        fun handle(payload: String) {}
+    }
+
+    class HandlerWithNoAnnotation {
+        fun handle(payload: String) {}
+    }
+
+    @OutboxHandlerId("orders.typed")
+    class HandlerWithClassAnnotation {
+        fun handle(payload: String) {}
+    }
+
+    class HandlerWithAliases {
+        @OutboxHandler(id = "orders.new", aliases = ["com.old.Handler.handle"])
+        fun handle(payload: String) {}
+    }
+
+    class HandlerWithInvalidId {
+        @OutboxHandler(id = "bad#id")
+        fun handle(payload: String) {}
+    }
 }
