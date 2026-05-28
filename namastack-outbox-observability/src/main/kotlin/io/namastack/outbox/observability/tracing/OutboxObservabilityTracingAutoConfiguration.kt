@@ -30,12 +30,15 @@ internal class OutboxObservabilityTracingAutoConfiguration {
      * Registers the tracing context provider that serializes the current span context
      * into outbox record context maps at scheduling time.
      *
-     * Only activated when no other [OutboxContextProvider] of typew
+     * Only activated when no other [OutboxContextProvider] of type
      * [OutboxObservabilityTracingContextProvider] or the legacy
      * `OutboxTracingContextProvider` is already present.
      */
     @Bean
-    @ConditionalOnMissingBean(name = ["outboxTracingContextProvider", "outboxObservabilityTracingContextProvider"])
+    @ConditionalOnMissingBean(
+        value = [OutboxObservabilityTracingContextProvider::class],
+        name = ["outboxTracingContextProvider", "outboxObservabilityTracingContextProvider"],
+    )
     fun outboxObservabilityTracingContextProvider(
         tracer: Tracer,
         propagator: Propagator,

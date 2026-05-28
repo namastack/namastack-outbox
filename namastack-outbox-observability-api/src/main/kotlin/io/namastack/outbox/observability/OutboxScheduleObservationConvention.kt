@@ -15,5 +15,9 @@ import io.micrometer.observation.ObservationConvention
  * @since 1.3.0
  */
 interface OutboxScheduleObservationConvention : ObservationConvention<OutboxScheduleObservationContext> {
+    /**
+     * Returns `true` when [context] is an [OutboxScheduleObservationContext], ensuring that this
+     * convention is only applied to outbox scheduling observations.
+     */
     override fun supportsContext(context: Observation.Context): Boolean = context is OutboxScheduleObservationContext
 }
