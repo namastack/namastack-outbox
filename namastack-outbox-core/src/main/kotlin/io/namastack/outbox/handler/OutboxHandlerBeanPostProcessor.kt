@@ -67,11 +67,11 @@ internal class OutboxHandlerBeanPostProcessor(
         // 1. Scan for all handlers and their fallbacks in this bean
         val scanResults = handlerScanners.flatMap { it.scan(bean) }
 
-        // 2. For each result: register handler + fallback + retry policy + legacy alias
+        // 2. For each result: register handler + fallback + retry policy + all aliases
         scanResults.forEach { result ->
             val handler = result.handler
 
-            // a. Register handler
+            // a. Register handler under its primary id
             handlerRegistry.register(handler)
 
             // b. Register fallback if present (1:1 mapping)
@@ -84,33 +84,42 @@ internal class OutboxHandlerBeanPostProcessor(
                 .mapNotNull { it.scan(handler) }
                 .forEach { policy -> retryPolicyRegistry.register(handler.id, policy) }
 
-            // d. Register legacy alias if bean is an AOP proxy (backward compatibility)
-            if (handler.id != handler.legacyId) {
-                registerLegacyAliases(handler.legacyId, result)
-            }
+            // d. Register all alias IDs for backward compatibility
+            registerAliases(result)
         }
 
         return bean
     }
 
     /**
-     * Registers legacy alias IDs in all registries for backward compatibility
-     * with existing database records that reference CGLIB proxy class names.
+     * Registers all alias IDs in all registries so rows written with old IDs continue to dispatch.
+     *
+     * Aliases registered:
+     * - fqcnId — when a logical id is set, the FQCN form becomes an alias so in-flight rows
+     *   written before the upgrade still resolve.
+     * - legacyId — CGLIB proxy variant (existing behaviour).
+     * - explicitAliases — user-declared aliases for rows written before a class/method rename.
      */
-    private fun registerLegacyAliases(
-        legacyId: String,
-        result: HandlerScanResult,
-    ) {
+    private fun registerAliases(result: HandlerScanResult) {
         val handler = result.handler
+        val aliases =
+            buildSet {
+                if (handler.id != handler.fqcnId) add(handler.fqcnId)
+                if (handler.id != handler.legacyId) add(handler.legacyId)
+                addAll(handler.explicitAliases)
+                remove(handler.id)
+            }
 
-        handlerRegistry.registerAlias(legacyId, handler)
+        if (aliases.isEmpty()) return
 
-        result.fallback?.let { fallback ->
-            fallbackHandlerRegistry.registerAlias(legacyId, fallback)
+        val policies = retryPolicyScanners.mapNotNull { it.scan(handler) }
+
+        for (aliasId in aliases) {
+            handlerRegistry.registerAlias(aliasId, handler)
+            result.fallback?.let { fallback ->
+                fallbackHandlerRegistry.registerAlias(aliasId, fallback)
+            }
+            policies.forEach { policy -> retryPolicyRegistry.registerAlias(aliasId, policy) }
         }
-
-        retryPolicyScanners
-            .mapNotNull { it.scan(handler) }
-            .forEach { policy -> retryPolicyRegistry.registerAlias(legacyId, policy) }
     }
 }

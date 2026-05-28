@@ -89,6 +89,36 @@ package io.namastack.outbox.annotation
  * )
  * ```
  *
+ * ## Stable logical event type name
+ *
+ * By default the outbox persists `record_type` as the Java class FQCN.  Moving or renaming
+ * the class causes existing `PENDING` rows to fail with `ClassNotFoundException` on
+ * deserialization.
+ *
+ * Set `name` to decouple the persisted type from Java package structure:
+ *
+ * ```kotlin
+ * @OutboxEvent(key = "#this.orderId", name = "orders.OrderCreated")
+ * data class OrderCreatedEvent(val orderId: String, ...)
+ * ```
+ *
+ * After renaming or moving the class, add the old name (or FQCN) as an alias so rows
+ * written before the rename continue to deserialize:
+ *
+ * ```kotlin
+ * @OutboxEvent(
+ *     key = "#this.orderId",
+ *     name = "orders.OrderCreated",
+ *     aliases = ["com.acme.v1.OrderCreatedEvent"]
+ * )
+ * data class OrderCreatedEvent(val orderId: String, ...)
+ * ```
+ *
+ * ### Sealed class note
+ *
+ * Kotlin annotations are **not inherited**. Each concrete subtype of a sealed class must
+ * carry its own `@OutboxEvent` annotation with its own `name`.
+ *
  * @param key Optional SpEL expression to extract the record key from the event. Must evaluate to a String value.
  * @param context Optional array of context entries to be added to the outbox record. Each entry contains a key-value
  *                pair where the value can be a SpEL expression evaluated against the event payload. Context metadata
@@ -98,6 +128,10 @@ package io.namastack.outbox.annotation
  *                **For global context** that should be added to all outbox records regardless of payload type
  *                (e.g., traceId, spanId, tenantId, correlationId), implement the [io.namastack.outbox.context.OutboxContextProvider]
  *                interface instead. This avoids repeating the same context entries across all event annotations.
+ * @param name Optional stable logical type name persisted as `record_type`. When blank (the default), the
+ *             Java class FQCN is used unchanged. Must not contain `#`, `,`, `(`, `)`, or whitespace.
+ * @param aliases Additional names (or old FQCNs) that should deserialize to this class. Useful for rows
+ *                written before the class was renamed or moved.
  *
  * @author Roland Beisel, Aleksander Zamojski
  * @since 0.3.0
@@ -108,6 +142,8 @@ package io.namastack.outbox.annotation
 annotation class OutboxEvent(
     val key: String = "",
     val context: Array<OutboxContextEntry> = [],
+    val name: String = "",
+    val aliases: Array<String> = [],
 ) {
     /**
      * Defines a key-value pair to be added to the outbox record context.

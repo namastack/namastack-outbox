@@ -1,5 +1,7 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.event.OutboxRecordTypeResolver
+
 /**
  * Mapper utility for converting between OutboxRecord domain objects and MongoOutboxRecordEntity entities.
  *
@@ -8,6 +10,7 @@ package io.namastack.outbox
  */
 internal class MongoOutboxRecordEntityMapper(
     private val serializer: OutboxPayloadSerializer,
+    private val recordTypeResolver: OutboxRecordTypeResolver,
 ) {
     /**
      * Maps an [OutboxRecord] domain object to a [MongoOutboxRecordEntity] for MongoDB persistence.
@@ -20,7 +23,7 @@ internal class MongoOutboxRecordEntityMapper(
         val payload = record.payload ?: throw IllegalArgumentException("record payload cannot be null")
 
         val serializedPayload = serializer.serialize(payload)
-        val recordType = payload.javaClass.name
+        val recordType = recordTypeResolver.toRecordType(payload)
         val serializedContext = record.context.takeIf { it.isNotEmpty() }?.let { serializer.serialize(it) }
 
         return MongoOutboxRecordEntity(
@@ -48,7 +51,7 @@ internal class MongoOutboxRecordEntityMapper(
      * @throws IllegalStateException if the record type class cannot be found
      */
     fun map(entity: MongoOutboxRecordEntity): OutboxRecord<*> {
-        val clazz = resolveClass(entity.recordType)
+        val clazz = recordTypeResolver.resolveClass(entity.recordType)
         val payload = serializer.deserialize(entity.payload, clazz)
 
         @Suppress("UNCHECKED_CAST")
@@ -74,17 +77,4 @@ internal class MongoOutboxRecordEntityMapper(
         )
     }
 
-    /**
-     * Resolves a class by its fully qualified name using the current thread's context class loader.
-     *
-     * @param className the fully qualified class name to resolve
-     * @return the resolved class
-     * @throws IllegalStateException if the class cannot be found
-     */
-    private fun resolveClass(className: String): Class<*> =
-        try {
-            Thread.currentThread().contextClassLoader.loadClass(className)
-        } catch (ex: ClassNotFoundException) {
-            throw IllegalStateException("Cannot find class for record type $className", ex)
-        }
 }

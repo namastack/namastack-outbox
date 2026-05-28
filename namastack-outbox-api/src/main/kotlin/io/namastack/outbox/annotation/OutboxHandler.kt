@@ -36,6 +36,34 @@ package io.namastack.outbox.annotation
  * Exceptions thrown from handlers trigger automatic retries based on the configured
  * retry policy. Successfully completing marks the record as processed.
  *
+ * ## Stable logical handler ID
+ *
+ * By default the persisted `handler_id` is derived from the handler class FQCN, method name,
+ * and parameter FQCNs.  Renaming or moving the handler class (or any event class in the
+ * method signature) causes pending outbox rows to fail dispatch.
+ *
+ * Set `id` to decouple the persisted ID from Java package structure:
+ *
+ * ```kotlin
+ * @OutboxHandler(id = "orders.processor")
+ * fun handle(payload: OrderCreatedEvent) { ... }
+ * ```
+ *
+ * After renaming or moving the handler class, add the old FQCN-based ID as an alias so
+ * rows written before the rename continue to dispatch:
+ *
+ * ```kotlin
+ * @OutboxHandler(
+ *     id = "orders.processor",
+ *     aliases = ["com.acme.v1.OrderHandler#handle(com.acme.order.OrderCreatedEvent)"]
+ * )
+ * fun handle(payload: OrderCreatedEvent) { ... }
+ * ```
+ *
+ * Once all rows referencing the old ID have been processed, remove the alias.
+ *
+ * For interface-based handlers use [@OutboxHandlerId][OutboxHandlerId] on the class instead.
+ *
  * ## Important: Do NOT mix with Interface-based Handlers
  *
  * Do not combine @OutboxHandler annotations with interface-based handlers
@@ -44,7 +72,13 @@ package io.namastack.outbox.annotation
  *
  * Use EITHER annotations OR interfaces per bean, not both.
  *
+ * @param id Optional stable logical handler identifier. When blank (the default), the FQCN-based
+ *           ID is used unchanged. Must not contain `#`, `,`, `(`, `)`, or whitespace.
+ * @param aliases Additional identifiers that should resolve to this handler. Use these to absorb
+ *                old FQCN-based IDs written before a class or method rename.
+ *
  * @see io.namastack.outbox.annotation.OutboxFallbackHandler
+ * @see io.namastack.outbox.annotation.OutboxHandlerId
  * @see io.namastack.outbox.handler.OutboxTypedHandler
  * @see io.namastack.outbox.handler.OutboxHandler
  * @author Roland Beisel
@@ -52,4 +86,7 @@ package io.namastack.outbox.annotation
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class OutboxHandler
+annotation class OutboxHandler(
+    val id: String = "",
+    val aliases: Array<String> = [],
+)

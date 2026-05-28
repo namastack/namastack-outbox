@@ -1,5 +1,8 @@
 package io.namastack.outbox.handler.method
 
+import io.namastack.outbox.annotation.OutboxHandler
+import io.namastack.outbox.annotation.OutboxHandlerId
+import io.namastack.outbox.event.LogicalNameValidator
 import io.namastack.outbox.handler.method.internal.ReflectionUtils
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
@@ -18,23 +21,15 @@ abstract class BaseHandlerMethod(
     val bean: Any,
     val method: Method,
 ) {
-    /**
-     * Unique identifier for routing and tracking.
-     * Format: `ClassName#methodName(Type1,Type2,...)`
-     */
-    val id: String = buildId()
+    /** FQCN-based identifier: `ClassName#methodName(Type1,Type2,...)` using the un-proxied target class. */
+    val fqcnId: String = buildFqcnId()
 
     /**
-     * Builds unique ID from class name, method name, and parameter types.
-     * ID remains stable across restarts for persistent record association.
+     * Primary identifier used for routing and persistence.
+     * Returns the stable logical ID if one was declared via `@OutboxHandler(id=…)` or
+     * `@OutboxHandlerId(…)`; otherwise falls back to [fqcnId].
      */
-    protected fun buildId(): String {
-        val className = ReflectionUtils.getTargetClass(bean).name
-        val methodName = method.name
-        val paramTypes = method.parameterTypes.joinToString(",") { it.name }
-
-        return "$className#$methodName($paramTypes)"
-    }
+    val id: String
 
     /**
      * Legacy identifier using the bean's runtime class name, which may include
@@ -42,14 +37,46 @@ abstract class BaseHandlerMethod(
      */
     val legacyId: String = buildLegacyId()
 
-    /**
-     * Builds a legacy handler ID using the bean's runtime class name.
-     */
-    protected fun buildLegacyId(): String {
+    /** Explicit aliases declared on the handler annotation, used for backward-compat dispatch. */
+    val explicitAliases: List<String>
+
+    init {
+        val (logical, aliases) = readAnnotation()
+        if (logical != null) {
+            LogicalNameValidator.validate(logical, "handler '${method.declaringClass.name}#${method.name}'")
+        }
+        aliases.forEach { alias ->
+            LogicalNameValidator.validate(alias, "handler '${method.declaringClass.name}#${method.name}' alias")
+        }
+        id = logical ?: fqcnId
+        explicitAliases = aliases
+    }
+
+    private fun readAnnotation(): Pair<String?, List<String>> {
+        val onMethod = method.getAnnotation(OutboxHandler::class.java)
+        if (onMethod != null) {
+            val logicalId = onMethod.id.trim().takeIf { it.isNotEmpty() }
+            return logicalId to onMethod.aliases.map { it.trim() }.filter { it.isNotEmpty() }
+        }
+        val onClass = ReflectionUtils.getTargetClass(bean).getAnnotation(OutboxHandlerId::class.java)
+        if (onClass != null) {
+            val logicalId = onClass.value.trim().takeIf { it.isNotEmpty() }
+            return logicalId to onClass.aliases.map { it.trim() }.filter { it.isNotEmpty() }
+        }
+        return null to emptyList()
+    }
+
+    private fun buildFqcnId(): String {
+        val className = ReflectionUtils.getTargetClass(bean).name
+        val methodName = method.name
+        val paramTypes = method.parameterTypes.joinToString(",") { it.name }
+        return "$className#$methodName($paramTypes)"
+    }
+
+    private fun buildLegacyId(): String {
         val className = bean::class.java.name
         val methodName = method.name
         val paramTypes = method.parameterTypes.joinToString(",") { it.name }
-
         return "$className#$methodName($paramTypes)"
     }
 

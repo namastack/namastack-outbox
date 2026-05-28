@@ -6,6 +6,7 @@ import io.namastack.outbox.MongoOutboxPartitionAssignmentRepository
 import io.namastack.outbox.MongoOutboxRecordEntityMapper
 import io.namastack.outbox.MongoOutboxRecordRepository
 import io.namastack.outbox.OutboxPayloadSerializer
+import io.namastack.outbox.event.OutboxRecordTypeResolver
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.instance.OutboxInstanceRepository
@@ -105,7 +106,8 @@ class MongoOutboxAutoConfiguration {
     @ConditionalOnMissingBean
     internal fun mongoOutboxRecordEntityMapper(
         payloadSerializer: OutboxPayloadSerializer,
-    ): MongoOutboxRecordEntityMapper = MongoOutboxRecordEntityMapper(payloadSerializer)
+        recordTypeResolver: OutboxRecordTypeResolver,
+    ): MongoOutboxRecordEntityMapper = MongoOutboxRecordEntityMapper(payloadSerializer, recordTypeResolver)
 
     /**
      * Creates a MongoDB-based outbox record repository.

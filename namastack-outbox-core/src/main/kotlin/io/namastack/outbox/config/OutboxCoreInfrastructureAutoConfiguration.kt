@@ -8,6 +8,9 @@ import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
+import io.namastack.outbox.event.OutboxEventTypeRegistrar
+import io.namastack.outbox.event.OutboxEventTypeRegistry
+import io.namastack.outbox.event.OutboxRecordTypeResolver
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
@@ -134,6 +137,28 @@ class OutboxCoreInfrastructureAutoConfiguration {
         )
 
     companion object {
+        @Bean
+        @ConditionalOnMissingBean
+        @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+        @JvmStatic
+        internal fun outboxEventTypeRegistry(): OutboxEventTypeRegistry = OutboxEventTypeRegistry()
+
+        @Bean
+        @ConditionalOnMissingBean
+        @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+        @JvmStatic
+        internal fun outboxEventTypeRegistrar(
+            registry: OutboxEventTypeRegistry,
+            properties: OutboxProperties,
+        ): OutboxEventTypeRegistrar = OutboxEventTypeRegistrar(registry, properties.eventScanPackages)
+
+        @Bean
+        @ConditionalOnMissingBean
+        @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+        @JvmStatic
+        internal fun outboxRecordTypeResolver(registry: OutboxEventTypeRegistry): OutboxRecordTypeResolver =
+            OutboxRecordTypeResolver(registry)
+
         @Bean
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)

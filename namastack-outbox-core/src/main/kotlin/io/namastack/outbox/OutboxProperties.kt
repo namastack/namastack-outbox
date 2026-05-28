@@ -19,6 +19,10 @@ import java.time.Duration
  * @param processing Configuration for record processing behavior
  * @param instance Configuration for instance management and coordination
  * @param multicaster Configuration for the custom application event multicaster
+ * @param eventScanPackages Additional base packages to scan for `@OutboxEvent`-annotated classes.
+ *                          Spring Boot applications do not normally need this — the `@SpringBootApplication`
+ *                          package is scanned automatically.  Use this for multi-module setups where
+ *                          event classes live in packages not reachable via `AutoConfigurationPackages`.
  *
  * @author Roland Beisel
  * @since 0.1.0
@@ -37,6 +41,7 @@ data class OutboxProperties(
     var processing: Processing = Processing(),
     var instance: Instance = Instance(),
     var multicaster: Multicaster = Multicaster(),
+    var eventScanPackages: List<String> = emptyList(),
 ) {
     /**
      * Configuration for polling behavior.
