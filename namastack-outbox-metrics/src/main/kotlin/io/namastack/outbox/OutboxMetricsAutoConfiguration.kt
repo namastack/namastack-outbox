@@ -18,14 +18,19 @@ import org.springframework.context.annotation.Bean
  * - OutboxRecordMetricsMeterBinder: Tracks record counts by status (NEW, FAILED, COMPLETED)
  * - OutboxPartitionMetricsMeterBinder: Tracks partition assignments and pending records
  *
- * Metrics enable monitoring of:
- * - Record processing health (success/failure rates)
- * - Load distribution across partitions
- * - Processing bottlenecks and backlog
+ * @deprecated Use `namastack-outbox-observability` module instead. The observability module provides
+ * Observation-based timer metrics (`outbox.record.process`, `outbox.record.schedule`)
+ * that cover throughput, latency, and error rates per handler.
+ * This module will be removed in a future major version.
  *
  * @author Roland Beisel
  * @since 0.1.0
  */
+@Deprecated(
+    message =
+        "Use namastack-outbox-observability module instead. " +
+            "This module provides legacy gauge-based metrics and will be removed in a future major version.",
+)
 @AutoConfiguration
 @ConditionalOnClass(OutboxService::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)

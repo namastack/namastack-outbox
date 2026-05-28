@@ -1,0 +1,3 @@
+io.namastack.outbox.observability.OutboxObservabilityAutoConfiguration
+io.namastack.outbox.observability.tracing.OutboxObservabilityTracingAutoConfiguration
+io.namastack.outbox.observability.metrics.OutboxInstanceMetricsAutoConfiguration

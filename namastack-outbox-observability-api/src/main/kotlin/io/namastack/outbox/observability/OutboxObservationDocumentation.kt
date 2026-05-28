@@ -7,15 +7,16 @@ import io.micrometer.observation.ObservationConvention
 import io.micrometer.observation.docs.ObservationDocumentation
 
 /**
- * Documents the Micrometer observations produced by the outbox library during record processing.
+ * Documents the Micrometer observations produced by the outbox library.
  *
- * Each outbox record is persisted to the database by the producer, then polled and dispatched to
- * its dedicated handler. If the primary handler fails repeatedly (retries exhausted or a
- * non-retryable exception is thrown), the record is handed off to a dedicated fallback handler.
- * An observation is created for every such processing attempt, regardless of whether it is handled
- * by the primary or the fallback handler.
+ * Two observations cover the outbox lifecycle:
+ * - [OUTBOX_RECORD_PROCESS]: Dispatching a record to its handler (primary or fallback)
+ * - [OUTBOX_RECORD_SCHEDULE]: Scheduling one or more records into the outbox
  *
- * @author Aleksander Zamojski
+ * Each observation produces both distributed trace spans and timer metrics automatically
+ * when the appropriate Micrometer handlers are registered (Spring Boot default behavior).
+ *
+ * @author Aleksander Zamojski, Roland Beisel
  * @since 1.2.0
  */
 enum class OutboxObservationDocumentation : ObservationDocumentation {
@@ -31,7 +32,25 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
         override fun getLowCardinalityKeyNames(): Array<out KeyName> = LowCardinalityKeyNames.entries.toTypedArray()
 
         override fun getHighCardinalityKeyNames(): Array<out KeyName> = HighCardinalityKeyNames.entries.toTypedArray()
-    }, ;
+    },
+
+    /**
+     * Observation covering the scheduling of outbox records within a transaction.
+     * Starts when `schedule()` is called and stops after all records are persisted.
+     *
+     * @since 1.3.0
+     */
+    OUTBOX_RECORD_SCHEDULE {
+        override fun getDefaultConvention(): Class<out ObservationConvention<out Observation.Context>> =
+            DefaultOutboxScheduleObservationConvention::class.java
+
+        override fun getLowCardinalityKeyNames(): Array<out KeyName> =
+            ScheduleLowCardinalityKeyNames.entries.toTypedArray()
+
+        override fun getHighCardinalityKeyNames(): Array<out KeyName> =
+            ScheduleHighCardinalityKeyNames.entries.toTypedArray()
+    },
+    ;
 
     /**
      * Low-cardinality key names attached to every [OUTBOX_RECORD_PROCESS] observation.
@@ -48,7 +67,7 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
          * @see OutboxProcessObservationContext.HandlerKind
          */
         HANDLER_KIND {
-            override fun asString(): String = "outbox.handler.kind"
+            override fun asString(): String = OutboxMetricKeyNames.LowCardinality.HANDLER_KIND
         },
 
         /**
@@ -56,7 +75,17 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
          * Corresponds to the `handlerId` field stored with the outbox record.
          */
         HANDLER_ID {
-            override fun asString(): String = "outbox.handler.id"
+            override fun asString(): String = OutboxMetricKeyNames.LowCardinality.HANDLER_ID
+        },
+
+        /**
+         * Logical channel name of the outbox runtime processing this record.
+         * In OSS mode this is `"default"`, in Pro multi-channel mode it is the channel id.
+         *
+         * @since 1.3.0
+         */
+        CHANNEL {
+            override fun asString(): String = OutboxMetricKeyNames.LowCardinality.CHANNEL
         },
     }
 
@@ -71,14 +100,14 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
          * Unique identifier of the outbox record being processed (UUID).
          */
         RECORD_ID {
-            override fun asString(): String = "outbox.record.id"
+            override fun asString(): String = OutboxMetricKeyNames.HighCardinality.RECORD_ID
         },
 
         /**
          * Business key of the outbox record. Used to group or order related records.
          */
         RECORD_KEY {
-            override fun asString(): String = "outbox.record.key"
+            override fun asString(): String = OutboxMetricKeyNames.HighCardinality.RECORD_KEY
         },
 
         /**
@@ -86,7 +115,42 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
          * Starts at `1` for a record that has never failed before.
          */
         DELIVERY_ATTEMPT {
-            override fun asString(): String = "outbox.delivery.attempt"
+            override fun asString(): String = OutboxMetricKeyNames.HighCardinality.DELIVERY_ATTEMPT
+        },
+    }
+
+    /**
+     * Low-cardinality key names for [OUTBOX_RECORD_SCHEDULE].
+     *
+     * @since 1.3.0
+     */
+    enum class ScheduleLowCardinalityKeyNames : KeyName {
+        /**
+         * Logical channel name of the outbox runtime.
+         */
+        CHANNEL {
+            override fun asString(): String = OutboxMetricKeyNames.LowCardinality.CHANNEL
+        },
+    }
+
+    /**
+     * High-cardinality key names for [OUTBOX_RECORD_SCHEDULE].
+     *
+     * @since 1.3.0
+     */
+    enum class ScheduleHighCardinalityKeyNames : KeyName {
+        /**
+         * The record key used for partitioning and ordering.
+         */
+        RECORD_KEY {
+            override fun asString(): String = OutboxMetricKeyNames.HighCardinality.SCHEDULE_RECORD_KEY
+        },
+
+        /**
+         * Simple class name of the payload being scheduled.
+         */
+        PAYLOAD_TYPE {
+            override fun asString(): String = OutboxMetricKeyNames.HighCardinality.SCHEDULE_PAYLOAD_TYPE
         },
     }
 
@@ -94,15 +158,14 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
      * Default implementation of [OutboxProcessObservationConvention].
      *
      * Produces the observation name `outbox.record.process` and populates all low- and
-     * high-cardinality key values defined in [LowCardinalityKeyNames] and
-     * [HighCardinalityKeyNames] from the supplied [OutboxProcessObservationContext].
+     * high-cardinality key values from the supplied [OutboxProcessObservationContext].
      */
     class DefaultOutboxProcessObservationConvention : OutboxProcessObservationConvention {
         companion object {
             val INSTANCE = DefaultOutboxProcessObservationConvention()
         }
 
-        override fun getName(): String = "outbox.record.process"
+        override fun getName(): String = OutboxMetricNames.RECORD_PROCESS
 
         override fun getContextualName(context: OutboxProcessObservationContext): String = "outbox process"
 
@@ -110,6 +173,7 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
             KeyValues.of(
                 LowCardinalityKeyNames.HANDLER_KIND.withValue(context.getHandlerKind().toString()),
                 LowCardinalityKeyNames.HANDLER_ID.withValue(context.getHandlerId()),
+                LowCardinalityKeyNames.CHANNEL.withValue(context.getChannel()),
             )
 
         override fun getHighCardinalityKeyValues(context: OutboxProcessObservationContext): KeyValues =
@@ -117,6 +181,34 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
                 HighCardinalityKeyNames.RECORD_ID.withValue(context.getRecordId()),
                 HighCardinalityKeyNames.RECORD_KEY.withValue(context.getRecordKey()),
                 HighCardinalityKeyNames.DELIVERY_ATTEMPT.withValue(context.getDeliveryAttempt().toString()),
+            )
+    }
+
+    /**
+     * Default implementation of [OutboxScheduleObservationConvention].
+     *
+     * Produces the observation name `outbox.record.schedule`.
+     *
+     * @since 1.3.0
+     */
+    class DefaultOutboxScheduleObservationConvention : OutboxScheduleObservationConvention {
+        companion object {
+            val INSTANCE = DefaultOutboxScheduleObservationConvention()
+        }
+
+        override fun getName(): String = OutboxMetricNames.RECORD_SCHEDULE
+
+        override fun getContextualName(context: OutboxScheduleObservationContext): String = "outbox schedule"
+
+        override fun getLowCardinalityKeyValues(context: OutboxScheduleObservationContext): KeyValues =
+            KeyValues.of(
+                ScheduleLowCardinalityKeyNames.CHANNEL.withValue(context.channel),
+            )
+
+        override fun getHighCardinalityKeyValues(context: OutboxScheduleObservationContext): KeyValues =
+            KeyValues.of(
+                ScheduleHighCardinalityKeyNames.RECORD_KEY.withValue(context.recordKey),
+                ScheduleHighCardinalityKeyNames.PAYLOAD_TYPE.withValue(context.payloadType),
             )
     }
 }

@@ -32,7 +32,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
     implementation("org.springframework.boot:spring-boot-flyway")
     implementation("io.namastack:namastack-outbox-starter-jpa:1.6.0-SNAPSHOT")
-    implementation("io.namastack:namastack-outbox-tracing:1.6.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-observability:1.6.0-SNAPSHOT")
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
