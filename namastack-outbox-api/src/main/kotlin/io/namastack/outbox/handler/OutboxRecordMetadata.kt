@@ -28,6 +28,9 @@ import java.time.Instant
  * @property handlerId Unique identifier of the handler that will process this record
  * @property createdAt Timestamp when the record was created in the outbox
  * @property context Custom context map for cross-cutting concerns (tracing, tenancy, correlation)
+ * @property failureCount Number of failed processing attempts before the current handler invocation
+ * @property attempt One-based attempt number for the current handler invocation
+ * @property isRetry True when the current handler invocation is a retry
  *
  * @author Roland Beisel
  * @since 0.4.0
@@ -37,4 +40,11 @@ data class OutboxRecordMetadata(
     val handlerId: String,
     val createdAt: Instant,
     val context: Map<String, String>,
-)
+    val failureCount: Int = 0,
+) {
+    val attempt: Int
+        get() = failureCount + 1
+
+    val isRetry: Boolean
+        get() = failureCount > 0
+}

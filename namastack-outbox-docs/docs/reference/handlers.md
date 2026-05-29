@@ -166,6 +166,53 @@ public class MyHandlers {
 
 ---
 
+## OutboxRecordMetadata
+
+Handlers that accept `OutboxRecordMetadata` receive processing metadata for the current
+handler invocation:
+
+- `key` - Logical record key used for ordered processing
+- `handlerId` - Handler assigned to the record
+- `createdAt` - Time when the outbox record was created
+- `context` - Propagated context such as trace IDs or tenant IDs
+- `failureCount` - Number of failed processing attempts before this invocation
+- `attempt` - One-based attempt number, equal to `failureCount + 1`
+- `isRetry` - `true` when `failureCount > 0`
+
+For normal handlers, `failureCount == 0` means the first delivery attempt. A retry is
+processed by the same `@OutboxHandler` with `failureCount > 0`.
+
+<Tabs>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@OutboxHandler
+fun handleOrder(payload: OrderEvent, metadata: OutboxRecordMetadata) {
+    if (metadata.isRetry) {
+        logger.info("Retrying order ${payload.orderId} on attempt ${metadata.attempt}")
+    }
+    emailService.send(payload.email)
+}
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+@OutboxHandler
+public void handleOrder(OrderEvent payload, OutboxRecordMetadata metadata) {
+    if (metadata.isRetry()) {
+        logger.info("Retrying order {} on attempt {}", payload.getOrderId(), metadata.getAttempt());
+    }
+    emailService.send(payload.getEmail());
+}
+```
+
+</TabItem>
+</Tabs>
+
+---
+
 ## Fallback Handlers
 
 Fallback handlers provide a safety net when all retries are exhausted, allowing for compensating actions, dead letter queue publishing, or alternative processing strategies.
@@ -174,6 +221,9 @@ Fallback handlers are automatically invoked when:
 
 - **Retries Exhausted**: The record has exceeded the maximum retry count
 - **Non-Retryable Exceptions**: An exception is thrown that should not be retried (based on retry policy)
+
+Fallback handlers are not invoked for each retry. Retry attempts are processed by the normal
+handler; fallback handlers run only when normal processing can no longer continue.
 
 ### Interface-Based Fallback Handlers
 

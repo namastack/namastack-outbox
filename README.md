@@ -147,6 +147,10 @@ public class OrderHandler implements OutboxTypedHandler<OrderCreatedEvent> {
 
 </details>
 
+Handlers that accept `OutboxRecordMetadata` can inspect the current delivery state:
+`failureCount == 0` is the first attempt, `failureCount > 0` is a retry, `attempt` is
+`failureCount + 1`, and `isRetry` is a convenience flag.
+
 ### 3. Schedule Records Atomically
 
 <details open>
@@ -307,6 +311,10 @@ fun handleFailure(payload: OrderCreatedEvent, context: OutboxFailureContext) {
     deadLetterQueue.publish(payload)
 }
 ```
+
+`OutboxRecordMetadata` is available during normal handler invocation and includes retry state
+for the current attempt. `OutboxFailureContext` is available to fallback handlers after retries
+are exhausted or an exception is non-retryable.
 
 → [Handler Documentation](https://www.namastack.io/outbox/reference/handlers/)
 
