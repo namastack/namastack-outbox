@@ -1,5 +1,7 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.event.OutboxEventTypeRegistry
+import io.namastack.outbox.event.OutboxRecordTypeResolver
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -12,7 +14,7 @@ import java.time.temporal.ChronoUnit.MINUTES
 class JdbcOutboxRecordEntityMapperTest {
     private val innerJsonMapper = jsonMapper { addModule(kotlinModule()) }
     private val serializer = JacksonOutboxPayloadSerializer(innerJsonMapper)
-    private val mapper = JdbcOutboxRecordEntityMapper(serializer, io.namastack.outbox.event.OutboxRecordTypeResolver(io.namastack.outbox.event.OutboxEventTypeRegistry()))
+    private val mapper = JdbcOutboxRecordEntityMapper(serializer, OutboxRecordTypeResolver(OutboxEventTypeRegistry()))
 
     data class OrderCreatedEvent(
         val orderId: String,

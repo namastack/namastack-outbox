@@ -19,6 +19,9 @@ import org.springframework.core.type.filter.AnnotationTypeFilter
  * Scan packages are resolved from Spring Boot's `AutoConfigurationPackages` (i.e. the
  * package of the `@SpringBootApplication` class) plus any additional packages configured
  * via `namastack.outbox.event-scan-packages`.
+ *
+ * @author Sarang Jibhakate
+ * @since 1.6.0
  */
 internal class OutboxEventTypeRegistrar(
     private val registry: OutboxEventTypeRegistry,

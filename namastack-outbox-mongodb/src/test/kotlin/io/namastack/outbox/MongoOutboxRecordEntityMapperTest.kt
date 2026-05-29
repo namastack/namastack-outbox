@@ -3,6 +3,8 @@ package io.namastack.outbox
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.namastack.outbox.event.OutboxEventTypeRegistry
+import io.namastack.outbox.event.OutboxRecordTypeResolver
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
@@ -10,7 +12,7 @@ import java.util.UUID
 
 class MongoOutboxRecordEntityMapperTest {
     private val serializer = mockk<OutboxPayloadSerializer>()
-    private val mapper = MongoOutboxRecordEntityMapper(serializer, io.namastack.outbox.event.OutboxRecordTypeResolver(io.namastack.outbox.event.OutboxEventTypeRegistry()))
+    private val mapper = MongoOutboxRecordEntityMapper(serializer, OutboxRecordTypeResolver(OutboxEventTypeRegistry()))
 
     @Test
     fun `maps domain record to entity`() {

@@ -66,14 +66,14 @@ abstract class BaseHandlerMethod(
         return null to emptyList()
     }
 
-    private fun buildFqcnId(): String {
+    protected fun buildFqcnId(): String {
         val className = ReflectionUtils.getTargetClass(bean).name
         val methodName = method.name
         val paramTypes = method.parameterTypes.joinToString(",") { it.name }
         return "$className#$methodName($paramTypes)"
     }
 
-    private fun buildLegacyId(): String {
+    protected fun buildLegacyId(): String {
         val className = bean::class.java.name
         val methodName = method.name
         val paramTypes = method.parameterTypes.joinToString(",") { it.name }
