@@ -14,7 +14,7 @@ import io.namastack.outbox.OutboxChannelNameProvider
  * @param channel The logical channel name (defaults to `"default"` in OSS mode).
  *
  * @author Roland Beisel
- * @since 1.3.0
+ * @since 1.7.0
  */
 class OutboxScheduleObservationContext(
     val payloadType: String,

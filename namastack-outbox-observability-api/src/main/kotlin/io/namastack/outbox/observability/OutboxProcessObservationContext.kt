@@ -61,10 +61,6 @@ class OutboxProcessObservationContext(
 
     /**
      * Returns the logical channel name of the outbox runtime.
-     * In OSS single-channel mode this is `"default"`.
-     * In Pro multi-channel mode this is the configured channel id.
-     *
-     * @since 1.3.0
      */
     fun getChannel(): String = channel
 

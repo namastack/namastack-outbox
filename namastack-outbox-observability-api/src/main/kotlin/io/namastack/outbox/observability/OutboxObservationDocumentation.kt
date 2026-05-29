@@ -37,8 +37,6 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
     /**
      * Observation covering the scheduling of outbox records within a transaction.
      * Starts when `schedule()` is called and stops after all records are persisted.
-     *
-     * @since 1.3.0
      */
     OUTBOX_RECORD_SCHEDULE {
         override fun getDefaultConvention(): Class<out ObservationConvention<out Observation.Context>> =
@@ -81,8 +79,6 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
         /**
          * Logical channel name of the outbox runtime processing this record.
          * In OSS mode this is `"default"`, in Pro multi-channel mode it is the channel id.
-         *
-         * @since 1.3.0
          */
         CHANNEL {
             override fun asString(): String = OutboxMetricKeyNames.LowCardinality.CHANNEL
@@ -121,8 +117,6 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
 
     /**
      * Low-cardinality key names for [OUTBOX_RECORD_SCHEDULE].
-     *
-     * @since 1.3.0
      */
     enum class ScheduleLowCardinalityKeyNames : KeyName {
         /**
@@ -135,8 +129,6 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
 
     /**
      * High-cardinality key names for [OUTBOX_RECORD_SCHEDULE].
-     *
-     * @since 1.3.0
      */
     enum class ScheduleHighCardinalityKeyNames : KeyName {
         /**
@@ -188,8 +180,6 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
      * Default implementation of [OutboxScheduleObservationConvention].
      *
      * Produces the observation name `outbox.record.schedule`.
-     *
-     * @since 1.3.0
      */
     class DefaultOutboxScheduleObservationConvention : OutboxScheduleObservationConvention {
         companion object {

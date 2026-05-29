@@ -12,7 +12,7 @@ import io.micrometer.observation.ObservationConvention
  * [OutboxObservationDocumentation.DefaultOutboxScheduleObservationConvention].
  *
  * @author Roland Beisel
- * @since 1.3.0
+ * @since 1.7.0
  */
 interface OutboxScheduleObservationConvention : ObservationConvention<OutboxScheduleObservationContext> {
     /**
