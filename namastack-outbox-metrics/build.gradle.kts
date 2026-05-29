@@ -18,3 +18,9 @@ dependencies {
     testImplementation(libs.mockk)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
+
+tasks.configureEach {
+    doFirst {
+        logger.warn("'namastack-outbox-metrics' is deprecated. Use 'namastack-outbox-observability")
+    }
+}
