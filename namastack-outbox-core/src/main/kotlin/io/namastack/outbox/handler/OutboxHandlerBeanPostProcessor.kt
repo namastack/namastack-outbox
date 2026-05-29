@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler
 
+import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.handler.scanner.HandlerScanResult
@@ -26,6 +27,7 @@ import org.springframework.beans.factory.config.BeanPostProcessor
  * @param handlerRegistry Handler registry for discovered handlers
  * @param fallbackHandlerRegistry Fallback registry for discovered fallbacks
  * @param retryPolicyRegistry Retry policy registry for handler-specific policies
+ * @param legacyAliasMode Controls automatic alias registration for fqcnId and legacyId
  *
  * @author Roland Beisel
  * @since 0.4.0
@@ -34,6 +36,7 @@ internal class OutboxHandlerBeanPostProcessor(
     private val handlerRegistry: OutboxHandlerRegistry,
     private val fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
     private val retryPolicyRegistry: OutboxRetryPolicyRegistry,
+    private val legacyAliasMode: OutboxProperties.LegacyAliasMode = OutboxProperties.LegacyAliasMode.AUTO,
 ) : BeanPostProcessor {
     /**
      * Scanners that discover handlers with their associated fallbacks.
@@ -95,17 +98,20 @@ internal class OutboxHandlerBeanPostProcessor(
      * Registers all alias IDs in all registries so rows written with old IDs continue to dispatch.
      *
      * Aliases registered:
-     * - fqcnId — when a logical id is set, the FQCN form becomes an alias so in-flight rows
-     *   written before the upgrade still resolve.
-     * - legacyId — CGLIB proxy variant (existing behaviour).
-     * - explicitAliases — user-declared aliases for rows written before a class/method rename.
+     * - fqcnId — when a logical id is set and [legacyAliasMode] is AUTO, the FQCN form becomes an
+     *   alias so in-flight rows written before the upgrade still resolve.
+     * - legacyId — CGLIB proxy variant; registered when [legacyAliasMode] is AUTO.
+     * - explicitAliases — user-declared aliases for rows written before a class/method rename;
+     *   always registered regardless of [legacyAliasMode].
      */
     private fun registerAliases(result: HandlerScanResult) {
         val handler = result.handler
         val aliases =
             buildSet {
-                if (handler.id != handler.fqcnId) add(handler.fqcnId)
-                if (handler.id != handler.legacyId) add(handler.legacyId)
+                if (legacyAliasMode == OutboxProperties.LegacyAliasMode.AUTO) {
+                    if (handler.id != handler.fqcnId) add(handler.fqcnId)
+                    if (handler.id != handler.legacyId) add(handler.legacyId)
+                }
                 addAll(handler.explicitAliases)
                 remove(handler.id)
             }

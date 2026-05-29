@@ -186,7 +186,13 @@ class OutboxCoreInfrastructureAutoConfiguration {
             handlerRegistry: OutboxHandlerRegistry,
             fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
             retryPolicyRegistry: OutboxRetryPolicyRegistry,
+            properties: OutboxProperties,
         ): OutboxHandlerBeanPostProcessor =
-            OutboxHandlerBeanPostProcessor(handlerRegistry, fallbackHandlerRegistry, retryPolicyRegistry)
+            OutboxHandlerBeanPostProcessor(
+                handlerRegistry,
+                fallbackHandlerRegistry,
+                retryPolicyRegistry,
+                properties.handler.legacyAliasMode,
+            )
     }
 }

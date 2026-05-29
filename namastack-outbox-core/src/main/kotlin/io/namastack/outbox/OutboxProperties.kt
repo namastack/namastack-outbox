@@ -23,6 +23,7 @@ import java.time.Duration
  *                          Spring Boot applications do not normally need this — the `@SpringBootApplication`
  *                          package is scanned automatically.  Use this for multi-module setups where
  *                          event classes live in packages not reachable via `AutoConfigurationPackages`.
+ * @param handler Configuration for handler ID resolution behaviour.
  *
  * @author Roland Beisel
  * @since 0.1.0
@@ -42,6 +43,7 @@ data class OutboxProperties(
     var instance: Instance = Instance(),
     var multicaster: Multicaster = Multicaster(),
     var eventScanPackages: List<String> = emptyList(),
+    var handler: Handler = Handler(),
 ) {
     /**
      * Configuration for polling behavior.
@@ -225,4 +227,23 @@ data class OutboxProperties(
             var maxDelay: Duration = Duration.ofMinutes(1),
         )
     }
+
+    /**
+     * Configuration for handler ID resolution behaviour.
+     *
+     * @param legacyAliasMode Controls automatic alias registration for handler IDs.
+     */
+    data class Handler(
+        var legacyAliasMode: LegacyAliasMode = LegacyAliasMode.AUTO,
+    )
+
+    /**
+     * Controls automatic alias registration for handler IDs.
+     *
+     * - [AUTO] (default): automatically registers `fqcnId` and `legacyId` as aliases so
+     *   rows written before a logical-id was added continue to dispatch.
+     * - [DISABLED]: only the primary `id` resolves. Use for greenfield deployments where
+     *   strict duplicate-detection on FQCN collisions is preferred.
+     */
+    enum class LegacyAliasMode { AUTO, DISABLED }
 }
