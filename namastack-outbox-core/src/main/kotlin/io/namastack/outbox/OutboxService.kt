@@ -63,6 +63,7 @@ import kotlin.reflect.KClass
  * @author Roland Beisel
  * @since 0.4.0
  */
+@OpenForProxy
 class OutboxService(
     private val contextCollector: OutboxContextCollector,
     private val handlerRegistry: OutboxHandlerRegistry,

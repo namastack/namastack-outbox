@@ -8,7 +8,17 @@ type Props = {
 };
 
 export default function VersionedCode({language, template}: Props) {
-  const version = useDocsVersion();
+  let version: {version: string; label: string};
+
+  try {
+    version = useDocsVersion();
+  } catch {
+    version = {
+      version: 'current',
+      label: 'current',
+    };
+  }
+
   const vars = {
     version: version.version,
     versionLabel: version.label,

@@ -6,3 +6,15 @@
   max-width: 100%;
   height: auto;
 }
+
+.darkDiagram {
+  display: none;
+}
+
+:global(html[data-theme='dark']) .lightDiagram {
+  display: none;
+}
+
+:global(html[data-theme='dark']) .darkDiagram {
+  display: inline-block;
+}

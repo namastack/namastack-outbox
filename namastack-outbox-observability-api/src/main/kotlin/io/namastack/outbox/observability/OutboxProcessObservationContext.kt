@@ -1,6 +1,7 @@
 package io.namastack.outbox.observability
 
 import io.micrometer.observation.transport.ReceiverContext
+import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxRecord
 
 /**
@@ -14,13 +15,15 @@ import io.namastack.outbox.OutboxRecord
  *
  * @param record The outbox record that is about to be processed.
  * @param handlerKind Whether this processing attempt uses the primary or the fallback handler.
+ * @param channel The logical channel name (defaults to `"default"` in OSS mode).
  *
- * @author Aleksander Zamojski
+ * @author Aleksander Zamojski, Roland Beisel
  * @since 1.2.0
  */
 class OutboxProcessObservationContext(
     private val record: OutboxRecord<*>,
     private val handlerKind: HandlerKind,
+    private val channel: String = OutboxChannelNameProvider.DEFAULT_CHANNEL,
 ) : ReceiverContext<OutboxRecord<*>>({ carrier: OutboxRecord<*>, key: String -> carrier.context[key] }) {
     init {
         setCarrier(record)
@@ -55,6 +58,11 @@ class OutboxProcessObservationContext(
      * attempt.
      */
     fun getDeliveryAttempt(): Int = record.failureCount + 1
+
+    /**
+     * Returns the logical channel name of the outbox runtime.
+     */
+    fun getChannel(): String = channel
 
     /**
      * Indicates which type of handler is processing the outbox record.
