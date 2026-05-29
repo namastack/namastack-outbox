@@ -108,33 +108,33 @@ milestone or snapshot repository if you are not using a GA release.
 <TabItem value="Gradle" label="Gradle">
 
 <VersionedCode language="kotlin" template= {`dependencyManagement {
-imports {
-mavenBom("org.springframework.modulith:spring-modulith-bom:2.1.0-RC1")
-}
+    imports {
+        mavenBom("org.springframework.modulith:spring-modulith-bom:2.1.0-RC1")
+    }
 }
 
 dependencies {
-// Your existing Spring Modulith dependencies
-implementation("org.springframework.modulith:spring-modulith-starter-jpa")
-// Your transport dependencies (e.g., Kafka)
-implementation("org.springframework.modulith:spring-modulith-events-kafka")
-// NEW: Spring Modulith's Namastack Outbox integration
-implementation("org.springframework.modulith:spring-modulith-starter-namastack")
+    // Your existing Spring Modulith dependencies
+    implementation("org.springframework.modulith:spring-modulith-starter-jpa")
+    // Your transport dependencies (e.g., Kafka)
+    implementation("org.springframework.modulith:spring-modulith-events-kafka")
+    // NEW: Spring Modulith's Namastack Outbox integration
+    implementation("org.springframework.modulith:spring-modulith-starter-namastack")
 }`} />
 
 </TabItem>
 <TabItem value="Maven" label="Maven">
 
 <VersionedCode language="xml" template= {`<dependencyManagement>
-<dependencies>
-<dependency>
-<groupId>org.springframework.modulith</groupId>
-<artifactId>spring-modulith-bom</artifactId>
-<version>2.1.0-RC1</version>
-<type>pom</type>
-<scope>import</scope>
-</dependency>
-</dependencies>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-bom</artifactId>
+            <version>2.1.0-RC1</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
 </dependencyManagement>
 
 <dependencies>
@@ -166,33 +166,33 @@ implementation("org.springframework.modulith:spring-modulith-starter-namastack")
 <TabItem value="Gradle" label="Gradle">
 
 <VersionedCode language="kotlin" template= {`dependencyManagement {
-imports {
-mavenBom("org.springframework.modulith:spring-modulith-bom:2.1.0-RC1")
-}
+    imports {
+        mavenBom("org.springframework.modulith:spring-modulith-bom:2.1.0-RC1")
+    }
 }
 
 dependencies {
-// Your existing Spring Modulith dependencies
-implementation("org.springframework.modulith:spring-modulith-starter-jdbc")
-// Your transport dependencies (e.g., Kafka)
-implementation("org.springframework.modulith:spring-modulith-events-kafka")
-// NEW: Spring Modulith's Namastack Outbox integration
-implementation("org.springframework.modulith:spring-modulith-starter-namastack")
+    // Your existing Spring Modulith dependencies
+    implementation("org.springframework.modulith:spring-modulith-starter-jdbc")
+    // Your transport dependencies (e.g., Kafka)
+    implementation("org.springframework.modulith:spring-modulith-events-kafka")
+    // NEW: Spring Modulith's Namastack Outbox integration
+    implementation("org.springframework.modulith:spring-modulith-starter-namastack")
 }`} />
 
 </TabItem>
 <TabItem value="Maven" label="Maven">
 
 <VersionedCode language="xml" template= {`<dependencyManagement>
-<dependencies>
-<dependency>
-<groupId>org.springframework.modulith</groupId>
-<artifactId>spring-modulith-bom</artifactId>
-<version>2.1.0-RC1</version>
-<type>pom</type>
-<scope>import</scope>
-</dependency>
-</dependencies>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-bom</artifactId>
+            <version>2.1.0-RC1</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
 </dependencyManagement>
 
 <dependencies>
@@ -375,9 +375,9 @@ Namastack API types, such as defining an `OutboxRetryPolicy` bean or a custom `O
 <TabItem value="Maven" label="Maven">
 
 <VersionedCode language="xml" template= {`<dependency>
-<groupId>io.namastack</groupId>
-<artifactId>namastack-outbox-api</artifactId>
-<version>{{versionLabel}}</version>
+    <groupId>io.namastack</groupId>
+    <artifactId>namastack-outbox-api</artifactId>
+    <version>{{versionLabel}}</version>
 </dependency>
 <!-- Add other Namastack modules only when you configure them directly -->`} />
 
