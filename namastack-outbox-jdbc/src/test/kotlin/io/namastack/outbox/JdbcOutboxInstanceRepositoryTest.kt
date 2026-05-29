@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.namastack.outbox.config.JdbcOutboxAutoConfiguration
 import io.namastack.outbox.config.JdbcOutboxSchemaAutoConfiguration
+import io.namastack.outbox.config.OutboxCoreTestConfiguration
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceStatus
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
@@ -16,6 +17,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.jdbc.autoconfigure.JdbcClientAutoConfiguration
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest
+import org.springframework.context.annotation.Import
 import java.time.Clock
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -29,6 +31,7 @@ import java.time.temporal.ChronoUnit.MINUTES
     JdbcOutboxSchemaAutoConfiguration::class,
     OutboxJacksonAutoConfiguration::class,
 )
+@Import(OutboxCoreTestConfiguration::class)
 class JdbcOutboxInstanceRepositoryTest {
     private val clock: Clock = Clock.systemDefaultZone()
 

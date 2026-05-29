@@ -80,5 +80,4 @@ internal class JdbcOutboxRecordEntityMapper(
             failureException = null,
         )
     }
-
 }

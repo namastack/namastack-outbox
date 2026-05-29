@@ -80,5 +80,4 @@ internal class OutboxRecordEntityMapper(
             failureException = null,
         )
     }
-
 }

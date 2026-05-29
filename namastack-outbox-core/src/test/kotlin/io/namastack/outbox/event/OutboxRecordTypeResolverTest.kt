@@ -103,5 +103,7 @@ class OutboxRecordTypeResolverTest {
 
     sealed class SealedParent
 
-    data class SealedChild(val id: String) : SealedParent()
+    data class SealedChild(
+        val id: String,
+    ) : SealedParent()
 }

@@ -76,5 +76,4 @@ internal class MongoOutboxRecordEntityMapper(
             failureException = null,
         )
     }
-
 }

@@ -5,6 +5,7 @@ import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.config.JdbcOutboxAutoConfiguration
 import io.namastack.outbox.config.JdbcOutboxSchemaAutoConfiguration
+import io.namastack.outbox.config.OutboxCoreTestConfiguration
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.Test
@@ -14,6 +15,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.jdbc.autoconfigure.JdbcClientAutoConfiguration
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest
+import org.springframework.context.annotation.Import
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Instant
@@ -29,6 +31,7 @@ import java.util.UUID
     JdbcOutboxSchemaAutoConfiguration::class,
     OutboxJacksonAutoConfiguration::class,
 )
+@Import(OutboxCoreTestConfiguration::class)
 class JdbcOutboxRecordRepositoryTest {
     private val clock: Clock = Clock.systemDefaultZone()
 

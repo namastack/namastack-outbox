@@ -5,6 +5,8 @@ import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.config.MongoOutboxConfigurationProperties
+import io.namastack.outbox.event.OutboxEventTypeRegistry
+import io.namastack.outbox.event.OutboxRecordTypeResolver
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.BeforeEach
@@ -26,7 +28,7 @@ class MongoOutboxRecordRepositoryTest {
     companion object {
         @JvmStatic
         val mongodb: MongoDBContainer =
-            MongoDBContainer("mongo:8.0")
+            MongoDBContainer("mongo:8.0.4")
                 .withReuse(true)
                 .withReplicaSet()
                 .apply { start() }
@@ -43,7 +45,8 @@ class MongoOutboxRecordRepositoryTest {
 
         val mapper = JsonMapper.builder().addModule(kotlinModule()).build()
         val serializer = JacksonOutboxPayloadSerializer(mapper)
-        val entityMapper = MongoOutboxRecordEntityMapper(serializer, io.namastack.outbox.event.OutboxRecordTypeResolver(io.namastack.outbox.event.OutboxEventTypeRegistry()))
+        val entityMapper =
+            MongoOutboxRecordEntityMapper(serializer, OutboxRecordTypeResolver(OutboxEventTypeRegistry()))
 
         repository =
             MongoOutboxRecordRepository(
