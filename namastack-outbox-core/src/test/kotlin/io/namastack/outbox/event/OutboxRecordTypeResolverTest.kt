@@ -56,4 +56,52 @@ class OutboxRecordTypeResolverTest {
                 .hasMessageContaining("com.nonexistent.MissingEvent")
         }
     }
+
+    @Nested
+    @DisplayName("round-trip write→read with logical names")
+    inner class RoundTripTests {
+        @Test
+        fun `write path returns logical name and read path resolves back to class`() {
+            registry.register("payments.OrderCreated", OrderCreatedRoundTrip::class.java, emptyList())
+
+            val written = resolver.toRecordType(OrderCreatedRoundTrip())
+            val resolved = resolver.resolveClass(written)
+
+            assertThat(written).isEqualTo("payments.OrderCreated")
+            assertThat(resolved).isEqualTo(OrderCreatedRoundTrip::class.java)
+        }
+
+        @Test
+        fun `alias on read resolves to same class as primary logical name`() {
+            registry.register(
+                "payments.OrderCreated",
+                OrderCreatedRoundTrip::class.java,
+                listOf("com.acme.old.OrderEvent"),
+            )
+
+            assertThat(resolver.resolveClass("com.acme.old.OrderEvent"))
+                .isEqualTo(OrderCreatedRoundTrip::class.java)
+        }
+    }
+
+    @Nested
+    @DisplayName("sealed-hierarchy annotation semantics")
+    inner class SealedHierarchyTests {
+        @Test
+        fun `subtype payload uses FQCN when only the sealed parent is registered`() {
+            registry.register("payments.BaseEvent", SealedParent::class.java, emptyList())
+
+            // toRecordType uses the concrete subtype's class — not the parent
+            val recordType = resolver.toRecordType(SealedChild("x"))
+
+            assertThat(recordType).isEqualTo(SealedChild::class.java.name)
+            assertThat(recordType).doesNotContain("payments.BaseEvent")
+        }
+    }
+
+    class OrderCreatedRoundTrip
+
+    sealed class SealedParent
+
+    data class SealedChild(val id: String) : SealedParent()
 }

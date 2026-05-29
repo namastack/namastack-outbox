@@ -208,4 +208,32 @@ class JdbcOutboxRecordEntityMapperTest {
             assertThat(record.context).isEmpty()
         }
     }
+
+    @Nested
+    @DisplayName("record_type FQCN fallback")
+    inner class FqcnFallbackTests {
+        @Test
+        fun `reads entity whose record_type is a FQCN not in the registry`() {
+            val entity =
+                JdbcOutboxRecordEntity(
+                    id = "id",
+                    status = OutboxRecordStatus.NEW,
+                    recordKey = "key",
+                    recordType = "io.namastack.outbox.JdbcOutboxRecordEntityMapperTest\$OrderCreatedEvent",
+                    payload = "{\"orderId\":\"99\",\"amount\":1.0}",
+                    context = null,
+                    partitionNo = 0,
+                    createdAt = Instant.now(),
+                    completedAt = null,
+                    failureCount = 0,
+                    failureReason = null,
+                    nextRetryAt = Instant.now(),
+                    handlerId = "h",
+                )
+
+            val record = mapper.map(entity)
+
+            assertThat(record.payload).isInstanceOf(OrderCreatedEvent::class.java)
+        }
+    }
 }
