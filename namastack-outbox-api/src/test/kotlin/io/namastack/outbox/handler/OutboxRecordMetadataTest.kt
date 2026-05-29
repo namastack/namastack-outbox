@@ -41,7 +41,7 @@ class OutboxRecordMetadataTest {
     }
 
     @Test
-    fun `copy keeps existing constructor behavior`() {
+    fun `copy preserves retry state by default`() {
         val metadata =
             OutboxRecordMetadata(
                 key = "test-key",
@@ -54,8 +54,8 @@ class OutboxRecordMetadataTest {
         val copy = metadata.copy(key = "other-key")
 
         assertThat(copy.key).isEqualTo("other-key")
-        assertThat(copy.failureCount).isZero()
-        assertThat(copy.attempt).isEqualTo(1)
-        assertThat(copy.isRetry).isFalse()
+        assertThat(copy.failureCount).isEqualTo(2)
+        assertThat(copy.attempt).isEqualTo(3)
+        assertThat(copy.isRetry).isTrue()
     }
 }

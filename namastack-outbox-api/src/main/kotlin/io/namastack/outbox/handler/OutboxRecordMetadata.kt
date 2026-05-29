@@ -40,23 +40,11 @@ data class OutboxRecordMetadata(
     val handlerId: String,
     val createdAt: Instant,
     val context: Map<String, String>,
+    val failureCount: Int = 0,
 ) {
-    var failureCount: Int = 0
-        private set
-
     val attempt: Int
         get() = failureCount + 1
 
     val isRetry: Boolean
         get() = failureCount > 0
-
-    constructor(
-        key: String,
-        handlerId: String,
-        createdAt: Instant,
-        context: Map<String, String>,
-        failureCount: Int,
-    ) : this(key, handlerId, createdAt, context) {
-        this.failureCount = failureCount
-    }
 }
