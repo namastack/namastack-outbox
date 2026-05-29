@@ -2,6 +2,7 @@ package io.namastack.outbox.handler.invoker
 
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordStatus
@@ -9,6 +10,7 @@ import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
+import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -50,6 +52,22 @@ class OutboxHandlerInvokerTest {
         invoker.dispatch(record)
 
         verify { genericHandler.invoke(record.payload!!, metadata) }
+    }
+
+    @Test
+    fun `dispatches retry metadata with failure count and attempt`() {
+        val (record, _) = createRecord(handlerId = "handler-1", failureCount = 2)
+        val typedHandler = mockk<TypedHandlerMethod>()
+        val metadataSlot = slot<OutboxRecordMetadata>()
+
+        every { handlerRegistry.getHandlerById("handler-1") } returns typedHandler
+        every { typedHandler.invoke(any(), capture(metadataSlot)) } returns Unit
+
+        invoker.dispatch(record)
+
+        assertThat(metadataSlot.captured.failureCount).isEqualTo(2)
+        assertThat(metadataSlot.captured.attempt).isEqualTo(3)
+        assertThat(metadataSlot.captured.isRetry).isTrue()
     }
 
     @Test
@@ -108,6 +126,7 @@ class OutboxHandlerInvokerTest {
         payload: Any? = "test-payload",
         createdAt: Instant = now,
         context: Map<String, String> = emptyMap(),
+        failureCount: Int = 0,
     ): Pair<OutboxRecord<Any?>, OutboxRecordMetadata> {
         val record =
             OutboxRecord.restore(
@@ -118,7 +137,7 @@ class OutboxHandlerInvokerTest {
                 createdAt = createdAt,
                 status = OutboxRecordStatus.NEW,
                 completedAt = null,
-                failureCount = 0,
+                failureCount = failureCount,
                 failureException = null,
                 failureReason = null,
                 partition = 1,
@@ -131,6 +150,7 @@ class OutboxHandlerInvokerTest {
                 handlerId = handlerId,
                 createdAt = createdAt,
                 context = context,
+                failureCount = failureCount,
             )
         return record to metadata
     }

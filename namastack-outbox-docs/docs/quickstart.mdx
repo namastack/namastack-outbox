@@ -102,6 +102,10 @@ public class OrderHandlers {
 </TabItem>
 </Tabs>
 
+Handlers that accept `OutboxRecordMetadata` can inspect delivery state during normal processing:
+`failureCount == 0` is the first attempt, `failureCount > 0` is a retry, `attempt` is
+`failureCount + 1`, and `isRetry` is a convenience flag.
+
 ## Schedule Records Atomically
 
 <Tabs>
@@ -393,4 +397,3 @@ namastack:
 - Check out the [API Reference](https://javadoc.io/doc/io.namastack/namastack-outbox-api) for detailed documentation
 - Report issues at [GitHub Issues](https://github.com/namastack/namastack-outbox/issues)
 - Join [GitHub Discussions](https://github.com/namastack/namastack-outbox/discussions) for community support
-
