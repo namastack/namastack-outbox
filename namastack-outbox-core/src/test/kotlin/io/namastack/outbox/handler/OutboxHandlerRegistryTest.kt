@@ -2,6 +2,7 @@ package io.namastack.outbox.handler
 
 import io.mockk.every
 import io.mockk.mockk
+import io.namastack.outbox.annotation.OutboxHandler
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
@@ -297,9 +298,75 @@ class OutboxHandlerRegistryTest {
         return handler
     }
 
+    @Nested
+    @DisplayName("Logical ID registration")
+    inner class LogicalIdRegistrationTests {
+        @Test
+        fun `primary id is the logical name when @OutboxHandler(id) is set`() {
+            val handler = typedMethod(HandlerWithLogicalId(), "handle", String::class.java)
+            registry.register(handler)
+
+            assertThat(handler.id).isEqualTo("orders.logical")
+            assertThat(registry.getHandlerById("orders.logical")).isSameAs(handler)
+        }
+
+        @Test
+        fun `fqcnId resolves via alias after BeanPostProcessor registers it`() {
+            val handler = typedMethod(HandlerWithLogicalId(), "handle", String::class.java)
+            registry.register(handler)
+            registry.registerAlias(handler.fqcnId, handler)
+
+            assertThat(registry.getHandlerById(handler.fqcnId)).isSameAs(handler)
+        }
+
+        @Test
+        fun `explicit alias resolves to the same handler as primary id`() {
+            val handler = typedMethod(HandlerWithExplicitAlias(), "handle", String::class.java)
+            registry.register(handler)
+            handler.explicitAliases.forEach { registry.registerAlias(it, handler) }
+
+            assertThat(registry.getHandlerById("orders.v2")).isSameAs(handler)
+            assertThat(registry.getHandlerById("orders.v1.alias")).isSameAs(handler)
+        }
+
+        @Test
+        fun `duplicate logical id across two handlers throws`() {
+            val h1 = typedMethod(HandlerWithLogicalId(), "handle", String::class.java)
+            val h2 = typedMethod(HandlerWithSameLogicalId(), "handle", String::class.java)
+            registry.register(h1)
+
+            assertThatThrownBy { registry.register(h2) }
+                .isInstanceOf(IllegalStateException::class.java)
+        }
+
+        private fun typedMethod(
+            bean: Any,
+            methodName: String,
+            vararg paramTypes: Class<*>,
+        ): TypedHandlerMethod {
+            val method = bean::class.java.getMethod(methodName, *paramTypes)
+            return TypedHandlerMethod(bean, method)
+        }
+    }
+
     class TestPayload
 
     class AnotherPayload
 
     class UnregisteredPayload
+
+    class HandlerWithLogicalId {
+        @OutboxHandler(id = "orders.logical")
+        fun handle(payload: String) {}
+    }
+
+    class HandlerWithSameLogicalId {
+        @OutboxHandler(id = "orders.logical")
+        fun handle(payload: String) {}
+    }
+
+    class HandlerWithExplicitAlias {
+        @OutboxHandler(id = "orders.v2", aliases = ["orders.v1.alias"])
+        fun handle(payload: String) {}
+    }
 }

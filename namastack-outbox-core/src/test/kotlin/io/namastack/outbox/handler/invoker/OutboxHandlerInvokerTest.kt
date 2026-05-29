@@ -101,6 +101,21 @@ class OutboxHandlerInvokerTest {
         }.isSameAs(exception)
     }
 
+    @Test
+    fun `dispatches to handler when record uses legacy FQCN alias as handler id`() {
+        val fqcnAlias = "com.acme.OldOrderHandler\$\$SpringCGLIB\$\$0#handle(java.lang.String)"
+        val (record, metadata) = createRecord(handlerId = fqcnAlias)
+        val typedHandler = mockk<TypedHandlerMethod>()
+
+        // The alias maps back to the same logical handler
+        every { handlerRegistry.getHandlerById(fqcnAlias) } returns typedHandler
+        every { typedHandler.invoke(any(), any()) } returns Unit
+
+        invoker.dispatch(record)
+
+        verify { typedHandler.invoke(record.payload!!, metadata) }
+    }
+
     private fun createRecord(
         id: String = "test-payload",
         key: String = "test-key",
