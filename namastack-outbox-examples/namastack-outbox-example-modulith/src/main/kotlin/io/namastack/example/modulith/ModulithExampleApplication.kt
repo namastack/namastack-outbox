@@ -1,6 +1,9 @@
 package io.namastack.example.modulith
 
+import io.micrometer.observation.Observation
+import io.micrometer.observation.ObservationRegistry
 import io.namastack.example.modulith.order.OrderService
+import io.namastack.example.modulith.order.PlaceOrderCommand
 import io.namastack.example.modulith.payment.PaymentRepository
 import org.slf4j.LoggerFactory
 import org.springframework.boot.CommandLineRunner
@@ -12,6 +15,7 @@ import org.springframework.context.ConfigurableApplicationContext
 class ModulithExampleApplication(
     private val orderService: OrderService,
     private val paymentRepository: PaymentRepository,
+    private val observationRegistry: ObservationRegistry,
     private val context: ConfigurableApplicationContext,
 ) : CommandLineRunner {
     private val logger = LoggerFactory.getLogger(ModulithExampleApplication::class.java)
@@ -26,8 +30,19 @@ class ModulithExampleApplication(
     override fun run(vararg args: String) {
         logger.info("=== Spring Modulith Kafka Demo ===")
 
-        val order = orderService.placeOrder(sku = "spring-modulith-book", amountCents = 4990)
-        logger.info("[Demo] Placed order {}", order.id)
+        Observation
+            .createNotStarted("modulith.example.demo", observationRegistry)
+            .observe {
+                val order =
+                    orderService.placeOrder(
+                        PlaceOrderCommand(
+                            sku = "spring-modulith-book",
+                            amountCents = 4990,
+                        ),
+                    )
+
+                logger.info("[Demo] Placed order {}", order.id)
+            }
 
         Thread.sleep(30000)
 

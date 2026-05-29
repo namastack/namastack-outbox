@@ -13,10 +13,9 @@ class OrderService(
     private val logger = LoggerFactory.getLogger(OrderService::class.java)
 
     @Transactional
-    fun placeOrder(
-        sku: String,
-        amountCents: Long,
-    ): Order {
+    fun placeOrder(command: PlaceOrderCommand): Order {
+        val (sku, amountCents) = command
+
         logger.info("[Order] Place order for {} cents: {}", amountCents, sku)
 
         val order = orderRepository.save(Order.place(sku = sku, amountCents = amountCents))

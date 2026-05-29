@@ -10,6 +10,11 @@ class OrderPlacedEventListener(
 ) {
     @ApplicationModuleListener
     fun on(event: OrderPlacedEvent) {
-        paymentService.requestPayment(orderId = event.orderId, amountCents = event.amountCents)
+        paymentService.requestPayment(
+            RequestPaymentCommand(
+                orderId = event.orderId,
+                amountCents = event.amountCents,
+            ),
+        )
     }
 }

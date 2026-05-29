@@ -26,10 +26,14 @@ dependencyManagement {
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
     implementation("org.springframework.modulith:spring-modulith-starter-jpa")
     implementation("org.springframework.modulith:spring-modulith-events-kafka")
+    implementation("org.springframework.modulith:spring-modulith-starter-insight")
     implementation("org.springframework.modulith:spring-modulith-starter-namastack")
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.6.0")
+    implementation("io.namastack:namastack-outbox-starter-jpa:1.6.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-observability:1.6.0-SNAPSHOT")
     runtimeOnly("com.h2database:h2")
 }
 

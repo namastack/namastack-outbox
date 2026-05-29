@@ -14,10 +14,9 @@ class PaymentService(
     private val logger = LoggerFactory.getLogger(PaymentService::class.java)
 
     @Transactional
-    fun requestPayment(
-        orderId: UUID,
-        amountCents: Long,
-    ): Payment {
+    fun requestPayment(command: RequestPaymentCommand): Payment {
+        val (orderId, amountCents) = command
+
         logger.info("[Payment] Request payment for order {}", orderId)
 
         val payment = paymentRepository.save(Payment.request(orderId = orderId, amountCents = amountCents))
