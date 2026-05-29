@@ -1,15 +1,7 @@
 import React from "react";
-import { useColorMode } from '@docusaurus/theme-common'
 import styles from "./styles.module.css";
 
 const HowItWorks: React.FC = () => {
-  const { colorMode } = useColorMode();
-
-  const imageSrc =
-    colorMode === "dark"
-      ? "/outbox/img/landing/diagram_dark.svg"
-      : "/outbox/img/landing/diagram_light.svg";
-
   return (
     <section className={`padding-vert--xl ${styles.wrapper}`}>
       <div className="container">
@@ -71,9 +63,14 @@ const HowItWorks: React.FC = () => {
 
           <div className="col col--6 text--center">
             <img
-              src={imageSrc}
+              src="/outbox/img/landing/diagram_light.svg"
               alt="Outbox architecture diagram"
-              className={styles.diagramImage}
+              className={`${styles.diagramImage} ${styles.lightDiagram}`}
+            />
+            <img
+              src="/outbox/img/landing/diagram_dark.svg"
+              alt="Outbox architecture diagram"
+              className={`${styles.diagramImage} ${styles.darkDiagram}`}
             />
           </div>
 
