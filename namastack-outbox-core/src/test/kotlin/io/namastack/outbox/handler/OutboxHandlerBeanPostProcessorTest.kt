@@ -5,6 +5,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.CustomerOutboxRetryPolicy
 import io.namastack.outbox.HandlerBeanFactory
+import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
@@ -362,6 +363,72 @@ class OutboxHandlerBeanPostProcessorTest {
             return proxyFactory.proxy
         }
     }
+
+    @Nested
+    @DisplayName("Logical ID and legacy-alias-mode")
+    inner class LogicalIdAliasTests {
+        private val realHandlerRegistry = OutboxHandlerRegistry()
+        private val realFallbackRegistry = OutboxFallbackHandlerRegistry()
+
+        @Test
+        fun `fqcnId is registered as alias when logical id is set and mode is AUTO`() {
+            val processor =
+                OutboxHandlerBeanPostProcessor(
+                    realHandlerRegistry,
+                    realFallbackRegistry,
+                    retryPolicyRegistry,
+                    OutboxProperties.LegacyAliasMode.AUTO,
+                )
+            processor.postProcessAfterInitialization(OpenHandlerWithLogicalId(), "bean")
+
+            val handler = realHandlerRegistry.getHandlersForPayloadType(String::class).first()
+            assertThat(handler.id).isEqualTo("orders.process")
+            assertThat(realHandlerRegistry.getHandlerById("orders.process")).isNotNull
+            assertThat(realHandlerRegistry.getHandlerById(handler.fqcnId)).isNotNull
+        }
+
+        @Test
+        fun `fqcnId and legacyId are NOT registered as aliases when mode is DISABLED`() {
+            val processor =
+                OutboxHandlerBeanPostProcessor(
+                    realHandlerRegistry,
+                    realFallbackRegistry,
+                    retryPolicyRegistry,
+                    OutboxProperties.LegacyAliasMode.DISABLED,
+                )
+            val target = OpenHandlerWithLogicalId()
+            val proxy = createCglibProxy(target)
+            processor.postProcessAfterInitialization(proxy, "bean")
+
+            val handler = realHandlerRegistry.getHandlersForPayloadType(String::class).first()
+            assertThat(handler.id).isEqualTo("orders.process")
+            assertThat(realHandlerRegistry.getHandlerById("orders.process")).isNotNull
+            assertThat(realHandlerRegistry.getHandlerById(handler.fqcnId)).isNull()
+            assertThat(realHandlerRegistry.getHandlerById(handler.legacyId)).isNull()
+        }
+
+        @Test
+        fun `explicit aliases are registered even when mode is DISABLED`() {
+            val processor =
+                OutboxHandlerBeanPostProcessor(
+                    realHandlerRegistry,
+                    realFallbackRegistry,
+                    retryPolicyRegistry,
+                    OutboxProperties.LegacyAliasMode.DISABLED,
+                )
+            processor.postProcessAfterInitialization(OpenHandlerWithAliases(), "bean")
+
+            assertThat(realHandlerRegistry.getHandlerById("orders.v2")).isNotNull
+            assertThat(realHandlerRegistry.getHandlerById("orders.v1.legacy")).isNotNull
+        }
+
+        private fun createCglibProxy(target: Any): Any {
+            val proxyFactory = ProxyFactory(target)
+            proxyFactory.isProxyTargetClass = true
+            proxyFactory.addAdvice(MethodInterceptor { it.proceed() })
+            return proxyFactory.proxy
+        }
+    }
 }
 
 @Suppress("UNUSED_PARAMETER")
@@ -389,4 +456,16 @@ open class OpenAnnotatedTypedHandlerWithFallback {
         context: OutboxFailureContext,
     ) {
     }
+}
+
+@Suppress("UNUSED_PARAMETER")
+open class OpenHandlerWithLogicalId {
+    @io.namastack.outbox.annotation.OutboxHandler(id = "orders.process")
+    open fun handle(payload: String) {}
+}
+
+@Suppress("UNUSED_PARAMETER")
+open class OpenHandlerWithAliases {
+    @io.namastack.outbox.annotation.OutboxHandler(id = "orders.v2", aliases = ["orders.v1.legacy"])
+    open fun handle(payload: String) {}
 }
