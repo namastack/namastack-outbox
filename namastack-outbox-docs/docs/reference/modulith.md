@@ -351,6 +351,14 @@ need to define your own outbox handler. The outbox handler is automatically prov
 You can simply adjust the default retry policy and other outbox settings via configuration
 properties to fit your requirements.
 
+:::info Multicaster precedence
+
+The `modulith-namastack` module disables Namastack Outbox's `OutboxEventMulticaster`. Spring
+Modulith's event multicaster takes precedence and is responsible for routing externalized events
+through the outbox integration.
+
+:::
+
 See [Retry Policy](./retry.md) for details on customizing default retry behavior.
 
 ---
