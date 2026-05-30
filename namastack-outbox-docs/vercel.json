@@ -1,4 +1,3 @@
 {
-  "installCommand": "npm ci",
-  "trailingSlash": true
+  "installCommand": "npm ci"
 }
