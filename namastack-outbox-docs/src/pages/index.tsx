@@ -60,7 +60,7 @@ function HomepageHeader() {
               <div className={clsx(styles.buttons, "text--center margin-top--md")}>
                 <Link
                   className="button button--secondary button--lg"
-                  to="/quickstart">
+                  to="/quickstart/">
                   Getting started
                   <IconJetpackFilled />
                 </Link>
