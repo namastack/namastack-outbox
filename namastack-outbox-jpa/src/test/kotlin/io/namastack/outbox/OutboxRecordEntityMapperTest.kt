@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.namastack.outbox.event.OutboxEventTypeRegistry
 import io.namastack.outbox.event.OutboxRecordTypeResolver
+import io.namastack.outbox.serializer.OutboxPayloadSerializerRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.entry
 import org.junit.jupiter.api.DisplayName
@@ -16,7 +17,8 @@ import java.util.UUID
 class OutboxRecordEntityMapperTest {
     private val innerJsonMapper = jsonMapper { addModule(kotlinModule()) }
     private val serializer = JacksonOutboxPayloadSerializer(innerJsonMapper)
-    private val mapper = OutboxRecordEntityMapper(serializer, OutboxRecordTypeResolver(OutboxEventTypeRegistry()))
+    private val registry = OutboxPayloadSerializerRegistry(serializer, emptyMap())
+    private val mapper = OutboxRecordEntityMapper(registry, OutboxRecordTypeResolver(OutboxEventTypeRegistry()))
 
     data class OrderCreatedEvent(
         val orderId: String,

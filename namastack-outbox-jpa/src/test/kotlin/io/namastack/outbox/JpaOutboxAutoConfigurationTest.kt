@@ -5,6 +5,7 @@ import io.namastack.outbox.event.OutboxEventTypeRegistry
 import io.namastack.outbox.event.OutboxRecordTypeResolver
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
+import io.namastack.outbox.serializer.OutboxPayloadSerializerRegistry
 import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
 import org.assertj.core.api.Assertions
@@ -202,7 +203,8 @@ class JpaOutboxAutoConfigurationTest {
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
 
         @Bean
-        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+        fun outboxPayloadSerializerRegistry(): OutboxPayloadSerializerRegistry =
+            OutboxPayloadSerializerRegistry(mockk(relaxed = true), emptyMap())
 
         @Bean
         fun clock(): Clock = Clock.systemUTC()
@@ -220,7 +222,8 @@ class JpaOutboxAutoConfigurationTest {
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
 
         @Bean
-        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+        fun outboxPayloadSerializerRegistry(): OutboxPayloadSerializerRegistry =
+            OutboxPayloadSerializerRegistry(mockk(relaxed = true), emptyMap())
 
         @Bean
         fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
@@ -235,7 +238,8 @@ class JpaOutboxAutoConfigurationTest {
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
 
         @Bean
-        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+        fun outboxPayloadSerializerRegistry(): OutboxPayloadSerializerRegistry =
+            OutboxPayloadSerializerRegistry(mockk(relaxed = true), emptyMap())
 
         @Bean
         fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
@@ -253,7 +257,8 @@ class JpaOutboxAutoConfigurationTest {
         fun clock(): Clock = Clock.systemUTC()
 
         @Bean
-        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+        fun outboxPayloadSerializerRegistry(): OutboxPayloadSerializerRegistry =
+            OutboxPayloadSerializerRegistry(mockk(relaxed = true), emptyMap())
 
         @Bean
         fun transactionManager(): PlatformTransactionManager = mockk(relaxed = true)
@@ -265,7 +270,8 @@ class JpaOutboxAutoConfigurationTest {
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
 
         @Bean
-        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+        fun outboxPayloadSerializerRegistry(): OutboxPayloadSerializerRegistry =
+            OutboxPayloadSerializerRegistry(mockk(relaxed = true), emptyMap())
 
         @Bean
         fun clock(): Clock = Clock.systemUTC()
@@ -277,7 +283,8 @@ class JpaOutboxAutoConfigurationTest {
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
 
         @Bean
-        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+        fun outboxPayloadSerializerRegistry(): OutboxPayloadSerializerRegistry =
+            OutboxPayloadSerializerRegistry(mockk(relaxed = true), emptyMap())
 
         @Bean
         fun clock(): Clock = Clock.systemUTC()
@@ -298,7 +305,8 @@ class JpaOutboxAutoConfigurationTest {
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
 
         @Bean
-        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+        fun outboxPayloadSerializerRegistry(): OutboxPayloadSerializerRegistry =
+            OutboxPayloadSerializerRegistry(mockk(relaxed = true), emptyMap())
 
         @Bean
         fun clock(): Clock = Clock.systemUTC()
@@ -319,7 +327,8 @@ class JpaOutboxAutoConfigurationTest {
         fun entityManagerFactory(): EntityManagerFactory = mockk(relaxed = true)
 
         @Bean
-        fun outboxRecordSerializer(): OutboxPayloadSerializer = mockk(relaxed = true)
+        fun outboxPayloadSerializerRegistry(): OutboxPayloadSerializerRegistry =
+            OutboxPayloadSerializerRegistry(mockk(relaxed = true), emptyMap())
 
         @Bean
         fun clock(): Clock = Clock.systemUTC()

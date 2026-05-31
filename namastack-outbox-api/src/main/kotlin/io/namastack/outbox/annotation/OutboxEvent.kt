@@ -1,5 +1,8 @@
 package io.namastack.outbox.annotation
 
+import io.namastack.outbox.OutboxPayloadSerializer
+import kotlin.reflect.KClass
+
 /**
  * Marks a payload class for automatic outbox persistence.
  *
@@ -132,6 +135,9 @@ package io.namastack.outbox.annotation
  *             Java class FQCN is used unchanged. Must not contain `#`, `,`, `(`, `)`, or whitespace.
  * @param aliases Additional names (or old FQCNs) that should deserialize to this class. Useful for rows
  *                written before the class was renamed or moved.
+ * @param serializer The serializer to use for this payload type. Defaults to [OutboxPayloadSerializer]
+ *                   (the interface itself) which signals "use the global default". Set to a concrete
+ *                   implementation class to override per event type.
  *
  * @author Roland Beisel, Aleksander Zamojski
  * @since 0.3.0
@@ -144,6 +150,7 @@ annotation class OutboxEvent(
     val context: Array<OutboxContextEntry> = [],
     val name: String = "",
     val aliases: Array<String> = [],
+    val serializer: KClass<out OutboxPayloadSerializer> = OutboxPayloadSerializer::class,
 ) {
     /**
      * Defines a key-value pair to be added to the outbox record context.

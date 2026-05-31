@@ -5,12 +5,12 @@ import io.namastack.outbox.MongoOutboxInstanceRepository
 import io.namastack.outbox.MongoOutboxPartitionAssignmentRepository
 import io.namastack.outbox.MongoOutboxRecordEntityMapper
 import io.namastack.outbox.MongoOutboxRecordRepository
-import io.namastack.outbox.OutboxPayloadSerializer
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.event.OutboxRecordTypeResolver
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
+import io.namastack.outbox.serializer.OutboxPayloadSerializerRegistry
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -105,9 +105,9 @@ class MongoOutboxAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     internal fun mongoOutboxRecordEntityMapper(
-        payloadSerializer: OutboxPayloadSerializer,
+        registry: OutboxPayloadSerializerRegistry,
         recordTypeResolver: OutboxRecordTypeResolver,
-    ): MongoOutboxRecordEntityMapper = MongoOutboxRecordEntityMapper(payloadSerializer, recordTypeResolver)
+    ): MongoOutboxRecordEntityMapper = MongoOutboxRecordEntityMapper(registry, recordTypeResolver)
 
     /**
      * Creates a MongoDB-based outbox record repository.

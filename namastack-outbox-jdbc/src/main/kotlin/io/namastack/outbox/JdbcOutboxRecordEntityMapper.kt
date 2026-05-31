@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.event.OutboxRecordTypeResolver
+import io.namastack.outbox.serializer.OutboxPayloadSerializerRegistry
 
 /**
  * Mapper utility for converting between OutboxRecord domain objects and JdbcOutboxRecordEntity entities.
@@ -12,24 +13,18 @@ import io.namastack.outbox.event.OutboxRecordTypeResolver
  * @since 1.0.0
  */
 internal class JdbcOutboxRecordEntityMapper(
-    private val serializer: OutboxPayloadSerializer,
+    private val registry: OutboxPayloadSerializerRegistry,
     private val recordTypeResolver: OutboxRecordTypeResolver,
 ) {
-    /**
-     * Maps an OutboxRecord domain object to an JdbcOutboxRecordEntity entity.
-     *
-     * @param record The domain object to convert
-     * @return Corresponding entity
-     */
     fun map(record: OutboxRecord<*>): JdbcOutboxRecordEntity {
         val payload = record.payload ?: throw IllegalArgumentException("record payload cannot be null")
 
-        val serializedPayload = serializer.serialize(payload)
+        val serializedPayload = registry.forType(payload.javaClass).serialize(payload)
         val recordType = recordTypeResolver.toRecordType(payload)
         val serializedContext =
             record.context
                 .takeIf { it.isNotEmpty() }
-                ?.let { serializer.serialize(it) }
+                ?.let { registry.default.serialize(it) }
 
         return JdbcOutboxRecordEntity(
             id = record.id,
@@ -48,20 +43,14 @@ internal class JdbcOutboxRecordEntityMapper(
         )
     }
 
-    /**
-     * Maps an JdbcOutboxRecordEntity entity to an OutboxRecord domain object.
-     *
-     * @param entity The entity to convert
-     * @return Corresponding domain object
-     */
     fun map(entity: JdbcOutboxRecordEntity): OutboxRecord<*> {
         val clazz = recordTypeResolver.resolveClass(entity.recordType)
-        val payload = serializer.deserialize(entity.payload, clazz)
+        val payload = registry.forType(clazz).deserialize(entity.payload, clazz)
 
         @Suppress("UNCHECKED_CAST")
         val context =
             entity.context
-                ?.let { serializer.deserialize(it, Map::class.java as Class<Map<String, String>>) }
+                ?.let { registry.default.deserialize(it, Map::class.java as Class<Map<String, String>>) }
                 ?: emptyMap()
 
         return OutboxRecord.restore(

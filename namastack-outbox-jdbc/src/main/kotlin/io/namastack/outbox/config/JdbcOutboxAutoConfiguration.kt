@@ -5,12 +5,12 @@ import io.namastack.outbox.JdbcOutboxPartitionAssignmentRepository
 import io.namastack.outbox.JdbcOutboxRecordEntityMapper
 import io.namastack.outbox.JdbcOutboxRecordRepository
 import io.namastack.outbox.JdbcTableNameResolver
-import io.namastack.outbox.OutboxPayloadSerializer
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
 import io.namastack.outbox.event.OutboxRecordTypeResolver
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
+import io.namastack.outbox.serializer.OutboxPayloadSerializerRegistry
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -121,15 +121,15 @@ class JdbcOutboxAutoConfiguration {
     /**
      * Creates the entity mapper for outbox records.
      *
-     * @param recordSerializer Serializer for payload and context
+     * @param registry Serializer registry for routing payloads to the correct serializer
      * @return Mapper for converting between domain objects and entities
      */
     @Bean
     @ConditionalOnMissingBean
     internal fun outboxRecordEntityMapper(
-        recordSerializer: OutboxPayloadSerializer,
+        registry: OutboxPayloadSerializerRegistry,
         recordTypeResolver: OutboxRecordTypeResolver,
-    ): JdbcOutboxRecordEntityMapper = JdbcOutboxRecordEntityMapper(recordSerializer, recordTypeResolver)
+    ): JdbcOutboxRecordEntityMapper = JdbcOutboxRecordEntityMapper(registry, recordTypeResolver)
 
     /**
      * Creates a JDBC-based outbox instance repository.

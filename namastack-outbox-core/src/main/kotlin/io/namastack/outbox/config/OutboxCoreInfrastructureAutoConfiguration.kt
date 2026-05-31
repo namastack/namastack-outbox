@@ -2,6 +2,7 @@ package io.namastack.outbox.config
 
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.Outbox
+import io.namastack.outbox.OutboxPayloadSerializer
 import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
@@ -24,6 +25,8 @@ import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
+import io.namastack.outbox.serializer.OutboxPayloadSerializerRegistry
+import io.namastack.outbox.serializer.OutboxSerializerRegistrar
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.config.BeanDefinition
@@ -120,6 +123,19 @@ class OutboxCoreInfrastructureAutoConfiguration {
     @ConditionalOnMissingBean(name = ["outboxRetryPolicyBuilder"])
     fun defaultOutboxRetryPolicyBuilder(properties: OutboxProperties): OutboxRetryPolicy.Builder =
         OutboxRetryPolicyFactory.createDefault(retryProperties = properties.retry)
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxSerializerRegistrar(properties: OutboxProperties): OutboxSerializerRegistrar =
+        OutboxSerializerRegistrar(properties.eventScanPackages)
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxPayloadSerializerRegistry(
+        defaultSerializer: OutboxPayloadSerializer,
+        registrar: OutboxSerializerRegistrar,
+    ): OutboxPayloadSerializerRegistry =
+        OutboxPayloadSerializerRegistry(defaultSerializer, registrar.buildSerializerMap())
 
     @Bean
     @ConditionalOnMissingBean

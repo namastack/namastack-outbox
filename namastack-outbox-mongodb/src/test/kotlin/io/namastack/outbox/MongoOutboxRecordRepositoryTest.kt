@@ -45,8 +45,11 @@ class MongoOutboxRecordRepositoryTest {
 
         val mapper = JsonMapper.builder().addModule(kotlinModule()).build()
         val serializer = JacksonOutboxPayloadSerializer(mapper)
+        val registry =
+            io.namastack.outbox.serializer
+                .OutboxPayloadSerializerRegistry(serializer, emptyMap())
         val entityMapper =
-            MongoOutboxRecordEntityMapper(serializer, OutboxRecordTypeResolver(OutboxEventTypeRegistry()))
+            MongoOutboxRecordEntityMapper(registry, OutboxRecordTypeResolver(OutboxEventTypeRegistry()))
 
         repository =
             MongoOutboxRecordRepository(
