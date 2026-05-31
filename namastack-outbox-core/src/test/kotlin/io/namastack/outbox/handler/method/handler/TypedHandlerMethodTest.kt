@@ -233,6 +233,16 @@ class TypedHandlerMethodTest {
                 .isInstanceOf(IllegalArgumentException::class.java)
                 .hasMessageContaining("reserved characters")
         }
+
+        @Test
+        fun `setting both name and value throws at construction`() {
+            val handler = HandlerWithBothNameAndValue()
+            val method = HandlerWithBothNameAndValue::class.java.getMethod("handle", String::class.java)
+
+            assertThatThrownBy { TypedHandlerMethod(handler, method) }
+                .isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("use either 'name' or 'value', not both")
+        }
     }
 
     @Nested
@@ -334,6 +344,11 @@ class TypedHandlerMethodTest {
 
     class HandlerWithInvalidId {
         @OutboxHandler(name = "bad#id")
+        fun handle(payload: String) {}
+    }
+
+    class HandlerWithBothNameAndValue {
+        @OutboxHandler(name = "orders.new", value = "orders.old")
         fun handle(payload: String) {}
     }
 }

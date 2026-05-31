@@ -55,6 +55,10 @@ abstract class BaseHandlerMethod(
     private fun readAnnotation(): Pair<String?, List<String>> {
         val onMethod = method.getAnnotation(OutboxHandler::class.java)
         if (onMethod != null) {
+            require(onMethod.name.isBlank() || onMethod.value.isBlank()) {
+                "@OutboxHandler on ${method.declaringClass.name}#${method.name}: " +
+                    "use either 'name' or 'value', not both"
+            }
             val logicalId = (onMethod.name.ifBlank { onMethod.value }).trim().takeIf { it.isNotEmpty() }
             return logicalId to onMethod.aliases.map { it.trim() }.filter { it.isNotEmpty() }
         }
