@@ -302,7 +302,7 @@ class OutboxHandlerRegistryTest {
     @DisplayName("Logical ID registration")
     inner class LogicalIdRegistrationTests {
         @Test
-        fun `primary id is the logical name when @OutboxHandler(id) is set`() {
+        fun `primary id is the logical name when @OutboxHandler(name) is set`() {
             val handler = typedMethod(HandlerWithLogicalId(), "handle", String::class.java)
             registry.register(handler)
 
@@ -356,17 +356,17 @@ class OutboxHandlerRegistryTest {
     class UnregisteredPayload
 
     class HandlerWithLogicalId {
-        @OutboxHandler(id = "orders.logical")
+        @OutboxHandler(name = "orders.logical")
         fun handle(payload: String) {}
     }
 
     class HandlerWithSameLogicalId {
-        @OutboxHandler(id = "orders.logical")
+        @OutboxHandler(name = "orders.logical")
         fun handle(payload: String) {}
     }
 
     class HandlerWithExplicitAlias {
-        @OutboxHandler(id = "orders.v2", aliases = ["orders.v1.alias"])
+        @OutboxHandler(name = "orders.v2", aliases = ["orders.v1.alias"])
         fun handle(payload: String) {}
     }
 }

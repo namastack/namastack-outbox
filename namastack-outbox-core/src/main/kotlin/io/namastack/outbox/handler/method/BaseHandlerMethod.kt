@@ -26,8 +26,8 @@ abstract class BaseHandlerMethod(
 
     /**
      * Primary identifier used for routing and persistence.
-     * Returns the stable logical ID if one was declared via `@OutboxHandler(id=…)` or
-     * `@OutboxHandlerId(…)`; otherwise falls back to [fqcnId].
+     * Returns the stable logical ID if one was declared via `@OutboxHandler(name=…)` /
+     * `@OutboxHandler("…")` or `@OutboxHandlerId(value=…)`; otherwise falls back to [fqcnId].
      */
     val id: String
 
@@ -55,7 +55,7 @@ abstract class BaseHandlerMethod(
     private fun readAnnotation(): Pair<String?, List<String>> {
         val onMethod = method.getAnnotation(OutboxHandler::class.java)
         if (onMethod != null) {
-            val logicalId = onMethod.id.trim().takeIf { it.isNotEmpty() }
+            val logicalId = (onMethod.name.ifBlank { onMethod.value }).trim().takeIf { it.isNotEmpty() }
             return logicalId to onMethod.aliases.map { it.trim() }.filter { it.isNotEmpty() }
         }
         val onClass = ReflectionUtils.getTargetClass(bean).getAnnotation(OutboxHandlerId::class.java)

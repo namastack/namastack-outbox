@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Annotated method handler demonstrating stable {@code handler_id} via
- * {@code @OutboxHandler(id = "...")}.
+ * {@code @OutboxHandler(name ="...")}.
  *
  * <p>Each method gets its own logical id. Rows written as
  * {@code "handlers.customer.registered"} or {@code "handlers.customer.removed"}
@@ -21,13 +21,13 @@ public class CustomerEventHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(CustomerEventHandler.class);
 
-    @OutboxHandler(id = "handlers.customer.registered")
+    @OutboxHandler(name ="handlers.customer.registered")
     public void onRegistered(CustomerRegisteredEvent event, OutboxRecordMetadata metadata) {
         logger.debug("[CustomerEventHandler] Publishing CustomerRegisteredEvent for key: {}", metadata.getKey());
         ExternalBroker.publish(event, metadata.getKey());
     }
 
-    @OutboxHandler(id = "handlers.customer.removed")
+    @OutboxHandler(name ="handlers.customer.removed")
     public void onRemoved(CustomerRemovedEvent event, OutboxRecordMetadata metadata) {
         logger.debug("[CustomerEventHandler] Publishing CustomerRemovedEvent for key: {}", metadata.getKey());
         ExternalBroker.publish(event, metadata.getKey());

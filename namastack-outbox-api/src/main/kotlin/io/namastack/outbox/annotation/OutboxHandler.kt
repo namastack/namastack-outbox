@@ -42,10 +42,10 @@ package io.namastack.outbox.annotation
  * and parameter FQCNs.  Renaming or moving the handler class (or any event class in the
  * method signature) causes pending outbox rows to fail dispatch.
  *
- * Set `id` to decouple the persisted ID from Java package structure:
+ * Set `name` to decouple the persisted ID from Java package structure:
  *
  * ```kotlin
- * @OutboxHandler(id = "orders.processor")
+ * @OutboxHandler(name = "orders.processor")
  * fun handle(payload: OrderCreatedEvent) { ... }
  * ```
  *
@@ -54,7 +54,7 @@ package io.namastack.outbox.annotation
  *
  * ```kotlin
  * @OutboxHandler(
- *     id = "orders.processor",
+ *     name = "orders.processor",
  *     aliases = ["com.acme.v1.OrderHandler#handle(com.acme.order.OrderCreatedEvent)"]
  * )
  * fun handle(payload: OrderCreatedEvent) { ... }
@@ -72,8 +72,12 @@ package io.namastack.outbox.annotation
  *
  * Use EITHER annotations OR interfaces per bean, not both.
  *
- * @param id Optional stable logical handler identifier. When blank (the default), the FQCN-based
- *           ID is used unchanged. Must not contain `#`, `,`, `(`, `)`, or whitespace.
+ * @param name Optional stable logical handler identifier. When blank (the default), the FQCN-based
+ *             ID is used unchanged. Must not contain `#`, `,`, `(`, `)`, or whitespace.
+ *             Equivalent to [value] — `@OutboxHandler("orders.process")` and
+ *             `@OutboxHandler(name = "orders.process")` are interchangeable; [name] wins
+ *             when both are set.
+ * @param value Shorthand alias for [name] — enables positional syntax `@OutboxHandler("orders.process")`.
  * @param aliases Additional identifiers that should resolve to this handler. Use these to absorb
  *                old FQCN-based IDs written before a class or method rename.
  *
@@ -87,6 +91,7 @@ package io.namastack.outbox.annotation
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class OutboxHandler(
-    val id: String = "",
+    val name: String = "",
+    val value: String = "",
     val aliases: Array<String> = [],
 )

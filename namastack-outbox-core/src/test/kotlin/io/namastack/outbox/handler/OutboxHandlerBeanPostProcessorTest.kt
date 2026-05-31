@@ -460,12 +460,12 @@ open class OpenAnnotatedTypedHandlerWithFallback {
 
 @Suppress("UNUSED_PARAMETER")
 open class OpenHandlerWithLogicalId {
-    @io.namastack.outbox.annotation.OutboxHandler(id = "orders.process")
+    @io.namastack.outbox.annotation.OutboxHandler(name = "orders.process")
     open fun handle(payload: String) {}
 }
 
 @Suppress("UNUSED_PARAMETER")
 open class OpenHandlerWithAliases {
-    @io.namastack.outbox.annotation.OutboxHandler(id = "orders.v2", aliases = ["orders.v1.legacy"])
+    @io.namastack.outbox.annotation.OutboxHandler(name = "orders.v2", aliases = ["orders.v1.legacy"])
     open fun handle(payload: String) {}
 }

@@ -178,7 +178,7 @@ class TypedHandlerMethodTest {
     @DisplayName("Logical ID")
     inner class LogicalIdTests {
         @Test
-        fun `id uses logical name from @OutboxHandler(id) on method`() {
+        fun `id uses logical name from @OutboxHandler(name) on method`() {
             val handler = HandlerWithMethodAnnotation()
             val method = HandlerWithMethodAnnotation::class.java.getMethod("handle", String::class.java)
             val typedHandler = TypedHandlerMethod(handler, method)
@@ -314,7 +314,7 @@ class TypedHandlerMethodTest {
     )
 
     class HandlerWithMethodAnnotation {
-        @OutboxHandler(id = "orders.process")
+        @OutboxHandler(name = "orders.process")
         fun handle(payload: String) {}
     }
 
@@ -328,12 +328,12 @@ class TypedHandlerMethodTest {
     }
 
     class HandlerWithAliases {
-        @OutboxHandler(id = "orders.new", aliases = ["com.old.Handler.handle"])
+        @OutboxHandler(name = "orders.new", aliases = ["com.old.Handler.handle"])
         fun handle(payload: String) {}
     }
 
     class HandlerWithInvalidId {
-        @OutboxHandler(id = "bad#id")
+        @OutboxHandler(name = "bad#id")
         fun handle(payload: String) {}
     }
 }
