@@ -1,5 +1,7 @@
 package io.namastack.outbox.annotation
 
+import org.springframework.core.annotation.AliasFor
+
 /**
  * Marks a method as an outbox record handler.
  *
@@ -91,7 +93,9 @@ package io.namastack.outbox.annotation
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class OutboxHandler(
+    @get:AliasFor("value")
     val name: String = "",
+    @get:AliasFor("name")
     val value: String = "",
     val aliases: Array<String> = [],
 )

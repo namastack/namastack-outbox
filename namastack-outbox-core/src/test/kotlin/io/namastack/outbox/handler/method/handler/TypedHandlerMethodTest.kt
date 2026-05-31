@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.aop.framework.ProxyFactory
+import org.springframework.core.annotation.AnnotationConfigurationException
 
 @DisplayName("TypedHandlerMethod")
 class TypedHandlerMethodTest {
@@ -235,13 +236,12 @@ class TypedHandlerMethodTest {
         }
 
         @Test
-        fun `setting both name and value throws at construction`() {
+        fun `setting both name and value to different values throws at construction`() {
             val handler = HandlerWithBothNameAndValue()
             val method = HandlerWithBothNameAndValue::class.java.getMethod("handle", String::class.java)
 
             assertThatThrownBy { TypedHandlerMethod(handler, method) }
-                .isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("use either 'name' or 'value', not both")
+                .isInstanceOf(AnnotationConfigurationException::class.java)
         }
     }
 

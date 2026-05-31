@@ -4,6 +4,7 @@ import io.namastack.outbox.annotation.OutboxHandler
 import io.namastack.outbox.annotation.OutboxHandlerId
 import io.namastack.outbox.event.LogicalNameValidator
 import io.namastack.outbox.handler.method.internal.ReflectionUtils
+import org.springframework.core.annotation.AnnotatedElementUtils
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 
@@ -53,13 +54,9 @@ abstract class BaseHandlerMethod(
     }
 
     private fun readAnnotation(): Pair<String?, List<String>> {
-        val onMethod = method.getAnnotation(OutboxHandler::class.java)
+        val onMethod = AnnotatedElementUtils.getMergedAnnotation(method, OutboxHandler::class.java)
         if (onMethod != null) {
-            require(onMethod.name.isBlank() || onMethod.value.isBlank()) {
-                "@OutboxHandler on ${method.declaringClass.name}#${method.name}: " +
-                    "use either 'name' or 'value', not both"
-            }
-            val logicalId = (onMethod.name.ifBlank { onMethod.value }).trim().takeIf { it.isNotEmpty() }
+            val logicalId = onMethod.name.trim().takeIf { it.isNotEmpty() }
             return logicalId to onMethod.aliases.map { it.trim() }.filter { it.isNotEmpty() }
         }
         val onClass = ReflectionUtils.getTargetClass(bean).getAnnotation(OutboxHandlerId::class.java)
