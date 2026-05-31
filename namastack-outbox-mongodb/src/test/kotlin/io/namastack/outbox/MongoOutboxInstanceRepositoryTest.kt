@@ -25,7 +25,7 @@ class MongoOutboxInstanceRepositoryTest {
     companion object {
         @JvmStatic
         val mongodb: MongoDBContainer =
-            MongoDBContainer("mongo:8.0.4")
+            MongoDBContainer("mongo:4.4")
                 .withReuse(true)
                 .withReplicaSet()
                 .apply { start() }
