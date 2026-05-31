@@ -22,7 +22,7 @@ class ExampleMongoSmokeTest {
     companion object {
         @Container
         @JvmStatic
-        val mongo = MongoDBContainer(DockerImageName.parse("mongo:8"))
+        val mongo = MongoDBContainer(DockerImageName.parse("mongo:4.4"))
 
         @JvmStatic
         @DynamicPropertySource
