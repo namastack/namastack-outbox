@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.namastack.outbox.config.JdbcOutboxAutoConfiguration
 import io.namastack.outbox.config.JdbcOutboxSchemaAutoConfiguration
+import io.namastack.outbox.config.OutboxCoreTestConfiguration
 import io.namastack.outbox.partition.PartitionAssignment
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
@@ -13,12 +14,14 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.jdbc.autoconfigure.JdbcClientAutoConfiguration
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest
+import org.springframework.context.annotation.Import
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Instant
 
 @JdbcTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Import(OutboxCoreTestConfiguration::class)
 @ImportAutoConfiguration(
     JdbcClientAutoConfiguration::class,
     JdbcOutboxAutoConfiguration::class,

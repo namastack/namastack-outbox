@@ -5,11 +5,11 @@ import io.namastack.outbox.JdbcOutboxPartitionAssignmentRepository
 import io.namastack.outbox.JdbcOutboxRecordEntityMapper
 import io.namastack.outbox.JdbcOutboxRecordRepository
 import io.namastack.outbox.JdbcTableNameResolver
-import io.namastack.outbox.OutboxPayloadSerializer
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
+import io.namastack.outbox.serializer.OutboxPayloadSerializerRegistry
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -125,8 +125,8 @@ class JdbcOutboxAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    internal fun outboxRecordEntityMapper(recordSerializer: OutboxPayloadSerializer): JdbcOutboxRecordEntityMapper =
-        JdbcOutboxRecordEntityMapper(recordSerializer)
+    internal fun outboxRecordEntityMapper(registry: OutboxPayloadSerializerRegistry): JdbcOutboxRecordEntityMapper =
+        JdbcOutboxRecordEntityMapper(registry)
 
     /**
      * Creates a JDBC-based outbox instance repository.

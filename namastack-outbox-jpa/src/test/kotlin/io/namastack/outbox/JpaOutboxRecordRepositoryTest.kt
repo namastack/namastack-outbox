@@ -6,6 +6,7 @@ import io.mockk.verify
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.config.OutboxCoreTestConfiguration
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.within
@@ -14,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
+import org.springframework.context.annotation.Import
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Instant
@@ -22,7 +24,11 @@ import java.time.temporal.ChronoUnit.MINUTES
 import java.util.UUID
 
 @DataJpaTest
-@ImportAutoConfiguration(JpaOutboxAutoConfiguration::class, OutboxJacksonAutoConfiguration::class)
+@Import(OutboxCoreTestConfiguration::class)
+@ImportAutoConfiguration(
+    JpaOutboxAutoConfiguration::class,
+    OutboxJacksonAutoConfiguration::class,
+)
 class JpaOutboxRecordRepositoryTest {
     private val clock: Clock = Clock.systemDefaultZone()
 

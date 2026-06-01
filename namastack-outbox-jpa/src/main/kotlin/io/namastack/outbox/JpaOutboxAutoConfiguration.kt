@@ -3,6 +3,7 @@ package io.namastack.outbox
 import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
+import io.namastack.outbox.serializer.OutboxPayloadSerializerRegistry
 import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
 import org.springframework.beans.factory.BeanFactory
@@ -128,6 +129,6 @@ class JpaOutboxAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    internal fun outboxRecordEntityMapper(recordSerializer: OutboxPayloadSerializer): OutboxRecordEntityMapper =
-        OutboxRecordEntityMapper(recordSerializer)
+    internal fun outboxRecordEntityMapper(registry: OutboxPayloadSerializerRegistry): OutboxRecordEntityMapper =
+        OutboxRecordEntityMapper(registry)
 }

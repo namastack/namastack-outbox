@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.OutboxCoreTestConfiguration
 import io.namastack.outbox.partition.PartitionAssignment
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
@@ -10,11 +11,16 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager
+import org.springframework.context.annotation.Import
 import java.time.Clock
 import java.time.Instant
 
 @DataJpaTest
-@ImportAutoConfiguration(JpaOutboxAutoConfiguration::class, OutboxJacksonAutoConfiguration::class)
+@Import(OutboxCoreTestConfiguration::class)
+@ImportAutoConfiguration(
+    JpaOutboxAutoConfiguration::class,
+    OutboxJacksonAutoConfiguration::class,
+)
 class JpaOutboxPartitionAssignmentRepositoryTest {
     @Autowired
     private lateinit var partitionAssignmentRepository: PartitionAssignmentRepository

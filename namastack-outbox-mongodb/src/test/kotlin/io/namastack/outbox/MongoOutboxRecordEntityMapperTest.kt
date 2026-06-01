@@ -10,7 +10,11 @@ import java.util.UUID
 
 class MongoOutboxRecordEntityMapperTest {
     private val serializer = mockk<OutboxPayloadSerializer>()
-    private val mapper = MongoOutboxRecordEntityMapper(serializer)
+    private val mapper =
+        MongoOutboxRecordEntityMapper(
+            io.namastack.outbox.serializer
+                .OutboxPayloadSerializerRegistry(serializer),
+        )
 
     @Test
     fun `maps domain record to entity`() {

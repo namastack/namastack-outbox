@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.OutboxCoreTestConfiguration
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceStatus
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
@@ -12,13 +13,18 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
+import org.springframework.context.annotation.Import
 import java.time.Clock
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.time.temporal.ChronoUnit.MINUTES
 
 @DataJpaTest
-@ImportAutoConfiguration(JpaOutboxAutoConfiguration::class, OutboxJacksonAutoConfiguration::class)
+@Import(OutboxCoreTestConfiguration::class)
+@ImportAutoConfiguration(
+    JpaOutboxAutoConfiguration::class,
+    OutboxJacksonAutoConfiguration::class,
+)
 class JpaOutboxInstanceRepositoryTest {
     private val clock: Clock = Clock.systemDefaultZone()
 

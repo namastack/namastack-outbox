@@ -1,5 +1,8 @@
 package io.namastack.outbox.annotation
 
+import io.namastack.outbox.OutboxPayloadSerializer
+import kotlin.reflect.KClass
+
 /**
  * Marks a payload class for automatic outbox persistence.
  *
@@ -90,6 +93,9 @@ package io.namastack.outbox.annotation
  * ```
  *
  * @param key Optional SpEL expression to extract the record key from the event. Must evaluate to a String value.
+ * @param serializer The serializer to use for this payload type. Defaults to [OutboxPayloadSerializer] (the interface
+ *                   itself) which signals "use the global default". Set to a concrete implementation class to override
+ *                   per event type. The class must have a public no-arg constructor.
  * @param context Optional array of context entries to be added to the outbox record. Each entry contains a key-value
  *                pair where the value can be a SpEL expression evaluated against the event payload. Context metadata
  *                is persisted with the outbox record and can be used for tracing, debugging, or filtering.
@@ -108,6 +114,7 @@ package io.namastack.outbox.annotation
 annotation class OutboxEvent(
     val key: String = "",
     val context: Array<OutboxContextEntry> = [],
+    val serializer: KClass<out OutboxPayloadSerializer> = OutboxPayloadSerializer::class,
 ) {
     /**
      * Defines a key-value pair to be added to the outbox record context.
