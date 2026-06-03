@@ -1,6 +1,6 @@
 [versions]
 # Kotlin and Plugin versions
-kotlin = "2.3.21"
+kotlin = "2.4.0"
 springBoot = "4.0.6"
 springCloudAws = "4.0.2"
 dependencyManagement = "1.1.7"
