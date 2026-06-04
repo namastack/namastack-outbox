@@ -6,7 +6,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.springframework.amqp.rabbit.core.RabbitMessageOperations
+import org.springframework.amqp.rabbit.core.RabbitTemplate
 import org.springframework.beans.factory.NoSuchBeanDefinitionException
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
@@ -26,7 +26,7 @@ class RabbitOutboxAutoConfigurationTest {
         @Test
         fun `creates default RabbitOutboxRouting bean`() {
             contextRunner()
-                .withUserConfiguration(ConfigWithRabbitMessageOperations::class.java)
+                .withUserConfiguration(ConfigWithRabbitTemplate::class.java)
                 .run { context ->
                     assertThat(context).hasSingleBean(RabbitOutboxRouting::class.java)
                 }
@@ -36,7 +36,7 @@ class RabbitOutboxAutoConfigurationTest {
         fun `does not create routing configuration when one is already provided`() {
             contextRunner()
                 .withUserConfiguration(
-                    ConfigWithRabbitMessageOperations::class.java,
+                    ConfigWithRabbitTemplate::class.java,
                     ConfigWithCustomRouting::class.java,
                 ).run { context ->
                     assertThat(context).hasSingleBean(RabbitOutboxRouting::class.java)
@@ -48,7 +48,7 @@ class RabbitOutboxAutoConfigurationTest {
         @Test
         fun `uses default exchange from properties`() {
             contextRunner()
-                .withUserConfiguration(ConfigWithRabbitMessageOperations::class.java)
+                .withUserConfiguration(ConfigWithRabbitTemplate::class.java)
                 .withPropertyValues("namastack.outbox.rabbit.default-exchange=my-custom-exchange")
                 .run { context ->
                     val config = context.getBean(RabbitOutboxRouting::class.java)
@@ -59,7 +59,7 @@ class RabbitOutboxAutoConfigurationTest {
         @Test
         fun `uses outbox-events as default exchange when not configured`() {
             contextRunner()
-                .withUserConfiguration(ConfigWithRabbitMessageOperations::class.java)
+                .withUserConfiguration(ConfigWithRabbitTemplate::class.java)
                 .run { context ->
                     val config = context.getBean(RabbitOutboxRouting::class.java)
                     assertThat(config.resolveExchange("payload", createMetadata())).isEqualTo("outbox-events")
@@ -71,16 +71,16 @@ class RabbitOutboxAutoConfigurationTest {
     @DisplayName("RabbitOutboxHandler bean")
     inner class RabbitOutboxHandlerBean {
         @Test
-        fun `creates RabbitOutboxHandler bean when RabbitMessageOperations is available`() {
+        fun `creates RabbitOutboxHandler bean when RabbitTemplate is available`() {
             contextRunner()
-                .withUserConfiguration(ConfigWithRabbitMessageOperations::class.java)
+                .withUserConfiguration(ConfigWithRabbitTemplate::class.java)
                 .run { context ->
                     assertThat(context).hasSingleBean(RabbitOutboxHandler::class.java)
                 }
         }
 
         @Test
-        fun `throws exception when RabbitMessageOperations bean is missing`() {
+        fun `throws exception when RabbitTemplate bean is missing`() {
             contextRunner()
                 .run { context ->
                     assertThat(context).hasFailed()
@@ -97,7 +97,7 @@ class RabbitOutboxAutoConfigurationTest {
         @Test
         fun `configuration is active by default`() {
             contextRunner()
-                .withUserConfiguration(ConfigWithRabbitMessageOperations::class.java)
+                .withUserConfiguration(ConfigWithRabbitTemplate::class.java)
                 .run { context ->
                     assertThat(context).hasNotFailed()
                     assertThat(context).hasSingleBean(RabbitOutboxRouting::class.java)
@@ -108,7 +108,7 @@ class RabbitOutboxAutoConfigurationTest {
         @Test
         fun `configuration is disabled when property is false`() {
             contextRunner()
-                .withUserConfiguration(ConfigWithRabbitMessageOperations::class.java)
+                .withUserConfiguration(ConfigWithRabbitTemplate::class.java)
                 .withPropertyValues("namastack.outbox.rabbit.enabled=false")
                 .run { context ->
                     assertThat(context).doesNotHaveBean(RabbitOutboxRouting::class.java)
@@ -119,7 +119,7 @@ class RabbitOutboxAutoConfigurationTest {
         @Test
         fun `configuration is enabled when property is true`() {
             contextRunner()
-                .withUserConfiguration(ConfigWithRabbitMessageOperations::class.java)
+                .withUserConfiguration(ConfigWithRabbitTemplate::class.java)
                 .withPropertyValues("namastack.outbox.rabbit.enabled=true")
                 .run { context ->
                     assertThat(context).hasSingleBean(RabbitOutboxRouting::class.java)
@@ -137,9 +137,9 @@ class RabbitOutboxAutoConfigurationTest {
         )
 
     @Configuration
-    class ConfigWithRabbitMessageOperations {
+    class ConfigWithRabbitTemplate {
         @Bean
-        fun rabbitMessageOperations(): RabbitMessageOperations = mockk(relaxed = true)
+        fun rabbitTemplate(): RabbitTemplate = mockk(relaxed = true)
     }
 
     @Configuration
@@ -158,7 +158,7 @@ class RabbitOutboxAutoConfigurationTest {
         @Bean
         fun rabbitOutboxHandler(): RabbitOutboxHandler =
             RabbitOutboxHandler(
-                rabbitMessageOperations = mockk(relaxed = true),
+                rabbitTemplate = mockk(relaxed = true),
                 routing =
                     rabbitOutboxRouting {
                         defaults { target("test") }

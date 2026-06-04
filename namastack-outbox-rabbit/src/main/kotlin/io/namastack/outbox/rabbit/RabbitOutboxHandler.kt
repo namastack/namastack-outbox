@@ -3,8 +3,9 @@ package io.namastack.outbox.rabbit
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import org.slf4j.LoggerFactory
-import org.springframework.amqp.rabbit.core.RabbitMessageOperations
-import java.util.concurrent.ExecutionException
+import org.springframework.amqp.AmqpException
+import org.springframework.amqp.core.MessagePostProcessor
+import org.springframework.amqp.rabbit.core.RabbitTemplate
 
 /**
  * Outbox handler that sends payloads to RabbitMQ.
@@ -58,16 +59,27 @@ import java.util.concurrent.ExecutionException
  * }
  * ```
  *
- * @param rabbitMessageOperations Spring AMQP operations for sending messages
+ * @param rabbitTemplate Spring AMQP template for sending messages and configuring returns callback
  * @param routing configuration for routing payloads to exchanges
  * @author Roland Beisel
  * @since 1.1.0
  */
 class RabbitOutboxHandler(
-    private val rabbitMessageOperations: RabbitMessageOperations,
+    private val rabbitTemplate: RabbitTemplate,
     private val routing: RabbitOutboxRouting,
 ) : OutboxHandler {
     private val logger = LoggerFactory.getLogger(RabbitOutboxHandler::class.java)
+
+    init {
+        rabbitTemplate.setMandatory(true)
+        rabbitTemplate.setReturnsCallback { returned ->
+            throw AmqpException(
+                "Unroutable message - misconfiguration suspected, retrying will not help: " +
+                    "exchange=${returned.exchange}, routingKey=${returned.routingKey}, " +
+                    "replyCode=${returned.replyCode}, replyText=${returned.replyText}",
+            )
+        }
+    }
 
     override fun supports(
         payload: Any,
@@ -89,7 +101,7 @@ class RabbitOutboxHandler(
         val headers = routing.buildHeaders(payload, metadata)
 
         logger.debug(
-            "Sending outbox record to Rabbit: topic={}, key={}, handlerId={}",
+            "Sending outbox record to Rabbit: exchange={}, routingKey={}, handlerId={}",
             exchange,
             routingKey,
             metadata.handlerId,
@@ -106,20 +118,10 @@ class RabbitOutboxHandler(
         metadata: OutboxRecordMetadata,
     ) {
         try {
-            rabbitMessageOperations.convertAndSend(exchange, routingKey, payload, headers)
-        } catch (ex: ExecutionException) {
+            rabbitTemplate.convertAndSend(exchange, routingKey, payload, messagePostProcessor(headers))
+        } catch (ex: AmqpException) {
             logger.error(
                 "Failed to send outbox record to Rabbit: exchange={}, routingKey={}, handlerId={}",
-                exchange,
-                routingKey,
-                metadata.handlerId,
-                ex.cause,
-            )
-            throw ex.cause ?: ex
-        } catch (ex: InterruptedException) {
-            Thread.currentThread().interrupt()
-            logger.error(
-                "Interrupted while sending outbox record to Rabbit: exchange={}, routingKey={}, handlerId={}",
                 exchange,
                 routingKey,
                 metadata.handlerId,
@@ -128,4 +130,12 @@ class RabbitOutboxHandler(
             throw ex
         }
     }
+
+    private fun messagePostProcessor(headers: Map<String, String>): MessagePostProcessor =
+        MessagePostProcessor { message ->
+            headers.forEach { (name, value) ->
+                message.messageProperties.setHeader(name, value)
+            }
+            message
+        }
 }

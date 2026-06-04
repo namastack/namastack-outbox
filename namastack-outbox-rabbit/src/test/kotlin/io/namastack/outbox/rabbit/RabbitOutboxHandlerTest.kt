@@ -12,13 +12,17 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.springframework.amqp.rabbit.core.RabbitMessageOperations
+import org.springframework.amqp.AmqpException
+import org.springframework.amqp.core.Message
+import org.springframework.amqp.core.MessagePostProcessor
+import org.springframework.amqp.core.MessageProperties
+import org.springframework.amqp.core.ReturnedMessage
+import org.springframework.amqp.rabbit.core.RabbitTemplate
 import java.time.Instant
-import java.util.concurrent.ExecutionException
 
 @DisplayName("RabbitOutboxHandler")
 class RabbitOutboxHandlerTest {
-    private lateinit var rabbitMessageOperations: RabbitMessageOperations
+    private lateinit var rabbitTemplate: RabbitTemplate
     private lateinit var handler: RabbitOutboxHandler
 
     private val metadata =
@@ -31,7 +35,42 @@ class RabbitOutboxHandlerTest {
 
     @BeforeEach
     fun setUp() {
-        rabbitMessageOperations = mockk(relaxed = true)
+        rabbitTemplate = mockk(relaxed = true)
+    }
+
+    @Nested
+    @DisplayName("initialization")
+    inner class Initialization {
+        @Test
+        fun `configures mandatory publishing and returns callback`() {
+            val routing =
+                rabbitOutboxRouting {
+                    defaults { target("events") }
+                }
+            val returnsCallbackSlot = slot<RabbitTemplate.ReturnsCallback>()
+
+            every { rabbitTemplate.setReturnsCallback(capture(returnsCallbackSlot)) } returns Unit
+
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
+
+            verify(exactly = 1) { rabbitTemplate.setMandatory(true) }
+            verify(exactly = 1) { rabbitTemplate.setReturnsCallback(any()) }
+
+            val returned =
+                ReturnedMessage(
+                    Message(ByteArray(0), MessageProperties()),
+                    312,
+                    "NO_ROUTE",
+                    "events",
+                    "order-123",
+                )
+
+            assertThatThrownBy { returnsCallbackSlot.captured.returnedMessage(returned) }
+                .isInstanceOf(AmqpException::class.java)
+                .hasMessageContaining("Unroutable message")
+                .hasMessageContaining("exchange=events")
+                .hasMessageContaining("routingKey=order-123")
+        }
     }
 
     @Nested
@@ -46,7 +85,7 @@ class RabbitOutboxHandlerTest {
                         filter { payload, _ -> (payload as String) != "skip-me" }
                     }
                 }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
 
             assertThat(handler.supports("skip-me", metadata)).isFalse()
         }
@@ -57,16 +96,16 @@ class RabbitOutboxHandlerTest {
                 rabbitOutboxRouting {
                     defaults { target("default-exchange") }
                 }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
 
             handler.handle("test-payload", metadata)
 
             verify(exactly = 1) {
-                rabbitMessageOperations.convertAndSend(
+                rabbitTemplate.convertAndSend(
                     "default-exchange",
                     metadata.key,
                     "test-payload",
-                    any<Map<String, String>>(),
+                    any<MessagePostProcessor>(),
                 )
             }
         }
@@ -80,16 +119,16 @@ class RabbitOutboxHandlerTest {
                         key { _, meta -> meta.key }
                     }
                 }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
 
             handler.handle("test-payload", metadata)
 
             verify(exactly = 1) {
-                rabbitMessageOperations.convertAndSend(
+                rabbitTemplate.convertAndSend(
                     "events",
                     "order-123",
                     "test-payload",
-                    any<Map<String, String>>(),
+                    any<MessagePostProcessor>(),
                 )
             }
         }
@@ -103,22 +142,25 @@ class RabbitOutboxHandlerTest {
                         headers { _, meta -> meta.context }
                     }
                 }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
 
-            val headersSlot = slot<Map<String, String>>()
+            val postProcessorSlot = slot<MessagePostProcessor>()
 
             every {
-                rabbitMessageOperations.convertAndSend(
+                rabbitTemplate.convertAndSend(
                     "events",
+                    any<String>(),
                     any(),
-                    any(),
-                    capture(headersSlot),
+                    capture(postProcessorSlot),
                 )
             } returns Unit
 
             handler.handle("test-payload", metadata)
 
-            assertThat(headersSlot.captured).containsEntry("tenant", "acme")
+            val message = Message(ByteArray(0), MessageProperties())
+            postProcessorSlot.captured.postProcessMessage(message)
+
+            assertThat(message.messageProperties.headers).containsEntry("tenant", "acme")
         }
 
         @Test
@@ -130,16 +172,16 @@ class RabbitOutboxHandlerTest {
                         mapping { payload, _ -> (payload as String).uppercase() }
                     }
                 }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
 
             handler.handle("test-payload", metadata)
 
             verify(exactly = 1) {
-                rabbitMessageOperations.convertAndSend(
+                rabbitTemplate.convertAndSend(
                     "events",
-                    any(),
+                    any<String>(),
                     "TEST-PAYLOAD",
-                    any<Map<String, String>>(),
+                    any<MessagePostProcessor>(),
                 )
             }
         }
@@ -153,12 +195,12 @@ class RabbitOutboxHandlerTest {
                         filter { payload, _ -> (payload as String) != "skip-me" }
                     }
                 }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
 
             handler.handle("skip-me", metadata)
 
             verify(exactly = 0) {
-                rabbitMessageOperations.convertAndSend(any<String>(), any(), any(), any<Map<String, String>>())
+                rabbitTemplate.convertAndSend(any<String>(), any<String>(), any(), any<MessagePostProcessor>())
             }
         }
 
@@ -171,16 +213,16 @@ class RabbitOutboxHandlerTest {
                         filter { payload, _ -> (payload as String) != "skip-me" }
                     }
                 }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
 
             handler.handle("send-me", metadata)
 
             verify(exactly = 1) {
-                rabbitMessageOperations.convertAndSend(
+                rabbitTemplate.convertAndSend(
                     "events",
-                    any(),
+                    any<String>(),
                     "send-me",
-                    any<Map<String, String>>(),
+                    any<MessagePostProcessor>(),
                 )
             }
         }
@@ -205,16 +247,16 @@ class RabbitOutboxHandlerTest {
                     }
                     defaults { target("events") }
                 }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
 
             handler.handle(OrderEvent("order-1"), metadata)
 
             verify(exactly = 1) {
-                rabbitMessageOperations.convertAndSend(
+                rabbitTemplate.convertAndSend(
                     "orders",
+                    any<String>(),
                     any(),
-                    any(),
-                    any<Map<String, String>>(),
+                    any<MessagePostProcessor>(),
                 )
             }
         }
@@ -242,12 +284,12 @@ class RabbitOutboxHandlerTest {
                         target("payments")
                     }
                 }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
 
             handler.handle(UserEvent("user-1"), metadata)
 
             verify(exactly = 0) {
-                rabbitMessageOperations.convertAndSend(any<String>(), any(), any(), any<Map<String, String>>())
+                rabbitTemplate.convertAndSend(any<String>(), any<String>(), any(), any<MessagePostProcessor>())
             }
         }
 
@@ -263,16 +305,16 @@ class RabbitOutboxHandlerTest {
                         target { payload, _ -> "events-${(payload as Event).type}" }
                     }
                 }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
 
             handler.handle(Event("created"), metadata)
 
             verify(exactly = 1) {
-                rabbitMessageOperations.convertAndSend(
+                rabbitTemplate.convertAndSend(
                     "events-created",
+                    any<String>(),
                     any(),
-                    any(),
-                    any<Map<String, String>>(),
+                    any<MessagePostProcessor>(),
                 )
             }
         }
@@ -282,61 +324,26 @@ class RabbitOutboxHandlerTest {
     @DisplayName("error handling")
     inner class ErrorHandling {
         @Test
-        fun `throws cause when ExecutionException occurs`() {
+        fun `throws AmqpException from RabbitTemplate send`() {
             val routing =
                 rabbitOutboxRouting {
                     defaults { target("events") }
                 }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
 
-            val cause = RuntimeException("Rabbit unavailable")
             every {
-                rabbitMessageOperations.convertAndSend(any<String>(), any(), any(), any<Map<String, String>>())
-            } throws ExecutionException(cause)
+                rabbitTemplate.convertAndSend(
+                    any<String>(),
+                    any<String>(),
+                    any(),
+                    any<MessagePostProcessor>(),
+                )
+            } throws AmqpException("Rabbit unavailable")
+
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
 
             assertThatThrownBy { handler.handle("payload", metadata) }
-                .isInstanceOf(RuntimeException::class.java)
+                .isInstanceOf(AmqpException::class.java)
                 .hasMessage("Rabbit unavailable")
-        }
-
-        @Test
-        fun `throws ExecutionException when cause is null`() {
-            val routing =
-                rabbitOutboxRouting {
-                    defaults { target("events") }
-                }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
-
-            every {
-                rabbitMessageOperations.convertAndSend(any<String>(), any(), any(), any<Map<String, String>>())
-            } throws ExecutionException(null)
-
-            assertThatThrownBy { handler.handle("payload", metadata) }
-                .isInstanceOf(ExecutionException::class.java)
-        }
-
-        @Test
-        fun `restores interrupt flag when InterruptedException occurs`() {
-            val routing =
-                rabbitOutboxRouting {
-                    defaults { target("events") }
-                }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
-
-            every {
-                rabbitMessageOperations.convertAndSend(any<String>(), any(), any(), any<Map<String, String>>())
-            } answers {
-                Thread.currentThread().interrupt()
-                throw InterruptedException("Interrupted")
-            }
-
-            assertThatThrownBy { handler.handle("payload", metadata) }
-                .isInstanceOf(InterruptedException::class.java)
-
-            assertThat(Thread.currentThread().isInterrupted).isTrue()
-
-            // Clear the interrupt flag for other tests
-            Thread.interrupted()
         }
     }
 
@@ -364,26 +371,29 @@ class RabbitOutboxHandlerTest {
                         filter { event, _ -> (event as OrderEvent).status != "CANCELLED" }
                     }
                 }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
 
-            val headersSlot = slot<Map<String, String>>()
+            val postProcessorSlot = slot<MessagePostProcessor>()
             val routingKeySlot = slot<String>()
             val payloadSlot = slot<Any>()
 
             every {
-                rabbitMessageOperations.convertAndSend(
+                rabbitTemplate.convertAndSend(
                     "orders",
                     capture(routingKeySlot),
                     capture(payloadSlot),
-                    capture(headersSlot),
+                    capture(postProcessorSlot),
                 )
             } returns Unit
 
             handler.handle(OrderEvent("order-456", "CREATED"), metadata)
 
+            val message = Message(ByteArray(0), MessageProperties())
+            postProcessorSlot.captured.postProcessMessage(message)
+
             assertThat(routingKeySlot.captured).isEqualTo("order-456")
             assertThat(payloadSlot.captured).isEqualTo(PublicOrderEvent("order-456"))
-            assertThat(headersSlot.captured).containsEntry("tenant", "acme")
+            assertThat(message.messageProperties.headers).containsEntry("tenant", "acme")
         }
 
         @Test
@@ -400,12 +410,12 @@ class RabbitOutboxHandlerTest {
                         filter { event, _ -> (event as OrderEvent).status != "CANCELLED" }
                     }
                 }
-            handler = RabbitOutboxHandler(rabbitMessageOperations, routing)
+            handler = RabbitOutboxHandler(rabbitTemplate, routing)
 
             handler.handle(OrderEvent("order-789", "CANCELLED"), metadata)
 
             verify(exactly = 0) {
-                rabbitMessageOperations.convertAndSend(any<String>(), any(), any(), any<Map<String, String>>())
+                rabbitTemplate.convertAndSend(any<String>(), any<String>(), any(), any<MessagePostProcessor>())
             }
         }
     }
