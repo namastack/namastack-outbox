@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: namastack-outbox-performance-test-consumer
+  datasource:
+    url: ${PERF_DB_URL:jdbc:postgresql://localhost:5432/outbox_performance_test}
+    username: ${PERF_DB_USER:username}
+    password: ${PERF_DB_PASSWORD:password}
+    hikari:
+      maximum-pool-size: ${PERF_DB_POOL_SIZE:30}
+      minimum-idle: ${PERF_DB_MIN_IDLE:5}
+      connection-timeout: 30000
+  threads:
+    virtual:
+      enabled: ${PERF_VIRTUAL_THREADS:false}
+
+server:
+  port: ${SERVER_PORT:9101}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      consumer: ${PERF_INSTANCE_ID:consumer-1}
+
+namastack:
+  outbox:
+    jdbc:
+      schema-initialization:
+        enabled: false
+    polling:
+      batch-size: ${PERF_BATCH_SIZE:1000}
+      trigger: fixed
+      fixed:
+        interval: ${PERF_POLL_INTERVAL:100ms}
+    processing:
+      delete-completed-records: false
+      stop-on-first-failure: true
+      executor-core-pool-size: ${PERF_EXECUTOR_CORE_POOL_SIZE:16}
+      executor-max-pool-size: ${PERF_EXECUTOR_MAX_POOL_SIZE:32}
+    instance:
+      heartbeat-interval: 1s
+      stale-instance-timeout: 10s
+      rebalance-interval: 1s
+    multicaster:
+      enabled: false
+
+logging:
+  level:
+    root: WARN
+    io.namastack.outbox: WARN
+
