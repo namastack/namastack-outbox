@@ -1,0 +1,6 @@
+.gradle/
+**/build/
+runtime/
+reports/
+monitoring/prometheus/targets/*.json
+

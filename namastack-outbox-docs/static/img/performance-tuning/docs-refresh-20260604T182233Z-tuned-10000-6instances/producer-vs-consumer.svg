@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="360">
+<rect width="100%" height="100%" fill="white"/>
+<text x="75.0" y="24" font-family="sans-serif" font-size="18" font-weight="bold">Produced vs processed records / second</text>
+<line x1="75.0" y1="45.0" x2="75.0" y2="305.0" stroke="#64748b"/>
+<line x1="75.0" y1="305.0" x2="965.0" y2="305.0" stroke="#64748b"/>
+<text x="8" y="50" font-family="sans-serif" font-size="12">11555.08</text>
+<polyline points="75.00,80.02 114.29,80.41 153.50,79.57 192.79,80.41 232.21,79.83 271.59,79.56 311.01,80.30 350.67,79.94 390.52,79.61 430.20,80.91 469.98,79.22 510.00,80.21 551.33,79.70 593.34,82.51 635.74,78.78 677.95,82.36 726.09,115.20 776.79,45.00 827.39,94.07 881.39,68.31 934.21,87.46 965.00,73.89" fill="none" stroke="#2563eb" stroke-width="2"/>
+<text x="75.0" y="338" font-family="sans-serif" font-size="12" fill="#2563eb">produced</text>
+<polyline points="75.00,82.64 114.29,80.94 153.50,81.83 192.79,88.72 232.21,78.60 271.59,77.37 311.01,99.90 350.67,87.35 390.52,84.39 430.20,91.35 469.98,101.22 510.00,134.92 551.33,147.36 593.34,188.78 635.74,218.12 677.95,241.14 726.09,256.98 776.79,267.33 827.39,277.31 881.39,285.85 934.21,291.32 965.00,293.89" fill="none" stroke="#dc2626" stroke-width="2"/>
+<text x="255.0" y="338" font-family="sans-serif" font-size="12" fill="#dc2626">processed</text>
+</svg>

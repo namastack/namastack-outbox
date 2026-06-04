@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    command: ["postgres", "-c", "max_connections=250"]
+    environment:
+      POSTGRES_DB: outbox_performance_test
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+    ports:
+      - "${PERF_POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U username -d outbox_performance_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql:/sql:ro
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    environment:
+      DATA_SOURCE_NAME: postgresql://username:password@postgres:5432/outbox_performance_test?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${PERF_POSTGRES_EXPORTER_PORT:-9187}:9187"
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${PERF_PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/targets:/etc/prometheus/targets:ro
+      - prometheus-data:/prometheus
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    depends_on:
+      - prometheus
+    ports:
+      - "${PERF_GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
+
