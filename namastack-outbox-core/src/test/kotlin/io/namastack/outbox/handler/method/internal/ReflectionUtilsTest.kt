@@ -177,6 +177,16 @@ class ReflectionUtilsTest {
         assertThat(method.canAccess(bean) || method.isAccessible).isTrue()
     }
 
+    @Test
+    fun `findAnnotatedMethods finds all Java package-private methods`() {
+        val bean = JavaPackagePrivateAnnotatedBean()
+
+        val result = ReflectionUtils.findAnnotatedMethods(bean, TestJavaAnnotation::class.java).toList()
+
+        assertThat(result).hasSize(2)
+        assertThat(result.map { it.name }).containsExactlyInAnyOrder("annotatedMethod1", "annotatedMethod2")
+    }
+
     // Test beans
     @Suppress("UNUSED_PARAMETER")
     open class TestBean {

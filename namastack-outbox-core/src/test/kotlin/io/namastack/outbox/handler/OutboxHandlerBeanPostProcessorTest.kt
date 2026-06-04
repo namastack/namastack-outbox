@@ -99,6 +99,38 @@ class OutboxHandlerBeanPostProcessorTest {
     }
 
     @Test
+    fun `registers handler when package-private method annotated with @OutboxHandler`() {
+        val bean = HandlerBeanFactory.createJavaPackagePrivateAnnotatedHandler()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
+    }
+
+    @Test
+    fun `registers handler with fallback when package-private @OutboxHandler and @OutboxFallbackHandler methods`() {
+        val bean = HandlerBeanFactory.createJavaPackagePrivateAnnotatedHandlerWithFallback()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
+    }
+
+    @Test
+    fun `registers handler with retry policy when package-private @OutboxHandler and @OutboxRetryable method`() {
+        every { retryPolicyRegistry.getRetryPolicy(any<String>()) } returns CustomerOutboxRetryPolicy()
+
+        val bean = HandlerBeanFactory.createJavaPackagePrivateAnnotatedHandlerWithRetryable()
+        beanPostProcessor.postProcessAfterInitialization(bean, "bean")
+
+        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
+        verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
+    }
+
+    @Test
     fun `registers multiple handlers from same bean`() {
         val bean = HandlerBeanFactory.createMultiAnnotatedHandlerBean()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
