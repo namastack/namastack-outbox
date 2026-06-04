@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="360">
+<rect width="100%" height="100%" fill="white"/>
+<text x="75.0" y="24" font-family="sans-serif" font-size="18" font-weight="bold">Remaining outbox backlog</text>
+<line x1="75.0" y1="45.0" x2="75.0" y2="305.0" stroke="#64748b"/>
+<line x1="75.0" y1="305.0" x2="965.0" y2="305.0" stroke="#64748b"/>
+<text x="8" y="50" font-family="sans-serif" font-size="12">5313.00</text>
+<polyline points="75.00,256.99 111.76,281.36 148.48,280.24 185.31,285.43 222.05,281.71 258.87,284.64 295.66,291.15 332.46,280.48 369.25,273.58 406.16,280.53 443.03,292.72 479.91,286.36 516.87,278.62 553.82,285.43 590.86,283.03 627.93,281.51 665.02,276.32 702.09,281.22 739.34,282.54 776.46,276.62 813.65,122.71 850.97,283.27 888.17,276.67 925.58,45.00 947.34,287.04 965.00,305.00" fill="none" stroke="#2563eb" stroke-width="2"/>
+<text x="75.0" y="338" font-family="sans-serif" font-size="12" fill="#2563eb">new</text>
+</svg>
