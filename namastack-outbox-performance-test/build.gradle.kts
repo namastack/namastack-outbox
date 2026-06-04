@@ -1,3 +1,7 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+import org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED
+import org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED
+import org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -7,7 +11,7 @@ plugins {
     alias(libs.plugins.spring.boot) apply false
 }
 
-val javaVersion = 17
+val javaVersion = 21
 val jvmTargetVersion = JvmTarget.fromTarget(javaVersion.toString())
 
 allprojects {
@@ -21,6 +25,16 @@ allprojects {
 }
 
 subprojects {
+    tasks.withType<Test> {
+        useJUnitPlatform()
+
+        testLogging {
+            exceptionFormat = FULL
+            showStandardStreams = true
+            events(PASSED, SKIPPED, FAILED)
+        }
+    }
+
     tasks.withType<JavaCompile> {
         options.release.set(javaVersion)
     }

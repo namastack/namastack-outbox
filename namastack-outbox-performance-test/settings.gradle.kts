@@ -1,9 +1,4 @@
-pluginManagement {
-    repositories {
-        gradlePluginPortal()
-        mavenCentral()
-    }
-}
+rootProject.name = "namastack-outbox-performance-test"
 
 dependencyResolutionManagement {
     versionCatalogs {
@@ -12,10 +7,6 @@ dependencyResolutionManagement {
         }
     }
 }
-
-rootProject.name = "namastack-outbox-performance-test"
-
-includeBuild("..")
 
 include("consumer")
 include("tooling")
