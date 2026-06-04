@@ -1,5 +1,7 @@
 package io.namastack.outbox.rabbit
 
+import org.springframework.amqp.rabbit.connection.ConnectionFactory
+import org.springframework.amqp.rabbit.core.RabbitOperations
 import org.springframework.amqp.rabbit.core.RabbitTemplate
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
@@ -13,7 +15,8 @@ import org.springframework.context.annotation.Bean
  *
  * Automatically configures [RabbitOutboxHandler] when:
  * - Spring AMQP is on the classpath
- * - A [RabbitTemplate] bean is available
+ * - A [RabbitOperations] bean is available
+ * - A [ConnectionFactory] bean is available
  * - Property `namastack.outbox.rabbit.enabled` is `true` (default)
  *
  * Users can override the default configuration by providing their own
@@ -70,8 +73,23 @@ class RabbitOutboxAutoConfiguration {
         }
 
     @Bean
+    @ConditionalOnMissingBean
+    fun rabbitOutboxPublisher(
+        rabbitOperations: RabbitOperations,
+        connectionFactory: ConnectionFactory,
+        properties: RabbitOutboxProperties,
+    ): RabbitOutboxPublisher {
+        RabbitOutboxPublisherSettingsValidator.validate(rabbitOperations, connectionFactory)
+
+        return RabbitOutboxPublisher(
+            rabbitOperations = rabbitOperations,
+            confirmTimeout = properties.publisherConfirmTimeout,
+        )
+    }
+
+    @Bean
     fun rabbitOutboxHandler(
-        rabbitTemplate: RabbitTemplate,
+        publisher: RabbitOutboxPublisher,
         routingConfiguration: RabbitOutboxRouting,
-    ): RabbitOutboxHandler = RabbitOutboxHandler(rabbitTemplate, routingConfiguration)
+    ): RabbitOutboxHandler = RabbitOutboxHandler(publisher, routingConfiguration)
 }

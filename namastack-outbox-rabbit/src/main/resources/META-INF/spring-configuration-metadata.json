@@ -24,6 +24,12 @@
       "type": "java.lang.String",
       "description": "Default Rabbit exchange for outbox events.",
       "defaultValue": "outbox-events"
+    },
+    {
+      "name": "namastack.outbox.rabbit.publisher-confirm-timeout",
+      "type": "java.time.Duration",
+      "description": "Maximum time to wait for RabbitMQ publisher confirms.",
+      "defaultValue": "10s"
     }
   ],
   "hints": []

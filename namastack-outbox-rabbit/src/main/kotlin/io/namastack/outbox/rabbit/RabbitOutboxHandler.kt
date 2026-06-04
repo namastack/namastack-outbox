@@ -3,15 +3,13 @@ package io.namastack.outbox.rabbit
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import org.slf4j.LoggerFactory
-import org.springframework.amqp.AmqpException
-import org.springframework.amqp.core.MessagePostProcessor
-import org.springframework.amqp.rabbit.core.RabbitTemplate
 
 /**
- * Outbox handler that sends payloads to RabbitMQ.
+ * Outbox handler that prepares payloads for RabbitMQ publication.
  *
- * Uses [RabbitOutboxRouting] to determine the exchange (target), routing key, headers,
- * payload mapping, and filtering for each payload.
+ * Uses [RabbitOutboxRouting] to determine the exchange, routing key, headers,
+ * payload mapping, and filtering for each payload. Actual RabbitMQ publication is
+ * delegated to [RabbitOutboxPublisher].
  *
  * This handler is auto-configured when Spring AMQP is on the classpath.
  * You only need to provide a custom [RabbitOutboxRouting] bean if you
@@ -59,27 +57,16 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate
  * }
  * ```
  *
- * @param rabbitTemplate Spring AMQP template for sending messages and configuring returns callback
+ * @param publisher Rabbit outbox publisher for broker interaction
  * @param routing configuration for routing payloads to exchanges
  * @author Roland Beisel
  * @since 1.1.0
  */
 class RabbitOutboxHandler(
-    private val rabbitTemplate: RabbitTemplate,
+    private val publisher: RabbitOutboxPublisher,
     private val routing: RabbitOutboxRouting,
 ) : OutboxHandler {
     private val logger = LoggerFactory.getLogger(RabbitOutboxHandler::class.java)
-
-    init {
-        rabbitTemplate.setMandatory(true)
-        rabbitTemplate.setReturnsCallback { returned ->
-            throw AmqpException(
-                "Unroutable message - misconfiguration suspected, retrying will not help: " +
-                    "exchange=${returned.exchange}, routingKey=${returned.routingKey}, " +
-                    "replyCode=${returned.replyCode}, replyText=${returned.replyText}",
-            )
-        }
-    }
 
     override fun supports(
         payload: Any,
@@ -95,47 +82,27 @@ class RabbitOutboxHandler(
             return
         }
 
-        val mappedPayload = routing.mapPayload(payload, metadata)
-        val exchange = routing.resolveExchange(payload, metadata)
-        val routingKey = routing.extractKey(payload, metadata)
-        val headers = routing.buildHeaders(payload, metadata)
+        val message = buildMessage(payload, metadata)
 
         logger.debug(
             "Sending outbox record to Rabbit: exchange={}, routingKey={}, handlerId={}",
-            exchange,
-            routingKey,
-            metadata.handlerId,
+            message.exchange,
+            message.routingKey,
+            message.handlerId,
         )
 
-        send(mappedPayload, exchange, routingKey, headers, metadata)
+        publisher.publish(message)
     }
 
-    private fun send(
+    private fun buildMessage(
         payload: Any,
-        exchange: String,
-        routingKey: String?,
-        headers: Map<String, String>,
         metadata: OutboxRecordMetadata,
-    ) {
-        try {
-            rabbitTemplate.convertAndSend(exchange, routingKey, payload, messagePostProcessor(headers))
-        } catch (ex: AmqpException) {
-            logger.error(
-                "Failed to send outbox record to Rabbit: exchange={}, routingKey={}, handlerId={}",
-                exchange,
-                routingKey,
-                metadata.handlerId,
-                ex,
-            )
-            throw ex
-        }
-    }
-
-    private fun messagePostProcessor(headers: Map<String, String>): MessagePostProcessor =
-        MessagePostProcessor { message ->
-            headers.forEach { (name, value) ->
-                message.messageProperties.setHeader(name, value)
-            }
-            message
-        }
+    ): RabbitOutboxMessage =
+        RabbitOutboxMessage(
+            payload = routing.mapPayload(payload, metadata),
+            exchange = routing.resolveExchange(payload, metadata),
+            routingKey = routing.extractKey(payload, metadata) ?: "",
+            headers = routing.buildHeaders(payload, metadata),
+            handlerId = metadata.handlerId,
+        )
 }
