@@ -79,11 +79,16 @@ class RabbitOutboxAutoConfiguration {
         connectionFactory: ConnectionFactory,
         properties: RabbitOutboxProperties,
     ): RabbitOutboxPublisher {
-        RabbitOutboxPublisherSettingsValidator.validate(rabbitOperations, connectionFactory)
+        RabbitOutboxPublisherSettingsValidator.validate(
+            rabbitOperations = rabbitOperations,
+            connectionFactory = connectionFactory,
+            failOnUnroutable = properties.failOnUnroutable,
+        )
 
         return RabbitOutboxPublisher(
             rabbitOperations = rabbitOperations,
             confirmTimeout = properties.publisherConfirmTimeout,
+            failOnUnroutable = properties.failOnUnroutable,
         )
     }
 

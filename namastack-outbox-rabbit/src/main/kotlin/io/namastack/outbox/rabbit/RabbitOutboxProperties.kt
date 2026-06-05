@@ -27,4 +27,10 @@ data class RabbitOutboxProperties(
      * Maximum time to wait for RabbitMQ publisher confirms.
      */
     var publisherConfirmTimeout: Duration = Duration.ofSeconds(10),
+    /**
+     * Whether unroutable messages should fail outbox processing.
+     *
+     * When enabled, Spring AMQP publisher returns and mandatory publishing must also be enabled.
+     */
+    var failOnUnroutable: Boolean = false,
 )

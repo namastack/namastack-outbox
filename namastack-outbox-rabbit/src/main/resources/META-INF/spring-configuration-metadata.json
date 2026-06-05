@@ -30,6 +30,12 @@
       "type": "java.time.Duration",
       "description": "Maximum time to wait for RabbitMQ publisher confirms.",
       "defaultValue": "10s"
+    },
+    {
+      "name": "namastack.outbox.rabbit.fail-on-unroutable",
+      "type": "java.lang.Boolean",
+      "description": "Whether unroutable RabbitMQ messages should fail outbox processing. Requires publisher returns and mandatory publishing when enabled.",
+      "defaultValue": false
     }
   ],
   "hints": []

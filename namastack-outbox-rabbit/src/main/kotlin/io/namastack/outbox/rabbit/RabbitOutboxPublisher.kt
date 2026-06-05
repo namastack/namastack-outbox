@@ -15,18 +15,20 @@ import java.util.concurrent.TimeoutException
 /**
  * Publishes prepared outbox messages to RabbitMQ and waits for broker confirmation.
  *
- * This publisher expects Spring AMQP publisher confirms and returns to be configured by
- * the application, for example with `publisher-confirm-type=correlated`,
- * `publisher-returns=true`, and `template.mandatory=true`.
+ * This publisher expects Spring AMQP correlated publisher confirms to be configured by
+ * the application. Publisher returns and mandatory publishing are only required when
+ * [failOnUnroutable] is enabled.
  *
  * @param rabbitOperations Spring AMQP operations used to publish messages
  * @param confirmTimeout maximum time to wait for the correlated publisher confirm
+ * @param failOnUnroutable whether returned messages should fail outbox processing
  * @author Roland Beisel
  * @since 1.7.0
  */
 class RabbitOutboxPublisher(
     private val rabbitOperations: RabbitOperations,
     private val confirmTimeout: Duration = DEFAULT_CONFIRM_TIMEOUT,
+    private val failOnUnroutable: Boolean = false,
 ) {
     private val logger = LoggerFactory.getLogger(RabbitOutboxPublisher::class.java)
 
@@ -34,8 +36,9 @@ class RabbitOutboxPublisher(
      * Publishes a prepared outbox message and blocks until RabbitMQ confirms the publish.
      *
      * @param message prepared Rabbit outbox message
-     * @throws RabbitOutboxSendException when RabbitMQ nacks or returns the message, the
-     * confirm does not arrive before [confirmTimeout], sending fails, or waiting is interrupted
+     * @throws RabbitOutboxSendException when RabbitMQ nacks the message, the confirm does
+     * not arrive before [confirmTimeout], sending fails, waiting is interrupted, or the message
+     * is returned while [failOnUnroutable] is enabled
      */
     fun publish(message: RabbitOutboxMessage) {
         val correlationData = CorrelationData(UUID.randomUUID().toString())
@@ -69,7 +72,7 @@ class RabbitOutboxPublisher(
     private fun verifyConfirm(correlationData: CorrelationData) {
         val confirm = waitForConfirm(correlationData)
         val returned = correlationData.returned
-        if (returned != null) {
+        if (failOnUnroutable && returned != null) {
             throw returnedMessageException(returned)
         }
 

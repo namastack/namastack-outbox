@@ -95,9 +95,41 @@ class RabbitOutboxAutoConfigurationTest {
         }
 
         @Test
-        fun `fails when publisher returns are disabled`() {
+        fun `does not fail when publisher returns are disabled by default`() {
             contextRunner()
                 .withUserConfiguration(ConfigWithoutPublisherReturns::class.java)
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(RabbitOutboxPublisher::class.java)
+                }
+        }
+
+        @Test
+        fun `does not fail when mandatory publishing is disabled by default`() {
+            contextRunner()
+                .withUserConfiguration(ConfigWithoutMandatoryTemplate::class.java)
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(RabbitOutboxPublisher::class.java)
+                }
+        }
+
+        @Test
+        fun `creates publisher when fail on unroutable is enabled and settings are valid`() {
+            contextRunner()
+                .withUserConfiguration(ConfigWithValidRabbitTemplate::class.java)
+                .withPropertyValues("namastack.outbox.rabbit.fail-on-unroutable=true")
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(RabbitOutboxPublisher::class.java)
+                }
+        }
+
+        @Test
+        fun `fails when fail on unroutable is enabled and publisher returns are disabled`() {
+            contextRunner()
+                .withUserConfiguration(ConfigWithoutPublisherReturns::class.java)
+                .withPropertyValues("namastack.outbox.rabbit.fail-on-unroutable=true")
                 .run { context ->
                     assertThat(context).hasFailed()
                     assertThat(context.startupFailure)
@@ -107,9 +139,10 @@ class RabbitOutboxAutoConfigurationTest {
         }
 
         @Test
-        fun `fails when mandatory publishing is disabled`() {
+        fun `fails when fail on unroutable is enabled and mandatory publishing is disabled`() {
             contextRunner()
                 .withUserConfiguration(ConfigWithoutMandatoryTemplate::class.java)
+                .withPropertyValues("namastack.outbox.rabbit.fail-on-unroutable=true")
                 .run { context ->
                     assertThat(context).hasFailed()
                     assertThat(context.startupFailure)

@@ -134,6 +134,13 @@ public class KafkaOutboxConfig {
 - **Routing:** Customizable via a `RabbitOutboxRouting` bean. Define target exchange, routing key, headers, payload mapping, and filtering per payload type.
 - **Headers:** Use the `headers` configurer to set custom RabbitMQ headers for each message.
 - **Auto-configuration:** Enabled if Spring AMQP is present.
+- **Publisher confirms:** Requires `spring.rabbitmq.publisher-confirm-type=correlated`.
+
+:::info RabbitMQ publisher confirms
+RabbitMQ publishing uses synchronous correlated publisher confirms so an outbox record is only
+completed after RabbitMQ confirms the publish. See the [RabbitMQ Integration](rabbitmq.md) page
+for the required Spring AMQP settings and optional unroutable-message handling.
+:::
 
 <Tabs>
 <TabItem value="kotlin" label="Kotlin">
@@ -189,6 +196,11 @@ public class RabbitOutboxConfig {
 | `namastack.outbox.rabbit.enabled`          | `true`          | Enable Rabbit outbox integration                          |
 | `namastack.outbox.rabbit.default-exchange` | `outbox-events` | Default Rabbit exchange for outbox events                 |
 | `namastack.outbox.rabbit.enable-json`      | `true`          | Enable Jackson JSON message conversion for RabbitTemplate |
+| `namastack.outbox.rabbit.publisher-confirm-timeout` | `10s` | Maximum time to wait for RabbitMQ publisher confirms |
+| `namastack.outbox.rabbit.fail-on-unroutable` | `false` | Fail outbox processing when RabbitMQ returns an unroutable message |
+
+For RabbitMQ-specific reliability semantics and required Spring AMQP settings, see
+[RabbitMQ Integration](rabbitmq.md).
 
 </TabItem>
 <TabItem value="sns" label="SNS Integration">

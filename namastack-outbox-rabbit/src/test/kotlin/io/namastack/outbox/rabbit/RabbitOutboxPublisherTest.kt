@@ -112,7 +112,15 @@ class RabbitOutboxPublisherTest {
     }
 
     @Test
-    fun `throws on returned message`() {
+    fun `ignores returned message by default`() {
+        everySendReturnsMessage()
+
+        publisher.publish(message)
+    }
+
+    @Test
+    fun `throws on returned message when fail on unroutable is enabled`() {
+        publisher = RabbitOutboxPublisher(rabbitOperations, Duration.ofSeconds(1), failOnUnroutable = true)
         everySendReturnsMessage()
 
         assertThatThrownBy { publisher.publish(message) }

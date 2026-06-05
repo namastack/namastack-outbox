@@ -102,12 +102,37 @@ namastack:
       enabled: true                            # Enable Rabbit outbox integration (default: true)
       default-exchange: outbox-events          # Default Rabbit exchange (default: outbox-events)
       enable-json: true                        # Enable JSON support (default: true)
+      publisher-confirm-timeout: 10s           # Maximum time to wait for publisher confirms (default: 10s)
+      fail-on-unroutable: false                # Fail when RabbitMQ returns an unroutable message (default: false)
 
     # SNS Integration
     sns:
       enabled: true                            # Enable SNS outbox integration (default: true)
       default-topic-arn: arn:aws:sns:us-east-1:000000000000:outbox-events   # Default SNS topic ARN (default: arn:aws:sns:us-east-1:000000000000:outbox-events)
 ```
+
+:::info RabbitMQ publisher confirms
+Rabbit outbox publishing requires Spring AMQP correlated publisher confirms:
+
+```yaml
+spring:
+  rabbitmq:
+    publisher-confirm-type: correlated
+```
+
+If `namastack.outbox.rabbit.fail-on-unroutable=true`, also enable publisher returns and mandatory
+publishing:
+
+```yaml
+spring:
+  rabbitmq:
+    publisher-returns: true
+    template:
+      mandatory: true
+```
+
+See [RabbitMQ Integration](rabbitmq.md) for the full reliability semantics.
+:::
 
 ---
 
