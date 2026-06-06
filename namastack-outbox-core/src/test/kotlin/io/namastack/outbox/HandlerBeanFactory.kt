@@ -75,6 +75,15 @@ object HandlerBeanFactory {
 
     fun createMultipleAnnotatedTypedHandlersWithMultipleFallbacks(): MultipleAnnotatedTypedHandlersWithMultipleFallbacks =
         MultipleAnnotatedTypedHandlersWithMultipleFallbacks()
+
+    fun createJavaPackagePrivateAnnotatedHandler(): JavaPackagePrivateAnnotatedHandler =
+        JavaPackagePrivateAnnotatedHandler()
+
+    fun createJavaPackagePrivateAnnotatedHandlerWithFallback(): JavaPackagePrivateAnnotatedHandlerWithFallback =
+        JavaPackagePrivateAnnotatedHandlerWithFallback()
+
+    fun createJavaPackagePrivateAnnotatedHandlerWithRetryable(): JavaPackagePrivateAnnotatedHandlerWithRetryable =
+        JavaPackagePrivateAnnotatedHandlerWithRetryable()
 }
 
 class GenericInterfaceHandler : io.namastack.outbox.handler.OutboxHandler {

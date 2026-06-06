@@ -1,6 +1,7 @@
 package io.namastack.outbox.handler.method.internal
 
 import org.springframework.aop.support.AopUtils
+import org.springframework.core.MethodIntrospector
 import org.springframework.core.annotation.AnnotatedElementUtils
 import java.lang.reflect.Method
 
@@ -52,10 +53,14 @@ internal object ReflectionUtils {
         parameterCount: Int,
     ): Method {
         val method =
-            getTargetClass(bean)
-                .methods
-                .filter { !it.isBridge && !it.isSynthetic }
-                .first { it.name == methodName && it.parameterCount == parameterCount }
+            MethodIntrospector
+                .selectMethods(
+                    getTargetClass(bean),
+                    MethodIntrospector.MetadataLookup { method ->
+                        method.takeIf { it.name == methodName && it.parameterCount == parameterCount }
+                    },
+                ).keys
+                .first()
 
         method.trySetAccessible()
 
@@ -81,12 +86,14 @@ internal object ReflectionUtils {
     fun <A : Annotation> findAnnotatedMethods(
         bean: Any,
         annotationClass: Class<A>,
-    ): Sequence<Method> {
-        val targetClass = getTargetClass(bean)
-        return targetClass.methods
+    ): Sequence<Method> =
+        MethodIntrospector
+            .selectMethods(
+                getTargetClass(bean),
+                MethodIntrospector.MetadataLookup { method ->
+                    AnnotatedElementUtils.findMergedAnnotation(method, annotationClass)
+                },
+            ).keys
             .asSequence()
-            .filterNot { it.isBridge && it.isSynthetic }
-            .filter { AnnotatedElementUtils.findMergedAnnotation(it, annotationClass) != null }
             .onEach { it.trySetAccessible() }
-    }
 }
