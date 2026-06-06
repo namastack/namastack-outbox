@@ -11,10 +11,12 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory
 import org.springframework.amqp.rabbit.core.RabbitOperations
 import org.springframework.amqp.rabbit.core.RabbitTemplate
 import org.springframework.beans.factory.NoSuchBeanDefinitionException
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Primary
 import java.time.Instant
 
 @DisplayName("RabbitOutboxAutoConfiguration")
@@ -95,6 +97,28 @@ class RabbitOutboxAutoConfigurationTest {
         }
 
         @Test
+        fun `validates publisher confirms on the connection factory used by RabbitOperations`() {
+            contextRunner()
+                .withUserConfiguration(ConfigWithValidPrimaryAndInvalidOperationsFactory::class.java)
+                .run { context ->
+                    assertThat(context).hasFailed()
+                    assertThat(context.startupFailure)
+                        .hasRootCauseInstanceOf(IllegalStateException::class.java)
+                        .hasMessageContaining("spring.rabbitmq.publisher-confirm-type=correlated")
+                }
+        }
+
+        @Test
+        fun `ignores unrelated primary connection factory when validating publisher confirms`() {
+            contextRunner()
+                .withUserConfiguration(ConfigWithInvalidPrimaryAndValidOperationsFactory::class.java)
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(RabbitOutboxPublisher::class.java)
+                }
+        }
+
+        @Test
         fun `does not fail when publisher returns are disabled by default`() {
             contextRunner()
                 .withUserConfiguration(ConfigWithoutPublisherReturns::class.java)
@@ -129,6 +153,19 @@ class RabbitOutboxAutoConfigurationTest {
         fun `fails when fail on unroutable is enabled and publisher returns are disabled`() {
             contextRunner()
                 .withUserConfiguration(ConfigWithoutPublisherReturns::class.java)
+                .withPropertyValues("namastack.outbox.rabbit.fail-on-unroutable=true")
+                .run { context ->
+                    assertThat(context).hasFailed()
+                    assertThat(context.startupFailure)
+                        .hasRootCauseInstanceOf(IllegalStateException::class.java)
+                        .hasMessageContaining("spring.rabbitmq.publisher-returns=true")
+                }
+        }
+
+        @Test
+        fun `validates publisher returns on the connection factory used by RabbitOperations`() {
+            contextRunner()
+                .withUserConfiguration(ConfigWithValidPrimaryAndOperationsFactoryWithoutReturns::class.java)
                 .withPropertyValues("namastack.outbox.rabbit.fail-on-unroutable=true")
                 .run { context ->
                     assertThat(context).hasFailed()
@@ -276,6 +313,51 @@ class RabbitOutboxAutoConfigurationTest {
 
         @Bean
         fun rabbitOperations(connectionFactory: ConnectionFactory): RabbitOperations = RabbitTemplate(connectionFactory)
+    }
+
+    @Configuration
+    class ConfigWithValidPrimaryAndInvalidOperationsFactory {
+        @Bean
+        @Primary
+        fun primaryConnectionFactory(): ConnectionFactory = newRabbitConnectionFactory()
+
+        @Bean
+        fun outboxConnectionFactory(): ConnectionFactory = newRabbitConnectionFactory(publisherConfirmType = null)
+
+        @Bean
+        fun rabbitOperations(
+            @Qualifier("outboxConnectionFactory") connectionFactory: ConnectionFactory,
+        ): RabbitOperations = mandatoryRabbitTemplate(connectionFactory)
+    }
+
+    @Configuration
+    class ConfigWithInvalidPrimaryAndValidOperationsFactory {
+        @Bean
+        @Primary
+        fun primaryConnectionFactory(): ConnectionFactory = newRabbitConnectionFactory(publisherConfirmType = null)
+
+        @Bean
+        fun outboxConnectionFactory(): ConnectionFactory = newRabbitConnectionFactory()
+
+        @Bean
+        fun rabbitOperations(
+            @Qualifier("outboxConnectionFactory") connectionFactory: ConnectionFactory,
+        ): RabbitOperations = mandatoryRabbitTemplate(connectionFactory)
+    }
+
+    @Configuration
+    class ConfigWithValidPrimaryAndOperationsFactoryWithoutReturns {
+        @Bean
+        @Primary
+        fun primaryConnectionFactory(): ConnectionFactory = newRabbitConnectionFactory()
+
+        @Bean
+        fun outboxConnectionFactory(): ConnectionFactory = newRabbitConnectionFactory(publisherReturns = false)
+
+        @Bean
+        fun rabbitOperations(
+            @Qualifier("outboxConnectionFactory") connectionFactory: ConnectionFactory,
+        ): RabbitOperations = mandatoryRabbitTemplate(connectionFactory)
     }
 
     @Configuration

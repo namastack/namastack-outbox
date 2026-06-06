@@ -11,7 +11,8 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate
  *
  * The outbox publisher relies on correlated publisher confirms to determine whether
  * RabbitMQ accepted a specific message. When unroutable messages should fail outbox
- * processing, publisher returns and mandatory publishing are required as well.
+ * processing, publisher returns and mandatory publishing are required as well. Settings
+ * are validated against the connection factory used by the selected [RabbitOperations].
  *
  * @author Roland Beisel
  * @since 1.7.0
@@ -22,16 +23,15 @@ object RabbitOutboxPublisherSettingsValidator {
      * Rabbit outbox publication.
      *
      * @param rabbitOperations operations used by [RabbitOutboxPublisher] to publish messages
-     * @param connectionFactory connection factory backing Rabbit publication
      * @param failOnUnroutable whether returned messages should fail outbox processing
      * @throws IllegalStateException when correlated publisher confirms are not enabled, or
      * when publisher returns or mandatory publishing are missing while [failOnUnroutable] is enabled
      */
     fun validate(
         rabbitOperations: RabbitOperations,
-        connectionFactory: ConnectionFactory,
         failOnUnroutable: Boolean,
     ) {
+        val connectionFactory = rabbitOperations.connectionFactory
         val missingSettings =
             buildList {
                 if (!hasCorrelatedPublisherConfirms(connectionFactory)) {
