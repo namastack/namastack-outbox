@@ -18,6 +18,16 @@ spring:
     port: 5672
     username: guest
     password: guest
+    publisher-returns: true
+    template:
+      mandatory: true
+    publisher-confirm-type: correlated
+
+namastack:
+  outbox:
+    rabbit:
+      publisher-confirm-timeout: 2s
+      fail-on-unroutable: true
 
 logging:
   level:

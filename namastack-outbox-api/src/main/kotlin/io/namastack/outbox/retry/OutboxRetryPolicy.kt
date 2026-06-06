@@ -1,6 +1,8 @@
 package io.namastack.outbox.retry
 
 import java.time.Duration
+import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.concurrent.ThreadLocalRandom
 import java.util.function.Predicate
 
@@ -311,8 +313,9 @@ interface OutboxRetryPolicy {
         /**
          * Specifies exception types that should trigger a retry.
          *
-         * When specified, only exceptions of these types (or their subclasses) will be retried,
-         * unless overridden by [noRetryOn] or a custom [retryIf] predicate.
+         * When specified, only exceptions of these types (or their subclasses) will be retried.
+         * The complete cause chain is inspected, unless overridden by [noRetryOn] or a custom
+         * [retryIf] predicate.
          *
          * @param exceptions The exception types that should trigger a retry
          * @return Builder instance for method chaining
@@ -325,8 +328,9 @@ interface OutboxRetryPolicy {
         /**
          * Specifies exception types that should trigger a retry.
          *
-         * When specified, only exceptions of these types (or their subclasses) will be retried,
-         * unless overridden by [noRetryOn] or a custom [retryIf] predicate.
+         * When specified, only exceptions of these types (or their subclasses) will be retried.
+         * The complete cause chain is inspected, unless overridden by [noRetryOn] or a custom
+         * [retryIf] predicate.
          *
          * @param exceptions Collection of exception types that should trigger a retry
          * @return Builder instance for method chaining
@@ -344,8 +348,8 @@ interface OutboxRetryPolicy {
         /**
          * Specifies exception types that should never trigger a retry.
          *
-         * Exceptions of these types (or their subclasses) will not be retried,
-         * even if they match [retryOn] rules or custom [retryIf] predicates.
+         * Exceptions of these types (or their subclasses) anywhere in the cause chain will not
+         * be retried, even if they match [retryOn] rules or custom [retryIf] predicates.
          *
          * @param exceptions The exception types that should never trigger a retry
          * @return Builder instance for method chaining
@@ -358,8 +362,8 @@ interface OutboxRetryPolicy {
         /**
          * Specifies exception types that should never trigger a retry.
          *
-         * Exceptions of these types (or their subclasses) will not be retried,
-         * even if they match [retryOn] rules or custom [retryIf] predicates.
+         * Exceptions of these types (or their subclasses) anywhere in the cause chain will not
+         * be retried, even if they match [retryOn] rules or custom [retryIf] predicates.
          *
          * @param exceptions Collection of exception types that should never trigger a retry
          * @return Builder instance for method chaining
@@ -404,8 +408,10 @@ interface OutboxRetryPolicy {
         fun build(): OutboxRetryPolicy =
             object : OutboxRetryPolicy {
                 override fun shouldRetry(exception: Throwable): Boolean {
+                    val causeChain = causeChain(exception)
+
                     // If a non-retryable exception matches, do not retry
-                    if (nonRetryableExceptions.any { it.isInstance(exception) }) {
+                    if (causeChain.any { cause -> nonRetryableExceptions.any { it.isInstance(cause) } }) {
                         return false
                     }
 
@@ -415,7 +421,7 @@ interface OutboxRetryPolicy {
                     }
 
                     // If a retryable exception matches, retry
-                    if (retryableExceptions.any { it.isInstance(exception) }) {
+                    if (causeChain.any { cause -> retryableExceptions.any { it.isInstance(cause) } }) {
                         return true
                     }
 
@@ -425,6 +431,19 @@ interface OutboxRetryPolicy {
                     }
 
                     return false
+                }
+
+                private fun causeChain(exception: Throwable): List<Throwable> {
+                    val causes = mutableListOf<Throwable>()
+                    val seen = Collections.newSetFromMap(IdentityHashMap<Throwable, Boolean>())
+                    var current: Throwable? = exception
+
+                    while (current != null && seen.add(current)) {
+                        causes += current
+                        current = current.cause
+                    }
+
+                    return causes
                 }
 
                 override fun nextDelay(failureCount: Int): Duration {

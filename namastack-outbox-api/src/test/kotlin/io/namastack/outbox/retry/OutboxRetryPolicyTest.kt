@@ -36,6 +36,17 @@ class OutboxRetryPolicyTest {
         }
 
         @Test
+        fun `retries when a cause is explicitly retryable`() {
+            val policy =
+                OutboxRetryPolicy
+                    .builder()
+                    .retryOn(RetryableException::class.java)
+                    .build()
+
+            assertThat(policy.shouldRetry(RuntimeException(RetryableException()))).isTrue()
+        }
+
+        @Test
         fun `does not retry when exception is explicitly non-retryable`() {
             val policy =
                 OutboxRetryPolicy
@@ -48,6 +59,29 @@ class OutboxRetryPolicyTest {
         }
 
         @Test
+        fun `does not retry when a cause is explicitly non-retryable`() {
+            val policy =
+                OutboxRetryPolicy
+                    .builder()
+                    .noRetryOn(NonRetryableException::class.java)
+                    .build()
+
+            assertThat(policy.shouldRetry(RuntimeException(NonRetryableException()))).isFalse()
+        }
+
+        @Test
+        fun `non-retryable cause overrides retryable wrapper`() {
+            val policy =
+                OutboxRetryPolicy
+                    .builder()
+                    .retryOn(RuntimeException::class.java)
+                    .noRetryOn(NonRetryableException::class.java)
+                    .build()
+
+            assertThat(policy.shouldRetry(RuntimeException(NonRetryableException()))).isFalse()
+        }
+
+        @Test
         fun `predicate enables retry when matching`() {
             val policy =
                 OutboxRetryPolicy
@@ -57,6 +91,17 @@ class OutboxRetryPolicyTest {
 
             assertThat(policy.shouldRetry(RetryableException())).isTrue()
             assertThat(policy.shouldRetry(UndefinedException())).isFalse()
+        }
+
+        @Test
+        fun `predicate evaluates the top-level exception`() {
+            val policy =
+                OutboxRetryPolicy
+                    .builder()
+                    .retryIf { it is RetryableException }
+                    .build()
+
+            assertThat(policy.shouldRetry(RuntimeException(RetryableException()))).isFalse()
         }
 
         @Test

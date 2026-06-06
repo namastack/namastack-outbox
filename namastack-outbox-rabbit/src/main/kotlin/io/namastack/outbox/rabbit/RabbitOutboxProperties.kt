@@ -1,6 +1,7 @@
 package io.namastack.outbox.rabbit
 
 import org.springframework.boot.context.properties.ConfigurationProperties
+import java.time.Duration
 
 /**
  * Configuration properties for Rabbit outbox integration.
@@ -22,4 +23,14 @@ data class RabbitOutboxProperties(
      * Default Rabbit exchange for outbox events.
      */
     var defaultExchange: String = "outbox-events",
+    /**
+     * Maximum time to wait for RabbitMQ publisher confirms.
+     */
+    var publisherConfirmTimeout: Duration = Duration.ofSeconds(10),
+    /**
+     * Whether unroutable messages should fail outbox processing.
+     *
+     * When enabled, Spring AMQP publisher returns and mandatory publishing must also be enabled.
+     */
+    var failOnUnroutable: Boolean = false,
 )

@@ -3,14 +3,13 @@ package io.namastack.outbox.rabbit
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import org.slf4j.LoggerFactory
-import org.springframework.amqp.rabbit.core.RabbitMessageOperations
-import java.util.concurrent.ExecutionException
 
 /**
- * Outbox handler that sends payloads to RabbitMQ.
+ * Outbox handler that prepares payloads for RabbitMQ publication.
  *
- * Uses [RabbitOutboxRouting] to determine the exchange (target), routing key, headers,
- * payload mapping, and filtering for each payload.
+ * Uses [RabbitOutboxRouting] to determine the exchange, routing key, headers,
+ * payload mapping, and filtering for each payload. Actual RabbitMQ publication is
+ * delegated to [RabbitOutboxPublisher].
  *
  * This handler is auto-configured when Spring AMQP is on the classpath.
  * You only need to provide a custom [RabbitOutboxRouting] bean if you
@@ -58,13 +57,13 @@ import java.util.concurrent.ExecutionException
  * }
  * ```
  *
- * @param rabbitMessageOperations Spring AMQP operations for sending messages
+ * @param publisher Rabbit outbox publisher for broker interaction
  * @param routing configuration for routing payloads to exchanges
  * @author Roland Beisel
  * @since 1.1.0
  */
 class RabbitOutboxHandler(
-    private val rabbitMessageOperations: RabbitMessageOperations,
+    private val publisher: RabbitOutboxPublisher,
     private val routing: RabbitOutboxRouting,
 ) : OutboxHandler {
     private val logger = LoggerFactory.getLogger(RabbitOutboxHandler::class.java)
@@ -83,49 +82,27 @@ class RabbitOutboxHandler(
             return
         }
 
-        val mappedPayload = routing.mapPayload(payload, metadata)
-        val exchange = routing.resolveExchange(payload, metadata)
-        val routingKey = routing.extractKey(payload, metadata)
-        val headers = routing.buildHeaders(payload, metadata)
+        val message = buildMessage(payload, metadata)
 
         logger.debug(
-            "Sending outbox record to Rabbit: topic={}, key={}, handlerId={}",
-            exchange,
-            routingKey,
-            metadata.handlerId,
+            "Sending outbox record to Rabbit: exchange={}, routingKey={}, handlerId={}",
+            message.exchange,
+            message.routingKey,
+            message.handlerId,
         )
 
-        send(mappedPayload, exchange, routingKey, headers, metadata)
+        publisher.publish(message)
     }
 
-    private fun send(
+    private fun buildMessage(
         payload: Any,
-        exchange: String,
-        routingKey: String?,
-        headers: Map<String, String>,
         metadata: OutboxRecordMetadata,
-    ) {
-        try {
-            rabbitMessageOperations.convertAndSend(exchange, routingKey, payload, headers)
-        } catch (ex: ExecutionException) {
-            logger.error(
-                "Failed to send outbox record to Rabbit: exchange={}, routingKey={}, handlerId={}",
-                exchange,
-                routingKey,
-                metadata.handlerId,
-                ex.cause,
-            )
-            throw ex.cause ?: ex
-        } catch (ex: InterruptedException) {
-            Thread.currentThread().interrupt()
-            logger.error(
-                "Interrupted while sending outbox record to Rabbit: exchange={}, routingKey={}, handlerId={}",
-                exchange,
-                routingKey,
-                metadata.handlerId,
-                ex,
-            )
-            throw ex
-        }
-    }
+    ): RabbitOutboxMessage =
+        RabbitOutboxMessage(
+            payload = routing.mapPayload(payload, metadata),
+            exchange = routing.resolveExchange(payload, metadata),
+            routingKey = routing.extractKey(payload, metadata) ?: "",
+            headers = routing.buildHeaders(payload, metadata),
+            handlerId = metadata.handlerId,
+        )
 }
