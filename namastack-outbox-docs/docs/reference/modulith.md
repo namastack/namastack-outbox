@@ -196,23 +196,23 @@ dependencies {
 </dependencyManagement>
 
 <dependencies>
-  <!-- Your existing Spring Modulith dependencies -->
-  <dependency>
-    <groupId>org.springframework.modulith</groupId>
-    <artifactId>spring-modulith-starter-jdbc</artifactId>
-  </dependency>
-
-  <!-- Your transport dependencies (e.g., Kafka) -->
-  <dependency>
-    <groupId>org.springframework.modulith</groupId>
-    <artifactId>spring-modulith-events-kafka</artifactId>
-  </dependency>
-
-  <!-- NEW: Spring Modulith's Namastack Outbox integration -->
-  <dependency>
-    <groupId>org.springframework.modulith</groupId>
-    <artifactId>spring-modulith-starter-namastack</artifactId>
-  </dependency>
+    <!-- Your existing Spring Modulith dependencies -->
+    <dependency>
+        <groupId>org.springframework.modulith</groupId>
+        <artifactId>spring-modulith-starter-jdbc</artifactId>
+    </dependency>
+    
+    <!-- Your transport dependencies (e.g., Kafka) -->
+    <dependency>
+        <groupId>org.springframework.modulith</groupId>
+        <artifactId>spring-modulith-events-kafka</artifactId>
+    </dependency>
+    
+    <!-- NEW: Spring Modulith's Namastack Outbox integration -->
+    <dependency>
+        <groupId>org.springframework.modulith</groupId>
+        <artifactId>spring-modulith-starter-namastack</artifactId>
+    </dependency>
 </dependencies>`} />
 
 </TabItem>
@@ -375,17 +375,29 @@ Namastack API types, such as defining an `OutboxRetryPolicy` bean or a custom `O
 <TabItem value="Gradle" label="Gradle">
 
 <VersionedCode language="kotlin" template= {`dependencies {
-    implementation("io.namastack:namastack-outbox-api:{{versionLabel}}")
+    implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
+    implementation("io.namastack:namastack-outbox-api")
     // Add other Namastack modules only when you configure them directly
 }`} />
 
 </TabItem>
 <TabItem value="Maven" label="Maven">
 
-<VersionedCode language="xml" template= {`<dependency>
+<VersionedCode language="xml" template= {`<dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>io.namastack</groupId>
+      <artifactId>namastack-outbox-bom</artifactId>
+      <version>{{versionLabel}}</version>
+      <type>pom</type>
+      <scope>import</scope>
+    </dependency>
+  </dependencies>
+</dependencyManagement>
+
+<dependency>
     <groupId>io.namastack</groupId>
     <artifactId>namastack-outbox-api</artifactId>
-    <version>{{versionLabel}}</version>
 </dependency>
 <!-- Add other Namastack modules only when you configure them directly -->`} />
 

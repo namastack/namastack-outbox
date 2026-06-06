@@ -31,15 +31,15 @@ import VersionedCode from '@site/src/components/VersionedCode';
 <TabItem value="maven" label="Maven">
 
 <VersionedCode language="xml" template= {`<dependencyManagement>
-  <dependencies>
-    <dependency>
-      <groupId>io.namastack</groupId>
-      <artifactId>namastack-outbox-bom</artifactId>
-      <version>{{versionLabel}}</version>
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-  </dependencies>
+    <dependencies>
+        <dependency>
+            <groupId>io.namastack</groupId>
+            <artifactId>namastack-outbox-bom</artifactId>
+            <version>{{versionLabel}}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
 </dependencyManagement>
 
 <dependencies>
@@ -201,13 +201,13 @@ public class RabbitOutboxConfig {
 
 **Configuration Properties**
 
-| Property                                   | Default         | Description                                               |
-|--------------------------------------------|-----------------|-----------------------------------------------------------|
-| `namastack.outbox.rabbit.enabled`          | `true`          | Enable Rabbit outbox integration                          |
-| `namastack.outbox.rabbit.default-exchange` | `outbox-events` | Default Rabbit exchange for outbox events                 |
-| `namastack.outbox.rabbit.enable-json`      | `true`          | Enable Jackson JSON message conversion for RabbitTemplate |
-| `namastack.outbox.rabbit.publisher-confirm-timeout` | `10s` | Maximum time to wait for RabbitMQ publisher confirms |
-| `namastack.outbox.rabbit.fail-on-unroutable` | `false` | Fail outbox processing when RabbitMQ returns an unroutable message |
+| Property                                            | Default         | Description                                                        |
+|-----------------------------------------------------|-----------------|--------------------------------------------------------------------|
+| `namastack.outbox.rabbit.enabled`                   | `true`          | Enable Rabbit outbox integration                                   |
+| `namastack.outbox.rabbit.default-exchange`          | `outbox-events` | Default Rabbit exchange for outbox events                          |
+| `namastack.outbox.rabbit.enable-json`               | `true`          | Enable Jackson JSON message conversion for RabbitTemplate          |
+| `namastack.outbox.rabbit.publisher-confirm-timeout` | `10s`           | Maximum time to wait for RabbitMQ publisher confirms               |
+| `namastack.outbox.rabbit.fail-on-unroutable`        | `false`         | Fail outbox processing when RabbitMQ returns an unroutable message |
 
 For RabbitMQ-specific reliability semantics and required Spring AMQP settings, see
 [RabbitMQ Integration](rabbitmq.md).

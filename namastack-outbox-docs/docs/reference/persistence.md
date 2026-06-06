@@ -28,20 +28,20 @@ The JPA module uses Hibernate/JPA for database operations. Best for projects alr
 <TabItem value="Maven" label="Maven">
 
 <VersionedCode language="xml" template= {`<dependencyManagement>
-  <dependencies>
-    <dependency>
-      <groupId>io.namastack</groupId>
-      <artifactId>namastack-outbox-bom</artifactId>
-      <version>{{versionLabel}}</version>
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-  </dependencies>
+    <dependencies>
+        <dependency>
+            <groupId>io.namastack</groupId>
+            <artifactId>namastack-outbox-bom</artifactId>
+            <version>{{versionLabel}}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
 </dependencyManagement>
 
 <dependency>
-      <groupId>io.namastack</groupId>
-      <artifactId>namastack-outbox-starter-jpa</artifactId>
+    <groupId>io.namastack</groupId>
+    <artifactId>namastack-outbox-starter-jpa</artifactId>
 </dependency>`} />
 
 </TabItem>
@@ -74,20 +74,20 @@ The JDBC module uses Spring's `JdbcClient` for database operations. Best for pro
 <TabItem value="Maven" label="Maven">
 
 <VersionedCode language="xml" template= {`<dependencyManagement>
-  <dependencies>
-    <dependency>
-      <groupId>io.namastack</groupId>
-      <artifactId>namastack-outbox-bom</artifactId>
-      <version>{{versionLabel}}</version>
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-  </dependencies>
+    <dependencies>
+        <dependency>
+            <groupId>io.namastack</groupId>
+            <artifactId>namastack-outbox-bom</artifactId>
+            <version>{{versionLabel}}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
 </dependencyManagement>
 
 <dependency>
-      <groupId>io.namastack</groupId>
-      <artifactId>namastack-outbox-starter-jdbc</artifactId>
+    <groupId>io.namastack</groupId>
+    <artifactId>namastack-outbox-starter-jdbc</artifactId>
 </dependency>`} />
 
 </TabItem>
@@ -174,20 +174,20 @@ The MongoDB module uses Spring Data MongoDB for document-based persistence. Best
 <TabItem value="Maven" label="Maven">
 
 <VersionedCode language="xml" template= {`<dependencyManagement>
-  <dependencies>
-    <dependency>
-      <groupId>io.namastack</groupId>
-      <artifactId>namastack-outbox-bom</artifactId>
-      <version>{{versionLabel}}</version>
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-  </dependencies>
+    <dependencies>
+        <dependency>
+            <groupId>io.namastack</groupId>
+            <artifactId>namastack-outbox-bom</artifactId>
+            <version>{{versionLabel}}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
 </dependencyManagement>
 
 <dependency>
-      <groupId>io.namastack</groupId>
-      <artifactId>namastack-outbox-starter-mongodb</artifactId>
+    <groupId>io.namastack</groupId>
+    <artifactId>namastack-outbox-starter-mongodb</artifactId>
 </dependency>`} />
 
 </TabItem>

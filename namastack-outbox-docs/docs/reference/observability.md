@@ -53,15 +53,15 @@ metrics, also add the Prometheus Micrometer registry.
 <TabItem value="maven" label="Maven">
 
 <VersionedCode language="xml" template= {`<dependencyManagement>
-  <dependencies>
-    <dependency>
-      <groupId>io.namastack</groupId>
-      <artifactId>namastack-outbox-bom</artifactId>
-      <version>{{versionLabel}}</version>
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-  </dependencies>
+    <dependencies>
+        <dependency>
+            <groupId>io.namastack</groupId>
+            <artifactId>namastack-outbox-bom</artifactId>
+            <version>{{versionLabel}}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
 </dependencyManagement>
 
 <dependency>
