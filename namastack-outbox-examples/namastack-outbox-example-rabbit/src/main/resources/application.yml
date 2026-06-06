@@ -27,6 +27,7 @@ namastack:
   outbox:
     rabbit:
       publisher-confirm-timeout: 2s
+      fail-on-unroutable: true
 
 logging:
   level:
