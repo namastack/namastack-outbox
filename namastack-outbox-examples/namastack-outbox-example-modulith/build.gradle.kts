@@ -17,14 +17,6 @@ repositories {
     mavenCentral()
 }
 
-configurations.configureEach {
-    resolutionStrategy.eachDependency {
-        if (requested.group == "io.namastack" && requested.name.startsWith("namastack-outbox")) {
-            useVersion("1.6.0-SNAPSHOT")
-        }
-    }
-}
-
 dependencyManagement {
     imports {
         mavenBom("org.springframework.modulith:spring-modulith-bom:2.1.0-SNAPSHOT")
@@ -32,6 +24,7 @@ dependencyManagement {
 }
 
 dependencies {
+    implementation(enforcedPlatform(libs.namastack.outbox.bom))
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
@@ -40,12 +33,12 @@ dependencies {
     implementation("org.springframework.modulith:spring-modulith-events-kafka")
     implementation("org.springframework.modulith:spring-modulith-starter-insight")
     implementation("org.springframework.modulith:spring-modulith-starter-namastack")
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.6.0-SNAPSHOT")
-    implementation("io.namastack:namastack-outbox-observability:1.6.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jpa")
+    implementation("io.namastack:namastack-outbox-observability")
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
+    testImplementation(platform(libs.testcontainers.bom))
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-kafka")
 }
