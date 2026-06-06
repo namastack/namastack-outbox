@@ -20,17 +20,18 @@ repositories {
 }
 
 dependencies {
+    implementation(platform(libs.namastack.outbox.bom))
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-kafka")
     implementation("org.springframework.boot:spring-boot-flyway")
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.6.0-SNAPSHOT")
-    implementation("io.namastack:namastack-outbox-kafka:1.6.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jpa")
+    implementation("io.namastack:namastack-outbox-kafka")
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
+    testImplementation(platform(libs.testcontainers.bom))
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-kafka")
 }

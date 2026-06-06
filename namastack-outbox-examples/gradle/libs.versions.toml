@@ -1,0 +1,7 @@
+[versions]
+namastackOutbox = "1.6.0-SNAPSHOT"
+testcontainers = "2.0.5"
+
+[libraries]
+namastack-outbox-bom = { module = "io.namastack:namastack-outbox-bom", version.ref = "namastackOutbox" }
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }

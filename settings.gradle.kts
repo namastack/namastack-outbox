@@ -2,6 +2,7 @@ rootProject.name = "namastack-outbox"
 
 include("namastack-outbox-actuator")
 include("namastack-outbox-api")
+include("namastack-outbox-bom")
 include("namastack-outbox-core")
 include("namastack-outbox-integration-tests")
 include("namastack-outbox-jackson")

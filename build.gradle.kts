@@ -88,8 +88,10 @@ subprojects {
     }
 
     afterEvaluate {
-        java {
-            withSourcesJar()
+        plugins.withId("java") {
+            java {
+                withSourcesJar()
+            }
         }
 
         dokka {

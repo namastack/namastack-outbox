@@ -21,32 +21,42 @@ import VersionedCode from '@site/src/components/VersionedCode';
 <TabItem value="gradle" label="Gradle (Kotlin DSL)">
 
 <VersionedCode language="kotlin" template= {`dependencies {
-      implementation("io.namastack:namastack-outbox-kafka:{{versionLabel}}")
-      implementation("io.namastack:namastack-outbox-rabbit:{{versionLabel}}")
-      implementation("io.namastack:namastack-outbox-sns:{{versionLabel}}")
+      implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
+      implementation("io.namastack:namastack-outbox-kafka")
+      implementation("io.namastack:namastack-outbox-rabbit")
+      implementation("io.namastack:namastack-outbox-sns")
 }`} />
 
 </TabItem>
 <TabItem value="maven" label="Maven">
 
-<VersionedCode language="xml" template= {`<dependencies>
+<VersionedCode language="xml" template= {`<dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>io.namastack</groupId>
+      <artifactId>namastack-outbox-bom</artifactId>
+      <version>{{versionLabel}}</version>
+      <type>pom</type>
+      <scope>import</scope>
+    </dependency>
+  </dependencies>
+</dependencyManagement>
+
+<dependencies>
     <!-- For Kafka integration -->
     <dependency>
         <groupId>io.namastack</groupId>
         <artifactId>namastack-outbox-kafka</artifactId>
-        <version>{{versionLabel}}</version>
     </dependency>
     <!-- For RabbitMQ integration -->
     <dependency>
         <groupId>io.namastack</groupId>
         <artifactId>namastack-outbox-rabbit</artifactId>
-        <version>{{versionLabel}}</version>
     </dependency>
     <!-- For SNS integration -->
     <dependency>
         <groupId>io.namastack</groupId>
         <artifactId>namastack-outbox-sns</artifactId>
-        <version>{{versionLabel}}</version>
     </dependency>
 </dependencies>`} />
 
