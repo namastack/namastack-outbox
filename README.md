@@ -87,19 +87,32 @@ Quick links:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jdbc:1.6.0")
+    implementation(platform("io.namastack:namastack-outbox-bom:1.6.0"))
+    implementation("io.namastack:namastack-outbox-starter-jdbc")
 }
 ```
 
 **Maven:**
 
 ```xml
+<dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>io.namastack</groupId>
+      <artifactId>namastack-outbox-bom</artifactId>
+      <version>1.6.0</version>
+      <type>pom</type>
+      <scope>import</scope>
+    </dependency>
+  </dependencies>
+</dependencyManagement>
 
+<dependencies>
 <dependency>
   <groupId>io.namastack</groupId>
   <artifactId>namastack-outbox-starter-jdbc</artifactId>
-  <version>1.6.0</version>
 </dependency>
+</dependencies>
 ```
 
 > **Note:** The JDBC starter includes automatic schema creation. For JPA/Hibernate projects,
@@ -248,7 +261,8 @@ If you prefer using JPA/Hibernate instead of JDBC, use the JPA starter:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.6.0")
+    implementation(platform("io.namastack:namastack-outbox-bom:1.6.0"))
+    implementation("io.namastack:namastack-outbox-starter-jpa")
 }
 ```
 
@@ -267,7 +281,8 @@ For MongoDB projects, use the MongoDB starter:
 
 ```gradle
 dependencies {
-    implementation("io.namastack:namastack-outbox-starter-mongodb:1.6.0")
+    implementation(platform("io.namastack:namastack-outbox-bom:1.6.0"))
+    implementation("io.namastack:namastack-outbox-starter-mongodb")
 }
 ```
 
@@ -356,9 +371,10 @@ Ready-to-use modules for Kafka, RabbitMQ, and AWS SNS with flexible routing, hea
 payload transformation.
 
 ```gradle
-implementation("io.namastack:namastack-outbox-kafka:1.6.0")
-implementation("io.namastack:namastack-outbox-rabbit:1.6.0")
-implementation("io.namastack:namastack-outbox-sns:1.6.0")
+implementation(platform("io.namastack:namastack-outbox-bom:1.6.0"))
+implementation("io.namastack:namastack-outbox-kafka")
+implementation("io.namastack:namastack-outbox-rabbit")
+implementation("io.namastack:namastack-outbox-sns")
 ```
 
 → [Messaging Documentation](https://www.namastack.io/outbox/reference/messaging/)

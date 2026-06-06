@@ -22,18 +22,20 @@ repositories {
 }
 
 dependencies {
+    implementation(platform(libs.namastack.outbox.bom))
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-flyway")
     implementation("io.awspring.cloud:spring-cloud-aws-starter-sns:4.0.2")
-    implementation("io.namastack:namastack-outbox-starter-jpa:1.6.0-SNAPSHOT")
-    implementation("io.namastack:namastack-outbox-sns:1.6.0-SNAPSHOT")
+    implementation("io.namastack:namastack-outbox-starter-jpa")
+    implementation("io.namastack:namastack-outbox-sns")
     runtimeOnly("com.h2database:h2")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.testcontainers:localstack:1.21.4")
-    testImplementation("org.testcontainers:junit-jupiter:1.21.4")
+    testImplementation(platform(libs.testcontainers.bom))
+    testImplementation("org.testcontainers:testcontainers-localstack")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.awaitility:awaitility:4.3.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

@@ -38,8 +38,9 @@ metrics, also add the Prometheus Micrometer registry.
 <TabItem value="gradle" label="Gradle">
 
 <VersionedCode language="kotlin" template= {`dependencies {
-      implementation("io.namastack:namastack-outbox-starter-jpa:{{versionLabel}}")
-      implementation("io.namastack:namastack-outbox-observability:{{versionLabel}}")
+      implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
+      implementation("io.namastack:namastack-outbox-starter-jpa")
+      implementation("io.namastack:namastack-outbox-observability")
 
       // For Prometheus endpoint (optional)
       implementation("io.micrometer:micrometer-registry-prometheus")
@@ -51,10 +52,26 @@ metrics, also add the Prometheus Micrometer registry.
 </TabItem>
 <TabItem value="maven" label="Maven">
 
-<VersionedCode language="xml" template= {`<dependency>
+<VersionedCode language="xml" template= {`<dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>io.namastack</groupId>
+      <artifactId>namastack-outbox-bom</artifactId>
+      <version>{{versionLabel}}</version>
+      <type>pom</type>
+      <scope>import</scope>
+    </dependency>
+  </dependencies>
+</dependencyManagement>
+
+<dependency>
+      <groupId>io.namastack</groupId>
+      <artifactId>namastack-outbox-starter-jpa</artifactId>
+</dependency>
+
+<dependency>
       <groupId>io.namastack</groupId>
       <artifactId>namastack-outbox-observability</artifactId>
-      <version>{{versionLabel}}</version>
 </dependency>
 
 <!-- For Prometheus endpoint (optional) -->
