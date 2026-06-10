@@ -1,4 +1,4 @@
-[![Version](https://img.shields.io/badge/version-1.6.0-blue)](https://github.com/namastack/namastack-outbox/releases/tag/v1.6.0)
+[![Version](https://img.shields.io/badge/version-1.7.0-blue)](https://github.com/namastack/namastack-outbox/releases/tag/v1.7.0)
 [![CodeFactor](https://www.codefactor.io/repository/github/namastack/namastack-outbox/badge)](https://www.codefactor.io/repository/github/namastack/namastack-outbox)
 [![codecov](https://codecov.io/github/namastack/namastack-outbox/graph/badge.svg?token=TZS1OQB4XC)](https://codecov.io/github/namastack/namastack-outbox)
 [![javadoc](https://javadoc.io/badge2/io.namastack/namastack-outbox-core/javadoc.svg)](https://javadoc.io/doc/io.namastack/namastack-outbox-core)
@@ -100,7 +100,7 @@ Quick links:
 
 ```gradle
 dependencies {
-    implementation(platform("io.namastack:namastack-outbox-bom:1.6.0"))
+    implementation(platform("io.namastack:namastack-outbox-bom:1.7.0"))
     implementation("io.namastack:namastack-outbox-starter-jdbc")
 }
 ```
@@ -113,7 +113,7 @@ dependencies {
     <dependency>
       <groupId>io.namastack</groupId>
       <artifactId>namastack-outbox-bom</artifactId>
-      <version>1.6.0</version>
+      <version>1.7.0</version>
       <type>pom</type>
       <scope>import</scope>
     </dependency>
@@ -274,7 +274,7 @@ If you prefer using JPA/Hibernate instead of JDBC, use the JPA starter:
 
 ```gradle
 dependencies {
-    implementation(platform("io.namastack:namastack-outbox-bom:1.6.0"))
+    implementation(platform("io.namastack:namastack-outbox-bom:1.7.0"))
     implementation("io.namastack:namastack-outbox-starter-jpa")
 }
 ```
@@ -294,7 +294,7 @@ For MongoDB projects, use the MongoDB starter:
 
 ```gradle
 dependencies {
-    implementation(platform("io.namastack:namastack-outbox-bom:1.6.0"))
+    implementation(platform("io.namastack:namastack-outbox-bom:1.7.0"))
     implementation("io.namastack:namastack-outbox-starter-mongodb")
 }
 ```
@@ -384,7 +384,7 @@ Ready-to-use modules for Kafka, RabbitMQ, and AWS SNS with flexible routing, hea
 payload transformation.
 
 ```gradle
-implementation(platform("io.namastack:namastack-outbox-bom:1.6.0"))
+implementation(platform("io.namastack:namastack-outbox-bom:1.7.0"))
 implementation("io.namastack:namastack-outbox-kafka")
 implementation("io.namastack:namastack-outbox-rabbit")
 implementation("io.namastack:namastack-outbox-sns")
