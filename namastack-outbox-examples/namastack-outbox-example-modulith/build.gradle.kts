@@ -1,9 +1,9 @@
 plugins {
-    id("org.springframework.boot") version "4.1.0-RC1"
-    id("io.spring.dependency-management") version "1.1.7"
-    id("org.jetbrains.kotlin.plugin.jpa") version "2.3.21"
-    kotlin("jvm") version "2.3.21"
-    kotlin("plugin.spring") version "2.3.21"
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spring.dependency.management)
+    alias(libs.plugins.kotlin.jpa)
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.spring)
 }
 
 group = "io.namastack"
