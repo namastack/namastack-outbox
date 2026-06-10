@@ -72,10 +72,10 @@ class ExampleRabbitSmokeTest {
 
     @Test
     void publishesToRabbitTest() {
-        var customerMessage = rabbitTemplate.receiveAndConvert("customer-registration-queue", 5000);
+        var customerMessage = rabbitTemplate.receive("customer-registration-queue", 5000);
         assertThat(customerMessage).isNotNull();
 
-        var defaultMessage = rabbitTemplate.receiveAndConvert("default-queue", 5000);
+        var defaultMessage = rabbitTemplate.receive("default-queue", 5000);
         assertThat(defaultMessage).isNotNull();
     }
 }
