@@ -70,10 +70,10 @@ class ExampleRabbitSmokeTest {
 
     @Test
     fun `publishes to rabbit`() {
-        val customerMessage = rabbitTemplate.receiveAndConvert("customer-registration-queue", 5000)
+        val customerMessage = rabbitTemplate.receive("customer-registration-queue", 5000)
         assertThat(customerMessage).isNotNull()
 
-        val defaultMessage = rabbitTemplate.receiveAndConvert("default-queue", 5000)
+        val defaultMessage = rabbitTemplate.receive("default-queue", 5000)
         assertThat(defaultMessage).isNotNull()
     }
 }

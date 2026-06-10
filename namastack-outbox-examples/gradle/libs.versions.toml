@@ -1,7 +1,17 @@
 [versions]
+kotlin = "2.4.0"
 namastackOutbox = "1.6.0-SNAPSHOT"
+springBoot = "4.1.0"
+dependencyManagement = "1.1.7"
 testcontainers = "2.0.5"
 
 [libraries]
 namastack-outbox-bom = { module = "io.namastack:namastack-outbox-bom", version.ref = "namastackOutbox" }
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+kotlin-jpa = { id = "org.jetbrains.kotlin.plugin.jpa", version.ref = "kotlin" }
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "dependencyManagement" }
