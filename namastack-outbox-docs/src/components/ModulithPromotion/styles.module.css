@@ -1,0 +1,50 @@
+.modulithSection {
+  padding: 4rem 0;
+  background: linear-gradient(135deg, rgba(168, 144, 96, 0.1) 0%, rgba(168, 144, 96, 0.05) 100%);
+}
+
+.modulithCard {
+  border: 2px solid var(--ifm-color-primary);
+  box-shadow: 0 8px 24px rgba(168, 144, 96, 0.15);
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.modulithCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(168, 144, 96, 0.25);
+}
+
+.modulithIcon {
+  height: 80px;
+  width: 80px;
+  color: var(--ifm-color-primary);
+}
+
+.modulithTitle {
+  margin-bottom: 1rem;
+  color: var(--ifm-color-primary);
+}
+
+.modulithDescription {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+@media screen and (max-width: 996px) {
+  .modulithSection {
+    padding: 2rem 0;
+  }
+
+  .modulithIcon {
+    height: 60px;
+    width: 60px;
+    margin-bottom: 1rem;
+  }
+
+  .modulithCard .row > div {
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+}
+

@@ -110,7 +110,7 @@ Mark your events with `@OutboxEvent` to enable automatic outbox persistence:
 <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-@OutboxEvent(key = "#event.orderId")  // SpEL expression for key resolution
+@OutboxEvent(key = "#this.orderId")  // SpEL expression for key resolution
 data class OrderCreatedEvent(
     val orderId: String,
     val customerId: String,
@@ -122,7 +122,7 @@ data class OrderCreatedEvent(
 <TabItem value="java" label="Java">
 
 ```java
-@OutboxEvent(key = "#event.orderId")  // SpEL expression for key resolution
+@OutboxEvent(key = "#this.orderId")  // SpEL expression for key resolution
 public class OrderCreatedEvent {
     private String orderId;
     private String customerId;
@@ -141,7 +141,7 @@ The `key` parameter supports Spring Expression Language (SpEL) for dynamic key e
 | Expression | Description | Example |
 |------------|-------------|---------|
 | `#root.fieldName` | Access root object property | `#root.orderId` |
-| `#event.fieldName` | Same as #root (alternative syntax) | `#event.customerId` |
+| `fieldName`          | Access root object property        | `customerId`          |
 | `#root.getId()` | Call method on root object | `#root.getOrderId()` |
 | `#root.nested.field` | Access nested properties | `#root.order.id` |
 | `#root.toString()` | Convert to string | `#root.id.toString()` |
@@ -150,7 +150,7 @@ The `key` parameter supports Spring Expression Language (SpEL) for dynamic key e
 <TabItem value="simple" label="Simple Property">
 
 ```kotlin
-@OutboxEvent(key = "#event.orderId")
+@OutboxEvent(key = "#this.orderId")
 data class OrderEvent(val orderId: String)
 ```
 
@@ -158,7 +158,7 @@ data class OrderEvent(val orderId: String)
 <TabItem value="method" label="Method Call">
 
 ```kotlin
-@OutboxEvent(key = "#event.getAggregateId()")
+@OutboxEvent(key = "#this.getAggregateId()")
 data class DomainEvent(val id: UUID) {
     fun getAggregateId() = id.toString()
 }
@@ -168,7 +168,7 @@ data class DomainEvent(val id: UUID) {
 <TabItem value="nested" label="Nested Property">
 
 ```kotlin
-@OutboxEvent(key = "#event.order.id")
+@OutboxEvent(key = "#this.order.id")
 data class OrderConfirmedEvent(val order: Order)
 ```
 

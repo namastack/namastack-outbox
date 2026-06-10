@@ -22,7 +22,7 @@ No custom `OutboxContextProvider` bean is needed.
 **See the Observability guide for full details.**
 
 For observations, tracing, and the zero-configuration tracing module, see the
-[Observability](../observability#observations--tracing) section.
+[Observability](observability.md#observations--tracing) section.
 :::
 
 ---
@@ -229,7 +229,7 @@ class OrderService(private val outbox: Outbox) {
         outbox.schedule(
             payload = OrderCreatedEvent(order.id, order.customerId),
             key = "order-${order.id}",
-            context = mapOf(
+            additionalContext = mapOf(
                 "correlationId" to command.correlationId,
                 "userId" to command.userId,
                 "priority" to "high"
