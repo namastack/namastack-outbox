@@ -6,6 +6,7 @@ import io.namastack.outbox.partition.PartitionAssignmentRepository
 import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
 import org.springframework.beans.factory.BeanFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigureAfter
@@ -13,8 +14,12 @@ import org.springframework.boot.autoconfigure.AutoConfigureBefore
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.hibernate.autoconfigure.HibernatePropertiesCustomizer
+import org.springframework.boot.jdbc.DatabaseDriver
+import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails
 import org.springframework.boot.transaction.autoconfigure.TransactionAutoConfiguration
 import org.springframework.context.annotation.Bean
+import org.springframework.core.env.Environment
 import org.springframework.orm.jpa.SharedEntityManagerCreator
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -35,6 +40,32 @@ import java.time.Clock
 @ConditionalOnClass(EntityManagerFactory::class, OutboxService::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class JpaOutboxAutoConfiguration {
+    @Bean
+    @ConditionalOnMissingBean(name = ["outboxHibernatePropertiesCustomizer"])
+    fun outboxHibernatePropertiesCustomizer(
+        connectionDetails: ObjectProvider<JdbcConnectionDetails>,
+        environment: Environment,
+    ): HibernatePropertiesCustomizer =
+        HibernatePropertiesCustomizer { hibernateProperties ->
+            if (hibernateProperties.containsKey(HIBERNATE_DIALECT_PROPERTY)) {
+                return@HibernatePropertiesCustomizer
+            }
+
+            when (resolveDatabaseDriver(connectionDetails, environment)) {
+                DatabaseDriver.MYSQL -> {
+                    hibernateProperties[HIBERNATE_DIALECT_PROPERTY] =
+                        MySqlOutboxDialect::class.java.name
+                }
+
+                DatabaseDriver.MARIADB -> {
+                    hibernateProperties[HIBERNATE_DIALECT_PROPERTY] =
+                        MariaDbOutboxDialect::class.java.name
+                }
+
+                else -> {}
+            }
+        }
+
     /**
      * Provides a default Clock bean if none is configured.
      *
@@ -130,4 +161,20 @@ class JpaOutboxAutoConfiguration {
     @ConditionalOnMissingBean
     internal fun outboxRecordEntityMapper(recordSerializer: OutboxPayloadSerializer): OutboxRecordEntityMapper =
         OutboxRecordEntityMapper(recordSerializer)
+
+    private fun resolveDatabaseDriver(
+        connectionDetails: ObjectProvider<JdbcConnectionDetails>,
+        environment: Environment,
+    ): DatabaseDriver {
+        val jdbcUrl =
+            connectionDetails.ifUnique?.jdbcUrl
+                ?: environment.getProperty("spring.datasource.url")
+                ?: return DatabaseDriver.UNKNOWN
+
+        return DatabaseDriver.fromJdbcUrl(jdbcUrl)
+    }
+
+    private companion object {
+        private const val HIBERNATE_DIALECT_PROPERTY = "hibernate.dialect"
+    }
 }

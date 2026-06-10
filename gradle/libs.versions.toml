@@ -1,7 +1,7 @@
 [versions]
 # Kotlin and Plugin versions
 kotlin = "2.4.0"
-springBoot = "4.0.6"
+springBoot = "4.1.0"
 springCloudAws = "4.0.2"
 dependencyManagement = "1.1.7"
 ktlint = "14.2.0"
@@ -20,8 +20,6 @@ spring-boot-amqp = { module = "org.springframework.boot:spring-boot-amqp" }
 spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator" }
 spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure" }
 spring-boot-tracing = { module = "org.springframework.boot:spring-boot-micrometer-tracing" }
-spring-boot-opentelemetry = { module = "org.springframework.boot:spring-boot-opentelemetry" }
-spring-boot-micrometer-opentelemetry = { module = "org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry" }
 spring-boot-hibernate = { module = "org.springframework.boot:spring-boot-hibernate" }
 spring-boot-jdbc = { module = "org.springframework.boot:spring-boot-jdbc" }
 spring-boot-kafka = { module = "org.springframework.boot:spring-boot-kafka" }
@@ -68,7 +66,6 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 micrometer-core = { module = "io.micrometer:micrometer-core" }
 micrometer-observation = { module = "io.micrometer:micrometer-observation" }
 micrometer-tracing = { module = "io.micrometer:micrometer-tracing" }
-micrometer-tracing-bridge-otel = { module = "io.micrometer:micrometer-tracing-bridge-otel" }
 
 # Logging dependencies
 slf4j-api = { module = "org.slf4j:slf4j-api" }
