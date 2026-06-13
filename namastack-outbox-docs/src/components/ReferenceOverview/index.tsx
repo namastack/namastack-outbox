@@ -17,6 +17,7 @@ import {
   IconShieldCheckeredFilled,
   IconSignRightFilled,
   IconTableFilled,
+  IconRollercoasterFilled,
 } from '@tabler/icons-react';
 import {useActiveVersion} from '@docusaurus/plugin-content-docs/client';
 
@@ -119,7 +120,7 @@ const referenceCategories = [
     title: 'Spring Modulith Integration',
     icon: IconAppsFilled,
     description: 'Outbox-backed event externalization for Spring Modulith with transactional guarantees.',
-    link: 'spring-modulith',
+    link: 'spring-modulith/',
     sinceVersion: '1.7.0',
   },
   {
@@ -127,6 +128,13 @@ const referenceCategories = [
     icon: IconBrandSketchFilled,
     description: 'What the library guarantees and what it does not.',
     link: 'guarantees/',
+  },
+  {
+    title: 'Performance Tuning',
+    icon: IconRollercoasterFilled,
+    description: 'Optimize throughput, latency, batching, concurrency, and polling behavior for production workloads.',
+    link: 'performance-tuning/',
+    sinceVersion: '1.7.0',
   },
 ];
 
