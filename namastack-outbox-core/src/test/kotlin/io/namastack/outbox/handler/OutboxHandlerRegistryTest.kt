@@ -4,8 +4,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
-import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerKind
+import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -328,7 +328,12 @@ class OutboxHandlerRegistryTest {
         id: String,
         supports: Boolean = true,
     ): GenericHandlerMethod {
-        val method = TestHandler::class.java.getMethod("handleGeneric", Any::class.java, OutboxRecordMetadata::class.java)
+        val method =
+            TestHandler::class.java.getMethod(
+                "handleGeneric",
+                Any::class.java,
+                OutboxRecordMetadata::class.java,
+            )
         val handler = mockk<GenericHandlerMethod>()
         every { handler.id } returns id
         every { handler.supportsScheduling(any(), any()) } returns supports
