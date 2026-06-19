@@ -5,6 +5,7 @@ import io.mockk.mockk
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
+import io.namastack.outbox.handler.registry.OutboxHandlerKind
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -275,15 +276,51 @@ class OutboxHandlerRegistryTest {
             assertThat(result1).isEqualTo(result2)
             assertThat(result1).isNotSameAs(result2)
         }
+
+        @Test
+        fun `should return descriptors for primary handlers`() {
+            val typedHandler = createMockTypedHandler("typed", TestPayload::class)
+            val genericHandler = createMockGenericHandler("generic")
+
+            registry.register(typedHandler)
+            registry.register(genericHandler)
+            registry.registerAlias("legacy-typed", typedHandler)
+
+            val descriptors = registry.findAllHandlerDescriptors()
+
+            assertThat(descriptors.map { it.id }).containsExactly("generic", "typed")
+            assertThat(descriptors.first { it.id == "typed" }).satisfies({
+                assertThat(it.kind).isEqualTo(OutboxHandlerKind.TYPED)
+                assertThat(it.payloadType).isEqualTo(TestPayload::class.java.name)
+                assertThat(it.beanClass).isEqualTo(TestHandler::class.java.name)
+                assertThat(it.methodName).isEqualTo("handle")
+                assertThat(it.parameterTypes).containsExactly(TestPayload::class.java.name)
+            })
+            assertThat(descriptors.first { it.id == "generic" }.kind).isEqualTo(OutboxHandlerKind.GENERIC)
+        }
+
+        @Test
+        fun `should return descriptor by stable id and alias id`() {
+            val handler = createMockTypedHandler("stable-id", TestPayload::class)
+            registry.register(handler)
+            registry.registerAlias("legacy-id", handler)
+
+            assertThat(registry.findHandlerDescriptorById("stable-id")?.id).isEqualTo("stable-id")
+            assertThat(registry.findHandlerDescriptorById("legacy-id")?.id).isEqualTo("stable-id")
+            assertThat(registry.findHandlerDescriptorById("missing")).isNull()
+        }
     }
 
     private fun createMockTypedHandler(
         id: String,
         paramType: KClass<*>,
     ): TypedHandlerMethod {
+        val method = TestHandler::class.java.getMethod("handle", paramType.java)
         val handler = mockk<TypedHandlerMethod>()
         every { handler.id } returns id
         every { handler.paramType } returns paramType
+        every { handler.bean } returns TestHandler()
+        every { handler.method } returns method
         return handler
     }
 
@@ -291,10 +328,28 @@ class OutboxHandlerRegistryTest {
         id: String,
         supports: Boolean = true,
     ): GenericHandlerMethod {
+        val method = TestHandler::class.java.getMethod("handleGeneric", Any::class.java, OutboxRecordMetadata::class.java)
         val handler = mockk<GenericHandlerMethod>()
         every { handler.id } returns id
         every { handler.supportsScheduling(any(), any()) } returns supports
+        every { handler.bean } returns TestHandler()
+        every { handler.method } returns method
         return handler
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    class TestHandler {
+        fun handle(payload: TestPayload) {
+        }
+
+        fun handle(payload: AnotherPayload) {
+        }
+
+        fun handleGeneric(
+            payload: Any,
+            metadata: OutboxRecordMetadata,
+        ) {
+        }
     }
 
     class TestPayload

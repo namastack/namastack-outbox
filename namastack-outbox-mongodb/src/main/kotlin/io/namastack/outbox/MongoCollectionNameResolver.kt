@@ -13,7 +13,7 @@ import io.namastack.outbox.config.MongoOutboxConfigurationProperties
  * @author Roland Beisel
  * @since 1.5.0
  */
-internal class MongoCollectionNameResolver(
+class MongoCollectionNameResolver(
     private val properties: MongoOutboxConfigurationProperties,
 ) {
     /**

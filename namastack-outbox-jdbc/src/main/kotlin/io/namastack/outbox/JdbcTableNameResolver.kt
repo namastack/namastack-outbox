@@ -13,7 +13,7 @@ import io.namastack.outbox.config.JdbcOutboxConfigurationProperties
  * @author Roland Beisel
  * @since 1.0.0
  */
-internal class JdbcTableNameResolver(
+class JdbcTableNameResolver(
     private val properties: JdbcOutboxConfigurationProperties,
 ) {
     /**

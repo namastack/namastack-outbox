@@ -30,7 +30,7 @@ import java.time.Instant
         ),
     ],
 )
-internal data class MongoOutboxRecordEntity(
+data class MongoOutboxRecordEntity(
     @Id
     val id: String,
     @Indexed

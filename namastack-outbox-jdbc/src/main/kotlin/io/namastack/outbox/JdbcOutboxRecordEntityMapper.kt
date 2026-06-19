@@ -9,7 +9,7 @@ package io.namastack.outbox
  * @author Roland Beisel
  * @since 1.0.0
  */
-internal class JdbcOutboxRecordEntityMapper(
+class JdbcOutboxRecordEntityMapper(
     private val serializer: OutboxPayloadSerializer,
 ) {
     /**

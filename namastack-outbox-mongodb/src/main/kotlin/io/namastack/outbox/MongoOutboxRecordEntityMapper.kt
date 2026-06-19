@@ -6,7 +6,7 @@ package io.namastack.outbox
  * @author Stellar Hold
  * @since 1.5.0
  */
-internal class MongoOutboxRecordEntityMapper(
+class MongoOutboxRecordEntityMapper(
     private val serializer: OutboxPayloadSerializer,
 ) {
     /**

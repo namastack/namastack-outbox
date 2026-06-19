@@ -12,7 +12,7 @@ import java.time.Instant
  * @author Roland Beisel
  * @since 1.0.0
  */
-internal data class JdbcOutboxRecordEntity(
+data class JdbcOutboxRecordEntity(
     val id: String,
     val status: OutboxRecordStatus,
     val recordKey: String,

@@ -32,7 +32,7 @@ import java.time.Instant
         Index(name = "idx_outbox_record_key_completed_created", columnList = "recordKey, completedAt, createdAt"),
     ],
 )
-internal data class OutboxRecordEntity(
+data class OutboxRecordEntity(
     @Id
     @Column(name = "id", nullable = false)
     val id: String,

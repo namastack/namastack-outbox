@@ -4,6 +4,7 @@ import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
+import io.namastack.outbox.handler.method.internal.ReflectionUtils
 import kotlin.reflect.KClass
 
 /**
@@ -50,6 +51,26 @@ class OutboxHandlerRegistry {
      * @return The OutboxHandlerMethod, or null if not found
      */
     fun getHandlerById(id: String): OutboxHandlerMethod? = handlersById[id]
+
+    /**
+     * Returns descriptors for all primary registered handlers.
+     *
+     * Legacy aliases are intentionally excluded.
+     *
+     * @return registered handler descriptors sorted by handler id
+     */
+    fun findAllHandlerDescriptors(): List<OutboxHandlerDescriptor> =
+        (typedHandlers.values.flatten() + genericHandlers)
+            .map { it.toDescriptor() }
+            .sortedBy { it.id }
+
+    /**
+     * Returns a descriptor for a handler id or legacy alias.
+     *
+     * @param id stable handler id or legacy alias id
+     * @return handler descriptor, or null when no handler is registered for the id
+     */
+    fun findHandlerDescriptorById(id: String): OutboxHandlerDescriptor? = handlersById[id]?.toDescriptor()
 
     /**
      * Retrieves all typed handlers that match a specific payload type.
@@ -122,6 +143,20 @@ class OutboxHandlerRegistry {
         check(handlersById.putIfAbsent(handlerMethod.id, handlerMethod) == null) {
             "Duplicate handler ID detected: ${handlerMethod.id}"
         }
+    }
+
+    private fun OutboxHandlerMethod.toDescriptor(): OutboxHandlerDescriptor {
+        val targetClass = ReflectionUtils.getTargetClass(bean)
+
+        return OutboxHandlerDescriptor(
+            id = id,
+            kind = if (this is TypedHandlerMethod) OutboxHandlerKind.TYPED else OutboxHandlerKind.GENERIC,
+            payloadType = (this as? TypedHandlerMethod)?.paramType?.java?.name,
+            beanClass = targetClass.name,
+            methodName = method.name,
+            methodSignature = method.toGenericString(),
+            parameterTypes = method.parameterTypes.map { it.name },
+        )
     }
 
     /**
