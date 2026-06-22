@@ -29,10 +29,13 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.task.SimpleAsyncTaskExecutor
+import org.springframework.core.task.TaskExecutor
+import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.TriggerContext
 import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
+import org.springframework.test.util.ReflectionTestUtils
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -88,6 +91,35 @@ class OutboxCoreAutoConfigurationTest {
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .run { context ->
                     assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
+                    val instanceRegistry = context.getBean<OutboxInstanceRegistry>()
+
+                    // verify injected scheduler is the same as outboxHeartbeatScheduler
+                    val injectedScheduler =
+                        ReflectionTestUtils.getField(instanceRegistry, "taskScheduler") as TaskScheduler
+                    val heartbeatScheduler = context.getBean("outboxHeartbeatScheduler") as TaskScheduler
+                    assertThat(injectedScheduler).isSameAs(heartbeatScheduler)
+                }
+        }
+
+        @Test
+        fun `creates default processing scheduler`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    assertThat(context).hasSingleBean(OutboxProcessingScheduler::class.java)
+                    val processingScheduler = context.getBean<OutboxProcessingScheduler>()
+
+                    // verify injected scheduler is the same as outboxDefaultScheduler
+                    val injectedScheduler =
+                        ReflectionTestUtils.getField(processingScheduler, "taskScheduler") as TaskScheduler
+                    val heartbeatScheduler = context.getBean("outboxDefaultScheduler") as TaskScheduler
+                    assertThat(injectedScheduler).isSameAs(heartbeatScheduler)
+
+                    // verify injected Executor is the same as outboxTaskExecutor
+                    val injectedExecutor =
+                        ReflectionTestUtils.getField(processingScheduler, "taskExecutor") as TaskExecutor
+                    val outboxTaskExecutor = context.getBean("outboxTaskExecutor") as TaskExecutor
+                    assertThat(injectedExecutor).isSameAs(outboxTaskExecutor)
                 }
         }
     }
