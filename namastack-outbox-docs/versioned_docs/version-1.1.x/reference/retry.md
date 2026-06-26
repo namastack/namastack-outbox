@@ -64,7 +64,7 @@ namastack:
   outbox:
     retry:
       policy: "exponential"
-      max-retries: 3
+      max-retries: 7
       exponential:
         initial-delay: 1000    # Start with 1 second
         max-delay: 60000       # Cap at 1 minute
@@ -73,7 +73,7 @@ namastack:
 
 **Use Case:** Handles transient failures gracefully without overwhelming downstream services
 
-**Retry Schedule:** 0s → 1s → 2s → 4s → 8s → 16s → 32s (capped at 60s)
+**Retry Schedule:** 0s → 1s → 2s → 4s → 8s → 16s → 32s → 60s (capped)
 
 #### Jittered Retry
 
