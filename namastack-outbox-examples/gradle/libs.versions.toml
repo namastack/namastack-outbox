@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.4.0"
-namastackOutbox = "1.7.0-SNAPSHOT"
+namastackOutbox = "1.7.1-SNAPSHOT"
 springBoot = "4.1.0"
 dependencyManagement = "1.1.7"
 testcontainers = "2.0.5"
