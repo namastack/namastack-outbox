@@ -13,17 +13,17 @@ package io.namastack.outbox
  */
 interface JdbcTableNameResolver {
     /**
-     * Fully qualified table name for outbox records.
+     * Returns the fully qualified table name for outbox records.
      */
-    val outboxRecord: String
+    fun getOutboxRecord(): String
 
     /**
-     * Fully qualified table name for outbox instances.
+     * Returns the fully qualified table name for outbox instances.
      */
-    val outboxInstance: String
+    fun getOutboxInstance(): String
 
     /**
-     * Fully qualified table name for outbox partition assignments.
+     * Returns the fully qualified table name for outbox partition assignments.
      */
-    val outboxPartitionAssignment: String
+    fun getOutboxPartitionAssignment(): String
 }

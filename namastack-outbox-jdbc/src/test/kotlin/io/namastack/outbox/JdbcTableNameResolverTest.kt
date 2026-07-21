@@ -12,9 +12,9 @@ class JdbcTableNameResolverTest {
         fun `should return base table name when no prefix and no schema configured`() {
             val resolver = DefaultJdbcTableNameResolver(JdbcOutboxConfigurationProperties())
 
-            assertThat(resolver.outboxRecord).isEqualTo("outbox_record")
-            assertThat(resolver.outboxInstance).isEqualTo("outbox_instance")
-            assertThat(resolver.outboxPartitionAssignment).isEqualTo("outbox_partition")
+            assertThat(resolver.getOutboxRecord()).isEqualTo("outbox_record")
+            assertThat(resolver.getOutboxInstance()).isEqualTo("outbox_instance")
+            assertThat(resolver.getOutboxPartitionAssignment()).isEqualTo("outbox_partition")
         }
 
         @Test
@@ -22,7 +22,7 @@ class JdbcTableNameResolverTest {
             val properties = JdbcOutboxConfigurationProperties(tablePrefix = "my_")
             val resolver = DefaultJdbcTableNameResolver(properties)
 
-            assertThat(resolver.outboxRecord).isEqualTo("my_outbox_record")
+            assertThat(resolver.getOutboxRecord()).isEqualTo("my_outbox_record")
         }
 
         @Test
@@ -30,7 +30,7 @@ class JdbcTableNameResolverTest {
             val properties = JdbcOutboxConfigurationProperties(schemaName = "custom_schema")
             val resolver = DefaultJdbcTableNameResolver(properties)
 
-            assertThat(resolver.outboxRecord).isEqualTo("custom_schema.outbox_record")
+            assertThat(resolver.getOutboxRecord()).isEqualTo("custom_schema.outbox_record")
         }
 
         @Test
@@ -42,24 +42,9 @@ class JdbcTableNameResolverTest {
                 )
             val resolver = DefaultJdbcTableNameResolver(properties)
 
-            assertThat(resolver.outboxRecord).isEqualTo("myschema.app_outbox_record")
-            assertThat(resolver.outboxInstance).isEqualTo("myschema.app_outbox_instance")
-            assertThat(resolver.outboxPartitionAssignment).isEqualTo("myschema.app_outbox_partition")
-        }
-
-        @Test
-        fun `precomputed names should be lazily evaluated`() {
-            val properties =
-                JdbcOutboxConfigurationProperties(
-                    tablePrefix = "lazy_",
-                    schemaName = "schema",
-                )
-            val resolver = DefaultJdbcTableNameResolver(properties)
-
-            val first = resolver.outboxRecord
-            val second = resolver.outboxRecord
-
-            assertThat(first).isSameAs(second)
+            assertThat(resolver.getOutboxRecord()).isEqualTo("myschema.app_outbox_record")
+            assertThat(resolver.getOutboxInstance()).isEqualTo("myschema.app_outbox_instance")
+            assertThat(resolver.getOutboxPartitionAssignment()).isEqualTo("myschema.app_outbox_partition")
         }
     }
 
@@ -78,9 +63,9 @@ class JdbcTableNameResolverTest {
                 )
             val resolver = DefaultJdbcTableNameResolver(properties)
 
-            assertThat(resolver.outboxRecord).isEqualTo("OUTBOX_RECORD")
-            assertThat(resolver.outboxInstance).isEqualTo("OUTBOX_INSTANCE")
-            assertThat(resolver.outboxPartitionAssignment).isEqualTo("OUTBOX_PARTITION")
+            assertThat(resolver.getOutboxRecord()).isEqualTo("OUTBOX_RECORD")
+            assertThat(resolver.getOutboxInstance()).isEqualTo("OUTBOX_INSTANCE")
+            assertThat(resolver.getOutboxPartitionAssignment()).isEqualTo("OUTBOX_PARTITION")
         }
 
         @Test
@@ -98,9 +83,9 @@ class JdbcTableNameResolverTest {
                 )
             val resolver = DefaultJdbcTableNameResolver(properties)
 
-            assertThat(resolver.outboxRecord).isEqualTo("APP.ACME_OUTBOX_RECORD")
-            assertThat(resolver.outboxInstance).isEqualTo("APP.ACME_OUTBOX_INSTANCE")
-            assertThat(resolver.outboxPartitionAssignment).isEqualTo("APP.ACME_OUTBOX_PARTITION")
+            assertThat(resolver.getOutboxRecord()).isEqualTo("APP.ACME_OUTBOX_RECORD")
+            assertThat(resolver.getOutboxInstance()).isEqualTo("APP.ACME_OUTBOX_INSTANCE")
+            assertThat(resolver.getOutboxPartitionAssignment()).isEqualTo("APP.ACME_OUTBOX_PARTITION")
         }
     }
 
@@ -110,14 +95,16 @@ class JdbcTableNameResolverTest {
         fun `interface can be fully overridden`() {
             val resolver =
                 object : JdbcTableNameResolver {
-                    override val outboxRecord = "custom_records"
-                    override val outboxInstance = "custom_instances"
-                    override val outboxPartitionAssignment = "custom_partitions"
+                    override fun getOutboxRecord() = "custom_records"
+
+                    override fun getOutboxInstance() = "custom_instances"
+
+                    override fun getOutboxPartitionAssignment() = "custom_partitions"
                 }
 
-            assertThat(resolver.outboxRecord).isEqualTo("custom_records")
-            assertThat(resolver.outboxInstance).isEqualTo("custom_instances")
-            assertThat(resolver.outboxPartitionAssignment).isEqualTo("custom_partitions")
+            assertThat(resolver.getOutboxRecord()).isEqualTo("custom_records")
+            assertThat(resolver.getOutboxInstance()).isEqualTo("custom_instances")
+            assertThat(resolver.getOutboxPartitionAssignment()).isEqualTo("custom_partitions")
         }
     }
 }
