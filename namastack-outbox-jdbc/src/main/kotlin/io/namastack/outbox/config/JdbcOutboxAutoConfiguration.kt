@@ -1,5 +1,6 @@
 package io.namastack.outbox.config
 
+import io.namastack.outbox.DefaultJdbcTableNameResolver
 import io.namastack.outbox.JdbcOutboxInstanceRepository
 import io.namastack.outbox.JdbcOutboxPartitionAssignmentRepository
 import io.namastack.outbox.JdbcOutboxRecordEntityMapper
@@ -67,7 +68,7 @@ class JdbcOutboxAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     internal fun jdbcTableNameResolver(properties: JdbcOutboxConfigurationProperties): JdbcTableNameResolver =
-        JdbcTableNameResolver(properties)
+        DefaultJdbcTableNameResolver(properties)
 
     /**
      * Creates a named JdbcClient for outbox operations.

@@ -60,6 +60,22 @@ class JdbcOutboxSchemaAutoConfigurationTest {
         }
 
         @Test
+        fun `should throw exception when custom table names are configured`() {
+            val dataSource = mock(DataSource::class.java)
+            val properties =
+                JdbcOutboxConfigurationProperties(
+                    tableNames = JdbcOutboxConfigurationProperties.TableNames(record = "OUTBOX_RECORD"),
+                    schemaInitialization = JdbcOutboxConfigurationProperties.SchemaInitialization(enabled = true),
+                )
+
+            assertThatThrownBy {
+                configuration.outboxDataSourceScriptDatabaseInitializer(dataSource, properties)
+            }.isInstanceOf(IllegalStateException::class.java)
+                .hasMessageContaining("Cannot use automatic schema initialization")
+                .hasMessageContaining("table names")
+        }
+
+        @Test
         fun `should not throw exception when no custom naming is configured`() {
             val dataSource = mock(DataSource::class.java)
             val properties =

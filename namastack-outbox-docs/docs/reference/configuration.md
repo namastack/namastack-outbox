@@ -53,8 +53,12 @@ namastack:
       rebalance-interval: 10s                  # How often partitions are recalculated (default: 10s)
 
     jdbc:
-      table-prefix: ""                         # Prefix for table names (default: empty)
       schema-name: null                        # Database schema name (default: null, uses default schema)
+      table-prefix: ""                         # Prefix for table names (default: empty)
+      table-names:
+        record: "outbox_record"                # Base name for the records table (default: outbox_record)
+        instance: "outbox_instance"            # Base name for the instances table (default: outbox_instance)
+        partition: "outbox_partition"          # Base name for the partitions table (default: outbox_partition)
       schema-initialization:
         enabled: true                          # Auto-create tables on startup (default: true)
 

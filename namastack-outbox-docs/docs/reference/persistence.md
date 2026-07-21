@@ -116,7 +116,7 @@ namastack:
 The JDBC module automatically detects your database type and uses the appropriate schema. Supported databases: PostgreSQL, MySQL, MariaDB, H2, SQL Server, Oracle.
 </Admonition>
 
-### Custom Table Prefix and Schema Name
+### Custom Schema Name and Table Prefix
 
 The JDBC module supports custom table naming for multi-tenant deployments or naming conventions:
 
@@ -124,8 +124,8 @@ The JDBC module supports custom table naming for multi-tenant deployments or nam
 namastack:
   outbox:
     jdbc:
-      table-prefix: "myapp_"           # Results in: myapp_outbox_record, myapp_outbox_instance, etc.
       schema-name: "outbox_schema"     # Results in: outbox_schema.myapp_outbox_record
+      table-prefix: "myapp_"           # Results in: myapp_outbox_record, myapp_outbox_instance, etc.
 ```
 
 **Examples:**
@@ -133,12 +133,73 @@ namastack:
 | Configuration             | Resulting Table Name          |
 |---------------------------|-------------------------------|
 | Default                   | `outbox_record`               |
-| `table-prefix: "app1_"`   | `app1_outbox_record`          |
 | `schema-name: "myschema"` | `myschema.outbox_record`      |
+| `table-prefix: "app1_"`   | `app1_outbox_record`          |
 | Both                      | `myschema.app1_outbox_record` |
 
+### Fully Custom Table Names
+
+When a prefix is not enough — for example when organization-wide standards mandate all-uppercase, case-sensitive
+identifiers — you can override the base table names directly:
+
+```yaml
+namastack:
+  outbox:
+    jdbc:
+      table-prefix: "ACME_"
+      table-names:
+        record: "OUTBOX_RECORD"        # Results in: ACME_OUTBOX_RECORD
+        instance: "OUTBOX_INSTANCE"    # Results in: ACME_OUTBOX_INSTANCE
+        partition: "OUTBOX_PARTITION"  # Results in: ACME_OUTBOX_PARTITION
+```
+
+`schema-name` and `table-prefix` are still applied on top of the configured base names.
+
+For complete control over naming (beyond prefix/schema/base-name composition), register your own
+`JdbcTableNameResolver` bean. The auto-configuration only provides the default implementation when no such bean exists
+(`@ConditionalOnMissingBean`):
+
+<Tabs>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@Bean
+fun jdbcTableNameResolver(): JdbcTableNameResolver =
+    object : JdbcTableNameResolver {
+        override val outboxRecord = "ACME_OUTBOX_RECORD"
+        override val outboxInstance = "ACME_OUTBOX_INSTANCE"
+        override val outboxPartitionAssignment = "ACME_OUTBOX_PARTITION"
+    }
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+
+@Bean
+public JdbcTableNameResolver jdbcTableNameResolver() {
+    return new JdbcTableNameResolver() {
+        @Override
+        public String getOutboxRecord() {
+            return "ACME_OUTBOX_RECORD";
+        }
+
+        @Override
+        public String getOutboxInstance() {
+            return "ACME_OUTBOX_INSTANCE";
+        }
+
+        @Override
+        public String getOutboxPartitionAssignment() {
+            return "ACME_OUTBOX_PARTITION";
+        }
+    };
+}
+```
+
 <Admonition type="warning" title="Schema Initialization Limitation">
-When using custom table prefix or schema name, you must disable schema initialization (which is enabled by default). Schema initialization cannot be used with custom naming:
+When using a custom schema name, table prefix or custom table names, you must disable schema initialization (which is enabled by default). Schema initialization cannot be used with custom naming:
 
 ```yaml
 namastack:
