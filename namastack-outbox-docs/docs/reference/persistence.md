@@ -166,9 +166,9 @@ For complete control over naming (beyond prefix/schema/base-name composition), r
 @Bean
 fun jdbcTableNameResolver(): JdbcTableNameResolver =
     object : JdbcTableNameResolver {
-        override fun getOutboxRecord() = "ACME_OUTBOX_RECORD"
-        override fun getOutboxInstance() = "ACME_OUTBOX_INSTANCE"
-        override fun getOutboxPartitionAssignment() = "ACME_OUTBOX_PARTITION"
+        override val outboxRecord = "ACME_OUTBOX_RECORD"
+        override val outboxInstance = "ACME_OUTBOX_INSTANCE"
+        override val outboxPartitionAssignment = "ACME_OUTBOX_PARTITION"
     }
 ```
 

@@ -27,7 +27,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
     private val transactionTemplate: TransactionTemplate,
     private val tableNameResolver: JdbcTableNameResolver,
 ) : PartitionAssignmentRepository {
-    private val tableName = tableNameResolver.getOutboxPartitionAssignment()
+    private val tableName = tableNameResolver.outboxPartitionAssignment
     private val rowMapper = JdbcOutboxPartitionAssignmentEntityRowMapper()
 
     /**

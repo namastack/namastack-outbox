@@ -27,9 +27,9 @@ class DefaultJdbcTableNameResolver(
         return properties.schemaName?.let { "$it.$prefixedTable" } ?: prefixedTable
     }
 
-    override fun getOutboxRecord(): String = resolve(properties.tableNames.record)
+    override val outboxRecord: String by lazy { resolve(properties.tableNames.record) }
 
-    override fun getOutboxInstance(): String = resolve(properties.tableNames.instance)
+    override val outboxInstance: String by lazy { resolve(properties.tableNames.instance) }
 
-    override fun getOutboxPartitionAssignment(): String = resolve(properties.tableNames.partition)
+    override val outboxPartitionAssignment: String by lazy { resolve(properties.tableNames.partition) }
 }

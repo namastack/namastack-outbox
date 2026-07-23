@@ -28,7 +28,7 @@ internal open class JdbcOutboxInstanceRepository(
     private val transactionTemplate: TransactionTemplate,
     private val tableNameResolver: JdbcTableNameResolver,
 ) : OutboxInstanceRepository {
-    private val tableName = tableNameResolver.getOutboxInstance()
+    private val tableName = tableNameResolver.outboxInstance
     private val rowMapper = JdbcOutboxInstanceEntityRowMapper()
 
     /**

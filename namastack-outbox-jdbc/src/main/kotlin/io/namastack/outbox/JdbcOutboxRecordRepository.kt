@@ -28,7 +28,7 @@ internal open class JdbcOutboxRecordRepository(
     private val tableNameResolver: JdbcTableNameResolver,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
-    private val tableName = tableNameResolver.getOutboxRecord()
+    private val tableName = tableNameResolver.outboxRecord
     private val rowMapper = JdbcOutboxRecordEntityRowMapper()
 
     /**
