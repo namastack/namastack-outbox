@@ -198,6 +198,9 @@ public JdbcTableNameResolver jdbcTableNameResolver() {
 }
 ```
 
+</TabItem>
+</Tabs>
+
 <Admonition type="warning" title="Schema Initialization Limitation">
 When using a custom schema name, table prefix or custom table names, you must disable schema initialization (which is enabled by default). Schema initialization cannot be used with custom naming:
 
