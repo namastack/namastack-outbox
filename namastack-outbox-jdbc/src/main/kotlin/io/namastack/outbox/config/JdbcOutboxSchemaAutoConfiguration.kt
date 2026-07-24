@@ -56,15 +56,20 @@ class JdbcOutboxSchemaAutoConfiguration {
     }
 
     private fun validateNoCustomTableNaming(properties: JdbcOutboxConfigurationProperties) {
-        val hasTablePrefix = properties.tablePrefix.isNotEmpty()
         val hasSchemaName = !properties.schemaName.isNullOrEmpty()
+        val hasTablePrefix = properties.tablePrefix.isNotEmpty()
+        val defaults = JdbcOutboxConfigurationProperties.TableNames()
+        val hasCustomTableNames =
+            properties.tableNames.record != defaults.record ||
+                properties.tableNames.instance != defaults.instance ||
+                properties.tableNames.partition != defaults.partition
 
-        if (hasTablePrefix || hasSchemaName) {
+        if (hasTablePrefix || hasSchemaName || hasCustomTableNames) {
             throw IllegalStateException(
                 "Cannot use automatic schema initialization " +
-                    "(namastack.outbox.jdbc.schema-initialization.enabled=true) together with custom table prefix or " +
-                    "schema name. Either disable schema initialization and create tables manually with your desired " +
-                    "naming, or remove the table-prefix and schema-name configuration.",
+                    "(namastack.outbox.jdbc.schema-initialization.enabled=true) together with custom schema name, " +
+                    "table prefix or table names. Either disable schema initialization and create tables manually " +
+                    "with your desired naming, or remove the schema-name, table-prefix and table-names configuration.",
             )
         }
     }

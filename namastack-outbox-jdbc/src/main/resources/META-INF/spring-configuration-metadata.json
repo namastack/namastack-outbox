@@ -1,15 +1,33 @@
 {
   "properties": [
     {
+      "name": "namastack.outbox.jdbc.schema-name",
+      "type": "java.lang.String",
+      "description": "Database schema name for outbox tables (e.g., 'myschema' results in 'myschema.outbox_record')"
+    },
+    {
       "name": "namastack.outbox.jdbc.table-prefix",
       "type": "java.lang.String",
       "defaultValue": "",
       "description": "Prefix to apply to all outbox table names (e.g., 'my_' results in 'my_outbox_record')"
     },
     {
-      "name": "namastack.outbox.jdbc.schema-name",
+      "name": "namastack.outbox.jdbc.table-names.record",
       "type": "java.lang.String",
-      "description": "Database schema name for outbox tables (e.g., 'myschema' results in 'myschema.outbox_record')"
+      "defaultValue": "outbox_record",
+      "description": "Base table name for outbox records (before prefix and schema are applied)"
+    },
+    {
+      "name": "namastack.outbox.jdbc.table-names.instance",
+      "type": "java.lang.String",
+      "defaultValue": "outbox_instance",
+      "description": "Base table name for outbox instances (before prefix and schema are applied)"
+    },
+    {
+      "name": "namastack.outbox.jdbc.table-names.partition",
+      "type": "java.lang.String",
+      "defaultValue": "outbox_partition",
+      "description": "Base table name for outbox partition assignments (before prefix and schema are applied)"
     },
     {
       "name": "namastack.outbox.jdbc.schema-initialization.enabled",

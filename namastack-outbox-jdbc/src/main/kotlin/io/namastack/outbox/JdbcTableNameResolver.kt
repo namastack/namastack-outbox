@@ -1,44 +1,29 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.config.JdbcOutboxConfigurationProperties
-
 /**
- * Helper class for resolving fully qualified table names based on configuration.
+ * Resolves fully qualified table names for the JDBC outbox repositories.
  *
- * This resolver applies the configured schema name and table prefix to base table names,
- * producing fully qualified table names for use in SQL queries.
- *
- * @param properties Configuration properties containing schema name and table prefix
+ * The default implementation ([DefaultJdbcTableNameResolver]) applies the configured schema name,
+ * table prefix and base table names. Register a custom bean implementing this interface to take full
+ * control over table naming (the auto-configuration registers the default behind
+ * `@ConditionalOnMissingBean`).
  *
  * @author Roland Beisel
  * @since 1.0.0
  */
-class JdbcTableNameResolver(
-    private val properties: JdbcOutboxConfigurationProperties,
-) {
+interface JdbcTableNameResolver {
     /**
-     * Resolves the fully qualified table name for the given base table name.
-     *
-     * @param baseTableName The base table name without prefix or schema (e.g., "outbox_record")
-     * @return The fully qualified table name with schema and prefix applied
+     * Fully qualified table name for outbox records.
      */
-    fun resolve(baseTableName: String): String {
-        val prefixedTable = "${properties.tablePrefix}$baseTableName"
-        return properties.schemaName?.let { "$it.$prefixedTable" } ?: prefixedTable
-    }
+    val outboxRecord: String
 
     /**
-     * Table name for outbox records.
+     * Fully qualified table name for outbox instances.
      */
-    val outboxRecord: String by lazy { resolve("outbox_record") }
+    val outboxInstance: String
 
     /**
-     * Table name for outbox instances.
+     * Fully qualified table name for outbox partition assignments.
      */
-    val outboxInstance: String by lazy { resolve("outbox_instance") }
-
-    /**
-     * Table name for outbox partition assignments.
-     */
-    val outboxPartitionAssignment: String by lazy { resolve("outbox_partition") }
+    val outboxPartitionAssignment: String
 }

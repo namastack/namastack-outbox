@@ -7,35 +7,30 @@ import org.junit.jupiter.api.Test
 
 class JdbcTableNameResolverTest {
     @Nested
-    inner class ResolveMethod {
+    inner class DefaultResolution {
         @Test
         fun `should return base table name when no prefix and no schema configured`() {
-            val properties = JdbcOutboxConfigurationProperties()
-            val resolver = JdbcTableNameResolver(properties)
+            val resolver = DefaultJdbcTableNameResolver(JdbcOutboxConfigurationProperties())
 
-            val result = resolver.resolve("outbox_record")
-
-            assertThat(result).isEqualTo("outbox_record")
+            assertThat(resolver.outboxRecord).isEqualTo("outbox_record")
+            assertThat(resolver.outboxInstance).isEqualTo("outbox_instance")
+            assertThat(resolver.outboxPartitionAssignment).isEqualTo("outbox_partition")
         }
 
         @Test
         fun `should apply table prefix when configured`() {
             val properties = JdbcOutboxConfigurationProperties(tablePrefix = "my_")
-            val resolver = JdbcTableNameResolver(properties)
+            val resolver = DefaultJdbcTableNameResolver(properties)
 
-            val result = resolver.resolve("outbox_record")
-
-            assertThat(result).isEqualTo("my_outbox_record")
+            assertThat(resolver.outboxRecord).isEqualTo("my_outbox_record")
         }
 
         @Test
         fun `should apply schema name when configured`() {
             val properties = JdbcOutboxConfigurationProperties(schemaName = "custom_schema")
-            val resolver = JdbcTableNameResolver(properties)
+            val resolver = DefaultJdbcTableNameResolver(properties)
 
-            val result = resolver.resolve("outbox_record")
-
-            assertThat(result).isEqualTo("custom_schema.outbox_record")
+            assertThat(resolver.outboxRecord).isEqualTo("custom_schema.outbox_record")
         }
 
         @Test
@@ -45,72 +40,11 @@ class JdbcTableNameResolverTest {
                     tablePrefix = "app_",
                     schemaName = "myschema",
                 )
-            val resolver = JdbcTableNameResolver(properties)
+            val resolver = DefaultJdbcTableNameResolver(properties)
 
-            val result = resolver.resolve("outbox_record")
-
-            assertThat(result).isEqualTo("myschema.app_outbox_record")
-        }
-
-        @Test
-        fun `should handle empty table prefix`() {
-            val properties = JdbcOutboxConfigurationProperties(tablePrefix = "")
-            val resolver = JdbcTableNameResolver(properties)
-
-            val result = resolver.resolve("outbox_instance")
-
-            assertThat(result).isEqualTo("outbox_instance")
-        }
-
-        @Test
-        fun `should handle null schema name`() {
-            val properties = JdbcOutboxConfigurationProperties(schemaName = null)
-            val resolver = JdbcTableNameResolver(properties)
-
-            val result = resolver.resolve("outbox_partition")
-
-            assertThat(result).isEqualTo("outbox_partition")
-        }
-    }
-
-    @Nested
-    inner class PrecomputedTableNames {
-        @Test
-        fun `outboxRecord should resolve correctly with defaults`() {
-            val properties = JdbcOutboxConfigurationProperties()
-            val resolver = JdbcTableNameResolver(properties)
-
-            assertThat(resolver.outboxRecord).isEqualTo("outbox_record")
-        }
-
-        @Test
-        fun `outboxInstance should resolve correctly with defaults`() {
-            val properties = JdbcOutboxConfigurationProperties()
-            val resolver = JdbcTableNameResolver(properties)
-
-            assertThat(resolver.outboxInstance).isEqualTo("outbox_instance")
-        }
-
-        @Test
-        fun `outboxPartitionAssignment should resolve correctly with defaults`() {
-            val properties = JdbcOutboxConfigurationProperties()
-            val resolver = JdbcTableNameResolver(properties)
-
-            assertThat(resolver.outboxPartitionAssignment).isEqualTo("outbox_partition")
-        }
-
-        @Test
-        fun `all precomputed names should apply prefix and schema`() {
-            val properties =
-                JdbcOutboxConfigurationProperties(
-                    tablePrefix = "test_",
-                    schemaName = "prod",
-                )
-            val resolver = JdbcTableNameResolver(properties)
-
-            assertThat(resolver.outboxRecord).isEqualTo("prod.test_outbox_record")
-            assertThat(resolver.outboxInstance).isEqualTo("prod.test_outbox_instance")
-            assertThat(resolver.outboxPartitionAssignment).isEqualTo("prod.test_outbox_partition")
+            assertThat(resolver.outboxRecord).isEqualTo("myschema.app_outbox_record")
+            assertThat(resolver.outboxInstance).isEqualTo("myschema.app_outbox_instance")
+            assertThat(resolver.outboxPartitionAssignment).isEqualTo("myschema.app_outbox_partition")
         }
 
         @Test
@@ -120,13 +54,70 @@ class JdbcTableNameResolverTest {
                     tablePrefix = "lazy_",
                     schemaName = "schema",
                 )
-            val resolver = JdbcTableNameResolver(properties)
+            val resolver = DefaultJdbcTableNameResolver(properties)
 
-            // Access multiple times to verify lazy evaluation returns same result
             val first = resolver.outboxRecord
             val second = resolver.outboxRecord
 
             assertThat(first).isSameAs(second)
+        }
+    }
+
+    @Nested
+    inner class CustomTableNames {
+        @Test
+        fun `should use configured base table names`() {
+            val properties =
+                JdbcOutboxConfigurationProperties(
+                    tableNames =
+                        JdbcOutboxConfigurationProperties.TableNames(
+                            record = "OUTBOX_RECORD",
+                            instance = "OUTBOX_INSTANCE",
+                            partition = "OUTBOX_PARTITION",
+                        ),
+                )
+            val resolver = DefaultJdbcTableNameResolver(properties)
+
+            assertThat(resolver.outboxRecord).isEqualTo("OUTBOX_RECORD")
+            assertThat(resolver.outboxInstance).isEqualTo("OUTBOX_INSTANCE")
+            assertThat(resolver.outboxPartitionAssignment).isEqualTo("OUTBOX_PARTITION")
+        }
+
+        @Test
+        fun `should combine prefix and schema with custom base names`() {
+            val properties =
+                JdbcOutboxConfigurationProperties(
+                    tablePrefix = "ACME_",
+                    schemaName = "APP",
+                    tableNames =
+                        JdbcOutboxConfigurationProperties.TableNames(
+                            record = "OUTBOX_RECORD",
+                            instance = "OUTBOX_INSTANCE",
+                            partition = "OUTBOX_PARTITION",
+                        ),
+                )
+            val resolver = DefaultJdbcTableNameResolver(properties)
+
+            assertThat(resolver.outboxRecord).isEqualTo("APP.ACME_OUTBOX_RECORD")
+            assertThat(resolver.outboxInstance).isEqualTo("APP.ACME_OUTBOX_INSTANCE")
+            assertThat(resolver.outboxPartitionAssignment).isEqualTo("APP.ACME_OUTBOX_PARTITION")
+        }
+    }
+
+    @Nested
+    inner class CustomImplementation {
+        @Test
+        fun `interface can be fully overridden`() {
+            val resolver =
+                object : JdbcTableNameResolver {
+                    override val outboxRecord = "custom_records"
+                    override val outboxInstance = "custom_instances"
+                    override val outboxPartitionAssignment = "custom_partitions"
+                }
+
+            assertThat(resolver.outboxRecord).isEqualTo("custom_records")
+            assertThat(resolver.outboxInstance).isEqualTo("custom_instances")
+            assertThat(resolver.outboxPartitionAssignment).isEqualTo("custom_partitions")
         }
     }
 }
