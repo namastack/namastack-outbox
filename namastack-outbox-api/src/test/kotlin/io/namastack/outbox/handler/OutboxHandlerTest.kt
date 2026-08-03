@@ -8,6 +8,13 @@ import java.time.Instant
 @DisplayName("OutboxHandler")
 class OutboxHandlerTest {
     @Test
+    fun `handler ID defaults to null`() {
+        val handler = TestHandler()
+
+        assertThat(handler.getHandlerId()).isNull()
+    }
+
+    @Test
     fun `supports defaults to true`() {
         val handler =
             object : OutboxHandler {
@@ -31,4 +38,13 @@ class OutboxHandlerTest {
             createdAt = Instant.now(),
             context = emptyMap(),
         )
+
+    private class TestHandler : OutboxHandler {
+        override fun handle(
+            payload: Any,
+            metadata: OutboxRecordMetadata,
+        ) {
+            // no-op
+        }
+    }
 }

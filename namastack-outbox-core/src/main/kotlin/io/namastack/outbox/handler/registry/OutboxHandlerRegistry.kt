@@ -115,6 +115,10 @@ class OutboxHandlerRegistry {
      * @throws IllegalStateException if a handler with the same ID already exists
      */
     internal fun register(handlerMethod: OutboxHandlerMethod) {
+        // Validate and reserve the persisted ID before updating the type indexes. This makes
+        // registration atomic when two handlers explicitly choose the same stable identifier.
+        registerInAllHandlers(handlerMethod)
+
         when (handlerMethod) {
             is TypedHandlerMethod -> {
                 typedHandlers
@@ -126,8 +130,6 @@ class OutboxHandlerRegistry {
                 genericHandlers.add(handlerMethod)
             }
         }
-
-        registerInAllHandlers(handlerMethod)
     }
 
     /**
@@ -140,8 +142,12 @@ class OutboxHandlerRegistry {
      * @throws IllegalStateException if a handler with the same ID is already registered
      */
     private fun registerInAllHandlers(handlerMethod: OutboxHandlerMethod) {
-        check(handlersById.putIfAbsent(handlerMethod.id, handlerMethod) == null) {
-            "Duplicate handler ID detected: ${handlerMethod.id}"
+        val existing = handlersById.putIfAbsent(handlerMethod.id, handlerMethod)
+
+        check(existing == null) {
+            "Duplicate handler ID '${handlerMethod.id}' detected for " +
+                "${existing?.method?.toGenericString()} and ${handlerMethod.method.toGenericString()}. " +
+                "Each outbox handler must use a unique ID."
         }
     }
 

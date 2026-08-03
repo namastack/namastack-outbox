@@ -40,6 +40,14 @@ package io.namastack.outbox.handler
  */
 interface OutboxTypedHandler<T> {
     /**
+     * Returns the stable identifier to persist with records for this handler.
+     *
+     * Override this when the identifier must remain independent of implementation class or method
+     * renames. Returning `null` keeps the generated class-and-method identifier.
+     */
+    fun getHandlerId(): String? = null
+
+    /**
      * Handles an outbox record with payload and metadata.
      *
      * @param payload The record payload of type [T]

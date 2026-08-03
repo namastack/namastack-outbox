@@ -1,6 +1,7 @@
 package io.namastack.outbox.handler.method.handler
 
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.handler.OutboxTypedHandler
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -9,6 +10,21 @@ import org.springframework.aop.framework.ProxyFactory
 
 @DisplayName("TypedHandlerMethod")
 class TypedHandlerMethodTest {
+    @Test
+    fun `uses stable ID supplied by typed handler`() {
+        val bean = IdentifiedTypedHandler()
+        val method =
+            bean::class.java.getMethod(
+                "handle",
+                String::class.java,
+                OutboxRecordMetadata::class.java,
+            )
+
+        val handler = TypedHandlerMethod(bean, method)
+
+        assertThat(handler.id).isEqualTo("typed-event-externalizer")
+    }
+
     @Nested
     @DisplayName("invoke() with 1-parameter signature")
     inner class InvokeOneParamTests {
@@ -248,4 +264,15 @@ class TypedHandlerMethodTest {
     data class TestPayload(
         val id: String,
     )
+
+    private class IdentifiedTypedHandler : OutboxTypedHandler<String> {
+        override fun getHandlerId(): String = "typed-event-externalizer"
+
+        override fun handle(
+            payload: String,
+            metadata: OutboxRecordMetadata,
+        ) {
+            // no-op
+        }
+    }
 }

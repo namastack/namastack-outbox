@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.method.handler
 
+import io.namastack.outbox.annotation.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
@@ -8,6 +9,21 @@ import java.time.Instant
 
 @DisplayName("GenericHandlerAnnotationMethod")
 class GenericHandlerAnnotationMethodTest {
+    @Test
+    fun `uses stable ID declared on annotation`() {
+        val bean = StableIdAnnotatedHandler()
+        val method =
+            bean::class.java.getMethod(
+                "handle",
+                Any::class.java,
+                OutboxRecordMetadata::class.java,
+            )
+
+        val handler = GenericHandlerAnnotationMethod(bean, method)
+
+        assertThat(handler.id).isEqualTo("spring-modulith-event-externalizer")
+    }
+
     @Test
     fun `supportsScheduling defaults to true for non OutboxHandler beans`() {
         val bean = AnnotatedStyleGenericHandler()
@@ -40,5 +56,14 @@ class GenericHandlerAnnotationMethodTest {
         ) {
             // no-op
         }
+    }
+
+    private class StableIdAnnotatedHandler {
+        @OutboxHandler(id = "spring-modulith-event-externalizer")
+        @Suppress("UNUSED_PARAMETER")
+        fun handle(
+            payload: Any,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
     }
 }

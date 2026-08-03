@@ -86,16 +86,13 @@ class OutboxHandlerRegistryTest {
 
             registry.register(handler1)
 
-            val exception =
-                try {
-                    registry.register(handler2)
-                    null
-                } catch (e: IllegalStateException) {
-                    e
-                }
+            assertThatThrownBy { registry.register(handler2) }
+                .isInstanceOf(IllegalStateException::class.java)
+                .hasMessageContaining("Duplicate handler ID 'duplicate-id'")
+                .hasMessageContaining("Each outbox handler must use a unique ID")
 
-            assertThat(exception).isNotNull()
-            assertThat(exception?.message).contains("duplicate")
+            assertThat(registry.getHandlersForPayloadType(AnotherPayload::class)).isEmpty()
+            assertThat(registry.getHandlerById("duplicate-id")).isSameAs(handler1)
         }
     }
 
@@ -149,15 +146,12 @@ class OutboxHandlerRegistryTest {
 
             registry.register(handler1)
 
-            val exception =
-                try {
-                    registry.register(handler2)
-                    null
-                } catch (e: IllegalStateException) {
-                    e
-                }
+            assertThatThrownBy { registry.register(handler2) }
+                .isInstanceOf(IllegalStateException::class.java)
+                .hasMessageContaining("Duplicate handler ID 'duplicate-id'")
 
-            assertThat(exception).isNotNull()
+            assertThat(registry.getGenericHandlers(1) { metadata(handlerId = it.id) }).isEmpty()
+            assertThat(registry.getHandlerById("duplicate-id")).isSameAs(handler1)
         }
     }
 
