@@ -22,6 +22,9 @@ class GenericHandlerAnnotationMethodTest {
         val handler = GenericHandlerAnnotationMethod(bean, method)
 
         assertThat(handler.id).isEqualTo("spring-modulith-event-externalizer")
+        assertThat(handler.aliases)
+            .contains("previous-externalizer")
+            .anyMatch { it.contains(StableIdAnnotatedHandler::class.java.name) }
     }
 
     @Test
@@ -59,7 +62,10 @@ class GenericHandlerAnnotationMethodTest {
     }
 
     private class StableIdAnnotatedHandler {
-        @OutboxHandler(id = "spring-modulith-event-externalizer")
+        @OutboxHandler(
+            id = "spring-modulith-event-externalizer",
+            aliases = ["previous-externalizer"],
+        )
         @Suppress("UNUSED_PARAMETER")
         fun handle(
             payload: Any,

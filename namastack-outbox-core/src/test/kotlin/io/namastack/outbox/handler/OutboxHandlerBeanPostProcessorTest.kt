@@ -17,9 +17,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.aop.framework.ProxyFactory
-import java.time.Clock
-import java.time.Instant
-import java.time.ZoneOffset
 import kotlin.reflect.KClass
 
 @DisplayName("OutboxHandlerBeanPostProcessor")
@@ -325,7 +322,6 @@ class OutboxHandlerBeanPostProcessorTest {
     @Nested
     @DisplayName("Legacy alias registration for CGLIB proxies")
     inner class LegacyAliasTests {
-        private val clock = Clock.fixed(Instant.parse("2025-09-25T10:00:00Z"), ZoneOffset.UTC)
         private val realHandlerRegistry = OutboxHandlerRegistry()
         private val realFallbackRegistry = OutboxFallbackHandlerRegistry()
 
@@ -355,6 +351,28 @@ class OutboxHandlerBeanPostProcessorTest {
             // Both should resolve to the same handler
             assertThat(realHandlerRegistry.getHandlerById(handler.id))
                 .isSameAs(realHandlerRegistry.getHandlerById(handler.legacyId))
+        }
+
+        @Test
+        fun `registers configured generated and proxy aliases for explicit ID`() {
+            val proxiedBean = createCglibProxy(OpenIdentifiedAnnotatedHandler())
+
+            proxyProcessor.postProcessAfterInitialization(proxiedBean, "bean")
+
+            val handler = realHandlerRegistry.getHandlersForPayloadType(String::class).first()
+            val generatedAlias =
+                handler.aliases.single {
+                    it.contains(OpenIdentifiedAnnotatedHandler::class.java.name) &&
+                        !it.contains("CGLIB")
+                }
+            val proxyAlias = handler.aliases.single { it.contains("CGLIB") }
+
+            assertThat(handler.id).isEqualTo("identified-handler")
+            assertThat(handler.aliases).contains("configured-old-id", generatedAlias, proxyAlias)
+            assertThat(realHandlerRegistry.getHandlerById("identified-handler")).isSameAs(handler)
+            assertThat(realHandlerRegistry.getHandlerById("configured-old-id")).isSameAs(handler)
+            assertThat(realHandlerRegistry.getHandlerById(generatedAlias)).isSameAs(handler)
+            assertThat(realHandlerRegistry.getHandlerById(proxyAlias)).isSameAs(handler)
         }
 
         @Test
@@ -419,6 +437,19 @@ open class OpenAnnotatedTypedHandlerWithFallback {
     open fun handleFailure(
         payload: String,
         context: OutboxFailureContext,
+    ) {
+    }
+}
+
+@Suppress("UNUSED_PARAMETER")
+open class OpenIdentifiedAnnotatedHandler {
+    @io.namastack.outbox.annotation.OutboxHandler(
+        id = "identified-handler",
+        aliases = ["configured-old-id"],
+    )
+    open fun handle(
+        payload: String,
+        metadata: OutboxRecordMetadata,
     ) {
     }
 }

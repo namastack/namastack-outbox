@@ -189,6 +189,31 @@ class OutboxHandlerRegistryTest {
     @DisplayName("registerAlias()")
     inner class RegisterAliasTests {
         @Test
+        fun `registers all aliases with the handler`() {
+            val handler = createMockTypedHandler("stable-id", TestPayload::class, setOf("old-id", "older-id"))
+
+            registry.register(handler)
+
+            assertThat(registry.getHandlerById("old-id")).isSameAs(handler)
+            assertThat(registry.getHandlerById("older-id")).isSameAs(handler)
+        }
+
+        @Test
+        fun `rejects alias collision without partially registering handler`() {
+            val existing = createMockTypedHandler("existing-id", TestPayload::class)
+            val rejected = createMockTypedHandler("new-id", AnotherPayload::class, setOf("free-alias", "existing-id"))
+            registry.register(existing)
+
+            assertThatThrownBy { registry.register(rejected) }
+                .isInstanceOf(IllegalStateException::class.java)
+                .hasMessageContaining("existing-id")
+
+            assertThat(registry.getHandlerById("new-id")).isNull()
+            assertThat(registry.getHandlerById("free-alias")).isNull()
+            assertThat(registry.getHandlersForPayloadType(AnotherPayload::class)).isEmpty()
+        }
+
+        @Test
         fun `should allow lookup by alias ID`() {
             val handler = createMockTypedHandler("stable-id", TestPayload::class)
             registry.register(handler)
@@ -308,10 +333,12 @@ class OutboxHandlerRegistryTest {
     private fun createMockTypedHandler(
         id: String,
         paramType: KClass<*>,
+        aliases: Set<String> = emptySet(),
     ): TypedHandlerMethod {
         val method = TestHandler::class.java.getMethod("handle", paramType.java)
         val handler = mockk<TypedHandlerMethod>()
         every { handler.id } returns id
+        every { handler.aliases } returns aliases
         every { handler.paramType } returns paramType
         every { handler.bean } returns TestHandler()
         every { handler.method } returns method
@@ -330,6 +357,7 @@ class OutboxHandlerRegistryTest {
             )
         val handler = mockk<GenericHandlerMethod>()
         every { handler.id } returns id
+        every { handler.aliases } returns emptySet()
         every { handler.supportsScheduling(any(), any()) } returns supports
         every { handler.bean } returns TestHandler()
         every { handler.method } returns method

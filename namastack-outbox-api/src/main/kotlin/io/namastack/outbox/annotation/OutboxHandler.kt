@@ -60,4 +60,11 @@ annotation class OutboxHandler(
      * among all handlers in the application.
      */
     val id: String = "",
+    /**
+     * Previous identifiers that must continue to resolve to this handler.
+     *
+     * Aliases are not persisted for new records. They are registered for lookup only and must be
+     * unique among all handler IDs and aliases in the application.
+     */
+    val aliases: Array<String> = [],
 )

@@ -27,23 +27,37 @@ abstract class BaseHandlerMethod(
      * Uses an explicit annotation or provider ID when available, otherwise the format
      * `ClassName#methodName(Type1,Type2,...)`.
      */
+    private val annotation =
+        AnnotatedElementUtils.findMergedAnnotation(method, OutboxHandlerAnnotation::class.java)
+
+    private val generatedId: String = buildGeneratedId()
+
+    private val runtimeClassId: String = buildMethodId(bean::class.java.name)
+
     val id: String = buildId()
+
+    /**
+     * Alternative routing identifiers for records persisted with a previous handler ID.
+     *
+     * This includes configured aliases, the generated target-class ID when an explicit ID is used,
+     * and the historical runtime proxy-class ID when it differs.
+     */
+    val aliases: Set<String> = buildAliases()
+
+    /** Historical runtime-class identifier, retained for source compatibility. */
+    val legacyId: String = runtimeClassId
 
     /**
      * Resolves an explicit stable ID before falling back to the generated method ID.
      */
     protected fun buildId(): String {
-        val annotatedId =
-            AnnotatedElementUtils
-                .findMergedAnnotation(method, OutboxHandlerAnnotation::class.java)
-                ?.id
-                ?.takeIf(String::isNotEmpty)
+        val annotatedId = annotation?.id?.takeIf(String::isNotEmpty)
 
         if (annotatedId != null) return validateId(annotatedId)
 
         val providedId = getProvidedId()
 
-        return providedId?.let(::validateId) ?: buildGeneratedId()
+        return providedId?.let(::validateId) ?: generatedId
     }
 
     /** Returns the ID supplied by an interface-based handler, when configured. */
@@ -54,29 +68,35 @@ abstract class BaseHandlerMethod(
             else -> null
         }
 
+    private fun getConfiguredAliases(): Set<String> =
+        when (bean) {
+            is OutboxHandler -> bean.getHandlerAliases()
+            is OutboxTypedHandler<*> -> bean.getHandlerAliases()
+            else -> annotation?.aliases?.toSet().orEmpty()
+        }
+
+    private fun buildAliases(): Set<String> =
+        buildSet {
+            getConfiguredAliases().forEach { add(validateAlias(it)) }
+            add(generatedId)
+            add(runtimeClassId)
+            remove(id)
+        }
+
     /** Validates an explicitly configured handler ID. */
     private fun validateId(id: String): String =
         id.also {
             require(it.isNotBlank()) { "Outbox handler ID must not be blank" }
         }
 
+    private fun validateAlias(alias: String): String =
+        alias.also {
+            require(it.isNotBlank()) { "Outbox handler alias must not be blank" }
+        }
+
     /** Builds the default stable ID from the target class and handler method. */
     private fun buildGeneratedId(): String {
         val className = ReflectionUtils.getTargetClass(bean).name
-        return buildMethodId(className)
-    }
-
-    /**
-     * Legacy identifier using the bean's runtime class name, which may include
-     * CGLIB proxy suffixes like `$$SpringCGLIB$$0`.
-     */
-    val legacyId: String = buildLegacyId()
-
-    /**
-     * Builds a legacy handler ID using the bean's runtime class name.
-     */
-    protected fun buildLegacyId(): String {
-        val className = bean::class.java.name
         return buildMethodId(className)
     }
 

@@ -35,10 +35,22 @@ void externalize(Object event, OutboxRecordMetadata metadata) {
 }
 ```
 
+Previous identifiers can also be declared explicitly when a handler was renamed:
+
+```java
+@OutboxHandler(
+    id = "spring-modulith-event-externalizer",
+    aliases = { "com.example.PreviousHandler#handle(java.lang.Object)" }
+)
+```
+
 Spring Modulith can implement this interface on its Namastack handler without changing either
 existing `OutboxHandler` implementations or the scheduling API. Namastack continues registering the
 previous generated identifier as a legacy alias, allowing records created before the integration
 adopts the stable identifier to drain normally. New records persist the explicit stable identifier.
+For proxied handlers, both the generated target-class identifier and the historical runtime
+proxy-class identifier are registered as aliases. Configured and automatically generated aliases
+share the same global uniqueness constraint as canonical handler identifiers.
 
 The configured identifier must be non-blank. If two handlers use the same identifier, application
 startup fails with an error that names the duplicated ID and both handler methods. Registration

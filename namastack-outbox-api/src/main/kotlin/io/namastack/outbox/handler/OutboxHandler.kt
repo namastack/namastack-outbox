@@ -40,6 +40,13 @@ interface OutboxHandler {
     fun getHandlerId(): String? = null
 
     /**
+     * Returns previous identifiers that must continue to resolve to this handler.
+     *
+     * Aliases are used for lookup only and must be unique among all handler IDs and aliases.
+     */
+    fun getHandlerAliases(): Set<String> = emptySet()
+
+    /**
      * Determines whether this handler supports scheduling for a given payload.
      *
      * Called before an outbox record is created. Return `false` to prevent

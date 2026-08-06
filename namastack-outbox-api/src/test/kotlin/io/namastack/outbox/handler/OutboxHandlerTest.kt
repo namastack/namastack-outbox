@@ -12,6 +12,7 @@ class OutboxHandlerTest {
         val handler = TestHandler()
 
         assertThat(handler.getHandlerId()).isNull()
+        assertThat(handler.getHandlerAliases()).isEmpty()
     }
 
     @Test

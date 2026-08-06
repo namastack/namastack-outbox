@@ -23,7 +23,9 @@ class GenericHandlerInterfaceMethodTest {
         val handler = GenericHandlerInterfaceMethod(bean, method)
 
         assertThat(handler.id).isEqualTo("spring-modulith-event-externalizer")
-        assertThat(handler.legacyId).contains(IdentifiedGenericHandler::class.java.name)
+        assertThat(handler.aliases)
+            .contains("previous-externalizer")
+            .anyMatch { it.contains(IdentifiedGenericHandler::class.java.name) }
     }
 
     @Test
@@ -85,6 +87,8 @@ class GenericHandlerInterfaceMethodTest {
         private val handlerId: String,
     ) : OutboxHandler {
         override fun getHandlerId(): String = handlerId
+
+        override fun getHandlerAliases(): Set<String> = setOf("previous-externalizer")
 
         override fun handle(
             payload: Any,
