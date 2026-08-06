@@ -1,12 +1,12 @@
 package io.namastack.outbox.handler.method
 
-import io.namastack.outbox.annotation.OutboxHandler as OutboxHandlerAnnotation
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxTypedHandler
 import io.namastack.outbox.handler.method.internal.ReflectionUtils
 import org.springframework.core.annotation.AnnotatedElementUtils
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
+import io.namastack.outbox.annotation.OutboxHandler as OutboxHandlerAnnotation
 
 /**
  * Base class for all handler method wrappers providing common ID generation and invocation logic.
