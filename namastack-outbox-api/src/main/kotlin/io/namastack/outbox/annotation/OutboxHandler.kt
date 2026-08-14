@@ -52,4 +52,19 @@ package io.namastack.outbox.annotation
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class OutboxHandler
+annotation class OutboxHandler(
+    /**
+     * Stable identifier persisted with records for this handler.
+     *
+     * Leave empty to retain the generated class-and-method identifier. The value must be unique
+     * among all handlers in the application.
+     */
+    val id: String = "",
+    /**
+     * Previous identifiers that must continue to resolve to this handler.
+     *
+     * Aliases are not persisted for new records. They are registered for lookup only and must be
+     * unique among all handler IDs and aliases in the application.
+     */
+    val aliases: Array<String> = [],
+)

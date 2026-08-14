@@ -115,6 +115,8 @@ class OutboxHandlerRegistry {
      * @throws IllegalStateException if a handler with the same ID already exists
      */
     internal fun register(handlerMethod: OutboxHandlerMethod) {
+        registerRoutingIds(handlerMethod)
+
         when (handlerMethod) {
             is TypedHandlerMethod -> {
                 typedHandlers
@@ -126,8 +128,6 @@ class OutboxHandlerRegistry {
                 genericHandlers.add(handlerMethod)
             }
         }
-
-        registerInAllHandlers(handlerMethod)
     }
 
     /**
@@ -139,10 +139,18 @@ class OutboxHandlerRegistry {
      * @param handlerMethod The handler method to register globally
      * @throws IllegalStateException if a handler with the same ID is already registered
      */
-    private fun registerInAllHandlers(handlerMethod: OutboxHandlerMethod) {
-        check(handlersById.putIfAbsent(handlerMethod.id, handlerMethod) == null) {
-            "Duplicate handler ID detected: ${handlerMethod.id}"
+    private fun registerRoutingIds(handlerMethod: OutboxHandlerMethod) {
+        val routingIds = setOf(handlerMethod.id) + handlerMethod.aliases
+        val collision = routingIds.firstNotNullOfOrNull { id -> handlersById[id]?.let { id to it } }
+
+        check(collision == null) {
+            val (id, existing) = requireNotNull(collision)
+            "Duplicate handler ID '$id' or alias detected for " +
+                "${existing.method.toGenericString()} and ${handlerMethod.method.toGenericString()}. " +
+                "Each outbox handler must use a unique ID; aliases must also be unique."
         }
+
+        routingIds.forEach { handlersById[it] = handlerMethod }
     }
 
     private fun OutboxHandlerMethod.toDescriptor(): OutboxHandlerDescriptor {
@@ -159,26 +167,12 @@ class OutboxHandlerRegistry {
         )
     }
 
-    /**
-     * Registers a legacy alias ID that points to the same handler.
-     *
-     * Used for backward compatibility when handler IDs in existing database records
-     * were generated using CGLIB proxy class names. The alias allows those old records
-     * to still find their handler after upgrading to stable (non-proxy) IDs.
-     *
-     * Unlike [register], this method only adds to the ID-based lookup map
-     * (not to typed/generic handler lists).
-     *
-     * @param aliasId The legacy handler ID to register as an alias
-     * @param handlerMethod The handler method this alias should resolve to
-     * @throws IllegalStateException if the alias ID is already registered
-     */
     internal fun registerAlias(
         aliasId: String,
         handlerMethod: OutboxHandlerMethod,
     ) {
         check(handlersById.putIfAbsent(aliasId, handlerMethod) == null) {
-            "Duplicate alias ID detected: $aliasId"
+            "Duplicate handler ID or alias detected: $aliasId"
         }
     }
 }
