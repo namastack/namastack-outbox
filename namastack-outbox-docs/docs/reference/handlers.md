@@ -21,7 +21,7 @@ The library provides two complementary handler interfaces for different use case
 ```kotlin
 @Component
 class OrderCreatedHandler : OutboxTypedHandler<OrderCreatedRecord> {
-    override fun handle(payload: OrderCreatedRecord) {
+    override fun handle(payload: OrderCreatedRecord, metadata: OutboxRecordMetadata) {
         println("Processing order: ${payload.orderId}")
         eventPublisher.publish(payload)
     }
@@ -35,7 +35,7 @@ class OrderCreatedHandler : OutboxTypedHandler<OrderCreatedRecord> {
 @Component
 public class OrderCreatedHandler implements OutboxTypedHandler<OrderCreatedRecord> {
     @Override
-    public void handle(OrderCreatedRecord payload) {
+    public void handle(OrderCreatedRecord payload, OutboxRecordMetadata metadata) {
         System.out.println("Processing order: " + payload.getOrderId());
         eventPublisher.publish(payload);
     }
@@ -162,6 +162,169 @@ public class MyHandlers {
 
 - **Interfaces**: Best when entire class is dedicated to handling a single type
 - **Annotations**: Best when a class handles multiple types or mixing with other logic
+:::
+
+---
+
+## Stable Handler IDs and Aliases
+
+Namastack stores the handler ID on every outbox record so that the record can be routed to the
+same handler later. By default, this ID is generated from the handler's target class and method
+signature. This requires no configuration, but renaming or moving a handler changes its generated
+ID while older records may still reference the previous one.
+
+Use an explicit ID when the logical identity of a handler should remain stable across such
+refactorings. New records persist the explicit ID; aliases are used only when resolving existing
+records.
+
+### Annotation-based Handlers
+
+Set `id` on each annotated handler method. This also allows multiple methods in the same class to
+have independent stable IDs.
+
+<Tabs>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@Component
+class OrderHandlers {
+    @OutboxHandler(id = "order-created")
+    fun handleOrderCreated(payload: OrderCreatedRecord) {
+        // ...
+    }
+}
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+@Component
+public class OrderHandlers {
+    @OutboxHandler(id = "order-created")
+    public void handleOrderCreated(OrderCreatedRecord payload) {
+        // ...
+    }
+}
+```
+
+</TabItem>
+</Tabs>
+
+### Interface-based Handlers
+
+Override `getHandlerId()` on `OutboxHandler` or `OutboxTypedHandler`. The fallback variants inherit
+the same identifier contract.
+
+<Tabs>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@Component
+class OrderCreatedHandler : OutboxTypedHandler<OrderCreatedRecord> {
+    override fun getHandlerId(): String = "order-created"
+
+    override fun handle(payload: OrderCreatedRecord, metadata: OutboxRecordMetadata) {
+        // ...
+    }
+}
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+@Component
+public class OrderCreatedHandler implements OutboxTypedHandler<OrderCreatedRecord> {
+    @Override
+    public String getHandlerId() {
+        return "order-created";
+    }
+
+    @Override
+    public void handle(OrderCreatedRecord payload, OutboxRecordMetadata metadata) {
+        // ...
+    }
+}
+```
+
+</TabItem>
+</Tabs>
+
+Leaving the annotation ID empty or returning `null` from `getHandlerId()` retains the generated
+class-and-method ID.
+
+### Migrating Existing Handlers
+
+When an existing handler adopts an explicit ID, Namastack automatically registers its previous
+generated target-class ID as an alias. For proxied handlers, the historical runtime proxy-class ID
+is registered as an additional alias. Records queued before the change can therefore continue to
+resolve the handler, while newly scheduled records use the explicit ID.
+
+If the class or method was already renamed, Namastack cannot derive the old identifier. Declare it
+explicitly as an alias instead:
+
+<Tabs>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@OutboxHandler(
+    id = "order-created",
+    aliases = ["com.example.LegacyOrderHandler#handle(com.example.OrderCreatedRecord)"],
+)
+fun handleOrderCreated(payload: OrderCreatedRecord) {
+    // ...
+}
+```
+
+For interface-based handlers, override `getHandlerAliases()`:
+
+```kotlin
+override fun getHandlerId(): String = "order-created"
+
+override fun getHandlerAliases(): Set<String> =
+    setOf("com.example.LegacyOrderHandler#handle(com.example.OrderCreatedRecord)")
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+@OutboxHandler(
+    id = "order-created",
+    aliases = { "com.example.LegacyOrderHandler#handle(com.example.OrderCreatedRecord)" }
+)
+public void handleOrderCreated(OrderCreatedRecord payload) {
+    // ...
+}
+```
+
+For interface-based handlers, override `getHandlerAliases()`:
+
+```java
+@Override
+public String getHandlerId() {
+    return "order-created";
+}
+
+@Override
+public Set<String> getHandlerAliases() {
+    return Set.of("com.example.LegacyOrderHandler#handle(com.example.OrderCreatedRecord)");
+}
+```
+
+</TabItem>
+</Tabs>
+
+:::warning ID and Alias Requirements
+
+- IDs and aliases must not be blank.
+- Every canonical ID and alias must be globally unique across all handlers.
+- Repeating the canonical ID or an alias within the same handler is deduplicated.
+- A collision between two handlers causes application startup to fail rather than routing records
+  ambiguously.
+- Aliases are lookup-only; only the canonical handler ID is persisted for new records.
+
 :::
 
 ---
