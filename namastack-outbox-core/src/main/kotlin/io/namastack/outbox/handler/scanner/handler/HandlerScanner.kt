@@ -27,7 +27,11 @@ interface HandlerScanner {
      * both the handler and its optional fallback.
      *
      * @param bean The bean to scan for handlers
+     * @param beanName The bean's name in the Spring application context
      * @return List of discovered handler scan results (empty if no handlers found)
      */
-    fun scan(bean: Any): List<HandlerScanResult>
+    fun scan(
+        bean: Any,
+        beanName: String,
+    ): List<HandlerScanResult>
 }
