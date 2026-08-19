@@ -44,6 +44,13 @@ allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
+
+        maven {
+            url = uri("https://repo.spring.io/snapshot")
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
     }
 
     apply { plugin("org.jlleitschuh.gradle.ktlint") }
