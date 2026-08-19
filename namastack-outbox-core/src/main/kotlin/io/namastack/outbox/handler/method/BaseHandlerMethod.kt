@@ -19,14 +19,15 @@ abstract class BaseHandlerMethod(
     val method: Method,
 ) {
     /**
-     * Unique identifier for routing and tracking.
-     * Format: `ClassName#methodName(Type1,Type2,...)`
+     * Unique identifier for routing and tracking. Defaults to
+     * `ClassName#methodName(Type1,Type2,...)`; interface-based lambda handlers use their
+     * stable Spring bean name instead.
      */
-    val id: String = buildId()
+    var id: String = buildId()
+        internal set
 
     /**
-     * Builds unique ID from class name, method name, and parameter types.
-     * ID remains stable across restarts for persistent record association.
+     * Builds the default ID from class name, method name, and parameter types.
      */
     protected fun buildId(): String {
         val className = ReflectionUtils.getTargetClass(bean).name

@@ -38,9 +38,15 @@ class AnnotatedHandlerScanner : HandlerScanner {
         )
 
     /**
-     * Scans bean for handler and fallback methods, matching them by payload type.
+     * Scans a bean for handler and fallback methods, matching them by payload type.
+     *
+     * @param bean The bean to scan
+     * @param beanName The bean's name in the Spring application context
      */
-    override fun scan(bean: Any): List<HandlerScanResult> {
+    override fun scan(
+        bean: Any,
+        beanName: String,
+    ): List<HandlerScanResult> {
         val fallbackMethods = getFallbackMethods(bean)
 
         return ReflectionUtils

@@ -8,7 +8,9 @@ import io.namastack.outbox.handler.method.fallback.factory.GenericFallbackHandle
 import io.namastack.outbox.handler.method.fallback.factory.TypedFallbackHandlerMethodFactory
 import io.namastack.outbox.handler.method.handler.factory.GenericHandlerMethodFactory
 import io.namastack.outbox.handler.method.handler.factory.TypedHandlerMethodFactory
+import io.namastack.outbox.handler.method.internal.ReflectionUtils
 import io.namastack.outbox.handler.scanner.HandlerScanResult
+import org.springframework.util.ClassUtils
 
 /**
  * Scanner that discovers handler implementations via interface inheritance.
@@ -42,11 +44,12 @@ class InterfaceHandlerScanner : HandlerScanner {
      * Algorithm:
      * 1. Check if bean implements OutboxTypedHandler<T> or OutboxHandler
      * 2. If not, return empty list (no handlers to register)
-     * 3. If OutboxTypedHandler<T>: Create typed handler
-     * 4. If bean also implements WithFallback variant: Create fallback and pair with handler
-     * 5. If OutboxHandler: Create generic handler
-     * 6. If bean also implements WithFallback variant: Create fallback and pair with handler
-     * 7. Return all discovered handler scan results
+     * 3. Use the Spring bean name as handler ID when the bean is a lambda
+     * 4. If OutboxTypedHandler<T>: Create typed handler
+     * 5. If bean also implements WithFallback variant: Create fallback and pair with handler
+     * 6. If OutboxHandler: Create generic handler
+     * 7. If bean also implements WithFallback variant: Create fallback and pair with handler
+     * 8. Return all discovered handler scan results
      *
      * Example:
      * ```kotlin
@@ -67,16 +70,23 @@ class InterfaceHandlerScanner : HandlerScanner {
      * → Returns: HandlerScanResult(handler, fallback=TypedFallbackHandlerMethod)
      *
      * @param bean The bean to scan for handler interface implementations
+     * @param beanName The bean's name, used as the stable ID for lambda handlers
      * @return List of discovered handler scan results
      */
-    override fun scan(bean: Any): List<HandlerScanResult> {
+    override fun scan(
+        bean: Any,
+        beanName: String,
+    ): List<HandlerScanResult> {
         if (bean !is OutboxTypedHandler<*> && bean !is OutboxHandler) return emptyList()
 
         val results = mutableListOf<HandlerScanResult>()
+        val handlerIdOverride = getHandlerIdOverride(bean, beanName)
 
         // Register typed handler if bean implements OutboxTypedHandler<T>
         if (bean is OutboxTypedHandler<*>) {
             val handler = typedHandlerFactory.createFromInterface(bean)
+            handlerIdOverride?.let { handler.id = it }
+
             val fallback =
                 if (bean is OutboxTypedHandlerWithFallback<*>) {
                     typedFallbackFactory.createFromInterface(bean)
@@ -89,6 +99,8 @@ class InterfaceHandlerScanner : HandlerScanner {
         // Register generic handler if bean implements OutboxHandler
         if (bean is OutboxHandler) {
             val handler = genericHandlerFactory.createFromInterface(bean)
+            handlerIdOverride?.let { handler.id = it }
+
             val fallback =
                 if (bean is OutboxHandlerWithFallback) {
                     genericFallbackFactory.createFromInterface(bean)
@@ -100,4 +112,9 @@ class InterfaceHandlerScanner : HandlerScanner {
 
         return results
     }
+
+    private fun getHandlerIdOverride(
+        bean: Any,
+        beanName: String,
+    ): String? = beanName.takeIf { ClassUtils.isLambdaClass(ReflectionUtils.getTargetClass(bean)) }
 }
