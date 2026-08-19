@@ -66,7 +66,7 @@ class OutboxHandlerBeanPostProcessorTest {
     }
 
     @Test
-    fun `does not register generated lambda ID as legacy alias`() {
+    fun `does not register generated lambda ID as legacy alias for non-proxied lambda`() {
         val realHandlerRegistry = OutboxHandlerRegistry()
         val processor =
             OutboxHandlerBeanPostProcessor(
@@ -77,6 +77,25 @@ class OutboxHandlerBeanPostProcessorTest {
         val lambda = LambdaOutboxHandlerFactory.create()
 
         processor.postProcessAfterInitialization(lambda, "modulithEventExternalizer")
+
+        val handler = requireNotNull(realHandlerRegistry.getHandlerById("modulithEventExternalizer"))
+        assertThat(realHandlerRegistry.getHandlerById(handler.legacyId)).isNull()
+    }
+
+    @Test
+    fun `does not register generated proxy ID as legacy alias for proxied lambda`() {
+        val realHandlerRegistry = OutboxHandlerRegistry()
+        val processor =
+            OutboxHandlerBeanPostProcessor(
+                realHandlerRegistry,
+                OutboxFallbackHandlerRegistry(),
+                retryPolicyRegistry,
+            )
+        val proxyFactory = ProxyFactory(LambdaOutboxHandlerFactory.create())
+        proxyFactory.addAdvice(MethodInterceptor { it.proceed() })
+        val proxiedLambda = proxyFactory.proxy
+
+        processor.postProcessAfterInitialization(proxiedLambda, "modulithEventExternalizer")
 
         val handler = requireNotNull(realHandlerRegistry.getHandlerById("modulithEventExternalizer"))
         assertThat(realHandlerRegistry.getHandlerById(handler.legacyId)).isNull()
