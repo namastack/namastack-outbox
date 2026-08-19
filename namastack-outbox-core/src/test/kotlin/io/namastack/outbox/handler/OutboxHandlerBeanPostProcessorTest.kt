@@ -17,9 +17,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.aop.framework.ProxyFactory
-import java.time.Clock
-import java.time.Instant
-import java.time.ZoneOffset
 import kotlin.reflect.KClass
 
 @DisplayName("OutboxHandlerBeanPostProcessor")
@@ -66,6 +63,42 @@ class OutboxHandlerBeanPostProcessorTest {
         verify(exactly = 1) { handlerRegistry.register(any()) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
+    }
+
+    @Test
+    fun `does not register generated lambda ID as legacy alias for non-proxied lambda`() {
+        val realHandlerRegistry = OutboxHandlerRegistry()
+        val processor =
+            OutboxHandlerBeanPostProcessor(
+                realHandlerRegistry,
+                OutboxFallbackHandlerRegistry(),
+                retryPolicyRegistry,
+            )
+        val lambda = LambdaOutboxHandlerFactory.create()
+
+        processor.postProcessAfterInitialization(lambda, "modulithEventExternalizer")
+
+        val handler = requireNotNull(realHandlerRegistry.getHandlerById("modulithEventExternalizer"))
+        assertThat(realHandlerRegistry.getHandlerById(handler.legacyId)).isNull()
+    }
+
+    @Test
+    fun `does not register generated proxy ID as legacy alias for proxied lambda`() {
+        val realHandlerRegistry = OutboxHandlerRegistry()
+        val processor =
+            OutboxHandlerBeanPostProcessor(
+                realHandlerRegistry,
+                OutboxFallbackHandlerRegistry(),
+                retryPolicyRegistry,
+            )
+        val proxyFactory = ProxyFactory(LambdaOutboxHandlerFactory.create())
+        proxyFactory.addAdvice(MethodInterceptor { it.proceed() })
+        val proxiedLambda = proxyFactory.proxy
+
+        processor.postProcessAfterInitialization(proxiedLambda, "modulithEventExternalizer")
+
+        val handler = requireNotNull(realHandlerRegistry.getHandlerById("modulithEventExternalizer"))
+        assertThat(realHandlerRegistry.getHandlerById(handler.legacyId)).isNull()
     }
 
     @Test
@@ -325,7 +358,6 @@ class OutboxHandlerBeanPostProcessorTest {
     @Nested
     @DisplayName("Legacy alias registration for CGLIB proxies")
     inner class LegacyAliasTests {
-        private val clock = Clock.fixed(Instant.parse("2025-09-25T10:00:00Z"), ZoneOffset.UTC)
         private val realHandlerRegistry = OutboxHandlerRegistry()
         private val realFallbackRegistry = OutboxFallbackHandlerRegistry()
 

@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler
 
+import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.handler.scanner.HandlerScanResult
@@ -7,7 +8,9 @@ import io.namastack.outbox.handler.scanner.RetryPolicyScanner
 import io.namastack.outbox.handler.scanner.handler.AnnotatedHandlerScanner
 import io.namastack.outbox.handler.scanner.handler.InterfaceHandlerScanner
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
+import org.springframework.aop.support.AopUtils
 import org.springframework.beans.factory.config.BeanPostProcessor
+import org.springframework.util.ClassUtils
 
 /**
  * Spring BeanPostProcessor that discovers and registers handlers with their fallbacks.
@@ -52,9 +55,9 @@ internal class OutboxHandlerBeanPostProcessor(
      * Scans for handlers and their fallbacks, then registers them:
      * 1. Scan bean for handlers using all scanners
      * 2. Register handler in handler registry
-     * 3. Register legacy alias if bean is an AOP proxy (backward compatibility)
-     * 4. Register fallback (if present) with handler.id
-     * 5. Register retry policy for handler
+     * 3. Register fallback (if present) with handler.id
+     * 4. Register retry policy for handler
+     * 5. Register legacy alias if bean is an AOP proxy (backward compatibility)
      *
      * @param bean The newly instantiated bean
      * @param beanName The bean name in Spring context
@@ -65,7 +68,7 @@ internal class OutboxHandlerBeanPostProcessor(
         beanName: String,
     ): Any {
         // 1. Scan for all handlers and their fallbacks in this bean
-        val scanResults = handlerScanners.flatMap { it.scan(bean) }
+        val scanResults = handlerScanners.flatMap { it.scan(bean, beanName) }
 
         // 2. For each result: register handler + fallback + retry policy + legacy alias
         scanResults.forEach { result ->
@@ -85,13 +88,21 @@ internal class OutboxHandlerBeanPostProcessor(
                 .forEach { policy -> retryPolicyRegistry.register(handler.id, policy) }
 
             // d. Register legacy alias if bean is an AOP proxy (backward compatibility)
-            if (handler.id != handler.legacyId) {
+            if (shouldRegisterLegacyAlias(bean, handler)) {
                 registerLegacyAliases(handler.legacyId, result)
             }
         }
 
         return bean
     }
+
+    private fun shouldRegisterLegacyAlias(
+        bean: Any,
+        handler: OutboxHandlerMethod,
+    ): Boolean =
+        AopUtils.isAopProxy(bean) &&
+            !ClassUtils.isLambdaClass(AopUtils.getTargetClass(bean)) &&
+            handler.id != handler.legacyId
 
     /**
      * Registers legacy alias IDs in all registries for backward compatibility
