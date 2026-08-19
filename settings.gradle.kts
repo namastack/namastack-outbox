@@ -1,5 +1,19 @@
 rootProject.name = "namastack-outbox"
 
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+
+        maven {
+            url = uri("https://repo.spring.io/snapshot")
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
+    }
+}
+
 include("namastack-outbox-actuator")
 include("namastack-outbox-api")
 include("namastack-outbox-bom")
