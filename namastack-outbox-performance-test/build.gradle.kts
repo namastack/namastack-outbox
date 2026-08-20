@@ -16,7 +16,7 @@ val jvmTargetVersion = JvmTarget.fromTarget(javaVersion.toString())
 
 allprojects {
     group = "io.namastack"
-    version = "1.8.0-SNAPSHOT"
+    version = "1.8.1-SNAPSHOT"
 
     repositories {
         mavenLocal()
