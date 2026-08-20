@@ -1,7 +1,7 @@
 [versions]
-kotlin = "2.4.0"
-namastackOutbox = "1.7.2-SNAPSHOT"
-springBoot = "4.1.0"
+kotlin = "2.4.10"
+namastackOutbox = "1.7.3-SNAPSHOT"
+springBoot = "4.1.1"
 dependencyManagement = "1.1.7"
 testcontainers = "2.0.5"
 
