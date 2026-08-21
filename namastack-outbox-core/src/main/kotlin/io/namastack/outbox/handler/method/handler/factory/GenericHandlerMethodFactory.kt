@@ -42,7 +42,10 @@ class GenericHandlerMethodFactory : OutboxHandlerMethodFactory {
     /**
      * Creates generic handler from OutboxHandler interface.
      */
-    fun createFromInterface(bean: OutboxHandler, handlerId: String?): GenericHandlerMethod {
+    fun createFromInterface(
+        bean: OutboxHandler,
+        handlerId: String?,
+    ): GenericHandlerMethod {
         val method = ReflectionUtils.findMethod(bean, "handle", 2)
         return GenericHandlerInterfaceMethod(bean, method, handlerId)
     }
