@@ -237,7 +237,7 @@ class TypedHandlerMethodFactoryTest {
         fun `should create typed handler from OutboxTypedHandler String implementation`() {
             val bean = StringHandlerImpl()
 
-            val result = factory.createFromInterface(bean)
+            val result = factory.createFromInterface(bean, null)
 
             assertThat(result).isInstanceOf(TypedHandlerMethod::class.java)
             assertThat(result.bean).isSameAs(bean)
@@ -248,7 +248,7 @@ class TypedHandlerMethodFactoryTest {
         fun `should create typed handler from OutboxTypedHandler TestPayload implementation`() {
             val bean = PayloadHandlerImpl()
 
-            val result = factory.createFromInterface(bean)
+            val result = factory.createFromInterface(bean, null)
 
             assertThat(result).isInstanceOf(TypedHandlerMethod::class.java)
             assertThat(result.method.parameterTypes.first()).isEqualTo(TestPayload::class.java)
@@ -258,7 +258,7 @@ class TypedHandlerMethodFactoryTest {
         fun `should extract handle method from interface implementation`() {
             val bean = StringHandlerImpl()
 
-            val result = factory.createFromInterface(bean)
+            val result = factory.createFromInterface(bean, null)
 
             assertThat(result.method.name).isEqualTo("handle")
             assertThat(result.method.parameterCount).isEqualTo(2)
@@ -269,10 +269,34 @@ class TypedHandlerMethodFactoryTest {
             val bean1 = StringHandlerImpl()
             val bean2 = PayloadHandlerImpl()
 
-            val handler1 = factory.createFromInterface(bean1)
-            val handler2 = factory.createFromInterface(bean2)
+            val handler1 = factory.createFromInterface(bean1, null)
+            val handler2 = factory.createFromInterface(bean2, null)
 
             assertThat(handler1.id).isNotEqualTo(handler2.id)
+        }
+    }
+
+    @Nested
+    @DisplayName("createFromInterface() handler ID override")
+    inner class CreateFromInterfaceIdOverrideTests {
+        @Test
+        fun `should fall back to generated id when handlerId is null`() {
+            val bean = StringHandlerImpl()
+
+            val result = factory.createFromInterface(bean, null)
+
+            assertThat(result.id)
+                .startsWith(bean::class.java.name)
+                .matches(".*#.*\\(.*\\)")
+        }
+
+        @Test
+        fun `should use provided handlerId as id`() {
+            val bean = StringHandlerImpl()
+
+            val result = factory.createFromInterface(bean, "custom-id")
+
+            assertThat(result.id).isEqualTo("custom-id")
         }
     }
 

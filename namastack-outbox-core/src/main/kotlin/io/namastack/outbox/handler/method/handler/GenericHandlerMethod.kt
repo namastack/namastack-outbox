@@ -17,7 +17,8 @@ import java.lang.reflect.Method
 sealed class GenericHandlerMethod(
     bean: Any,
     method: Method,
-) : OutboxHandlerMethod(bean, method) {
+    id: String? = null,
+) : OutboxHandlerMethod(bean, method, id) {
     /**
      * Determines whether this handler should be scheduled for the given payload.
      */

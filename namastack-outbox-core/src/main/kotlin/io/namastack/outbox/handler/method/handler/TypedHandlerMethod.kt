@@ -20,7 +20,8 @@ import kotlin.reflect.KClass
 class TypedHandlerMethod(
     bean: Any,
     method: Method,
-) : OutboxHandlerMethod(bean, method) {
+    id: String? = null,
+) : OutboxHandlerMethod(bean, method, id) {
     /** Payload type extracted from method's first parameter. */
     internal val paramType: KClass<*>
         get() = method.parameterTypes.first().kotlin

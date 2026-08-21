@@ -10,6 +10,7 @@ import java.lang.reflect.Method
  *
  * @param bean Bean containing the handler method
  * @param method Handler method for reflection
+ * @param id ID for the handler method
  *
  * @author Roland Beisel
  * @since 1.0.0
@@ -17,4 +18,5 @@ import java.lang.reflect.Method
 sealed class OutboxHandlerMethod(
     bean: Any,
     method: Method,
-) : BaseHandlerMethod(bean, method)
+    id: String? = null,
+) : BaseHandlerMethod(bean, method, id)

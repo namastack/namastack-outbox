@@ -25,6 +25,36 @@ class GenericHandlerInterfaceMethodTest {
         assertThat(supported).isFalse()
     }
 
+    @Test
+    fun `generates id when null`() {
+        val bean = ConditionalGenericHandler(supported = true)
+        val method =
+            bean::class.java.getMethod(
+                "handle",
+                Any::class.java,
+                OutboxRecordMetadata::class.java,
+            )
+        val handler = GenericHandlerInterfaceMethod(bean, method)
+
+        assertThat(handler.id)
+            .startsWith(bean::class.java.name)
+            .contains("#handle(")
+    }
+
+    @Test
+    fun `uses provided id when not null`() {
+        val bean = ConditionalGenericHandler(supported = true)
+        val method =
+            bean::class.java.getMethod(
+                "handle",
+                Any::class.java,
+                OutboxRecordMetadata::class.java,
+            )
+        val handler = GenericHandlerInterfaceMethod(bean, method, "custom-id")
+
+        assertThat(handler.id).isEqualTo("custom-id")
+    }
+
     private fun metadata() =
         OutboxRecordMetadata(
             key = "test-key",

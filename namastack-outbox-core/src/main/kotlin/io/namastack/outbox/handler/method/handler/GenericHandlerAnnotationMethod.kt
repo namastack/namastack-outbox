@@ -17,7 +17,8 @@ import java.lang.reflect.Method
 class GenericHandlerAnnotationMethod(
     bean: Any,
     method: Method,
-) : GenericHandlerMethod(bean, method) {
+    id: String? = null,
+) : GenericHandlerMethod(bean, method, id) {
     /**
      * Determines whether this handler should be scheduled for the given payload.
      */
