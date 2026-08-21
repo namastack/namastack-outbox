@@ -173,10 +173,20 @@ class OutboxRecord<T> internal constructor(
      * Builder class for creating new OutboxRecord instances.
      */
     class Builder<T> {
+        private var id: String? = null
         private var key: String? = null
         private var payload: T? = null
         private var context: Map<String, String>? = null
         private var handlerId: String? = null
+
+        /**
+         * Sets the record identifier for an internally created record.
+         *
+         * The public Builder API continues to generate a random UUID when this is not
+         * set. This internal path allows [OutboxService] to inject its configured
+         * identifier generator without changing the Builder's public contract.
+         */
+        internal fun id(id: String) = apply { this.id = id }
 
         /**
          * Sets the record key for the outbox record.
@@ -217,8 +227,9 @@ class OutboxRecord<T> internal constructor(
          * @return A new OutboxRecord instance
          */
         fun build(clock: Clock): OutboxRecord<T> {
-            val id = UUID.randomUUID().toString()
-            val rk = key ?: id
+            val generatedId = id ?: UUID.randomUUID().toString()
+            require(generatedId.isNotBlank()) { "outbox record id must not be blank" }
+            val rk = key ?: generatedId
             val pl = payload ?: error("payload must be set")
             val ctx = context ?: emptyMap()
             val hId = handlerId ?: error("handlerId must be set")
@@ -227,7 +238,7 @@ class OutboxRecord<T> internal constructor(
             val partition = PartitionHasher.getPartitionForRecordKey(rk)
 
             return OutboxRecord(
-                id = id,
+                id = generatedId,
                 status = NEW,
                 key = rk,
                 payload = pl,

@@ -8,7 +8,9 @@ import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
+import io.namastack.outbox.partition.PartitionHasher
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -75,6 +77,70 @@ class OutboxServiceTest {
             assertThat(recordSlots).hasSize(2)
             assertThat(recordSlots[0].handlerId).isEqualTo("handler1")
             assertThat(recordSlots[1].handlerId).isEqualTo("handler2")
+        }
+
+        @Test
+        fun `should generate one id per handler without changing key partition or payload`() {
+            val key = "test-key"
+            val payload = TestPayload("test-id")
+            val context = mapOf("key1" to "value1")
+            val handler1 = createTypedMockHandler("handler1")
+            val handler2 = createTypedMockHandler("handler2")
+            val idGenerator = mockk<OutboxRecordIdGenerator>()
+            val recordSlots = mutableListOf<OutboxRecord<Any>>()
+            val service =
+                OutboxService(
+                    contextCollector = contextCollector,
+                    handlerRegistry = handlerRegistry,
+                    outboxRecordRepository = outboxRecordRepository,
+                    clock = clock,
+                    outboxRecordIdGenerator = idGenerator,
+                )
+
+            every { idGenerator.generate() } returnsMany listOf("id-1", "id-2")
+            every { contextCollector.collectContext() } returns emptyMap()
+            every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler1, handler2)
+            every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
+            every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
+
+            service.schedule(payload, key, context)
+
+            assertThat(recordSlots.map { it.id }).containsExactly("id-1", "id-2")
+            assertThat(recordSlots.map { it.handlerId }).containsExactly("handler1", "handler2")
+            assertThat(recordSlots.map { it.key }).containsExactly(key, key)
+            assertThat(recordSlots.map { it.partition })
+                .containsExactly(
+                    PartitionHasher.getPartitionForRecordKey(key),
+                    PartitionHasher.getPartitionForRecordKey(key),
+                )
+            assertThat(recordSlots.map { it.payload }).containsExactly(payload, payload)
+            verify(exactly = 2) { idGenerator.generate() }
+        }
+
+        @Test
+        fun `should reject blank generated id before saving the record`() {
+            val key = "test-key"
+            val payload = TestPayload("test-id")
+            val handler = createTypedMockHandler("handler1")
+            val idGenerator = mockk<OutboxRecordIdGenerator>()
+            val service =
+                OutboxService(
+                    contextCollector = contextCollector,
+                    handlerRegistry = handlerRegistry,
+                    outboxRecordRepository = outboxRecordRepository,
+                    clock = clock,
+                    outboxRecordIdGenerator = idGenerator,
+                )
+
+            every { idGenerator.generate() } returns " "
+            every { contextCollector.collectContext() } returns emptyMap()
+            every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
+            every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
+
+            assertThatThrownBy { service.schedule(payload, key) }
+                .isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessage("outbox record id must not be blank")
+            verify(exactly = 0) { outboxRecordRepository.save(any() as OutboxRecord<Any>) }
         }
 
         @Test

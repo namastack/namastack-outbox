@@ -75,6 +75,43 @@ public class OrderService {
 </TabItem>
 </Tabs>
 
+## Custom Outbox Record ID Generator
+
+Spring Boot uses `RandomUuidOutboxRecordIdGenerator` by default, preserving the existing random UUID behavior. To use UUIDv7, ULID, or an application-specific generator, register an `OutboxRecordIdGenerator` bean:
+
+<Tabs>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@Configuration
+class OutboxIdConfiguration(
+    private val applicationIdGenerator: ApplicationIdGenerator
+) {
+    @Bean
+    fun outboxRecordIdGenerator(): OutboxRecordIdGenerator =
+        OutboxRecordIdGenerator { applicationIdGenerator.generate() }
+}
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+@Configuration
+public class OutboxIdConfiguration {
+    @Bean
+    public OutboxRecordIdGenerator outboxRecordIdGenerator(
+            ApplicationIdGenerator applicationIdGenerator) {
+        return applicationIdGenerator::generate;
+    }
+}
+```
+
+</TabItem>
+</Tabs>
+
+The generator is called once for every handler record created by `OutboxService`. Implementations must be thread-safe and return a non-blank, unique value for each invocation. The generated value affects only `OutboxRecord.id`; an explicit `key`, automatic key generation, and partition assignment are unchanged. Blank values are rejected before repository persistence. Cross-instance uniqueness remains the responsibility of the generator and the database primary key.
+
 ### Record Lifecycle
 
 Records go through the following states:
