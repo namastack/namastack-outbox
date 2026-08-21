@@ -17,14 +17,14 @@ import java.lang.reflect.Method
 abstract class BaseHandlerMethod(
     val bean: Any,
     val method: Method,
+    id: String? = null,
 ) {
     /**
      * Unique identifier for routing and tracking. Defaults to
      * `ClassName#methodName(Type1,Type2,...)`; interface-based lambda handlers use their
      * stable Spring bean name instead.
      */
-    var id: String = buildId()
-        internal set
+    val id: String = id ?: buildId()
 
     /**
      * Builds the default ID from class name, method name, and parameter types.

@@ -48,8 +48,8 @@ class TypedHandlerMethodFactory : OutboxHandlerMethodFactory {
     /**
      * Creates typed handler from OutboxTypedHandler interface.
      */
-    fun createFromInterface(bean: OutboxTypedHandler<*>): TypedHandlerMethod {
+    fun createFromInterface(bean: OutboxTypedHandler<*>, handlerId: String?): TypedHandlerMethod {
         val method = ReflectionUtils.findMethod(bean, "handle", 2)
-        return TypedHandlerMethod(bean, method)
+        return TypedHandlerMethod(bean, method, handlerId)
     }
 }

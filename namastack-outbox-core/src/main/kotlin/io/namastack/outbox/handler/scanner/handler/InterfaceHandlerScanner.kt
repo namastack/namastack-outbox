@@ -80,12 +80,11 @@ class InterfaceHandlerScanner : HandlerScanner {
         if (bean !is OutboxTypedHandler<*> && bean !is OutboxHandler) return emptyList()
 
         val results = mutableListOf<HandlerScanResult>()
-        val handlerIdOverride = getHandlerIdOverride(bean, beanName)
+        val handlerId = getHandlerIdOverride(bean, beanName)
 
         // Register typed handler if bean implements OutboxTypedHandler<T>
         if (bean is OutboxTypedHandler<*>) {
-            val handler = typedHandlerFactory.createFromInterface(bean)
-            handlerIdOverride?.let { handler.id = it }
+            val handler = typedHandlerFactory.createFromInterface(bean, handlerId)
 
             val fallback =
                 if (bean is OutboxTypedHandlerWithFallback<*>) {
@@ -98,8 +97,7 @@ class InterfaceHandlerScanner : HandlerScanner {
 
         // Register generic handler if bean implements OutboxHandler
         if (bean is OutboxHandler) {
-            val handler = genericHandlerFactory.createFromInterface(bean)
-            handlerIdOverride?.let { handler.id = it }
+            val handler = genericHandlerFactory.createFromInterface(bean, handlerId)
 
             val fallback =
                 if (bean is OutboxHandlerWithFallback) {
