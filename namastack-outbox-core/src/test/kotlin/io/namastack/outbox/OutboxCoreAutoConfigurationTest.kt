@@ -86,6 +86,32 @@ class OutboxCoreAutoConfigurationTest {
         }
 
         @Test
+        fun `creates random UUID record id generator by default`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    assertThat(context).hasSingleBean(OutboxRecordIdGenerator::class.java)
+                    assertThat(context.getBean<OutboxRecordIdGenerator>())
+                        .isInstanceOf(RandomUuidOutboxRecordIdGenerator::class.java)
+                }
+        }
+
+        @Test
+        fun `uses custom record id generator and injects it into outbox service`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithCustomOutboxRecordIdGenerator::class.java)
+                .run { context ->
+                    val generator = context.getBean<OutboxRecordIdGenerator>()
+                    assertThat(generator).isSameAs(ConfigWithCustomOutboxRecordIdGenerator.generator)
+
+                    val outboxService = context.getBean<Outbox>() as OutboxService
+                    val injectedGenerator =
+                        ReflectionTestUtils.getField(outboxService, "outboxRecordIdGenerator")
+                    assertThat(injectedGenerator).isSameAs(generator)
+                }
+        }
+
+        @Test
         fun `creates default instance registry`() {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
@@ -513,6 +539,16 @@ class OutboxCoreAutoConfigurationTest {
     private class ConfigWithCustomClock : MinimalTestConfig() {
         @Bean
         fun clock(): Clock = Clock.fixed(Instant.parse("2020-02-02T00:00:00Z"), ZoneId.systemDefault())
+    }
+
+    @Configuration
+    private class ConfigWithCustomOutboxRecordIdGenerator : MinimalTestConfig() {
+        companion object {
+            val generator = OutboxRecordIdGenerator { "custom-id" }
+        }
+
+        @Bean
+        fun outboxRecordIdGenerator(): OutboxRecordIdGenerator = generator
     }
 
     @Configuration

@@ -3,8 +3,10 @@ package io.namastack.outbox.config
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.Outbox
 import io.namastack.outbox.OutboxProperties
+import io.namastack.outbox.OutboxRecordIdGenerator
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
+import io.namastack.outbox.RandomUuidOutboxRecordIdGenerator
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
@@ -119,17 +121,23 @@ class OutboxCoreInfrastructureAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    fun outboxRecordIdGenerator(): OutboxRecordIdGenerator = RandomUuidOutboxRecordIdGenerator()
+
+    @Bean
+    @ConditionalOnMissingBean
     fun outbox(
         outboxContextCollector: OutboxContextCollector,
         handlerRegistry: OutboxHandlerRegistry,
         recordRepository: OutboxRecordRepository,
         clock: Clock,
+        outboxRecordIdGenerator: OutboxRecordIdGenerator,
     ): Outbox =
         OutboxService(
             contextCollector = outboxContextCollector,
             handlerRegistry = handlerRegistry,
             outboxRecordRepository = recordRepository,
             clock = clock,
+            outboxRecordIdGenerator = outboxRecordIdGenerator,
         )
 
     companion object {

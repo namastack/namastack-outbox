@@ -3,6 +3,7 @@ package io.namastack.outbox
 import io.namastack.outbox.OutboxRecordTestFactory.outboxRecord
 import io.namastack.outbox.partition.PartitionHasher
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.time.Clock
@@ -433,6 +434,53 @@ class OutboxRecordTest {
 
             assertThat(record.id).isNotEmpty()
             assertThat(record.id).isNotEqualTo("test-key")
+            assertThat(record.id)
+                .matches("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+        }
+
+        @Test
+        fun `should preserve internally provided id on build`() {
+            val record =
+                OutboxRecord
+                    .Builder<String>()
+                    .id("provided-id")
+                    .key("test-key")
+                    .payload("test-payload")
+                    .handlerId("TestHandler#handle(java.lang.String)")
+                    .build(clock)
+
+            assertThat(record.id).isEqualTo("provided-id")
+        }
+
+        @Test
+        fun `should reject blank internally provided id`() {
+            assertThatThrownBy {
+                OutboxRecord
+                    .Builder<String>()
+                    .id(" ")
+                    .key("test-key")
+                    .payload("test-payload")
+                    .handlerId("TestHandler#handle(java.lang.String)")
+                    .build(clock)
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessage("outbox record id must not be blank")
+        }
+
+        @Test
+        fun `should keep key and partition independent from internally provided id`() {
+            val key = "order-123"
+            val record =
+                OutboxRecord
+                    .Builder<String>()
+                    .id("provided-id")
+                    .key(key)
+                    .payload("test-payload")
+                    .handlerId("TestHandler#handle(java.lang.String)")
+                    .build(clock)
+
+            assertThat(record.id).isEqualTo("provided-id")
+            assertThat(record.key).isEqualTo(key)
+            assertThat(record.partition).isEqualTo(PartitionHasher.getPartitionForRecordKey(key))
         }
 
         @Test

@@ -59,6 +59,7 @@ import kotlin.reflect.KClass
  * @param handlerRegistry Registry of all discovered handler methods
  * @param outboxRecordRepository Repository for persisting records
  * @param clock Clock for timestamp generation
+ * @param outboxRecordIdGenerator Generator for newly scheduled record identifiers
  *
  * @author Roland Beisel
  * @since 0.4.0
@@ -69,7 +70,26 @@ class OutboxService(
     private val handlerRegistry: OutboxHandlerRegistry,
     private val outboxRecordRepository: OutboxRecordRepository,
     private val clock: Clock,
+    private val outboxRecordIdGenerator: OutboxRecordIdGenerator,
 ) : Outbox {
+    /**
+     * Creates an [OutboxService] using the default random UUID identifier generator.
+     *
+     * This constructor preserves the existing Kotlin and Java construction API.
+     */
+    constructor(
+        contextCollector: OutboxContextCollector,
+        handlerRegistry: OutboxHandlerRegistry,
+        outboxRecordRepository: OutboxRecordRepository,
+        clock: Clock,
+    ) : this(
+        contextCollector = contextCollector,
+        handlerRegistry = handlerRegistry,
+        outboxRecordRepository = outboxRecordRepository,
+        clock = clock,
+        outboxRecordIdGenerator = RandomUuidOutboxRecordIdGenerator(),
+    )
+
     /**
      * Schedules a record with an explicit key and additional context for processing.
      *
@@ -178,6 +198,7 @@ class OutboxService(
             val outboxRecord =
                 OutboxRecord
                     .Builder<Any>()
+                    .id(outboxRecordIdGenerator.generate())
                     .key(key)
                     .payload(payload)
                     .context(context)
