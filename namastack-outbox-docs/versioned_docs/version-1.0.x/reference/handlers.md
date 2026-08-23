@@ -295,7 +295,7 @@ interface OutboxFailureContext {
     val key: String                   // Record key
     val createdAt: Instant            // When record was created
     val failureCount: Int             // Number of failed attempts
-    val lastException: Throwable?     // Last exception thrown
+    val lastFailure: Throwable?       // Last exception thrown
     val context: Map<String, String>  // Propagated context (traceId, tenantId, etc.)
 }
 ```
@@ -309,7 +309,7 @@ public interface OutboxFailureContext {
     String getKey();                 // Record key
     Instant getCreatedAt();          // When record was created
     int getFailureCount();           // Number of failed attempts
-    Throwable getLastException();    // Last exception thrown
+    Throwable getLastFailure();      // Last exception thrown
     Map<String, String> getContext(); // Propagated context (traceId, tenantId, etc.)
 }
 ```
