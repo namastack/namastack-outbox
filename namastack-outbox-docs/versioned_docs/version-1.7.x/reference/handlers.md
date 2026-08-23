@@ -341,12 +341,15 @@ The `OutboxFailureContext` provides comprehensive failure information:
 
 ```kotlin
 interface OutboxFailureContext {
-    val handlerId: String             // Handler that failed
-    val key: String                   // Record key
-    val createdAt: Instant            // When record was created
-    val failureCount: Int             // Number of failed attempts
-    val lastException: Throwable?     // Last exception thrown
-    val context: Map<String, String>  // Propagated context (traceId, tenantId, etc.)
+    val handlerId: String              // Handler that failed
+    val recordId: String               // Unique identifier of the record
+    val recordKey: String              // Record key
+    val createdAt: Instant             // When record was created
+    val failureCount: Int              // Number of failed attempts
+    val lastFailure: Throwable?        // Last exception thrown
+    val retriesExhausted: Boolean      // True if retry limit was reached
+    val nonRetryableException: Boolean // True if failure was due to non-retryable exception
+    val context: Map<String, String>   // Propagated context (traceId, tenantId, etc.)
 }
 ```
 
@@ -355,12 +358,15 @@ interface OutboxFailureContext {
 
 ```java
 public interface OutboxFailureContext {
-    String getHandlerId();           // Handler that failed
-    String getKey();                 // Record key
-    Instant getCreatedAt();          // When record was created
-    int getFailureCount();           // Number of failed attempts
-    Throwable getLastException();    // Last exception thrown
-    Map<String, String> getContext(); // Propagated context (traceId, tenantId, etc.)
+    String getHandlerId();             // Handler that failed
+    String getRecordId();              // Unique identifier of the record
+    String getRecordKey();             // Record key
+    Instant getCreatedAt();            // When record was created
+    int getFailureCount();             // Number of failed attempts
+    Throwable getLastFailure();        // Last exception thrown
+    boolean isRetriesExhausted();      // True if retry limit was reached
+    boolean isNonRetryableException(); // True if failure was due to non-retryable exception
+    Map<String, String> getContext();  // Propagated context (traceId, tenantId, etc.)
 }
 ```
 
