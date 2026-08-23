@@ -309,7 +309,6 @@ public interface OutboxFailureContext {
     String getKey();                 // Record key
     Instant getCreatedAt();          // When record was created
     int getFailureCount();           // Number of failed attempts
-
     Throwable getLastFailure();      // Last exception thrown
     Map<String, String> getContext(); // Propagated context (traceId, tenantId, etc.)
 }

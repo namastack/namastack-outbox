@@ -359,21 +359,13 @@ interface OutboxFailureContext {
 ```java
 public interface OutboxFailureContext {
     String getHandlerId();             // Handler that failed
-
     String getRecordId();              // Unique identifier of the record
-
     String getRecordKey();             // Record key
-
     Instant getCreatedAt();            // When record was created
-
     int getFailureCount();             // Number of failed attempts
-
     Throwable getLastFailure();        // Last exception thrown
-
     boolean isRetriesExhausted();      // True if retry limit was reached
-
     boolean isNonRetryableException(); // True if failure was due to non-retryable exception
-
     Map<String, String> getContext();  // Propagated context (traceId, tenantId, etc.)
 }
 ```
