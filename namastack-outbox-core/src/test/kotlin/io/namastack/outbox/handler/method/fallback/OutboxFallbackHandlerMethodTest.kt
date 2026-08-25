@@ -67,9 +67,7 @@ class OutboxFallbackHandlerMethodTest {
     }
 
     private class InvalidFallback {
-        fun handleFailure(
-            payload: Any,
-        ) = Unit
+        fun handleFailure(payload: Any) = Unit
     }
 
     private class ThrowingFallback(
