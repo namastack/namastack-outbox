@@ -8,9 +8,8 @@ import io.namastack.outbox.handler.method.fallback.OutboxFallbackHandlerMethod
  * Each handler can have at most one fallback handler, stored by the handler's unique ID.
  * This ensures that when a handler fails after retry exhaustion, the correct fallback is invoked.
  *
- * Fallback handlers are registered from two sources:
- * 1. @OutboxFallbackHandler annotated methods (discovered by AnnotatedFallbackHandlerScanner)
- * 2. OutboxHandlerWithFallback/OutboxTypedHandlerWithFallback interface implementations (discovered by InterfaceFallbackHandlerScanner)
+ * This is a compatibility projection used by the record-processor boundary; discovery and
+ * fallback matching are owned by the handler discovery and assembly components.
  *
  * @author Roland Beisel
  * @since 1.0.0

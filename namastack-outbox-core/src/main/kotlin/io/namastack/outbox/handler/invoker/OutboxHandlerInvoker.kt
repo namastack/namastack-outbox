@@ -2,8 +2,6 @@ package io.namastack.outbox.handler.invoker
 
 import io.namastack.outbox.OpenForProxy
 import io.namastack.outbox.OutboxRecord
-import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
-import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 
 /**
@@ -49,15 +47,13 @@ class OutboxHandlerInvoker(
      */
     fun dispatch(record: OutboxRecord<*>) {
         val payload = record.payload ?: return
-        val metadata = record.toMetadata()
+        val metadata = OutboxHandlerContextFactory.metadata(record)
 
         val handler =
-            handlerRegistry.getHandlerById(record.handlerId)
+            handlerRegistry.getRegistrationById(record.handlerId)?.primary
+                ?: handlerRegistry.getHandlerById(record.handlerId)
                 ?: throw IllegalStateException("No handler with id ${record.handlerId}")
 
-        when (handler) {
-            is TypedHandlerMethod -> handler.invoke(payload, metadata)
-            is GenericHandlerMethod -> handler.invoke(payload, metadata)
-        }
+        handler.invoke(payload, metadata)
     }
 }

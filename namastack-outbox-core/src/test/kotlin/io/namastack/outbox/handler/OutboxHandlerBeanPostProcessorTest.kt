@@ -38,7 +38,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = mockk<Any>()
         val result = beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 0) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { handlerRegistry.registerBatch(any()) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
 
@@ -50,7 +50,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createTypedInterfaceHandler()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any(TypedHandlerMethod::class)) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.single().primary is TypedHandlerMethod }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -60,7 +60,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createGenericInterfaceHandler()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -106,7 +106,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createAnnotatedTypedHandler()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any(TypedHandlerMethod::class)) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.single().primary is TypedHandlerMethod }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -116,7 +116,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createAnnotatedTypedHandlerWithoutMetadata()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any(TypedHandlerMethod::class)) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.single().primary is TypedHandlerMethod }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -126,7 +126,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createAnnotatedGenericHandler()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -136,7 +136,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createJavaPackagePrivateAnnotatedHandler()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -146,7 +146,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createJavaPackagePrivateAnnotatedHandlerWithFallback()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 1) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -158,7 +158,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createJavaPackagePrivateAnnotatedHandlerWithRetryable()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -168,7 +168,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createMultiAnnotatedHandlerBean()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 2) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 2 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -178,7 +178,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createTypedInterfaceHandlerWithFallback()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 1) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -188,7 +188,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createGenericInterfaceHandlerWithFallback()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 1) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -198,7 +198,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createAnnotatedTypedHandlerWithFallback()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 1) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -208,7 +208,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createMultipleAnnotatedTypedHandlersWithMultipleFallbacks()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 2) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 2 }) }
         verify(exactly = 2) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -218,7 +218,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createAnnotatedHandlerBeanWithNonMatchingFallback()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -228,7 +228,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createAnnotatedTypedHandlerWithGenericFallback()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -238,7 +238,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createAnnotatedGenericHandlerWithFallback()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 1) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -248,7 +248,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createAnnotatedHandlerBeanWithInvalidFallbackSignature()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -258,7 +258,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createInheritedHandler()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -268,7 +268,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createAnnotatedHandlerBeanWithWrongSignature()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 0) { handlerRegistry.register(any()) }
+        verify(exactly = 0) { handlerRegistry.registerBatch(any()) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -278,7 +278,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createAnnotatedHandlerBeanWithMultipleMatchingFallbacks()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 1) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 0) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -288,7 +288,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createGenericInterfaceHandlerWithRetryPolicy()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -298,7 +298,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createTypedInterfaceHandlerWithRetryPolicy()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -311,7 +311,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createGenericAnnotatedHandlerWithRetryPolicyByClass()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -324,7 +324,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createTypedAnnotatedHandlerWithRetryPolicyByClass()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -337,7 +337,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createGenericAnnotatedHandlerWithRetryPolicyByName()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -350,7 +350,7 @@ class OutboxHandlerBeanPostProcessorTest {
         val bean = HandlerBeanFactory.createTypedAnnotatedHandlerWithRetryPolicyByName()
         beanPostProcessor.postProcessAfterInitialization(bean, "bean")
 
-        verify(exactly = 1) { handlerRegistry.register(any()) }
+        verify(exactly = 1) { handlerRegistry.registerBatch(match { it.size == 1 }) }
         verify(exactly = 0) { fallbackHandlerRegistry.register(any(), any()) }
         verify(exactly = 1) { retryPolicyRegistry.register(any(), any()) }
     }
@@ -425,32 +425,5 @@ class OutboxHandlerBeanPostProcessorTest {
             proxyFactory.addAdvice(MethodInterceptor { it.proceed() })
             return proxyFactory.proxy
         }
-    }
-}
-
-@Suppress("UNUSED_PARAMETER")
-open class OpenAnnotatedTypedHandler {
-    @io.namastack.outbox.annotation.OutboxHandler
-    open fun handle(
-        payload: String,
-        metadata: OutboxRecordMetadata,
-    ) {
-    }
-}
-
-@Suppress("UNUSED_PARAMETER")
-open class OpenAnnotatedTypedHandlerWithFallback {
-    @io.namastack.outbox.annotation.OutboxHandler
-    open fun handle(
-        payload: String,
-        metadata: OutboxRecordMetadata,
-    ) {
-    }
-
-    @io.namastack.outbox.annotation.OutboxFallbackHandler
-    open fun handleFailure(
-        payload: String,
-        context: OutboxFailureContext,
-    ) {
     }
 }

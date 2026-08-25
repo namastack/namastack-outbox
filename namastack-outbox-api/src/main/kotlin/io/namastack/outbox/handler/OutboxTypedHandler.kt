@@ -40,6 +40,18 @@ package io.namastack.outbox.handler
  */
 interface OutboxTypedHandler<T> {
     /**
+     * Optional stable canonical ID written to newly scheduled records.
+     * `null` retains the generated ID (or the Spring bean name for a lambda).
+     */
+    fun getHandlerId(): String? = null
+
+    /**
+     * Alternative, lookup-only IDs accepted for persisted records.
+     * To migrate, deploy a future ID here before returning it from [getHandlerId].
+     */
+    fun getHandlerAliases(): Set<String> = emptySet()
+
+    /**
      * Handles an outbox record with payload and metadata.
      *
      * @param payload The record payload of type [T]

@@ -13,6 +13,8 @@ import kotlin.reflect.KClass
  *
  * @param bean Bean containing the handler method
  * @param method Handler method (1 or 2 parameters)
+ * @param canonicalId Stable routing ID, or `null` to use the generated legacy ID
+ * @param routingAliases Additional IDs that route persisted records to this handler
  *
  * @author Roland Beisel
  * @since 0.4.0
@@ -20,7 +22,9 @@ import kotlin.reflect.KClass
 class TypedHandlerMethod(
     bean: Any,
     method: Method,
-) : OutboxHandlerMethod(bean, method) {
+    canonicalId: String? = null,
+    routingAliases: Set<String> = emptySet(),
+) : OutboxHandlerMethod(bean, method, canonicalId, routingAliases) {
     /** Payload type extracted from method's first parameter. */
     internal val paramType: KClass<*>
         get() = method.parameterTypes.first().kotlin
@@ -33,7 +37,7 @@ class TypedHandlerMethod(
      * @param metadata Record metadata
      * @throws Throwable Original exception from handler (triggers retry logic)
      */
-    fun invoke(
+    override fun invoke(
         payload: Any,
         metadata: OutboxRecordMetadata,
     ) {

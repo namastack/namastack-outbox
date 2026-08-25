@@ -47,9 +47,25 @@ package io.namastack.outbox.annotation
  * @see io.namastack.outbox.annotation.OutboxFallbackHandler
  * @see io.namastack.outbox.handler.OutboxTypedHandler
  * @see io.namastack.outbox.handler.OutboxHandler
+ *
+ * ## Stable identity and migration
+ *
+ * By default, the handler keeps its generated class-and-method ID. Set [id] to opt into a
+ * deployment-stable canonical ID. Values in [aliases] are accepted for lookup of existing
+ * records but are never written to new records or returned as additional handlers.
+ *
+ * A rolling rename uses two deployments: first add the future ID to [aliases], then promote it
+ * to [id] while retaining the previous ID as an alias. When [id] is set, the generated legacy ID
+ * is registered automatically where it can be reconstructed reliably.
+ *
+ * @property id optional canonical ID; empty retains the generated ID
+ * @property aliases lookup-only IDs for persisted records
  * @author Roland Beisel
  * @since 0.4.0
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class OutboxHandler
+annotation class OutboxHandler(
+    val id: String = "",
+    val aliases: Array<String> = [],
+)

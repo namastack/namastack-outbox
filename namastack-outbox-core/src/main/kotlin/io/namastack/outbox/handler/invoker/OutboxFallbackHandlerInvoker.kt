@@ -3,6 +3,7 @@ package io.namastack.outbox.handler.invoker
 import io.namastack.outbox.OpenForProxy
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
+import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 
 /**
@@ -11,16 +12,42 @@ import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
  * Routes failed records to their registered fallback handlers based on handler ID
  * from the record's metadata.
  *
- * @param retryPolicyRegistry Registry to look up retry policies per handler
- * @param fallbackHandlerRegistry Registry of all registered fallback handlers
+ * @param retryPolicyRegistry Registry to look up default retry policies per handler
+ * @param registrationLookup Resolves the fallback handler and any explicit retry policy by routing ID
  * @author Roland Beisel
  * @since 1.0.0
  */
 @OpenForProxy
-class OutboxFallbackHandlerInvoker(
+class OutboxFallbackHandlerInvoker private constructor(
     private val retryPolicyRegistry: OutboxRetryPolicyRegistry,
-    private val fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
+    private val registrationLookup: (String) -> FallbackInvocationTarget?,
 ) {
+    constructor(
+        retryPolicyRegistry: OutboxRetryPolicyRegistry,
+        fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
+    ) : this(
+        retryPolicyRegistry,
+        { id ->
+            fallbackHandlerRegistry.getByHandlerId(id)?.let {
+                FallbackInvocationTarget(it, null)
+            }
+        },
+    )
+
+    internal constructor(
+        retryPolicyRegistry: OutboxRetryPolicyRegistry,
+        handlerRegistry: OutboxHandlerRegistry,
+    ) : this(
+        retryPolicyRegistry,
+        { id ->
+            handlerRegistry.getRegistrationById(id)?.let { registration ->
+                registration.fallback?.let {
+                    FallbackInvocationTarget(it, registration.explicitRetryPolicy)
+                }
+            }
+        },
+    )
+
     /**
      * Invokes the fallback handler for a failed record.
      *
@@ -33,13 +60,20 @@ class OutboxFallbackHandlerInvoker(
      */
     fun dispatch(record: OutboxRecord<*>) {
         val payload = record.payload ?: return
-        val context = record.toFailureContext(getFailureException(record), retryPolicyRegistry)
-
-        val fallbackHandler =
-            fallbackHandlerRegistry.getByHandlerId(record.handlerId)
+        val failureException = getFailureException(record)
+        val registration =
+            registrationLookup(record.handlerId)
                 ?: throw IllegalStateException("No fallback handler with id ${record.handlerId}")
 
-        fallbackHandler.invoke(payload, context)
+        val context =
+            OutboxHandlerContextFactory.failure(
+                record,
+                failureException,
+                retryPolicyRegistry,
+                registration.explicitRetryPolicy,
+            )
+
+        registration.fallback.invoke(payload, context)
     }
 
     /**
