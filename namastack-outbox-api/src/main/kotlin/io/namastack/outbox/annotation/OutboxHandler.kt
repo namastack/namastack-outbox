@@ -36,13 +36,12 @@ package io.namastack.outbox.annotation
  * Exceptions thrown from handlers trigger automatic retries based on the configured
  * retry policy. Successfully completing marks the record as processed.
  *
- * ## Important: Do NOT mix with Interface-based Handlers
+ * ## Combining annotation- and interface-based handlers
  *
- * Do not combine @OutboxHandler annotations with interface-based handlers
- * in the same bean. This can lead to unexpected behavior such as incorrect
- * fallback matching and ambiguous handler registration.
- *
- * Use EITHER annotations OR interfaces per bean, not both.
+ * Annotation- and interface-based handler methods may coexist in the same bean. Each distinct
+ * method is registered independently and keeps its own identity and fallback configuration.
+ * However, a method provided by a handler interface must not also be annotated with
+ * [OutboxHandler], because that would declare the same handler through both mechanisms.
  *
  * @see io.namastack.outbox.annotation.OutboxFallbackHandler
  * @see io.namastack.outbox.handler.OutboxTypedHandler
