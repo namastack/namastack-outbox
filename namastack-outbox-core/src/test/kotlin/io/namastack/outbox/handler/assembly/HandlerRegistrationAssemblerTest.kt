@@ -11,12 +11,13 @@ import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.discovery.HandlerDiscovery
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
+import io.namastack.outbox.retry.OutboxRetryAware
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
-import io.namastack.outbox.annotation.OutboxHandler as HandlerAnnotation
+import io.namastack.outbox.annotation.OutboxHandler as OutboxHandlerAnnotation
 
 class HandlerRegistrationAssemblerTest {
     private val retryPolicies = mockk<OutboxRetryPolicyRegistry>()
@@ -74,8 +75,33 @@ class HandlerRegistrationAssemblerTest {
         assertThat(registration.explicitRetryPolicy).isNull()
     }
 
+    @Test
+    fun `uses OutboxRetryAware policy for annotated handler`() {
+        val retryPolicy = mockk<OutboxRetryPolicy>()
+        val bean = RetryAwareAnnotatedHandler(retryPolicy)
+
+        val registration = assembler.assemble(HandlerDiscovery.discover(bean, "retryAwareAnnotated")).single()
+
+        assertThat(registration.explicitRetryPolicy).isSameAs(retryPolicy)
+        assertThat(bean.retryPolicyRequestCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `method retry annotation takes precedence over OutboxRetryAware policy`() {
+        val annotationPolicy = mockk<OutboxRetryPolicy>()
+        val beanPolicy = mockk<OutboxRetryPolicy>()
+        every { retryPolicies.getRetryPolicy("methodPolicy") } returns annotationPolicy
+        val bean = RetryAwareAnnotatedHandlerWithMethodPolicy(beanPolicy)
+
+        val registration = assembler.assemble(HandlerDiscovery.discover(bean, "annotatedOverride")).single()
+
+        assertThat(registration.explicitRetryPolicy).isSameAs(annotationPolicy)
+        assertThat(bean.retryPolicyRequestCount).isZero()
+        verify(exactly = 1) { retryPolicies.getRetryPolicy("methodPolicy") }
+    }
+
     private class CompleteAnnotatedHandler {
-        @HandlerAnnotation(id = "orders-v2", aliases = ["orders-v1"])
+        @OutboxHandlerAnnotation(id = "orders-v2", aliases = ["orders-v1"])
         @OutboxRetryable(name = "namedPolicy")
         fun handle(payload: String) = Unit
 
@@ -99,13 +125,44 @@ class HandlerRegistrationAssemblerTest {
     }
 
     private class UnsupportedHandler {
-        @HandlerAnnotation
+        @OutboxHandlerAnnotation
         fun handle() = Unit
     }
 
     private class DefaultRetryHandler {
-        @HandlerAnnotation
+        @OutboxHandlerAnnotation
         @OutboxRetryable
         fun handle(payload: String) = Unit
+    }
+
+    private class RetryAwareAnnotatedHandler(
+        private val retryPolicy: OutboxRetryPolicy,
+    ) : OutboxRetryAware {
+        var retryPolicyRequestCount = 0
+            private set
+
+        @OutboxHandlerAnnotation
+        fun handle(payload: String) = Unit
+
+        override fun getRetryPolicy(): OutboxRetryPolicy {
+            retryPolicyRequestCount++
+            return retryPolicy
+        }
+    }
+
+    private class RetryAwareAnnotatedHandlerWithMethodPolicy(
+        private val retryPolicy: OutboxRetryPolicy,
+    ) : OutboxRetryAware {
+        var retryPolicyRequestCount = 0
+            private set
+
+        @OutboxHandlerAnnotation
+        @OutboxRetryable(name = "methodPolicy")
+        fun handle(payload: String) = Unit
+
+        override fun getRetryPolicy(): OutboxRetryPolicy {
+            retryPolicyRequestCount++
+            return retryPolicy
+        }
     }
 }

@@ -8,7 +8,7 @@ import io.namastack.outbox.handler.OutboxTypedHandler
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
-import io.namastack.outbox.annotation.OutboxHandler as HandlerAnnotation
+import io.namastack.outbox.annotation.OutboxHandler as OutboxHandlerAnnotation
 
 class HandlerDiscoveryTest {
     private val metadata =
@@ -83,7 +83,7 @@ class HandlerDiscoveryTest {
     }
 
     private class AnnotatedHandler {
-        @HandlerAnnotation(id = "orders-v2", aliases = ["orders-v1"])
+        @OutboxHandlerAnnotation(id = "orders-v2", aliases = ["orders-v1"])
         fun handle(payload: String) = Unit
 
         @OutboxFallbackHandler
