@@ -10,9 +10,9 @@ import java.lang.reflect.Method
  *
  * @param bean Bean containing the handler method
  * @param method Handler method (must have Any + OutboxRecordMetadata parameters)
+ * @param canonicalId Stable routing ID resolved for this handler
  * @param payloadSupport Predicate used to preserve [io.namastack.outbox.handler.OutboxHandler.supports]
  * behavior; annotation-based generic handlers use the default predicate and always participate
- * @param canonicalId Stable routing ID, or `null` to use the generated method ID
  * @param routingAliases Additional IDs that route persisted records to this handler
  *
  * @author Roland Beisel
@@ -21,8 +21,8 @@ import java.lang.reflect.Method
 open class GenericHandlerMethod(
     bean: Any,
     method: Method,
+    canonicalId: String,
     private val payloadSupport: (Any, OutboxRecordMetadata) -> Boolean = { _, _ -> true },
-    canonicalId: String? = null,
     routingAliases: Set<String> = emptySet(),
 ) : OutboxHandlerMethod(bean, method, canonicalId, routingAliases) {
     /** Determines whether this handler accepts the given payload and metadata for scheduling. */

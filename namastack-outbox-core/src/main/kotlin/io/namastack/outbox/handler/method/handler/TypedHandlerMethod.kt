@@ -13,7 +13,7 @@ import kotlin.reflect.KClass
  *
  * @param bean Bean containing the handler method
  * @param method Handler method (1 or 2 parameters)
- * @param canonicalId Stable routing ID, or `null` to use the generated method ID
+ * @param canonicalId Stable routing ID resolved for this handler
  * @param routingAliases Additional IDs that route persisted records to this handler
  *
  * @author Roland Beisel
@@ -22,7 +22,7 @@ import kotlin.reflect.KClass
 class TypedHandlerMethod(
     bean: Any,
     method: Method,
-    canonicalId: String? = null,
+    canonicalId: String,
     routingAliases: Set<String> = emptySet(),
 ) : OutboxHandlerMethod(bean, method, canonicalId, routingAliases) {
     /** Payload type extracted from method's first parameter. */

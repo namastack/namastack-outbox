@@ -25,14 +25,19 @@ internal object HandlerMethodFactory {
     ): OutboxHandlerMethod =
         if (candidate.method.parameterTypes.first() == Any::class.java) {
             GenericHandlerMethod(
-                candidate.bean,
-                candidate.method,
-                candidate.supportsPayload,
-                identity.canonicalId,
-                identity.aliases,
+                bean = candidate.bean,
+                method = candidate.method,
+                canonicalId = identity.canonicalId,
+                payloadSupport = candidate.supportsPayload,
+                routingAliases = identity.aliases,
             )
         } else {
-            TypedHandlerMethod(candidate.bean, candidate.method, identity.canonicalId, identity.aliases)
+            TypedHandlerMethod(
+                bean = candidate.bean,
+                method = candidate.method,
+                canonicalId = identity.canonicalId,
+                routingAliases = identity.aliases,
+            )
         }
 
     /** Creates the common method wrapper used by typed and generic fallbacks. */

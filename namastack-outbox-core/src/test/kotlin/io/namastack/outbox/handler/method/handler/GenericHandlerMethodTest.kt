@@ -19,7 +19,7 @@ class GenericHandlerMethodTest {
     @Test
     fun `default payload support accepts every payload`() {
         val bean = RecordingHandler()
-        val handler = GenericHandlerMethod(bean, method(RecordingHandler::class.java))
+        val handler = GenericHandlerMethod(bean, method(RecordingHandler::class.java), canonicalId = "test-handler")
 
         assertThat(handler.supportsPayload("payload", metadata)).isTrue()
     }
@@ -32,6 +32,7 @@ class GenericHandlerMethodTest {
             GenericHandlerMethod(
                 bean,
                 method(RecordingHandler::class.java),
+                canonicalId = "test-handler",
                 payloadSupport = { payload, recordMetadata ->
                     received = payload to recordMetadata
                     false
@@ -45,7 +46,7 @@ class GenericHandlerMethodTest {
     @Test
     fun `invokes handler with payload and metadata`() {
         val bean = RecordingHandler()
-        val handler = GenericHandlerMethod(bean, method(RecordingHandler::class.java))
+        val handler = GenericHandlerMethod(bean, method(RecordingHandler::class.java), canonicalId = "test-handler")
 
         handler.invoke("payload", metadata)
 
@@ -57,7 +58,7 @@ class GenericHandlerMethodTest {
     fun `rethrows original handler exception instead of reflection wrapper`() {
         val failure = IllegalStateException("handler failed")
         val bean = ThrowingHandler(failure)
-        val handler = GenericHandlerMethod(bean, method(ThrowingHandler::class.java))
+        val handler = GenericHandlerMethod(bean, method(ThrowingHandler::class.java), canonicalId = "test-handler")
 
         assertThatThrownBy { handler.invoke("payload", metadata) }.isSameAs(failure)
     }

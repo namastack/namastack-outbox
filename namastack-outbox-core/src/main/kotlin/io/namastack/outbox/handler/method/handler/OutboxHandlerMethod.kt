@@ -12,7 +12,7 @@ import java.lang.reflect.Method
  *
  * @param bean Bean containing the handler method
  * @param method Handler method for reflection
- * @param canonicalId Stable routing ID, or `null` to use the generated method ID
+ * @param canonicalId Stable routing ID resolved for this handler
  * @param routingAliases Additional IDs that route persisted records to this handler
  *
  * @author Roland Beisel
@@ -21,11 +21,11 @@ import java.lang.reflect.Method
 sealed class OutboxHandlerMethod(
     bean: Any,
     method: Method,
-    canonicalId: String? = null,
+    canonicalId: String,
     routingAliases: Set<String> = emptySet(),
 ) : InvocableHandlerMethod(bean, method) {
     /** Canonical ID persisted on newly scheduled records. */
-    val id: String = canonicalId ?: generatedId(bean, method)
+    val id: String = canonicalId
 
     /** Alternative routing IDs accepted for records persisted under an earlier identity. */
     val aliases: Set<String> = routingAliases - id
