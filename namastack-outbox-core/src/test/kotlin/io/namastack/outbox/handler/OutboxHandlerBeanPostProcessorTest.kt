@@ -5,6 +5,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.CustomerOutboxRetryPolicy
 import io.namastack.outbox.HandlerBeanFactory
+import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
@@ -79,7 +80,7 @@ class OutboxHandlerBeanPostProcessorTest {
         processor.postProcessAfterInitialization(lambda, "modulithEventExternalizer")
 
         val handler = requireNotNull(realHandlerRegistry.getHandlerById("modulithEventExternalizer"))
-        assertThat(realHandlerRegistry.getHandlerById(handler.legacyId)).isNull()
+        assertThat(realHandlerRegistry.getHandlerById(runtimeGeneratedId(handler))).isNull()
     }
 
     @Test
@@ -98,7 +99,7 @@ class OutboxHandlerBeanPostProcessorTest {
         processor.postProcessAfterInitialization(proxiedLambda, "modulithEventExternalizer")
 
         val handler = requireNotNull(realHandlerRegistry.getHandlerById("modulithEventExternalizer"))
-        assertThat(realHandlerRegistry.getHandlerById(handler.legacyId)).isNull()
+        assertThat(realHandlerRegistry.getHandlerById(runtimeGeneratedId(handler))).isNull()
     }
 
     @Test
@@ -378,15 +379,16 @@ class OutboxHandlerBeanPostProcessorTest {
 
             // Stable ID (target class name) should work
             val handler = realHandlerRegistry.getHandlersForPayloadType(String::class).first()
+            val runtimeGeneratedId = runtimeGeneratedId(handler)
             assertThat(realHandlerRegistry.getHandlerById(handler.id)).isNotNull
 
             // Legacy ID (proxy class name) should also work
-            assertThat(handler.legacyId).isNotEqualTo(handler.id)
-            assertThat(realHandlerRegistry.getHandlerById(handler.legacyId)).isNotNull
+            assertThat(runtimeGeneratedId).isNotEqualTo(handler.id)
+            assertThat(realHandlerRegistry.getHandlerById(runtimeGeneratedId)).isNotNull
 
             // Both should resolve to the same handler
             assertThat(realHandlerRegistry.getHandlerById(handler.id))
-                .isSameAs(realHandlerRegistry.getHandlerById(handler.legacyId))
+                .isSameAs(realHandlerRegistry.getHandlerById(runtimeGeneratedId))
         }
 
         @Test
@@ -410,13 +412,14 @@ class OutboxHandlerBeanPostProcessorTest {
             proxyProcessor.postProcessAfterInitialization(proxiedBean, "bean")
 
             val handler = realHandlerRegistry.getHandlersForPayloadType(String::class).first()
-            assertThat(handler.legacyId).isNotEqualTo(handler.id)
+            val runtimeGeneratedId = runtimeGeneratedId(handler)
+            assertThat(runtimeGeneratedId).isNotEqualTo(handler.id)
 
             // Both IDs should resolve to the same fallback handler
             assertThat(realFallbackRegistry.getByHandlerId(handler.id)).isNotNull
-            assertThat(realFallbackRegistry.getByHandlerId(handler.legacyId)).isNotNull
+            assertThat(realFallbackRegistry.getByHandlerId(runtimeGeneratedId)).isNotNull
             assertThat(realFallbackRegistry.getByHandlerId(handler.id))
-                .isSameAs(realFallbackRegistry.getByHandlerId(handler.legacyId))
+                .isSameAs(realFallbackRegistry.getByHandlerId(runtimeGeneratedId))
         }
 
         private fun createCglibProxy(target: Any): Any {
@@ -426,4 +429,7 @@ class OutboxHandlerBeanPostProcessorTest {
             return proxyFactory.proxy
         }
     }
+
+    private fun runtimeGeneratedId(handler: OutboxHandlerMethod): String =
+        OutboxHandlerMethod.generatedId(handler.bean, handler.method, handler.bean::class.java)
 }

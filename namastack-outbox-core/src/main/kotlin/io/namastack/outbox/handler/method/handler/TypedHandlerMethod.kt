@@ -13,7 +13,7 @@ import kotlin.reflect.KClass
  *
  * @param bean Bean containing the handler method
  * @param method Handler method (1 or 2 parameters)
- * @param canonicalId Stable routing ID, or `null` to use the generated legacy ID
+ * @param canonicalId Stable routing ID, or `null` to use the generated method ID
  * @param routingAliases Additional IDs that route persisted records to this handler
  *
  * @author Roland Beisel

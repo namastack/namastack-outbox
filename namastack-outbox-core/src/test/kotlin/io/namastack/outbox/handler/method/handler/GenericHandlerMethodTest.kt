@@ -17,28 +17,28 @@ class GenericHandlerMethodTest {
         )
 
     @Test
-    fun `default scheduling support accepts every payload`() {
+    fun `default payload support accepts every payload`() {
         val bean = RecordingHandler()
         val handler = GenericHandlerMethod(bean, method(RecordingHandler::class.java))
 
-        assertThat(handler.supportsScheduling("payload", metadata)).isTrue()
+        assertThat(handler.supportsPayload("payload", metadata)).isTrue()
     }
 
     @Test
-    fun `delegates scheduling decision with payload and metadata`() {
+    fun `delegates payload support decision with payload and metadata`() {
         val bean = RecordingHandler()
         var received: Pair<Any, OutboxRecordMetadata>? = null
         val handler =
             GenericHandlerMethod(
                 bean,
                 method(RecordingHandler::class.java),
-                schedulingSupport = { payload, recordMetadata ->
+                payloadSupport = { payload, recordMetadata ->
                     received = payload to recordMetadata
                     false
                 },
             )
 
-        assertThat(handler.supportsScheduling("payload", metadata)).isFalse()
+        assertThat(handler.supportsPayload("payload", metadata)).isFalse()
         assertThat(received).isEqualTo("payload" to metadata)
     }
 

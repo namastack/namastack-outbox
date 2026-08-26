@@ -9,6 +9,7 @@ import io.namastack.outbox.annotation.OutboxFallbackHandler
 import io.namastack.outbox.annotation.OutboxHandler
 import io.namastack.outbox.annotation.OutboxRetryable
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
+import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
@@ -37,7 +38,7 @@ class StableHandlerIdentityTest {
         val scheduled = registry.getHandlersForPayloadType(String::class).single()
         assertThat(scheduled.id).isEqualTo("orders-v2")
         assertThat(registry.getHandlerById("orders-v1")).isSameAs(scheduled)
-        assertThat(registry.getHandlerById(scheduled.legacyGeneratedId)).isSameAs(scheduled)
+        assertThat(registry.getHandlerById(generatedId(scheduled))).isSameAs(scheduled)
         assertThat(registry.findAllHandlerDescriptors()).extracting<String> { it.id }.containsExactly("orders-v2")
     }
 
@@ -48,7 +49,7 @@ class StableHandlerIdentityTest {
         processor(registry).postProcessAfterInitialization(AliasOnlyAnnotatedHandler(), "aliasOnly")
 
         val scheduled = registry.getHandlersForPayloadType(String::class).single()
-        assertThat(scheduled.id).isEqualTo(scheduled.legacyGeneratedId)
+        assertThat(scheduled.id).isEqualTo(generatedId(scheduled))
         assertThat(registry.getHandlerById("future-orders-id")).isSameAs(scheduled)
     }
 
@@ -61,7 +62,7 @@ class StableHandlerIdentityTest {
         val scheduled = registry.getHandlersForPayloadType(String::class).single()
         assertThat(scheduled.id).isEqualTo("interface-v2")
         assertThat(registry.getHandlerById("interface-v1")).isSameAs(scheduled)
-        assertThat(registry.getHandlerById(scheduled.legacyGeneratedId)).isSameAs(scheduled)
+        assertThat(registry.getHandlerById(generatedId(scheduled))).isSameAs(scheduled)
     }
 
     @Test
@@ -228,6 +229,9 @@ class StableHandlerIdentityTest {
             .extracting<String> { it.id }
             .containsExactly("annotation-id", "interface-id")
     }
+
+    private fun generatedId(handler: OutboxHandlerMethod): String =
+        OutboxHandlerMethod.generatedId(handler.bean, handler.method)
 
     private class StableAnnotatedHandler {
         @OutboxHandler(id = "orders-v2", aliases = ["orders-v1"])

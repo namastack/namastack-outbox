@@ -3,7 +3,9 @@ package io.namastack.outbox.handler.registry
 import io.mockk.every
 import io.mockk.mockk
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.handler.assembly.HandlerRegistration
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
+import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -38,14 +40,14 @@ class OutboxHandlerRegistryTest {
     }
 
     @Nested
-    @DisplayName("registerTypedHandler()")
+    @DisplayName("registerBatch() typed handlers")
     inner class RegisterTypedHandlerTests {
         @Test
         fun `should register typed handler for payload type`() {
             val payloadType = TestPayload::class
             val handler = createMockTypedHandler("handler1", payloadType)
 
-            registry.register(handler)
+            register(handler)
 
             val result = registry.getHandlersForPayloadType(payloadType)
             assertThat(result).contains(handler)
@@ -57,8 +59,8 @@ class OutboxHandlerRegistryTest {
             val handler1 = createMockTypedHandler("handler1", payloadType)
             val handler2 = createMockTypedHandler("handler2", payloadType)
 
-            registry.register(handler1)
-            registry.register(handler2)
+            register(handler1)
+            register(handler2)
 
             val result = registry.getHandlersForPayloadType(payloadType)
             assertThat(result).hasSize(2).contains(handler1, handler2)
@@ -67,7 +69,7 @@ class OutboxHandlerRegistryTest {
         @Test
         fun `should register handler in ID map`() {
             val handler = createMockTypedHandler("unique-id", TestPayload::class)
-            registry.register(handler)
+            register(handler)
 
             assertThat(registry.getHandlerById("unique-id")).isEqualTo(handler)
         }
@@ -83,11 +85,11 @@ class OutboxHandlerRegistryTest {
             val handler1 = createMockTypedHandler("duplicate-id", TestPayload::class)
             val handler2 = createMockTypedHandler("duplicate-id", AnotherPayload::class)
 
-            registry.register(handler1)
+            register(handler1)
 
             val exception =
                 try {
-                    registry.register(handler2)
+                    register(handler2)
                     null
                 } catch (e: IllegalStateException) {
                     e
@@ -100,13 +102,13 @@ class OutboxHandlerRegistryTest {
     }
 
     @Nested
-    @DisplayName("registerGenericHandler()")
+    @DisplayName("registerBatch() generic handlers")
     inner class RegisterGenericHandlerTests {
         @Test
         fun `should register generic handler`() {
             val handler = createMockGenericHandler("generic-handler")
 
-            registry.register(handler)
+            register(handler)
 
             val result = registry.getGenericHandlers(1) { metadata(handlerId = it.id) }
             assertThat(result).contains(handler)
@@ -117,8 +119,8 @@ class OutboxHandlerRegistryTest {
             val handler1 = createMockGenericHandler("generic-1")
             val handler2 = createMockGenericHandler("generic-2")
 
-            registry.register(handler1)
-            registry.register(handler2)
+            register(handler1)
+            register(handler2)
 
             val result = registry.getGenericHandlers(1) { metadata(handlerId = it.id) }
             assertThat(result).hasSize(2).contains(handler1, handler2)
@@ -128,7 +130,7 @@ class OutboxHandlerRegistryTest {
         fun `should not return generic handlers when supports returns false`() {
             val handler = createMockGenericHandler("generic-handler", false)
 
-            registry.register(handler)
+            register(handler)
 
             val result = registry.getGenericHandlers(1) { metadata(handlerId = it.id) }
             assertThat(result).isEmpty()
@@ -137,7 +139,7 @@ class OutboxHandlerRegistryTest {
         @Test
         fun `should register handler in ID map`() {
             val handler = createMockGenericHandler("generic-id")
-            registry.register(handler)
+            register(handler)
 
             assertThat(registry.getHandlerById("generic-id")).isEqualTo(handler)
         }
@@ -147,11 +149,11 @@ class OutboxHandlerRegistryTest {
             val handler1 = createMockTypedHandler("duplicate-id", TestPayload::class)
             val handler2 = createMockGenericHandler("duplicate-id")
 
-            registry.register(handler1)
+            register(handler1)
 
             val exception =
                 try {
-                    registry.register(handler2)
+                    register(handler2)
                     null
                 } catch (e: IllegalStateException) {
                     e
@@ -167,7 +169,7 @@ class OutboxHandlerRegistryTest {
         @Test
         fun `should retrieve typed handler by ID`() {
             val handler = createMockTypedHandler("handler-id", TestPayload::class)
-            registry.register(handler)
+            register(handler)
 
             val result = registry.getHandlerById("handler-id")
 
@@ -177,7 +179,7 @@ class OutboxHandlerRegistryTest {
         @Test
         fun `should retrieve generic handler by ID`() {
             val handler = createMockGenericHandler("generic-id")
-            registry.register(handler)
+            register(handler)
 
             val result = registry.getHandlerById("generic-id")
 
@@ -192,31 +194,28 @@ class OutboxHandlerRegistryTest {
     }
 
     @Nested
-    @DisplayName("registerAlias()")
+    @DisplayName("registerBatch() aliases")
     inner class RegisterAliasTests {
         @Test
         fun `should allow lookup by alias ID`() {
-            val handler = createMockTypedHandler("stable-id", TestPayload::class)
-            registry.register(handler)
-            registry.registerAlias("legacy-id", handler)
+            val handler = createMockTypedHandler("stable-id", TestPayload::class, setOf("legacy-id"))
+            register(handler)
 
             assertThat(registry.getHandlerById("legacy-id")).isEqualTo(handler)
         }
 
         @Test
         fun `should still allow lookup by stable ID after alias registration`() {
-            val handler = createMockTypedHandler("stable-id", TestPayload::class)
-            registry.register(handler)
-            registry.registerAlias("legacy-id", handler)
+            val handler = createMockTypedHandler("stable-id", TestPayload::class, setOf("legacy-id"))
+            register(handler)
 
             assertThat(registry.getHandlerById("stable-id")).isEqualTo(handler)
         }
 
         @Test
         fun `should not add alias to typed handlers list`() {
-            val handler = createMockTypedHandler("stable-id", TestPayload::class)
-            registry.register(handler)
-            registry.registerAlias("legacy-id", handler)
+            val handler = createMockTypedHandler("stable-id", TestPayload::class, setOf("legacy-id"))
+            register(handler)
 
             val typedHandlers = registry.getHandlersForPayloadType(TestPayload::class)
             assertThat(typedHandlers).hasSize(1)
@@ -225,12 +224,23 @@ class OutboxHandlerRegistryTest {
         @Test
         fun `should throw on duplicate alias ID`() {
             val handler1 = createMockTypedHandler("existing-id", TestPayload::class)
-            val handler2 = createMockTypedHandler("other-id", AnotherPayload::class)
-            registry.register(handler1)
-            registry.register(handler2)
+            val handler2 = createMockTypedHandler("other-id", AnotherPayload::class, setOf("existing-id"))
+            register(handler1)
 
-            assertThatThrownBy { registry.registerAlias("existing-id", handler2) }
+            assertThatThrownBy { register(handler2) }
                 .isInstanceOf(IllegalStateException::class.java)
+        }
+
+        @Test
+        fun `should identify an existing alias in a later batch collision`() {
+            val handler1 = createMockTypedHandler("first-id", TestPayload::class, setOf("shared-alias"))
+            val handler2 = createMockTypedHandler("second-id", AnotherPayload::class, setOf("shared-alias"))
+            register(handler1)
+
+            assertThatThrownBy { register(handler2) }
+                .isInstanceOf(IllegalStateException::class.java)
+                .hasMessageContaining("alias")
+                .hasMessageContaining("shared-alias")
         }
     }
 
@@ -242,8 +252,8 @@ class OutboxHandlerRegistryTest {
             val typedHandler = createMockTypedHandler("typed", TestPayload::class)
             val genericHandler = createMockGenericHandler("generic")
 
-            registry.register(typedHandler)
-            registry.register(genericHandler)
+            register(typedHandler)
+            register(genericHandler)
 
             val typedResult = registry.getHandlersForPayloadType(TestPayload::class)
             val genericResult = registry.getGenericHandlers(1) { metadata(handlerId = it.id) }
@@ -257,8 +267,8 @@ class OutboxHandlerRegistryTest {
             val handler1 = createMockTypedHandler("handler1", TestPayload::class)
             val handler2 = createMockTypedHandler("handler2", AnotherPayload::class)
 
-            registry.register(handler1)
-            registry.register(handler2)
+            register(handler1)
+            register(handler2)
 
             assertThat(registry.getHandlersForPayloadType(TestPayload::class)).contains(handler1)
             assertThat(registry.getHandlersForPayloadType(AnotherPayload::class)).contains(handler2)
@@ -268,7 +278,7 @@ class OutboxHandlerRegistryTest {
         @Test
         fun `should return copy of generic handlers list`() {
             val handler = createMockGenericHandler("generic")
-            registry.register(handler)
+            register(handler)
 
             val result1 = registry.getGenericHandlers(1) { metadata(handlerId = it.id) }
             val result2 = registry.getGenericHandlers(1) { metadata(handlerId = it.id) }
@@ -279,12 +289,11 @@ class OutboxHandlerRegistryTest {
 
         @Test
         fun `should return descriptors for primary handlers`() {
-            val typedHandler = createMockTypedHandler("typed", TestPayload::class)
+            val typedHandler = createMockTypedHandler("typed", TestPayload::class, setOf("legacy-typed"))
             val genericHandler = createMockGenericHandler("generic")
 
-            registry.register(typedHandler)
-            registry.register(genericHandler)
-            registry.registerAlias("legacy-typed", typedHandler)
+            register(typedHandler)
+            register(genericHandler)
 
             val descriptors = registry.findAllHandlerDescriptors()
 
@@ -301,9 +310,8 @@ class OutboxHandlerRegistryTest {
 
         @Test
         fun `should return descriptor by stable id and alias id`() {
-            val handler = createMockTypedHandler("stable-id", TestPayload::class)
-            registry.register(handler)
-            registry.registerAlias("legacy-id", handler)
+            val handler = createMockTypedHandler("stable-id", TestPayload::class, setOf("legacy-id"))
+            register(handler)
 
             assertThat(registry.findHandlerDescriptorById("stable-id")?.id).isEqualTo("stable-id")
             assertThat(registry.findHandlerDescriptorById("legacy-id")?.id).isEqualTo("stable-id")
@@ -314,10 +322,12 @@ class OutboxHandlerRegistryTest {
     private fun createMockTypedHandler(
         id: String,
         paramType: KClass<*>,
+        aliases: Set<String> = emptySet(),
     ): TypedHandlerMethod {
         val method = TestHandler::class.java.getMethod("handle", paramType.java)
         val handler = mockk<TypedHandlerMethod>()
         every { handler.id } returns id
+        every { handler.aliases } returns aliases
         every { handler.paramType } returns paramType
         every { handler.bean } returns TestHandler()
         every { handler.method } returns method
@@ -327,6 +337,7 @@ class OutboxHandlerRegistryTest {
     private fun createMockGenericHandler(
         id: String,
         supports: Boolean = true,
+        aliases: Set<String> = emptySet(),
     ): GenericHandlerMethod {
         val method =
             TestHandler::class.java.getMethod(
@@ -336,10 +347,24 @@ class OutboxHandlerRegistryTest {
             )
         val handler = mockk<GenericHandlerMethod>()
         every { handler.id } returns id
-        every { handler.supportsScheduling(any(), any()) } returns supports
+        every { handler.aliases } returns aliases
+        every { handler.supportsPayload(any(), any()) } returns supports
         every { handler.bean } returns TestHandler()
         every { handler.method } returns method
         return handler
+    }
+
+    private fun register(vararg handlers: OutboxHandlerMethod) {
+        registry.registerBatch(
+            handlers.mapIndexed { index, handler ->
+                HandlerRegistration(
+                    beanName = "testBean-$index",
+                    primary = handler,
+                    fallback = null,
+                    explicitRetryPolicy = null,
+                )
+            },
+        )
     }
 
     @Suppress("UNUSED_PARAMETER")

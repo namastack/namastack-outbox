@@ -26,5 +26,5 @@ internal object OutboxHandlerSelector {
         handlers: List<GenericHandlerMethod>,
         payload: Any,
         metadataProvider: (GenericHandlerMethod) -> OutboxRecordMetadata,
-    ): List<GenericHandlerMethod> = handlers.filter { it.supportsScheduling(payload, metadataProvider(it)) }
+    ): List<GenericHandlerMethod> = handlers.filter { it.supportsPayload(payload, metadataProvider(it)) }
 }

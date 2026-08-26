@@ -30,7 +30,7 @@ internal object AnnotatedHandlerDiscoverer {
                     configuredId = annotation.id.takeIf { it.isNotEmpty() },
                     configuredAliases = annotation.aliases.toSet(),
                     lambdaBeanNameId = null,
-                    supportsScheduling = { _, _ -> true },
+                    supportsPayload = { _, _ -> true },
                 )
             }.toList()
 }

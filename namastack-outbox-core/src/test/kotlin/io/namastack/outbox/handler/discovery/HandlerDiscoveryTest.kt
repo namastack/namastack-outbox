@@ -4,6 +4,7 @@ import io.namastack.outbox.annotation.OutboxFallbackHandler
 import io.namastack.outbox.handler.OutboxFailureContext
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.handler.OutboxTypedHandler
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
@@ -35,7 +36,7 @@ class HandlerDiscoveryTest {
             assertThat(configuredId).isEqualTo("orders-v2")
             assertThat(configuredAliases).containsExactly("orders-v1")
             assertThat(lambdaBeanNameId).isNull()
-            assertThat(supportsScheduling("payload", metadata)).isTrue()
+            assertThat(supportsPayload("payload", metadata)).isTrue()
         }
 
         val fallback = declarations.fallbacks.single()
@@ -54,8 +55,31 @@ class HandlerDiscoveryTest {
         assertThat(candidate.source).isEqualTo(HandlerSource.GENERIC_INTERFACE)
         assertThat(candidate.configuredId).isEqualTo("generic-v2")
         assertThat(candidate.configuredAliases).containsExactly("generic-v1")
-        assertThat(candidate.supportsScheduling("accepted", metadata)).isTrue()
-        assertThat(candidate.supportsScheduling("rejected", metadata)).isFalse()
+        assertThat(candidate.supportsPayload("accepted", metadata)).isTrue()
+        assertThat(candidate.supportsPayload("rejected", metadata)).isFalse()
+    }
+
+    @Test
+    fun `interface discovery ignores beans without a handler interface`() {
+        assertThat(InterfaceHandlerDiscoverer.discover(PlainBean(), "plainBean")).isEmpty()
+    }
+
+    @Test
+    fun `interface discovery returns one typed candidate for a typed handler`() {
+        val candidates = InterfaceHandlerDiscoverer.discover(TypedInterfaceHandler(), "typedBean")
+
+        assertThat(candidates).singleElement().satisfies({ candidate ->
+            assertThat(candidate.source).isEqualTo(HandlerSource.TYPED_INTERFACE)
+            assertThat(candidate.supportsPayload("payload", metadata)).isTrue()
+        })
+    }
+
+    @Test
+    fun `interface discovery returns typed and generic candidates when both interfaces are implemented`() {
+        val candidates = InterfaceHandlerDiscoverer.discover(CombinedInterfaceHandler(), "combinedBean")
+
+        assertThat(candidates.map { it.source })
+            .containsExactly(HandlerSource.TYPED_INTERFACE, HandlerSource.GENERIC_INTERFACE)
     }
 
     private class AnnotatedHandler {
@@ -78,6 +102,28 @@ class HandlerDiscoveryTest {
             payload: Any,
             metadata: OutboxRecordMetadata,
         ) = payload == "accepted" && metadata.key == "record-key"
+
+        override fun handle(
+            payload: Any,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+    }
+
+    private class PlainBean
+
+    private class TypedInterfaceHandler : OutboxTypedHandler<String> {
+        override fun handle(
+            payload: String,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+    }
+
+    private class CombinedInterfaceHandler :
+        OutboxTypedHandler<Any>,
+        OutboxHandler {
+        override fun getHandlerId(): String? = null
+
+        override fun getHandlerAliases(): Set<String> = emptySet()
 
         override fun handle(
             payload: Any,

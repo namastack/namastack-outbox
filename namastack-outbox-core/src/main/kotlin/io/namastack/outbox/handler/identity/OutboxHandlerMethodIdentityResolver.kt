@@ -2,8 +2,6 @@ package io.namastack.outbox.handler.identity
 
 import io.namastack.outbox.handler.discovery.HandlerCandidate
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
-import org.springframework.aop.support.AopUtils
-import org.springframework.util.ClassUtils
 
 /**
  * Resolves stable handler identity while retaining aliases for persisted records.
@@ -24,24 +22,22 @@ internal object OutboxHandlerMethodIdentityResolver {
             "Blank handler alias configured for ${candidate.method.toGenericString()}"
         }
 
-        val legacyGeneratedId = OutboxHandlerMethod.generatedId(candidate.bean, candidate.method)
-        val legacyRuntimeId =
+        val generatedId = OutboxHandlerMethod.generatedId(candidate.bean, candidate.method)
+        val runtimeGeneratedId =
             OutboxHandlerMethod.generatedId(
                 candidate.bean,
                 candidate.method,
                 candidate.bean::class.java,
             )
-        val canonicalId = candidate.configuredId ?: candidate.lambdaBeanNameId ?: legacyGeneratedId
+        val canonicalId = candidate.configuredId ?: candidate.lambdaBeanNameId ?: generatedId
         val aliases =
             buildSet {
+                val isLambda = candidate.lambdaBeanNameId != null
+
                 addAll(candidate.configuredAliases)
-                if (candidate.configuredId != null && candidate.lambdaBeanNameId == null) add(legacyGeneratedId)
-                if (
-                    AopUtils.isAopProxy(candidate.bean) &&
-                    !ClassUtils.isLambdaClass(AopUtils.getTargetClass(candidate.bean)) &&
-                    canonicalId != legacyRuntimeId
-                ) {
-                    add(legacyRuntimeId)
+                if (!isLambda && generatedId != canonicalId) add(generatedId)
+                if (!isLambda && runtimeGeneratedId != canonicalId && runtimeGeneratedId != generatedId) {
+                    add(runtimeGeneratedId)
                 }
                 remove(canonicalId)
             }

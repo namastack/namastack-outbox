@@ -29,7 +29,6 @@ class OutboxHandlerRegistry {
      */
     private val handlersById = mutableMapOf<String, OutboxHandlerMethod>()
     private val registrationsById = mutableMapOf<String, HandlerRegistration>()
-    private val routingOwners = mutableMapOf<String, RoutingOwner>()
 
     /**
      * Map of typed handlers indexed by payload type.
@@ -102,99 +101,6 @@ class OutboxHandlerRegistry {
         metadataProvider: (GenericHandlerMethod) -> OutboxRecordMetadata,
     ): List<GenericHandlerMethod> = OutboxHandlerSelector.generic(genericHandlers, payload, metadataProvider)
 
-    /**
-     * Registers a handler method.
-     *
-     * Automatically routes to the appropriate internal registration based on handler type:
-     * - TypedHandlerMethod: Registers for specific payload type
-     * - GenericHandlerMethod: Registers as fallback for all types
-     *
-     * Also adds the handler to the global handlers map for ID-based lookup.
-     *
-     * @param handlerMethod The handler method to register
-     * @throws IllegalStateException if a handler with the same ID already exists
-     */
-    internal fun register(handlerMethod: OutboxHandlerMethod) = register(handlerMethod, "<unknown>")
-
-    internal fun register(
-        handlerMethod: OutboxHandlerMethod,
-        beanName: String,
-    ) {
-        validateCanonicalRegistration(handlerMethod, beanName)
-        when (handlerMethod) {
-            is TypedHandlerMethod -> {
-                typedHandlers
-                    .computeIfAbsent(handlerMethod.paramType) { mutableListOf() }
-                    .add(handlerMethod)
-            }
-
-            is GenericHandlerMethod -> {
-                genericHandlers.add(handlerMethod)
-            }
-        }
-
-        registerInAllHandlers(handlerMethod, beanName)
-    }
-
-    /**
-     * Registers a handler in the global ID map.
-     *
-     * Ensures no duplicate handler IDs are registered - each handler method
-     * must have a unique ID derived from its class, method name, and parameters.
-     *
-     * @param handlerMethod The handler method to register globally
-     * @throws IllegalStateException if a handler with the same ID is already registered
-     */
-    private fun registerInAllHandlers(
-        handlerMethod: OutboxHandlerMethod,
-        beanName: String,
-    ) {
-        check(handlersById.putIfAbsent(handlerMethod.id, handlerMethod) == null) {
-            "Duplicate handler ID detected: ${handlerMethod.id}"
-        }
-        routingOwners[handlerMethod.id] = RoutingOwner("canonical", beanName, handlerMethod)
-    }
-
-    /**
-     * Registers a legacy alias ID that points to the same handler.
-     *
-     * Used for backward compatibility when handler IDs in existing database records
-     * were generated using CGLIB proxy class names. The alias allows those old records
-     * to still find their handler after upgrading to stable (non-proxy) IDs.
-     *
-     * Unlike [register], this method only adds to the ID-based lookup map
-     * (not to typed/generic handler lists).
-     *
-     * @param aliasId The legacy handler ID to register as an alias
-     * @param handlerMethod The handler method this alias should resolve to
-     * @throws IllegalStateException if the alias ID is already registered
-     */
-    internal fun registerAlias(
-        aliasId: String,
-        handlerMethod: OutboxHandlerMethod,
-    ) = registerAlias(aliasId, handlerMethod, "<unknown>")
-
-    internal fun registerAlias(
-        aliasId: String,
-        handlerMethod: OutboxHandlerMethod,
-        beanName: String,
-    ) {
-        check(handlersById.putIfAbsent(aliasId, handlerMethod) == null) {
-            "Duplicate alias ID detected: $aliasId"
-        }
-        routingOwners[aliasId] = RoutingOwner("alias", beanName, handlerMethod)
-    }
-
-    private fun validateCanonicalRegistration(
-        handler: OutboxHandlerMethod,
-        beanName: String,
-    ) {
-        val conflicting = routingOwners[handler.id]
-        check(conflicting == null) {
-            collisionMessage(handler.id, conflicting!!, RoutingOwner("canonical", beanName, handler))
-        }
-    }
-
     /** Atomically installs canonical and alias routes plus scheduling indexes. */
     @Synchronized
     internal fun registerBatch(registrations: List<HandlerRegistration>) {
@@ -213,13 +119,9 @@ class OutboxHandlerRegistry {
 
                 is GenericHandlerMethod -> genericHandlers.add(handler)
             }
-            val routes =
-                sequenceOf(handler.id to "canonical") +
-                    handler.aliases.asSequence().map { it to "alias" }
-            routes.forEach { (routingId, role) ->
+            (sequenceOf(handler.id) + handler.aliases.asSequence()).forEach { routingId ->
                 handlersById[routingId] = handler
                 registrationsById[routingId] = registration
-                routingOwners[routingId] = RoutingOwner(role, registration.beanName, handler)
             }
         }
     }
@@ -231,12 +133,20 @@ class OutboxHandlerRegistry {
             (sequenceOf(handler.id to "canonical") + handler.aliases.asSequence().map { it to "alias" })
                 .forEach { (routingId, role) ->
                     val incoming = RoutingOwner(role, registration.beanName, handler)
-                    val conflicting = proposed[routingId] ?: routingOwners[routingId]
+                    val conflicting = proposed[routingId] ?: routingOwner(routingId)
                     check(conflicting == null) { collisionMessage(routingId, conflicting!!, incoming) }
                     proposed[routingId] = incoming
                 }
         }
     }
+
+    private fun routingOwner(routingId: String): RoutingOwner? =
+        registrationsById[routingId]?.let { registration ->
+            val handler = registration.primary
+            val role = if (routingId == handler.id) "canonical" else "alias"
+
+            RoutingOwner(role, registration.beanName, handler)
+        }
 
     private fun collisionMessage(
         routingId: String,

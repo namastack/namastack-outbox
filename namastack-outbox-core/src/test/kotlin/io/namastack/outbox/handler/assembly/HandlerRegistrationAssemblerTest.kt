@@ -54,8 +54,8 @@ class HandlerRegistrationAssemblerTest {
         val registration = assembler.assemble(HandlerDiscovery.discover(bean, "genericBean")).single()
 
         val primary = registration.primary as GenericHandlerMethod
-        assertThat(primary.supportsScheduling("accepted", metadata)).isTrue()
-        assertThat(primary.supportsScheduling("rejected", metadata)).isFalse()
+        assertThat(primary.supportsPayload("accepted", metadata)).isTrue()
+        assertThat(primary.supportsPayload("rejected", metadata)).isFalse()
         assertThat(registration.fallback).isNull()
         assertThat(registration.explicitRetryPolicy).isNull()
     }

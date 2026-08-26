@@ -25,27 +25,28 @@ internal object InterfaceHandlerDiscoverer {
             if (bean is OutboxTypedHandler<*>) {
                 add(
                     HandlerCandidate(
-                        beanName,
-                        bean,
-                        ReflectionUtils.findMethod(bean, "handle", 2),
-                        HandlerSource.TYPED_INTERFACE,
-                        bean.getHandlerId(),
-                        bean.getHandlerAliases(),
-                        lambdaId,
-                    ) { _, _ -> true },
+                        beanName = beanName,
+                        bean = bean,
+                        method = ReflectionUtils.findMethod(bean, "handle", 2),
+                        source = HandlerSource.TYPED_INTERFACE,
+                        configuredId = bean.getHandlerId(),
+                        configuredAliases = bean.getHandlerAliases(),
+                        lambdaBeanNameId = lambdaId,
+                        supportsPayload = { _, _ -> true },
+                    ),
                 )
             }
             if (bean is OutboxHandler) {
                 add(
                     HandlerCandidate(
-                        beanName,
-                        bean,
-                        ReflectionUtils.findMethod(bean, "handle", 2),
-                        HandlerSource.GENERIC_INTERFACE,
-                        bean.getHandlerId(),
-                        bean.getHandlerAliases(),
-                        lambdaId,
-                        bean::supports,
+                        beanName = beanName,
+                        bean = bean,
+                        method = ReflectionUtils.findMethod(bean, "handle", 2),
+                        source = HandlerSource.GENERIC_INTERFACE,
+                        configuredId = bean.getHandlerId(),
+                        configuredAliases = bean.getHandlerAliases(),
+                        lambdaBeanNameId = lambdaId,
+                        supportsPayload = bean::supports,
                     ),
                 )
             }

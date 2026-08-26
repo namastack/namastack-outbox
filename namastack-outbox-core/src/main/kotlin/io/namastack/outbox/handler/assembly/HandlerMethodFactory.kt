@@ -27,7 +27,7 @@ internal object HandlerMethodFactory {
             GenericHandlerMethod(
                 candidate.bean,
                 candidate.method,
-                candidate.supportsScheduling,
+                candidate.supportsPayload,
                 identity.canonicalId,
                 identity.aliases,
             )
