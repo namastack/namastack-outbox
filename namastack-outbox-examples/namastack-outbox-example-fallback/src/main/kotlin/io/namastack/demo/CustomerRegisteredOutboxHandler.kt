@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
 class CustomerRegisteredOutboxHandler {
     private val logger = LoggerFactory.getLogger(CustomerRegisteredOutboxHandler::class.java)
 
-    @OutboxHandler
+    @OutboxHandler(id = "customers.send-registration-email")
     @Suppress("UNUSED_PARAMETER")
     fun handle(payload: CustomerRegisteredEvent) {
         logger.info("[Handler] Send email to: {}", payload.email)

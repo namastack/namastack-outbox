@@ -64,3 +64,7 @@ Watch the logs to see:
 
 This example proves that outbox processing is isolated from application events and their potential failures.
 
+## Stable handler ID
+
+The annotated handler uses the responsibility-based ID `events.process-after-commit`, which remains
+stable across class, method, and package renames.

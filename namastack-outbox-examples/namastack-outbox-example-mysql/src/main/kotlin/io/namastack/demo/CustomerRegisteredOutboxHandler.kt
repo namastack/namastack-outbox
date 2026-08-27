@@ -1,6 +1,7 @@
 package io.namastack.demo
 
 import io.namastack.demo.customer.CustomerRegisteredEvent
+import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
 import org.slf4j.LoggerFactory
@@ -9,6 +10,8 @@ import org.springframework.stereotype.Component
 @Component
 class CustomerRegisteredOutboxHandler : OutboxTypedHandler<CustomerRegisteredEvent> {
     private val logger = LoggerFactory.getLogger(CustomerRegisteredOutboxHandler::class.java)
+
+    override fun getTypedHandlerIdentity() = OutboxHandlerIdentity("customers.send-registration-email")
 
     override fun handle(
         payload: CustomerRegisteredEvent,

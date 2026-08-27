@@ -51,3 +51,9 @@ Use custom collection prefixes when:
 - Multiple applications share the same MongoDB database
 - Your organization has naming conventions for database objects
 - You want to clearly identify outbox-related collections
+
+## Generated handler ID
+
+This example intentionally configures `OutboxHandlerIdentity()` without an explicit ID to
+demonstrate the generated class-and-method identity. Prefer an explicit, responsibility-based ID
+in production so routing remains stable across class, method, and package renames.

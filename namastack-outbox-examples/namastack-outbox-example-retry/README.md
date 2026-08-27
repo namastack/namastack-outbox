@@ -56,3 +56,10 @@ Watch the logs to see:
 
 This example is crucial for understanding how the outbox pattern handles transient failures in production environments.
 
+## Stable handler IDs
+
+The handlers define responsibility-based IDs that remain stable across class, method, and package
+renames:
+
+- `customers.send-registration-email` for the typed customer-registration handler
+- `events.publish-to-external-broker` for the generic event publisher

@@ -64,3 +64,11 @@ See `src/main/resources/application.yml` for:
 - H2 datasource (including a custom schema)
 - Hibernate `ddl-auto` and naming strategy configuration
 - Outbox schema initialization configuration
+
+## Stable handler IDs
+
+The handlers define responsibility-based IDs that remain stable across class, method, and package
+renames:
+
+- `customers.send-registration-email` for the typed customer-registration handler
+- `events.publish-to-external-broker` for the generic event publisher

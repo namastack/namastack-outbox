@@ -1,6 +1,7 @@
 package io.namastack.demo
 
 import io.namastack.outbox.handler.OutboxHandler
+import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -10,6 +11,8 @@ class GenericOutboxHandler(
     private val externalBroker: ExternalBroker
 ) : OutboxHandler {
     private val logger = LoggerFactory.getLogger(GenericOutboxHandler::class.java)
+
+    override fun getGenericHandlerIdentity() = OutboxHandlerIdentity("events.publish-to-external-broker")
 
     override fun handle(
         payload: Any,

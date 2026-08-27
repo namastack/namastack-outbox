@@ -1,6 +1,7 @@
 package io.namastack.demo;
 
 import io.namastack.demo.customer.CustomerRegisteredEvent;
+import io.namastack.outbox.handler.OutboxHandlerIdentity;
 import io.namastack.outbox.handler.OutboxRecordMetadata;
 import io.namastack.outbox.handler.OutboxTypedHandler;
 import org.jspecify.annotations.NonNull;
@@ -12,6 +13,11 @@ import org.springframework.stereotype.Component;
 public class CustomerRegisteredOutboxHandler implements OutboxTypedHandler<CustomerRegisteredEvent> {
 
   private static final Logger logger = LoggerFactory.getLogger(CustomerRegisteredOutboxHandler.class);
+
+  @Override
+  public OutboxHandlerIdentity getTypedHandlerIdentity() {
+    return new OutboxHandlerIdentity("customers.send-registration-email");
+  }
 
   @Override
   public void handle(CustomerRegisteredEvent payload, @NonNull OutboxRecordMetadata metadata) {

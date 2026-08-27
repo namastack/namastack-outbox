@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
 class DemoOutboxHandler {
     private val logger = LoggerFactory.getLogger(DemoOutboxHandler::class.java)
 
-    @OutboxHandler
+    @OutboxHandler(id = "events.process-after-commit")
     fun handle(
         payload: Any,
         metadata: OutboxRecordMetadata,

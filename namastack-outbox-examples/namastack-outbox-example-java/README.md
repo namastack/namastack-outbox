@@ -22,7 +22,12 @@ This example demonstrates using Namastack Outbox library in a **pure Java applic
 @Component
 public class CustomerRegisteredOutboxHandler 
     implements OutboxTypedHandler<CustomerRegisteredEvent> {
-    
+
+    @Override
+    public OutboxHandlerIdentity getTypedHandlerIdentity() {
+        return new OutboxHandlerIdentity("customers.send-registration-email");
+    }
+
     @Override
     public void handle(CustomerRegisteredEvent payload, OutboxRecordMetadata metadata) {
         // Handle event in Java
@@ -56,3 +61,10 @@ See `application.yml` for outbox and database configuration.
 
 This example is perfect for Java developers who want to use the outbox pattern without switching to Kotlin.
 
+## Stable handler IDs
+
+The handlers define responsibility-based IDs that remain stable across class, method, and package
+renames:
+
+- `customers.send-registration-email` for the typed customer-registration handler
+- `events.publish-to-external-broker` for the generic event publisher
