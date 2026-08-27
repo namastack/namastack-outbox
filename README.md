@@ -1,21 +1,40 @@
-![Namastack Outbox](namastack-outbox-docs/static/img/namastack_logo.svg)
+<h1 align="center">
+  <a href="https://www.namastack.io/outbox/">
+    <picture>
+      <source
+        media="(prefers-color-scheme: dark)"
+        srcset="./.github/assets/namastack_outbox_logo_dark.png"
+      >
+      <source
+        media="(prefers-color-scheme: light)"
+        srcset="./.github/assets/namastack_outbox_logo_light.png"
+      >
+      <img
+        src="./.github/assets/namastack_outbox_logo_light.png"
+        alt="Namastack Outbox"
+      >
+    </picture>
+  </a>
+</h1>
 
-# Namastack Outbox
+<p align="center">Reliable event delivery with ordering, retries, horizontal scaling and observability.</p>
 
-**Transactional Outbox for Spring Boot**
+---
 
-Reliable event delivery with ordering, retries, horizontal scaling and observability.
+<div align="center">
+  <p>
+    <a href="https://www.namastack.io/outbox/">Documentation</a> ·
+    <a href="https://www.namastack.io/outbox/quickstart/">Getting Started</a> ·
+    <a href="https://github.com/namastack/namastack-outbox/releases">Releases</a> ·
+    <a href="https://github.com/namastack/namastack-outbox/discussions">Community</a>
+  </p>
 
-[Documentation](https://www.namastack.io/outbox/) ·
-[Getting Started](https://www.namastack.io/outbox/quickstart/) ·
-[Releases](https://github.com/namastack/namastack-outbox/releases) ·
-[Community](https://github.com/namastack/namastack-outbox/discussions)
-
-[![Release](https://img.shields.io/github/v/release/namastack/namastack-outbox?style=flat-square)](https://github.com/namastack/namastack-outbox/releases/latest)
-[![Build](https://img.shields.io/github/actions/workflow/status/namastack/namastack-outbox/gradle-test.yml?branch=main\&style=flat-square\&label=build)](https://github.com/namastack/namastack-outbox/actions/workflows/gradle-test.yml)
-[![Coverage](https://img.shields.io/codecov/c/github/namastack/namastack-outbox?style=flat-square)](https://codecov.io/github/namastack/namastack-outbox)
-[![GitHub Stars](https://img.shields.io/github/stars/namastack/namastack-outbox?style=flat-square)](https://github.com/namastack/namastack-outbox/stargazers)
-[![License](https://img.shields.io/github/license/namastack/namastack-outbox?style=flat-square)](LICENSE)
+  <a href="https://github.com/namastack/namastack-outbox/releases/latest"><img src="https://img.shields.io/github/v/release/namastack/namastack-outbox?style=flat-square" alt="Release"></a>
+  <a href="https://github.com/namastack/namastack-outbox/actions/workflows/gradle-test.yml"><img src="https://img.shields.io/github/actions/workflow/status/namastack/namastack-outbox/gradle-test.yml?branch=main&amp;style=flat-square&amp;label=build" alt="Build"></a>
+  <a href="https://codecov.io/github/namastack/namastack-outbox"><img src="https://img.shields.io/codecov/c/github/namastack/namastack-outbox?style=flat-square" alt="Coverage"></a>
+  <a href="https://github.com/namastack/namastack-outbox/stargazers"><img src="https://img.shields.io/github/stars/namastack/namastack-outbox?style=flat-square" alt="GitHub Stars"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/namastack/namastack-outbox?style=flat-square" alt="License"></a>
+</div>
 
 ---
 
@@ -41,6 +60,32 @@ Namastack Outbox handles these concerns as part of your Spring Boot application.
 * **Messaging integrations** — Kafka, RabbitMQ and AWS SNS
 * **Spring Modulith integration** — production-grade event externalization using the transactional outbox pattern
 
+---
+
+## How It Works
+
+Business data and its outbox record commit together. Namastack delivers the record asynchronously with ordering and retries.
+
+<div align="center">
+  <picture>
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="./namastack-outbox-docs/static/img/landing/diagram_dark.svg"
+    >
+    <source
+      media="(prefers-color-scheme: light)"
+      srcset="./namastack-outbox-docs/static/img/landing/diagram_light.svg"
+    >
+    <img
+      src="./namastack-outbox-docs/static/img/landing/diagram_light.svg"
+      alt="Namastack Outbox architecture and event delivery flow"
+      width="900"
+    >
+  </picture>
+</div>
+
+---
+
 ## Documentation
 
 Everything you need to get started, configure and operate Namastack Outbox is available in the documentation.
@@ -49,6 +94,8 @@ Everything you need to get started, configure and operate Namastack Outbox is av
 * **[Documentation →](https://www.namastack.io/outbox/)**
 * **[Reference →](https://www.namastack.io/outbox/reference/)**
 * **[API Reference →](https://javadoc.io/doc/io.namastack/namastack-outbox-api)**
+
+---
 
 ## Community
 
@@ -59,11 +106,15 @@ Namastack Outbox is open source and contributions of all sizes are welcome.
 * [Discord](https://discord.gg/XNHP5Yhxy7) — chat with the community
 * [Contributing Guide](CONTRIBUTING.md) — contribute to the project
 
+---
+
 ## Contributors
 
 Thanks to everyone who has contributed to Namastack Outbox.
 
 [![Contributors](https://contrib.rocks/image?repo=namastack/namastack-outbox)](https://github.com/namastack/namastack-outbox/graphs/contributors)
+
+---
 
 ## Support the Project
 
@@ -72,6 +123,8 @@ Namastack Outbox is independently developed and maintained as open-source softwa
 If Namastack Outbox helps you or your team, sponsoring the project helps support its continued development, maintenance and documentation.
 
 [![Sponsor Namastack](https://img.shields.io/badge/Sponsor-Namastack-ea4aaa?style=for-the-badge\&logo=github)](https://github.com/sponsors/namastack)
+
+---
 
 ## License
 
