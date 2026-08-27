@@ -177,10 +177,6 @@ class HandlerRegistrationAssemblerTest {
     private class AmbiguousInterfaceHandler :
         OutboxTypedHandler<Any>,
         OutboxHandler {
-        override fun getHandlerId(): String? = null
-
-        override fun getHandlerAliases(): Set<String> = emptySet()
-
         override fun handle(
             payload: Any,
             metadata: OutboxRecordMetadata,

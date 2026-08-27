@@ -64,6 +64,29 @@ class StableHandlerIdentityTest {
     }
 
     @Test
+    fun `typed interface aliases work without explicit id while generated id remains canonical`() {
+        val registry = OutboxHandlerRegistry()
+
+        processor(registry).postProcessAfterInitialization(AliasOnlyTypedInterfaceHandler(), "aliasOnlyTyped")
+
+        val scheduled = registry.getHandlersForPayloadType(String::class).single()
+        assertThat(scheduled.id).isEqualTo(generatedId(scheduled))
+        assertThat(registry.getHandlerById("future-typed-id")).isSameAs(scheduled)
+    }
+
+    @Test
+    fun `generic interface aliases work without explicit id while generated id remains canonical`() {
+        val registry = OutboxHandlerRegistry()
+
+        processor(registry).postProcessAfterInitialization(AliasOnlyGenericInterfaceHandler(), "aliasOnlyGeneric")
+
+        val descriptor = registry.findAllHandlerDescriptors().single()
+        val scheduled = checkNotNull(registry.getHandlerById(descriptor.id))
+        assertThat(descriptor.id).isEqualTo(generatedId(scheduled))
+        assertThat(registry.getHandlerById("future-generic-id")).isSameAs(scheduled)
+    }
+
+    @Test
     fun `canonical id is removed from aliases`() {
         val registry = OutboxHandlerRegistry()
 
@@ -242,9 +265,7 @@ class StableHandlerIdentityTest {
     }
 
     private class StableInterfaceHandler : OutboxTypedHandler<String> {
-        override fun getHandlerId() = "interface-v2"
-
-        override fun getHandlerAliases() = setOf("interface-v1")
+        override fun getTypedHandlerIdentity() = OutboxHandlerIdentity("interface-v2", setOf("interface-v1"))
 
         override fun handle(
             payload: String,
@@ -252,10 +273,26 @@ class StableHandlerIdentityTest {
         ) = Unit
     }
 
-    private class CanonicalRepeatedAsAlias : OutboxTypedHandler<String> {
-        override fun getHandlerId() = "same-id"
+    private class AliasOnlyTypedInterfaceHandler : OutboxTypedHandler<String> {
+        override fun getTypedHandlerIdentity() = OutboxHandlerIdentity(aliases = setOf("future-typed-id"))
 
-        override fun getHandlerAliases() = setOf("same-id")
+        override fun handle(
+            payload: String,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+    }
+
+    private class AliasOnlyGenericInterfaceHandler : io.namastack.outbox.handler.OutboxHandler {
+        override fun getGenericHandlerIdentity() = OutboxHandlerIdentity(aliases = setOf("future-generic-id"))
+
+        override fun handle(
+            payload: Any,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+    }
+
+    private class CanonicalRepeatedAsAlias : OutboxTypedHandler<String> {
+        override fun getTypedHandlerIdentity() = OutboxHandlerIdentity("same-id", setOf("same-id"))
 
         override fun handle(
             payload: String,
@@ -264,7 +301,7 @@ class StableHandlerIdentityTest {
     }
 
     private class BlankIdHandler : OutboxTypedHandler<String> {
-        override fun getHandlerId() = " "
+        override fun getTypedHandlerIdentity() = OutboxHandlerIdentity(" ")
 
         override fun handle(
             payload: String,
@@ -273,7 +310,7 @@ class StableHandlerIdentityTest {
     }
 
     private class BlankAliasHandler : OutboxTypedHandler<String> {
-        override fun getHandlerAliases() = setOf(" ")
+        override fun getTypedHandlerIdentity() = OutboxHandlerIdentity("valid-id", setOf(" "))
 
         override fun handle(
             payload: String,
@@ -351,7 +388,7 @@ class StableHandlerIdentityTest {
     }
 
     private class MixedDifferentMethodsHandler : OutboxTypedHandler<String> {
-        override fun getHandlerId() = "interface-id"
+        override fun getTypedHandlerIdentity() = OutboxHandlerIdentity("interface-id")
 
         override fun handle(
             payload: String,

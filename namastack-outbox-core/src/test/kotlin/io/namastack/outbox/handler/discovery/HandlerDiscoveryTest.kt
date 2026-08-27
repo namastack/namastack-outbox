@@ -3,6 +3,7 @@ package io.namastack.outbox.handler.discovery
 import io.namastack.outbox.annotation.OutboxFallbackHandler
 import io.namastack.outbox.handler.OutboxFailureContext
 import io.namastack.outbox.handler.OutboxHandler
+import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
 import org.assertj.core.api.Assertions.assertThat
@@ -105,9 +106,7 @@ class HandlerDiscoveryTest {
     }
 
     private class SelectiveInterfaceHandler : OutboxHandler {
-        override fun getHandlerId() = "generic-v2"
-
-        override fun getHandlerAliases() = setOf("generic-v1")
+        override fun getGenericHandlerIdentity() = OutboxHandlerIdentity("generic-v2", setOf("generic-v1"))
 
         override fun supports(
             payload: Any,
@@ -132,10 +131,6 @@ class HandlerDiscoveryTest {
     private class CombinedInterfaceHandler :
         OutboxTypedHandler<Any>,
         OutboxHandler {
-        override fun getHandlerId(): String? = null
-
-        override fun getHandlerAliases(): Set<String> = emptySet()
-
         override fun handle(
             payload: Any,
             metadata: OutboxRecordMetadata,

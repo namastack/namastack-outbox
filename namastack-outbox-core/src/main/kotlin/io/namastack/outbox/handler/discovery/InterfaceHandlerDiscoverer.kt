@@ -34,6 +34,7 @@ internal object InterfaceHandlerDiscoverer {
         return buildList {
             if (bean is OutboxTypedHandler<*>) {
                 val payloadType = ReflectionUtils.resolveInterfacePayloadType(bean, OutboxTypedHandler::class.java)
+                val identity = bean.getTypedHandlerIdentity()
                 add(
                     HandlerCandidate(
                         beanName = beanName,
@@ -47,14 +48,15 @@ internal object InterfaceHandlerDiscoverer {
                             ),
                         payloadType = payloadType,
                         source = HandlerSource.TYPED_INTERFACE,
-                        configuredId = bean.getHandlerId(),
-                        configuredAliases = bean.getHandlerAliases(),
+                        configuredId = identity?.id,
+                        configuredAliases = identity?.aliases.orEmpty(),
                         lambdaBeanNameId = lambdaId,
                         supportsPayload = { _, _ -> true },
                     ),
                 )
             }
             if (bean is OutboxHandler) {
+                val identity = bean.getGenericHandlerIdentity()
                 add(
                     HandlerCandidate(
                         beanName = beanName,
@@ -68,8 +70,8 @@ internal object InterfaceHandlerDiscoverer {
                             ),
                         payloadType = Any::class.java,
                         source = HandlerSource.GENERIC_INTERFACE,
-                        configuredId = bean.getHandlerId(),
-                        configuredAliases = bean.getHandlerAliases(),
+                        configuredId = identity?.id,
+                        configuredAliases = identity?.aliases.orEmpty(),
                         lambdaBeanNameId = lambdaId,
                         supportsPayload = bean::supports,
                     ),

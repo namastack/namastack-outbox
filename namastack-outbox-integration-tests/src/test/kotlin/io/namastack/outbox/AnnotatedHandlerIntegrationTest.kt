@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.annotation.OutboxHandler
+import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
 import jakarta.persistence.EntityManager
@@ -419,7 +420,7 @@ class AnnotatedHandlerIntegrationTest {
 
     @Component
     class MixedDefinitionHandler : OutboxTypedHandler<MixedInterfaceEvent> {
-        override fun getHandlerId() = "mixed-interface"
+        override fun getTypedHandlerIdentity() = OutboxHandlerIdentity("mixed-interface")
 
         override fun handle(
             payload: MixedInterfaceEvent,

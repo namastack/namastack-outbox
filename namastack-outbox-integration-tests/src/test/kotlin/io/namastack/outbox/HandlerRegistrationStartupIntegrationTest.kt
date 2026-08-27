@@ -6,6 +6,7 @@ import io.namastack.outbox.annotation.OutboxFallbackHandler
 import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
 import io.namastack.outbox.handler.OutboxHandler
+import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
@@ -206,10 +207,6 @@ class HandlerRegistrationStartupIntegrationTest {
     class CombinedInterfacesHandler :
         OutboxTypedHandler<Any>,
         OutboxHandler {
-        override fun getHandlerId(): String? = null
-
-        override fun getHandlerAliases(): Set<String> = emptySet()
-
         override fun handle(
             payload: Any,
             metadata: OutboxRecordMetadata,
@@ -234,7 +231,7 @@ class HandlerRegistrationStartupIntegrationTest {
     }
 
     class BlankInterfaceIdHandler : OutboxTypedHandler<String> {
-        override fun getHandlerId() = " "
+        override fun getTypedHandlerIdentity() = OutboxHandlerIdentity(" ")
 
         override fun handle(
             payload: String,

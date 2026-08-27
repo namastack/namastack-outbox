@@ -32,20 +32,14 @@ package io.namastack.outbox.handler
  */
 interface OutboxHandler {
     /**
-     * Optional stable canonical ID written to newly scheduled records.
-     * `null` retains the generated ID (or the Spring bean name for a lambda).
+     * Returns the optional stable identity of this generic handler declaration.
      *
-     * @return The stable handler ID, or `null` to use the generated identity
-     */
-    fun getHandlerId(): String? = null
-
-    /**
-     * Alternative, lookup-only IDs accepted for persisted records.
-     * To migrate, deploy a future ID here before returning it from [getHandlerId].
+     * `null` retains the generated ID, or the Spring bean name for a lambda. To migrate an ID,
+     * deploy the future ID as an alias before promoting it to the canonical ID.
      *
-     * @return Handler IDs that should resolve to this handler without being persisted for new records
+     * @return The generic handler identity, or `null` to use the generated identity
      */
-    fun getHandlerAliases(): Set<String> = emptySet()
+    fun getGenericHandlerIdentity(): OutboxHandlerIdentity? = null
 
     /**
      * Determines whether this handler supports scheduling for a given payload.

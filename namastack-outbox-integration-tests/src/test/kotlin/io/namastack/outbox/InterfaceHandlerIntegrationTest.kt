@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.handler.OutboxHandler
+import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
 import jakarta.persistence.EntityManager
@@ -137,7 +138,7 @@ class InterfaceHandlerIntegrationTest {
 
     @Component
     class TypedInterfaceHandler : OutboxTypedHandler<TypedEvent> {
-        override fun getHandlerId() = "typed-interface"
+        override fun getTypedHandlerIdentity() = OutboxHandlerIdentity("typed-interface")
 
         override fun handle(
             payload: TypedEvent,
@@ -147,7 +148,7 @@ class InterfaceHandlerIntegrationTest {
 
     @Component
     class GenericInterfaceHandler : OutboxHandler {
-        override fun getHandlerId() = "generic-interface"
+        override fun getGenericHandlerIdentity() = OutboxHandlerIdentity("generic-interface")
 
         override fun supports(
             payload: Any,
@@ -170,7 +171,7 @@ class InterfaceHandlerIntegrationTest {
 
     @Component
     class SelectiveGenericInterfaceHandler : OutboxHandler {
-        override fun getHandlerId() = "selective-generic"
+        override fun getGenericHandlerIdentity() = OutboxHandlerIdentity("selective-generic")
 
         override fun supports(
             payload: Any,
@@ -185,7 +186,7 @@ class InterfaceHandlerIntegrationTest {
 
     @Component
     class SharedTypedInterfaceHandler : OutboxTypedHandler<SharedEvent> {
-        override fun getHandlerId() = "shared-typed"
+        override fun getTypedHandlerIdentity() = OutboxHandlerIdentity("shared-typed")
 
         override fun handle(
             payload: SharedEvent,

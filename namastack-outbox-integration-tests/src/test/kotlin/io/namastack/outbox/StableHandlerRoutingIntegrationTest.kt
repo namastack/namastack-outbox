@@ -4,6 +4,7 @@ import io.namastack.outbox.annotation.OutboxFallbackHandler
 import io.namastack.outbox.annotation.OutboxHandler
 import io.namastack.outbox.annotation.OutboxRetryable
 import io.namastack.outbox.handler.OutboxFailureContext
+import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
@@ -249,9 +250,7 @@ class StableHandlerRoutingIntegrationTest {
 
     @Component
     class StableTypedInterfaceHandler : OutboxTypedHandler<StableTypedEvent> {
-        override fun getHandlerId() = "stable-typed"
-
-        override fun getHandlerAliases() = setOf("typed-v1")
+        override fun getTypedHandlerIdentity() = OutboxHandlerIdentity("stable-typed", setOf("typed-v1"))
 
         override fun handle(
             payload: StableTypedEvent,
@@ -261,9 +260,7 @@ class StableHandlerRoutingIntegrationTest {
 
     @Component
     class StableGenericInterfaceHandler : GenericOutboxHandler {
-        override fun getHandlerId() = "stable-generic"
-
-        override fun getHandlerAliases() = setOf("generic-v1")
+        override fun getGenericHandlerIdentity() = OutboxHandlerIdentity("stable-generic", setOf("generic-v1"))
 
         override fun supports(
             payload: Any,
