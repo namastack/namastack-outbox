@@ -183,25 +183,25 @@ The module uses one shared tag schema across observations and metrics.
 
 Low-cardinality tags are safe for metric dimensions.
 
-| Tag key | Values | Used by | Description |
-|---------|--------|---------|-------------|
-| `outbox.channel` | channel name, defaults to `default` | all outbox metrics | Logical outbox channel |
-| `outbox.record.status` | `new`, `failed`, `completed` | `outbox.records` | Record status |
-| `outbox.handler.kind` | `primary`, `fallback` | `outbox.record.process` | Whether the primary or fallback handler processed the record |
-| `outbox.handler.id` | handler id | `outbox.record.process` | Handler identifier stored with the outbox record |
+| Tag key                | Values                              | Used by                 | Description                                                  |
+|------------------------|-------------------------------------|-------------------------|--------------------------------------------------------------|
+| `outbox.channel`       | channel name, defaults to `default` | all outbox metrics      | Logical outbox channel                                       |
+| `outbox.record.status` | `new`, `failed`, `completed`        | `outbox.records`        | Record status                                                |
+| `outbox.handler.kind`  | `primary`, `fallback`               | `outbox.record.process` | Whether the primary or fallback handler processed the record |
+| `outbox.handler.id`    | handler id                          | `outbox.record.process` | Handler identifier stored with the outbox record             |
 
 ### High-Cardinality Observation Keys
 
 High-cardinality keys are intended for traces and log correlation. Do not promote them to metric
 dimensions unless you fully control their cardinality.
 
-| Key | Used by | Description |
-|-----|---------|-------------|
-| `outbox.record.id` | `outbox.record.process` | Unique outbox record id |
-| `outbox.record.key` | `outbox.record.process` | Business key used for ordering and partitioning |
-| `outbox.delivery.attempt` | `outbox.record.process` | Current delivery attempt (`failureCount + 1`) |
-| `outbox.schedule.record.key` | `outbox.record.schedule` | Explicit schedule key, or `auto-generated` for overloads without a key argument |
-| `outbox.schedule.payload.type` | `outbox.record.schedule` | Simple class name of the scheduled payload |
+| Key                            | Used by                  | Description                                                                     |
+|--------------------------------|--------------------------|---------------------------------------------------------------------------------|
+| `outbox.record.id`             | `outbox.record.process`  | Unique outbox record id                                                         |
+| `outbox.record.key`            | `outbox.record.process`  | Business key used for ordering and partitioning                                 |
+| `outbox.delivery.attempt`      | `outbox.record.process`  | Current delivery attempt (`failureCount + 1`)                                   |
+| `outbox.schedule.record.key`   | `outbox.record.schedule` | Explicit schedule key, or `auto-generated` for overloads without a key argument |
+| `outbox.schedule.payload.type` | `outbox.record.schedule` | Simple class name of the scheduled payload                                      |
 
 ## Tracing
 
