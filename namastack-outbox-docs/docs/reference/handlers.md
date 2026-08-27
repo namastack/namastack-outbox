@@ -200,6 +200,9 @@ leave pending records pointing to an ID that a later deployment no longer provid
 
 ### Annotation-based Identity
 
+<Tabs>
+<TabItem value="kotlin" label="Kotlin">
+
 ```kotlin
 @OutboxHandler(
     id = "orders.publish-created",
@@ -209,6 +212,9 @@ fun handleOrderCreated(payload: OrderCreatedRecord) {
     eventPublisher.publish(payload)
 }
 ```
+
+</TabItem>
+<TabItem value="java" label="Java">
 
 ```java
 @OutboxHandler(
@@ -220,10 +226,16 @@ public void handleOrderCreated(OrderCreatedRecord payload) {
 }
 ```
 
+</TabItem>
+</Tabs>
+
 ### Interface-based Identity
 
 Return an `OutboxHandlerIdentity` from the role-specific identity method. Typed handlers use
 `getTypedHandlerIdentity()` and generic handlers use `getGenericHandlerIdentity()`.
+
+<Tabs>
+<TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
 @Component
@@ -239,6 +251,9 @@ class OrderCreatedHandler : OutboxTypedHandler<OrderCreatedRecord> {
     }
 }
 ```
+
+</TabItem>
+<TabItem value="java" label="Java">
 
 ```java
 @Component
@@ -257,6 +272,9 @@ public class OrderCreatedHandler implements OutboxTypedHandler<OrderCreatedRecor
     }
 }
 ```
+
+</TabItem>
+</Tabs>
 
 Aliases are lookup-only: they resolve existing records but are never written to new records and do
 not create additional handler invocations. Use an alias only when both IDs represent the same
