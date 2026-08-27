@@ -5,6 +5,7 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import Head from '@docusaurus/Head';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
+import HomepageContent from '@site/src/components/HomepageContent';
 import HowItWorks from "@site/src/components/HowItWorks";
 import ModulithPromotion from "@site/src/components/ModulithPromotion";
 import SponsorSection from "@site/src/components/SponsorSection";
@@ -85,18 +86,19 @@ function HomepageHeader() {
 }
 
 export default function Home(): ReactNode {
-  const {siteConfig} = useDocusaurusContext();
   return (
     <Layout
-      title={`${siteConfig.title}`}
-      description="Official documentation for Namastack Outbox - a reliable transactional messaging solution implementing the Outbox Pattern for distributed systems. Learn installation, configuration, integrations, and best practices for building consistent, event-driven architectures.">
+      title="Transactional Outbox for Spring Boot"
+      description="Namastack Outbox is an open-source transactional outbox library for Spring Boot with reliable event delivery, ordering, retries and horizontal scaling.">
       <Head>
+        <link rel="canonical" href="https://www.namastack.io/outbox/" />
         <script type="application/ld+json">
           {JSON.stringify(structuredData)}
         </script>
       </Head>
       <HomepageHeader />
       <main>
+        <HomepageContent />
         <HomepageFeatures />
         <ModulithPromotion />
         <HowItWorks />

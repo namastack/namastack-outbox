@@ -22,7 +22,7 @@ No custom `OutboxContextProvider` bean is needed.
 **See the Observability guide for full details.**
 
 For observations, tracing, and the zero-configuration tracing module, see the
-[Observability](observability.md#observations--tracing) section.
+[Observability](observability.md#tracing) section.
 :::
 
 ---

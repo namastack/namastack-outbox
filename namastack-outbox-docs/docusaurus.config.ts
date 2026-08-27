@@ -25,7 +25,7 @@ const sitemapIgnorePatterns = [
 
 const config: Config = {
   title: 'Namastack Outbox',
-  tagline: 'for Spring Boot',
+  tagline: 'Transactional Outbox for Spring Boot',
   favicon: 'img/favicon.png',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
