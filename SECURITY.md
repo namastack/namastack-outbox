@@ -2,14 +2,16 @@
 
 ## Supported Versions
 
-Security updates are provided for the two most recent stable releases.
+Security updates are provided for the current Namastack Outbox release line and
+the supported Spring Modulith integration release line. Users should run the
+latest available patch release in their selected line.
 
-| Version | Supported          |
-|---------|--------------------|
-| 1.9.x   | :white_check_mark: |
-| 1.8.x   | :x:                |
-| 1.7.x   | :white_check_mark: |
-| < 1.7   | :x:                |
+| Version           | Status                                     | Supported          |
+|-------------------|--------------------------------------------|--------------------|
+| 1.9.x             | Current release line (starting with 1.9.0) | :white_check_mark: |
+| 1.8.x             | End of security support                    | :x:                |
+| 1.7.x             | Spring Modulith integration line           | :white_check_mark: |
+| 1.6.x and earlier | End of security support                    | :x:                |
 
 ## Reporting a Vulnerability
 
