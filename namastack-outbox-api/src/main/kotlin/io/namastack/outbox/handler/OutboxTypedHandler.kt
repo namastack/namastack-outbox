@@ -40,6 +40,16 @@ package io.namastack.outbox.handler
  */
 interface OutboxTypedHandler<T> {
     /**
+     * Returns the optional stable identity of this typed handler declaration.
+     *
+     * `null` retains the generated ID, or the Spring bean name for a lambda. To migrate an ID,
+     * deploy the future ID as an alias before promoting it to the canonical ID.
+     *
+     * @return The typed handler identity, or `null` to use the generated identity
+     */
+    fun getTypedHandlerIdentity(): OutboxHandlerIdentity? = null
+
+    /**
      * Handles an outbox record with payload and metadata.
      *
      * @param payload The record payload of type [T]

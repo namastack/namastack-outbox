@@ -2,6 +2,8 @@ package io.namastack.outbox.retry
 
 import io.mockk.every
 import io.mockk.mockk
+import io.namastack.outbox.handler.assembly.HandlerRegistration
+import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -18,6 +20,7 @@ import java.time.Duration
 @DisplayName("OutboxRetryPolicyRegistry")
 class OutboxRetryPolicyRegistryTest {
     private lateinit var beanFactory: BeanFactory
+    private lateinit var handlerRegistry: OutboxHandlerRegistry
     private lateinit var defaultRetryPolicy: OutboxRetryPolicy
     private lateinit var registry: OutboxRetryPolicyRegistry
 
@@ -28,52 +31,18 @@ class OutboxRetryPolicyRegistryTest {
             mockk<ListableBeanFactory> {
                 every { getBean<OutboxRetryPolicy>("outboxRetryPolicy") } returns defaultRetryPolicy
             }
-        registry = OutboxRetryPolicyRegistry(beanFactory)
-    }
-
-    @Nested
-    @DisplayName("register()")
-    inner class RegisterTests {
-        @Test
-        fun `should register retry policy for handler ID`() {
-            val policy = createMockRetryPolicy("custom-policy")
-
-            registry.register("handler-1", policy)
-
-            assertThat(registry.getByHandlerId("handler-1")).isEqualTo(policy)
-        }
-
-        @Test
-        fun `should allow overwriting policy for same handler ID`() {
-            val policy1 = createMockRetryPolicy("policy-1")
-            val policy2 = createMockRetryPolicy("policy-2")
-
-            registry.register("handler-1", policy1)
-            registry.register("handler-1", policy2)
-
-            assertThat(registry.getByHandlerId("handler-1")).isEqualTo(policy2)
-        }
-
-        @Test
-        fun `should register multiple policies for different handler IDs`() {
-            val policy1 = createMockRetryPolicy("policy-1")
-            val policy2 = createMockRetryPolicy("policy-2")
-
-            registry.register("handler-1", policy1)
-            registry.register("handler-2", policy2)
-
-            assertThat(registry.getByHandlerId("handler-1")).isEqualTo(policy1)
-            assertThat(registry.getByHandlerId("handler-2")).isEqualTo(policy2)
-        }
+        handlerRegistry = mockk()
+        every { handlerRegistry.getRegistrationById(any()) } returns null
+        registry = OutboxRetryPolicyRegistry(beanFactory, handlerRegistry)
     }
 
     @Nested
     @DisplayName("getByHandlerId()")
     inner class GetByHandlerIdTests {
         @Test
-        fun `should return registered policy for handler ID`() {
+        fun `should return explicit policy from complete handler registration`() {
             val policy = createMockRetryPolicy("custom-policy")
-            registry.register("handler-1", policy)
+            every { handlerRegistry.getRegistrationById("handler-1") } returns registrationWith(policy)
 
             val result = registry.getByHandlerId("handler-1")
 
@@ -92,6 +61,26 @@ class OutboxRetryPolicyRegistryTest {
             val result = registry.getByHandlerId("any-handler")
 
             assertThat(result).isEqualTo(defaultRetryPolicy)
+        }
+
+        @Test
+        fun `backed registry resolves canonical ID and alias without copying policy locally`() {
+            val handlerRegistry = mockk<OutboxHandlerRegistry>()
+            val policy = createMockRetryPolicy("registration-policy")
+            val registration =
+                mockk<HandlerRegistration> {
+                    every { explicitRetryPolicy } returns policy
+                }
+            every { handlerRegistry.getRegistrationById("stable-id") } returns registration
+            every { handlerRegistry.getRegistrationById("legacy-id") } returns registration
+            val registry = OutboxRetryPolicyRegistry(beanFactory, handlerRegistry)
+
+            assertThat(registry.getByHandlerId("stable-id")).isSameAs(policy)
+            assertThat(registry.getByHandlerId("legacy-id")).isSameAs(policy)
+
+            every { handlerRegistry.getRegistrationById(any()) } returns null
+            assertThat(registry.getByHandlerId("stable-id")).isSameAs(defaultRetryPolicy)
+            assertThat(registry.getByHandlerId("legacy-id")).isSameAs(defaultRetryPolicy)
         }
     }
 
@@ -130,7 +119,7 @@ class OutboxRetryPolicyRegistryTest {
                     "policy2" to createMockRetryPolicy("p2"),
                 )
 
-            val registry = OutboxRetryPolicyRegistry(beanFactory)
+            val registry = OutboxRetryPolicyRegistry(beanFactory, handlerRegistry)
 
             assertThatThrownBy {
                 registry.getRetryPolicy("unknownPolicy")
@@ -146,7 +135,7 @@ class OutboxRetryPolicyRegistryTest {
                 NoSuchBeanDefinitionException("unknownPolicy")
             every { beanFactory.getBeansOfType<OutboxRetryPolicy>() } returns emptyMap()
 
-            val registry = OutboxRetryPolicyRegistry(beanFactory)
+            val registry = OutboxRetryPolicyRegistry(beanFactory, handlerRegistry)
 
             assertThatThrownBy {
                 registry.getRetryPolicy("unknownPolicy")
@@ -160,7 +149,7 @@ class OutboxRetryPolicyRegistryTest {
             every { simpleBeanFactory.getBean<OutboxRetryPolicy>("unknownPolicy") } throws
                 NoSuchBeanDefinitionException("unknownPolicy")
 
-            val registry = OutboxRetryPolicyRegistry(simpleBeanFactory)
+            val registry = OutboxRetryPolicyRegistry(simpleBeanFactory, handlerRegistry)
 
             assertThatThrownBy {
                 registry.getRetryPolicy("unknownPolicy")
@@ -193,7 +182,7 @@ class OutboxRetryPolicyRegistryTest {
                     "defaultPolicy" to createMockRetryPolicy("default"),
                 )
 
-            val registry = OutboxRetryPolicyRegistry(beanFactory)
+            val registry = OutboxRetryPolicyRegistry(beanFactory, handlerRegistry)
 
             assertThatThrownBy {
                 registry.getRetryPolicy(AggressiveRetryPolicy::class)
@@ -209,7 +198,7 @@ class OutboxRetryPolicyRegistryTest {
             every { beanFactory.getBean(AggressiveRetryPolicy::class.java) } throws
                 IllegalStateException("Multiple beans found")
 
-            val registry = OutboxRetryPolicyRegistry(beanFactory)
+            val registry = OutboxRetryPolicyRegistry(beanFactory, handlerRegistry)
 
             assertThatThrownBy {
                 registry.getRetryPolicy(AggressiveRetryPolicy::class)
@@ -222,7 +211,7 @@ class OutboxRetryPolicyRegistryTest {
             every { simpleBeanFactory.getBean(AggressiveRetryPolicy::class.java) } throws
                 NoSuchBeanDefinitionException(AggressiveRetryPolicy::class.java, "Not found")
 
-            val registry = OutboxRetryPolicyRegistry(simpleBeanFactory)
+            val registry = OutboxRetryPolicyRegistry(simpleBeanFactory, handlerRegistry)
 
             assertThatThrownBy {
                 registry.getRetryPolicy(AggressiveRetryPolicy::class)
@@ -235,9 +224,9 @@ class OutboxRetryPolicyRegistryTest {
     @DisplayName("getRetryPolicyForHandler()")
     inner class GetRetryPolicyForHandlerTests {
         @Test
-        fun `should return registered policy for handler`() {
+        fun `should return explicit policy for handler`() {
             val policy = createMockRetryPolicy("custom-policy")
-            registry.register("handler-1", policy)
+            every { handlerRegistry.getRegistrationById("handler-1") } returns registrationWith(policy)
 
             val result = registry.getByHandlerId("handler-1")
 
@@ -257,6 +246,11 @@ class OutboxRetryPolicyRegistryTest {
         mockk<OutboxRetryPolicy>(name = name) {
             every { shouldRetry(any()) } returns true
             every { nextDelay(any()) } returns Duration.ofSeconds(1)
+        }
+
+    private fun registrationWith(policy: OutboxRetryPolicy): HandlerRegistration =
+        mockk {
+            every { explicitRetryPolicy } returns policy
         }
 
     // Test policy implementations

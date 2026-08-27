@@ -5,86 +5,35 @@ import io.namastack.outbox.handler.method.fallback.OutboxFallbackHandlerMethod
 /**
  * Registry that stores and retrieves fallback handler methods with a 1:1 mapping to their corresponding handlers.
  *
- * Each handler can have at most one fallback handler, stored by the handler's unique ID.
- * This ensures that when a handler fails after retry exhaustion, the correct fallback is invoked.
+ * This compatibility facade keeps the processor boundary unchanged while reading fallbacks from
+ * complete registrations owned by [OutboxHandlerRegistry]. Canonical IDs and aliases therefore
+ * always resolve through the same routing source.
  *
- * Fallback handlers are registered from two sources:
- * 1. @OutboxFallbackHandler annotated methods (discovered by AnnotatedFallbackHandlerScanner)
- * 2. OutboxHandlerWithFallback/OutboxTypedHandlerWithFallback interface implementations (discovered by InterfaceFallbackHandlerScanner)
+ * @param handlerRegistry Registry owning the complete handler registrations
  *
  * @author Roland Beisel
  * @since 1.0.0
  */
-class OutboxFallbackHandlerRegistry {
+class OutboxFallbackHandlerRegistry internal constructor(
+    private val handlerRegistry: OutboxHandlerRegistry,
+) {
     /**
-     * Map of fallback handlers indexed by their corresponding handler's unique ID.
+     * Checks whether a fallback handler is registered for a canonical ID or alias.
      *
-     * Maintains a strict 1:1 relationship between handlers and fallback handlers.
-     * When a handler fails after all retries are exhausted, this map is used to find
-     * the specific fallback handler to invoke using the handler's ID from metadata.handlerId.
-     */
-    private val fallbackHandlersByHandlerId = mutableMapOf<String, OutboxFallbackHandlerMethod>()
-
-    /**
-     * Checks whether a fallback handler is registered for the given handler ID.
-     *
-     * @param id The unique handler ID (from metadata.handlerId)
+     * @param id Canonical handler ID or lookup alias
      * @return `true` if a fallback handler is registered for the given ID, `false` otherwise
      */
-    fun existsByHandlerId(id: String): Boolean = fallbackHandlersByHandlerId.containsKey(id)
+    fun existsByHandlerId(id: String): Boolean = getByHandlerId(id) != null
 
     /**
-     * Retrieves the fallback handler for a specific handler by its unique ID.
+     * Retrieves the fallback handler for a canonical ID or alias.
      *
      * Used by the outbox processing scheduler to find the fallback handler to invoke
      * when a handler fails after all retry attempts are exhausted or when a non-retryable
      * exception occurs.
      *
-     * @param id The unique handler ID (from metadata.handlerId)
+     * @param id Canonical handler ID or lookup alias
      * @return The fallback handler for this handler, or null if no fallback is registered
      */
-    fun getByHandlerId(id: String): OutboxFallbackHandlerMethod? = fallbackHandlersByHandlerId[id]
-
-    /**
-     * Registers a fallback handler for a specific handler.
-     *
-     * Establishes a 1:1 relationship between a handler and its fallback handler.
-     * Each handler can have at most one fallback handler. If a fallback is already
-     * registered for the given handler ID, an IllegalStateException is thrown.
-     *
-     * The fallback handler will be invoked when:
-     * - The handler has exhausted all retry attempts (failureCount > maxRetries)
-     * - The handler threw a non-retryable exception according to the retry policy
-     *
-     * @param handlerId The unique ID of the handler that this fallback belongs to
-     * @param fallbackHandlerMethod The fallback handler method to register
-     * @throws IllegalStateException if a fallback handler is already registered for this handler ID
-     */
-    internal fun register(
-        handlerId: String,
-        fallbackHandlerMethod: OutboxFallbackHandlerMethod,
-    ) {
-        check(fallbackHandlersByHandlerId.putIfAbsent(handlerId, fallbackHandlerMethod) == null) {
-            "Multiple fallback handlers for handler ID detected: $handlerId"
-        }
-    }
-
-    /**
-     * Registers a legacy alias ID that points to the same fallback handler.
-     *
-     * Used for backward compatibility when handler IDs in existing database records
-     * were generated using CGLIB proxy class names.
-     *
-     * @param aliasId The legacy handler ID to register as an alias
-     * @param fallbackHandlerMethod The fallback handler method this alias should resolve to
-     * @throws IllegalStateException if the alias ID is already registered
-     */
-    internal fun registerAlias(
-        aliasId: String,
-        fallbackHandlerMethod: OutboxFallbackHandlerMethod,
-    ) {
-        check(fallbackHandlersByHandlerId.putIfAbsent(aliasId, fallbackHandlerMethod) == null) {
-            "Duplicate fallback alias ID detected: $aliasId"
-        }
-    }
+    fun getByHandlerId(id: String): OutboxFallbackHandlerMethod? = handlerRegistry.getRegistrationById(id)?.fallback
 }

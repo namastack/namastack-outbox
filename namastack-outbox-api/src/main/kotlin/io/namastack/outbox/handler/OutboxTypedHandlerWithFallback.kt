@@ -12,7 +12,7 @@ package io.namastack.outbox.handler
  * ```kotlin
  * @Component
  * class OrderCreatedHandler : OutboxTypedHandlerWithFallback<OrderCreatedEvent> {
- *     override fun handle(payload: OrderCreatedEvent) {
+ *     override fun handle(payload: OrderCreatedEvent, metadata: OutboxRecordMetadata) {
  *         eventBus.publish(payload)
  *     }
  *

@@ -1,7 +1,9 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.annotation.OutboxHandler
+import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.handler.OutboxTypedHandler
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
@@ -27,6 +29,8 @@ import java.util.concurrent.TimeUnit.SECONDS
     AnnotatedHandlerIntegrationTest.MultipleInterfacesHandler::class,
     AnnotatedHandlerIntegrationTest.OverloadedMethodsHandler::class,
     AnnotatedHandlerIntegrationTest.MetadataParameterHandler::class,
+    AnnotatedHandlerIntegrationTest.WithoutMetadataHandler::class,
+    AnnotatedHandlerIntegrationTest.MixedDefinitionHandler::class,
 )
 class AnnotatedHandlerIntegrationTest {
     @Autowired
@@ -154,6 +158,34 @@ class AnnotatedHandlerIntegrationTest {
             }
     }
 
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `test typed annotated handler without metadata parameter`() {
+        outbox.schedule(WithoutMetadataEvent("without-metadata"), "key10")
+
+        await()
+            .atMost(10, SECONDS)
+            .untilAsserted {
+                assertThat(handledEvents["WithoutMetadataHandler"]).containsExactly("without-metadata")
+                assertThat(recordRepository.findFailedRecords()).isEmpty()
+            }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `test different annotation and interface methods on the same bean`() {
+        outbox.schedule(MixedInterfaceEvent("interface-method"), "key11")
+        outbox.schedule(MixedAnnotationEvent("annotation-method"), "key12")
+
+        await()
+            .atMost(10, SECONDS)
+            .untilAsserted {
+                assertThat(handledEvents["MixedDefinitionHandler-interface"]).containsExactly("interface-method")
+                assertThat(handledEvents["MixedDefinitionHandler-annotation"]).containsExactly("annotation-method")
+                assertThat(recordRepository.findFailedRecords()).isEmpty()
+            }
+    }
+
     private fun cleanupTables() {
         transactionTemplate.executeWithoutResult {
             entityManager.createQuery("DELETE FROM OutboxRecordEntity").executeUpdate()
@@ -202,6 +234,18 @@ class AnnotatedHandlerIntegrationTest {
     ) : BaseEvent
 
     data class MetadataEvent(
+        val value: String,
+    ) : BaseEvent
+
+    data class WithoutMetadataEvent(
+        val value: String,
+    ) : BaseEvent
+
+    data class MixedInterfaceEvent(
+        val value: String,
+    ) : BaseEvent
+
+    data class MixedAnnotationEvent(
         val value: String,
     ) : BaseEvent
 
@@ -363,6 +407,31 @@ class AnnotatedHandlerIntegrationTest {
                     recordEvent("MetadataParameterHandler-handlerId", metadata.handlerId)
                 }
             }
+        }
+    }
+
+    @Component
+    class WithoutMetadataHandler {
+        @OutboxHandler(id = "annotation-without-metadata")
+        fun handle(event: WithoutMetadataEvent) {
+            recordEvent("WithoutMetadataHandler", event.value)
+        }
+    }
+
+    @Component
+    class MixedDefinitionHandler : OutboxTypedHandler<MixedInterfaceEvent> {
+        override fun getTypedHandlerIdentity() = OutboxHandlerIdentity("mixed-interface")
+
+        override fun handle(
+            payload: MixedInterfaceEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
+            recordEvent("MixedDefinitionHandler-interface", payload.value)
+        }
+
+        @OutboxHandler(id = "mixed-annotation")
+        fun handleAnnotated(payload: MixedAnnotationEvent) {
+            recordEvent("MixedDefinitionHandler-annotation", payload.value)
         }
     }
 

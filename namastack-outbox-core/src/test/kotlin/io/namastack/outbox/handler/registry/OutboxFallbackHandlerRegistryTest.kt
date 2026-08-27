@@ -1,149 +1,62 @@
 package io.namastack.outbox.handler.registry
 
+import io.mockk.every
 import io.mockk.mockk
+import io.namastack.outbox.handler.assembly.HandlerRegistration
 import io.namastack.outbox.handler.method.fallback.OutboxFallbackHandlerMethod
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 @DisplayName("OutboxFallbackHandlerRegistry")
 class OutboxFallbackHandlerRegistryTest {
+    private lateinit var handlerRegistry: OutboxHandlerRegistry
     private lateinit var registry: OutboxFallbackHandlerRegistry
 
     @BeforeEach
     fun setUp() {
-        registry = OutboxFallbackHandlerRegistry()
+        handlerRegistry = mockk()
+        every { handlerRegistry.getRegistrationById(any()) } returns null
+        registry = OutboxFallbackHandlerRegistry(handlerRegistry)
     }
 
     @Test
-    fun `registers fallback handler for handler ID`() {
-        val handlerId = "handler-1"
-        val fallbackHandler = mockk<OutboxFallbackHandlerMethod>()
+    fun `returns fallback from complete handler registration`() {
+        val fallback = mockk<OutboxFallbackHandlerMethod>()
+        every { handlerRegistry.getRegistrationById("handler-id") } returns registrationWith(fallback)
 
-        registry.register(handlerId, fallbackHandler)
-
-        val result = registry.getByHandlerId(handlerId)
-        assertThat(result).isSameAs(fallbackHandler)
+        assertThat(registry.getByHandlerId("handler-id")).isSameAs(fallback)
+        assertThat(registry.existsByHandlerId("handler-id")).isTrue()
     }
 
     @Test
-    fun `registers multiple fallback handlers for different handler IDs`() {
-        val handlerId1 = "handler-1"
-        val handlerId2 = "handler-2"
-        val fallbackHandler1 = mockk<OutboxFallbackHandlerMethod>()
-        val fallbackHandler2 = mockk<OutboxFallbackHandlerMethod>()
+    fun `canonical ID and alias resolve the same fallback`() {
+        val fallback = mockk<OutboxFallbackHandlerMethod>()
+        val registration = registrationWith(fallback)
+        every { handlerRegistry.getRegistrationById("stable-id") } returns registration
+        every { handlerRegistry.getRegistrationById("legacy-id") } returns registration
 
-        registry.register(handlerId1, fallbackHandler1)
-        registry.register(handlerId2, fallbackHandler2)
-
-        assertThat(registry.getByHandlerId(handlerId1)).isSameAs(fallbackHandler1)
-        assertThat(registry.getByHandlerId(handlerId2)).isSameAs(fallbackHandler2)
+        assertThat(registry.getByHandlerId("stable-id")).isSameAs(fallback)
+        assertThat(registry.getByHandlerId("legacy-id")).isSameAs(fallback)
     }
 
     @Test
-    fun `returns true when fallback handler registered for handler ID`() {
-        val handlerId = "handler-1"
-        val fallbackHandler = mockk<OutboxFallbackHandlerMethod>()
-
-        registry.register(handlerId, fallbackHandler)
-
-        val result = registry.existsByHandlerId(handlerId)
-
-        assertThat(result).isTrue()
+    fun `returns null and false when handler ID is unknown`() {
+        assertThat(registry.getByHandlerId("unknown-id")).isNull()
+        assertThat(registry.existsByHandlerId("unknown-id")).isFalse()
     }
 
     @Test
-    fun `returns false when no fallback handler registered for handler ID via exists check`() {
-        val result = registry.existsByHandlerId("non-existent-handler")
+    fun `returns null and false when registration has no fallback`() {
+        every { handlerRegistry.getRegistrationById("handler-id") } returns registrationWith(null)
 
-        assertThat(result).isFalse()
+        assertThat(registry.getByHandlerId("handler-id")).isNull()
+        assertThat(registry.existsByHandlerId("handler-id")).isFalse()
     }
 
-    @Test
-    fun `returns null when no fallback handler registered for handler ID`() {
-        val result = registry.getByHandlerId("non-existent-handler")
-
-        assertThat(result).isNull()
-    }
-
-    @Test
-    fun `throws IllegalStateException when registering duplicate fallback for same handler ID`() {
-        val handlerId = "handler-1"
-        val fallbackHandler1 = mockk<OutboxFallbackHandlerMethod>()
-        val fallbackHandler2 = mockk<OutboxFallbackHandlerMethod>()
-
-        registry.register(handlerId, fallbackHandler1)
-
-        assertThatThrownBy {
-            registry.register(handlerId, fallbackHandler2)
-        }.isInstanceOf(IllegalStateException::class.java)
-            .hasMessageContaining("Multiple fallback handlers for handler ID detected")
-            .hasMessageContaining(handlerId)
-    }
-
-    @Test
-    fun `maintains 1 to 1 mapping between handler ID and fallback handler`() {
-        val handlerId = "handler-1"
-        val fallbackHandler = mockk<OutboxFallbackHandlerMethod>()
-
-        registry.register(handlerId, fallbackHandler)
-
-        val result1 = registry.getByHandlerId(handlerId)
-        val result2 = registry.getByHandlerId(handlerId)
-
-        assertThat(result1).isSameAs(fallbackHandler)
-        assertThat(result2).isSameAs(fallbackHandler)
-        assertThat(result1).isSameAs(result2)
-    }
-
-    @Test
-    fun `returns null after registering fallback for different handler ID`() {
-        val handlerId1 = "handler-1"
-        val fallbackHandler = mockk<OutboxFallbackHandlerMethod>()
-
-        registry.register(handlerId1, fallbackHandler)
-
-        val result = registry.getByHandlerId("handler-2")
-        assertThat(result).isNull()
-    }
-
-    @Test
-    fun `registers alias and allows lookup by alias ID`() {
-        val handlerId = "stable-id"
-        val aliasId = "legacy-id"
-        val fallbackHandler = mockk<OutboxFallbackHandlerMethod>()
-
-        registry.register(handlerId, fallbackHandler)
-        registry.registerAlias(aliasId, fallbackHandler)
-
-        assertThat(registry.getByHandlerId(aliasId)).isSameAs(fallbackHandler)
-        assertThat(registry.getByHandlerId(handlerId)).isSameAs(fallbackHandler)
-    }
-
-    @Test
-    fun `alias throws on duplicate ID`() {
-        val handlerId = "handler-1"
-        val fallbackHandler1 = mockk<OutboxFallbackHandlerMethod>()
-        val fallbackHandler2 = mockk<OutboxFallbackHandlerMethod>()
-
-        registry.register(handlerId, fallbackHandler1)
-
-        assertThatThrownBy { registry.registerAlias(handlerId, fallbackHandler2) }
-            .isInstanceOf(IllegalStateException::class.java)
-    }
-
-    @Test
-    fun `allows registering same fallback handler instance for different handler IDs`() {
-        val handlerId1 = "handler-1"
-        val handlerId2 = "handler-2"
-        val sameFallbackHandler = mockk<OutboxFallbackHandlerMethod>()
-
-        registry.register(handlerId1, sameFallbackHandler)
-        registry.register(handlerId2, sameFallbackHandler)
-
-        assertThat(registry.getByHandlerId(handlerId1)).isSameAs(sameFallbackHandler)
-        assertThat(registry.getByHandlerId(handlerId2)).isSameAs(sameFallbackHandler)
-    }
+    private fun registrationWith(fallback: OutboxFallbackHandlerMethod?): HandlerRegistration =
+        mockk {
+            every { this@mockk.fallback } returns fallback
+        }
 }

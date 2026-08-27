@@ -51,6 +51,8 @@ Thank you for supporting open source!
 - **Horizontal Scaling** - Partitioned processing with automatic rebalancing across 256 partitions.
 - **Flexible Handler Model** - Annotation-based (`@OutboxHandler`) or interface-based (
   `OutboxTypedHandler<T>`) handlers.
+- **Stable Handler Routing** - Explicit handler IDs and migration aliases keep persisted records
+  routable across refactorings and rolling deployments.
 - **Fallback & Dead Letter** - Graceful degradation with `@OutboxFallbackHandler` when all retries
   are exhausted.
 - **Context Propagation** - Trace IDs, tenant info, and correlation IDs flow automatically across
@@ -82,7 +84,8 @@ Seamlessly externalize events with full support for retry, partitioning, observa
 
 ## Documentation
 
-For detailed information about features, configuration, and advanced topics, visit the **[complete documentation](https://www.namastack.io/outbox)**.
+For detailed information about features, configuration, and advanced topics, visit
+the **[complete documentation](https://www.namastack.io/outbox/)**.
 
 Quick links:
 
@@ -139,12 +142,12 @@ dependencies {
 ```kotlin
 @Component
 class OrderHandlers {
-    @OutboxHandler
+    @OutboxHandler(id = "orders.publish-created")
     fun handleOrder(payload: OrderCreatedEvent) {
         eventPublisher.publish(payload)
     }
 
-    @OutboxHandler
+    @OutboxHandler(id = "events.publish-generic")
     fun handleAny(payload: Any, metadata: OutboxRecordMetadata) {
         when (payload) {
             is OrderCreatedEvent -> eventPublisher.publish(payload)
@@ -165,6 +168,11 @@ class OrderHandlers {
 public class OrderHandler implements OutboxTypedHandler<OrderCreatedEvent> {
 
   @Override
+  public OutboxHandlerIdentity getTypedHandlerIdentity() {
+    return new OutboxHandlerIdentity("orders.publish-created", Set.of());
+  }
+
+  @Override
   public void handle(OrderCreatedEvent payload, OutboxRecordMetadata metadata) {
     eventPublisher.publish(payload);
   }
@@ -172,6 +180,13 @@ public class OrderHandler implements OutboxTypedHandler<OrderCreatedEvent> {
 ```
 
 </details>
+
+Handler IDs are persisted with outbox records and therefore form part of the durable routing
+contract. Define an explicit, implementation-independent ID for production handlers. Generated IDs
+remain available when no ID is configured, but class, method, or parameter refactorings can then
+orphan records created by an earlier deployment. Use aliases to migrate an existing ID safely.
+
+→ [Stable handler IDs and migration](https://www.namastack.io/outbox/reference/handlers/#stable-handler-identities)
 
 Handlers that accept `OutboxRecordMetadata` can inspect the current delivery state:
 `failureCount == 0` is the first attempt, `failureCount > 0` is a retry, `attempt` is
@@ -330,7 +345,7 @@ Process outbox records using annotation-based or interface-based handlers. Typed
 specific payload types; generic handlers catch all.
 
 ```kotlin
-@OutboxHandler
+@OutboxHandler(id = "orders.publish-created")
 fun handleOrder(payload: OrderCreatedEvent) { /* ... */
 }
 

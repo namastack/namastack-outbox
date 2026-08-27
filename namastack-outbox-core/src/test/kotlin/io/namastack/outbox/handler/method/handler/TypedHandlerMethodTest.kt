@@ -16,7 +16,7 @@ class TypedHandlerMethodTest {
         fun `should invoke handler with payload only`() {
             val handler = TestHandlerOneParam()
             val method = TestHandlerOneParam::class.java.getMethod("handle", String::class.java)
-            val typedHandler = TypedHandlerMethod(handler, method)
+            val typedHandler = TypedHandlerMethod(handler, method, canonicalId = "test-handler")
             val metadata = createMetadata()
 
             typedHandler.invoke("test-payload", metadata)
@@ -29,7 +29,7 @@ class TypedHandlerMethodTest {
         fun `should invoke handler with custom type payload only`() {
             val handler = TestHandlerOneParamCustomType()
             val method = TestHandlerOneParamCustomType::class.java.getMethod("handle", TestPayload::class.java)
-            val typedHandler = TypedHandlerMethod(handler, method)
+            val typedHandler = TypedHandlerMethod(handler, method, canonicalId = "test-handler")
             val metadata = createMetadata()
             val payload = TestPayload("test-id")
 
@@ -52,7 +52,7 @@ class TypedHandlerMethodTest {
                     String::class.java,
                     OutboxRecordMetadata::class.java,
                 )
-            val typedHandler = TypedHandlerMethod(handler, method)
+            val typedHandler = TypedHandlerMethod(handler, method, canonicalId = "test-handler")
             val metadata = createMetadata()
 
             typedHandler.invoke("test-payload", metadata)
@@ -70,7 +70,7 @@ class TypedHandlerMethodTest {
                     TestPayload::class.java,
                     OutboxRecordMetadata::class.java,
                 )
-            val typedHandler = TypedHandlerMethod(handler, method)
+            val typedHandler = TypedHandlerMethod(handler, method, canonicalId = "test-handler")
             val metadata = createMetadata()
             val payload = TestPayload("test-id")
 
@@ -88,7 +88,7 @@ class TypedHandlerMethodTest {
         fun `should extract String param type from 1-param method`() {
             val handler = TestHandlerOneParam()
             val method = TestHandlerOneParam::class.java.getMethod("handle", String::class.java)
-            val typedHandler = TypedHandlerMethod(handler, method)
+            val typedHandler = TypedHandlerMethod(handler, method, canonicalId = "test-handler")
 
             assertThat(typedHandler.paramType).isEqualTo(String::class)
         }
@@ -97,7 +97,7 @@ class TypedHandlerMethodTest {
         fun `should extract custom param type from 1-param method`() {
             val handler = TestHandlerOneParamCustomType()
             val method = TestHandlerOneParamCustomType::class.java.getMethod("handle", TestPayload::class.java)
-            val typedHandler = TypedHandlerMethod(handler, method)
+            val typedHandler = TypedHandlerMethod(handler, method, canonicalId = "test-handler")
 
             assertThat(typedHandler.paramType).isEqualTo(TestPayload::class)
         }
@@ -111,7 +111,7 @@ class TypedHandlerMethodTest {
                     String::class.java,
                     OutboxRecordMetadata::class.java,
                 )
-            val typedHandler = TypedHandlerMethod(handler, method)
+            val typedHandler = TypedHandlerMethod(handler, method, canonicalId = "test-handler")
 
             assertThat(typedHandler.paramType).isEqualTo(String::class)
         }
@@ -125,7 +125,7 @@ class TypedHandlerMethodTest {
                     TestPayload::class.java,
                     OutboxRecordMetadata::class.java,
                 )
-            val typedHandler = TypedHandlerMethod(handler, method)
+            val typedHandler = TypedHandlerMethod(handler, method, canonicalId = "test-handler")
 
             assertThat(typedHandler.paramType).isEqualTo(TestPayload::class)
         }
@@ -140,8 +140,9 @@ class TypedHandlerMethodTest {
         @Test
         fun `handler ID uses target class name not CGLIB proxy class name`() {
             val proxiedBean = createCglibProxy(targetBean)
-            val handlerFromTarget = TypedHandlerMethod(targetBean, method)
-            val handlerFromProxy = TypedHandlerMethod(proxiedBean, method)
+            val canonicalId = OutboxHandlerMethod.generatedId(targetBean, method)
+            val handlerFromTarget = TypedHandlerMethod(targetBean, method, canonicalId)
+            val handlerFromProxy = TypedHandlerMethod(proxiedBean, method, canonicalId)
 
             assertThat(handlerFromProxy.id).isEqualTo(handlerFromTarget.id)
         }
@@ -149,7 +150,8 @@ class TypedHandlerMethodTest {
         @Test
         fun `handler ID contains original class name not proxy class name`() {
             val proxiedBean = createCglibProxy(targetBean)
-            val handlerFromProxy = TypedHandlerMethod(proxiedBean, method)
+            val canonicalId = OutboxHandlerMethod.generatedId(targetBean, method)
+            val handlerFromProxy = TypedHandlerMethod(proxiedBean, method, canonicalId)
 
             assertThat(handlerFromProxy.id).contains("TestHandler")
             assertThat(handlerFromProxy.id).doesNotContain("CGLIB")
@@ -186,7 +188,7 @@ class TypedHandlerMethodTest {
 
             val handler = PackagePrivateHandler()
             val method = handler::class.java.getMethod("handle", String::class.java)
-            val typedHandler = TypedHandlerMethod(handler, method)
+            val typedHandler = TypedHandlerMethod(handler, method, canonicalId = "test-handler")
 
             typedHandler.invoke("edge-case", createMetadata())
             assertThat(handler.received).isEqualTo("edge-case")

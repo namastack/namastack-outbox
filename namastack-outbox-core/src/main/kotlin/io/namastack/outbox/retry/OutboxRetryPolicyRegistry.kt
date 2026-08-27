@@ -1,5 +1,6 @@
 package io.namastack.outbox.retry
 
+import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.ListableBeanFactory
 import org.springframework.beans.factory.getBean
@@ -7,31 +8,28 @@ import org.springframework.beans.factory.getBeansOfType
 import kotlin.reflect.KClass
 
 /**
- * Registry that manages retry policies for outbox handler methods.
+ * Resolves retry policies and provides handler-ID-based compatibility lookup.
  *
- * Stores the resolved retry policy for each handler method and provides
- * lookup capabilities during record processing. Acts as a central repository
- * for all retry policies in the outbox system.
+ * Handler-specific policies are read from complete registrations in [OutboxHandlerRegistry].
+ * Default and bean-based policy resolution remain owned here.
  *
- * Retry policies are resolved during handler registration (startup) using:
+ * Explicit retry policies are resolved during handler registration using:
  * 1. @OutboxRetryable annotation → loads Spring bean by name or class
  * 2. OutboxRetryAware interface → uses policy from handler
- * 3. Default policy from configuration
+ *
+ * The default policy is resolved lazily during record processing when neither source provides an
+ * explicit policy.
  *
  * @param beanFactory Spring bean factory for loading policy beans by name or class
+ * @param handlerRegistry Registry owning the complete handler registrations
  *
  * @author Roland Beisel
  * @since 1.0.0
  */
-class OutboxRetryPolicyRegistry(
+class OutboxRetryPolicyRegistry internal constructor(
     private val beanFactory: BeanFactory,
+    private val handlerRegistry: OutboxHandlerRegistry,
 ) {
-    /**
-     * Map of retry policies indexed by handler method ID.
-     * Populated during handler registration at application startup.
-     */
-    private val policiesById = mutableMapOf<String, OutboxRetryPolicy>()
-
     /**
      * Used as fallback during policy resolution when no specific policy
      * is configured via annotation or interface.
@@ -43,50 +41,17 @@ class OutboxRetryPolicyRegistry(
     }
 
     /**
-     * Registers a retry policy for a specific handler method.
-     *
-     * Called during handler registration to store the resolved policy.
-     * Each handler method has exactly one retry policy.
-     *
-     * @param handlerId Unique identifier of the handler method
-     * @param policy The retry policy to use for this handler
-     */
-    fun register(
-        handlerId: String,
-        policy: OutboxRetryPolicy,
-    ) {
-        policiesById[handlerId] = policy
-    }
-
-    /**
-     * Registers a legacy alias ID that points to the same retry policy.
-     *
-     * Used for backward compatibility when handler IDs in existing database records
-     * were generated using CGLIB proxy class names.
-     *
-     * @param aliasId The legacy handler ID to register as an alias
-     * @param policy The retry policy this alias should resolve to
-     * @throws IllegalStateException if the alias ID is already registered
-     */
-    fun registerAlias(
-        aliasId: String,
-        policy: OutboxRetryPolicy,
-    ) {
-        check(policiesById.putIfAbsent(aliasId, policy) == null) {
-            "Duplicate retry policy alias ID detected: $aliasId"
-        }
-    }
-
-    /**
      * Retrieves the retry policy for a specific handler method.
      *
-     * Returns the registered policy for the handler, or the default policy
-     * if no specific policy was registered (shouldn't happen in practice).
+     * The explicit policy stored in the complete handler registration is returned when present.
+     * Otherwise, the default policy is resolved lazily.
      *
      * @param handlerId Unique identifier of the handler method
-     * @return The retry policy for this handler, or default if not found
+     * @return The registered handler policy or the default policy
      */
-    fun getByHandlerId(handlerId: String): OutboxRetryPolicy = policiesById[handlerId] ?: defaultRetryPolicy
+    fun getByHandlerId(handlerId: String): OutboxRetryPolicy =
+        handlerRegistry.getRegistrationById(handlerId)?.explicitRetryPolicy
+            ?: defaultRetryPolicy
 
     /**
      * Retrieves a retry policy bean from the Spring context by name.

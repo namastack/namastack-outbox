@@ -8,6 +8,14 @@ import java.time.Instant
 @DisplayName("OutboxHandler")
 class OutboxHandlerTest {
     @Test
+    fun `identity configuration defaults retain generated identity without aliases`() {
+        val identity = OutboxHandlerIdentity()
+
+        assertThat(identity.id).isNull()
+        assertThat(identity.aliases).isEmpty()
+    }
+
+    @Test
     fun `supports defaults to true`() {
         val handler =
             object : OutboxHandler {
@@ -22,6 +30,39 @@ class OutboxHandlerTest {
         val supported = handler.supports("payload", metadata())
 
         assertThat(supported).isTrue()
+    }
+
+    @Test
+    fun `identity configuration defaults preserve generated identity behavior`() {
+        val handler =
+            object : OutboxHandler {
+                override fun handle(
+                    payload: Any,
+                    metadata: OutboxRecordMetadata,
+                ) = Unit
+            }
+
+        assertThat(handler.getGenericHandlerIdentity()).isNull()
+    }
+
+    @Test
+    fun `typed identity configuration defaults preserve generated identity behavior`() {
+        val handler =
+            object : OutboxTypedHandler<String> {
+                override fun handle(
+                    payload: String,
+                    metadata: OutboxRecordMetadata,
+                ) = Unit
+            }
+
+        assertThat(handler.getTypedHandlerIdentity()).isNull()
+    }
+
+    @Test
+    fun `legacy Java typed handler inherits identity defaults`() {
+        val handler = LegacyJavaTypedHandler()
+
+        assertThat(handler.getTypedHandlerIdentity()).isNull()
     }
 
     private fun metadata() =

@@ -58,11 +58,11 @@ class OutboxCoreInfrastructureAutoConfiguration {
     @ConditionalOnMissingBean
     fun outboxFallbackHandlerInvoker(
         retryPolicyRegistry: OutboxRetryPolicyRegistry,
-        outboxFallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
+        outboxHandlerRegistry: OutboxHandlerRegistry,
     ): OutboxFallbackHandlerInvoker =
         OutboxFallbackHandlerInvoker(
             retryPolicyRegistry = retryPolicyRegistry,
-            fallbackHandlerRegistry = outboxFallbackHandlerRegistry,
+            handlerRegistry = outboxHandlerRegistry,
         )
 
     @Bean
@@ -143,14 +143,18 @@ class OutboxCoreInfrastructureAutoConfiguration {
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
-        internal fun outboxFallbackHandlerRegistry(): OutboxFallbackHandlerRegistry = OutboxFallbackHandlerRegistry()
+        internal fun outboxFallbackHandlerRegistry(
+            handlerRegistry: OutboxHandlerRegistry,
+        ): OutboxFallbackHandlerRegistry = OutboxFallbackHandlerRegistry(handlerRegistry)
 
         @Bean
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
-        internal fun outboxRetryPolicyRegistry(beanFactory: BeanFactory): OutboxRetryPolicyRegistry =
-            OutboxRetryPolicyRegistry(beanFactory)
+        internal fun outboxRetryPolicyRegistry(
+            beanFactory: BeanFactory,
+            handlerRegistry: OutboxHandlerRegistry,
+        ): OutboxRetryPolicyRegistry = OutboxRetryPolicyRegistry(beanFactory, handlerRegistry)
 
         @Bean
         @ConditionalOnMissingBean
@@ -158,9 +162,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         @JvmStatic
         internal fun outboxHandlerBeanPostProcessor(
             handlerRegistry: OutboxHandlerRegistry,
-            fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
             retryPolicyRegistry: OutboxRetryPolicyRegistry,
-        ): OutboxHandlerBeanPostProcessor =
-            OutboxHandlerBeanPostProcessor(handlerRegistry, fallbackHandlerRegistry, retryPolicyRegistry)
+        ): OutboxHandlerBeanPostProcessor = OutboxHandlerBeanPostProcessor(handlerRegistry, retryPolicyRegistry)
     }
 }

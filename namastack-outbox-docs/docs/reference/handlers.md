@@ -21,7 +21,10 @@ The library provides two complementary handler interfaces for different use case
 ```kotlin
 @Component
 class OrderCreatedHandler : OutboxTypedHandler<OrderCreatedRecord> {
-    override fun handle(payload: OrderCreatedRecord) {
+    override fun getTypedHandlerIdentity() =
+        OutboxHandlerIdentity(id = "orders.publish-created")
+
+    override fun handle(payload: OrderCreatedRecord, metadata: OutboxRecordMetadata) {
         println("Processing order: ${payload.orderId}")
         eventPublisher.publish(payload)
     }
@@ -35,7 +38,12 @@ class OrderCreatedHandler : OutboxTypedHandler<OrderCreatedRecord> {
 @Component
 public class OrderCreatedHandler implements OutboxTypedHandler<OrderCreatedRecord> {
     @Override
-    public void handle(OrderCreatedRecord payload) {
+    public OutboxHandlerIdentity getTypedHandlerIdentity() {
+        return new OutboxHandlerIdentity("orders.publish-created", Set.of());
+    }
+
+    @Override
+    public void handle(OrderCreatedRecord payload, OutboxRecordMetadata metadata) {
         System.out.println("Processing order: " + payload.getOrderId());
         eventPublisher.publish(payload);
     }
@@ -53,6 +61,9 @@ public class OrderCreatedHandler implements OutboxTypedHandler<OrderCreatedRecor
 ```kotlin
 @Component
 class UniversalHandler : OutboxHandler {
+    override fun getGenericHandlerIdentity() =
+        OutboxHandlerIdentity(id = "events.publish-generic")
+
     override fun handle(payload: Any, metadata: OutboxRecordMetadata) {
         when (payload) {
             is OrderCreatedRecord -> handleOrder(payload)
@@ -70,6 +81,11 @@ class UniversalHandler : OutboxHandler {
 ```java
 @Component
 public class UniversalHandler implements OutboxHandler {
+    @Override
+    public OutboxHandlerIdentity getGenericHandlerIdentity() {
+        return new OutboxHandlerIdentity("events.publish-generic", Set.of());
+    }
+
     @Override
     public void handle(Object payload, OutboxRecordMetadata metadata) {
         if (payload instanceof OrderCreatedRecord) {
@@ -107,17 +123,17 @@ Use `@OutboxHandler` annotation for method-level handler registration as an alte
 ```kotlin
 @Component
 class MyHandlers {
-    @OutboxHandler
+    @OutboxHandler(id = "orders.publish-created")
     fun handleOrderCreated(payload: OrderCreatedRecord) {
         // ...
     }
 
-    @OutboxHandler
+    @OutboxHandler(id = "payments.publish-processed")
     fun handlePaymentProcessed(payload: PaymentProcessedRecord) {
         // ...
     }
     
-    @OutboxHandler
+    @OutboxHandler(id = "events.publish-generic")
     fun handleAny(payload: Any, metadata: OutboxRecordMetadata) {
         // Generic handler via annotation
     }
@@ -130,17 +146,17 @@ class MyHandlers {
 ```java
 @Component
 public class MyHandlers {
-    @OutboxHandler
+    @OutboxHandler(id = "orders.publish-created")
     public void handleOrderCreated(OrderCreatedRecord payload) {
         // ...
     }
 
-    @OutboxHandler
+    @OutboxHandler(id = "payments.publish-processed")
     public void handlePaymentProcessed(PaymentProcessedRecord payload) {
         // ...
     }
     
-    @OutboxHandler
+    @OutboxHandler(id = "events.publish-generic")
     public void handleAny(Object payload, OutboxRecordMetadata metadata) {
         // Generic handler via annotation
     }
@@ -166,6 +182,122 @@ public class MyHandlers {
 
 ---
 
+## Stable Handler Identities
+
+The handler ID is persisted on every outbox record and later used to route that record to its
+handler. It is therefore a durable contract between the database and the application, not merely a
+runtime implementation detail.
+
+**Define an explicit, stable ID for production handlers.** Prefer a name that describes the
+handler's logical responsibility, such as `orders.publish-created`, and keep it independent of Java
+or Kotlin package, class, method, and parameter names. Explicit handler IDs and aliases must be
+non-blank and unique across the application.
+
+When no explicit ID is configured, Namastack Outbox remains backward compatible and generates an ID
+from the handler's class, method, and parameter types. Lambda handlers use their Spring bean name.
+Generated IDs are convenient for prototypes, but refactoring any participating name or type can
+leave pending records pointing to an ID that a later deployment no longer provides.
+
+### Annotation-based Identity
+
+```kotlin
+@OutboxHandler(
+    id = "orders.publish-created",
+    aliases = ["orders.send-created"]
+)
+fun handleOrderCreated(payload: OrderCreatedRecord) {
+    eventPublisher.publish(payload)
+}
+```
+
+```java
+@OutboxHandler(
+    id = "orders.publish-created",
+    aliases = {"orders.send-created"}
+)
+public void handleOrderCreated(OrderCreatedRecord payload) {
+    eventPublisher.publish(payload);
+}
+```
+
+### Interface-based Identity
+
+Return an `OutboxHandlerIdentity` from the role-specific identity method. Typed handlers use
+`getTypedHandlerIdentity()` and generic handlers use `getGenericHandlerIdentity()`.
+
+```kotlin
+@Component
+class OrderCreatedHandler : OutboxTypedHandler<OrderCreatedRecord> {
+    override fun getTypedHandlerIdentity() =
+        OutboxHandlerIdentity(
+            id = "orders.publish-created",
+            aliases = setOf("orders.send-created")
+        )
+
+    override fun handle(payload: OrderCreatedRecord, metadata: OutboxRecordMetadata) {
+        eventPublisher.publish(payload)
+    }
+}
+```
+
+```java
+@Component
+public class OrderCreatedHandler implements OutboxTypedHandler<OrderCreatedRecord> {
+    @Override
+    public OutboxHandlerIdentity getTypedHandlerIdentity() {
+        return new OutboxHandlerIdentity(
+            "orders.publish-created",
+            Set.of("orders.send-created")
+        );
+    }
+
+    @Override
+    public void handle(OrderCreatedRecord payload, OutboxRecordMetadata metadata) {
+        eventPublisher.publish(payload);
+    }
+}
+```
+
+Aliases are lookup-only: they resolve existing records but are never written to new records and do
+not create additional handler invocations. Use an alias only when both IDs represent the same
+logical handler and a compatible payload contract. For an incompatible change in meaning or payload,
+introduce a new handler ID instead.
+
+### Migrating an ID Safely
+
+Changing an explicit ID during a rolling deployment requires two releases so that old and new
+application instances understand every ID that may be written:
+
+1. Keep the current ID canonical and add the future ID as an alias. Deploy this version everywhere.
+2. Promote the future ID to canonical and retain the previous ID as an alias.
+3. Remove the old alias only after no record can still contain it and no old application instance is
+   running.
+
+For example, release one uses:
+
+```kotlin
+@OutboxHandler(
+    id = "orders.send-created",
+    aliases = ["orders.publish-created"]
+)
+```
+
+Release two then uses:
+
+```kotlin
+@OutboxHandler(
+    id = "orders.publish-created",
+    aliases = ["orders.send-created"]
+)
+```
+
+The same two-release approach is recommended when moving from a generated ID to an explicit ID:
+first keep the generated ID by omitting `id` and add the future ID as an alias; in the next release,
+set the explicit ID. The generated ID is then retained automatically as a legacy alias where it can
+be reconstructed reliably.
+
+---
+
 ## OutboxRecordMetadata
 
 Handlers that accept `OutboxRecordMetadata` receive processing metadata for the current
@@ -186,7 +318,7 @@ processed by the same `@OutboxHandler` with `failureCount > 0`.
 <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-@OutboxHandler
+@OutboxHandler(id = "orders.send-email")
 fun handleOrder(payload: OrderEvent, metadata: OutboxRecordMetadata) {
     if (metadata.isRetry) {
         logger.info("Retrying order ${payload.orderId} on attempt ${metadata.attempt}")
@@ -199,7 +331,7 @@ fun handleOrder(payload: OrderEvent, metadata: OutboxRecordMetadata) {
 <TabItem value="java" label="Java">
 
 ```java
-@OutboxHandler
+@OutboxHandler(id = "orders.send-email")
 public void handleOrder(OrderEvent payload, OutboxRecordMetadata metadata) {
     if (metadata.isRetry()) {
         logger.info("Retrying order {} on attempt {}", payload.getOrderId(), metadata.getAttempt());
@@ -293,7 +425,7 @@ public class OrderFallbackHandler implements OutboxFallbackHandler<OrderEvent> {
 ```kotlin
 @Component
 class OrderHandlers {
-    @OutboxHandler
+    @OutboxHandler(id = "orders.send-email")
     fun handleOrder(payload: OrderEvent) {
         emailService.send(payload.email)  // May fail
     }
@@ -313,7 +445,7 @@ class OrderHandlers {
 ```java
 @Component
 public class OrderHandlers {
-    @OutboxHandler
+    @OutboxHandler(id = "orders.send-email")
     public void handleOrder(OrderEvent payload) {
         emailService.send(payload.getEmail());  // May fail
     }
@@ -391,11 +523,11 @@ Fallback handlers are automatically matched to primary handlers by payload type.
 @Component
 class OrderHandlers {
     // Both handlers share the same fallback
-    @OutboxHandler
+    @OutboxHandler(id = "orders.create")
     fun handleOrderCreated(payload: OrderEvent) {
         orderService.create(payload)
     }
-    @OutboxHandler
+    @OutboxHandler(id = "orders.update")
     fun handleOrderUpdated(payload: OrderEvent) {
         orderService.update(payload)
     }
@@ -414,11 +546,11 @@ class OrderHandlers {
 @Component
 public class OrderHandlers {
     // Both handlers share the same fallback
-    @OutboxHandler
+    @OutboxHandler(id = "orders.create")
     public void handleOrderCreated(OrderEvent payload) {
         orderService.create(payload);
     }
-    @OutboxHandler
+    @OutboxHandler(id = "orders.update")
     public void handleOrderUpdated(OrderEvent payload) {
         orderService.update(payload);
     }
