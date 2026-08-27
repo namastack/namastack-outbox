@@ -1,6 +1,7 @@
 package io.namastack.demo;
 
 import io.namastack.outbox.handler.OutboxHandler;
+import io.namastack.outbox.handler.OutboxHandlerIdentity;
 import io.namastack.outbox.handler.OutboxRecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +11,11 @@ import org.springframework.stereotype.Component;
 public class GenericOutboxHandler implements OutboxHandler {
 
   private static final Logger logger = LoggerFactory.getLogger(GenericOutboxHandler.class);
+
+  @Override
+  public OutboxHandlerIdentity getGenericHandlerIdentity() {
+    return new OutboxHandlerIdentity("events.publish-to-external-broker");
+  }
 
   @Override
   public void handle(Object payload, OutboxRecordMetadata metadata) {

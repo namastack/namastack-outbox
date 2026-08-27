@@ -65,3 +65,10 @@ Use the JDBC starter when:
 
 This example is perfect for getting started with Namastack Outbox using pure JDBC without the overhead of JPA.
 
+## Stable handler IDs
+
+The handlers define responsibility-based IDs that remain stable across class, method, and package
+renames:
+
+- `customers.send-registration-email` for the typed customer-registration handler
+- `events.publish-to-external-broker` for the generic event publisher

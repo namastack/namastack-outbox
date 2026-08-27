@@ -1,56 +1,47 @@
 # Namastack Outbox - Annotation-Based Handler Example
-This example is ideal for understanding annotation-based handler registration as an alternative to interface-based handlers.
 
-See `application.yml` for outbox and database configuration.
-
-## Configuration
-
-4. Remove customers and process removal events
-3. Process records via annotated handler methods
-2. Schedule outbox records
-1. Register two customers
-The application will:
-
-```
-./gradlew :namastack-outbox-example-annotation:bootRun
-```bash
-
-## Running the Example
-
-```
-}
-    }
-        // Handle specific event type
-    fun handle(payload: CustomerRegisteredEvent) {
-    @OutboxHandler
-    // Typed handler - processes only CustomerRegisteredEvent
-
-    }
-        // Handle any payload
-    fun handle(payload: Any, metadata: OutboxRecordMetadata) {
-    @OutboxHandler
-    // Generic handler - processes all event types
-class DemoOutboxHandler {
-@Component
-```kotlin
-
-## Handler Registration
-
-- **H2 Database**: In-memory database for quick testing
-- **CustomerService**: Schedules outbox records during customer registration/removal
-  - Typed handler: Processes only `CustomerRegisteredEvent` payloads
-  - Generic handler: Processes any payload type with metadata
-- **DemoOutboxHandler**: Contains multiple `@OutboxHandler` annotated methods:
-
-## Key Components
-
-- Flexible handler registration without interface constraints
-- Both typed and generic handler methods with annotations
-- Multiple handler methods in a single class
-- Using `@OutboxHandler` annotation on methods instead of implementing interfaces
+This example demonstrates annotation-based handler registration as an alternative to
+interface-based handlers.
 
 ## What This Example Shows
 
-This example demonstrates **annotation-based handler registration** using `@OutboxHandler` annotations.
+- Using `@OutboxHandler` instead of implementing handler interfaces
+- Registering typed and generic handler methods in one class
+- Assigning unique, responsibility-based IDs to annotated handlers
 
+## Handler Registration
 
+```kotlin
+@Component
+class DemoOutboxHandler {
+    @OutboxHandler(id = "events.publish-to-external-broker")
+    fun handle(payload: Any, metadata: OutboxRecordMetadata) {
+        // Handle any payload
+    }
+
+    @OutboxHandler(id = "customers.send-registration-email")
+    fun handle(payload: CustomerRegisteredEvent) {
+        // Handle a specific event type
+    }
+}
+```
+
+The explicit IDs remain stable across class, method, parameter, and package renames. They are
+stored with outbox records and used to route those records back to the intended handlers.
+
+## Running the Example
+
+```bash
+./gradlew :namastack-outbox-example-annotation:bootRun
+```
+
+The application will:
+
+1. Register two customers.
+2. Schedule outbox records.
+3. Process records via annotated handler methods.
+4. Remove the customers and process removal events.
+
+## Configuration
+
+See `application.yml` for outbox and database configuration.

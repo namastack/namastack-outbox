@@ -70,3 +70,10 @@ See `application.yml` for:
 
 This example demonstrates production-ready PostgreSQL integration with the outbox pattern.
 
+## Stable handler IDs
+
+The handlers define responsibility-based IDs that remain stable across class, method, and package
+renames:
+
+- `customers.send-registration-email` for the typed customer-registration handler
+- `events.publish-to-external-broker` for the generic event publisher

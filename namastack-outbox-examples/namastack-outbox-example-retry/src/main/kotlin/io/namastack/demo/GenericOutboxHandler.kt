@@ -1,6 +1,7 @@
 package io.namastack.demo
 
 import io.namastack.outbox.handler.OutboxHandler
+import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.retry.OutboxRetryAware
 import io.namastack.outbox.retry.OutboxRetryPolicy
@@ -13,6 +14,8 @@ class GenericOutboxHandler(
 ) : OutboxHandler,
     OutboxRetryAware {
     private val logger = LoggerFactory.getLogger(GenericOutboxHandler::class.java)
+
+    override fun getGenericHandlerIdentity() = OutboxHandlerIdentity("events.publish-to-external-broker")
 
     override fun handle(
         payload: Any,

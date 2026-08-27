@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
 class DemoOutboxHandler {
     private val logger = LoggerFactory.getLogger(DemoOutboxHandler::class.java)
 
-    @OutboxHandler
+    @OutboxHandler(id = "events.publish-to-external-broker")
     fun handle(
         payload: Any,
         metadata: OutboxRecordMetadata,
@@ -19,7 +19,7 @@ class DemoOutboxHandler {
         ExternalBroker.publish(payload, metadata.key)
     }
 
-    @OutboxHandler
+    @OutboxHandler(id = "customers.send-registration-email")
     fun handle(payload: CustomerRegisteredEvent) {
         logger.info("[Handler] Send email to: {}", payload.email)
         ExternalMailService.send(payload.email)

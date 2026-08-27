@@ -43,6 +43,9 @@ Handlers receive the restored trace context with no extra code:
 ```kotlin
 @Component
 class CustomerRegisteredOutboxHandler : OutboxTypedHandler<CustomerRegisteredEvent> {
+    override fun getTypedHandlerIdentity() =
+        OutboxHandlerIdentity("customers.send-registration-email")
+
     override fun handle(payload: CustomerRegisteredEvent, metadata: OutboxRecordMetadata) {
         // The active span is already a child of the original producer span.
         // No manual span creation needed.
@@ -111,3 +114,11 @@ See `application.yml` for:
 - ✅ OpenTelemetry standard compliance (W3C Trace Context)
 - ✅ Zero code changes needed in handlers — tracing is fully automatic
 - ✅ Production-ready observability for microservices
+
+## Stable handler IDs
+
+The handlers define responsibility-based IDs that remain stable across class, method, and package
+renames:
+
+- `customers.send-registration-email` for the typed customer-registration handler
+- `events.publish-to-external-broker` for the generic event publisher

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
 class CustomerRegisteredOutboxHandler {
     private val logger = LoggerFactory.getLogger(CustomerRegisteredOutboxHandler::class.java)
 
-    @OutboxHandler
+    @OutboxHandler(id = "customers.send-registration-email")
     @OutboxRetryable(AggressiveOutboxRetryPolicy::class)
     fun handle(
         payload: CustomerRegisteredEvent,

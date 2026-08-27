@@ -22,7 +22,7 @@ This example demonstrates **fallback handler functionality** for handling perman
 ```kotlin
 @Component
 class CustomerRegisteredOutboxHandler {
-    @OutboxHandler
+    @OutboxHandler(id = "customers.send-registration-email")
     fun handle(payload: CustomerRegisteredEvent) {
         // Primary handler - fails intentionally
         throw RuntimeException("Simulated failure")
@@ -59,3 +59,10 @@ See `application.yml` for:
 
 This example is essential for understanding how to handle permanent failures gracefully in production systems.
 
+## Stable handler IDs
+
+The handlers define responsibility-based IDs that remain stable across class, method, and package
+renames:
+
+- `customers.send-registration-email` for the typed customer-registration handler
+- `events.publish-to-external-broker` for the generic event publisher

@@ -55,3 +55,10 @@ See `application.yml` for:
 - **Audit Trail**: Clear history of all schema changes
 - **Team Collaboration**: Schema changes are code-reviewed like any other code
 
+## Stable handler IDs
+
+The handlers define responsibility-based IDs that remain stable across class, method, and package
+renames:
+
+- `customers.send-registration-email` for the typed customer-registration handler
+- `events.publish-to-external-broker` for the generic event publisher
