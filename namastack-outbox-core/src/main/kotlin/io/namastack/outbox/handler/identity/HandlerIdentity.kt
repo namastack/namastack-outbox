@@ -7,7 +7,7 @@ package io.namastack.outbox.handler.identity
  * @property aliases compatibility IDs that resolve persisted records to the same handler
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal data class HandlerIdentity(
     val canonicalId: String,

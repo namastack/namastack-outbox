@@ -7,7 +7,7 @@ package io.namastack.outbox.handler.discovery
  * @property fallbacks unvalidated fallback handler declarations
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal data class HandlerDeclarations(
     val handlers: List<HandlerCandidate>,

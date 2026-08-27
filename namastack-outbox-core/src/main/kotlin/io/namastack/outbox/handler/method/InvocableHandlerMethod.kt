@@ -13,7 +13,7 @@ import java.lang.reflect.Method
  * @param method reflected method invoked by subclasses
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 abstract class InvocableHandlerMethod(
     val bean: Any,

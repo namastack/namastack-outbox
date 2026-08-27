@@ -8,7 +8,7 @@ import org.springframework.core.annotation.AnnotatedElementUtils
  * Discovers primary methods declared with [OutboxHandler] and retains their routing configuration.
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal object AnnotatedHandlerDiscoverer {
     /**

@@ -7,7 +7,7 @@ import io.namastack.outbox.handler.OutboxRecordMetadata
  * Validates declaration relationships and supported signatures before handler assembly.
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal object HandlerDiscoveryValidator {
     /**

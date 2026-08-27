@@ -11,7 +11,7 @@ import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
  * concern.
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal object OutboxHandlerDescriptorFactory {
     /**

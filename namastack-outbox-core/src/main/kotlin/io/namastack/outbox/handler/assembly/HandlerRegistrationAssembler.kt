@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory
  * @param retryPolicyRegistry registry used to resolve explicitly configured retry policies
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal class HandlerRegistrationAssembler(
     retryPolicyRegistry: OutboxRetryPolicyRegistry,

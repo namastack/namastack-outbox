@@ -10,7 +10,7 @@ import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
  * legacy and proxy IDs are retained as aliases when required for backward-compatible routing.
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal object OutboxHandlerMethodIdentityResolver {
     /**

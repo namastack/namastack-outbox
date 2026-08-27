@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory
  * multiple declarations match, the first declaration is selected and a warning is logged.
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal object FallbackMatcher {
     private val log = LoggerFactory.getLogger(FallbackMatcher::class.java)
