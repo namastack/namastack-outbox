@@ -20,7 +20,17 @@ internal class HandlerRegistrationAssembler(
     private val log = LoggerFactory.getLogger(HandlerRegistrationAssembler::class.java)
     private val retryPolicyResolver = HandlerRetryPolicyResolver(retryPolicyRegistry)
 
-    /** Converts supported declarations into registrations with identity, fallback, and retry policy. */
+    /**
+     * Validates and converts discovered declarations into complete handler registrations.
+     *
+     * Unsupported annotated signatures are skipped. Every supported primary declaration receives
+     * a routing identity and is paired with a compatible fallback and explicit retry policy when
+     * present.
+     *
+     * @param declarations Primary and fallback declarations discovered on one bean
+     * @return Complete registrations ready to be installed in the handler registry
+     * @throws IllegalStateException if the declarations contain an ambiguous relationship
+     */
     fun assemble(declarations: HandlerDeclarations): List<HandlerRegistration> {
         HandlerDiscoveryValidator.validateRelationships(declarations)
 

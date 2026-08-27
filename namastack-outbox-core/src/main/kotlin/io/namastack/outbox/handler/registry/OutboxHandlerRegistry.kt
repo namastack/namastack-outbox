@@ -5,7 +5,6 @@ import io.namastack.outbox.handler.assembly.HandlerRegistration
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
-import io.namastack.outbox.handler.selection.OutboxHandlerSelector
 import kotlin.reflect.KClass
 
 /**
@@ -24,8 +23,8 @@ import kotlin.reflect.KClass
  */
 class OutboxHandlerRegistry {
     /**
-     * Map of all handlers indexed by their unique ID.
-     * Used for direct handler lookup via metadata.handlerId.
+     * Map of all handlers indexed by canonical IDs and lookup aliases.
+     * Used for direct handler lookup via the ID stored with each record.
      */
     private val handlersById = mutableMapOf<String, OutboxHandlerMethod>()
     private val registrationsById = mutableMapOf<String, HandlerRegistration>()
@@ -43,22 +42,20 @@ class OutboxHandlerRegistry {
     private val genericHandlers = mutableListOf<GenericHandlerMethod>()
 
     /**
-     * Retrieves a handler by its unique ID.
+     * Retrieves a handler by its canonical ID or lookup alias.
      *
-     * Used by OutboxDispatcher to find the specific handler to invoke
-     * based on the metadata.handlerId stored with the record.
+     * Used during record processing to resolve the specific handler identified by the routing ID
+     * persisted with the record. Both canonical IDs and aliases are accepted.
      *
-     * @param id The unique handler method identifier
+     * @param id Canonical handler ID or lookup alias
      * @return The OutboxHandlerMethod, or null if not found
      */
     fun getHandlerById(id: String): OutboxHandlerMethod? = handlersById[id]
 
-    internal fun getRegistrationById(id: String): HandlerRegistration? = registrationsById[id]
-
     /**
      * Returns descriptors for all primary registered handlers.
      *
-     * Legacy aliases are intentionally excluded.
+     * Lookup aliases are intentionally excluded.
      *
      * @return registered handler descriptors sorted by handler id
      */
@@ -86,22 +83,43 @@ class OutboxHandlerRegistry {
      * @return List of TypedHandlerMethods for this type (empty if none)
      */
     fun getHandlersForPayloadType(type: KClass<*>): List<TypedHandlerMethod> =
-        OutboxHandlerSelector.typed(typedHandlers, type)
+        typedHandlers[type]?.toList() ?: emptyList()
 
     /**
      * Retrieves all registered generic handlers.
      *
-     * Generic handlers are invoked for all records as a fallback.
-     * They complement typed handlers and receive full metadata context.
+     * Each generic handler's scheduling predicate is evaluated for the supplied payload and its
+     * handler-specific metadata. Only handlers whose predicate returns `true` are included.
      *
-     * @return Copy of generic handlers list
+     * @param payload payload evaluated by each generic handler's scheduling predicate
+     * @param metadataProvider creates handler-specific metadata for predicate evaluation
+     * @return Generic handlers that support scheduling the supplied payload
      */
     fun getGenericHandlers(
         payload: Any,
         metadataProvider: (GenericHandlerMethod) -> OutboxRecordMetadata,
-    ): List<GenericHandlerMethod> = OutboxHandlerSelector.generic(genericHandlers, payload, metadataProvider)
+    ): List<GenericHandlerMethod> =
+        genericHandlers.filter { handler ->
+            handler.supportsPayload(payload, metadataProvider(handler))
+        }
 
-    /** Atomically installs canonical and alias routes plus scheduling indexes. */
+    /**
+     * Returns the complete registration reached through a canonical ID or alias.
+     *
+     * @param id Canonical handler ID or lookup alias
+     * @return The corresponding registration, or `null` if the route is unknown
+     */
+    internal fun getRegistrationById(id: String): HandlerRegistration? = registrationsById[id]
+
+    /**
+     * Installs a batch of complete registrations into routing and scheduling indexes.
+     *
+     * All canonical IDs and aliases are validated against existing and incoming routes before any
+     * index is changed, so a routing collision leaves the registry untouched.
+     *
+     * @param registrations Complete registrations to install
+     * @throws IllegalStateException if a canonical ID or alias collides with another route
+     */
     @Synchronized
     internal fun registerBatch(registrations: List<HandlerRegistration>) {
         if (registrations.isEmpty()) return

@@ -82,6 +82,17 @@ class HandlerDiscoveryTest {
             .containsExactly(HandlerSource.TYPED_INTERFACE, HandlerSource.GENERIC_INTERFACE)
     }
 
+    @Test
+    fun `generic interface discovery selects Any handler instead of annotated overload`() {
+        val declarations = HandlerDiscovery.discover(OverloadedGenericHandler(), "overloadedGenericBean")
+
+        assertThat(declarations.handlers).hasSize(2)
+        val genericHandler = declarations.handlers.single { it.source == HandlerSource.GENERIC_INTERFACE }
+        val annotatedHandler = declarations.handlers.single { it.source == HandlerSource.ANNOTATION }
+        assertThat(genericHandler.method.parameterTypes[0]).isEqualTo(Any::class.java)
+        assertThat(annotatedHandler.method.parameterTypes[0]).isEqualTo(AnnotatedPayload::class.java)
+    }
+
     private class AnnotatedHandler {
         @OutboxHandlerAnnotation(id = "orders-v2", aliases = ["orders-v1"])
         fun handle(payload: String) = Unit
@@ -130,4 +141,19 @@ class HandlerDiscoveryTest {
             metadata: OutboxRecordMetadata,
         ) = Unit
     }
+
+    private class OverloadedGenericHandler : OutboxHandler {
+        override fun handle(
+            payload: Any,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+
+        @OutboxHandlerAnnotation
+        fun handle(
+            payload: AnnotatedPayload,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+    }
+
+    private class AnnotatedPayload
 }

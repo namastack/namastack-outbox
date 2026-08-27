@@ -30,7 +30,27 @@ sealed class OutboxHandlerMethod(
     /** Alternative routing IDs accepted for records persisted under an earlier identity. */
     val aliases: Set<String> = routingAliases - id
 
+    /**
+     * Invokes the primary handler with a deserialized payload and record metadata.
+     *
+     * @param payload Deserialized record payload
+     * @param metadata Metadata of the record being processed
+     * @throws Throwable The original exception raised by the handler
+     */
+    abstract fun invoke(
+        payload: Any,
+        metadata: OutboxRecordMetadata,
+    )
+
     internal companion object {
+        /**
+         * Generates the class-and-method identity used when no stable ID is configured.
+         *
+         * @param bean Bean that owns the handler method
+         * @param method Reflected handler method
+         * @param targetClass Class name to include in the generated identity
+         * @return An identity containing the class, method, and parameter type names
+         */
         fun generatedId(
             bean: Any,
             method: Method,
@@ -40,10 +60,4 @@ sealed class OutboxHandlerMethod(
             return "${targetClass.name}#${method.name}($parameterTypes)"
         }
     }
-
-    /** Invokes the primary handler with the deserialized payload and record metadata. */
-    abstract fun invoke(
-        payload: Any,
-        metadata: OutboxRecordMetadata,
-    )
 }

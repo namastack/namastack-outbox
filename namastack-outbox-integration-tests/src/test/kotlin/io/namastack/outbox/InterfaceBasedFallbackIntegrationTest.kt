@@ -1,5 +1,7 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.annotation.OutboxFallbackHandler
+import io.namastack.outbox.annotation.OutboxHandler
 import io.namastack.outbox.handler.OutboxFailureContext
 import io.namastack.outbox.handler.OutboxHandlerWithFallback
 import io.namastack.outbox.handler.OutboxRecordMetadata
@@ -29,6 +31,7 @@ import java.util.concurrent.TimeUnit.SECONDS
 @Import(
     InterfaceBasedFallbackIntegrationTest.GenericHandlerWithFallback::class,
     InterfaceBasedFallbackIntegrationTest.TypedHandlerWithFallback::class,
+    InterfaceBasedFallbackIntegrationTest.OverloadedTypedHandlerWithFallback::class,
     InterfaceBasedFallbackIntegrationTest.FallbackWithSuccessCompletion::class,
     InterfaceBasedFallbackIntegrationTest.FallbackWithException::class,
 )
@@ -88,6 +91,20 @@ class InterfaceBasedFallbackIntegrationTest {
                 val context = fallbackCalls["TypedHandlerWithFallback"]?.first()
                 assertThat(context?.retriesExhausted).isTrue()
                 assertThat(context?.nonRetryableException).isFalse()
+            }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `typed interface fallback is invoked when annotated overloads share the method names`() {
+        outbox.schedule(OverloadedInterfaceFailureEvent("overloaded-fail"), "overloaded-key")
+
+        await()
+            .atMost(15, SECONDS)
+            .untilAsserted {
+                assertThat(handledEvents["OverloadedTypedHandlerWithFallback"]).hasSize(3)
+                assertThat(fallbackCalls["OverloadedTypedHandlerWithFallback"]).hasSize(1)
+                assertThat(recordRepository.findFailedRecords()).isEmpty()
             }
     }
 
@@ -168,6 +185,14 @@ class InterfaceBasedFallbackIntegrationTest {
         val value: String,
     )
 
+    data class OverloadedInterfaceFailureEvent(
+        val value: String,
+    )
+
+    data class OverloadedAnnotatedEvent(
+        val value: String,
+    )
+
     // Test Handlers
     @Component
     class GenericHandlerWithFallback : OutboxHandlerWithFallback {
@@ -203,6 +228,36 @@ class InterfaceBasedFallbackIntegrationTest {
         ) {
             fallbackCalls.computeIfAbsent("TypedHandlerWithFallback") { mutableListOf() }.add(context)
         }
+    }
+
+    @Component
+    class OverloadedTypedHandlerWithFallback : OutboxTypedHandlerWithFallback<OverloadedInterfaceFailureEvent> {
+        override fun handle(
+            payload: OverloadedInterfaceFailureEvent,
+            metadata: OutboxRecordMetadata,
+        ) {
+            handledEvents.computeIfAbsent("OverloadedTypedHandlerWithFallback") { mutableListOf() }.add(payload)
+            throw RuntimeException("Overloaded interface handler failure")
+        }
+
+        @OutboxHandler
+        fun handle(
+            payload: OverloadedAnnotatedEvent,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+
+        override fun handleFailure(
+            payload: OverloadedInterfaceFailureEvent,
+            context: OutboxFailureContext,
+        ) {
+            fallbackCalls.computeIfAbsent("OverloadedTypedHandlerWithFallback") { mutableListOf() }.add(context)
+        }
+
+        @OutboxFallbackHandler
+        fun handleFailure(
+            payload: OverloadedAnnotatedEvent,
+            context: OutboxFailureContext,
+        ) = Unit
     }
 
     @Component

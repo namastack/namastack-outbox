@@ -26,7 +26,6 @@ class OutboxHandlerInvokerTest {
     @BeforeEach
     fun setUp() {
         invoker = OutboxHandlerInvoker(handlerRegistry)
-        every { handlerRegistry.getRegistrationById(any()) } returns null
     }
 
     @Test

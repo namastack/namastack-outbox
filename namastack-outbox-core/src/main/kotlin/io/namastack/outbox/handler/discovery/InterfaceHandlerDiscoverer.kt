@@ -1,6 +1,7 @@
 package io.namastack.outbox.handler.discovery
 
 import io.namastack.outbox.handler.OutboxHandler
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
 import io.namastack.outbox.handler.ReflectionUtils
 import org.springframework.util.ClassUtils
@@ -15,7 +16,16 @@ import org.springframework.util.ClassUtils
  * @since 1.8.1
  */
 internal object InterfaceHandlerDiscoverer {
-    /** Returns typed and generic interface candidates declared by [bean]. */
+    /**
+     * Discovers primary declarations implemented through the handler interfaces.
+     *
+     * The concrete implementation method and generic payload type are resolved against the bean's
+     * user class. Stable IDs, aliases, and scheduling support are retained on the candidates.
+     *
+     * @param bean Bean to inspect for typed and generic handler interfaces
+     * @param beanName Spring name of the inspected bean
+     * @return Unvalidated interface-based primary declarations
+     */
     fun discover(
         bean: Any,
         beanName: String,
@@ -23,11 +33,19 @@ internal object InterfaceHandlerDiscoverer {
         val lambdaId = beanName.takeIf { ClassUtils.isLambdaClass(ReflectionUtils.getTargetClass(bean)) }
         return buildList {
             if (bean is OutboxTypedHandler<*>) {
+                val payloadType = ReflectionUtils.resolveInterfacePayloadType(bean, OutboxTypedHandler::class.java)
                 add(
                     HandlerCandidate(
                         beanName = beanName,
                         bean = bean,
-                        method = ReflectionUtils.findMethod(bean, "handle", 2),
+                        method =
+                            ReflectionUtils.findInterfaceMethod(
+                                bean = bean,
+                                handlerInterface = OutboxTypedHandler::class.java,
+                                methodName = "handle",
+                                contextType = OutboxRecordMetadata::class.java,
+                            ),
+                        payloadType = payloadType,
                         source = HandlerSource.TYPED_INTERFACE,
                         configuredId = bean.getHandlerId(),
                         configuredAliases = bean.getHandlerAliases(),
@@ -41,7 +59,14 @@ internal object InterfaceHandlerDiscoverer {
                     HandlerCandidate(
                         beanName = beanName,
                         bean = bean,
-                        method = ReflectionUtils.findMethod(bean, "handle", 2),
+                        method =
+                            ReflectionUtils.findInterfaceMethod(
+                                bean = bean,
+                                handlerInterface = OutboxHandler::class.java,
+                                methodName = "handle",
+                                contextType = OutboxRecordMetadata::class.java,
+                            ),
+                        payloadType = Any::class.java,
                         source = HandlerSource.GENERIC_INTERFACE,
                         configuredId = bean.getHandlerId(),
                         configuredAliases = bean.getHandlerAliases(),

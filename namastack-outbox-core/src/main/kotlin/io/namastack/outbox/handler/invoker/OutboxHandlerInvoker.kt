@@ -50,8 +50,7 @@ class OutboxHandlerInvoker(
         val metadata = OutboxHandlerContextFactory.metadata(record)
 
         val handler =
-            handlerRegistry.getRegistrationById(record.handlerId)?.primary
-                ?: handlerRegistry.getHandlerById(record.handlerId)
+            handlerRegistry.getHandlerById(record.handlerId)
                 ?: throw IllegalStateException("No handler with id ${record.handlerId}")
 
         handler.invoke(payload, metadata)

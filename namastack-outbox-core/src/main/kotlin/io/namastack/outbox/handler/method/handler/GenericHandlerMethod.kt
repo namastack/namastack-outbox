@@ -4,7 +4,7 @@ import io.namastack.outbox.handler.OutboxRecordMetadata
 import java.lang.reflect.Method
 
 /**
- * Handler for records with any payload type. Uses runtime type checking.
+ * Handler method that can participate in scheduling records of any payload type.
  *
  * Signature: `fun handle(payload: Any, metadata: OutboxRecordMetadata)`
  *
@@ -25,18 +25,24 @@ open class GenericHandlerMethod(
     private val payloadSupport: (Any, OutboxRecordMetadata) -> Boolean = { _, _ -> true },
     routingAliases: Set<String> = emptySet(),
 ) : OutboxHandlerMethod(bean, method, canonicalId, routingAliases) {
-    /** Determines whether this handler accepts the given payload and metadata for scheduling. */
+    /**
+     * Determines whether this generic handler participates in scheduling a payload.
+     *
+     * @param payload Payload considered for scheduling
+     * @param metadata Handler-specific metadata that would be stored with the record
+     * @return `true` when a record should be scheduled for this handler
+     */
     open fun supportsPayload(
         payload: Any,
         metadata: OutboxRecordMetadata,
     ): Boolean = payloadSupport(payload, metadata)
 
     /**
-     * Invokes handler with payload and metadata via reflection.
+     * Invokes the generic handler with a payload and its record metadata.
      *
-     * @param payload Record payload (any type)
-     * @param metadata Record context information
-     * @throws Throwable Original exception from handler (triggers retry logic)
+     * @param payload Deserialized record payload
+     * @param metadata Metadata of the record being processed
+     * @throws Throwable The original exception raised by the handler
      */
     override fun invoke(
         payload: Any,

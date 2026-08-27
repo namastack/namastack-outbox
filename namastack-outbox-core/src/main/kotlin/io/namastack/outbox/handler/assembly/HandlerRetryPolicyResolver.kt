@@ -21,7 +21,15 @@ import org.springframework.core.annotation.AnnotatedElementUtils
 internal class HandlerRetryPolicyResolver(
     private val registry: OutboxRetryPolicyRegistry,
 ) {
-    /** Resolves annotation-based policies before an [OutboxRetryAware] policy. */
+    /**
+     * Resolves an explicitly configured retry policy for a handler declaration.
+     *
+     * Method-level [OutboxRetryable] configuration takes precedence over a policy supplied through
+     * [OutboxRetryAware]. The default registry policy is intentionally not resolved here.
+     *
+     * @param candidate Handler declaration whose retry configuration is inspected
+     * @return The explicitly configured policy, or `null` to resolve the default policy at invocation time
+     */
     fun resolve(candidate: HandlerCandidate): OutboxRetryPolicy? {
         AnnotatedElementUtils.findMergedAnnotation(candidate.method, OutboxRetryable::class.java)?.let { annotation ->
             if (annotation.value != OutboxRetryPolicy::class) return registry.getRetryPolicy(annotation.value)

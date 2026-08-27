@@ -21,11 +21,9 @@ import java.time.Instant
 class StableHandlerIdentityTest {
     private fun processor(
         registry: OutboxHandlerRegistry = OutboxHandlerRegistry(),
-        fallbacks: OutboxFallbackHandlerRegistry = OutboxFallbackHandlerRegistry(),
         retryPolicies: OutboxRetryPolicyRegistry = mockk(relaxed = true),
     ) = OutboxHandlerBeanPostProcessor(
         registry,
-        fallbacks,
         retryPolicies,
     )
 
@@ -156,20 +154,20 @@ class StableHandlerIdentityTest {
     @Test
     fun `alias routes the same fallback and explicit retry policy`() {
         val registry = OutboxHandlerRegistry()
-        val fallbacks = OutboxFallbackHandlerRegistry()
+        val fallbacks = OutboxFallbackHandlerRegistry(registry)
         val retryPolicies = mockk<OutboxRetryPolicyRegistry>(relaxed = true)
         val policy = mockk<io.namastack.outbox.retry.OutboxRetryPolicy>()
         every { retryPolicies.getRetryPolicy("stable-policy") } returns policy
 
-        processor(registry, fallbacks, retryPolicies)
+        processor(registry, retryPolicies)
             .postProcessAfterInitialization(StableHandlerWithFallbackAndRetry(), "stableWithFallback")
 
         assertThat(registry.getHandlerById("stable-route")).isSameAs(registry.getHandlerById("old-route"))
         assertThat(registry.getRegistrationById("stable-route"))
             .isSameAs(registry.getRegistrationById("old-route"))
         assertThat(fallbacks.getByHandlerId("stable-route")).isSameAs(fallbacks.getByHandlerId("old-route"))
-        verify { retryPolicies.register("stable-route", policy) }
-        verify { retryPolicies.registerAlias("old-route", policy) }
+        assertThat(registry.getRegistrationById("stable-route")?.explicitRetryPolicy).isSameAs(policy)
+        assertThat(registry.getRegistrationById("old-route")?.explicitRetryPolicy).isSameAs(policy)
     }
 
     @Test

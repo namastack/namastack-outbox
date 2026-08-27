@@ -59,7 +59,7 @@ class HandlerRegistrationStartupIntegrationTest {
 
     @Test
     fun `same method discovered through typed and generic interfaces fails startup`() {
-        assertStartupFails(CombinedInterfacesConfiguration::class.java, "was discovered through")
+        assertStartupFails(CombinedInterfacesConfiguration::class.java, "implements both OutboxHandler")
     }
 
     @Test

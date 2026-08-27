@@ -10,7 +10,13 @@ package io.namastack.outbox.handler.discovery
  * @since 1.8.1
  */
 internal object HandlerDiscovery {
-    /** Discovers all primary and fallback declarations owned by [bean]. */
+    /**
+     * Discovers annotation- and interface-based declarations owned by a bean.
+     *
+     * @param bean Bean to inspect for handler and fallback declarations
+     * @param beanName Spring name of the inspected bean
+     * @return Unvalidated primary and fallback declarations discovered on the bean
+     */
     fun discover(
         bean: Any,
         beanName: String,

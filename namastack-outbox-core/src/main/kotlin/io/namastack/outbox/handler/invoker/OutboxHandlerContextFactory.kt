@@ -15,8 +15,13 @@ import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
  * @since 1.8.1
  */
 internal object OutboxHandlerContextFactory {
-    /** Creates metadata supplied to a primary handler. */
-    fun metadata(record: OutboxRecord<*>) =
+    /**
+     * Creates the metadata supplied to a primary handler invocation.
+     *
+     * @param record Stored record being dispatched
+     * @return Public metadata projected from the record
+     */
+    fun metadata(record: OutboxRecord<*>): OutboxRecordMetadata =
         OutboxRecordMetadata(
             key = record.key,
             handlerId = record.handlerId,
@@ -25,7 +30,18 @@ internal object OutboxHandlerContextFactory {
             failureCount = record.failureCount,
         )
 
-    /** Creates failure context using an explicit policy or the lazily resolved default policy. */
+    /**
+     * Creates the context supplied to a fallback handler invocation.
+     *
+     * The explicit handler policy is used when present; otherwise the default policy is resolved
+     * lazily by the record's routing ID.
+     *
+     * @param record Permanently failed record being dispatched
+     * @param exception Last exception raised by the primary handler
+     * @param retryPolicies Registry used to resolve the default retry policy
+     * @param explicitRetryPolicy Handler-specific retry policy, if one was configured
+     * @return Failure context describing why processing became permanent
+     */
     fun failure(
         record: OutboxRecord<*>,
         exception: Throwable,

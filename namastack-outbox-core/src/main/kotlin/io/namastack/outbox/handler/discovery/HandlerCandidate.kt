@@ -12,6 +12,7 @@ import java.lang.reflect.Method
  * @property beanName Spring bean name used for lambda identity and diagnostics
  * @property bean bean that owns the method
  * @property method reflected primary handler method
+ * @property payloadType resolved payload type, if the declaration has a payload parameter
  * @property source declaration mechanism used to find the method
  * @property configuredId explicitly configured stable ID, if any
  * @property configuredAliases explicitly configured legacy routing aliases
@@ -25,6 +26,7 @@ internal data class HandlerCandidate(
     val beanName: String,
     val bean: Any,
     val method: Method,
+    val payloadType: Class<*>?,
     val source: HandlerSource,
     val configuredId: String?,
     val configuredAliases: Set<String>,

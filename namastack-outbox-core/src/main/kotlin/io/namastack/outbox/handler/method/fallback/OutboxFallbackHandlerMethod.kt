@@ -23,11 +23,11 @@ open class OutboxFallbackHandlerMethod(
     }
 
     /**
-     * Invokes fallback handler with payload and failure details.
+     * Invokes the fallback handler with a payload and its permanent-failure context.
      *
-     * @param payload Record payload
-     * @param context Failure details (exception, attempt count, etc.)
-     * @throws Throwable Original exception from fallback handler
+     * @param payload Deserialized payload of the failed record
+     * @param context Details about the permanent processing failure
+     * @throws Throwable The original exception raised by the fallback handler
      */
     open fun invoke(
         payload: Any,

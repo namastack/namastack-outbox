@@ -22,6 +22,15 @@ class OutboxFallbackHandlerInvoker private constructor(
     private val retryPolicyRegistry: OutboxRetryPolicyRegistry,
     private val registrationLookup: (String) -> FallbackInvocationTarget?,
 ) {
+    /**
+     * Creates an invoker backed by the compatibility fallback registry.
+     *
+     * Retry policies are resolved lazily by handler ID because this registry does not retain the
+     * complete handler registration.
+     *
+     * @param retryPolicyRegistry Registry used to resolve retry policies
+     * @param fallbackHandlerRegistry Registry used to resolve fallback methods
+     */
     constructor(
         retryPolicyRegistry: OutboxRetryPolicyRegistry,
         fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
@@ -34,6 +43,12 @@ class OutboxFallbackHandlerInvoker private constructor(
         },
     )
 
+    /**
+     * Creates an invoker backed by complete handler registrations.
+     *
+     * @param retryPolicyRegistry Registry used to resolve default retry policies
+     * @param handlerRegistry Registry used to resolve fallbacks and explicit retry policies
+     */
     internal constructor(
         retryPolicyRegistry: OutboxRetryPolicyRegistry,
         handlerRegistry: OutboxHandlerRegistry,

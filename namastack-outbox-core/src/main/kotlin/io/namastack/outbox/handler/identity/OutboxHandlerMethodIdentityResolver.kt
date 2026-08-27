@@ -13,7 +13,16 @@ import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
  * @since 1.8.1
  */
 internal object OutboxHandlerMethodIdentityResolver {
-    /** Resolves and validates the canonical ID and aliases for [candidate]. */
+    /**
+     * Resolves and validates the routing identity of a primary handler declaration.
+     *
+     * Explicit IDs take precedence over lambda bean names and generated method IDs. Generated
+     * identities that may already exist in persisted records are retained as lookup aliases.
+     *
+     * @param candidate Handler declaration whose identity is resolved
+     * @return Validated canonical ID and lookup aliases
+     * @throws IllegalStateException if a configured ID or alias is blank
+     */
     fun resolve(candidate: HandlerCandidate): HandlerIdentity {
         check(candidate.configuredId == null || candidate.configuredId.isNotBlank()) {
             "Blank handler ID configured for ${candidate.method.toGenericString()}"

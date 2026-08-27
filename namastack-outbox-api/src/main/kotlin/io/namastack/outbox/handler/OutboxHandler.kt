@@ -34,12 +34,16 @@ interface OutboxHandler {
     /**
      * Optional stable canonical ID written to newly scheduled records.
      * `null` retains the generated ID (or the Spring bean name for a lambda).
+     *
+     * @return The stable handler ID, or `null` to use the generated identity
      */
     fun getHandlerId(): String? = null
 
     /**
      * Alternative, lookup-only IDs accepted for persisted records.
      * To migrate, deploy a future ID here before returning it from [getHandlerId].
+     *
+     * @return Handler IDs that should resolve to this handler without being persisted for new records
      */
     fun getHandlerAliases(): Set<String> = emptySet()
 
@@ -53,6 +57,7 @@ interface OutboxHandler {
      *
      * @param payload The record payload of any type
      * @param metadata Record metadata containing context information
+     * @return `true` if a record should be scheduled for this handler
      */
     fun supports(
         payload: Any,

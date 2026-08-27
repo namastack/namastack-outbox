@@ -17,17 +17,27 @@ import org.slf4j.LoggerFactory
 internal object FallbackMatcher {
     private val log = LoggerFactory.getLogger(FallbackMatcher::class.java)
 
-    /** Returns the first compatible fallback, warning when the declaration is ambiguous. */
+    /**
+     * Matches a fallback declaration to a primary handler declaration.
+     *
+     * A fallback is compatible when it was discovered through the same declaration mechanism,
+     * has a supported fallback signature, and declares the same resolved payload type. If more
+     * than one fallback is compatible, the first candidate is returned and a warning is logged.
+     *
+     * @param handler Primary handler declaration for which to find a fallback
+     * @param fallbacks Fallback declarations discovered on the same bean
+     * @return The first compatible fallback, or `null` if none is available
+     */
     fun match(
         handler: HandlerCandidate,
         fallbacks: List<FallbackCandidate>,
     ): FallbackCandidate? {
-        val payloadType = handler.method.parameterTypes.first()
+        val payloadType = checkNotNull(handler.payloadType)
         val matches =
             fallbacks.filter {
                 it.source == handler.source &&
                     HandlerDiscoveryValidator.supportsFallback(it) &&
-                    it.method.parameterTypes[0] == payloadType
+                    it.payloadType == payloadType
             }
 
         if (matches.size > 1) {

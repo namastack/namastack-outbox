@@ -8,6 +8,8 @@ import io.namastack.outbox.annotation.OutboxRetryable
 import io.namastack.outbox.handler.OutboxFailureContext
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.handler.OutboxTypedHandler
+import io.namastack.outbox.handler.OutboxTypedHandlerWithFallback
 import io.namastack.outbox.handler.discovery.HandlerDiscovery
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
@@ -15,6 +17,7 @@ import io.namastack.outbox.retry.OutboxRetryAware
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import java.time.Instant
 import io.namastack.outbox.annotation.OutboxHandler as OutboxHandlerAnnotation
@@ -59,6 +62,46 @@ class HandlerRegistrationAssemblerTest {
         assertThat(primary.supportsPayload("rejected", metadata)).isFalse()
         assertThat(registration.fallback).isNull()
         assertThat(registration.explicitRetryPolicy).isNull()
+    }
+
+    @Test
+    fun `assembles typed Any interface handler as typed`() {
+        val registration = assembler.assemble(HandlerDiscovery.discover(TypedAnyHandler(), "typedAnyBean")).single()
+
+        val primary = registration.primary as TypedHandlerMethod
+        assertThat(primary.paramType).isEqualTo(Any::class)
+    }
+
+    @Test
+    fun `rejects ambiguous generic and typed Any interface handler with dedicated message`() {
+        assertThatThrownBy {
+            assembler.assemble(HandlerDiscovery.discover(AmbiguousInterfaceHandler(), "ambiguousBean"))
+        }.isInstanceOf(IllegalStateException::class.java)
+            .hasMessageContaining("implements both OutboxHandler and OutboxTypedHandler<Any>")
+    }
+
+    @Test
+    fun `assembles distinct typed interface and annotated overloads with their matching fallbacks`() {
+        val registrations =
+            assembler.assemble(
+                HandlerDiscovery.discover(OverloadedTypedHandlerWithFallback(), "overloadedTypedBean"),
+            )
+
+        assertThat(registrations).hasSize(2)
+        val byPayloadType = registrations.associateBy { (it.primary as TypedHandlerMethod).paramType }
+        val interfaceFallback = byPayloadType.getValue(InterfacePayload::class).fallback
+        val annotatedFallback = byPayloadType.getValue(AnnotatedPayload::class).fallback
+        assertThat(interfaceFallback?.method?.parameterTypes?.first()).isEqualTo(InterfacePayload::class.java)
+        assertThat(annotatedFallback?.method?.parameterTypes?.first()).isEqualTo(AnnotatedPayload::class.java)
+    }
+
+    @Test
+    fun `resolves inherited generic interface payload for handler and fallback`() {
+        val registration =
+            assembler.assemble(HandlerDiscovery.discover(InheritedGenericHandler(), "inheritedGenericBean")).single()
+
+        assertThat((registration.primary as TypedHandlerMethod).paramType).isEqualTo(InterfacePayload::class)
+        assertThat(registration.fallback).isNotNull()
     }
 
     @Test
@@ -123,6 +166,68 @@ class HandlerRegistrationAssemblerTest {
             metadata: OutboxRecordMetadata,
         ) = Unit
     }
+
+    private class TypedAnyHandler : OutboxTypedHandler<Any> {
+        override fun handle(
+            payload: Any,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+    }
+
+    private class AmbiguousInterfaceHandler :
+        OutboxTypedHandler<Any>,
+        OutboxHandler {
+        override fun getHandlerId(): String? = null
+
+        override fun getHandlerAliases(): Set<String> = emptySet()
+
+        override fun handle(
+            payload: Any,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+    }
+
+    private class OverloadedTypedHandlerWithFallback : OutboxTypedHandlerWithFallback<InterfacePayload> {
+        override fun handle(
+            payload: InterfacePayload,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+
+        @OutboxHandlerAnnotation
+        fun handle(
+            payload: AnnotatedPayload,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+
+        override fun handleFailure(
+            payload: InterfacePayload,
+            context: OutboxFailureContext,
+        ) = Unit
+
+        @OutboxFallbackHandler
+        fun handleFailure(
+            payload: AnnotatedPayload,
+            context: OutboxFailureContext,
+        ) = Unit
+    }
+
+    private abstract class GenericHandlerWithFallback<T> : OutboxTypedHandlerWithFallback<T> {
+        override fun handle(
+            payload: T,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+
+        override fun handleFailure(
+            payload: T,
+            context: OutboxFailureContext,
+        ) = Unit
+    }
+
+    private class InheritedGenericHandler : GenericHandlerWithFallback<InterfacePayload>()
+
+    private class InterfacePayload
+
+    private class AnnotatedPayload
 
     private class UnsupportedHandler {
         @OutboxHandlerAnnotation

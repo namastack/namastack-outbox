@@ -11,7 +11,15 @@ import org.springframework.core.annotation.AnnotatedElementUtils
  * @since 1.8.1
  */
 internal object AnnotatedHandlerDiscoverer {
-    /** Returns annotated candidates and their configured routing identity. */
+    /**
+     * Discovers methods on a bean that carry [OutboxHandler].
+     *
+     * Stable IDs and aliases declared by the annotation are copied to each unvalidated candidate.
+     *
+     * @param bean Bean to inspect for annotated handler methods
+     * @param beanName Spring name of the inspected bean
+     * @return Unvalidated primary declarations in Spring's introspection order
+     */
     fun discover(
         bean: Any,
         beanName: String,
@@ -26,6 +34,7 @@ internal object AnnotatedHandlerDiscoverer {
                     beanName = beanName,
                     bean = bean,
                     method = method,
+                    payloadType = method.parameterTypes.firstOrNull(),
                     source = HandlerSource.ANNOTATION,
                     configuredId = annotation.id.takeIf { it.isNotEmpty() },
                     configuredAliases = annotation.aliases.toSet(),

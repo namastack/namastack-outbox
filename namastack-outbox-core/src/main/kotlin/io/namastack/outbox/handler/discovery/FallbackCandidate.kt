@@ -7,6 +7,7 @@ import java.lang.reflect.Method
  *
  * @property bean bean that owns the method
  * @property method reflected fallback method
+ * @property payloadType resolved payload type, if the declaration has a payload parameter
  * @property source declaration mechanism used to find the method
  *
  * @author Roland Beisel
@@ -15,5 +16,6 @@ import java.lang.reflect.Method
 internal data class FallbackCandidate(
     val bean: Any,
     val method: Method,
+    val payloadType: Class<*>?,
     val source: HandlerSource,
 )

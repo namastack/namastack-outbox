@@ -40,66 +40,92 @@ class ReflectionUtilsTest {
     }
 
     @Test
-    fun `findMethod finds method by name and parameter count`() {
-        val bean = TestBean()
+    fun `findInterfaceMethod selects method by resolved signature`() {
+        val bean = OverloadedTypedHandler()
 
-        val result = ReflectionUtils.findMethod(bean, "methodWithTwoParams", 2)
+        val result =
+            ReflectionUtils.findInterfaceMethod(
+                bean = bean,
+                handlerInterface = OutboxTypedHandler::class.java,
+                methodName = "handle",
+                contextType = OutboxRecordMetadata::class.java,
+            )
 
-        assertThat(result).isNotNull
-        assertThat(result.name).isEqualTo("methodWithTwoParams")
-        assertThat(result.parameterCount).isEqualTo(2)
+        assertThat(result.parameterTypes).containsExactly(
+            HandlerPayload::class.java,
+            OutboxRecordMetadata::class.java,
+        )
     }
 
     @Test
-    fun `findMethod finds method on proxy`() {
-        val target = TestBean()
+    fun `findInterfaceMethod finds exact method on proxy`() {
+        val target = OverloadedTypedHandler()
         val proxyFactory = ProxyFactory(target)
-        proxyFactory.isProxyTargetClass = true
+        proxyFactory.addInterface(OutboxTypedHandler::class.java)
         val proxy = proxyFactory.proxy
 
-        val result = ReflectionUtils.findMethod(proxy, "methodWithTwoParams", 2)
+        val result =
+            ReflectionUtils.findInterfaceMethod(
+                bean = proxy,
+                handlerInterface = OutboxTypedHandler::class.java,
+                methodName = "handle",
+                contextType = OutboxRecordMetadata::class.java,
+            )
 
-        assertThat(result).isNotNull
-        assertThat(result.name).isEqualTo("methodWithTwoParams")
-        assertThat(result.parameterCount).isEqualTo(2)
+        assertThat(result.parameterTypes.first()).isEqualTo(HandlerPayload::class.java)
     }
 
     @Test
-    fun `findMethod throws exception when method not found`() {
+    fun `findInterfaceMethod rejects bean that does not implement interface`() {
         val bean = TestBean()
 
         assertThatThrownBy {
-            ReflectionUtils.findMethod(bean, "nonExistentMethod", 2)
-        }.isInstanceOf(NoSuchElementException::class.java)
+            ReflectionUtils.findInterfaceMethod(
+                bean = bean,
+                handlerInterface = OutboxTypedHandler::class.java,
+                methodName = "handle",
+                contextType = OutboxRecordMetadata::class.java,
+            )
+        }.isInstanceOf(IllegalStateException::class.java)
+            .hasMessageContaining("does not implement ${OutboxTypedHandler::class.java.name}")
     }
 
     @Test
-    fun `findMethod throws exception when parameter count does not match`() {
-        val bean = TestBean()
+    fun `resolveInterfacePayloadType resolves inherited generic argument`() {
+        val bean = InheritedTypedHandler()
 
-        assertThatThrownBy {
-            ReflectionUtils.findMethod(bean, "methodWithTwoParams", 1)
-        }.isInstanceOf(NoSuchElementException::class.java)
+        val result = ReflectionUtils.resolveInterfacePayloadType(bean, OutboxTypedHandler::class.java)
+
+        assertThat(result).isEqualTo(HandlerPayload::class.java)
     }
 
     @Test
-    fun `findMethod filters out bridge and synthetic methods`() {
-        val bean = TestBean()
+    fun `findInterfaceMethod resolves inherited generic method without returning bridge method`() {
+        val bean = InheritedTypedHandler()
 
-        val result = ReflectionUtils.findMethod(bean, "methodWithOneParam", 1)
+        val result =
+            ReflectionUtils.findInterfaceMethod(
+                bean = bean,
+                handlerInterface = OutboxTypedHandler::class.java,
+                methodName = "handle",
+                contextType = OutboxRecordMetadata::class.java,
+            )
 
-        assertThat(result).isNotNull
         assertThat(result.isBridge).isFalse()
         assertThat(result.isSynthetic).isFalse()
     }
 
     @Test
-    fun `findMethod sets accessible on public method in package-private class`() {
-        class PackagePrivateClass {
-            fun exposed(param: String) {}
-        }
-        val bean = PackagePrivateClass()
-        val method = ReflectionUtils.findMethod(bean, "exposed", 1)
+    fun `findInterfaceMethod sets accessible on method in package-private class`() {
+        val bean = OverloadedTypedHandler()
+        val method =
+            ReflectionUtils.findInterfaceMethod(
+                bean = bean,
+                handlerInterface = OutboxTypedHandler::class.java,
+                methodName = "handle",
+                contextType = OutboxRecordMetadata::class.java,
+            )
+
         assertThat(method.canAccess(bean)).isTrue()
     }
 
@@ -174,7 +200,7 @@ class ReflectionUtilsTest {
         assertThat(methods).hasSize(1)
 
         val method = methods.first()
-        assertThat(method.canAccess(bean) || method.isAccessible).isTrue()
+        assertThat(method.canAccess(bean)).isTrue()
     }
 
     @Test
@@ -210,6 +236,31 @@ class ReflectionUtilsTest {
     interface TestHandlerInterface
 
     class TestHandlerImpl : TestHandlerInterface
+
+    private class OverloadedTypedHandler : OutboxTypedHandler<HandlerPayload> {
+        override fun handle(
+            payload: HandlerPayload,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+
+        fun handle(
+            payload: AlternativePayload,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+    }
+
+    private abstract class GenericTypedHandler<T> : OutboxTypedHandler<T> {
+        override fun handle(
+            payload: T,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+    }
+
+    private class InheritedTypedHandler : GenericTypedHandler<HandlerPayload>()
+
+    private class HandlerPayload
+
+    private class AlternativePayload
 
     @Suppress("UNUSED_PARAMETER")
     open class TestAnnotatedBean {

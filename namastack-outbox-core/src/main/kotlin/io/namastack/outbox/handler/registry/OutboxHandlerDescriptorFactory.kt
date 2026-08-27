@@ -14,7 +14,12 @@ import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
  * @since 1.8.1
  */
 internal object OutboxHandlerDescriptorFactory {
-    /** Creates a canonical descriptor without exposing lookup-only aliases. */
+    /**
+     * Creates an operational descriptor for a primary handler.
+     *
+     * @param handler Registered primary handler to describe
+     * @return Read-only descriptor containing the canonical ID and reflected method metadata
+     */
     fun create(handler: OutboxHandlerMethod): OutboxHandlerDescriptor =
         OutboxHandlerDescriptor(
             id = handler.id,

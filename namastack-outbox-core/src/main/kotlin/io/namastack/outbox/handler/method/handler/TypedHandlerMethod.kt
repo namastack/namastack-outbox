@@ -14,6 +14,7 @@ import kotlin.reflect.KClass
  * @param bean Bean containing the handler method
  * @param method Handler method (1 or 2 parameters)
  * @param canonicalId Stable routing ID resolved for this handler
+ * @param payloadType Resolved payload type used for scheduling lookup
  * @param routingAliases Additional IDs that route persisted records to this handler
  *
  * @author Roland Beisel
@@ -23,19 +24,18 @@ class TypedHandlerMethod(
     bean: Any,
     method: Method,
     canonicalId: String,
+    payloadType: KClass<*> = method.parameterTypes.first().kotlin,
     routingAliases: Set<String> = emptySet(),
 ) : OutboxHandlerMethod(bean, method, canonicalId, routingAliases) {
-    /** Payload type extracted from method's first parameter. */
-    internal val paramType: KClass<*>
-        get() = method.parameterTypes.first().kotlin
+    /** Resolved payload type used to index this handler for scheduling. */
+    internal val paramType: KClass<*> = payloadType
 
     /**
-     * Invokes handler with typed payload and metadata.
-     * Passes metadata only if method accepts it.
+     * Invokes the typed handler with a payload and, when declared, record metadata.
      *
-     * @param payload Record payload matching paramType
-     * @param metadata Record metadata
-     * @throws Throwable Original exception from handler (triggers retry logic)
+     * @param payload Deserialized record payload matching [paramType]
+     * @param metadata Metadata of the record being processed
+     * @throws Throwable The original exception raised by the handler
      */
     override fun invoke(
         payload: Any,

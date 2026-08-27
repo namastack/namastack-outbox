@@ -22,7 +22,15 @@ abstract class InvocableHandlerMethod(
     private val invocableMethod: Method =
         if (AopUtils.isAopProxy(bean)) AopUtils.selectInvocableMethod(method, bean::class.java) else method
 
-    /** Invokes the underlying method and rethrows the handler's original exception. */
+    /**
+     * Invokes the underlying method with the supplied arguments.
+     *
+     * For proxied beans, the invocable proxy method is selected during construction. Reflection's
+     * [InvocationTargetException] wrapper is removed so callers receive the original exception.
+     *
+     * @param args Arguments passed to the reflected handler method
+     * @throws Throwable The original exception raised by the handler method
+     */
     protected fun invokeMethod(vararg args: Any?) {
         try {
             if (!invocableMethod.canAccess(bean)) invocableMethod.trySetAccessible()
