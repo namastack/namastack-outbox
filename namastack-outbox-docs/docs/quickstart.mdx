@@ -70,13 +70,13 @@ Spring's `@EnableScheduling` is activated automatically by the library — no ma
 @Component
 class OrderHandlers {
     // Typed handler - processes specific payload type
-    @OutboxHandler
+    @OutboxHandler(id = "orders.publish-created")
     fun handleOrder(payload: OrderCreatedEvent) {
         eventPublisher.publish(payload)
     }
 
     // Generic handler - processes any payload type
-    @OutboxHandler
+    @OutboxHandler(id = "events.publish-generic")
     fun handleAny(payload: Any, metadata: OutboxRecordMetadata) {
         when (payload) {
             is OrderCreatedEvent -> eventPublisher.publish(payload)
@@ -93,13 +93,13 @@ class OrderHandlers {
 @Component
 public class OrderHandlers {
     // Typed handler - processes specific payload type
-    @OutboxHandler
+    @OutboxHandler(id = "orders.publish-created")
     public void handleOrder(OrderCreatedEvent payload) {
         eventPublisher.publish(payload);
     }
 
     // Generic handler - processes any payload type
-    @OutboxHandler
+    @OutboxHandler(id = "events.publish-generic")
     public void handleAny(Object payload, OutboxRecordMetadata metadata) {
         if (payload instanceof OrderCreatedEvent) {
             eventPublisher.publish((OrderCreatedEvent) payload);
@@ -113,6 +113,14 @@ public class OrderHandlers {
 ```
 </TabItem>
 </Tabs>
+
+:::tip Use stable handler IDs in production
+The handler ID is stored with every outbox record and is used to find its handler later. Define an
+explicit ID that describes the handler's responsibility rather than its class or method name. This
+keeps pending records routable when implementation details are refactored. See
+[Stable Handler Identities](reference/handlers.md#stable-handler-identities) for interface-based
+configuration and safe ID migrations.
+:::
 
 Handlers that accept `OutboxRecordMetadata` can inspect delivery state during normal processing:
 `failureCount == 0` is the first attempt, `failureCount > 0` is a retry, `attempt` is
