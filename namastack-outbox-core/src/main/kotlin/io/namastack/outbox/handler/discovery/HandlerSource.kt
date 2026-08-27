@@ -6,7 +6,7 @@ package io.namastack.outbox.handler.discovery
  * The source keeps primary handlers and fallbacks paired within the same declaration model.
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal enum class HandlerSource {
     ANNOTATION,

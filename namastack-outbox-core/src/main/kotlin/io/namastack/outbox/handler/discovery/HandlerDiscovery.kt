@@ -7,7 +7,7 @@ package io.namastack.outbox.handler.discovery
  * registration assembly.
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal object HandlerDiscovery {
     /**

@@ -20,7 +20,7 @@ import java.lang.reflect.Method
  * @property supportsPayload predicate evaluated for each payload before scheduling a generic handler
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal data class HandlerCandidate(
     val beanName: String,

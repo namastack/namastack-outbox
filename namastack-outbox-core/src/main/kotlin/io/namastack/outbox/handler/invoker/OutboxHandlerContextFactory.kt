@@ -12,7 +12,7 @@ import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
  * The factory keeps record-to-context mapping consistent between primary and fallback invocation.
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal object OutboxHandlerContextFactory {
     /**

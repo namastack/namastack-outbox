@@ -16,7 +16,7 @@ import org.springframework.core.annotation.AnnotatedElementUtils
  * @param registry registry containing named and typed retry policies
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal class HandlerRetryPolicyResolver(
     private val registry: OutboxRetryPolicyRegistry,

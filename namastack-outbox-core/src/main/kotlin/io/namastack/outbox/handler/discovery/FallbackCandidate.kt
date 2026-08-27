@@ -11,7 +11,7 @@ import java.lang.reflect.Method
  * @property source declaration mechanism used to find the method
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal data class FallbackCandidate(
     val bean: Any,

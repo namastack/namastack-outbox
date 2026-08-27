@@ -13,7 +13,7 @@ import org.springframework.util.ClassUtils
  * copied into the resulting candidates for later assembly.
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal object InterfaceHandlerDiscoverer {
     /**

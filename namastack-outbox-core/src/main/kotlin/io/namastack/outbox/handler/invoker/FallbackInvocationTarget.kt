@@ -10,7 +10,7 @@ import io.namastack.outbox.retry.OutboxRetryPolicy
  * @property explicitRetryPolicy handler-specific policy, or `null` to use the registry default
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal data class FallbackInvocationTarget(
     val fallback: OutboxFallbackHandlerMethod,

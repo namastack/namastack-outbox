@@ -13,7 +13,7 @@ import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
  * @property handler primary handler reached through the route
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal data class RoutingOwner(
     val role: String,

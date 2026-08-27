@@ -16,7 +16,7 @@ import java.lang.reflect.Method
  * classified by their payload parameter. Fallback declarations share a single invocation wrapper.
  *
  * @author Roland Beisel
- * @since 1.8.1
+ * @since 1.9.0
  */
 internal object HandlerMethodFactory {
     /**
