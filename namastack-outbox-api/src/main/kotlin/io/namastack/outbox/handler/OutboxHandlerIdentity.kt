@@ -13,7 +13,9 @@ package io.namastack.outbox.handler
  * @author Roland Beisel
  * @since 1.8.1
  */
-data class OutboxHandlerIdentity(
-    val id: String? = null,
-    val aliases: Set<String> = emptySet(),
-)
+data class OutboxHandlerIdentity
+    @JvmOverloads
+    constructor(
+        val id: String? = null,
+        val aliases: Set<String> = emptySet(),
+    )

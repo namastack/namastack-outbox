@@ -16,6 +16,14 @@ class OutboxHandlerTest {
     }
 
     @Test
+    fun `Java callers can configure an identity without specifying aliases`() {
+        val identity = JavaOutboxHandlerIdentityFactory.withId("orders.publish-created")
+
+        assertThat(identity.id).isEqualTo("orders.publish-created")
+        assertThat(identity.aliases).isEmpty()
+    }
+
+    @Test
     fun `supports defaults to true`() {
         val handler =
             object : OutboxHandler {

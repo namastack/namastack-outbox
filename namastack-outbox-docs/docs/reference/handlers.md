@@ -39,7 +39,7 @@ class OrderCreatedHandler : OutboxTypedHandler<OrderCreatedRecord> {
 public class OrderCreatedHandler implements OutboxTypedHandler<OrderCreatedRecord> {
     @Override
     public OutboxHandlerIdentity getTypedHandlerIdentity() {
-        return new OutboxHandlerIdentity("orders.publish-created", Set.of());
+        return new OutboxHandlerIdentity("orders.publish-created");
     }
 
     @Override
@@ -83,7 +83,7 @@ class UniversalHandler : OutboxHandler {
 public class UniversalHandler implements OutboxHandler {
     @Override
     public OutboxHandlerIdentity getGenericHandlerIdentity() {
-        return new OutboxHandlerIdentity("events.publish-generic", Set.of());
+        return new OutboxHandlerIdentity("events.publish-generic");
     }
 
     @Override

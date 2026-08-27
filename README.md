@@ -169,7 +169,7 @@ public class OrderHandler implements OutboxTypedHandler<OrderCreatedEvent> {
 
   @Override
   public OutboxHandlerIdentity getTypedHandlerIdentity() {
-    return new OutboxHandlerIdentity("orders.publish-created", Set.of());
+    return new OutboxHandlerIdentity("orders.publish-created");
   }
 
   @Override
