@@ -79,7 +79,7 @@ Business data and its outbox record commit together. Namastack delivers the reco
     <img
       src="./namastack-outbox-docs/static/img/landing/diagram_light.svg"
       alt="Namastack Outbox architecture and event delivery flow"
-      width="900"
+      width="600"
     >
   </picture>
 </div>
