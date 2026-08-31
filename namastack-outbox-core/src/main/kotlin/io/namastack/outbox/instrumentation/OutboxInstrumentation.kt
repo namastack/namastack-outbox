@@ -12,6 +12,9 @@ package io.namastack.outbox.instrumentation
 interface OutboxInstrumentation {
     /**
      * Instruments one scheduling operation.
+     *
+     * @param invocation Description of the scheduling operation.
+     * @param action Scheduling action to invoke exactly once.
      */
     fun schedule(
         invocation: OutboxScheduleInvocation,
@@ -20,6 +23,9 @@ interface OutboxInstrumentation {
 
     /**
      * Instruments one primary or fallback handler invocation.
+     *
+     * @param invocation Description of the processing operation.
+     * @param action Handler action to invoke exactly once.
      */
     fun process(
         invocation: OutboxProcessInvocation,
@@ -27,12 +33,18 @@ interface OutboxInstrumentation {
     )
 
     companion object {
-        /** Instrumentation that invokes actions without adding behavior. */
+        /**
+         * Instrumentation that invokes actions without adding behavior.
+         */
         @JvmField
         val NOOP: OutboxInstrumentation = NoOpOutboxInstrumentation
 
         /**
          * Composes [instrumentations] in list order, with the first instrumentation outermost.
+         *
+         * @param instrumentations Instrumentations to compose.
+         * @return A no-op instrumentation for an empty list, the single instance for a one-element
+         * list, or an immutable ordered composite for multiple instances.
          */
         @JvmStatic
         fun compose(instrumentations: List<OutboxInstrumentation>): OutboxInstrumentation =
