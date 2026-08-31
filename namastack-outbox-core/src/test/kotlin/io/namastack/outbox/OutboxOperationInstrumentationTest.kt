@@ -45,7 +45,7 @@ class OutboxOperationInstrumentationTest {
                 outboxRecordRepository = recordRepository,
                 clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC),
                 instrumentation = instrumentation,
-                channelNameProvider = OutboxChannelNameProvider { "orders" },
+                channelNameProvider = { "orders" },
             )
         val payload = SchedulePayload("created")
 
@@ -72,13 +72,12 @@ class OutboxOperationInstrumentationTest {
         every { handlerRegistry.getHandlerById("handler-1") } returns handler
         every { handler.invoke(any(), any()) } answers {
             events += "handler"
-            Unit
         }
         val invoker =
             OutboxHandlerInvoker(
                 handlerRegistry = handlerRegistry,
                 instrumentation = instrumentation,
-                channelNameProvider = OutboxChannelNameProvider { "orders" },
+                channelNameProvider = { "orders" },
             )
 
         invoker.dispatch(record)
@@ -112,14 +111,13 @@ class OutboxOperationInstrumentationTest {
             )
         every { fallbackHandler.invoke(any(), any()) } answers {
             events += "handler"
-            Unit
         }
         val invoker =
             OutboxFallbackHandlerInvoker(
                 retryPolicyRegistry = retryPolicyRegistry,
                 handlerRegistry = handlerRegistry,
                 instrumentation = instrumentation,
-                channelNameProvider = OutboxChannelNameProvider { "payments" },
+                channelNameProvider = { "payments" },
             )
 
         invoker.dispatch(record)
