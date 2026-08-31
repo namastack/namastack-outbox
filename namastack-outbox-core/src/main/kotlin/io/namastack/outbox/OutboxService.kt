@@ -4,6 +4,8 @@ import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
+import io.namastack.outbox.instrumentation.OutboxInstrumentation
+import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
@@ -59,6 +61,8 @@ import kotlin.reflect.KClass
  * @param handlerRegistry Registry of all discovered handler methods
  * @param outboxRecordRepository Repository for persisting records
  * @param clock Clock for timestamp generation
+ * @param instrumentation Instrumentation applied around each scheduling operation
+ * @param channelNameProvider Provider for the logical outbox channel name
  *
  * @author Roland Beisel
  * @since 0.4.0
@@ -69,6 +73,8 @@ class OutboxService(
     private val handlerRegistry: OutboxHandlerRegistry,
     private val outboxRecordRepository: OutboxRecordRepository,
     private val clock: Clock,
+    private val instrumentation: OutboxInstrumentation = OutboxInstrumentation.NOOP,
+    private val channelNameProvider: OutboxChannelNameProvider = OutboxChannelNameProvider.DEFAULT,
 ) : Outbox {
     /**
      * Schedules a record with an explicit key and additional context for processing.
@@ -163,30 +169,7 @@ class OutboxService(
         payload: Any,
         key: String,
         additionalContext: Map<String, String>,
-    ) {
-        // Collect context from providers and merge with additional context
-        val context = contextCollector.collectContext() + additionalContext
-        val createdAt = clock.instant()
-        val schedulingClock = Clock.fixed(createdAt, clock.zone)
-
-        // Discover all applicable handlers for this payload type
-        val handlerIds = collectHandlers(payload, key, context, createdAt).map { it.id }.toSet()
-
-        // Create separate record for each handler
-        // Each record has independent retry/processing state
-        handlerIds.forEach { handlerId ->
-            val outboxRecord =
-                OutboxRecord
-                    .Builder<Any>()
-                    .key(key)
-                    .payload(payload)
-                    .context(context)
-                    .handlerId(handlerId)
-                    .build(schedulingClock)
-
-            outboxRecordRepository.save(outboxRecord)
-        }
-    }
+    ) = scheduleInstrumented(payload, key, additionalContext, key)
 
     /**
      * Schedules a record with an explicit key for processing.
@@ -356,10 +339,11 @@ class OutboxService(
         payload: Any,
         additionalContext: Map<String, String>,
     ) {
-        schedule(
+        scheduleInstrumented(
             payload = payload,
             key = UUID.randomUUID().toString(),
             additionalContext = additionalContext,
+            instrumentationKey = "auto-generated",
         )
     }
 
@@ -450,8 +434,55 @@ class OutboxService(
     override fun schedule(payload: Any) {
         schedule(
             payload = payload,
-            key = UUID.randomUUID().toString(),
             additionalContext = emptyMap(),
+        )
+    }
+
+    /**
+     * Executes the canonical scheduling operation within the configured instrumentation.
+     *
+     * @param payload Domain object to schedule.
+     * @param key Effective key persisted with each outbox record.
+     * @param additionalContext Event-specific context merged with global context.
+     * @param instrumentationKey Logical key exposed to instrumentation.
+     */
+    private fun scheduleInstrumented(
+        payload: Any,
+        key: String,
+        additionalContext: Map<String, String>,
+        instrumentationKey: String,
+    ) {
+        instrumentation.schedule(
+            invocation =
+                OutboxScheduleInvocation(
+                    payload = payload,
+                    recordKey = instrumentationKey,
+                    channel = channelNameProvider.getChannelName(),
+                ),
+            action = {
+                // Collect context from providers and merge with additional context
+                val context = contextCollector.collectContext() + additionalContext
+                val createdAt = clock.instant()
+                val schedulingClock = Clock.fixed(createdAt, clock.zone)
+
+                // Discover all applicable handlers for this payload type
+                val handlerIds = collectHandlers(payload, key, context, createdAt).map { it.id }.toSet()
+
+                // Create separate record for each handler
+                // Each record has independent retry/processing state
+                handlerIds.forEach { handlerId ->
+                    val outboxRecord =
+                        OutboxRecord
+                            .Builder<Any>()
+                            .key(key)
+                            .payload(payload)
+                            .context(context)
+                            .handlerId(handlerId)
+                            .build(schedulingClock)
+
+                    outboxRecordRepository.save(outboxRecord)
+                }
+            },
         )
     }
 
