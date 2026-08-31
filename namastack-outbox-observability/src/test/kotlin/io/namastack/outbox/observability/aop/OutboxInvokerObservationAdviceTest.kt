@@ -9,6 +9,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxRecord
+import io.namastack.outbox.instrumentation.OutboxProcessHandlerKind
+import io.namastack.outbox.observability.MicrometerOutboxInstrumentation
 import io.namastack.outbox.observability.OutboxMetricKeyNames
 import io.namastack.outbox.observability.OutboxMetricNames
 import io.namastack.outbox.observability.OutboxProcessObservationContext
@@ -43,7 +45,7 @@ class OutboxInvokerObservationAdviceTest {
         fun `records primary handler processing observation and timer`() {
             val record = outboxRecord()
             val invocation = dispatchInvocation(record)
-            val advice = observationAdvice(HandlerKind.PRIMARY)
+            val advice = observationAdvice(OutboxProcessHandlerKind.PRIMARY)
 
             advice.invoke(invocation)
 
@@ -81,7 +83,7 @@ class OutboxInvokerObservationAdviceTest {
 
         @Test
         fun `records fallback handler kind`() {
-            observationAdvice(HandlerKind.FALLBACK).invoke(dispatchInvocation(outboxRecord()))
+            observationAdvice(OutboxProcessHandlerKind.FALLBACK).invoke(dispatchInvocation(outboxRecord()))
 
             assertThat(capturingHandler.stopped.single().getHandlerKind()).isEqualTo(HandlerKind.FALLBACK)
             assertThat(
@@ -102,7 +104,8 @@ class OutboxInvokerObservationAdviceTest {
             every { invocation.arguments } returns arrayOf(outboxRecord())
             every { invocation.proceed() } throws failure
 
-            assertThatThrownBy { observationAdvice(HandlerKind.PRIMARY).invoke(invocation) }.isSameAs(failure)
+            assertThatThrownBy { observationAdvice(OutboxProcessHandlerKind.PRIMARY).invoke(invocation) }
+                .isSameAs(failure)
 
             assertThat(capturingHandler.stopped.single().error).isSameAs(failure)
         }
@@ -117,17 +120,16 @@ class OutboxInvokerObservationAdviceTest {
             every { invocation.arguments } returns arrayOf("not-a-record")
             every { invocation.proceed() } returns Unit
 
-            observationAdvice(HandlerKind.PRIMARY).invoke(invocation)
+            observationAdvice(OutboxProcessHandlerKind.PRIMARY).invoke(invocation)
 
             assertThat(capturingHandler.stopped).isEmpty()
         }
     }
 
-    private fun observationAdvice(handlerKind: HandlerKind): OutboxInvokerObservationAdvice =
+    private fun observationAdvice(handlerKind: OutboxProcessHandlerKind): OutboxInvokerObservationAdvice =
         OutboxInvokerObservationAdvice(
             handlerKind = handlerKind,
-            observationRegistrySupplier = { observationRegistry },
-            customOutboxConventionSupplier = { null },
+            instrumentationSupplier = { MicrometerOutboxInstrumentation(observationRegistry) },
             channelNameProviderSupplier = { OutboxChannelNameProvider { "orders" } },
         )
 

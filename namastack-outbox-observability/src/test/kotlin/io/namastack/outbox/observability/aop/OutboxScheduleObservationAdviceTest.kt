@@ -6,6 +6,7 @@ import io.micrometer.observation.ObservationRegistry
 import io.mockk.every
 import io.mockk.mockk
 import io.namastack.outbox.OutboxChannelNameProvider
+import io.namastack.outbox.observability.MicrometerOutboxInstrumentation
 import io.namastack.outbox.observability.OutboxMetricKeyNames
 import io.namastack.outbox.observability.OutboxMetricNames
 import io.namastack.outbox.observability.OutboxScheduleObservationContext
@@ -31,8 +32,7 @@ class OutboxScheduleObservationAdviceTest {
 
     private val advice =
         OutboxScheduleObservationAdvice(
-            observationRegistrySupplier = { observationRegistry },
-            customOutboxConventionSupplier = { null },
+            instrumentationSupplier = { MicrometerOutboxInstrumentation(observationRegistry) },
             channelNameProviderSupplier = { OutboxChannelNameProvider { "orders" } },
         )
 

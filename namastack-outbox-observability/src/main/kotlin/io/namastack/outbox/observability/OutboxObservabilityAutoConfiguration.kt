@@ -6,7 +6,7 @@ import io.namastack.outbox.OutboxService
 import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
-import io.namastack.outbox.observability.OutboxProcessObservationContext.HandlerKind
+import io.namastack.outbox.instrumentation.OutboxProcessHandlerKind
 import io.namastack.outbox.observability.aop.OutboxInvokerMatcherPointcut
 import io.namastack.outbox.observability.aop.OutboxInvokerObservationAdvice
 import io.namastack.outbox.observability.aop.OutboxScheduleMatcherPointcut
@@ -16,6 +16,7 @@ import org.springframework.aop.support.DefaultPointcutAdvisor
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.config.BeanDefinition
 import org.springframework.boot.autoconfigure.AutoConfiguration
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -57,14 +58,35 @@ class OutboxObservabilityAutoConfiguration {
     @ConditionalOnMissingBean
     fun outboxChannelNameProvider(): OutboxChannelNameProvider = OutboxChannelNameProvider.DEFAULT
 
+    /**
+     * Provides the Micrometer implementation of the Core instrumentation contract.
+     *
+     * @param observationRegistry registry used to create observations
+     * @param scheduleConvention optional custom scheduling convention
+     * @param processConvention optional custom processing convention
+     * @return the Micrometer outbox instrumentation
+     */
+    @Bean
+    @ConditionalOnBean(ObservationRegistry::class)
+    @ConditionalOnMissingBean(MicrometerOutboxInstrumentation::class)
+    fun micrometerOutboxInstrumentation(
+        observationRegistry: ObservationRegistry,
+        scheduleConvention: ObjectProvider<OutboxScheduleObservationConvention>,
+        processConvention: ObjectProvider<OutboxProcessObservationConvention>,
+    ): MicrometerOutboxInstrumentation =
+        MicrometerOutboxInstrumentation(
+            observationRegistry = observationRegistry,
+            customScheduleConvention = scheduleConvention.getIfAvailable(),
+            customProcessConvention = processConvention.getIfAvailable(),
+        )
+
     companion object {
         /**
          * Advisor wrapping [OutboxHandlerInvoker.dispatch] in an observation.
          *
          * Registers an advisor that instruments handler invocations with observation-based metrics and tracing.
          *
-         * @param observationRegistry provider for the [ObservationRegistry]
-         * @param customConvention provider for a custom [OutboxProcessObservationConvention], if present
+         * @param instrumentation provider for the [MicrometerOutboxInstrumentation]
          * @param channelNameProvider provider for the [OutboxChannelNameProvider]
          * @return the [Advisor] for handler invocations
          */
@@ -73,16 +95,14 @@ class OutboxObservabilityAutoConfiguration {
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
         fun outboxObservabilityHandlerAdvisor(
-            observationRegistry: ObjectProvider<ObservationRegistry>,
-            customConvention: ObjectProvider<OutboxProcessObservationConvention>,
+            instrumentation: ObjectProvider<MicrometerOutboxInstrumentation>,
             channelNameProvider: ObjectProvider<OutboxChannelNameProvider>,
         ): Advisor {
             val pointcut = OutboxInvokerMatcherPointcut(OutboxHandlerInvoker::class.java)
             val advice =
                 OutboxInvokerObservationAdvice(
-                    handlerKind = HandlerKind.PRIMARY,
-                    observationRegistrySupplier = observationRegistry::getObject,
-                    customOutboxConventionSupplier = customConvention::getIfAvailable,
+                    handlerKind = OutboxProcessHandlerKind.PRIMARY,
+                    instrumentationSupplier = instrumentation::getObject,
                     channelNameProviderSupplier = {
                         channelNameProvider.getIfAvailable { OutboxChannelNameProvider.DEFAULT }
                     },
@@ -95,8 +115,7 @@ class OutboxObservabilityAutoConfiguration {
          *
          * Registers an advisor that instruments fallback handler invocations with observation-based metrics and tracing.
          *
-         * @param observationRegistry provider for the [ObservationRegistry]
-         * @param customConvention provider for a custom [OutboxProcessObservationConvention], if present
+         * @param instrumentation provider for the [MicrometerOutboxInstrumentation]
          * @param channelNameProvider provider for the [OutboxChannelNameProvider]
          * @return the [Advisor] for fallback handler invocations
          */
@@ -105,16 +124,14 @@ class OutboxObservabilityAutoConfiguration {
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
         fun outboxObservabilityFallbackAdvisor(
-            observationRegistry: ObjectProvider<ObservationRegistry>,
-            customConvention: ObjectProvider<OutboxProcessObservationConvention>,
+            instrumentation: ObjectProvider<MicrometerOutboxInstrumentation>,
             channelNameProvider: ObjectProvider<OutboxChannelNameProvider>,
         ): Advisor {
             val pointcut = OutboxInvokerMatcherPointcut(OutboxFallbackHandlerInvoker::class.java)
             val advice =
                 OutboxInvokerObservationAdvice(
-                    handlerKind = HandlerKind.FALLBACK,
-                    observationRegistrySupplier = observationRegistry::getObject,
-                    customOutboxConventionSupplier = customConvention::getIfAvailable,
+                    handlerKind = OutboxProcessHandlerKind.FALLBACK,
+                    instrumentationSupplier = instrumentation::getObject,
                     channelNameProviderSupplier = {
                         channelNameProvider.getIfAvailable { OutboxChannelNameProvider.DEFAULT }
                     },
@@ -127,8 +144,7 @@ class OutboxObservabilityAutoConfiguration {
          *
          * Registers an advisor that instruments record scheduling with observation-based metrics and tracing.
          *
-         * @param observationRegistry provider for the [ObservationRegistry]
-         * @param customConvention provider for a custom [OutboxScheduleObservationConvention], if present
+         * @param instrumentation provider for the [MicrometerOutboxInstrumentation]
          * @param channelNameProvider provider for the [OutboxChannelNameProvider]
          * @return the [Advisor] for schedule invocations
          */
@@ -137,15 +153,13 @@ class OutboxObservabilityAutoConfiguration {
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
         fun outboxObservabilityScheduleAdvisor(
-            observationRegistry: ObjectProvider<ObservationRegistry>,
-            customConvention: ObjectProvider<OutboxScheduleObservationConvention>,
+            instrumentation: ObjectProvider<MicrometerOutboxInstrumentation>,
             channelNameProvider: ObjectProvider<OutboxChannelNameProvider>,
         ): Advisor {
             val pointcut = OutboxScheduleMatcherPointcut()
             val advice =
                 OutboxScheduleObservationAdvice(
-                    observationRegistrySupplier = observationRegistry::getObject,
-                    customOutboxConventionSupplier = customConvention::getIfAvailable,
+                    instrumentationSupplier = instrumentation::getObject,
                     channelNameProviderSupplier = {
                         channelNameProvider.getIfAvailable { OutboxChannelNameProvider.DEFAULT }
                     },
