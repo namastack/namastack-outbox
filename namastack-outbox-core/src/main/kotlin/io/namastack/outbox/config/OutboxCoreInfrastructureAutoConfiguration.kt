@@ -2,6 +2,7 @@ package io.namastack.outbox.config
 
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.Outbox
+import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
@@ -14,6 +15,7 @@ import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.partition.PartitionAssignmentCache
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
@@ -40,6 +42,10 @@ import java.time.Clock
 class OutboxCoreInfrastructureAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
+    fun outboxChannelNameProvider(): OutboxChannelNameProvider = OutboxChannelNameProvider.DEFAULT
+
+    @Bean
+    @ConditionalOnMissingBean
     fun clock(): Clock = Clock.systemDefaultZone()
 
     @Bean
@@ -49,9 +55,15 @@ class OutboxCoreInfrastructureAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    fun outboxHandlerInvoker(outboxHandlerRegistry: OutboxHandlerRegistry): OutboxHandlerInvoker =
+    fun outboxHandlerInvoker(
+        outboxHandlerRegistry: OutboxHandlerRegistry,
+        instrumentations: List<OutboxInstrumentation>,
+        channelNameProvider: OutboxChannelNameProvider,
+    ): OutboxHandlerInvoker =
         OutboxHandlerInvoker(
             handlerRegistry = outboxHandlerRegistry,
+            instrumentation = OutboxInstrumentation.compose(instrumentations),
+            channelNameProvider = channelNameProvider,
         )
 
     @Bean
@@ -59,10 +71,14 @@ class OutboxCoreInfrastructureAutoConfiguration {
     fun outboxFallbackHandlerInvoker(
         retryPolicyRegistry: OutboxRetryPolicyRegistry,
         outboxHandlerRegistry: OutboxHandlerRegistry,
+        instrumentations: List<OutboxInstrumentation>,
+        channelNameProvider: OutboxChannelNameProvider,
     ): OutboxFallbackHandlerInvoker =
         OutboxFallbackHandlerInvoker(
             retryPolicyRegistry = retryPolicyRegistry,
             handlerRegistry = outboxHandlerRegistry,
+            instrumentation = OutboxInstrumentation.compose(instrumentations),
+            channelNameProvider = channelNameProvider,
         )
 
     @Bean
@@ -124,12 +140,16 @@ class OutboxCoreInfrastructureAutoConfiguration {
         handlerRegistry: OutboxHandlerRegistry,
         recordRepository: OutboxRecordRepository,
         clock: Clock,
+        instrumentations: List<OutboxInstrumentation>,
+        channelNameProvider: OutboxChannelNameProvider,
     ): Outbox =
         OutboxService(
             contextCollector = outboxContextCollector,
             handlerRegistry = handlerRegistry,
             outboxRecordRepository = recordRepository,
             clock = clock,
+            instrumentation = OutboxInstrumentation.compose(instrumentations),
+            channelNameProvider = channelNameProvider,
         )
 
     companion object {

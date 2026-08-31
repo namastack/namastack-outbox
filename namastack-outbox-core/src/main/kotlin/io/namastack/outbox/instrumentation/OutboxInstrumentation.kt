@@ -3,7 +3,7 @@ package io.namastack.outbox.instrumentation
 /**
  * Instruments scheduling and processing at the stable outbox operation boundaries.
  *
- * Implementations are observational around-interceptors. They must invoke [action] exactly once
+ * Implementations are observational around-interceptors. They must invoke action exactly once
  * and propagate its result or failure unchanged.
  *
  * @author Roland Beisel
