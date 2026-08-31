@@ -7,9 +7,14 @@ import io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
+import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
+import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.instrumentation.OutboxInstrumentation
+import io.namastack.outbox.instrumentation.OutboxProcessInvocation
+import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.trigger.AdaptivePollingTrigger
@@ -28,6 +33,7 @@ import org.springframework.boot.autoconfigure.task.TaskSchedulingAutoConfigurati
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.Ordered
 import org.springframework.core.task.SimpleAsyncTaskExecutor
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.TaskScheduler
@@ -120,6 +126,78 @@ class OutboxCoreAutoConfigurationTest {
                         ReflectionTestUtils.getField(processingScheduler, "taskExecutor") as TaskExecutor
                     val outboxTaskExecutor = context.getBean("outboxTaskExecutor") as TaskExecutor
                     assertThat(injectedExecutor).isSameAs(outboxTaskExecutor)
+                }
+        }
+    }
+
+    @Nested
+    @DisplayName("Instrumentation")
+    inner class InstrumentationConfiguration {
+        @Test
+        fun `uses no-op instrumentation and default channel without instrumentation beans`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    assertThat(context).hasSingleBean(OutboxChannelNameProvider::class.java)
+                    assertThat(context.getBean<OutboxChannelNameProvider>().getChannelName()).isEqualTo("default")
+
+                    val outbox = context.getBean<Outbox>() as OutboxService
+                    val handlerInvoker = context.getBean<OutboxHandlerInvoker>()
+                    val fallbackInvoker = context.getBean<OutboxFallbackHandlerInvoker>()
+                    assertThat(ReflectionTestUtils.getField(outbox, "instrumentation"))
+                        .isSameAs(OutboxInstrumentation.NOOP)
+                    assertThat(ReflectionTestUtils.getField(handlerInvoker, "instrumentation"))
+                        .isSameAs(OutboxInstrumentation.NOOP)
+                    assertThat(ReflectionTestUtils.getField(fallbackInvoker, "instrumentation"))
+                        .isSameAs(OutboxInstrumentation.NOOP)
+                }
+        }
+
+        @Test
+        fun `composes ordered instrumentation beans for core operations`() {
+            ConfigWithOrderedInstrumentations.events.clear()
+
+            contextRunner
+                .withUserConfiguration(ConfigWithOrderedInstrumentations::class.java)
+                .run { context ->
+                    val outbox = context.getBean<Outbox>() as OutboxService
+                    val handlerInvoker = context.getBean<OutboxHandlerInvoker>()
+                    val fallbackInvoker = context.getBean<OutboxFallbackHandlerInvoker>()
+
+                    outbox.schedule("payload", "record-key")
+
+                    assertThat(ConfigWithOrderedInstrumentations.events)
+                        .containsExactly("outer.before", "inner.before", "inner.after", "outer.after")
+                    assertThat(context.getBeansOfType(OutboxInstrumentation::class.java)).hasSize(2)
+                    assertThat(ReflectionTestUtils.getField(outbox, "instrumentation"))
+                        .isNotSameAs(OutboxInstrumentation.NOOP)
+                    assertThat(ReflectionTestUtils.getField(handlerInvoker, "instrumentation"))
+                        .isNotSameAs(OutboxInstrumentation.NOOP)
+                    assertThat(ReflectionTestUtils.getField(fallbackInvoker, "instrumentation"))
+                        .isNotSameAs(OutboxInstrumentation.NOOP)
+                }
+        }
+
+        @Test
+        fun `uses a custom channel name provider at every operation boundary`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithCustomChannelNameProvider::class.java)
+                .run { context ->
+                    val provider = context.getBean<OutboxChannelNameProvider>()
+
+                    assertThat(provider).isSameAs(ConfigWithCustomChannelNameProvider.provider)
+                    assertThat(
+                        ReflectionTestUtils.getField(context.getBean<Outbox>() as OutboxService, "channelNameProvider"),
+                    ).isSameAs(provider)
+                    assertThat(
+                        ReflectionTestUtils.getField(context.getBean<OutboxHandlerInvoker>(), "channelNameProvider"),
+                    ).isSameAs(provider)
+                    assertThat(
+                        ReflectionTestUtils.getField(
+                            context.getBean<OutboxFallbackHandlerInvoker>(),
+                            "channelNameProvider",
+                        ),
+                    ).isSameAs(provider)
                 }
         }
     }
@@ -543,5 +621,60 @@ class OutboxCoreAutoConfigurationTest {
 
         @Bean
         fun outboxPollingTrigger() = outboxPollingTrigger
+    }
+
+    @Configuration
+    private class ConfigWithCustomChannelNameProvider : MinimalTestConfig() {
+        @Bean
+        fun outboxChannelNameProvider(): OutboxChannelNameProvider = provider
+
+        companion object {
+            val provider = OutboxChannelNameProvider { "orders" }
+        }
+    }
+
+    @Configuration
+    private class ConfigWithOrderedInstrumentations : MinimalTestConfig() {
+        @Bean
+        fun outerInstrumentation(): OutboxInstrumentation = instrumentation("outer", 1)
+
+        @Bean
+        fun innerInstrumentation(): OutboxInstrumentation = instrumentation("inner", 2)
+
+        private fun instrumentation(
+            name: String,
+            order: Int,
+        ): OutboxInstrumentation =
+            object : OutboxInstrumentation, Ordered {
+                override fun getOrder(): Int = order
+
+                override fun schedule(
+                    invocation: OutboxScheduleInvocation,
+                    action: () -> Unit,
+                ) {
+                    events += "$name.before"
+                    try {
+                        action()
+                    } finally {
+                        events += "$name.after"
+                    }
+                }
+
+                override fun process(
+                    invocation: OutboxProcessInvocation,
+                    action: () -> Unit,
+                ) {
+                    events += "$name.before"
+                    try {
+                        action()
+                    } finally {
+                        events += "$name.after"
+                    }
+                }
+            }
+
+        companion object {
+            val events = mutableListOf<String>()
+        }
     }
 }

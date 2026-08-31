@@ -1,9 +1,12 @@
 package io.namastack.outbox.handler.invoker
 
 import io.namastack.outbox.OpenForProxy
+import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxRecord
-import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
+import io.namastack.outbox.instrumentation.OutboxInstrumentation
+import io.namastack.outbox.instrumentation.OutboxProcessHandlerKind
+import io.namastack.outbox.instrumentation.OutboxProcessInvocation
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 
 /**
@@ -13,56 +16,19 @@ import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
  * from the record's metadata.
  *
  * @param retryPolicyRegistry Registry to look up default retry policies per handler
- * @param registrationLookup Resolves the fallback handler and any explicit retry policy by routing ID
+ * @param handlerRegistry Registry used to resolve fallbacks and explicit retry policies
+ * @param instrumentation Instrumentation applied around each fallback handler invocation
+ * @param channelNameProvider Provider for the logical outbox channel name
  * @author Roland Beisel
  * @since 1.0.0
  */
 @OpenForProxy
-class OutboxFallbackHandlerInvoker private constructor(
+class OutboxFallbackHandlerInvoker internal constructor(
     private val retryPolicyRegistry: OutboxRetryPolicyRegistry,
-    private val registrationLookup: (String) -> FallbackInvocationTarget?,
+    private val handlerRegistry: OutboxHandlerRegistry,
+    private val instrumentation: OutboxInstrumentation = OutboxInstrumentation.NOOP,
+    private val channelNameProvider: OutboxChannelNameProvider = OutboxChannelNameProvider.DEFAULT,
 ) {
-    /**
-     * Creates an invoker backed by the compatibility fallback registry.
-     *
-     * Retry policies are resolved lazily by handler ID because this registry does not retain the
-     * complete handler registration.
-     *
-     * @param retryPolicyRegistry Registry used to resolve retry policies
-     * @param fallbackHandlerRegistry Registry used to resolve fallback methods
-     */
-    constructor(
-        retryPolicyRegistry: OutboxRetryPolicyRegistry,
-        fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
-    ) : this(
-        retryPolicyRegistry,
-        { id ->
-            fallbackHandlerRegistry.getByHandlerId(id)?.let {
-                FallbackInvocationTarget(it, null)
-            }
-        },
-    )
-
-    /**
-     * Creates an invoker backed by complete handler registrations.
-     *
-     * @param retryPolicyRegistry Registry used to resolve default retry policies
-     * @param handlerRegistry Registry used to resolve fallbacks and explicit retry policies
-     */
-    internal constructor(
-        retryPolicyRegistry: OutboxRetryPolicyRegistry,
-        handlerRegistry: OutboxHandlerRegistry,
-    ) : this(
-        retryPolicyRegistry,
-        { id ->
-            handlerRegistry.getRegistrationById(id)?.let { registration ->
-                registration.fallback?.let {
-                    FallbackInvocationTarget(it, registration.explicitRetryPolicy)
-                }
-            }
-        },
-    )
-
     /**
      * Invokes the fallback handler for a failed record.
      *
@@ -74,21 +40,33 @@ class OutboxFallbackHandlerInvoker private constructor(
      * or if the record does not contain a failure exception (which is expected for failed records)
      */
     fun dispatch(record: OutboxRecord<*>) {
-        val payload = record.payload ?: return
-        val failureException = getFailureException(record)
-        val registration =
-            registrationLookup(record.handlerId)
-                ?: throw IllegalStateException("No fallback handler with id ${record.handlerId}")
+        instrumentation.process(
+            invocation =
+                OutboxProcessInvocation(
+                    record = record,
+                    handlerKind = OutboxProcessHandlerKind.FALLBACK,
+                    channel = channelNameProvider.getChannelName(),
+                ),
+            action = {
+                val payload = record.payload ?: return@process
+                val failureException = getFailureException(record)
+                val registration =
+                    handlerRegistry.getRegistrationById(record.handlerId)
+                val fallback =
+                    registration?.fallback
+                        ?: throw IllegalStateException("No fallback handler with id ${record.handlerId}")
 
-        val context =
-            OutboxHandlerContextFactory.failure(
-                record,
-                failureException,
-                retryPolicyRegistry,
-                registration.explicitRetryPolicy,
-            )
+                val context =
+                    OutboxHandlerContextFactory.failure(
+                        record,
+                        failureException,
+                        retryPolicyRegistry,
+                        registration.explicitRetryPolicy,
+                    )
 
-        registration.fallback.invoke(payload, context)
+                fallback.invoke(payload, context)
+            },
+        )
     }
 
     /**

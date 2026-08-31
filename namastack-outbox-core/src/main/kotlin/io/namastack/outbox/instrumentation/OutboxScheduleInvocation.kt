@@ -4,7 +4,8 @@ package io.namastack.outbox.instrumentation
  * Describes one outbox scheduling operation.
  *
  * @param payload Payload being scheduled.
- * @param recordKey Effective key used for partitioning and ordering.
+ * @param recordKey Explicit scheduling key, or `"auto-generated"` when the scheduling overload
+ * does not accept a key and the persisted key is generated internally.
  * @param channel Logical name of the outbox runtime.
  *
  * @author Roland Beisel
