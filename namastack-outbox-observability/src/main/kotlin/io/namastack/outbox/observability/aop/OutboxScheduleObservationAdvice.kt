@@ -1,40 +1,36 @@
 package io.namastack.outbox.observability.aop
 
-import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OutboxChannelNameProvider
-import io.namastack.outbox.observability.OutboxObservationDocumentation
-import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxScheduleObservationConvention
-import io.namastack.outbox.observability.OutboxScheduleObservationContext
-import io.namastack.outbox.observability.OutboxScheduleObservationConvention
+import io.namastack.outbox.instrumentation.OutboxInstrumentation
+import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import org.aopalliance.intercept.MethodInterceptor
 import org.aopalliance.intercept.MethodInvocation
 import kotlin.LazyThreadSafetyMode.SYNCHRONIZED
 
 /**
- * AOP around-advice that wraps `OutboxService.schedule(...)` calls in a Micrometer Observation.
+ * AOP around-advice that routes `OutboxService.schedule(...)` calls through
+ * [OutboxInstrumentation].
  *
- * Produces the timer metric `outbox.record.schedule` with the outbox channel tag.
+ * @param instrumentationSupplier Lazy supplier for the shared [OutboxInstrumentation].
+ * @param channelNameProviderSupplier Lazy supplier for the channel name provider.
  *
  * @author Roland Beisel
  * @since 1.7.0
  */
 internal class OutboxScheduleObservationAdvice(
-    private val observationRegistrySupplier: () -> ObservationRegistry,
-    private val customOutboxConventionSupplier: () -> OutboxScheduleObservationConvention?,
+    private val instrumentationSupplier: () -> OutboxInstrumentation,
     private val channelNameProviderSupplier: () -> OutboxChannelNameProvider,
 ) : MethodInterceptor {
-    private val observationRegistry: ObservationRegistry by lazy(SYNCHRONIZED) {
-        observationRegistrySupplier()
-    }
-    private val customOutboxConvention: OutboxScheduleObservationConvention? by lazy(SYNCHRONIZED) {
-        customOutboxConventionSupplier()
+    private val instrumentation: OutboxInstrumentation by lazy(SYNCHRONIZED) {
+        instrumentationSupplier()
     }
     private val channelNameProvider: OutboxChannelNameProvider by lazy(SYNCHRONIZED) {
         channelNameProviderSupplier()
     }
 
     /**
-     * Intercepts the `schedule(...)` method and wraps it in an observation.
+     * Intercepts the `schedule(...)` method and delegates it to
+     * [OutboxInstrumentation.schedule].
      *
      * @param invocation The intercepted method invocation.
      * @return The return value of the intercepted method.
@@ -44,22 +40,17 @@ internal class OutboxScheduleObservationAdvice(
         val payload = args.firstOrNull() ?: return invocation.proceed()
 
         val key = extractKey(args)
-        val context =
-            OutboxScheduleObservationContext(
-                payloadType = payload::class.simpleName ?: "Unknown",
-                recordKey = key,
-                channel = channelNameProvider.getChannelName(),
-            )
-
-        val observation =
-            OutboxObservationDocumentation.OUTBOX_RECORD_SCHEDULE.observation(
-                customOutboxConvention,
-                DefaultOutboxScheduleObservationConvention.INSTANCE,
-                { context },
-                observationRegistry,
-            )
-
-        return observation.observe { invocation.proceed() }
+        return instrumentation.schedule(
+            invocation =
+                OutboxScheduleInvocation(
+                    payload = payload,
+                    recordKey = key,
+                    channel = channelNameProvider.getChannelName(),
+                ),
+            action = {
+                invocation.proceed()
+            },
+        )
     }
 
     /**
