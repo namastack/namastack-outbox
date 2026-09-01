@@ -8,6 +8,7 @@ import org.springframework.context.PayloadApplicationEvent
 import org.springframework.context.event.ApplicationEventMulticaster
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.core.ResolvableType
+import org.springframework.core.annotation.MergedAnnotations
 import org.springframework.expression.Expression
 import org.springframework.expression.spel.standard.SpelExpressionParser
 import org.springframework.expression.spel.support.StandardEvaluationContext
@@ -123,7 +124,7 @@ class OutboxEventMulticaster(
      *
      * Validates both:
      * 1. Event is a PayloadApplicationEvent (contains actual domain object)
-     * 2. Payload class has @OutboxEvent annotation
+     * 2. Payload class directly declares @OutboxEvent or a composed annotation
      *
      * Returns the payload object and annotation as a Pair, or null if either check fails.
      *
@@ -138,7 +139,13 @@ class OutboxEventMulticaster(
     private fun extractEventPayload(event: ApplicationEvent): Pair<Any, OutboxEvent>? {
         if (event !is PayloadApplicationEvent<*>) return null
 
-        val annotation = event.payload.javaClass.getAnnotation(OutboxEvent::class.java) ?: return null
+        val annotation =
+            MergedAnnotations
+                .from(event.payload.javaClass, MergedAnnotations.SearchStrategy.DIRECT)
+                .get(OutboxEvent::class.java)
+                .takeIf { it.isPresent }
+                ?.synthesize()
+                ?: return null
 
         return event.payload to annotation
     }
