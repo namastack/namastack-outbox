@@ -26,8 +26,8 @@ import java.lang.reflect.Method
  */
 class OutboxHandlerInfrastructure(
     beanFactory: BeanFactory,
-    instrumentation: OutboxInstrumentation = OutboxInstrumentation.NOOP,
-    channelNameProvider: OutboxChannelNameProvider = OutboxChannelNameProvider.DEFAULT,
+    internal val instrumentation: OutboxInstrumentation = OutboxInstrumentation.NOOP,
+    internal val channelNameProvider: OutboxChannelNameProvider = OutboxChannelNameProvider.DEFAULT,
 ) {
     internal val handlerRegistry = OutboxHandlerRegistry()
     internal val fallbackHandlerRegistry = OutboxFallbackHandlerRegistry(handlerRegistry)

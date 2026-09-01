@@ -19,6 +19,7 @@ import java.time.Duration
  * @param processing Configuration for record processing behavior
  * @param instance Configuration for instance management and coordination
  * @param multicaster Configuration for the custom application event multicaster
+ * @param mode Runtime implementation selected during application bootstrap
  *
  * @author Roland Beisel
  * @since 0.1.0
@@ -37,7 +38,14 @@ data class OutboxProperties(
     var processing: Processing = Processing(),
     var instance: Instance = Instance(),
     var multicaster: Multicaster = Multicaster(),
+    var mode: OutboxRuntimeMode = OutboxRuntimeMode.SINGLE,
 ) {
+    /**
+     * Returns the effective partition rebalance interval, using the deprecated root property when set.
+     */
+    val effectiveRebalanceInterval: Duration
+        get() = rebalanceInterval ?: instance.rebalanceInterval
+
     /**
      * Configuration for polling behavior.
      *
