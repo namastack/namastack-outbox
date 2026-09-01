@@ -7,6 +7,7 @@ import io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
+import io.namastack.outbox.config.OutboxRuntimeModeAutoConfiguration
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.instance.OutboxInstance
@@ -20,6 +21,10 @@ import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.trigger.AdaptivePollingTrigger
 import io.namastack.outbox.trigger.FixedPollingTrigger
 import io.namastack.outbox.trigger.OutboxPollingTrigger
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -42,10 +47,6 @@ import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import org.springframework.test.util.ReflectionTestUtils
-import java.time.Clock
-import java.time.Duration
-import java.time.Instant
-import java.time.ZoneId
 
 @DisplayName("OutboxCoreAutoConfiguration")
 class OutboxCoreAutoConfigurationTest {
@@ -55,6 +56,7 @@ class OutboxCoreAutoConfigurationTest {
                 AutoConfigurations.of(
                     TaskExecutionAutoConfiguration::class.java,
                     TaskSchedulingAutoConfiguration::class.java,
+                    OutboxRuntimeModeAutoConfiguration::class.java,
                     OutboxCoreInfrastructureAutoConfiguration::class.java,
                     OutboxCoreThreadingAutoConfiguration::class.java,
                     OutboxCoreProcessingAutoConfiguration::class.java,
