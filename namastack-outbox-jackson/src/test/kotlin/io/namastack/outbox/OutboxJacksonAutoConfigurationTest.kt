@@ -91,6 +91,16 @@ class OutboxJacksonAutoConfigurationTest {
         }
 
         @Test
+        fun `serializer remains available in channels mode`() {
+            contextRunner()
+                .withPropertyValues("namastack.outbox.mode=channels")
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(OutboxPayloadSerializer::class.java)
+                }
+        }
+
+        @Test
         fun `bean creation order is correct - JsonMapper before serializer`() {
             contextRunner()
                 .run { context ->

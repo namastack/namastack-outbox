@@ -29,6 +29,17 @@ class OutboxActuatorAutoConfigurationTest {
         }
 
         @Test
+        fun `does not create single runtime endpoint in channels mode`() {
+            contextRunner()
+                .withUserConfiguration(ConfigWithRepository::class.java)
+                .withPropertyValues("namastack.outbox.mode=channels")
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).doesNotHaveBean(OutboxActuatorEndpoint::class.java)
+                }
+        }
+
+        @Test
         fun `throws when repository is missing`() {
             contextRunner()
                 .withUserConfiguration(EmptyConfig::class.java)
