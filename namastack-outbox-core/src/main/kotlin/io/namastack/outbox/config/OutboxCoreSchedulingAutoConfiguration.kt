@@ -23,6 +23,7 @@ import java.time.Clock
 
 @AutoConfiguration
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = ["namastack.outbox.mode"], havingValue = "single", matchIfMissing = true)
 class OutboxCoreSchedulingAutoConfiguration {
     @Configuration
     @EnableScheduling

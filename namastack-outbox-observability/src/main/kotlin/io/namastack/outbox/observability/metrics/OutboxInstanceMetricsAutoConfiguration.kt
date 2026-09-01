@@ -35,6 +35,7 @@ import org.springframework.context.annotation.Bean
 )
 @ConditionalOnClass(OutboxService::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = ["namastack.outbox.mode"], havingValue = "single", matchIfMissing = true)
 @ConditionalOnBean(value = [OutboxRecordRepository::class, PartitionCoordinator::class, OutboxInstanceRegistry::class])
 internal class OutboxInstanceMetricsAutoConfiguration {
     @Bean
