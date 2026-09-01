@@ -98,6 +98,17 @@ class OutboxInstanceMetricsAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(OutboxInstanceMetricsMeterBinder::class.java)
                 }
         }
+
+        @Test
+        fun `does not create single runtime meter binder in channels mode`() {
+            contextRunner
+                .withUserConfiguration(RequiredBeansConfig::class.java)
+                .withPropertyValues("namastack.outbox.mode=channels")
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).doesNotHaveBean(OutboxInstanceMetricsMeterBinder::class.java)
+                }
+        }
     }
 
     @Configuration
