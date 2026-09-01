@@ -11,6 +11,7 @@ import io.namastack.outbox.annotation.OutboxHandler as OutboxHandlerAnnotation
 
 class OutboxHandlerInfrastructureTest {
     private val selectedRetryPolicy = OutboxRetryPolicy.builder().build()
+    private val defaultRetryPolicy = OutboxRetryPolicy.builder().maxRetries(7).build()
 
     @Test
     fun `registers only selected primary with its fallback and retry policy`() {
@@ -48,11 +49,32 @@ class OutboxHandlerInfrastructureTest {
         assertThat(second.handlerRegistry.getHandlerById("shared-handler")).isNotNull()
     }
 
+    @Test
+    fun `uses supplied default retry policy without resolving a global default bean`() {
+        val infrastructure = infrastructure()
+
+        infrastructure.register(DuplicateHandler(), "handler")
+
+        assertThat(infrastructure.retryPolicyRegistry.getByHandlerId("shared-handler"))
+            .isSameAs(defaultRetryPolicy)
+    }
+
+    @Test
+    fun `keeps supplied default retry policies isolated with one bean factory`() {
+        val beanFactory = DefaultListableBeanFactory()
+        val firstPolicy = OutboxRetryPolicy.builder().maxRetries(2).build()
+        val secondPolicy = OutboxRetryPolicy.builder().maxRetries(5).build()
+        val first = OutboxHandlerInfrastructure(beanFactory, firstPolicy)
+        val second = OutboxHandlerInfrastructure(beanFactory, secondPolicy)
+
+        assertThat(first.retryPolicyRegistry.getByHandlerId("handler")).isSameAs(firstPolicy)
+        assertThat(second.retryPolicyRegistry.getByHandlerId("handler")).isSameAs(secondPolicy)
+    }
+
     private fun infrastructure(): OutboxHandlerInfrastructure {
         val beanFactory = DefaultListableBeanFactory()
-        beanFactory.registerSingleton("outboxRetryPolicy", OutboxRetryPolicy.builder().build())
         beanFactory.registerSingleton("selectedRetryPolicy", selectedRetryPolicy)
-        return OutboxHandlerInfrastructure(beanFactory)
+        return OutboxHandlerInfrastructure(beanFactory, defaultRetryPolicy)
     }
 
     @Suppress("UNUSED_PARAMETER")

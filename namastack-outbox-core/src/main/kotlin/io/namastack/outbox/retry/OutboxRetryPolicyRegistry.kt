@@ -22,6 +22,7 @@ import kotlin.reflect.KClass
  *
  * @param beanFactory Spring bean factory for loading policy beans by name or class
  * @param handlerRegistry Registry owning the complete handler registrations
+ * @param defaultRetryPolicyProvider Provider for the default policy used when a handler has no explicit policy
  *
  * @author Roland Beisel
  * @since 1.0.0
@@ -29,6 +30,9 @@ import kotlin.reflect.KClass
 class OutboxRetryPolicyRegistry internal constructor(
     private val beanFactory: BeanFactory,
     private val handlerRegistry: OutboxHandlerRegistry,
+    private val defaultRetryPolicyProvider: () -> OutboxRetryPolicy = {
+        beanFactory.getBean<OutboxRetryPolicy>("outboxRetryPolicy")
+    },
 ) {
     /**
      * Used as fallback during policy resolution when no specific policy
@@ -37,7 +41,7 @@ class OutboxRetryPolicyRegistry internal constructor(
      * Only loaded when first accessed, avoiding eager dependency loading during BeanPostProcessor initialization.
      */
     private val defaultRetryPolicy: OutboxRetryPolicy by lazy {
-        beanFactory.getBean<OutboxRetryPolicy>("outboxRetryPolicy")
+        defaultRetryPolicyProvider()
     }
 
     /**

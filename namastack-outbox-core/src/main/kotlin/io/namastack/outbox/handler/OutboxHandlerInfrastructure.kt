@@ -6,6 +6,7 @@ import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
+import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.springframework.beans.factory.BeanFactory
 import java.lang.reflect.Method
@@ -15,9 +16,12 @@ import java.lang.reflect.Method
  *
  * Each instance creates its own handler and retry registries together with the primary and fallback
  * invokers backed by those registries. Handler beans remain Spring-managed objects; the supplied
- * [beanFactory] resolves handler-specific and default retry policy beans.
+ * [beanFactory] resolves handler-specific retry policy beans. The runtime supplies its resolved
+ * [defaultRetryPolicy] independently, so several infrastructures can use different defaults while
+ * still sharing the same parent bean factory.
  *
  * @param beanFactory Spring bean factory used to resolve retry policy beans
+ * @param defaultRetryPolicy Default policy used when a handler has no explicit policy
  * @param instrumentation Instrumentation applied around primary and fallback invocations
  * @param channelNameProvider Provider for the logical outbox channel name
  *
@@ -26,12 +30,18 @@ import java.lang.reflect.Method
  */
 class OutboxHandlerInfrastructure(
     beanFactory: BeanFactory,
+    defaultRetryPolicy: OutboxRetryPolicy,
     internal val instrumentation: OutboxInstrumentation = OutboxInstrumentation.NOOP,
     internal val channelNameProvider: OutboxChannelNameProvider = OutboxChannelNameProvider.DEFAULT,
 ) {
     internal val handlerRegistry = OutboxHandlerRegistry()
     internal val fallbackHandlerRegistry = OutboxFallbackHandlerRegistry(handlerRegistry)
-    internal val retryPolicyRegistry = OutboxRetryPolicyRegistry(beanFactory, handlerRegistry)
+    internal val retryPolicyRegistry =
+        OutboxRetryPolicyRegistry(
+            beanFactory = beanFactory,
+            handlerRegistry = handlerRegistry,
+            defaultRetryPolicyProvider = { defaultRetryPolicy },
+        )
     internal val handlerInvoker =
         OutboxHandlerInvoker(
             handlerRegistry = handlerRegistry,
