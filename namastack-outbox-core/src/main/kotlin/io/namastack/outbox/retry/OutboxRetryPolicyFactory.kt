@@ -11,7 +11,7 @@ import io.namastack.outbox.OutboxProperties
  * @author Roland Beisel
  * @since 0.1.0
  */
-internal object OutboxRetryPolicyFactory {
+object OutboxRetryPolicyFactory {
     /**
      * Creates a pre-configured retry policy builder based on application properties.
      *

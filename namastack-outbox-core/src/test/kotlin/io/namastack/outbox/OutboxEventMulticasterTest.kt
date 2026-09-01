@@ -83,6 +83,21 @@ class OutboxEventMulticasterTest {
     @DisplayName("Outbox Persistence")
     inner class OutboxPersistence {
         @Test
+        fun `resolves reusable scheduling values`() {
+            val payload = ComposedEvent(id = "composed-1")
+
+            val resolved = OutboxEventResolver.resolve(PayloadApplicationEvent(this, payload))
+
+            assertThat(resolved).isEqualTo(
+                ResolvedOutboxEvent(
+                    payload = payload,
+                    key = "composed-1",
+                    context = mapOf("source" to "composed"),
+                ),
+            )
+        }
+
+        @Test
         fun `should store annotated events in outbox when transaction is active`() {
             TransactionSynchronizationManager.setActualTransactionActive(true)
 

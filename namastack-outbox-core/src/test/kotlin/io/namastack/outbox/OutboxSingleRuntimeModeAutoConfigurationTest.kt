@@ -58,9 +58,8 @@ class OutboxSingleRuntimeModeAutoConfigurationTest {
                 assertThat(context).hasSingleBean(Clock::class.java)
                 assertThat(context).hasSingleBean(OutboxChannelNameProvider::class.java)
                 assertThat(context).hasSingleBean(OutboxContextCollector::class.java)
-                assertThat(context).hasSingleBean(OutboxRetryPolicy::class.java)
-
                 assertThat(context).doesNotHaveBean(Outbox::class.java)
+                assertThat(context).doesNotHaveBean(OutboxRetryPolicy::class.java)
                 assertThat(context).doesNotHaveBean(OutboxHandlerRegistry::class.java)
                 assertThat(context).doesNotHaveBean(OutboxFallbackHandlerRegistry::class.java)
                 assertThat(context).doesNotHaveBean(OutboxRetryPolicyRegistry::class.java)
