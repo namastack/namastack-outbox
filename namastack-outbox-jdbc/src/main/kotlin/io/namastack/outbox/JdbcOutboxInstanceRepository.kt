@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.JdbcOutboxTableNamespace.Companion.requireValidTableName
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.instance.OutboxInstanceStatus
@@ -28,7 +29,7 @@ internal open class JdbcOutboxInstanceRepository(
     private val transactionTemplate: TransactionTemplate,
     private val tableNameResolver: JdbcTableNameResolver,
 ) : OutboxInstanceRepository {
-    private val tableName = tableNameResolver.outboxInstance
+    private val tableName = requireValidTableName(tableNameResolver.outboxInstance)
     private val rowMapper = JdbcOutboxInstanceEntityRowMapper()
 
     /**
@@ -214,7 +215,7 @@ internal open class JdbcOutboxInstanceRepository(
                     .param("instanceId", instanceId)
                     .update()
             updated > 0
-        } ?: false
+        }
 
     /**
      * Updates instance status.
@@ -233,7 +234,7 @@ internal open class JdbcOutboxInstanceRepository(
                     .param("instanceId", instanceId)
                     .update()
             updated > 0
-        } ?: false
+        }
 
     /**
      * Counts instances by status.
@@ -256,7 +257,7 @@ internal open class JdbcOutboxInstanceRepository(
                     .param("instanceId", instanceId)
                     .update()
             deleted > 0
-        } ?: false
+        }
 
     /**
      * Attempts to update an existing instance. Returns number of rows updated.
