@@ -31,6 +31,17 @@ class OutboxObservabilityTracingAutoConfigurationTest {
         }
 
         @Test
+        fun `tracing context provider remains available in channels mode`() {
+            contextRunner
+                .withUserConfiguration(TracingBeansConfig::class.java)
+                .withPropertyValues("namastack.outbox.mode=channels")
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(OutboxObservabilityTracingContextProvider::class.java)
+                }
+        }
+
+        @Test
         fun `backs off when observability tracing context provider bean exists`() {
             contextRunner
                 .withUserConfiguration(TracingBeansConfig::class.java, ExistingObservabilityProviderConfig::class.java)
