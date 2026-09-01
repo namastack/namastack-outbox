@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.namastack.outbox.config.JdbcOutboxConfigurationProperties
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
@@ -48,7 +49,7 @@ class JdbcTableNameResolverTest {
         }
 
         @Test
-        fun `precomputed names should be lazily evaluated`() {
+        fun `precomputed names should remain stable`() {
             val properties =
                 JdbcOutboxConfigurationProperties(
                     tablePrefix = "lazy_",
@@ -118,6 +119,51 @@ class JdbcTableNameResolverTest {
             assertThat(resolver.outboxRecord).isEqualTo("custom_records")
             assertThat(resolver.outboxInstance).isEqualTo("custom_instances")
             assertThat(resolver.outboxPartitionAssignment).isEqualTo("custom_partitions")
+        }
+    }
+
+    @Nested
+    inner class NamespaceValidation {
+        @Test
+        fun `should resolve a complete validated namespace`() {
+            val namespace =
+                JdbcOutboxTableNamespace(
+                    schemaName = "outbox_schema",
+                    tablePrefix = "orders_",
+                    recordTableName = "records",
+                    instanceTableName = "instances",
+                    partitionTableName = "partitions",
+                )
+
+            assertThat(namespace.outboxRecord).isEqualTo("outbox_schema.orders_records")
+            assertThat(namespace.outboxInstance).isEqualTo("outbox_schema.orders_instances")
+            assertThat(namespace.outboxPartitionAssignment).isEqualTo("outbox_schema.orders_partitions")
+        }
+
+        @Test
+        fun `should reject invalid namespace components`() {
+            assertThatThrownBy {
+                JdbcOutboxTableNamespace(schemaName = "invalid-schema")
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("schema name")
+
+            assertThatThrownBy {
+                JdbcOutboxTableNamespace(tablePrefix = "invalid prefix")
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("table prefix")
+
+            assertThatThrownBy {
+                JdbcOutboxTableNamespace(recordTableName = "outbox-record")
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("record table name")
+        }
+
+        @Test
+        fun `should reject a prefix producing an invalid resolved identifier`() {
+            assertThatThrownBy {
+                JdbcOutboxTableNamespace(tablePrefix = "1_")
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("resolved table name")
         }
     }
 }
