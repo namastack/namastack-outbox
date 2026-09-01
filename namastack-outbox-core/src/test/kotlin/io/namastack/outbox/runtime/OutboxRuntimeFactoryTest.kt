@@ -62,10 +62,10 @@ class OutboxRuntimeFactoryTest {
         val instrumentation = RecordingInstrumentation()
         val channelNameProvider = OutboxChannelNameProvider { channel }
         val beanFactory = DefaultListableBeanFactory()
-        beanFactory.registerSingleton("outboxRetryPolicy", OutboxRetryPolicy.builder().build())
         val handlerInfrastructure =
             OutboxHandlerInfrastructure(
                 beanFactory = beanFactory,
+                defaultRetryPolicy = OutboxRetryPolicy.builder().build(),
                 instrumentation = instrumentation,
                 channelNameProvider = channelNameProvider,
             )
