@@ -19,6 +19,7 @@ import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.springframework.core.annotation.AliasFor
 import java.time.Instant
 import io.namastack.outbox.annotation.OutboxHandler as OutboxHandlerAnnotation
 
@@ -49,6 +50,23 @@ class HandlerRegistrationAssemblerTest {
         assertThat(registration.fallback).isNotNull
         assertThat(registration.explicitRetryPolicy).isSameAs(retryPolicy)
         verify { retryPolicies.getRetryPolicy("namedPolicy") }
+    }
+
+    @Test
+    fun `assembles composed handler once with identity fallback and named retry policy`() {
+        val retryPolicy = mockk<OutboxRetryPolicy>()
+        every { retryPolicies.getRetryPolicy("composedPolicy") } returns retryPolicy
+        val bean = CompleteComposedHandler()
+
+        val registrations = assembler.assemble(HandlerDiscovery.discover(bean, "composedBean"))
+
+        assertThat(registrations).singleElement().satisfies({ registration ->
+            assertThat(registration.primary.id).isEqualTo("composed-v2")
+            assertThat(registration.primary.aliases).contains("composed-v1")
+            assertThat(registration.fallback).isNotNull()
+            assertThat(registration.explicitRetryPolicy).isSameAs(retryPolicy)
+        })
+        verify(exactly = 1) { retryPolicies.getRetryPolicy("composedPolicy") }
     }
 
     @Test
@@ -146,6 +164,28 @@ class HandlerRegistrationAssemblerTest {
     private class CompleteAnnotatedHandler {
         @OutboxHandlerAnnotation(id = "orders-v2", aliases = ["orders-v1"])
         @OutboxRetryable(name = "namedPolicy")
+        fun handle(payload: String) = Unit
+
+        @OutboxFallbackHandler
+        fun handleFailure(
+            payload: String,
+            context: OutboxFailureContext,
+        ) = Unit
+    }
+
+    @Target(AnnotationTarget.FUNCTION)
+    @Retention(AnnotationRetention.RUNTIME)
+    @OutboxHandlerAnnotation
+    private annotation class ComposedOutboxHandler(
+        @get:AliasFor(annotation = OutboxHandlerAnnotation::class, attribute = "id")
+        val id: String = "",
+        @get:AliasFor(annotation = OutboxHandlerAnnotation::class, attribute = "aliases")
+        val aliases: Array<String> = [],
+    )
+
+    private class CompleteComposedHandler {
+        @ComposedOutboxHandler(id = "composed-v2", aliases = ["composed-v1"])
+        @OutboxRetryable(name = "composedPolicy")
         fun handle(payload: String) = Unit
 
         @OutboxFallbackHandler
