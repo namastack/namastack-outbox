@@ -4,7 +4,6 @@ import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
 import io.namastack.outbox.partition.PartitionAssignment
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.h2.jdbcx.JdbcDataSource
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
@@ -55,28 +54,29 @@ class JdbcOutboxPersistenceFactoryTest {
     }
 
     @Test
-    fun `rejects invalid resolved names before accessing the datasource`() {
+    fun `accepts database-specific names from a custom resolver without accessing the datasource`() {
         val dataSource = mock(DataSource::class.java)
         val transactionManager = mock(PlatformTransactionManager::class.java)
         val serializer = mock(OutboxPayloadSerializer::class.java)
-        val invalidResolver =
+        val customResolver =
             object : JdbcTableNameResolver {
-                override val outboxRecord = "outbox_record; DROP TABLE users"
-                override val outboxInstance = "outbox_instance"
-                override val outboxPartitionAssignment = "outbox_partition"
+                override val outboxRecord = "\"OutboxSchema\".\"OutboxRecord\""
+                override val outboxInstance = "[database].[schema].[outbox_instance]"
+                override val outboxPartitionAssignment = "catalog.schema.outbox_partition"
             }
 
-        assertThatThrownBy {
+        val persistence =
             JdbcOutboxPersistenceFactory.create(
                 dataSource = dataSource,
                 transactionManager = transactionManager,
                 payloadSerializer = serializer,
                 clock = Clock.systemUTC(),
-                tableNameResolver = invalidResolver,
+                tableNameResolver = customResolver,
             )
-        }.isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessageContaining("Invalid JDBC outbox table name")
 
+        assertThat(persistence.recordRepository).isNotNull()
+        assertThat(persistence.instanceRepository).isNotNull()
+        assertThat(persistence.partitionAssignmentRepository).isNotNull()
         verifyNoInteractions(dataSource, transactionManager, serializer)
     }
 
