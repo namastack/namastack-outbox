@@ -41,7 +41,7 @@ class OutboxObservabilityAutoConfiguration {
     /**
      * Provides the Micrometer implementation of the Core instrumentation contract.
      *
-     * @param observationRegistry Registry used to create observations.
+     * @param observationRegistry Provider for the registry used to create observations.
      * @param scheduleConvention Optional custom scheduling convention.
      * @param processConvention Optional custom processing convention.
      * @return The Micrometer outbox instrumentation.
@@ -50,12 +50,12 @@ class OutboxObservabilityAutoConfiguration {
     @ConditionalOnBean(ObservationRegistry::class)
     @ConditionalOnMissingBean(MicrometerOutboxInstrumentation::class)
     fun micrometerOutboxInstrumentation(
-        observationRegistry: ObservationRegistry,
+        observationRegistry: ObjectProvider<ObservationRegistry>,
         scheduleConvention: ObjectProvider<OutboxScheduleObservationConvention>,
         processConvention: ObjectProvider<OutboxProcessObservationConvention>,
     ): MicrometerOutboxInstrumentation =
         MicrometerOutboxInstrumentation(
-            observationRegistry = observationRegistry,
+            observationRegistrySupplier = observationRegistry::getObject,
             customScheduleConventionSupplier = scheduleConvention::getIfAvailable,
             customProcessConventionSupplier = processConvention::getIfAvailable,
         )
