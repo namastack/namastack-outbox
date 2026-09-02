@@ -21,10 +21,6 @@ import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.trigger.AdaptivePollingTrigger
 import io.namastack.outbox.trigger.FixedPollingTrigger
 import io.namastack.outbox.trigger.OutboxPollingTrigger
-import java.time.Clock
-import java.time.Duration
-import java.time.Instant
-import java.time.ZoneId
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -47,6 +43,10 @@ import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import org.springframework.test.util.ReflectionTestUtils
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
 
 @DisplayName("OutboxCoreAutoConfiguration")
 class OutboxCoreAutoConfigurationTest {
