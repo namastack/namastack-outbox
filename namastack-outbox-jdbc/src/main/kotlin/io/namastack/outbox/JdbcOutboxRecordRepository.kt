@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.JdbcOutboxTableNamespace.Companion.requireValidTableName
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
 import java.sql.Timestamp
@@ -29,7 +28,7 @@ internal open class JdbcOutboxRecordRepository(
     private val tableNameResolver: JdbcTableNameResolver,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
-    private val tableName = requireValidTableName(tableNameResolver.outboxRecord)
+    private val tableName = tableNameResolver.outboxRecord
     private val rowMapper = JdbcOutboxRecordEntityRowMapper()
 
     /**

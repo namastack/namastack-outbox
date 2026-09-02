@@ -11,7 +11,8 @@ import javax.sql.DataSource
  * Constructs JDBC repositories for one fully resolved outbox table namespace.
  *
  * The supplied datasource and transaction manager are borrowed and are never closed by the returned
- * persistence. Construction validates and snapshots all table names without opening a connection.
+ * persistence. Construction snapshots all table names without opening a connection. Custom table
+ * name resolvers are trusted and retain full control over database-specific identifier syntax.
  *
  * @author Roland Beisel
  * @since 1.10.0
@@ -26,7 +27,6 @@ object JdbcOutboxPersistenceFactory {
      * @param clock Clock used for time-based record operations
      * @param tableNameResolver Resolver providing one complete physical table namespace
      * @return Runtime persistence containing the three JDBC repositories and no owned resources
-     * @throws IllegalArgumentException if a resolved table name is not a valid SQL identifier
      */
     fun create(
         dataSource: DataSource,
@@ -65,11 +65,8 @@ object JdbcOutboxPersistenceFactory {
 
     private fun snapshot(tableNameResolver: JdbcTableNameResolver): JdbcTableNameResolver =
         object : JdbcTableNameResolver {
-            override val outboxRecord =
-                JdbcOutboxTableNamespace.requireValidTableName(tableNameResolver.outboxRecord)
-            override val outboxInstance =
-                JdbcOutboxTableNamespace.requireValidTableName(tableNameResolver.outboxInstance)
-            override val outboxPartitionAssignment =
-                JdbcOutboxTableNamespace.requireValidTableName(tableNameResolver.outboxPartitionAssignment)
+            override val outboxRecord = tableNameResolver.outboxRecord
+            override val outboxInstance = tableNameResolver.outboxInstance
+            override val outboxPartitionAssignment = tableNameResolver.outboxPartitionAssignment
         }
 }
