@@ -42,8 +42,8 @@ object OutboxRuntimeFactory {
                 handlerRegistry = handlers.handlerRegistry,
                 outboxRecordRepository = persistence.recordRepository,
                 clock = spec.clock,
-                instrumentation = spec.instrumentation,
-                channelNameProvider = spec.channelNameProvider,
+                instrumentationSupplier = { spec.instrumentation },
+                channelNameProviderSupplier = { spec.channelNameProvider },
             )
         val instanceRegistry =
             OutboxInstanceRegistry(

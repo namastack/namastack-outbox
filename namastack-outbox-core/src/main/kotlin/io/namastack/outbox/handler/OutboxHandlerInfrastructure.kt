@@ -45,15 +45,15 @@ class OutboxHandlerInfrastructure(
     internal val handlerInvoker =
         OutboxHandlerInvoker(
             handlerRegistry = handlerRegistry,
-            instrumentation = instrumentation,
-            channelNameProvider = channelNameProvider,
+            instrumentationSupplier = { instrumentation },
+            channelNameProviderSupplier = { channelNameProvider },
         )
     internal val fallbackHandlerInvoker =
         OutboxFallbackHandlerInvoker(
             retryPolicyRegistry = retryPolicyRegistry,
             handlerRegistry = handlerRegistry,
-            instrumentation = instrumentation,
-            channelNameProvider = channelNameProvider,
+            instrumentationSupplier = { instrumentation },
+            channelNameProviderSupplier = { channelNameProvider },
         )
 
     private val registrar = OutboxHandlerRegistrar(handlerRegistry, retryPolicyRegistry)
