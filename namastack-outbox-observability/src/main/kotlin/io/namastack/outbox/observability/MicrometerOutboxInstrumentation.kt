@@ -8,6 +8,7 @@ import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxProcessObservationConvention
 import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxScheduleObservationConvention
 import io.namastack.outbox.observability.OutboxProcessObservationContext.HandlerKind
+import kotlin.LazyThreadSafetyMode.SYNCHRONIZED
 
 /**
  * Instruments outbox scheduling and handler processing with Micrometer observations.
@@ -17,17 +18,24 @@ import io.namastack.outbox.observability.OutboxProcessObservationContext.Handler
  * remains available to Micrometer tracing handlers.
  *
  * @param observationRegistry Registry used to create observations.
- * @param customScheduleConvention Optional custom scheduling observation convention.
- * @param customProcessConvention Optional custom processing observation convention.
+ * @param customScheduleConventionSupplier Lazy supplier for an optional custom scheduling observation convention.
+ * @param customProcessConventionSupplier Lazy supplier for an optional custom processing observation convention.
  *
  * @author Roland Beisel
  * @since 1.10.0
  */
 class MicrometerOutboxInstrumentation(
     private val observationRegistry: ObservationRegistry,
-    private val customScheduleConvention: OutboxScheduleObservationConvention? = null,
-    private val customProcessConvention: OutboxProcessObservationConvention? = null,
+    customScheduleConventionSupplier: () -> OutboxScheduleObservationConvention? = { null },
+    customProcessConventionSupplier: () -> OutboxProcessObservationConvention? = { null },
 ) : OutboxInstrumentation {
+    private val resolvedScheduleConvention: OutboxScheduleObservationConvention? by lazy(SYNCHRONIZED) {
+        customScheduleConventionSupplier()
+    }
+    private val resolvedProcessConvention: OutboxProcessObservationConvention? by lazy(SYNCHRONIZED) {
+        customProcessConventionSupplier()
+    }
+
     /**
      * Observes one outbox scheduling operation.
      *
@@ -47,7 +55,7 @@ class MicrometerOutboxInstrumentation(
 
         OutboxObservationDocumentation.OUTBOX_RECORD_SCHEDULE
             .observation(
-                customScheduleConvention,
+                resolvedScheduleConvention,
                 DefaultOutboxScheduleObservationConvention.INSTANCE,
                 { context },
                 observationRegistry,
@@ -73,7 +81,7 @@ class MicrometerOutboxInstrumentation(
 
         OutboxObservationDocumentation.OUTBOX_RECORD_PROCESS
             .observation(
-                customProcessConvention,
+                resolvedProcessConvention,
                 DefaultOutboxProcessObservationConvention.INSTANCE,
                 { context },
                 observationRegistry,
