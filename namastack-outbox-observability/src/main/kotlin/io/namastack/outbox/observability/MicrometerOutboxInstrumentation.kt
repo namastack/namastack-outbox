@@ -17,7 +17,7 @@ import kotlin.LazyThreadSafetyMode.SYNCHRONIZED
  * observations retain the outbox record as their receiver carrier so stored propagation context
  * remains available to Micrometer tracing handlers.
  *
- * @param observationRegistry Registry used to create observations.
+ * @param observationRegistrySupplier Lazy supplier for the registry used to create observations.
  * @param customScheduleConventionSupplier Lazy supplier for an optional custom scheduling observation convention.
  * @param customProcessConventionSupplier Lazy supplier for an optional custom processing observation convention.
  *
@@ -25,16 +25,36 @@ import kotlin.LazyThreadSafetyMode.SYNCHRONIZED
  * @since 1.10.0
  */
 class MicrometerOutboxInstrumentation(
-    private val observationRegistry: ObservationRegistry,
+    observationRegistrySupplier: () -> ObservationRegistry,
     customScheduleConventionSupplier: () -> OutboxScheduleObservationConvention? = { null },
     customProcessConventionSupplier: () -> OutboxProcessObservationConvention? = { null },
 ) : OutboxInstrumentation {
+    private val observationRegistry: ObservationRegistry by lazy(SYNCHRONIZED) {
+        observationRegistrySupplier()
+    }
     private val resolvedScheduleConvention: OutboxScheduleObservationConvention? by lazy(SYNCHRONIZED) {
         customScheduleConventionSupplier()
     }
     private val resolvedProcessConvention: OutboxProcessObservationConvention? by lazy(SYNCHRONIZED) {
         customProcessConventionSupplier()
     }
+
+    /**
+     * Creates instrumentation with an already resolved registry.
+     *
+     * @param observationRegistry Registry used to create observations.
+     * @param customScheduleConventionSupplier Lazy supplier for an optional custom scheduling observation convention.
+     * @param customProcessConventionSupplier Lazy supplier for an optional custom processing observation convention.
+     */
+    constructor(
+        observationRegistry: ObservationRegistry,
+        customScheduleConventionSupplier: () -> OutboxScheduleObservationConvention? = { null },
+        customProcessConventionSupplier: () -> OutboxProcessObservationConvention? = { null },
+    ) : this(
+        observationRegistrySupplier = { observationRegistry },
+        customScheduleConventionSupplier = customScheduleConventionSupplier,
+        customProcessConventionSupplier = customProcessConventionSupplier,
+    )
 
     /**
      * Observes one outbox scheduling operation.

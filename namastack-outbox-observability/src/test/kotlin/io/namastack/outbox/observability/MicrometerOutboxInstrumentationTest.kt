@@ -141,6 +141,26 @@ class MicrometerOutboxInstrumentationTest {
     }
 
     @Test
+    fun `observation registry supplier resolves lazily once`() {
+        val registryResolutions = AtomicInteger()
+        val instrumentation =
+            MicrometerOutboxInstrumentation(
+                observationRegistrySupplier = {
+                    registryResolutions.incrementAndGet()
+                    observationRegistry
+                },
+            )
+
+        assertThat(registryResolutions).hasValue(0)
+
+        instrumentation.schedule(OutboxScheduleInvocation(Any(), "order-1", "orders")) {}
+        instrumentation.schedule(OutboxScheduleInvocation(Any(), "order-2", "orders")) {}
+        instrumentation.process(OutboxProcessInvocation(outboxRecord(), PRIMARY, "orders")) {}
+
+        assertThat(registryResolutions).hasValue(1)
+    }
+
+    @Test
     fun `action error is recorded and rethrown`() {
         val failure = IllegalStateException("handler failed")
 
