@@ -89,6 +89,19 @@ class OutboxObservabilityCoreIntegrationTest {
             }
     }
 
+    @Test
+    fun `custom observation registry can depend on Outbox without a startup cycle`() {
+        TestConfiguration.scheduleContexts.clear()
+
+        contextRunner.run { context ->
+            assertThat(context).hasNotFailed()
+
+            context.getBean<Outbox>().schedule(IntegrationPayload("created"), "order-1")
+
+            assertThat(TestConfiguration.scheduleContexts).hasSize(1)
+        }
+    }
+
     private fun outboxRecord(): OutboxRecord<IntegrationPayload> =
         OutboxRecord
             .Builder<IntegrationPayload>()
@@ -100,7 +113,7 @@ class OutboxObservabilityCoreIntegrationTest {
     @Configuration
     class TestConfiguration {
         @Bean
-        fun observationRegistry(): ObservationRegistry =
+        fun observationRegistry(outbox: Outbox): ObservationRegistry =
             ObservationRegistry.create().apply {
                 observationConfig().observationHandler(
                     object : ObservationHandler<OutboxScheduleObservationContext> {
