@@ -20,11 +20,14 @@ import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.concurrent.atomic.AtomicInteger
 
 class OutboxOperationInstrumentationTest {
     @Test
     fun `instruments every schedule overload exactly once with documented key semantics`() {
         val scheduleInvocations = mutableListOf<OutboxScheduleInvocation>()
+        val instrumentationResolutions = AtomicInteger()
+        val channelNameProviderResolutions = AtomicInteger()
         val instrumentation =
             instrumentation(
                 schedule = { invocation, action ->
@@ -44,8 +47,14 @@ class OutboxOperationInstrumentationTest {
                 handlerRegistry = handlerRegistry,
                 outboxRecordRepository = recordRepository,
                 clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC),
-                instrumentation = instrumentation,
-                channelNameProvider = { "orders" },
+                instrumentationSupplier = {
+                    instrumentationResolutions.incrementAndGet()
+                    instrumentation
+                },
+                channelNameProviderSupplier = {
+                    channelNameProviderResolutions.incrementAndGet()
+                    OutboxChannelNameProvider { "orders" }
+                },
             )
         val payload = SchedulePayload("created")
 
@@ -59,6 +68,8 @@ class OutboxOperationInstrumentationTest {
             .containsExactly("order-1", "order-2", "auto-generated", "auto-generated")
         assertThat(scheduleInvocations.map { it.channel }).containsOnly("orders")
         assertThat(scheduleInvocations.map { it.payload }).containsOnly(payload)
+        assertThat(instrumentationResolutions).hasValue(1)
+        assertThat(channelNameProviderResolutions).hasValue(1)
     }
 
     @Test
@@ -76,8 +87,8 @@ class OutboxOperationInstrumentationTest {
         val invoker =
             OutboxHandlerInvoker(
                 handlerRegistry = handlerRegistry,
-                instrumentation = instrumentation,
-                channelNameProvider = { "orders" },
+                instrumentationSupplier = { instrumentation },
+                channelNameProviderSupplier = { OutboxChannelNameProvider { "orders" } },
             )
 
         invoker.dispatch(record)
@@ -116,8 +127,8 @@ class OutboxOperationInstrumentationTest {
             OutboxFallbackHandlerInvoker(
                 retryPolicyRegistry = retryPolicyRegistry,
                 handlerRegistry = handlerRegistry,
-                instrumentation = instrumentation,
-                channelNameProvider = { "payments" },
+                instrumentationSupplier = { instrumentation },
+                channelNameProviderSupplier = { OutboxChannelNameProvider { "payments" } },
             )
 
         invoker.dispatch(record)
