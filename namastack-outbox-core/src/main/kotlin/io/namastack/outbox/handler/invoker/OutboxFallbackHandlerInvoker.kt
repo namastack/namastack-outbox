@@ -8,6 +8,7 @@ import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.instrumentation.OutboxProcessHandlerKind
 import io.namastack.outbox.instrumentation.OutboxProcessInvocation
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
+import kotlin.LazyThreadSafetyMode.SYNCHRONIZED
 
 /**
  * Invokes fallback handlers for failed outbox records.
@@ -17,8 +18,8 @@ import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
  *
  * @param retryPolicyRegistry Registry to look up default retry policies per handler
  * @param handlerRegistry Registry used to resolve fallbacks and explicit retry policies
- * @param instrumentation Instrumentation applied around each fallback handler invocation
- * @param channelNameProvider Provider for the logical outbox channel name
+ * @param instrumentationSupplier Supplies instrumentation applied around each fallback handler invocation
+ * @param channelNameProviderSupplier Supplies the provider for the logical outbox channel name
  * @author Roland Beisel
  * @since 1.0.0
  */
@@ -26,9 +27,12 @@ import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 class OutboxFallbackHandlerInvoker internal constructor(
     private val retryPolicyRegistry: OutboxRetryPolicyRegistry,
     private val handlerRegistry: OutboxHandlerRegistry,
-    private val instrumentation: OutboxInstrumentation = OutboxInstrumentation.NOOP,
-    private val channelNameProvider: OutboxChannelNameProvider = OutboxChannelNameProvider.DEFAULT,
+    instrumentationSupplier: () -> OutboxInstrumentation = { OutboxInstrumentation.NOOP },
+    channelNameProviderSupplier: () -> OutboxChannelNameProvider = { OutboxChannelNameProvider.DEFAULT },
 ) {
+    private val instrumentation: OutboxInstrumentation by lazy(SYNCHRONIZED, instrumentationSupplier)
+    private val channelNameProvider: OutboxChannelNameProvider by lazy(SYNCHRONIZED, channelNameProviderSupplier)
+
     /**
      * Invokes the fallback handler for a failed record.
      *

@@ -50,20 +50,26 @@ class OutboxCoreInfrastructureAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    fun outboxContextCollector(providers: List<OutboxContextProvider>): OutboxContextCollector =
-        OutboxContextCollector(providers = providers)
+    fun outboxContextCollector(providers: ObjectProvider<OutboxContextProvider>): OutboxContextCollector =
+        OutboxContextCollector(
+            providersSupplier = { providers.orderedStream().toList() },
+        )
 
     @Bean
     @ConditionalOnMissingBean
     fun outboxHandlerInvoker(
         outboxHandlerRegistry: OutboxHandlerRegistry,
-        instrumentations: List<OutboxInstrumentation>,
-        channelNameProvider: OutboxChannelNameProvider,
+        instrumentations: ObjectProvider<OutboxInstrumentation>,
+        channelNameProvider: ObjectProvider<OutboxChannelNameProvider>,
     ): OutboxHandlerInvoker =
         OutboxHandlerInvoker(
             handlerRegistry = outboxHandlerRegistry,
-            instrumentation = OutboxInstrumentation.compose(instrumentations),
-            channelNameProvider = channelNameProvider,
+            instrumentationSupplier = {
+                OutboxInstrumentation.compose(instrumentations.orderedStream().toList())
+            },
+            channelNameProviderSupplier = {
+                channelNameProvider.getIfAvailable { OutboxChannelNameProvider.DEFAULT }
+            },
         )
 
     @Bean
@@ -71,14 +77,18 @@ class OutboxCoreInfrastructureAutoConfiguration {
     fun outboxFallbackHandlerInvoker(
         retryPolicyRegistry: OutboxRetryPolicyRegistry,
         outboxHandlerRegistry: OutboxHandlerRegistry,
-        instrumentations: List<OutboxInstrumentation>,
-        channelNameProvider: OutboxChannelNameProvider,
+        instrumentations: ObjectProvider<OutboxInstrumentation>,
+        channelNameProvider: ObjectProvider<OutboxChannelNameProvider>,
     ): OutboxFallbackHandlerInvoker =
         OutboxFallbackHandlerInvoker(
             retryPolicyRegistry = retryPolicyRegistry,
             handlerRegistry = outboxHandlerRegistry,
-            instrumentation = OutboxInstrumentation.compose(instrumentations),
-            channelNameProvider = channelNameProvider,
+            instrumentationSupplier = {
+                OutboxInstrumentation.compose(instrumentations.orderedStream().toList())
+            },
+            channelNameProviderSupplier = {
+                channelNameProvider.getIfAvailable { OutboxChannelNameProvider.DEFAULT }
+            },
         )
 
     @Bean
@@ -140,16 +150,20 @@ class OutboxCoreInfrastructureAutoConfiguration {
         handlerRegistry: OutboxHandlerRegistry,
         recordRepository: OutboxRecordRepository,
         clock: Clock,
-        instrumentations: List<OutboxInstrumentation>,
-        channelNameProvider: OutboxChannelNameProvider,
+        instrumentations: ObjectProvider<OutboxInstrumentation>,
+        channelNameProvider: ObjectProvider<OutboxChannelNameProvider>,
     ): Outbox =
         OutboxService(
             contextCollector = outboxContextCollector,
             handlerRegistry = handlerRegistry,
             outboxRecordRepository = recordRepository,
             clock = clock,
-            instrumentation = OutboxInstrumentation.compose(instrumentations),
-            channelNameProvider = channelNameProvider,
+            instrumentationSupplier = {
+                OutboxInstrumentation.compose(instrumentations.orderedStream().toList())
+            },
+            channelNameProviderSupplier = {
+                channelNameProvider.getIfAvailable { OutboxChannelNameProvider.DEFAULT }
+            },
         )
 
     companion object {

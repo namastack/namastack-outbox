@@ -7,8 +7,8 @@ import io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
-import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
-import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
+import io.namastack.outbox.context.OutboxContextCollector
+import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
@@ -142,14 +142,8 @@ class OutboxCoreAutoConfigurationTest {
                     assertThat(context.getBean<OutboxChannelNameProvider>().getChannelName()).isEqualTo("default")
 
                     val outbox = context.getBean<Outbox>() as OutboxService
-                    val handlerInvoker = context.getBean<OutboxHandlerInvoker>()
-                    val fallbackInvoker = context.getBean<OutboxFallbackHandlerInvoker>()
-                    assertThat(ReflectionTestUtils.getField(outbox, "instrumentation"))
-                        .isSameAs(OutboxInstrumentation.NOOP)
-                    assertThat(ReflectionTestUtils.getField(handlerInvoker, "instrumentation"))
-                        .isSameAs(OutboxInstrumentation.NOOP)
-                    assertThat(ReflectionTestUtils.getField(fallbackInvoker, "instrumentation"))
-                        .isSameAs(OutboxInstrumentation.NOOP)
+                    assertThat(context.getBeansOfType(OutboxInstrumentation::class.java)).isEmpty()
+                    outbox.schedule("payload", "record-key")
                 }
         }
 
@@ -161,43 +155,55 @@ class OutboxCoreAutoConfigurationTest {
                 .withUserConfiguration(ConfigWithOrderedInstrumentations::class.java)
                 .run { context ->
                     val outbox = context.getBean<Outbox>() as OutboxService
-                    val handlerInvoker = context.getBean<OutboxHandlerInvoker>()
-                    val fallbackInvoker = context.getBean<OutboxFallbackHandlerInvoker>()
-
                     outbox.schedule("payload", "record-key")
 
                     assertThat(ConfigWithOrderedInstrumentations.events)
                         .containsExactly("outer.before", "inner.before", "inner.after", "outer.after")
                     assertThat(context.getBeansOfType(OutboxInstrumentation::class.java)).hasSize(2)
-                    assertThat(ReflectionTestUtils.getField(outbox, "instrumentation"))
-                        .isNotSameAs(OutboxInstrumentation.NOOP)
-                    assertThat(ReflectionTestUtils.getField(handlerInvoker, "instrumentation"))
-                        .isNotSameAs(OutboxInstrumentation.NOOP)
-                    assertThat(ReflectionTestUtils.getField(fallbackInvoker, "instrumentation"))
-                        .isNotSameAs(OutboxInstrumentation.NOOP)
                 }
         }
 
         @Test
-        fun `uses a custom channel name provider at every operation boundary`() {
+        fun `uses a custom channel name provider bean`() {
             contextRunner
                 .withUserConfiguration(ConfigWithCustomChannelNameProvider::class.java)
                 .run { context ->
                     val provider = context.getBean<OutboxChannelNameProvider>()
 
                     assertThat(provider).isSameAs(ConfigWithCustomChannelNameProvider.provider)
-                    assertThat(
-                        ReflectionTestUtils.getField(context.getBean<Outbox>() as OutboxService, "channelNameProvider"),
-                    ).isSameAs(provider)
-                    assertThat(
-                        ReflectionTestUtils.getField(context.getBean<OutboxHandlerInvoker>(), "channelNameProvider"),
-                    ).isSameAs(provider)
-                    assertThat(
-                        ReflectionTestUtils.getField(
-                            context.getBean<OutboxFallbackHandlerInvoker>(),
-                            "channelNameProvider",
-                        ),
-                    ).isSameAs(provider)
+                }
+        }
+
+        @Test
+        fun `instrumentation bean may depend on Outbox without a startup cycle`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithOutboxDependentInstrumentation::class.java)
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(OutboxInstrumentation::class.java)
+                    context.getBean<Outbox>().schedule("payload", "record-key")
+                }
+        }
+
+        @Test
+        fun `channel name provider may depend on Outbox without a startup cycle`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithOutboxDependentChannelNameProvider::class.java)
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context.getBean<OutboxChannelNameProvider>().getChannelName()).isEqualTo("orders")
+                    context.getBean<Outbox>().schedule("payload", "record-key")
+                }
+        }
+
+        @Test
+        fun `context provider may depend on Outbox without a startup cycle`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithOutboxDependentContextProvider::class.java)
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context.getBean<OutboxContextCollector>().collectContext())
+                        .containsEntry("source", "outbox")
                 }
         }
     }
@@ -630,6 +636,35 @@ class OutboxCoreAutoConfigurationTest {
 
         companion object {
             val provider = OutboxChannelNameProvider { "orders" }
+        }
+    }
+
+    @Configuration
+    private class ConfigWithOutboxDependentInstrumentation : MinimalTestConfig() {
+        @Bean
+        fun outboxInstrumentation(outbox: Outbox): OutboxInstrumentation {
+            checkNotNull(outbox)
+            return OutboxInstrumentation.NOOP
+        }
+    }
+
+    @Configuration
+    private class ConfigWithOutboxDependentChannelNameProvider : MinimalTestConfig() {
+        @Bean
+        fun outboxChannelNameProvider(outbox: Outbox): OutboxChannelNameProvider {
+            checkNotNull(outbox)
+            return OutboxChannelNameProvider { "orders" }
+        }
+    }
+
+    @Configuration
+    private class ConfigWithOutboxDependentContextProvider : MinimalTestConfig() {
+        @Bean
+        fun outboxContextProvider(outbox: Outbox): OutboxContextProvider {
+            checkNotNull(outbox)
+            return object : OutboxContextProvider {
+                override fun provide(): Map<String, String> = mapOf("source" to "outbox")
+            }
         }
     }
 

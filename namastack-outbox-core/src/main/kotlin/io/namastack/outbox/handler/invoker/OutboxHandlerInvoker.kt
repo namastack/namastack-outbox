@@ -7,6 +7,7 @@ import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.instrumentation.OutboxProcessHandlerKind
 import io.namastack.outbox.instrumentation.OutboxProcessInvocation
+import kotlin.LazyThreadSafetyMode.SYNCHRONIZED
 
 /**
  * Invokes the appropriate handler for a given record.
@@ -16,8 +17,8 @@ import io.namastack.outbox.instrumentation.OutboxProcessInvocation
  * with the correct parameter passing.
  *
  * @param handlerRegistry Registry of all registered handlers
- * @param instrumentation Instrumentation applied around each primary handler invocation
- * @param channelNameProvider Provider for the logical outbox channel name
+ * @param instrumentationSupplier Supplies instrumentation applied around each primary handler invocation
+ * @param channelNameProviderSupplier Supplies the provider for the logical outbox channel name
  *
  * @author Roland Beisel
  * @since 0.4.0
@@ -25,9 +26,12 @@ import io.namastack.outbox.instrumentation.OutboxProcessInvocation
 @OpenForProxy
 class OutboxHandlerInvoker(
     private val handlerRegistry: OutboxHandlerRegistry,
-    private val instrumentation: OutboxInstrumentation = OutboxInstrumentation.NOOP,
-    private val channelNameProvider: OutboxChannelNameProvider = OutboxChannelNameProvider.DEFAULT,
+    instrumentationSupplier: () -> OutboxInstrumentation = { OutboxInstrumentation.NOOP },
+    channelNameProviderSupplier: () -> OutboxChannelNameProvider = { OutboxChannelNameProvider.DEFAULT },
 ) {
+    private val instrumentation: OutboxInstrumentation by lazy(SYNCHRONIZED, instrumentationSupplier)
+    private val channelNameProvider: OutboxChannelNameProvider by lazy(SYNCHRONIZED, channelNameProviderSupplier)
+
     /**
      * Dispatches a record to its registered handler.
      *

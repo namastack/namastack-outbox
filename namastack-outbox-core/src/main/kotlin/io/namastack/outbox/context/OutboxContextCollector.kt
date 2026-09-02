@@ -1,6 +1,7 @@
 package io.namastack.outbox.context
 
 import org.slf4j.LoggerFactory
+import kotlin.LazyThreadSafetyMode.SYNCHRONIZED
 
 /**
  * Collects and merges context from all registered [OutboxContextProvider] implementations.
@@ -63,15 +64,23 @@ import org.slf4j.LoggerFactory
  *
  * This ensures that one failing provider doesn't prevent the entire outbox scheduling operation.
  *
- * @param providers List of all registered OutboxContextProvider beans
- *
  * @author Aleksander Zamojski
  * @since 1.0.0
  */
-class OutboxContextCollector(
-    private val providers: List<OutboxContextProvider>,
+class OutboxContextCollector internal constructor(
+    providersSupplier: () -> List<OutboxContextProvider>,
 ) {
     private val log = LoggerFactory.getLogger(OutboxContextCollector::class.java)
+    private val providers: List<OutboxContextProvider> by lazy(SYNCHRONIZED) {
+        providersSupplier()
+    }
+
+    /**
+     * Creates a collector backed by the supplied providers.
+     *
+     * @param providers Context providers invoked by [collectContext].
+     */
+    constructor(providers: List<OutboxContextProvider>) : this({ providers })
 
     /**
      * Collects and merges context from all registered providers.
