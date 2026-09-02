@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.JdbcOutboxTableNamespace.Companion.requireValidTableName
 import io.namastack.outbox.partition.PartitionAssignment
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import org.springframework.dao.OptimisticLockingFailureException
@@ -28,7 +27,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
     private val transactionTemplate: TransactionTemplate,
     private val tableNameResolver: JdbcTableNameResolver,
 ) : PartitionAssignmentRepository {
-    private val tableName = requireValidTableName(tableNameResolver.outboxPartitionAssignment)
+    private val tableName = tableNameResolver.outboxPartitionAssignment
     private val rowMapper = JdbcOutboxPartitionAssignmentEntityRowMapper()
 
     /**
