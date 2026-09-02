@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.concurrent.atomic.AtomicInteger
 
 class MicrometerOutboxInstrumentationTest {
     private val observationRegistry = ObservationRegistry.create()
@@ -89,13 +90,17 @@ class MicrometerOutboxInstrumentationTest {
         val instrumentation =
             MicrometerOutboxInstrumentation(
                 observationRegistry = observationRegistry,
-                customScheduleConvention =
-                    object : OutboxScheduleObservationConvention {
-                        override fun getName(): String = "custom.schedule"
+                customScheduleConventionSupplier =
+                    {
+                        object : OutboxScheduleObservationConvention {
+                            override fun getName(): String = "custom.schedule"
+                        }
                     },
-                customProcessConvention =
-                    object : OutboxProcessObservationConvention {
-                        override fun getName(): String = "custom.process"
+                customProcessConventionSupplier =
+                    {
+                        object : OutboxProcessObservationConvention {
+                            override fun getName(): String = "custom.process"
+                        }
                     },
             )
 
@@ -104,6 +109,35 @@ class MicrometerOutboxInstrumentationTest {
 
         assertThat(scheduleContexts.single().name).isEqualTo("custom.schedule")
         assertThat(processContexts.single().name).isEqualTo("custom.process")
+    }
+
+    @Test
+    fun `custom convention suppliers resolve lazily once`() {
+        val scheduleResolutions = AtomicInteger()
+        val processResolutions = AtomicInteger()
+        val instrumentation =
+            MicrometerOutboxInstrumentation(
+                observationRegistry = observationRegistry,
+                customScheduleConventionSupplier = {
+                    scheduleResolutions.incrementAndGet()
+                    null
+                },
+                customProcessConventionSupplier = {
+                    processResolutions.incrementAndGet()
+                    null
+                },
+            )
+
+        assertThat(scheduleResolutions).hasValue(0)
+        assertThat(processResolutions).hasValue(0)
+
+        instrumentation.schedule(OutboxScheduleInvocation(Any(), "order-1", "orders")) {}
+        instrumentation.schedule(OutboxScheduleInvocation(Any(), "order-2", "orders")) {}
+        instrumentation.process(OutboxProcessInvocation(outboxRecord(), PRIMARY, "orders")) {}
+        instrumentation.process(OutboxProcessInvocation(outboxRecord(), PRIMARY, "orders")) {}
+
+        assertThat(scheduleResolutions).hasValue(1)
+        assertThat(processResolutions).hasValue(1)
     }
 
     @Test

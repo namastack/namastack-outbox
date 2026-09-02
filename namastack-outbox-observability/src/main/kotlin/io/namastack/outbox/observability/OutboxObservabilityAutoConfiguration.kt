@@ -56,7 +56,7 @@ class OutboxObservabilityAutoConfiguration {
     ): MicrometerOutboxInstrumentation =
         MicrometerOutboxInstrumentation(
             observationRegistry = observationRegistry,
-            customScheduleConvention = scheduleConvention.getIfAvailable(),
-            customProcessConvention = processConvention.getIfAvailable(),
+            customScheduleConventionSupplier = scheduleConvention::getIfAvailable,
+            customProcessConventionSupplier = processConvention::getIfAvailable,
         )
 }

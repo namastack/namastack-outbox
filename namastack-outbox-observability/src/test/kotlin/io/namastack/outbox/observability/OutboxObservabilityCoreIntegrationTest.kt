@@ -74,6 +74,21 @@ class OutboxObservabilityCoreIntegrationTest {
         }
     }
 
+    @Test
+    fun `custom convention can depend on Outbox without a startup cycle`() {
+        TestConfiguration.scheduleContexts.clear()
+
+        contextRunner
+            .withUserConfiguration(OutboxDependentConventionConfiguration::class.java)
+            .run { context ->
+                assertThat(context).hasNotFailed()
+
+                context.getBean<Outbox>().schedule(IntegrationPayload("created"), "order-1")
+
+                assertThat(TestConfiguration.scheduleContexts.single().name).isEqualTo("custom.schedule")
+            }
+    }
+
     private fun outboxRecord(): OutboxRecord<IntegrationPayload> =
         OutboxRecord
             .Builder<IntegrationPayload>()
