@@ -14,10 +14,10 @@ import org.slf4j.LoggerFactory
  * producing `traceparent`, `tracestate`, and baggage headers). These headers are persisted with
  * the outbox record in the `context` column.
  *
- * At **processing time**, the observation created by the observability module's AOP advice wraps
- * the record in an [io.micrometer.observation.transport.ReceiverContext]. The Micrometer tracing
- * bridge automatically reads the stored headers and creates a child span under the original
- * producer trace, maintaining full end-to-end trace continuity across the async boundary.
+ * At **processing time**, the observation created by the observability instrumentation wraps the
+ * record in an [io.micrometer.observation.transport.ReceiverContext]. The Micrometer tracing bridge
+ * automatically reads the stored headers and creates a child span under the original producer
+ * trace, maintaining full end-to-end trace continuity across the async boundary.
  *
  * If no active span exists at scheduling time, or if context serialization fails, [provide]
  * returns an empty map so that record scheduling is never blocked by tracing errors.

@@ -2,6 +2,7 @@ package io.namastack.outbox.config
 
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.Outbox
+import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
@@ -14,6 +15,7 @@ import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.partition.PartitionAssignmentCache
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
@@ -40,18 +42,34 @@ import java.time.Clock
 class OutboxCoreInfrastructureAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
+    fun outboxChannelNameProvider(): OutboxChannelNameProvider = OutboxChannelNameProvider.DEFAULT
+
+    @Bean
+    @ConditionalOnMissingBean
     fun clock(): Clock = Clock.systemDefaultZone()
 
     @Bean
     @ConditionalOnMissingBean
-    fun outboxContextCollector(providers: List<OutboxContextProvider>): OutboxContextCollector =
-        OutboxContextCollector(providers = providers)
+    fun outboxContextCollector(providers: ObjectProvider<OutboxContextProvider>): OutboxContextCollector =
+        OutboxContextCollector(
+            providersSupplier = { providers.orderedStream().toList() },
+        )
 
     @Bean
     @ConditionalOnMissingBean
-    fun outboxHandlerInvoker(outboxHandlerRegistry: OutboxHandlerRegistry): OutboxHandlerInvoker =
+    fun outboxHandlerInvoker(
+        outboxHandlerRegistry: OutboxHandlerRegistry,
+        instrumentations: ObjectProvider<OutboxInstrumentation>,
+        channelNameProvider: ObjectProvider<OutboxChannelNameProvider>,
+    ): OutboxHandlerInvoker =
         OutboxHandlerInvoker(
             handlerRegistry = outboxHandlerRegistry,
+            instrumentationSupplier = {
+                OutboxInstrumentation.compose(instrumentations.orderedStream().toList())
+            },
+            channelNameProviderSupplier = {
+                channelNameProvider.getIfAvailable { OutboxChannelNameProvider.DEFAULT }
+            },
         )
 
     @Bean
@@ -59,10 +77,18 @@ class OutboxCoreInfrastructureAutoConfiguration {
     fun outboxFallbackHandlerInvoker(
         retryPolicyRegistry: OutboxRetryPolicyRegistry,
         outboxHandlerRegistry: OutboxHandlerRegistry,
+        instrumentations: ObjectProvider<OutboxInstrumentation>,
+        channelNameProvider: ObjectProvider<OutboxChannelNameProvider>,
     ): OutboxFallbackHandlerInvoker =
         OutboxFallbackHandlerInvoker(
             retryPolicyRegistry = retryPolicyRegistry,
             handlerRegistry = outboxHandlerRegistry,
+            instrumentationSupplier = {
+                OutboxInstrumentation.compose(instrumentations.orderedStream().toList())
+            },
+            channelNameProviderSupplier = {
+                channelNameProvider.getIfAvailable { OutboxChannelNameProvider.DEFAULT }
+            },
         )
 
     @Bean
@@ -124,12 +150,20 @@ class OutboxCoreInfrastructureAutoConfiguration {
         handlerRegistry: OutboxHandlerRegistry,
         recordRepository: OutboxRecordRepository,
         clock: Clock,
+        instrumentations: ObjectProvider<OutboxInstrumentation>,
+        channelNameProvider: ObjectProvider<OutboxChannelNameProvider>,
     ): Outbox =
         OutboxService(
             contextCollector = outboxContextCollector,
             handlerRegistry = handlerRegistry,
             outboxRecordRepository = recordRepository,
             clock = clock,
+            instrumentationSupplier = {
+                OutboxInstrumentation.compose(instrumentations.orderedStream().toList())
+            },
+            channelNameProviderSupplier = {
+                channelNameProvider.getIfAvailable { OutboxChannelNameProvider.DEFAULT }
+            },
         )
 
     companion object {
