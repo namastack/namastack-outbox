@@ -18,6 +18,7 @@ import org.springframework.context.ApplicationContext
 import org.springframework.context.PayloadApplicationEvent
 import org.springframework.context.event.ContextRefreshedEvent
 import org.springframework.context.event.SimpleApplicationEventMulticaster
+import org.springframework.core.annotation.AliasFor
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.math.BigDecimal
 
@@ -82,6 +83,21 @@ class OutboxEventMulticasterTest {
     @DisplayName("Outbox Persistence")
     inner class OutboxPersistence {
         @Test
+        fun `resolves reusable scheduling values`() {
+            val payload = ComposedEvent(id = "composed-1")
+
+            val resolved = OutboxEventResolver.resolve(PayloadApplicationEvent(this, payload))
+
+            assertThat(resolved).isEqualTo(
+                ResolvedOutboxEvent(
+                    payload = payload,
+                    key = "composed-1",
+                    context = mapOf("source" to "composed"),
+                ),
+            )
+        }
+
+        @Test
         fun `should store annotated events in outbox when transaction is active`() {
             TransactionSynchronizationManager.setActualTransactionActive(true)
 
@@ -94,6 +110,29 @@ class OutboxEventMulticasterTest {
             verify(exactly = 1) {
                 delegateEventMulticaster.multicastEvent(any<PayloadApplicationEvent<*>>(), any())
             }
+        }
+
+        @Test
+        fun `should store composed annotated events with merged key and context`() {
+            val payload = ComposedEvent(id = "composed-1")
+            val event = PayloadApplicationEvent(this, payload)
+
+            eventMulticaster.multicastEvent(event)
+
+            verify(exactly = 1) {
+                outbox.schedule(payload, "composed-1", mapOf("source" to "composed"))
+            }
+        }
+
+        @Test
+        fun `should not inherit outbox event annotation from payload superclass`() {
+            val payload = UnannotatedDerivedEvent(id = "derived-1")
+            val event = PayloadApplicationEvent(this, payload)
+
+            eventMulticaster.multicastEvent(event)
+
+            verify(exactly = 0) { outbox.schedule(any(), any(), any()) }
+            verify(exactly = 1) { delegateEventMulticaster.multicastEvent(event, any()) }
         }
 
         @Test
@@ -466,6 +505,33 @@ class OutboxEventMulticasterTest {
     data class AnnotatedEvent(
         val id: String,
     )
+
+    @Target(AnnotationTarget.CLASS)
+    @Retention(AnnotationRetention.RUNTIME)
+    @OutboxEvent
+    annotation class ComposedOutboxEvent(
+        @get:AliasFor(annotation = OutboxEvent::class, attribute = "key")
+        val key: String = "",
+        @get:AliasFor(annotation = OutboxEvent::class, attribute = "context")
+        val context: Array<OutboxContextEntry> = [],
+    )
+
+    @ComposedOutboxEvent(
+        key = "#this.id",
+        context = [OutboxContextEntry(key = "source", value = "'composed'")],
+    )
+    data class ComposedEvent(
+        val id: String,
+    )
+
+    @OutboxEvent(key = "id")
+    open class AnnotatedBaseEvent(
+        val id: String,
+    )
+
+    class UnannotatedDerivedEvent(
+        id: String,
+    ) : AnnotatedBaseEvent(id)
 
     @OutboxEvent(key = "#this.customId")
     data class ThisReferenceKeyEvent(

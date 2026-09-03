@@ -89,6 +89,13 @@ package io.namastack.outbox.annotation
  * )
  * ```
  *
+ * ## Composed annotations
+ *
+ * [OutboxEvent] can be used as a meta-annotation for a class-targeted composed annotation.
+ * Attribute overrides declared with Spring's `@AliasFor` retain the same key and context
+ * semantics. Event annotation lookup is limited to the concrete payload class and does not inherit
+ * declarations from a superclass.
+ *
  * @param key Optional SpEL expression to extract the record key from the event. Must evaluate to a String value.
  * @param context Optional array of context entries to be added to the outbox record. Each entry contains a key-value
  *                pair where the value can be a SpEL expression evaluated against the event payload. Context metadata
@@ -103,7 +110,7 @@ package io.namastack.outbox.annotation
  * @since 0.3.0
  * @see io.namastack.outbox.context.OutboxContextProvider
  */
-@Target(AnnotationTarget.CLASS)
+@Target(AnnotationTarget.CLASS, AnnotationTarget.ANNOTATION_CLASS)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class OutboxEvent(
     val key: String = "",
