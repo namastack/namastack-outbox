@@ -214,7 +214,7 @@ internal open class JdbcOutboxInstanceRepository(
                     .param("instanceId", instanceId)
                     .update()
             updated > 0
-        } ?: false
+        }
 
     /**
      * Updates instance status.
@@ -233,7 +233,7 @@ internal open class JdbcOutboxInstanceRepository(
                     .param("instanceId", instanceId)
                     .update()
             updated > 0
-        } ?: false
+        }
 
     /**
      * Counts instances by status.
@@ -256,7 +256,7 @@ internal open class JdbcOutboxInstanceRepository(
                     .param("instanceId", instanceId)
                     .update()
             deleted > 0
-        } ?: false
+        }
 
     /**
      * Attempts to update an existing instance. Returns number of rows updated.

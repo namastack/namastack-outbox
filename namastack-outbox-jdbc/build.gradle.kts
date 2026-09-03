@@ -7,12 +7,12 @@ plugins {
 description = "namastack-outbox-jdbc"
 
 dependencies {
-    implementation(project(":namastack-outbox-api"))
-    implementation(project(":namastack-outbox-core"))
+    api(project(":namastack-outbox-api"))
+    api(project(":namastack-outbox-core"))
 
-    implementation(platform(libs.spring.boot.bom))
-    implementation(libs.spring.jdbc)
-    implementation(libs.spring.tx)
+    api(platform(libs.spring.boot.bom))
+    api(libs.spring.jdbc)
+    api(libs.spring.tx)
     implementation(libs.spring.boot.autoconfigure)
     implementation(libs.spring.boot.jdbc)
 
