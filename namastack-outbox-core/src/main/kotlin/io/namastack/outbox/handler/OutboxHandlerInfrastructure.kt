@@ -66,15 +66,15 @@ class OutboxHandlerInfrastructure(
      *
      * @param bean Initialized bean to inspect
      * @param beanName Spring name of the inspected bean
-     * @param primaryMethodPredicate Predicate selecting primary methods after validation
+     * @param handlerSelector Selects complete handler registrations by their primary method after validation
      * @throws IllegalStateException if declaration relationships are ambiguous or a routing ID
      * collides with an existing registration in this infrastructure
      */
     fun register(
         bean: Any,
         beanName: String,
-        primaryMethodPredicate: (Method) -> Boolean = { true },
+        handlerSelector: (Method) -> Boolean = { true },
     ) {
-        registrar.register(bean, beanName, primaryMethodPredicate)
+        registrar.register(bean, beanName, handlerSelector)
     }
 }

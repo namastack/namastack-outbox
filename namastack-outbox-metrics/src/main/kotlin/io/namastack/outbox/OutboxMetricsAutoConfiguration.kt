@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.ConditionalOnSingleRuntimeMode
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionCoordinator
 import org.springframework.beans.factory.ObjectProvider
@@ -34,7 +35,7 @@ import org.springframework.context.annotation.Bean
 @AutoConfiguration
 @ConditionalOnClass(OutboxService::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
-@ConditionalOnProperty(name = ["namastack.outbox.mode"], havingValue = "single", matchIfMissing = true)
+@ConditionalOnSingleRuntimeMode
 internal class OutboxMetricsAutoConfiguration {
     /**
      * Creates the outbox record metrics meter binder.

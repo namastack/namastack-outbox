@@ -29,19 +29,19 @@ internal class HandlerRegistrationAssembler(
      * present.
      *
      * @param declarations Primary and fallback declarations discovered on one bean
-     * @param primaryMethodPredicate Predicate selecting the primary methods to assemble after all
-     * declaration relationships have been validated
+     * @param handlerSelector Selects complete handler registrations by their primary method after
+     * all declaration relationships have been validated
      * @return Complete registrations ready to be installed in the handler registry
      * @throws IllegalStateException if the declarations contain an ambiguous relationship
      */
     fun assemble(
         declarations: HandlerDeclarations,
-        primaryMethodPredicate: (Method) -> Boolean = { true },
+        handlerSelector: (Method) -> Boolean = { true },
     ): List<HandlerRegistration> {
         HandlerDiscoveryValidator.validateRelationships(declarations)
 
         return declarations.handlers
-            .filter { primaryMethodPredicate(it.method) }
+            .filter { handlerSelector(it.method) }
             .mapNotNull { candidate ->
                 if (!HandlerDiscoveryValidator.supportsHandler(candidate)) {
                     log.warn(

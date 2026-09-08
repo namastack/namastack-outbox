@@ -30,19 +30,19 @@ internal class OutboxHandlerRegistrar(
      *
      * @param bean Initialized bean to inspect
      * @param beanName Spring name of the inspected bean
-     * @param primaryMethodPredicate Predicate selecting primary methods after validation
+     * @param handlerSelector Selects complete handler registrations by their primary method after validation
      * @throws IllegalStateException if declaration relationships are ambiguous or a routing ID
      * collides with an existing registration
      */
     fun register(
         bean: Any,
         beanName: String,
-        primaryMethodPredicate: (Method) -> Boolean = { true },
+        handlerSelector: (Method) -> Boolean = { true },
     ) {
         val registrations =
             assembler.assemble(
                 declarations = HandlerDiscovery.discover(bean, beanName),
-                primaryMethodPredicate = primaryMethodPredicate,
+                handlerSelector = handlerSelector,
             )
 
         if (registrations.isNotEmpty()) handlerRegistry.registerBatch(registrations)
