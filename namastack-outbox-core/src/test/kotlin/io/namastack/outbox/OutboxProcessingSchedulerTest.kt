@@ -63,6 +63,9 @@ class OutboxProcessingSchedulerTest {
             )
 
         every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
+        every { partitionCoordinator.withStableAssignments<Int>(any()) } answers {
+            firstArg<(Set<Int>) -> Int>().invoke(partitionCoordinator.getAssignedPartitionNumbers())
+        }
     }
 
     @Nested
