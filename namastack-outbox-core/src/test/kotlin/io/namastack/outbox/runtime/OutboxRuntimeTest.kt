@@ -1,6 +1,5 @@
 package io.namastack.outbox.runtime
 
-import io.micrometer.observation.ObservationRegistry
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -11,12 +10,6 @@ import io.namastack.outbox.partition.PartitionCoordinator
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
-import org.springframework.scheduling.TaskScheduler
-import java.time.Clock
-import java.time.Duration
-import java.time.Instant
-import java.time.ZoneOffset
-import java.util.concurrent.ScheduledFuture
 
 class OutboxRuntimeTest {
     @Test
@@ -29,19 +22,19 @@ class OutboxRuntimeTest {
         runtime.start()
 
         assertThat(events)
-            .containsExactly("instance.start", "partition.rebalance", "rebalance.schedule", "processing.start")
+            .containsExactly("instance.start", "coordinator.start", "processing.start")
         assertThat(runtime.isRunning()).isTrue()
         verify(exactly = 1) { components.instanceRegistry.start() }
+        verify(exactly = 1) { components.partitionCoordinator.start() }
         verify(exactly = 1) { components.processingScheduler.start() }
     }
 
     @Test
-    fun `closes in reverse order once and leaves borrowed resources open`() {
+    fun `closes owned resources in dependency order once`() {
         val events = mutableListOf<String>()
         val components = components(events)
         val persistenceResource = RecordingCloseable("persistence.close", events)
         val threadingResource = RecordingCloseable("threading.close", events)
-        val borrowedResource = components.taskScheduler as AutoCloseable
         val runtime =
             runtime(
                 components = components,
@@ -57,15 +50,14 @@ class OutboxRuntimeTest {
         assertThat(events)
             .containsExactly(
                 "processing.stop",
-                "rebalance.cancel",
+                "coordinator.stop",
                 "instance.stop",
-                "persistence.close",
                 "threading.close",
+                "persistence.close",
             )
         assertThat(runtime.isRunning()).isFalse()
         assertThat(persistenceResource.closeCount).isEqualTo(1)
         assertThat(threadingResource.closeCount).isEqualTo(1)
-        verify(exactly = 0) { borrowedResource.close() }
     }
 
     @Test
@@ -92,13 +84,12 @@ class OutboxRuntimeTest {
         assertThat(events)
             .containsExactly(
                 "instance.start",
-                "partition.rebalance",
-                "rebalance.schedule",
+                "coordinator.start",
                 "processing.start",
-                "rebalance.cancel",
+                "coordinator.stop",
                 "instance.stop",
-                "persistence.close",
                 "threading.close",
+                "persistence.close",
             )
         assertThat(runtime.isRunning()).isFalse()
         verify(exactly = 1) { components.processingScheduler.start() }
@@ -115,28 +106,13 @@ class OutboxRuntimeTest {
         val instanceRegistry = mockk<OutboxInstanceRegistry>()
         val partitionCoordinator = mockk<PartitionCoordinator>()
         val processingScheduler = mockk<OutboxProcessingScheduler>()
-        val taskScheduler = mockk<TaskScheduler>(moreInterfaces = arrayOf(AutoCloseable::class))
-        val scheduledRebalance = mockk<ScheduledFuture<*>>()
 
         every { instanceRegistry.start() } answers { events += "instance.start" }
         every { instanceRegistry.isRunning } returns true
         every { instanceRegistry.stop() } answers { events += "instance.stop" }
-        every { partitionCoordinator.rebalance() } answers { events += "partition.rebalance" }
-        every { taskScheduler.clock } returns CLOCK
-        every {
-            taskScheduler.scheduleWithFixedDelay(
-                any<Runnable>(),
-                CLOCK.instant().plus(REBALANCE_INTERVAL),
-                REBALANCE_INTERVAL,
-            )
-        } answers {
-            events += "rebalance.schedule"
-            scheduledRebalance
-        }
-        every { scheduledRebalance.cancel(false) } answers {
-            events += "rebalance.cancel"
-            true
-        }
+        every { partitionCoordinator.start() } answers { events += "coordinator.start" }
+        every { partitionCoordinator.isRunning } returns true
+        every { partitionCoordinator.stop() } answers { events += "coordinator.stop" }
         every { processingScheduler.start() } answers { events += "processing.start" }
         every { processingScheduler.isRunning } returns true
         every { processingScheduler.stop() } answers { events += "processing.stop" }
@@ -145,7 +121,6 @@ class OutboxRuntimeTest {
             instanceRegistry = instanceRegistry,
             partitionCoordinator = partitionCoordinator,
             processingScheduler = processingScheduler,
-            taskScheduler = taskScheduler,
         )
     }
 
@@ -159,9 +134,6 @@ class OutboxRuntimeTest {
             instanceRegistry = components.instanceRegistry,
             partitionCoordinator = components.partitionCoordinator,
             processingScheduler = components.processingScheduler,
-            taskScheduler = components.taskScheduler,
-            rebalanceInterval = REBALANCE_INTERVAL,
-            observationRegistry = { ObservationRegistry.NOOP },
             ownedPersistenceResources = persistenceResources,
             ownedThreadingResources = threadingResources,
         )
@@ -170,7 +142,6 @@ class OutboxRuntimeTest {
         val instanceRegistry: OutboxInstanceRegistry,
         val partitionCoordinator: PartitionCoordinator,
         val processingScheduler: OutboxProcessingScheduler,
-        val taskScheduler: TaskScheduler,
     )
 
     private class RecordingCloseable(
@@ -184,10 +155,5 @@ class OutboxRuntimeTest {
             closeCount++
             events += event
         }
-    }
-
-    private companion object {
-        val CLOCK: Clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)
-        val REBALANCE_INTERVAL: Duration = Duration.ofSeconds(10)
     }
 }

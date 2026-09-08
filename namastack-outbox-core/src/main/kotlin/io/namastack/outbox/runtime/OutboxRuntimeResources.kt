@@ -6,9 +6,11 @@ import org.springframework.scheduling.TaskScheduler
 /**
  * Fully resolved threading resources for one programmatic outbox runtime.
  *
- * The normal scheduler is shared by processing and partition rebalancing. The heartbeat scheduler
- * remains separate so a busy processing scheduler cannot delay instance liveness updates. Entries
- * in [ownedResources] are closed in reverse order; borrowed parent resources must not be included.
+ * Processing and partition rebalancing may share a scheduler because the runtime serializes their
+ * access to partition assignments. The heartbeat scheduler must have execution capacity independent
+ * of potentially long processing batches. It may be the same scheduler instance only when its pool
+ * provides that capacity. Entries in [ownedResources] are closed in reverse order; borrowed parent
+ * resources must not be included.
  *
  * @property taskExecutor Executor for parallel record processing
  * @property taskScheduler Scheduler for polling and partition rebalancing
