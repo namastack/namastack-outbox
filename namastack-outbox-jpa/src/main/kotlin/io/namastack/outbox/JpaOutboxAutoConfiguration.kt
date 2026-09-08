@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.ConditionalOnSingleRuntimeMode
 import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
@@ -41,7 +42,7 @@ import java.time.Clock
 @AutoConfigureBefore(OutboxCoreInfrastructureAutoConfiguration::class)
 @ConditionalOnClass(EntityManagerFactory::class, OutboxService::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
-@ConditionalOnProperty(name = ["namastack.outbox.mode"], havingValue = "single", matchIfMissing = true)
+@ConditionalOnSingleRuntimeMode
 class JpaOutboxAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = ["outboxHibernatePropertiesCustomizer"])
