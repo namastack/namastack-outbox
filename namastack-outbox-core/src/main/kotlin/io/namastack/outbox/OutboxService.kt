@@ -9,7 +9,6 @@ import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
-import kotlin.LazyThreadSafetyMode.SYNCHRONIZED
 import kotlin.reflect.KClass
 
 /**
@@ -77,8 +76,8 @@ class OutboxService(
     instrumentationSupplier: () -> OutboxInstrumentation = { OutboxInstrumentation.NOOP },
     channelNameProviderSupplier: () -> OutboxChannelNameProvider = { OutboxChannelNameProvider.DEFAULT },
 ) : Outbox {
-    private val instrumentation: OutboxInstrumentation by lazy(SYNCHRONIZED, instrumentationSupplier)
-    private val channelNameProvider: OutboxChannelNameProvider by lazy(SYNCHRONIZED, channelNameProviderSupplier)
+    private val instrumentation: OutboxInstrumentation by lazy(instrumentationSupplier)
+    private val channelNameProvider: OutboxChannelNameProvider by lazy(channelNameProviderSupplier)
 
     /**
      * Schedules a record with an explicit key and additional context for processing.

@@ -41,6 +41,42 @@ class OutboxInstrumentationTest {
     }
 
     @Test
+    fun `schedule-only instrumentation uses default process implementation`() {
+        var invocations = 0
+        val instrumentation =
+            object : OutboxInstrumentation {
+                override fun schedule(
+                    invocation: OutboxScheduleInvocation,
+                    action: () -> Unit,
+                ) = action()
+            }
+
+        instrumentation.process(processInvocation()) {
+            invocations++
+        }
+
+        assertThat(invocations).isEqualTo(1)
+    }
+
+    @Test
+    fun `process-only instrumentation uses default schedule implementation`() {
+        var invocations = 0
+        val instrumentation =
+            object : OutboxInstrumentation {
+                override fun process(
+                    invocation: OutboxProcessInvocation,
+                    action: () -> Unit,
+                ) = action()
+            }
+
+        instrumentation.schedule(scheduleInvocation()) {
+            invocations++
+        }
+
+        assertThat(invocations).isEqualTo(1)
+    }
+
+    @Test
     fun `schedule invocation retains supplied operation data`() {
         val payload = Any()
 
