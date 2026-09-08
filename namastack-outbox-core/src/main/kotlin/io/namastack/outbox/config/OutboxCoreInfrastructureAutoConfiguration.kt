@@ -3,6 +3,7 @@ package io.namastack.outbox.config
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.Outbox
 import io.namastack.outbox.OutboxChannelNameProvider
+import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
@@ -119,13 +120,21 @@ class OutboxCoreInfrastructureAutoConfiguration {
         partitionAssignmentRepository: PartitionAssignmentRepository,
         partitionAssignmentCache: PartitionAssignmentCache,
         clock: Clock,
-    ): PartitionCoordinator =
-        PartitionCoordinator(
+        properties: OutboxProperties,
+        beanFactory: BeanFactory,
+        observationRegistry: ObjectProvider<ObservationRegistry>,
+    ): PartitionCoordinator {
+        val taskScheduler = beanFactory.getBean(OutboxProcessingScheduler.SCHEDULER_NAME) as TaskScheduler
+        return PartitionCoordinator(
             instanceRegistry = instanceRegistry,
             partitionAssignmentRepository = partitionAssignmentRepository,
             partitionAssignmentCache = partitionAssignmentCache,
             clock = clock,
+            taskScheduler = taskScheduler,
+            rebalanceInterval = properties.effectiveRebalanceInterval,
+            observationRegistry = { observationRegistry.getIfAvailable { ObservationRegistry.NOOP } },
         )
+    }
 
     @Bean
     @ConditionalOnMissingBean

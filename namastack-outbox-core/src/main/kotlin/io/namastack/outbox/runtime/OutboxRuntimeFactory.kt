@@ -59,6 +59,9 @@ object OutboxRuntimeFactory {
                 partitionAssignmentRepository = persistence.partitionAssignmentRepository,
                 partitionAssignmentCache = PartitionAssignmentCache(persistence.partitionAssignmentRepository),
                 clock = spec.clock,
+                taskScheduler = resources.taskScheduler,
+                rebalanceInterval = properties.effectiveRebalanceInterval,
+                observationRegistry = spec.observationRegistry,
             )
         val processorChain = createProcessorChain(handlers, spec)
         val trigger = OutboxPollingTriggerFactory.create(properties, spec.clock)
@@ -80,9 +83,6 @@ object OutboxRuntimeFactory {
             instanceRegistry = instanceRegistry,
             partitionCoordinator = partitionCoordinator,
             processingScheduler = processingScheduler,
-            taskScheduler = resources.taskScheduler,
-            rebalanceInterval = properties.effectiveRebalanceInterval,
-            observationRegistry = spec.observationRegistry,
             ownedPersistenceResources = persistence.ownedResources,
             ownedThreadingResources = resources.ownedResources,
         )
