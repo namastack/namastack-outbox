@@ -8,7 +8,6 @@ import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.instrumentation.OutboxProcessHandlerKind
 import io.namastack.outbox.instrumentation.OutboxProcessInvocation
-import kotlin.LazyThreadSafetyMode.SYNCHRONIZED
 
 /**
  * Invokes the appropriate handler for a given record.
@@ -30,8 +29,8 @@ class OutboxHandlerInvoker(
     instrumentationSupplier: () -> OutboxInstrumentation = { OutboxInstrumentation.NOOP },
     channelNameProviderSupplier: () -> OutboxChannelNameProvider = { OutboxChannelNameProvider.DEFAULT },
 ) {
-    private val instrumentation: OutboxInstrumentation by lazy(SYNCHRONIZED, instrumentationSupplier)
-    private val channelNameProvider: OutboxChannelNameProvider by lazy(SYNCHRONIZED, channelNameProviderSupplier)
+    private val instrumentation: OutboxInstrumentation by lazy(instrumentationSupplier)
+    private val channelNameProvider: OutboxChannelNameProvider by lazy(channelNameProviderSupplier)
 
     /**
      * Verifies that the handler referenced by a record is registered on this instance.

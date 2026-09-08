@@ -8,7 +8,6 @@ import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxProcessObservationConvention
 import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxScheduleObservationConvention
 import io.namastack.outbox.observability.OutboxProcessObservationContext.HandlerKind
-import kotlin.LazyThreadSafetyMode.SYNCHRONIZED
 
 /**
  * Instruments outbox scheduling and handler processing with Micrometer observations.
@@ -29,13 +28,13 @@ class MicrometerOutboxInstrumentation(
     customScheduleConventionSupplier: () -> OutboxScheduleObservationConvention? = { null },
     customProcessConventionSupplier: () -> OutboxProcessObservationConvention? = { null },
 ) : OutboxInstrumentation {
-    private val observationRegistry: ObservationRegistry by lazy(SYNCHRONIZED) {
+    private val observationRegistry: ObservationRegistry by lazy {
         observationRegistrySupplier()
     }
-    private val resolvedScheduleConvention: OutboxScheduleObservationConvention? by lazy(SYNCHRONIZED) {
+    private val resolvedScheduleConvention: OutboxScheduleObservationConvention? by lazy {
         customScheduleConventionSupplier()
     }
-    private val resolvedProcessConvention: OutboxProcessObservationConvention? by lazy(SYNCHRONIZED) {
+    private val resolvedProcessConvention: OutboxProcessObservationConvention? by lazy {
         customProcessConventionSupplier()
     }
 

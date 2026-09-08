@@ -19,7 +19,7 @@ interface OutboxInstrumentation {
     fun schedule(
         invocation: OutboxScheduleInvocation,
         action: () -> Unit,
-    )
+    ) = action()
 
     /**
      * Instruments one primary or fallback handler invocation.
@@ -30,14 +30,14 @@ interface OutboxInstrumentation {
     fun process(
         invocation: OutboxProcessInvocation,
         action: () -> Unit,
-    )
+    ) = action()
 
     companion object {
         /**
          * Instrumentation that invokes actions without adding behavior.
          */
         @JvmField
-        val NOOP: OutboxInstrumentation = NoOpOutboxInstrumentation
+        val NOOP: OutboxInstrumentation = object : OutboxInstrumentation {}
 
         /**
          * Composes [instrumentations] in list order, with the first instrumentation outermost.

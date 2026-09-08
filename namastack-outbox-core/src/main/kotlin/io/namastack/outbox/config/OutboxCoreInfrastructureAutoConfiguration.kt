@@ -68,7 +68,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
                 OutboxInstrumentation.compose(instrumentations.orderedStream().toList())
             },
             channelNameProviderSupplier = {
-                channelNameProvider.getIfAvailable { OutboxChannelNameProvider.DEFAULT }
+                channelNameProvider.getObject()
             },
         )
 
@@ -87,7 +87,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
                 OutboxInstrumentation.compose(instrumentations.orderedStream().toList())
             },
             channelNameProviderSupplier = {
-                channelNameProvider.getIfAvailable { OutboxChannelNameProvider.DEFAULT }
+                channelNameProvider.getObject()
             },
         )
 
@@ -162,7 +162,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
                 OutboxInstrumentation.compose(instrumentations.orderedStream().toList())
             },
             channelNameProviderSupplier = {
-                channelNameProvider.getIfAvailable { OutboxChannelNameProvider.DEFAULT }
+                channelNameProvider.getObject()
             },
         )
 

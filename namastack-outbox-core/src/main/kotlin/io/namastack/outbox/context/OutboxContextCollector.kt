@@ -1,7 +1,6 @@
 package io.namastack.outbox.context
 
 import org.slf4j.LoggerFactory
-import kotlin.LazyThreadSafetyMode.SYNCHRONIZED
 
 /**
  * Collects and merges context from all registered [OutboxContextProvider] implementations.
@@ -71,7 +70,7 @@ class OutboxContextCollector internal constructor(
     providersSupplier: () -> List<OutboxContextProvider>,
 ) {
     private val log = LoggerFactory.getLogger(OutboxContextCollector::class.java)
-    private val providers: List<OutboxContextProvider> by lazy(SYNCHRONIZED) {
+    private val providers: List<OutboxContextProvider> by lazy {
         providersSupplier()
     }
 
