@@ -128,7 +128,8 @@ class OutboxRuntime internal constructor(
                 observationRegistry,
             )
 
-        return checkNotNull(taskScheduler.scheduleWithFixedDelay(runnable, rebalanceInterval)) {
+        val firstExecution = taskScheduler.clock.instant().plus(rebalanceInterval)
+        return checkNotNull(taskScheduler.scheduleWithFixedDelay(runnable, firstExecution, rebalanceInterval)) {
             "TaskScheduler did not schedule partition rebalancing"
         }
     }

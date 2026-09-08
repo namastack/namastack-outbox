@@ -4,6 +4,7 @@ import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.OutboxService
+import io.namastack.outbox.config.ConditionalOnSingleRuntimeMode
 import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.observability.OutboxObservabilityAutoConfiguration
@@ -35,7 +36,7 @@ import org.springframework.context.annotation.Bean
 )
 @ConditionalOnClass(OutboxService::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
-@ConditionalOnProperty(name = ["namastack.outbox.mode"], havingValue = "single", matchIfMissing = true)
+@ConditionalOnSingleRuntimeMode
 @ConditionalOnBean(value = [OutboxRecordRepository::class, PartitionCoordinator::class, OutboxInstanceRegistry::class])
 internal class OutboxInstanceMetricsAutoConfiguration {
     @Bean
