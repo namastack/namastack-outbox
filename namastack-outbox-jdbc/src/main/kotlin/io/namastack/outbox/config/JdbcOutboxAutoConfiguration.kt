@@ -48,7 +48,7 @@ import javax.sql.DataSource
 @AutoConfigureBefore(OutboxCoreInfrastructureAutoConfiguration::class)
 @ConditionalOnClass(JdbcClient::class, OutboxService::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
-@ConditionalOnProperty(name = ["namastack.outbox.mode"], havingValue = "single", matchIfMissing = true)
+@ConditionalOnSingleRuntimeMode
 @EnableConfigurationProperties(JdbcOutboxConfigurationProperties::class)
 class JdbcOutboxAutoConfiguration {
     /**

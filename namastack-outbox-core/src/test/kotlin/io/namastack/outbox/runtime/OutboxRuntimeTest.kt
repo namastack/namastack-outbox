@@ -12,7 +12,10 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.scheduling.TaskScheduler
+import java.time.Clock
 import java.time.Duration
+import java.time.Instant
+import java.time.ZoneOffset
 import java.util.concurrent.ScheduledFuture
 
 class OutboxRuntimeTest {
@@ -119,7 +122,14 @@ class OutboxRuntimeTest {
         every { instanceRegistry.isRunning } returns true
         every { instanceRegistry.stop() } answers { events += "instance.stop" }
         every { partitionCoordinator.rebalance() } answers { events += "partition.rebalance" }
-        every { taskScheduler.scheduleWithFixedDelay(any<Runnable>(), REBALANCE_INTERVAL) } answers {
+        every { taskScheduler.clock } returns CLOCK
+        every {
+            taskScheduler.scheduleWithFixedDelay(
+                any<Runnable>(),
+                CLOCK.instant().plus(REBALANCE_INTERVAL),
+                REBALANCE_INTERVAL,
+            )
+        } answers {
             events += "rebalance.schedule"
             scheduledRebalance
         }
@@ -177,6 +187,7 @@ class OutboxRuntimeTest {
     }
 
     private companion object {
+        val CLOCK: Clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)
         val REBALANCE_INTERVAL: Duration = Duration.ofSeconds(10)
     }
 }

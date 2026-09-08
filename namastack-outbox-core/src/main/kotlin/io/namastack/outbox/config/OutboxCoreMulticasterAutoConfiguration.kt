@@ -13,7 +13,7 @@ import org.springframework.context.event.SimpleApplicationEventMulticaster
 
 @AutoConfiguration
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
-@ConditionalOnProperty(name = ["namastack.outbox.mode"], havingValue = "single", matchIfMissing = true)
+@ConditionalOnSingleRuntimeMode
 class OutboxCoreMulticasterAutoConfiguration {
     @Bean(name = ["applicationEventMulticaster"])
     @ConditionalOnMissingBean
