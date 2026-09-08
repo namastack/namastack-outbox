@@ -1,12 +1,21 @@
 package io.namastack.outbox.partition
 
+import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OpenForProxy
+import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
 import org.slf4j.LoggerFactory
+import org.springframework.context.SmartLifecycle
 import org.springframework.dao.DataIntegrityViolationException
-import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.scheduling.TaskScheduler
+import org.springframework.scheduling.support.ScheduledMethodRunnable
+import java.lang.reflect.Method
 import java.time.Clock
+import java.time.Duration
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /**
  * Central orchestrator for partition ownership management.
@@ -17,9 +26,8 @@ import java.time.Clock
  *  - Caching: memorizes owned partition numbers until next rebalance.
  *  - Stats: provides record key partition distribution metrics.
  *
- * Concurrency assumptions:
- *  - Rebalance invoked after batch completion (scheduler guarantees no overlapping processing).
- *  - Ownership changes only through this coordinator / repository layer.
+ * Rebalancing owns its scheduling lifecycle. Record processing uses [withStableAssignments] so a
+ * rebalance cannot overlap a processing batch even when the supplied scheduler has multiple threads.
  *
  * @author Roland Beisel
  * @since 0.2.0
@@ -30,9 +38,69 @@ class PartitionCoordinator(
     private val partitionAssignmentRepository: PartitionAssignmentRepository,
     private val partitionAssignmentCache: PartitionAssignmentCache,
     private val clock: Clock,
-) {
+    private val taskScheduler: TaskScheduler,
+    private val rebalanceInterval: Duration,
+    private val observationRegistry: () -> ObservationRegistry,
+) : SmartLifecycle {
+    companion object {
+        private val REBALANCE_METHOD: Method = PartitionCoordinator::class.java.getMethod("rebalance")
+    }
+
     private val log = LoggerFactory.getLogger(PartitionCoordinator::class.java)
     private val currentInstanceId by lazy { instanceRegistry.getCurrentInstanceId() }
+    private val assignmentLock = ReentrantLock()
+
+    @Volatile
+    private var running = false
+
+    private var scheduledRebalance: ScheduledFuture<*>? = null
+
+    /** Starts after instance registration and before record processing. */
+    override fun getPhase(): Int = 1
+
+    override fun isRunning(): Boolean = running
+
+    /** Performs the initial rebalance and then schedules periodic executions. */
+    @Synchronized
+    override fun start() {
+        if (running) return
+
+        rebalance()
+        val observedRebalance =
+            ScheduledMethodRunnable(
+                this,
+                REBALANCE_METHOD,
+                OutboxProcessingScheduler.SCHEDULER_NAME,
+                observationRegistry,
+            )
+        val runnable =
+            Runnable {
+                assignmentLock.withLock {
+                    if (running) observedRebalance.run()
+                }
+            }
+        val firstExecution = taskScheduler.clock.instant().plus(rebalanceInterval)
+        running = true
+        try {
+            scheduledRebalance =
+                checkNotNull(taskScheduler.scheduleWithFixedDelay(runnable, firstExecution, rebalanceInterval)) {
+                    "TaskScheduler did not schedule partition rebalancing"
+                }
+        } catch (failure: Throwable) {
+            assignmentLock.withLock { running = false }
+            throw failure
+        }
+    }
+
+    /** Cancels future executions and waits for an active rebalance to leave its critical section. */
+    @Synchronized
+    override fun stop() {
+        if (!running) return
+
+        scheduledRebalance?.cancel(false)
+        scheduledRebalance = null
+        assignmentLock.withLock { running = false }
+    }
 
     /**
      * Return currently owned partition numbers (cached until next rebalance).
@@ -49,28 +117,29 @@ class PartitionCoordinator(
      *  4. Claim stale partitions, then release surplus for new instances.
      *  5. Invalidate cached partition list.
      */
-    @Scheduled(
-        initialDelayString = "0",
-        fixedDelayString =
-            $$"${namastack.outbox.rebalance-interval:${namastack.outbox.instance.rebalance-interval:10000}}",
-        scheduler = "outboxDefaultScheduler",
-    )
-    fun rebalance() {
-        log.debug("Starting rebalance for instance {}", currentInstanceId)
+    fun rebalance(): Unit =
+        assignmentLock.withLock {
+            log.debug("Starting rebalance for instance {}", currentInstanceId)
 
-        try {
-            val partitionContext = getPartitionContext()
-            if (partitionContext.hasNoPartitionAssignments()) {
-                bootstrapPartitions()
-                return
+            try {
+                val partitionContext = getPartitionContext()
+                if (partitionContext.hasNoPartitionAssignments()) {
+                    bootstrapPartitions()
+                    return
+                }
+
+                claimStalePartitions(partitionContext)
+                releaseSurplusPartitions(partitionContext)
+            } finally {
+                partitionAssignmentCache.evictAll()
             }
-
-            claimStalePartitions(partitionContext)
-            releaseSurplusPartitions(partitionContext)
-        } finally {
-            partitionAssignmentCache.evictAll()
         }
-    }
+
+    /** Runs work against one stable partition assignment without overlapping a rebalance. */
+    internal fun <T> withStableAssignments(action: (Set<Int>) -> T): T =
+        assignmentLock.withLock {
+            action(getAssignedPartitionNumbers())
+        }
 
     /**
      * Returns a snapshot of the current partition context, including active instance IDs and all partition assignments.
