@@ -3,6 +3,7 @@ package io.namastack.outbox
 import io.micrometer.observation.ObservationRegistry
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceRegistry
@@ -20,6 +21,10 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit.SECONDS
 
 @DisplayName("OutboxInstanceRegistry")
 class OutboxInstanceRegistryTest {
@@ -89,6 +94,47 @@ class OutboxInstanceRegistryTest {
             registry.stop()
 
             assertThat(registry.isRunning()).isFalse()
+        }
+
+        @Test
+        fun `stop waits for an active heartbeat and suppresses queued callbacks`() {
+            val runnable = slot<Runnable>()
+            val scheduledHeartbeat = mockk<ScheduledFuture<*>>()
+            val heartbeatStarted = CountDownLatch(1)
+            val allowHeartbeatToFinish = CountDownLatch(1)
+            val cancellationAttempted = CountDownLatch(1)
+            every { taskScheduler.scheduleAtFixedRate(capture(runnable), any<Duration>()) } returns scheduledHeartbeat
+            every { scheduledHeartbeat.cancel(false) } answers {
+                cancellationAttempted.countDown()
+                false
+            }
+            registry.start()
+            every { instanceRepository.updateHeartbeat(any(), any()) } answers {
+                heartbeatStarted.countDown()
+                allowHeartbeatToFinish.await(2, SECONDS)
+                true
+            }
+
+            val executor = Executors.newFixedThreadPool(2)
+            try {
+                val heartbeatFuture = executor.submit(runnable.captured)
+                assertThat(heartbeatStarted.await(2, SECONDS)).isTrue()
+
+                val stopFuture = executor.submit(registry::stop)
+                assertThat(cancellationAttempted.await(2, SECONDS)).isTrue()
+                assertThat(stopFuture.isDone).isFalse()
+
+                allowHeartbeatToFinish.countDown()
+                heartbeatFuture.get(2, SECONDS)
+                stopFuture.get(2, SECONDS)
+
+                runnable.captured.run()
+                verify(exactly = 1) { instanceRepository.updateHeartbeat(any(), any()) }
+                assertThat(registry.isRunning()).isFalse()
+            } finally {
+                allowHeartbeatToFinish.countDown()
+                executor.shutdownNow()
+            }
         }
 
         @Test

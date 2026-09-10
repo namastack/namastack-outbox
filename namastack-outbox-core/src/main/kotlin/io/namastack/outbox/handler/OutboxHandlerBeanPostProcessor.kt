@@ -1,7 +1,5 @@
 package io.namastack.outbox.handler
 
-import io.namastack.outbox.handler.assembly.HandlerRegistrationAssembler
-import io.namastack.outbox.handler.discovery.HandlerDiscovery
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.springframework.beans.factory.config.BeanPostProcessor
@@ -22,10 +20,10 @@ import org.springframework.beans.factory.config.BeanPostProcessor
  * @since 0.4.0
  */
 internal class OutboxHandlerBeanPostProcessor(
-    private val handlerRegistry: OutboxHandlerRegistry,
+    handlerRegistry: OutboxHandlerRegistry,
     retryPolicyRegistry: OutboxRetryPolicyRegistry,
 ) : BeanPostProcessor {
-    private val assembler = HandlerRegistrationAssembler(retryPolicyRegistry)
+    private val registrar = OutboxHandlerRegistrar(handlerRegistry, retryPolicyRegistry)
 
     /**
      * Processes a bean after Spring completes its initialization callbacks.
@@ -41,9 +39,7 @@ internal class OutboxHandlerBeanPostProcessor(
         bean: Any,
         beanName: String,
     ): Any {
-        val registrations = assembler.assemble(HandlerDiscovery.discover(bean, beanName))
-
-        if (registrations.isNotEmpty()) handlerRegistry.registerBatch(registrations)
+        registrar.register(bean, beanName)
 
         return bean
     }

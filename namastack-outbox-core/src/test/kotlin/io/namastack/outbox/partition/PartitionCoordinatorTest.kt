@@ -4,8 +4,10 @@ import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
+import io.micrometer.observation.ObservationRegistry
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import org.assertj.core.api.Assertions.assertThat
@@ -16,8 +18,14 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit.SECONDS
 
 @DisplayName("PartitionCoordinator")
 class PartitionCoordinatorTest {
@@ -25,6 +33,8 @@ class PartitionCoordinatorTest {
     private val partitionAssignmentRepository = mockk<PartitionAssignmentRepository>()
     private val partitionAssignmentCache = mockk<PartitionAssignmentCache>(relaxed = true)
     private val clock = Clock.systemUTC()
+    private val taskScheduler = mockk<TaskScheduler>()
+    private val scheduledRebalance = mockk<ScheduledFuture<*>>()
 
     private lateinit var listAppender: ListAppender<ILoggingEvent>
     private lateinit var partitionCoordinator: PartitionCoordinator
@@ -44,6 +54,11 @@ class PartitionCoordinatorTest {
         every { partitionAssignmentRepository.findAll() } returns emptySet()
         every { partitionAssignmentRepository.saveAll(any()) } returns Unit
         every { partitionAssignmentCache.getAssignedPartitionNumbers(any()) } returns emptySet()
+        every { taskScheduler.clock } returns clock
+        every {
+            taskScheduler.scheduleWithFixedDelay(any<Runnable>(), any<Instant>(), REBALANCE_INTERVAL)
+        } returns scheduledRebalance
+        every { scheduledRebalance.cancel(false) } returns true
 
         partitionCoordinator =
             PartitionCoordinator(
@@ -51,7 +66,106 @@ class PartitionCoordinatorTest {
                 partitionAssignmentRepository = partitionAssignmentRepository,
                 partitionAssignmentCache = partitionAssignmentCache,
                 clock = clock,
+                taskScheduler = taskScheduler,
+                rebalanceInterval = REBALANCE_INTERVAL,
+                observationRegistry = { ObservationRegistry.NOOP },
             )
+    }
+
+    @Nested
+    @DisplayName("Lifecycle")
+    inner class LifecycleTests {
+        @Test
+        fun `perform initial rebalance and schedule periodic executions once`() {
+            partitionCoordinator.start()
+            partitionCoordinator.start()
+
+            assertThat(partitionCoordinator.isRunning).isTrue()
+            assertThat(partitionCoordinator.phase).isEqualTo(1)
+            verify(exactly = 1) { partitionAssignmentRepository.findAll() }
+            verify(exactly = 1) {
+                taskScheduler.scheduleWithFixedDelay(any<Runnable>(), any<Instant>(), REBALANCE_INTERVAL)
+            }
+        }
+
+        @Test
+        fun `cancel periodic execution when stopped`() {
+            partitionCoordinator.start()
+
+            partitionCoordinator.stop()
+            partitionCoordinator.stop()
+
+            assertThat(partitionCoordinator.isRunning).isFalse()
+            verify(exactly = 1) { scheduledRebalance.cancel(false) }
+        }
+
+        @Test
+        fun `scheduled execution invokes rebalance`() {
+            val runnable = slot<Runnable>()
+            every {
+                taskScheduler.scheduleWithFixedDelay(capture(runnable), any<Instant>(), REBALANCE_INTERVAL)
+            } returns scheduledRebalance
+            partitionCoordinator.start()
+            verify(exactly = 1) { partitionAssignmentRepository.findAll() }
+
+            runnable.captured.run()
+
+            verify(exactly = 2) { partitionAssignmentRepository.findAll() }
+        }
+
+        @Test
+        fun `scheduled execution does not rebalance after stop`() {
+            val runnable = slot<Runnable>()
+            every {
+                taskScheduler.scheduleWithFixedDelay(capture(runnable), any<Instant>(), REBALANCE_INTERVAL)
+            } returns scheduledRebalance
+            partitionCoordinator.start()
+
+            partitionCoordinator.stop()
+            runnable.captured.run()
+
+            verify(exactly = 1) { partitionAssignmentRepository.findAll() }
+        }
+
+        @Test
+        fun `stop waits for an active rebalance`() {
+            val runnable = slot<Runnable>()
+            every {
+                taskScheduler.scheduleWithFixedDelay(capture(runnable), any<Instant>(), REBALANCE_INTERVAL)
+            } returns scheduledRebalance
+            partitionCoordinator.start()
+
+            val rebalanceStarted = CountDownLatch(1)
+            val allowRebalanceToFinish = CountDownLatch(1)
+            val cancellationAttempted = CountDownLatch(1)
+            every { partitionAssignmentRepository.findAll() } answers {
+                rebalanceStarted.countDown()
+                allowRebalanceToFinish.await(2, SECONDS)
+                emptySet()
+            }
+            every { scheduledRebalance.cancel(false) } answers {
+                cancellationAttempted.countDown()
+                false
+            }
+
+            val executor = Executors.newFixedThreadPool(2)
+            try {
+                val rebalanceFuture = executor.submit(runnable.captured)
+                assertThat(rebalanceStarted.await(2, SECONDS)).isTrue()
+
+                val stopFuture = executor.submit(partitionCoordinator::stop)
+                assertThat(cancellationAttempted.await(2, SECONDS)).isTrue()
+                assertThat(stopFuture.isDone).isFalse()
+
+                allowRebalanceToFinish.countDown()
+                rebalanceFuture.get(2, SECONDS)
+                stopFuture.get(2, SECONDS)
+                assertThat(partitionCoordinator.isRunning).isFalse()
+            } finally {
+                allowRebalanceToFinish.countDown()
+                executor.shutdownNow()
+            }
+        }
     }
 
     @Nested
@@ -264,5 +378,9 @@ class PartitionCoordinatorTest {
             val messages = listAppender.list.map { it.formattedMessage }
             assertThat(messages).anyMatch { it.contains("Failed to bootstrap partitions for instance") }
         }
+    }
+
+    private companion object {
+        val REBALANCE_INTERVAL: Duration = Duration.ofSeconds(10)
     }
 }
