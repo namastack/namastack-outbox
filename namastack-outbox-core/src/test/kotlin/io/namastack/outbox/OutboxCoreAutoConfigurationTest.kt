@@ -7,9 +7,14 @@ import io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
+import io.namastack.outbox.context.OutboxContextCollector
+import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.instrumentation.OutboxInstrumentation
+import io.namastack.outbox.instrumentation.OutboxProcessInvocation
+import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.trigger.AdaptivePollingTrigger
@@ -28,6 +33,7 @@ import org.springframework.boot.autoconfigure.task.TaskSchedulingAutoConfigurati
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.Ordered
 import org.springframework.core.task.SimpleAsyncTaskExecutor
 import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.TaskScheduler
@@ -120,6 +126,84 @@ class OutboxCoreAutoConfigurationTest {
                         ReflectionTestUtils.getField(processingScheduler, "taskExecutor") as TaskExecutor
                     val outboxTaskExecutor = context.getBean("outboxTaskExecutor") as TaskExecutor
                     assertThat(injectedExecutor).isSameAs(outboxTaskExecutor)
+                }
+        }
+    }
+
+    @Nested
+    @DisplayName("Instrumentation")
+    inner class InstrumentationConfiguration {
+        @Test
+        fun `uses no-op instrumentation and default channel without instrumentation beans`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    assertThat(context).hasSingleBean(OutboxChannelNameProvider::class.java)
+                    assertThat(context.getBean<OutboxChannelNameProvider>().getChannelName()).isEqualTo("default")
+
+                    val outbox = context.getBean<Outbox>() as OutboxService
+                    assertThat(context.getBeansOfType(OutboxInstrumentation::class.java)).isEmpty()
+                    outbox.schedule("payload", "record-key")
+                }
+        }
+
+        @Test
+        fun `composes ordered instrumentation beans for core operations`() {
+            ConfigWithOrderedInstrumentations.events.clear()
+
+            contextRunner
+                .withUserConfiguration(ConfigWithOrderedInstrumentations::class.java)
+                .run { context ->
+                    val outbox = context.getBean<Outbox>() as OutboxService
+                    outbox.schedule("payload", "record-key")
+
+                    assertThat(ConfigWithOrderedInstrumentations.events)
+                        .containsExactly("outer.before", "inner.before", "inner.after", "outer.after")
+                    assertThat(context.getBeansOfType(OutboxInstrumentation::class.java)).hasSize(2)
+                }
+        }
+
+        @Test
+        fun `uses a custom channel name provider bean`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithCustomChannelNameProvider::class.java)
+                .run { context ->
+                    val provider = context.getBean<OutboxChannelNameProvider>()
+
+                    assertThat(provider).isSameAs(ConfigWithCustomChannelNameProvider.provider)
+                }
+        }
+
+        @Test
+        fun `instrumentation bean may depend on Outbox without a startup cycle`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithOutboxDependentInstrumentation::class.java)
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(OutboxInstrumentation::class.java)
+                    context.getBean<Outbox>().schedule("payload", "record-key")
+                }
+        }
+
+        @Test
+        fun `channel name provider may depend on Outbox without a startup cycle`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithOutboxDependentChannelNameProvider::class.java)
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context.getBean<OutboxChannelNameProvider>().getChannelName()).isEqualTo("orders")
+                    context.getBean<Outbox>().schedule("payload", "record-key")
+                }
+        }
+
+        @Test
+        fun `context provider may depend on Outbox without a startup cycle`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithOutboxDependentContextProvider::class.java)
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context.getBean<OutboxContextCollector>().collectContext())
+                        .containsEntry("source", "outbox")
                 }
         }
     }
@@ -543,5 +627,89 @@ class OutboxCoreAutoConfigurationTest {
 
         @Bean
         fun outboxPollingTrigger() = outboxPollingTrigger
+    }
+
+    @Configuration
+    private class ConfigWithCustomChannelNameProvider : MinimalTestConfig() {
+        @Bean
+        fun outboxChannelNameProvider(): OutboxChannelNameProvider = provider
+
+        companion object {
+            val provider = OutboxChannelNameProvider { "orders" }
+        }
+    }
+
+    @Configuration
+    private class ConfigWithOutboxDependentInstrumentation : MinimalTestConfig() {
+        @Bean
+        fun outboxInstrumentation(outbox: Outbox): OutboxInstrumentation {
+            checkNotNull(outbox)
+            return OutboxInstrumentation.NOOP
+        }
+    }
+
+    @Configuration
+    private class ConfigWithOutboxDependentChannelNameProvider : MinimalTestConfig() {
+        @Bean
+        fun outboxChannelNameProvider(outbox: Outbox): OutboxChannelNameProvider {
+            checkNotNull(outbox)
+            return OutboxChannelNameProvider { "orders" }
+        }
+    }
+
+    @Configuration
+    private class ConfigWithOutboxDependentContextProvider : MinimalTestConfig() {
+        @Bean
+        fun outboxContextProvider(outbox: Outbox): OutboxContextProvider {
+            checkNotNull(outbox)
+            return object : OutboxContextProvider {
+                override fun provide(): Map<String, String> = mapOf("source" to "outbox")
+            }
+        }
+    }
+
+    @Configuration
+    private class ConfigWithOrderedInstrumentations : MinimalTestConfig() {
+        @Bean
+        fun outerInstrumentation(): OutboxInstrumentation = instrumentation("outer", 1)
+
+        @Bean
+        fun innerInstrumentation(): OutboxInstrumentation = instrumentation("inner", 2)
+
+        private fun instrumentation(
+            name: String,
+            order: Int,
+        ): OutboxInstrumentation =
+            object : OutboxInstrumentation, Ordered {
+                override fun getOrder(): Int = order
+
+                override fun schedule(
+                    invocation: OutboxScheduleInvocation,
+                    action: () -> Unit,
+                ) {
+                    events += "$name.before"
+                    try {
+                        action()
+                    } finally {
+                        events += "$name.after"
+                    }
+                }
+
+                override fun process(
+                    invocation: OutboxProcessInvocation,
+                    action: () -> Unit,
+                ) {
+                    events += "$name.before"
+                    try {
+                        action()
+                    } finally {
+                        events += "$name.after"
+                    }
+                }
+            }
+
+        companion object {
+            val events = mutableListOf<String>()
+        }
     }
 }
