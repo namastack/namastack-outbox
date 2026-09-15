@@ -210,25 +210,28 @@ The observability module preserves tracing across both sides of the async bounda
 ```mermaid
 sequenceDiagram
     participant App as Application
+    participant Instrumentation as Outbox Instrumentation
     participant Provider as Tracing Context Provider
     participant DB as Outbox Table
     participant Scheduler as Scheduler
-    participant Advice as Observation Advice
     participant Handler as Primary / Fallback Handler
 
     Note over App,DB: Scheduling time
-    App->>Provider: Request current tracing context
-    Provider-->>App: {traceparent, tracestate, ...}
-    App->>DB: Save record + context
+    App->>Instrumentation: schedule(...)
+    Instrumentation->>Instrumentation: Start outbox.record.schedule
+    Instrumentation->>Provider: Request current tracing context
+    Provider-->>Instrumentation: {traceparent, tracestate, ...}
+    Instrumentation->>DB: Save record + context
+    Instrumentation->>Instrumentation: Stop observation
 
     Note over DB,Handler: Processing time
     Scheduler->>DB: Poll records
     DB-->>Scheduler: Record + context
-    Scheduler->>Advice: Invoke handler
-    Advice->>Advice: Start outbox.record.process observation
-    Advice->>Handler: Proceed
-    Handler-->>Advice: Success / Error
-    Advice->>Advice: Stop observation
+    Scheduler->>Instrumentation: dispatch(record)
+    Instrumentation->>Instrumentation: Extract stored context and start outbox.record.process
+    Instrumentation->>Handler: Invoke Primary or Fallback
+    Handler-->>Instrumentation: Success / Error
+    Instrumentation->>Instrumentation: Stop observation
 ```
 
 At scheduling time, `OutboxObservabilityTracingContextProvider` serializes the active span context
@@ -248,6 +251,74 @@ context alongside tracing, or how to manually override context at scheduling tim
 [Context Propagation](./context-propagation.md).
 
 :::
+
+## Custom Instrumentation
+
+`OutboxInstrumentation` is the general-purpose Core extension point for observing scheduling and
+handler processing. It is useful for logging, auditing, custom metrics, profiling, or integrating an
+observability library other than Micrometer. It is available through the normal outbox starter; the
+observability module is not required.
+
+Register an `OutboxInstrumentation` bean and invoke the supplied action exactly once:
+
+```kotlin
+import io.namastack.outbox.instrumentation.OutboxInstrumentation
+import io.namastack.outbox.instrumentation.OutboxProcessInvocation
+import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
+import org.slf4j.LoggerFactory
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
+import org.springframework.stereotype.Component
+
+@Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
+class LoggingOutboxInstrumentation : OutboxInstrumentation {
+    private val logger = LoggerFactory.getLogger(LoggingOutboxInstrumentation::class.java)
+
+    override fun schedule(
+        invocation: OutboxScheduleInvocation,
+        action: () -> Unit,
+    ) = observe("schedule", invocation.channel, action)
+
+    override fun process(
+        invocation: OutboxProcessInvocation,
+        action: () -> Unit,
+    ) = observe("process:${invocation.handlerKind}", invocation.channel, action)
+
+    private fun observe(
+        operation: String,
+        channel: String,
+        action: () -> Unit,
+    ) {
+        logger.info("Outbox {} started for channel {}", operation, channel)
+        try {
+            action()
+        } catch (failure: Throwable) {
+            logger.warn("Outbox {} failed for channel {}", operation, channel, failure)
+            throw failure
+        }
+    }
+}
+```
+
+Spring orders all instrumentation beans using `@Order` or `Ordered`. The first item is the outermost
+interceptor. Adding a custom instrumentation does not disable
+`MicrometerOutboxInstrumentation`; both participate in the same ordered chain.
+
+An instrumentation must remain observational:
+
+- invoke `action` exactly once;
+- rethrow the same failure unchanged;
+- do not implement retry, fallback, persistence, or other business behavior;
+- avoid turning record keys, record IDs, or payload values into low-cardinality metric tags.
+
+The standard `OutboxService`, `OutboxHandlerInvoker`, and `OutboxFallbackHandlerInvoker` invoke this
+hook directly. There is no Spring AOP advisor around arbitrary `Outbox` implementations. If an
+application replaces the standard `Outbox` bean and wants scheduling instrumentation, that custom
+implementation must invoke an `OutboxInstrumentation` itself.
+
+If you only need to change Micrometer observation names or tags, use the custom observation
+conventions below instead of adding another instrumentation.
 
 ## Custom Observation Conventions
 
