@@ -33,6 +33,19 @@ class OutboxMetricsAutoConfigurationTest {
         }
 
         @Test
+        fun `does not create single runtime metrics in channels mode`() {
+            contextRunner()
+                .withUserConfiguration(ConfigWithAllBeans::class.java)
+                .withPropertyValues("namastack.outbox.mode=channels")
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).doesNotHaveBean(OutboxRecordMetricsMeterBinder::class.java)
+                    assertThat(context).doesNotHaveBean(OutboxPartitionMetricsProvider::class.java)
+                    assertThat(context).doesNotHaveBean(OutboxPartitionMetricsMeterBinder::class.java)
+                }
+        }
+
+        @Test
         fun `throws when OutboxRecordStatusRepository is missing`() {
             contextRunner()
                 .withUserConfiguration(ConfigMissingStatusRepo::class.java)

@@ -7,6 +7,7 @@ import io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
+import io.namastack.outbox.config.OutboxRuntimeModeAutoConfiguration
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.instance.OutboxInstance
@@ -55,6 +56,7 @@ class OutboxCoreAutoConfigurationTest {
                 AutoConfigurations.of(
                     TaskExecutionAutoConfiguration::class.java,
                     TaskSchedulingAutoConfiguration::class.java,
+                    OutboxRuntimeModeAutoConfiguration::class.java,
                     OutboxCoreInfrastructureAutoConfiguration::class.java,
                     OutboxCoreThreadingAutoConfiguration::class.java,
                     OutboxCoreProcessingAutoConfiguration::class.java,

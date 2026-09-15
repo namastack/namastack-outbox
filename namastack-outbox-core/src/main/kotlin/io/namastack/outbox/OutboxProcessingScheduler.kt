@@ -67,10 +67,8 @@ class OutboxProcessingScheduler(
 
     private var scheduledTask: ScheduledFuture<*>? = null
 
-    /**
-     * Starts this lifecycle bean after [io.namastack.outbox.instance.OutboxInstanceRegistry] (`phase = 0`).
-     */
-    override fun getPhase(): Int = 1
+    /** Starts after instance registration (`phase = 0`) and partition coordination (`phase = 1`). */
+    override fun getPhase(): Int = 2
 
     /**
      * Returns `true` while this lifecycle is active (idle, running, or shutting down).
@@ -135,21 +133,21 @@ class OutboxProcessingScheduler(
         }
     }
 
-    private fun processAssignedPartitions(): Int {
-        val partitions = partitionCoordinator.getAssignedPartitionNumbers()
-        if (partitions.isEmpty()) return 0
+    private fun processAssignedPartitions(): Int =
+        partitionCoordinator.withStableAssignments { partitions ->
+            if (partitions.isEmpty()) return@withStableAssignments 0
 
-        log.debug("Processing {} partitions: {}", partitions.size, partitions.sorted())
+            log.debug("Processing {} partitions: {}", partitions.size, partitions.sorted())
 
-        val recordKeys = loadRecordKeys(partitions)
-        if (recordKeys.isEmpty()) return 0
+            val recordKeys = loadRecordKeys(partitions)
+            if (recordKeys.isEmpty()) return@withStableAssignments 0
 
-        log.debug("Found {} record keys to process", recordKeys.size)
-        processBatch(recordKeys)
-        log.debug("Finished processing {} record keys", recordKeys.size)
+            log.debug("Found {} record keys to process", recordKeys.size)
+            processBatch(recordKeys)
+            log.debug("Finished processing {} record keys", recordKeys.size)
 
-        return recordKeys.size
-    }
+            recordKeys.size
+        }
 
     private fun loadRecordKeys(partitions: Set<Int>): List<String> =
         recordRepository.findRecordKeysInPartitions(

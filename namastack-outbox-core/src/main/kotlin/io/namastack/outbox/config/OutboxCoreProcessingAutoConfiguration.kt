@@ -19,6 +19,7 @@ import java.time.Clock
 
 @AutoConfiguration
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
+@ConditionalOnSingleRuntimeMode
 class OutboxCoreProcessingAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean

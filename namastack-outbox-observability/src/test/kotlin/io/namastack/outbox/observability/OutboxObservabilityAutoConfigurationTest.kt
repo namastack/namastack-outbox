@@ -78,6 +78,16 @@ class OutboxObservabilityAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(MicrometerOutboxInstrumentation::class.java)
                 }
         }
+
+        @Test
+        fun `instrumentation remains available in channels mode`() {
+            contextRunner
+                .withPropertyValues("namastack.outbox.mode=channels")
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context).hasSingleBean(MicrometerOutboxInstrumentation::class.java)
+                }
+        }
     }
 
     @Configuration
