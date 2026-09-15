@@ -48,7 +48,7 @@ class JdbcTableNameResolverTest {
         }
 
         @Test
-        fun `precomputed names should be lazily evaluated`() {
+        fun `precomputed names should remain stable`() {
             val properties =
                 JdbcOutboxConfigurationProperties(
                     tablePrefix = "lazy_",
@@ -118,6 +118,42 @@ class JdbcTableNameResolverTest {
             assertThat(resolver.outboxRecord).isEqualTo("custom_records")
             assertThat(resolver.outboxInstance).isEqualTo("custom_instances")
             assertThat(resolver.outboxPartitionAssignment).isEqualTo("custom_partitions")
+        }
+    }
+
+    @Nested
+    inner class NamespaceResolution {
+        @Test
+        fun `should resolve a complete namespace`() {
+            val namespace =
+                JdbcOutboxTableNamespace(
+                    schemaName = "outbox_schema",
+                    tablePrefix = "orders_",
+                    recordTableName = "records",
+                    instanceTableName = "instances",
+                    partitionTableName = "partitions",
+                )
+
+            assertThat(namespace.outboxRecord).isEqualTo("outbox_schema.orders_records")
+            assertThat(namespace.outboxInstance).isEqualTo("outbox_schema.orders_instances")
+            assertThat(namespace.outboxPartitionAssignment).isEqualTo("outbox_schema.orders_partitions")
+        }
+
+        @Test
+        fun `should preserve database-specific identifier syntax`() {
+            val quoted =
+                JdbcOutboxTableNamespace(
+                    schemaName = "\"OutboxSchema\"",
+                    recordTableName = "\"OutboxRecord\"",
+                )
+            val sqlServer =
+                JdbcOutboxTableNamespace(
+                    schemaName = "[database].[schema]",
+                    recordTableName = "[outbox_record]",
+                )
+
+            assertThat(quoted.outboxRecord).isEqualTo("\"OutboxSchema\".\"OutboxRecord\"")
+            assertThat(sqlServer.outboxRecord).isEqualTo("[database].[schema].[outbox_record]")
         }
     }
 }
