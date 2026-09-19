@@ -1,6 +1,7 @@
 package io.namastack.outbox.handler.invoker
 
 import io.namastack.outbox.OpenForProxy
+import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 
@@ -42,7 +43,7 @@ class OutboxHandlerInvoker(
      * ```
      *
      * @param record The record to process
-     * @throws IllegalStateException if no handler with the given ID exists
+     * @throws OutboxHandlerNotFoundException if no handler with the given ID exists
      * @throws Throwable the original exception thrown by the handler (will trigger retries)
      */
     fun dispatch(record: OutboxRecord<*>) {
@@ -51,7 +52,7 @@ class OutboxHandlerInvoker(
 
         val handler =
             handlerRegistry.getHandlerById(record.handlerId)
-                ?: throw IllegalStateException("No handler with id ${record.handlerId}")
+                ?: throw OutboxHandlerNotFoundException(record.handlerId)
 
         handler.invoke(payload, metadata)
     }

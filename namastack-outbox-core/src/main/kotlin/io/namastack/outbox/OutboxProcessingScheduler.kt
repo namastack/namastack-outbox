@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.micrometer.observation.Observation
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionCoordinator
@@ -64,6 +65,7 @@ class OutboxProcessingScheduler(
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
     private val lifecycle = SchedulerLifecycleStateMachine(properties.processing.effectiveShutdownTimeout)
+    private val compatibilityBackoff = CompatibilityBackoff(clock)
 
     private var scheduledTask: ScheduledFuture<*>? = null
 
@@ -141,7 +143,7 @@ class OutboxProcessingScheduler(
 
         log.debug("Processing {} partitions: {}", partitions.size, partitions.sorted())
 
-        val recordKeys = loadRecordKeys(partitions)
+        val recordKeys = loadRecordKeys(partitions).filterNot(compatibilityBackoff::isDeferred)
         if (recordKeys.isEmpty()) return 0
 
         log.debug("Found {} record keys to process", recordKeys.size)
@@ -185,9 +187,34 @@ class OutboxProcessingScheduler(
             for (record in records) {
                 if (!processRecord(record)) break
             }
+        } catch (ex: OutboxHandlerNotFoundException) {
+            handleCompatibilityFailure(recordKey, "handler_unavailable", ex)
+        } catch (ex: OutboxPayloadTypeNotFoundException) {
+            handleCompatibilityFailure(recordKey, "payload_type_unavailable", ex)
         } catch (ex: Exception) {
             log.error("Error processing key {}", recordKey, ex)
         }
+    }
+
+    private fun handleCompatibilityFailure(
+        recordKey: String,
+        reason: String,
+        exception: RuntimeException,
+    ) {
+        compatibilityBackoff.defer(recordKey)
+        Observation
+            .createNotStarted("outbox.record.compatibility.failure", observationRegistry())
+            .lowCardinalityKeyValue("reason", reason)
+            .start()
+            .stop()
+        log.warn(
+            "Current application instance cannot process outbox record key {} (reason={}). " +
+                "This can occur during an incompatible rolling deployment. The record remains pending and " +
+                "no handler-delivery retry was consumed; this instance will temporarily back off the key. {}",
+            recordKey,
+            reason,
+            exception.message,
+        )
     }
 
     private fun processRecord(record: OutboxRecord<*>): Boolean {

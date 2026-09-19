@@ -155,3 +155,30 @@ The following options control how records are processed:
 
 - `shutdown-timeout-seconds` is deprecated and will be removed in a future release. Use `shutdown-timeout` instead.
 - Both options control the maximum time the system will wait for in-flight processing to complete during a graceful shutdown.
+
+## Rolling-deployment compatibility
+
+Outbox records persist both their payload type and handler ID. Every processing instance must
+therefore support a payload type and its handler **before** production of that record type is
+enabled. Use this safe additive deployment sequence:
+
+1. Deploy the new payload class and handler to all outbox-processing instances.
+2. Wait until the rollout is complete.
+3. Enable production of the new record type, for example with a feature flag.
+
+To remove or rename a payload type or handler safely:
+
+1. Stop producing records that use the old type or handler.
+2. Wait until all corresponding outbox records have drained.
+3. Remove the application code.
+
+If an instance encounters an unavailable handler or payload type, it treats this as an instance
+compatibility problem rather than a delivery failure. The record remains `NEW`, no handler-delivery
+retry is consumed, and later records with the same record key are not processed. The instance uses
+a short, bounded in-memory backoff for that key to avoid a hot loop; the backoff is neither persisted
+nor inherited by a newly started or upgraded instance.
+
+Namastack cannot determine whether unavailable application code is temporarily absent during a
+rolling deployment or permanently absent because of configuration or programming error. Monitor
+compatibility warnings and the `outbox.record.compatibility.failure` metric, whose low-cardinality
+`reason` is `handler_unavailable` or `payload_type_unavailable`, and correct persistent failures.

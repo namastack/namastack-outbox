@@ -1,5 +1,6 @@
 package io.namastack.outbox.processor
 
+import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
@@ -43,6 +44,10 @@ class PrimaryOutboxRecordProcessor(
             completeRecord(record, recordRepository, properties, clock)
 
             return true
+        } catch (ex: OutboxHandlerNotFoundException) {
+            // No handler was invoked. This is an instance compatibility problem rather than a
+            // delivery failure, so let the scheduler defer the key without mutating the record.
+            throw ex
         } catch (ex: Exception) {
             log.debug("Handler failed for record {} (key: {}): {}", record.id, record.key, ex.message)
 

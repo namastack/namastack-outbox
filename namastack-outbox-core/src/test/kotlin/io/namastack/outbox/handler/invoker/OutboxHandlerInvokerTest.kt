@@ -5,6 +5,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import io.namastack.outbox.OutboxRecord
+import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
@@ -80,14 +81,14 @@ class OutboxHandlerInvokerTest {
     }
 
     @Test
-    fun `throws IllegalStateException when handler not found`() {
+    fun `throws compatibility exception when handler not found`() {
         val (record, _) = createRecord(handlerId = "unknown-handler")
 
         every { handlerRegistry.getHandlerById("unknown-handler") } returns null
 
         assertThatThrownBy {
             invoker.dispatch(record)
-        }.isInstanceOf(IllegalStateException::class.java)
+        }.isInstanceOf(OutboxHandlerNotFoundException::class.java)
             .hasMessageContaining("No handler with id unknown-handler")
     }
 
