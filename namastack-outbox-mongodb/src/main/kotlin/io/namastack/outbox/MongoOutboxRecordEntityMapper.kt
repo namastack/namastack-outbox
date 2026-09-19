@@ -79,12 +79,12 @@ class MongoOutboxRecordEntityMapper(
      *
      * @param className the fully qualified class name to resolve
      * @return the resolved class
-     * @throws IllegalStateException if the class cannot be found
+     * @throws OutboxPayloadTypeNotFoundException if the class cannot be found
      */
     private fun resolveClass(className: String): Class<*> =
         try {
             Thread.currentThread().contextClassLoader.loadClass(className)
         } catch (ex: ClassNotFoundException) {
-            throw IllegalStateException("Cannot find class for record type $className", ex)
+            throw OutboxPayloadTypeNotFoundException(className, ex)
         }
 }

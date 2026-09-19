@@ -5,11 +5,13 @@ import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.OutboxProperties
+import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Clock
@@ -93,6 +95,27 @@ class PrimaryOutboxRecordProcessorTest {
         verify { nextProcessor.handle(record) }
         verify(exactly = 0) { recordRepository.save(any() as OutboxRecord<*>) }
         verify(exactly = 0) { recordRepository.deleteById(any()) }
+    }
+
+    @Test
+    fun `missing handler remains pending without consuming delivery retry and succeeds when handler becomes available`() {
+        val record = createRecord()
+        every { handlerInvoker.dispatch(record) } throws OutboxHandlerNotFoundException(record.handlerId) andThen Unit
+        every { recordRepository.save(record) } returns record
+
+        assertThatThrownBy { processor.handle(record) }
+            .isInstanceOf(OutboxHandlerNotFoundException::class.java)
+
+        assertThat(record.status).isEqualTo(OutboxRecordStatus.NEW)
+        assertThat(record.failureCount).isZero()
+        assertThat(record.failureException).isNull()
+        verify(exactly = 0) { nextProcessor.handle(any()) }
+        verify(exactly = 0) { recordRepository.save(any() as OutboxRecord<*>) }
+
+        assertThat(processor.handle(record)).isTrue()
+        assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
+        assertThat(record.failureCount).isZero()
+        verify(exactly = 0) { nextProcessor.handle(any()) }
     }
 
     @Test

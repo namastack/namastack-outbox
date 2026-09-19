@@ -562,6 +562,32 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
+        fun `compatibility failure stops the key and backs it off locally`() {
+            val key = "record-key"
+            val incompatible =
+                OutboxRecordTestFactory.outboxRecord(
+                    recordKey = key,
+                    nextRetryAt = Instant.now(clock).minusSeconds(5),
+                )
+            val later =
+                OutboxRecordTestFactory.outboxRecord(
+                    recordKey = key,
+                    nextRetryAt = Instant.now(clock).minusSeconds(5),
+                )
+            prepareFindRecordKeysInPartitions(listOf(key))
+            prepareFindIncompleteRecordsByRecordKey(key, listOf(incompatible, later))
+            every { recordProcessorChain.handle(incompatible) } throws
+                OutboxHandlerNotFoundException(incompatible.handlerId)
+
+            scheduler.process()
+            scheduler.process()
+
+            verify(exactly = 1) { recordRepository.findIncompleteRecordsByRecordKey(key) }
+            verify(exactly = 1) { recordProcessorChain.handle(incompatible) }
+            verify(exactly = 0) { recordProcessorChain.handle(later) }
+        }
+
+        @Test
         fun `stops processing key when record not ready and stopOnFirstFailure enabled`() {
             properties.processing.stopOnFirstFailure = true
 
