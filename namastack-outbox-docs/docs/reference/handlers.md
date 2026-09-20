@@ -377,28 +377,28 @@ handler; fallback handlers run only when normal processing can no longer continu
 
 ### Interface-Based Fallback Handlers
 
+Interface-based fallbacks are declared together with their primary handler. Use
+`OutboxTypedHandlerWithFallback<T>` for a type-safe handler or `OutboxHandlerWithFallback` for a
+generic handler that receives every payload type.
+
+#### Typed Handler with Fallback
+
 <Tabs>
 <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
 @Component
-class OrderFallbackHandler : OutboxFallbackHandler<OrderEvent> {
-    override fun handle(payload: OrderEvent, context: OutboxFailureContext) {
+class OrderHandler : OutboxTypedHandlerWithFallback<OrderEvent> {
+    override fun handle(payload: OrderEvent, metadata: OutboxRecordMetadata) {
+        orderService.process(payload)
+    }
+
+    override fun handleFailure(payload: OrderEvent, context: OutboxFailureContext) {
         logger.error(
             "Order ${payload.orderId} failed permanently after ${context.failureCount} attempts",
-            context.lastException
+            context.lastFailure
         )
-        // Publish to dead letter queue
-        deadLetterQueue.publish(
-            payload = payload,
-            reason = "Max retries exceeded",
-            exception = context.lastException,
-            traceId = context.context["traceId"]
-        )
-        // Send alert
-        alertService.sendAlert(
-            "Order processing failed permanently: ${payload.orderId}"
-        )
+        deadLetterQueue.publish(payload)
     }
 }
 ```
@@ -408,26 +408,70 @@ class OrderFallbackHandler : OutboxFallbackHandler<OrderEvent> {
 
 ```java
 @Component
-public class OrderFallbackHandler implements OutboxFallbackHandler<OrderEvent> {
+public class OrderHandler implements OutboxTypedHandlerWithFallback<OrderEvent> {
     @Override
-    public void handle(OrderEvent payload, OutboxFailureContext context) {
+    public void handle(OrderEvent payload, OutboxRecordMetadata metadata) {
+        orderService.process(payload);
+    }
+
+    @Override
+    public void handleFailure(OrderEvent payload, OutboxFailureContext context) {
         logger.error(
             "Order {} failed permanently after {} attempts",
             payload.getOrderId(),
             context.getFailureCount(),
-            context.getLastException()
+            context.getLastFailure()
         );
-        // Publish to dead letter queue
-        deadLetterQueue.publish(
-            payload,
-            "Max retries exceeded",
-            context.getLastException(),
-            context.getContext().get("traceId")
+        deadLetterQueue.publish(payload);
+    }
+}
+```
+
+</TabItem>
+</Tabs>
+
+#### Generic Handler with Fallback
+
+<Tabs>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@Component
+class UniversalHandler : OutboxHandlerWithFallback {
+    override fun handle(payload: Any, metadata: OutboxRecordMetadata) {
+        eventPublisher.publish(payload)
+    }
+
+    override fun handleFailure(payload: Any, context: OutboxFailureContext) {
+        logger.error(
+            "${payload::class.simpleName} failed permanently after ${context.failureCount} attempts",
+            context.lastFailure
+        )
+        deadLetterQueue.publish(payload)
+    }
+}
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+@Component
+public class UniversalHandler implements OutboxHandlerWithFallback {
+    @Override
+    public void handle(Object payload, OutboxRecordMetadata metadata) {
+        eventPublisher.publish(payload);
+    }
+
+    @Override
+    public void handleFailure(Object payload, OutboxFailureContext context) {
+        logger.error(
+            "{} failed permanently after {} attempts",
+            payload.getClass().getSimpleName(),
+            context.getFailureCount(),
+            context.getLastFailure()
         );
-        // Send alert
-        alertService.sendAlert(
-            "Order processing failed permanently: " + payload.getOrderId()
-        );
+        deadLetterQueue.publish(payload);
     }
 }
 ```
@@ -530,9 +574,12 @@ public interface OutboxFailureContext {
 - **Fallback Succeeds**: Record marked as `COMPLETED`
 - **Fallback Fails**: Record marked as `FAILED` (requires manual intervention)
 
-**Automatic Matching:**
+**Fallback Matching:**
 
-Fallback handlers are automatically matched to primary handlers by payload type. One fallback handler can serve multiple primary handlers processing the same payload type.
+An interface-based fallback is paired with the primary handler declared by the same combined
+interface. For annotation-based handlers, a fallback method is matched to primary methods on the
+same Spring bean by exact payload type. One annotated fallback method can therefore serve multiple
+annotated primary methods on that bean when they process the same payload type.
 
 <Tabs>
 <TabItem value="kotlin" label="Kotlin">
@@ -584,8 +631,9 @@ public class OrderHandlers {
 </Tabs>
 
 :::warning Fallback Handler Requirements
-- Only **one fallback handler per payload type** is supported
-- Fallback handlers must match the payload type exactly
+- Declare the fallback on the same Spring bean as its primary handler
+- Declare only one matching fallback per payload type and handler style on that bean
+- Fallback handlers must match the primary handler's payload type exactly
 - Fallback signature: `fun handle(payload: T, context: OutboxFailureContext)`
 :::
 
