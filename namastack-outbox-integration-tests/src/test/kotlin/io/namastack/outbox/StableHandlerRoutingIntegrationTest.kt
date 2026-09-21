@@ -115,20 +115,19 @@ class StableHandlerRoutingIntegrationTest {
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    fun `unresolvable legacy handler ID is retried with the default policy and fails permanently`() {
+    fun `unresolvable legacy handler ID remains pending without consuming delivery retries`() {
         val removedHandlerId = "removed-handler-v1"
         assertThat(handlerRegistry.getHandlerById(removedHandlerId)).isNull()
 
         saveRecord(StableAnnotatedEvent("orphaned"), "orphaned-key", removedHandlerId)
 
-        await().atMost(10, SECONDS).untilAsserted {
-            val failedRecords = recordRepository.findFailedRecords()
-            assertThat(failedRecords).hasSize(1)
-            val failedRecord = failedRecords.single()
+        await().during(2, SECONDS).atMost(5, SECONDS).untilAsserted {
+            val pendingRecord = recordRepository.findPendingRecords().single()
 
-            assertThat(failedRecord.handlerId).isEqualTo(removedHandlerId)
-            assertThat(failedRecord.failureCount).isEqualTo(3)
-            assertThat(failedRecord.failureReason).isEqualTo("No handler with id $removedHandlerId")
+            assertThat(pendingRecord.handlerId).isEqualTo(removedHandlerId)
+            assertThat(pendingRecord.failureCount).isZero()
+            assertThat(pendingRecord.failureReason).isNull()
+            assertThat(recordRepository.findFailedRecords()).isEmpty()
             assertThat(invocations).isEmpty()
         }
     }

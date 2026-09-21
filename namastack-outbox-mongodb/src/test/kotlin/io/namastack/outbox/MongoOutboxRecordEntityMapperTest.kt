@@ -5,12 +5,42 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.time.Instant
 import java.util.UUID
 
 class MongoOutboxRecordEntityMapperTest {
     private val serializer = mockk<OutboxPayloadSerializer>()
     private val mapper = MongoOutboxRecordEntityMapper(serializer)
+
+    @Test
+    fun `exposes record details when payload type is unavailable`() {
+        val now = Instant.now()
+        val entity =
+            MongoOutboxRecordEntity(
+                id = "record-id",
+                status = OutboxRecordStatus.NEW,
+                recordKey = "record-key",
+                recordType = "example.MissingPayload",
+                payload = "{}",
+                context = null,
+                partitionNo = 1,
+                createdAt = now,
+                completedAt = null,
+                failureCount = 0,
+                failureReason = null,
+                nextRetryAt = now,
+                handlerId = "handler-id",
+            )
+
+        val exception = assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
+
+        assertThat(exception.recordId).isEqualTo("record-id")
+        assertThat(exception.recordKey).isEqualTo("record-key")
+        assertThat(exception.payloadType).isEqualTo("example.MissingPayload")
+        assertThat(exception.handlerId).isEqualTo("handler-id")
+        assertThat(exception.cause).isInstanceOf(ClassNotFoundException::class.java)
+    }
 
     @Test
     fun `maps domain record to entity`() {

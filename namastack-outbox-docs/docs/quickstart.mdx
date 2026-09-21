@@ -309,6 +309,19 @@ For a complete list of all configuration options, see [Configuration Reference](
 
 ---
 
+## Before Deploying to Production
+
+During a rolling deployment, old and new application versions can process the same outbox. When
+introducing a new payload type or handler, first deploy the code required to read and process it to
+every instance while production of the new record remains disabled. Enable the producer separately
+after the rollout has completed. For removals, stop producing the old record and let all pending
+records drain before removing its payload class or handler.
+
+See [Rolling Deployments](reference/rolling-deployments.md) for the complete deployment, migration,
+removal, and rollback procedures.
+
+---
+
 ## Supported Databases
 
 Any JPA/JDBC-compatible database is supported. Automatic schema creation is available in the JDBC module for:
@@ -438,6 +451,7 @@ namastack:
 ## Next Steps
 
 - Explore the [Reference Section](reference/index.md) for advanced capabilities
+- Prepare production rollouts with the [Rolling Deployments guide](reference/rolling-deployments.md)
 - Check out the [API Reference](https://javadoc.io/doc/io.namastack/namastack-outbox-api) for detailed documentation
 - Report issues at [GitHub Issues](https://github.com/namastack/namastack-outbox/issues)
 - Join [GitHub Discussions](https://github.com/namastack/namastack-outbox/discussions) for community support

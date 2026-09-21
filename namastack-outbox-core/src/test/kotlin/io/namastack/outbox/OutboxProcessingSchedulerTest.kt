@@ -375,6 +375,7 @@ class OutboxProcessingSchedulerTest {
                     status = any(),
                     batchSize = any(),
                     ignoreRecordKeysWithPreviousFailure = any(),
+                    compatibilityExclusions = any(),
                 )
             }
         }
@@ -424,6 +425,115 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
+        fun `uses learned unavailable payload type to exclude complete record keys`() {
+            val payloadTypeAwareRepository = mockk<OutboxRecordRepository>(relaxed = true)
+            val observedExclusions = mutableListOf<Pair<Set<String>, Set<String>>>()
+            val scheduler =
+                OutboxProcessingScheduler(
+                    trigger = trigger,
+                    taskScheduler = taskScheduler,
+                    observationRegistry = { ObservationRegistry.NOOP },
+                    recordRepository = payloadTypeAwareRepository,
+                    recordProcessorChain = recordProcessorChain,
+                    partitionCoordinator = partitionCoordinator,
+                    taskExecutor = SyncTaskExecutor(),
+                    properties = properties,
+                    clock = clock,
+                )
+            every {
+                payloadTypeAwareRepository.findRecordKeysInPartitions(
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                )
+            } answers {
+                val exclusions = arg<OutboxCompatibilityExclusions>(4)
+                observedExclusions +=
+                    exclusions.unavailablePayloadTypes to exclusions.unavailableHandlerIds
+                if (exclusions.isEmpty) listOf("blocked-key") else emptyList()
+            }
+            every {
+                payloadTypeAwareRepository.findIncompleteRecordsByRecordKey("blocked-key")
+            } throws
+                OutboxPayloadTypeNotFoundException(
+                    recordId = "record-id",
+                    recordKey = "blocked-key",
+                    payloadType = "example.MissingPayload",
+                    handlerId = "handler-id",
+                    cause = ClassNotFoundException("example.MissingPayload"),
+                )
+            scheduler.start()
+            scheduler.process()
+            scheduler.process()
+
+            assertThat(observedExclusions)
+                .containsExactly(
+                    emptySet<String>() to emptySet(),
+                    setOf("example.MissingPayload") to emptySet(),
+                )
+        }
+
+        @Test
+        fun `uses learned unavailable handler to exclude complete record keys`() {
+            val compatibilityAwareRepository = mockk<OutboxRecordRepository>(relaxed = true)
+            val observedExclusions = mutableListOf<Pair<Set<String>, Set<String>>>()
+            val scheduler =
+                OutboxProcessingScheduler(
+                    trigger = trigger,
+                    taskScheduler = taskScheduler,
+                    observationRegistry = { ObservationRegistry.NOOP },
+                    recordRepository = compatibilityAwareRepository,
+                    recordProcessorChain = recordProcessorChain,
+                    partitionCoordinator = partitionCoordinator,
+                    taskExecutor = SyncTaskExecutor(),
+                    properties = properties,
+                    clock = clock,
+                )
+            val record =
+                OutboxRecordTestFactory.outboxRecord(
+                    recordKey = "blocked-key",
+                    handlerId = "missing-handler",
+                    nextRetryAt = Instant.now(clock).minusSeconds(1),
+                )
+            every {
+                compatibilityAwareRepository.findRecordKeysInPartitions(
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                )
+            } answers {
+                val exclusions = arg<OutboxCompatibilityExclusions>(4)
+                observedExclusions +=
+                    exclusions.unavailablePayloadTypes to exclusions.unavailableHandlerIds
+                if (exclusions.isEmpty) listOf(record.key) else emptyList()
+            }
+            every {
+                compatibilityAwareRepository.findIncompleteRecordsByRecordKey(record.key)
+            } returns listOf(record)
+            every { recordProcessorChain.handle(record) } throws
+                OutboxHandlerNotFoundException(
+                    recordId = record.id,
+                    recordKey = record.key,
+                    handlerId = record.handlerId,
+                )
+            scheduler.start()
+            scheduler.process()
+            scheduler.process()
+
+            assertThat(record.failureCount).isZero()
+            assertThat(record.status).isEqualTo(OutboxRecordStatus.NEW)
+            assertThat(observedExclusions)
+                .containsExactly(
+                    emptySet<String>() to emptySet(),
+                    emptySet<String>() to setOf("missing-handler"),
+                )
+        }
+
+        @Test
         fun `process respects batch size configuration`() {
             properties.polling.batchSize = 50
 
@@ -437,6 +547,7 @@ class OutboxProcessingSchedulerTest {
                     status = any(),
                     batchSize = 50,
                     ignoreRecordKeysWithPreviousFailure = any(),
+                    compatibilityExclusions = any(),
                 )
             }
         }
@@ -456,6 +567,7 @@ class OutboxProcessingSchedulerTest {
                     status = any(),
                     batchSize = 50,
                     ignoreRecordKeysWithPreviousFailure = any(),
+                    compatibilityExclusions = any(),
                 )
             }
         }
@@ -474,6 +586,7 @@ class OutboxProcessingSchedulerTest {
                     status = any(),
                     batchSize = any(),
                     ignoreRecordKeysWithPreviousFailure = true,
+                    compatibilityExclusions = any(),
                 )
             }
         }
@@ -725,6 +838,7 @@ class OutboxProcessingSchedulerTest {
                 status = any(),
                 batchSize = any(),
                 ignoreRecordKeysWithPreviousFailure = any(),
+                compatibilityExclusions = match { it.isEmpty },
             )
         } returns recordKeys
     }

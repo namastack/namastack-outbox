@@ -67,6 +67,8 @@ class OutboxProcessingScheduler(
 
     private var scheduledTask: ScheduledFuture<*>? = null
 
+    private val compatibilityExclusions = OutboxCompatibilityExclusions()
+
     /**
      * Starts this lifecycle bean after [io.namastack.outbox.instance.OutboxInstanceRegistry] (`phase = 0`).
      */
@@ -151,13 +153,17 @@ class OutboxProcessingScheduler(
         return recordKeys.size
     }
 
-    private fun loadRecordKeys(partitions: Set<Int>): List<String> =
-        recordRepository.findRecordKeysInPartitions(
+    private fun loadRecordKeys(partitions: Set<Int>): List<String> {
+        val batchSize = properties.batchSize ?: properties.polling.batchSize
+
+        return recordRepository.findRecordKeysInPartitions(
             partitions = partitions,
             status = NEW,
-            batchSize = properties.batchSize ?: properties.polling.batchSize,
+            batchSize = batchSize,
             ignoreRecordKeysWithPreviousFailure = properties.processing.stopOnFirstFailure,
+            compatibilityExclusions = compatibilityExclusions,
         )
+    }
 
     private fun processBatch(recordKeys: List<String>) {
         val latch = CountDownLatch(recordKeys.size)
@@ -185,6 +191,10 @@ class OutboxProcessingScheduler(
             for (record in records) {
                 if (!processRecord(record)) break
             }
+        } catch (ex: OutboxPayloadTypeNotFoundException) {
+            handleUnavailablePayloadType(ex)
+        } catch (ex: OutboxHandlerNotFoundException) {
+            handleUnavailableHandler(ex)
         } catch (ex: Exception) {
             log.error("Error processing key {}", recordKey, ex)
         }
@@ -202,6 +212,45 @@ class OutboxProcessingScheduler(
     }
 
     private fun continueOnFailure(): Boolean = !properties.processing.stopOnFirstFailure
+
+    private fun handleUnavailablePayloadType(ex: OutboxPayloadTypeNotFoundException) {
+        if (compatibilityExclusions.addUnavailablePayloadType(ex.payloadType)) {
+            log.warn(
+                "Payload type {} is unavailable; excluding affected record keys from this scheduler instance " +
+                    "and leaving the record pending without consuming a delivery retry " +
+                    "(recordId={}, recordKey={}, handlerId={})",
+                ex.payloadType,
+                ex.recordId,
+                ex.recordKey,
+                ex.handlerId,
+            )
+        } else {
+            log.debug(
+                "Skipping record key {} because payload type {} is unavailable to this scheduler instance",
+                ex.recordKey,
+                ex.payloadType,
+            )
+        }
+    }
+
+    private fun handleUnavailableHandler(ex: OutboxHandlerNotFoundException) {
+        if (compatibilityExclusions.addUnavailableHandlerId(ex.handlerId)) {
+            log.warn(
+                "Handler {} is unavailable; excluding affected record keys from this scheduler instance " +
+                    "and leaving the record pending without consuming a delivery retry " +
+                    "(recordId={}, recordKey={})",
+                ex.handlerId,
+                ex.recordId,
+                ex.recordKey,
+            )
+        } else {
+            log.debug(
+                "Skipping record key {} because handler {} is unavailable to this scheduler instance",
+                ex.recordKey,
+                ex.handlerId,
+            )
+        }
+    }
 
     /**
      * Thread-safe lifecycle state machine used by [OutboxProcessingScheduler].

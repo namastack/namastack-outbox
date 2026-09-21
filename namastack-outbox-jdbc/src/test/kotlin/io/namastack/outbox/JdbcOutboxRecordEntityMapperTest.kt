@@ -4,6 +4,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import tools.jackson.module.kotlin.jsonMapper
 import tools.jackson.module.kotlin.kotlinModule
 import java.time.Instant
@@ -123,6 +124,35 @@ class JdbcOutboxRecordEntityMapperTest {
     @Nested
     @DisplayName("map OutboxRecordEntity to OutboxRecord")
     inner class MapEntityToOutboxRecordTests {
+        @Test
+        fun `should expose record details when payload type is unavailable`() {
+            val now = Instant.now()
+            val entity =
+                JdbcOutboxRecordEntity(
+                    id = "record-id",
+                    status = OutboxRecordStatus.NEW,
+                    recordKey = "record-key",
+                    recordType = "example.MissingPayload",
+                    payload = "{}",
+                    context = null,
+                    partitionNo = 1,
+                    createdAt = now,
+                    completedAt = null,
+                    failureCount = 0,
+                    failureReason = null,
+                    nextRetryAt = now,
+                    handlerId = "handler-id",
+                )
+
+            val exception = assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
+
+            assertThat(exception.recordId).isEqualTo("record-id")
+            assertThat(exception.recordKey).isEqualTo("record-key")
+            assertThat(exception.payloadType).isEqualTo("example.MissingPayload")
+            assertThat(exception.handlerId).isEqualTo("handler-id")
+            assertThat(exception.cause).isInstanceOf(ClassNotFoundException::class.java)
+        }
+
         @Test
         fun `should deserialize event payload correctly`() {
             val now = Instant.now()

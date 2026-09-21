@@ -345,6 +345,48 @@ class JpaOutboxRecordRepositoryTest {
     }
 
     @Test
+    fun `compatibility exclusions block complete keys with and without strict ordering`() {
+        val payloadBlockedKey = UUID.randomUUID().toString()
+        val handlerBlockedKey = UUID.randomUUID().toString()
+        val compatibleKey = UUID.randomUUID().toString()
+        val now = Instant.now(clock)
+
+        createRecordWithPartition(payloadBlockedKey, NEW, 1, now.minus(2, MINUTES), 1)
+        createRecordWithPartition(payloadBlockedKey, NEW, 1, now.minus(1, MINUTES), "unavailable")
+        createRecordWithPartition(handlerBlockedKey, NEW, 1, now, 2, "missing-handler")
+        createRecordWithPartition(compatibleKey, NEW, 1, now, 2)
+
+        val cases =
+            mapOf(
+                OutboxCompatibilityExclusions(
+                    unavailablePayloadTypes = setOf(String::class.java.name),
+                ) to setOf(handlerBlockedKey, compatibleKey),
+                OutboxCompatibilityExclusions(
+                    unavailableHandlerIds = setOf("missing-handler"),
+                ) to setOf(payloadBlockedKey, compatibleKey),
+                OutboxCompatibilityExclusions(
+                    unavailablePayloadTypes = setOf(String::class.java.name),
+                    unavailableHandlerIds = setOf("missing-handler"),
+                ) to setOf(compatibleKey),
+            )
+
+        listOf(true, false).forEach { strictOrdering ->
+            cases.forEach { (exclusions, expectedKeys) ->
+                val result =
+                    jpaOutboxRecordRepository.findRecordKeysInPartitions(
+                        partitions = setOf(1),
+                        status = NEW,
+                        batchSize = 10,
+                        ignoreRecordKeysWithPreviousFailure = strictOrdering,
+                        compatibilityExclusions = exclusions,
+                    )
+
+                assertThat(result).containsExactlyInAnyOrderElementsOf(expectedKeys)
+            }
+        }
+    }
+
+    @Test
     fun `findRecordKeysInPartitions processes oldest record when multiple NEW records exist`() {
         val recordKey = UUID.randomUUID().toString()
         val now = Instant.now(clock)
@@ -518,12 +560,14 @@ class JpaOutboxRecordRepositoryTest {
         status: OutboxRecordStatus,
         partition: Int,
         createdAt: Instant = Instant.now(clock),
+        payload: Any = "test-payload",
+        handlerId: String = "handlerId",
     ) {
         jpaOutboxRecordRepository.save(
             OutboxRecord.restore(
                 id = UUID.randomUUID().toString(),
                 recordKey = recordKey,
-                payload = "test-payload",
+                payload = payload,
                 context = mapOf("key1" to "value1", "key2" to "value2"),
                 partition = partition,
                 createdAt = createdAt,
@@ -532,7 +576,7 @@ class JpaOutboxRecordRepositoryTest {
                 failureCount = 0,
                 failureReason = null,
                 nextRetryAt = createdAt,
-                handlerId = "handlerId",
+                handlerId = handlerId,
                 failureException = null,
             ),
         )
