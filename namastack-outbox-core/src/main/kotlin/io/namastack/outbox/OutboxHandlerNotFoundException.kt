@@ -7,7 +7,7 @@ package io.namastack.outbox
  * @param recordKey Key of the affected outbox record
  * @param handlerId ID of the unavailable handler
  * @author Roland Beisel
- * @since 1.9.0
+ * @since 1.10.0
  */
 class OutboxHandlerNotFoundException(
     val recordId: String,

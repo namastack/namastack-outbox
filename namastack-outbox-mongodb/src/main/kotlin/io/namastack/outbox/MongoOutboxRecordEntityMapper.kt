@@ -92,5 +92,13 @@ class MongoOutboxRecordEntityMapper(
                 handlerId = entity.handlerId,
                 cause = ex,
             )
+        } catch (ex: LinkageError) {
+            throw OutboxPayloadTypeNotFoundException(
+                recordId = entity.id,
+                recordKey = entity.recordKey,
+                payloadType = entity.recordType,
+                handlerId = entity.handlerId,
+                cause = ex,
+            )
         }
 }

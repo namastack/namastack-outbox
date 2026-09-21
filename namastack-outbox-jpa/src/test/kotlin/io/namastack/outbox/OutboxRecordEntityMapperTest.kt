@@ -288,6 +288,49 @@ class OutboxRecordEntityMapperTest {
         }
 
         @Test
+        fun `should expose record details when a payload dependency is unavailable`() {
+            val now = Instant.now()
+            val entity =
+                OutboxRecordEntity(
+                    id = "record-id",
+                    status = OutboxRecordStatus.NEW,
+                    recordKey = "record-key",
+                    recordType = "example.DependentPayload",
+                    payload = "{}",
+                    context = null,
+                    partitionNo = 1,
+                    createdAt = now,
+                    completedAt = null,
+                    failureCount = 0,
+                    failureReason = null,
+                    nextRetryAt = now,
+                    handlerId = "handler-id",
+                )
+            val thread = Thread.currentThread()
+            val originalClassLoader = thread.contextClassLoader
+            val classLoadingFailure = NoClassDefFoundError("example/MissingDependency")
+            val exception =
+                try {
+                    thread.contextClassLoader =
+                        object : ClassLoader(originalClassLoader) {
+                            override fun loadClass(name: String): Class<*> {
+                                if (name == entity.recordType) throw classLoadingFailure
+                                return super.loadClass(name)
+                            }
+                        }
+                    assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
+                } finally {
+                    thread.contextClassLoader = originalClassLoader
+                }
+
+            assertThat(exception.recordId).isEqualTo("record-id")
+            assertThat(exception.recordKey).isEqualTo("record-key")
+            assertThat(exception.payloadType).isEqualTo("example.DependentPayload")
+            assertThat(exception.handlerId).isEqualTo("handler-id")
+            assertThat(exception.cause).isSameAs(classLoadingFailure)
+        }
+
+        @Test
         fun `should map OrderCreatedEvent payload`() {
             val now = Instant.now()
             val completedAt = now.plus(5, MINUTES)

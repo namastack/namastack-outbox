@@ -164,6 +164,24 @@ class PrimaryOutboxRecordProcessorTest {
     }
 
     @Test
+    fun `handle preserves null-payload behavior without requiring a handler`() {
+        val record = createRecord(payload = null)
+        properties.processing.deleteCompletedRecords = false
+        justRun { handlerInvoker.dispatch(record) }
+        every { recordRepository.save(record) } returns record
+
+        val result = processor.handle(record)
+
+        assertThat(result).isTrue()
+        assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
+        assertThat(record.failureCount).isZero()
+        verify(exactly = 0) { handlerInvoker.ensureHandlerAvailable(any()) }
+        verify { handlerInvoker.dispatch(record) }
+        verify { recordRepository.save(record) }
+        verify(exactly = 0) { nextProcessor.handle(any()) }
+    }
+
+    @Test
     fun `handle treats compatibility exception thrown by invoked handler as delivery failure`() {
         val record = createRecord()
         val exception =

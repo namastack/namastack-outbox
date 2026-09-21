@@ -43,6 +43,49 @@ class MongoOutboxRecordEntityMapperTest {
     }
 
     @Test
+    fun `exposes record details when a payload dependency is unavailable`() {
+        val now = Instant.now()
+        val entity =
+            MongoOutboxRecordEntity(
+                id = "record-id",
+                status = OutboxRecordStatus.NEW,
+                recordKey = "record-key",
+                recordType = "example.DependentPayload",
+                payload = "{}",
+                context = null,
+                partitionNo = 1,
+                createdAt = now,
+                completedAt = null,
+                failureCount = 0,
+                failureReason = null,
+                nextRetryAt = now,
+                handlerId = "handler-id",
+            )
+        val thread = Thread.currentThread()
+        val originalClassLoader = thread.contextClassLoader
+        val classLoadingFailure = NoClassDefFoundError("example/MissingDependency")
+        val exception =
+            try {
+                thread.contextClassLoader =
+                    object : ClassLoader(originalClassLoader) {
+                        override fun loadClass(name: String): Class<*> {
+                            if (name == entity.recordType) throw classLoadingFailure
+                            return super.loadClass(name)
+                        }
+                    }
+                assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
+            } finally {
+                thread.contextClassLoader = originalClassLoader
+            }
+
+        assertThat(exception.recordId).isEqualTo("record-id")
+        assertThat(exception.recordKey).isEqualTo("record-key")
+        assertThat(exception.payloadType).isEqualTo("example.DependentPayload")
+        assertThat(exception.handlerId).isEqualTo("handler-id")
+        assertThat(exception.cause).isSameAs(classLoadingFailure)
+    }
+
+    @Test
     fun `maps domain record to entity`() {
         val payload = "test-payload"
         val context = mapOf("traceId" to "123")

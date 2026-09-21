@@ -10,7 +10,7 @@ package io.namastack.outbox
  * @param unavailablePayloadTypes Payload types initially known to be unavailable
  * @param unavailableHandlerIds Handler IDs initially known to be unavailable
  * @author Roland Beisel
- * @since 1.9.0
+ * @since 1.10.0
  */
 class OutboxCompatibilityExclusions(
     unavailablePayloadTypes: Set<String> = emptySet(),

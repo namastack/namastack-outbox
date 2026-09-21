@@ -117,6 +117,20 @@ class CompatibilityFailureIntegrationTest {
                 assertThat(record.completedAt).isNull()
                 assertThat(record.nextRetryAt).isEqualTo(record.createdAt)
             }
+
+        val unknownPayloadRecord = records.getValue(UNKNOWN_PAYLOAD_RECORD_ID)
+        assertThat(unknownPayloadRecord.recordType).isEqualTo("example.payload.UnavailablePayload")
+        assertThat(unknownPayloadRecord.payload).isEqualTo("{}")
+        assertThat(unknownPayloadRecord.handlerId).isEqualTo(COMPATIBLE_HANDLER_ID)
+
+        val payloadSuccessorRecord = records.getValue(PAYLOAD_SUCCESSOR_RECORD_ID)
+        assertThat(payloadSuccessorRecord.recordType).isEqualTo(CompatiblePayload::class.java.name)
+        assertThat(payloadSuccessorRecord.payload).isEqualTo("""{"value":"payload-successor"}""")
+        assertThat(payloadSuccessorRecord.handlerId).isEqualTo(COMPATIBLE_HANDLER_ID)
+
+        assertThat(records.getValue(UNKNOWN_HANDLER_RECORD_ID).handlerId).isEqualTo("unavailable-handler")
+        assertThat(records.getValue(HANDLER_SUCCESSOR_RECORD_ID).payload)
+            .isEqualTo("""{"value":"handler-successor"}""")
     }
 
     private fun persistRecords(vararg records: OutboxRecordEntity) {
