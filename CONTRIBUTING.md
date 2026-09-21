@@ -10,6 +10,7 @@ This project is written in **Kotlin** and targets both Kotlin and Java users of 
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [How to Contribute](#how-to-contribute)
+- [Architectural Decisions](#architectural-decisions)
 - [Pull Request Process](#pull-request-process)
 - [Coding Standards](#coding-standards)
 - [Testing Guidelines](#testing-guidelines)
@@ -99,8 +100,31 @@ namastack-outbox/
 ### Before You Start
 
 1. **Check existing issues** to see if your contribution is already being worked on
-2. **Open an issue** to discuss significant changes before starting work
+2. **Open an issue or GitHub Discussion** to discuss significant changes before starting work
 3. **Keep changes focused** - one feature or fix per pull request
+
+## Architectural Decisions
+
+Changes that substantially affect public APIs, persistence models, compatibility,
+ordering guarantees, extension points, or multiple modules should be discussed
+before implementation. Small, local, and easily reversible changes do not require
+this process.
+
+The architectural decision process is described in [GOVERNANCE.md](GOVERNANCE.md).
+Accepted decisions are recorded as [Architecture Decision Records](docs/adr/README.md).
+
+In brief:
+
+1. Open a [GitHub Discussion](https://github.com/namastack/namastack-outbox/discussions)
+   that describes the problem, requirements, constraints, relevant alternatives,
+   and proposed direction.
+2. State a review period appropriate to the scope of the decision. Three to seven
+   calendar days should be sufficient for most decisions.
+3. Resolve the main questions and record the outcome in an ADR.
+4. Link the accepted ADR from the implementing pull request.
+
+The purpose of this process is to surface fundamental concerns before implementation
+and to establish a clear point at which a decision has been made.
 
 ## Pull Request Process
 
@@ -140,6 +164,7 @@ namastack-outbox/
 - [ ] Code style checks pass (`./gradlew ktlintCheck`)
 - [ ] New code has appropriate test coverage
 - [ ] Documentation is updated if needed
+- [ ] Significant architectural decisions link to an accepted ADR
 - [ ] Commit messages include issue number (e.g., `GH-123 Add feature...`)
 - [ ] PR description explains the changes and motivation
 

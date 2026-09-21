@@ -105,6 +105,7 @@ Namastack Outbox is open source and contributions of all sizes are welcome.
 * [GitHub Issues](https://github.com/namastack/namastack-outbox/issues) — bugs and feature requests
 * [Discord](https://discord.gg/XNHP5Yhxy7) — chat with the community
 * [Contributing Guide](CONTRIBUTING.md) — contribute to the project
+* [Project Governance](GOVERNANCE.md) — roles and decision-making process
 
 ---
 
