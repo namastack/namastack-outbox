@@ -51,16 +51,12 @@ class OutboxRecordEntityMapper(
      * @param entity The JPA entity to convert
      * @return Corresponding domain object
      * @throws OutboxPayloadTypeNotFoundException if the record's payload type is unavailable
+     * @throws OutboxRecordDeserializationException if the payload or context cannot be deserialized
      */
     fun map(entity: OutboxRecordEntity): OutboxRecord<*> {
-        val clazz = resolveClass(entity)
-        val payload = serializer.deserialize(entity.payload, clazz)
-
-        @Suppress("UNCHECKED_CAST")
-        val context =
-            entity.context
-                ?.let { serializer.deserialize(it, Map::class.java as Class<Map<String, String>>) }
-                ?: emptyMap()
+        val context = deserializeContext(entity)
+        val clazz = resolveClass(entity, context)
+        val payload = deserializePayload(entity, clazz, context)
 
         return OutboxRecord.restore(
             id = entity.id,
@@ -86,7 +82,10 @@ class OutboxRecordEntityMapper(
      * @return The resolved Class object
      * @throws OutboxPayloadTypeNotFoundException if the record's payload type is unavailable
      */
-    private fun resolveClass(entity: OutboxRecordEntity): Class<*> =
+    private fun resolveClass(
+        entity: OutboxRecordEntity,
+        context: Map<String, String>,
+    ): Class<*> =
         try {
             Thread.currentThread().contextClassLoader.loadClass(entity.recordType)
         } catch (ex: ClassNotFoundException) {
@@ -95,6 +94,7 @@ class OutboxRecordEntityMapper(
                 recordKey = entity.recordKey,
                 payloadType = entity.recordType,
                 handlerId = entity.handlerId,
+                context = context,
                 cause = ex,
             )
         } catch (ex: LinkageError) {
@@ -103,7 +103,44 @@ class OutboxRecordEntityMapper(
                 recordKey = entity.recordKey,
                 payloadType = entity.recordType,
                 handlerId = entity.handlerId,
+                context = context,
                 cause = ex,
             )
         }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun deserializeContext(entity: OutboxRecordEntity): Map<String, String> =
+        try {
+            entity.context
+                ?.let { serializer.deserialize(it, Map::class.java as Class<Map<String, String>>) }
+                ?: emptyMap()
+        } catch (ex: Exception) {
+            throw deserializationException(entity, OutboxRecordDeserializationException.Target.CONTEXT, null, ex)
+        }
+
+    private fun deserializePayload(
+        entity: OutboxRecordEntity,
+        payloadType: Class<*>,
+        context: Map<String, String>,
+    ): Any =
+        try {
+            serializer.deserialize(entity.payload, payloadType)
+        } catch (ex: Exception) {
+            throw deserializationException(entity, OutboxRecordDeserializationException.Target.PAYLOAD, context, ex)
+        }
+
+    private fun deserializationException(
+        entity: OutboxRecordEntity,
+        target: OutboxRecordDeserializationException.Target,
+        context: Map<String, String>?,
+        cause: Exception,
+    ) = OutboxRecordDeserializationException(
+        recordId = entity.id,
+        recordKey = entity.recordKey,
+        payloadType = entity.recordType,
+        handlerId = entity.handlerId,
+        target = target,
+        context = context,
+        cause = cause,
+    )
 }

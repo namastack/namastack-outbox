@@ -134,7 +134,7 @@ class JdbcOutboxRecordEntityMapperTest {
                     recordKey = "record-key",
                     recordType = "example.MissingPayload",
                     payload = "{}",
-                    context = null,
+                    context = "{\"traceparent\":\"trace-context\"}",
                     partitionNo = 1,
                     createdAt = now,
                     completedAt = null,
@@ -150,7 +150,66 @@ class JdbcOutboxRecordEntityMapperTest {
             assertThat(exception.recordKey).isEqualTo("record-key")
             assertThat(exception.payloadType).isEqualTo("example.MissingPayload")
             assertThat(exception.handlerId).isEqualTo("handler-id")
+            assertThat(exception.context).containsEntry("traceparent", "trace-context")
             assertThat(exception.cause).isInstanceOf(ClassNotFoundException::class.java)
+        }
+
+        @Test
+        fun `should expose readable context when payload deserialization fails`() {
+            val now = Instant.now()
+            val entity =
+                JdbcOutboxRecordEntity(
+                    id = "record-id",
+                    status = OutboxRecordStatus.NEW,
+                    recordKey = "record-key",
+                    recordType = OrderCreatedEvent::class.java.name,
+                    payload = "{",
+                    context = "{\"traceparent\":\"trace-context\"}",
+                    partitionNo = 1,
+                    createdAt = now,
+                    completedAt = null,
+                    failureCount = 0,
+                    failureReason = null,
+                    nextRetryAt = now,
+                    handlerId = "handler-id",
+                )
+
+            val exception = assertThrows<OutboxRecordDeserializationException> { mapper.map(entity) }
+
+            assertThat(exception.recordId).isEqualTo("record-id")
+            assertThat(exception.recordKey).isEqualTo("record-key")
+            assertThat(exception.payloadType).isEqualTo(OrderCreatedEvent::class.java.name)
+            assertThat(exception.handlerId).isEqualTo("handler-id")
+            assertThat(exception.target).isEqualTo(OutboxRecordDeserializationException.Target.PAYLOAD)
+            assertThat(exception.context).containsEntry("traceparent", "trace-context")
+            assertThat(exception.cause).isNotNull()
+        }
+
+        @Test
+        fun `should identify context deserialization failure without exposing partial context`() {
+            val now = Instant.now()
+            val entity =
+                JdbcOutboxRecordEntity(
+                    id = "record-id",
+                    status = OutboxRecordStatus.NEW,
+                    recordKey = "record-key",
+                    recordType = OrderCreatedEvent::class.java.name,
+                    payload = "{\"orderId\":\"123\",\"amount\":100.5}",
+                    context = "{",
+                    partitionNo = 1,
+                    createdAt = now,
+                    completedAt = null,
+                    failureCount = 0,
+                    failureReason = null,
+                    nextRetryAt = now,
+                    handlerId = "handler-id",
+                )
+
+            val exception = assertThrows<OutboxRecordDeserializationException> { mapper.map(entity) }
+
+            assertThat(exception.target).isEqualTo(OutboxRecordDeserializationException.Target.CONTEXT)
+            assertThat(exception.context).isNull()
+            assertThat(exception.cause).isNotNull()
         }
 
         @Test

@@ -358,25 +358,31 @@ class JdbcOutboxRecordRepositoryTest {
     fun `compatibility exclusions block complete keys with and without strict ordering`() {
         val payloadBlockedKey = UUID.randomUUID().toString()
         val handlerBlockedKey = UUID.randomUUID().toString()
+        val deserializationBlockedKey = UUID.randomUUID().toString()
         val compatibleKey = UUID.randomUUID().toString()
         val now = Instant.now(clock)
 
         createRecordWithPartition(payloadBlockedKey, NEW, 1, now.minus(2, MINUTES), 1)
         createRecordWithPartition(payloadBlockedKey, NEW, 1, now.minus(1, MINUTES), "unavailable")
         createRecordWithPartition(handlerBlockedKey, NEW, 1, now, 2, "missing-handler")
+        createRecordWithPartition(deserializationBlockedKey, NEW, 1, now, 2)
         createRecordWithPartition(compatibleKey, NEW, 1, now, 2)
 
         val cases =
             mapOf(
                 OutboxCompatibilityExclusions(
                     unavailablePayloadTypes = setOf(String::class.java.name),
-                ) to setOf(handlerBlockedKey, compatibleKey),
+                ) to setOf(handlerBlockedKey, deserializationBlockedKey, compatibleKey),
                 OutboxCompatibilityExclusions(
                     unavailableHandlerIds = setOf("missing-handler"),
-                ) to setOf(payloadBlockedKey, compatibleKey),
+                ) to setOf(payloadBlockedKey, deserializationBlockedKey, compatibleKey),
+                OutboxCompatibilityExclusions(
+                    unavailableRecordKeys = setOf(deserializationBlockedKey),
+                ) to setOf(payloadBlockedKey, handlerBlockedKey, compatibleKey),
                 OutboxCompatibilityExclusions(
                     unavailablePayloadTypes = setOf(String::class.java.name),
                     unavailableHandlerIds = setOf("missing-handler"),
+                    unavailableRecordKeys = setOf(deserializationBlockedKey),
                 ) to setOf(compatibleKey),
             )
 

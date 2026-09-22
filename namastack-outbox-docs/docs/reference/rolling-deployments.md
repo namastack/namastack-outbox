@@ -71,6 +71,7 @@ Namastack Outbox distinguishes an instance compatibility problem from a handler 
 |--------------------------------------------------------------------|-----------------------------------------------------------------|
 | The persisted payload type is unavailable on the current instance  | The record remains `NEW`; no delivery retry is consumed         |
 | The persisted handler ID is not registered on the current instance | The record remains `NEW`; no delivery retry is consumed         |
+| The persisted payload or context cannot be deserialized            | The record remains `NEW`; no delivery retry is consumed         |
 | A registered handler is invoked and throws                         | The normal retry, fallback, and permanent-failure chain applies |
 
 When an instance encounters an unavailable payload type or handler, it logs the affected record

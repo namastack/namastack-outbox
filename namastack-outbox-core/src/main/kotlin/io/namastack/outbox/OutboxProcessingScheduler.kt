@@ -193,6 +193,8 @@ class OutboxProcessingScheduler(
             }
         } catch (ex: OutboxPayloadTypeNotFoundException) {
             handleUnavailablePayloadType(ex)
+        } catch (ex: OutboxRecordDeserializationException) {
+            handleRecordDeserializationFailure(ex)
         } catch (ex: OutboxHandlerNotFoundException) {
             handleUnavailableHandler(ex)
         } catch (ex: Exception) {
@@ -248,6 +250,29 @@ class OutboxProcessingScheduler(
                 "Skipping record key {} because handler {} is unavailable to this scheduler instance",
                 ex.recordKey,
                 ex.handlerId,
+            )
+        }
+    }
+
+    private fun handleRecordDeserializationFailure(ex: OutboxRecordDeserializationException) {
+        if (compatibilityExclusions.addUnavailableRecordKey(ex.recordKey)) {
+            log.warn(
+                "Outbox record {} cannot deserialize its {}; excluding record key {} from this scheduler instance " +
+                    "and leaving the record pending without consuming a delivery retry " +
+                    "(payloadType={}, handlerId={})",
+                ex.recordId,
+                ex.target.value,
+                ex.recordKey,
+                ex.payloadType,
+                ex.handlerId,
+                ex,
+            )
+        } else {
+            log.debug(
+                "Skipping record key {} because record {} cannot deserialize its {} on this scheduler instance",
+                ex.recordKey,
+                ex.recordId,
+                ex.target.value,
             )
         }
     }

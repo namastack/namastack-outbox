@@ -16,6 +16,7 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.time.Instant
 
 @DisplayName("OutboxHandlerInvoker")
@@ -82,14 +83,18 @@ class OutboxHandlerInvokerTest {
 
     @Test
     fun `throws compatibility exception with record details when handler not found`() {
-        val (record, _) = createRecord(handlerId = "unknown-handler")
+        val context = mapOf("traceparent" to "trace-context")
+        val (record, _) = createRecord(handlerId = "unknown-handler", context = context)
 
         every { handlerRegistry.getHandlerById("unknown-handler") } returns null
 
-        assertThatThrownBy {
-            invoker.dispatch(record)
-        }.isInstanceOf(OutboxHandlerNotFoundException::class.java)
-            .hasMessageContaining("No handler with id unknown-handler")
+        val exception = assertThrows<OutboxHandlerNotFoundException> { invoker.dispatch(record) }
+
+        assertThat(exception.message).contains("No handler with id unknown-handler")
+        assertThat(exception.recordId).isEqualTo(record.id)
+        assertThat(exception.recordKey).isEqualTo(record.key)
+        assertThat(exception.handlerId).isEqualTo(record.handlerId)
+        assertThat(exception.context).isEqualTo(context)
     }
 
     @Test

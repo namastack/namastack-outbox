@@ -9,22 +9,25 @@ package io.namastack.outbox
  *
  * @param unavailablePayloadTypes Payload types initially known to be unavailable
  * @param unavailableHandlerIds Handler IDs initially known to be unavailable
+ * @param unavailableRecordKeys Record keys containing records that cannot be deserialized
  * @author Roland Beisel
  * @since 1.10.0
  */
 class OutboxCompatibilityExclusions(
     unavailablePayloadTypes: Set<String> = emptySet(),
     unavailableHandlerIds: Set<String> = emptySet(),
+    unavailableRecordKeys: Set<String> = emptySet(),
 ) {
     companion object {
         /**
-         * Maximum number of payload types and handler IDs retained by an instance for each kind.
+         * Maximum number of identifiers retained by an instance for each kind.
          */
         const val MAXIMUM_IDENTIFIERS_PER_KIND = 256
     }
 
     private val payloadTypes = BoundedSet(unavailablePayloadTypes)
     private val handlerIds = BoundedSet(unavailableHandlerIds)
+    private val recordKeys = BoundedSet(unavailableRecordKeys)
 
     /**
      * Snapshot of payload types that are unavailable on the current instance.
@@ -39,10 +42,16 @@ class OutboxCompatibilityExclusions(
         get() = handlerIds.snapshot()
 
     /**
+     * Snapshot of record keys containing a record that cannot be deserialized on this instance.
+     */
+    val unavailableRecordKeys: Set<String>
+        get() = recordKeys.snapshot()
+
+    /**
      * Whether this collection contains no compatibility exclusions.
      */
     val isEmpty: Boolean
-        get() = payloadTypes.isEmpty() && handlerIds.isEmpty()
+        get() = payloadTypes.isEmpty() && handlerIds.isEmpty() && recordKeys.isEmpty()
 
     /**
      * Adds a payload type that is unavailable on the current instance.
@@ -59,6 +68,14 @@ class OutboxCompatibilityExclusions(
      * @return `true` if the handler ID was newly added, or `false` if it was already present
      */
     fun addUnavailableHandlerId(handlerId: String): Boolean = handlerIds.add(handlerId)
+
+    /**
+     * Adds a record key containing a record that cannot be deserialized on this instance.
+     *
+     * @param recordKey Key containing the incompatible record
+     * @return `true` if the record key was newly added, or `false` if it was already present
+     */
+    fun addUnavailableRecordKey(recordKey: String): Boolean = recordKeys.add(recordKey)
 
     private class BoundedSet(
         initialValues: Set<String>,

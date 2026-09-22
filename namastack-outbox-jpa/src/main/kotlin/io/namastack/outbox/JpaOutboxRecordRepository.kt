@@ -358,6 +358,9 @@ internal open class JpaOutboxRecordRepository(
                 if (exclusions.unavailableHandlerIds.isNotEmpty()) {
                     add("incompatible.handlerId in :unavailableHandlerIds")
                 }
+                if (exclusions.unavailableRecordKeys.isNotEmpty()) {
+                    add("incompatible.recordKey in :unavailableRecordKeys")
+                }
             }.joinToString(" or ")
 
         return """
@@ -407,6 +410,9 @@ internal open class JpaOutboxRecordRepository(
         }
         if (exclusions.unavailableHandlerIds.isNotEmpty()) {
             query.setParameter("unavailableHandlerIds", exclusions.unavailableHandlerIds)
+        }
+        if (exclusions.unavailableRecordKeys.isNotEmpty()) {
+            query.setParameter("unavailableRecordKeys", exclusions.unavailableRecordKeys)
         }
     }
 }

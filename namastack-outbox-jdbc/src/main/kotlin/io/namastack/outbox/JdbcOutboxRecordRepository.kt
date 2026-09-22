@@ -329,6 +329,9 @@ internal open class JdbcOutboxRecordRepository(
                 if (exclusions.unavailableHandlerIds.isNotEmpty()) {
                     add("incompatible.handler_id IN (:unavailableHandlerIds)")
                 }
+                if (exclusions.unavailableRecordKeys.isNotEmpty()) {
+                    add("incompatible.record_key IN (:unavailableRecordKeys)")
+                }
             }.joinToString(" OR ")
 
         return """
@@ -380,6 +383,13 @@ internal open class JdbcOutboxRecordRepository(
                 result.param(
                     "unavailableHandlerIds",
                     exclusions.unavailableHandlerIds.toList(),
+                )
+        }
+        if (exclusions.unavailableRecordKeys.isNotEmpty()) {
+            result =
+                result.param(
+                    "unavailableRecordKeys",
+                    exclusions.unavailableRecordKeys.toList(),
                 )
         }
 

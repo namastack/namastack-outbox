@@ -74,5 +74,6 @@ class OutboxHandlerInvoker(
                 recordId = record.id,
                 recordKey = record.key,
                 handlerId = record.handlerId,
+                context = record.context,
             )
 }

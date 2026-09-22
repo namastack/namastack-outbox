@@ -165,7 +165,7 @@ internal open class MongoOutboxRecordRepository(
      * @param status the record status to match
      * @param now the current timestamp for retry comparison
      * @param batchSize the maximum number of record keys to return
-     * @param compatibilityExclusions payload types and handler IDs unavailable on this instance
+     * @param compatibilityExclusions payload types, handler IDs, and record keys unavailable on this instance
      * @return the aggregation pipeline
      */
     private fun buildStrictFifoAggregation(
@@ -231,7 +231,7 @@ internal open class MongoOutboxRecordRepository(
      * @param status the record status to match
      * @param now the current timestamp for retry comparison
      * @param batchSize the maximum number of record keys to return
-     * @param compatibilityExclusions payload types and handler IDs unavailable on this instance
+     * @param compatibilityExclusions payload types, handler IDs, and record keys unavailable on this instance
      * @return the aggregation pipeline
      */
     private fun buildStandardAggregation(
@@ -325,6 +325,9 @@ internal open class MongoOutboxRecordRepository(
                 }
                 if (exclusions.unavailableHandlerIds.isNotEmpty()) {
                     add(Document("\$in", listOf("\$handlerId", exclusions.unavailableHandlerIds.toList())))
+                }
+                if (exclusions.unavailableRecordKeys.isNotEmpty()) {
+                    add(Document("\$in", listOf("\$recordKey", exclusions.unavailableRecordKeys.toList())))
                 }
             }
 

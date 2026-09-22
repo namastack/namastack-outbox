@@ -534,6 +534,63 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
+        fun `uses learned deserialization failure to exclude its record key`() {
+            val compatibilityAwareRepository = mockk<OutboxRecordRepository>(relaxed = true)
+            val observedExclusions = mutableListOf<Triple<Set<String>, Set<String>, Set<String>>>()
+            val scheduler =
+                OutboxProcessingScheduler(
+                    trigger = trigger,
+                    taskScheduler = taskScheduler,
+                    observationRegistry = { ObservationRegistry.NOOP },
+                    recordRepository = compatibilityAwareRepository,
+                    recordProcessorChain = recordProcessorChain,
+                    partitionCoordinator = partitionCoordinator,
+                    taskExecutor = SyncTaskExecutor(),
+                    properties = properties,
+                    clock = clock,
+                )
+            every {
+                compatibilityAwareRepository.findRecordKeysInPartitions(
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                    any(),
+                )
+            } answers {
+                val exclusions = arg<OutboxCompatibilityExclusions>(4)
+                observedExclusions +=
+                    Triple(
+                        exclusions.unavailablePayloadTypes,
+                        exclusions.unavailableHandlerIds,
+                        exclusions.unavailableRecordKeys,
+                    )
+                if (exclusions.isEmpty) listOf("blocked-key") else emptyList()
+            }
+            every {
+                compatibilityAwareRepository.findIncompleteRecordsByRecordKey("blocked-key")
+            } throws
+                OutboxRecordDeserializationException(
+                    recordId = "record-id",
+                    recordKey = "blocked-key",
+                    payloadType = "example.Payload",
+                    handlerId = "handler-id",
+                    target = OutboxRecordDeserializationException.Target.PAYLOAD,
+                    context = mapOf("traceparent" to "trace-context"),
+                    cause = IllegalArgumentException("invalid payload"),
+                )
+            scheduler.start()
+            scheduler.process()
+            scheduler.process()
+
+            assertThat(observedExclusions)
+                .containsExactly(
+                    Triple(emptySet(), emptySet(), emptySet()),
+                    Triple(emptySet(), emptySet(), setOf("blocked-key")),
+                )
+        }
+
+        @Test
         fun `process respects batch size configuration`() {
             properties.polling.batchSize = 50
 

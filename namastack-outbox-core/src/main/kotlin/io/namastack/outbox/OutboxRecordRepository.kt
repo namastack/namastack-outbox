@@ -81,7 +81,7 @@ interface OutboxRecordRepository {
      * @param status The status to filter by
      * @param batchSize Maximum number of record keys to return
      * @param ignoreRecordKeysWithPreviousFailure Whether to exclude record keys with previous open/failed records
-     * @param compatibilityExclusions Payload types and handler IDs unavailable on the current instance
+     * @param compatibilityExclusions Payload types, handler IDs, and record keys unavailable on the current instance
      * @return List of compatible record keys with pending records in the specified partitions
      */
     fun findRecordKeysInPartitions(
