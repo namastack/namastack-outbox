@@ -13,6 +13,7 @@ import org.springframework.scheduling.support.ScheduledMethodRunnable
 import java.lang.reflect.Method
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -57,6 +58,7 @@ class OutboxProcessingScheduler(
     companion object {
         const val SCHEDULER_NAME: String = "outboxDefaultScheduler"
 
+        private val COMPATIBILITY_COOLDOWN: Duration = Duration.ofSeconds(30)
         private val SCHEDULE_METHOD_NAME: String = (OutboxProcessingScheduler::process).name
         private val SCHEDULE_METHOD: Method = OutboxProcessingScheduler::class.java.getMethod(SCHEDULE_METHOD_NAME)
     }
@@ -67,7 +69,7 @@ class OutboxProcessingScheduler(
 
     private var scheduledTask: ScheduledFuture<*>? = null
 
-    private val compatibilityExclusions = OutboxCompatibilityExclusions()
+    private val compatibilityCooldownUntil = AtomicReference<Instant?>()
 
     /**
      * Starts this lifecycle bean after [io.namastack.outbox.instance.OutboxInstanceRegistry] (`phase = 0`).
@@ -138,6 +140,8 @@ class OutboxProcessingScheduler(
     }
 
     private fun processAssignedPartitions(): Int {
+        if (isCompatibilityCooldownActive()) return 0
+
         val partitions = partitionCoordinator.getAssignedPartitionNumbers()
         if (partitions.isEmpty()) return 0
 
@@ -153,17 +157,13 @@ class OutboxProcessingScheduler(
         return recordKeys.size
     }
 
-    private fun loadRecordKeys(partitions: Set<Int>): List<String> {
-        val batchSize = properties.batchSize ?: properties.polling.batchSize
-
-        return recordRepository.findRecordKeysInPartitions(
+    private fun loadRecordKeys(partitions: Set<Int>): List<String> =
+        recordRepository.findRecordKeysInPartitions(
             partitions = partitions,
             status = NEW,
-            batchSize = batchSize,
+            batchSize = properties.batchSize ?: properties.polling.batchSize,
             ignoreRecordKeysWithPreviousFailure = properties.processing.stopOnFirstFailure,
-            compatibilityExclusions = compatibilityExclusions,
         )
-    }
 
     private fun processBatch(recordKeys: List<String>) {
         val latch = CountDownLatch(recordKeys.size)
@@ -193,8 +193,6 @@ class OutboxProcessingScheduler(
             }
         } catch (ex: OutboxPayloadTypeNotFoundException) {
             handleUnavailablePayloadType(ex)
-        } catch (ex: OutboxRecordDeserializationException) {
-            handleRecordDeserializationFailure(ex)
         } catch (ex: OutboxHandlerNotFoundException) {
             handleUnavailableHandler(ex)
         } catch (ex: Exception) {
@@ -216,65 +214,60 @@ class OutboxProcessingScheduler(
     private fun continueOnFailure(): Boolean = !properties.processing.stopOnFirstFailure
 
     private fun handleUnavailablePayloadType(ex: OutboxPayloadTypeNotFoundException) {
-        if (compatibilityExclusions.addUnavailablePayloadType(ex.payloadType)) {
-            log.warn(
-                "Payload type {} is unavailable; excluding affected record keys from this scheduler instance " +
-                    "and leaving the record pending without consuming a delivery retry " +
-                    "(recordId={}, recordKey={}, handlerId={})",
-                ex.payloadType,
-                ex.recordId,
-                ex.recordKey,
-                ex.handlerId,
-            )
-        } else {
-            log.debug(
-                "Skipping record key {} because payload type {} is unavailable to this scheduler instance",
-                ex.recordKey,
-                ex.payloadType,
-            )
-        }
+        val cooldownUntil = activateCompatibilityCooldown()
+        log.warn(
+            "Payload type {} is unavailable on this scheduler instance; pausing polling until {} and leaving " +
+                "the record pending without consuming a delivery retry " +
+                "(recordId={}, recordKey={}, handlerId={})",
+            ex.payloadType,
+            cooldownUntil,
+            ex.recordId,
+            ex.recordKey,
+            ex.handlerId,
+            ex,
+        )
     }
 
     private fun handleUnavailableHandler(ex: OutboxHandlerNotFoundException) {
-        if (compatibilityExclusions.addUnavailableHandlerId(ex.handlerId)) {
-            log.warn(
-                "Handler {} is unavailable; excluding affected record keys from this scheduler instance " +
-                    "and leaving the record pending without consuming a delivery retry " +
-                    "(recordId={}, recordKey={})",
-                ex.handlerId,
-                ex.recordId,
-                ex.recordKey,
-            )
-        } else {
-            log.debug(
-                "Skipping record key {} because handler {} is unavailable to this scheduler instance",
-                ex.recordKey,
-                ex.handlerId,
-            )
-        }
+        val cooldownUntil = activateCompatibilityCooldown()
+        log.warn(
+            "Handler {} is unavailable on this scheduler instance; pausing polling until {} and leaving the " +
+                "record pending without consuming a delivery retry (recordId={}, recordKey={})",
+            ex.handlerId,
+            cooldownUntil,
+            ex.recordId,
+            ex.recordKey,
+            ex,
+        )
     }
 
-    private fun handleRecordDeserializationFailure(ex: OutboxRecordDeserializationException) {
-        if (compatibilityExclusions.addUnavailableRecordKey(ex.recordKey)) {
-            log.warn(
-                "Outbox record {} cannot deserialize its {}; excluding record key {} from this scheduler instance " +
-                    "and leaving the record pending without consuming a delivery retry " +
-                    "(payloadType={}, handlerId={})",
-                ex.recordId,
-                ex.target.value,
-                ex.recordKey,
-                ex.payloadType,
-                ex.handlerId,
-                ex,
+    private fun isCompatibilityCooldownActive(): Boolean {
+        val cooldownUntil = compatibilityCooldownUntil.get() ?: return false
+        if (clock.instant().isBefore(cooldownUntil)) {
+            log.trace(
+                "Skipping outbox polling until {} because this scheduler instance encountered a compatibility failure",
+                cooldownUntil,
             )
-        } else {
-            log.debug(
-                "Skipping record key {} because record {} cannot deserialize its {} on this scheduler instance",
-                ex.recordKey,
-                ex.recordId,
-                ex.target.value,
-            )
+            return true
         }
+
+        compatibilityCooldownUntil.compareAndSet(cooldownUntil, null)
+        return false
+    }
+
+    private fun activateCompatibilityCooldown(): Instant {
+        val requestedCooldownUntil = clock.instant().plus(COMPATIBILITY_COOLDOWN)
+
+        val cooldownUntil =
+            compatibilityCooldownUntil.updateAndGet { currentCooldownUntil ->
+                if (currentCooldownUntil == null || requestedCooldownUntil.isAfter(currentCooldownUntil)) {
+                    requestedCooldownUntil
+                } else {
+                    currentCooldownUntil
+                }
+            }
+
+        return checkNotNull(cooldownUntil)
     }
 
     /**

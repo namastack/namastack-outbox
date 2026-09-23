@@ -1,10 +1,8 @@
 package io.namastack.outbox
 
-import org.bson.Document
 import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.aggregation.Aggregation
-import org.springframework.data.mongodb.core.aggregation.AggregationOperation
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
 import java.time.Clock
@@ -101,44 +99,14 @@ internal open class MongoOutboxRecordRepository(
         status: OutboxRecordStatus,
         batchSize: Int,
         ignoreRecordKeysWithPreviousFailure: Boolean,
-    ): List<String> =
-        findRecordKeysInPartitions(
-            partitions = partitions,
-            status = status,
-            batchSize = batchSize,
-            ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
-            compatibilityExclusions = OutboxCompatibilityExclusions(),
-        )
-
-    override fun findRecordKeysInPartitions(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-        batchSize: Int,
-        ignoreRecordKeysWithPreviousFailure: Boolean,
-        compatibilityExclusions: OutboxCompatibilityExclusions,
-    ): List<String> =
-        findRecordKeys(
-            partitions = partitions,
-            status = status,
-            batchSize = batchSize,
-            ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
-            compatibilityExclusions = compatibilityExclusions,
-        )
-
-    private fun findRecordKeys(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-        batchSize: Int,
-        ignoreRecordKeysWithPreviousFailure: Boolean,
-        compatibilityExclusions: OutboxCompatibilityExclusions,
     ): List<String> {
         val now = Instant.now(clock)
 
         val aggregation =
             if (ignoreRecordKeysWithPreviousFailure) {
-                buildStrictFifoAggregation(partitions, status, now, batchSize, compatibilityExclusions)
+                buildStrictFifoAggregation(partitions, status, now, batchSize)
             } else {
-                buildStandardAggregation(partitions, status, now, batchSize, compatibilityExclusions)
+                buildStandardAggregation(partitions, status, now, batchSize)
             }
 
         return mongoTemplate
@@ -158,14 +126,12 @@ internal open class MongoOutboxRecordRepository(
      * 2. Sort by recordKey and createdAt to prepare for grouping
      * 3. Group by recordKey, capturing the oldest record as the "blocker"
      * 4. Filter to only keys where the oldest record matches the target status and retry time
-     * 5. Exclude keys containing records incompatible with this instance
-     * 6. Order by oldest record's creation time and limit results
+     * 5. Order by oldest record's creation time and limit results
      *
      * @param partitions the set of partition numbers to query
      * @param status the record status to match
      * @param now the current timestamp for retry comparison
      * @param batchSize the maximum number of record keys to return
-     * @param compatibilityExclusions payload types, handler IDs, and record keys unavailable on this instance
      * @return the aggregation pipeline
      */
     private fun buildStrictFifoAggregation(
@@ -173,53 +139,40 @@ internal open class MongoOutboxRecordRepository(
         status: OutboxRecordStatus,
         now: Instant,
         batchSize: Int,
-        compatibilityExclusions: OutboxCompatibilityExclusions,
-    ): Aggregation {
-        val selectionStages =
-            listOf(
-                // Match all incomplete records in partitions
-                Aggregation.match(
-                    Criteria
-                        .where("partitionNo")
-                        .`in`(partitions)
-                        .and("completedAt")
-                        .`is`(null),
-                ),
-                // Sort to ensure the 'first' in group is the oldest
-                Aggregation.sort(Sort.by(Sort.Direction.ASC, "recordKey", "createdAt")),
-                // Group by recordKey and take the absolute oldest record (the "blocker")
-                Aggregation
-                    .group("recordKey")
-                    .first(Aggregation.ROOT)
-                    .`as`("oldestDoc"),
-                // Only process if the oldest record for this key is actually ready
-                Aggregation.match(
-                    Criteria
-                        .where("oldestDoc.status")
-                        .`is`(status.name)
-                        .and("oldestDoc.nextRetryAt")
-                        .lte(now),
-                ),
-            )
-
-        val resultStages =
-            listOf(
-                // Order keys by their oldest record's creation time
-                Aggregation.sort(Sort.by(Sort.Direction.ASC, "oldestDoc.createdAt")),
-                Aggregation.limit(batchSize.toLong()),
-                Aggregation
-                    .project()
-                    .andExclude("_id")
-                    .and("_id")
-                    .`as`("recordKey"),
-            )
-
-        return Aggregation.newAggregation(
-            selectionStages +
-                compatibilityExclusionStages(status, compatibilityExclusions) +
-                resultStages,
+    ): Aggregation =
+        Aggregation.newAggregation(
+            // Match all incomplete records in partitions
+            Aggregation.match(
+                Criteria
+                    .where("partitionNo")
+                    .`in`(partitions)
+                    .and("completedAt")
+                    .`is`(null),
+            ),
+            // Sort to ensure the 'first' in group is the oldest
+            Aggregation.sort(Sort.by(Sort.Direction.ASC, "recordKey", "createdAt")),
+            // Group by recordKey and take the absolute oldest record (the "blocker")
+            Aggregation
+                .group("recordKey")
+                .first(Aggregation.ROOT)
+                .`as`("oldestDoc"),
+            // Only process if the oldest record for this key is actually ready
+            Aggregation.match(
+                Criteria
+                    .where("oldestDoc.status")
+                    .`is`(status.name)
+                    .and("oldestDoc.nextRetryAt")
+                    .lte(now),
+            ),
+            // Order keys by their oldest record's creation time
+            Aggregation.sort(Sort.by(Sort.Direction.ASC, "oldestDoc.createdAt")),
+            Aggregation.limit(batchSize.toLong()),
+            Aggregation
+                .project()
+                .andExclude("_id")
+                .and("_id")
+                .`as`("recordKey"),
         )
-    }
 
     /**
      * Builds a standard aggregation pipeline that finds record keys with ready records.
@@ -231,7 +184,6 @@ internal open class MongoOutboxRecordRepository(
      * @param status the record status to match
      * @param now the current timestamp for retry comparison
      * @param batchSize the maximum number of record keys to return
-     * @param compatibilityExclusions payload types, handler IDs, and record keys unavailable on this instance
      * @return the aggregation pipeline
      */
     private fun buildStandardAggregation(
@@ -239,104 +191,32 @@ internal open class MongoOutboxRecordRepository(
         status: OutboxRecordStatus,
         now: Instant,
         batchSize: Int,
-        compatibilityExclusions: OutboxCompatibilityExclusions,
-    ): Aggregation {
-        val selectionStages =
-            listOf<AggregationOperation>(
-                // Match all records that are ready for processing
-                Aggregation.match(
-                    Criteria
-                        .where("partitionNo")
-                        .`in`(partitions)
-                        .and("status")
-                        .`is`(status.name)
-                        .and("nextRetryAt")
-                        .lte(now),
-                ),
-                // Group by recordKey to get unique keys and find oldest record for sorting
-                Aggregation
-                    .group("recordKey")
-                    .min("createdAt")
-                    .`as`("minCreatedAt"),
-            )
-        val resultStages =
-            listOf<AggregationOperation>(
-                // Order by creation time of the oldest ready record
-                Aggregation.sort(Sort.by(Sort.Direction.ASC, "minCreatedAt")),
-                Aggregation.limit(batchSize.toLong()),
-                Aggregation
-                    .project()
-                    .andExclude("_id")
-                    .and("_id")
-                    .`as`("recordKey"),
-            )
-
-        return Aggregation.newAggregation(
-            selectionStages +
-                compatibilityExclusionStages(status, compatibilityExclusions) +
-                resultStages,
+    ): Aggregation =
+        Aggregation.newAggregation(
+            // Match all records that are ready for processing
+            Aggregation.match(
+                Criteria
+                    .where("partitionNo")
+                    .`in`(partitions)
+                    .and("status")
+                    .`is`(status.name)
+                    .and("nextRetryAt")
+                    .lte(now),
+            ),
+            // Group by recordKey to get unique keys and find oldest record for sorting
+            Aggregation
+                .group("recordKey")
+                .min("createdAt")
+                .`as`("minCreatedAt"),
+            // Order by creation time of the oldest ready record
+            Aggregation.sort(Sort.by(Sort.Direction.ASC, "minCreatedAt")),
+            Aggregation.limit(batchSize.toLong()),
+            Aggregation
+                .project()
+                .andExclude("_id")
+                .and("_id")
+                .`as`("recordKey"),
         )
-    }
-
-    private fun compatibilityExclusionStages(
-        status: OutboxRecordStatus,
-        exclusions: OutboxCompatibilityExclusions,
-    ): List<AggregationOperation> {
-        if (exclusions.isEmpty) return emptyList()
-
-        return listOf(
-            compatibilityLookup(status, exclusions),
-            Aggregation.match(Criteria.where("incompatibleRecords.0").exists(false)),
-        )
-    }
-
-    private fun compatibilityLookup(
-        status: OutboxRecordStatus,
-        exclusions: OutboxCompatibilityExclusions,
-    ): AggregationOperation {
-        val expression =
-            Document(
-                "\$and",
-                listOf(
-                    Document("\$eq", listOf("\$recordKey", "\$\$candidateRecordKey")),
-                    Document("\$eq", listOf("\$status", status.name)),
-                    compatibilityPredicate(exclusions),
-                ),
-            )
-        val lookup =
-            Document("from", collectionNameResolver.outboxRecords)
-                .append("let", Document("candidateRecordKey", "\$_id"))
-                .append(
-                    "pipeline",
-                    listOf(
-                        Document("\$match", Document("\$expr", expression)),
-                        Document("\$limit", 1),
-                    ),
-                ).append("as", "incompatibleRecords")
-
-        return AggregationOperation { context -> context.getMappedObject(Document("\$lookup", lookup)) }
-    }
-
-    private fun compatibilityPredicate(exclusions: OutboxCompatibilityExclusions): Document {
-        val compatibilityPredicates =
-            buildList {
-                if (exclusions.unavailablePayloadTypes.isNotEmpty()) {
-                    add(Document("\$in", listOf("\$recordType", exclusions.unavailablePayloadTypes.toList())))
-                }
-                if (exclusions.unavailableHandlerIds.isNotEmpty()) {
-                    add(Document("\$in", listOf("\$handlerId", exclusions.unavailableHandlerIds.toList())))
-                }
-                if (exclusions.unavailableRecordKeys.isNotEmpty()) {
-                    add(Document("\$in", listOf("\$recordKey", exclusions.unavailableRecordKeys.toList())))
-                }
-            }
-
-        return if (compatibilityPredicates.size == 1) {
-            compatibilityPredicates.single()
-        } else {
-            Document("\$or", compatibilityPredicates)
-        }
-    }
 
     /**
      * Counts outbox records by status.

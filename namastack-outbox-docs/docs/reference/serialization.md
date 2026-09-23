@@ -19,14 +19,6 @@ The fully qualified payload class name is persisted with every record. Package o
 breaking payload changes therefore require a compatibility rollout. See
 [Rolling Deployments](rolling-deployments.md#changing-a-payload).
 
-If the persisted payload or context cannot be deserialized during polling, processing has not yet
-attempted delivery. The record remains `NEW`, its failure count is unchanged, and the current
-scheduler excludes its record key from subsequent polls. A restarted or compatible instance
-reevaluates the record. When the context was deserialized successfully before payload class
-resolution or payload deserialization failed, it is attached to the reported exception so
-observability integrations can restore correlation data such as a trace ID. A context
-deserialization failure cannot expose that context.
-
 ## Jackson Module (Default)
 
 The `namastack-outbox-jackson` module is the default for JSON serialization, leveraging Jackson 3.x. It is automatically included when you use either the JDBC or JPA starter.

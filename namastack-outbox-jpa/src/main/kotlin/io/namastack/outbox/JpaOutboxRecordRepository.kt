@@ -1,7 +1,6 @@
 package io.namastack.outbox
 
 import jakarta.persistence.EntityManager
-import jakarta.persistence.Query
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Instant
@@ -27,15 +26,11 @@ internal open class JpaOutboxRecordRepository(
     private val clock: Clock,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
-    private companion object {
-        const val COMPATIBILITY_FILTER_PLACEHOLDER = "{{compatibilityFilter}}"
-    }
-
     /**
      * Query to select record keys with no previous open/failed event (older.completedAt is null).
      * Used when ignoreRecordKeysWithPreviousFailure is true.
      */
-    private val recordKeysQueryWithPreviousFailureFilterTemplate = """
+    private val recordKeysQueryWithPreviousFailureFilter = """
         select o.recordKey, min(o.createdAt) as minCreated
         from OutboxRecordEntity o
         where o.partitionNo in :partitions
@@ -47,7 +42,6 @@ internal open class JpaOutboxRecordRepository(
             and older.completedAt is null
             and older.createdAt < o.createdAt
         )
-        $COMPATIBILITY_FILTER_PLACEHOLDER
         group by o.recordKey
         order by minCreated asc
     """
@@ -56,13 +50,12 @@ internal open class JpaOutboxRecordRepository(
      * Query to select all record keys with pending records, regardless of previous failures.
      * Used when ignoreRecordKeysWithPreviousFailure is false.
      */
-    private val recordKeysQueryWithoutPreviousFailureFilterTemplate = """
+    private val recordKeysQueryWithoutPreviousFailureFilter = """
         select o.recordKey, min(o.createdAt) as minCreated
         from OutboxRecordEntity o
         where o.partitionNo in :partitions
         and o.status = :status
         and o.nextRetryAt <= :now
-        $COMPATIBILITY_FILTER_PLACEHOLDER
         group by o.recordKey
         order by minCreated asc
     """
@@ -309,88 +302,21 @@ internal open class JpaOutboxRecordRepository(
         status: OutboxRecordStatus,
         batchSize: Int,
         ignoreRecordKeysWithPreviousFailure: Boolean,
-    ): List<String> =
-        findRecordKeysInPartitions(
-            partitions = partitions,
-            status = status,
-            batchSize = batchSize,
-            ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
-            compatibilityExclusions = OutboxCompatibilityExclusions(),
-        )
-
-    override fun findRecordKeysInPartitions(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-        batchSize: Int,
-        ignoreRecordKeysWithPreviousFailure: Boolean,
-        compatibilityExclusions: OutboxCompatibilityExclusions,
     ): List<String> {
-        val query = resolveRecordKeysQuery(ignoreRecordKeysWithPreviousFailure, compatibilityExclusions)
-
-        return findRecordKeys(query, partitions, status, batchSize, compatibilityExclusions)
-    }
-
-    private fun resolveRecordKeysQuery(
-        ignoreRecordKeysWithPreviousFailure: Boolean,
-        compatibilityExclusions: OutboxCompatibilityExclusions,
-    ): String {
-        val template =
+        val now = Instant.now(clock)
+        val query =
             if (ignoreRecordKeysWithPreviousFailure) {
-                recordKeysQueryWithPreviousFailureFilterTemplate
+                recordKeysQueryWithPreviousFailureFilter
             } else {
-                recordKeysQueryWithoutPreviousFailureFilterTemplate
+                recordKeysQueryWithoutPreviousFailureFilter
             }
 
-        return template.replace(
-            COMPATIBILITY_FILTER_PLACEHOLDER,
-            compatibilityFilter(compatibilityExclusions),
-        )
-    }
-
-    private fun compatibilityFilter(exclusions: OutboxCompatibilityExclusions): String {
-        if (exclusions.isEmpty) return ""
-
-        val predicates =
-            buildList {
-                if (exclusions.unavailablePayloadTypes.isNotEmpty()) {
-                    add("incompatible.recordType in :unavailablePayloadTypes")
-                }
-                if (exclusions.unavailableHandlerIds.isNotEmpty()) {
-                    add("incompatible.handlerId in :unavailableHandlerIds")
-                }
-                if (exclusions.unavailableRecordKeys.isNotEmpty()) {
-                    add("incompatible.recordKey in :unavailableRecordKeys")
-                }
-            }.joinToString(" or ")
-
-        return """
-            and not exists (
-                select 1 from OutboxRecordEntity incompatible
-                where incompatible.recordKey = o.recordKey
-                and incompatible.status = :status
-                and ($predicates)
-            )
-        """
-    }
-
-    private fun findRecordKeys(
-        query: String,
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-        batchSize: Int,
-        compatibilityExclusions: OutboxCompatibilityExclusions,
-    ): List<String> {
-        val typedQuery =
-            entityManager
-                .createQuery(query)
-                .setParameter("partitions", partitions)
-                .setParameter("status", status)
-                .setParameter("now", Instant.now(clock))
-                .setMaxResults(batchSize)
-
-        bindCompatibilityExclusions(typedQuery, compatibilityExclusions)
-
-        return typedQuery
+        return entityManager
+            .createQuery(query)
+            .setParameter("partitions", partitions)
+            .setParameter("status", status)
+            .setParameter("now", now)
+            .setMaxResults(batchSize)
             .resultList
             .map { result ->
                 if (result is Array<*>) {
@@ -399,20 +325,5 @@ internal open class JpaOutboxRecordRepository(
                     result as String
                 }
             }
-    }
-
-    private fun bindCompatibilityExclusions(
-        query: Query,
-        exclusions: OutboxCompatibilityExclusions,
-    ) {
-        if (exclusions.unavailablePayloadTypes.isNotEmpty()) {
-            query.setParameter("unavailablePayloadTypes", exclusions.unavailablePayloadTypes)
-        }
-        if (exclusions.unavailableHandlerIds.isNotEmpty()) {
-            query.setParameter("unavailableHandlerIds", exclusions.unavailableHandlerIds)
-        }
-        if (exclusions.unavailableRecordKeys.isNotEmpty()) {
-            query.setParameter("unavailableRecordKeys", exclusions.unavailableRecordKeys)
-        }
     }
 }

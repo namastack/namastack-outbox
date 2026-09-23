@@ -43,7 +43,7 @@ class CompatibilityFailureIntegrationTest {
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    fun `compatibility failures remain pending while compatible keys continue`() {
+    fun `compatibility failures remain pending while other keys in the current batch finish`() {
         val createdAt = Instant.now().minusSeconds(1)
 
         persistRecords(
@@ -77,22 +77,6 @@ class CompatibilityFailureIntegrationTest {
                 createdAt = createdAt.plusMillis(1),
             ),
             record(
-                id = INVALID_PAYLOAD_RECORD_ID,
-                key = INVALID_PAYLOAD_KEY,
-                payload = "{",
-                context = """{"traceparent":"trace-context"}""",
-                handlerId = COMPATIBLE_HANDLER_ID,
-                createdAt = createdAt,
-            ),
-            record(
-                id = INVALID_CONTEXT_RECORD_ID,
-                key = INVALID_CONTEXT_KEY,
-                payload = """{"value":"invalid-context"}""",
-                context = "{",
-                handlerId = COMPATIBLE_HANDLER_ID,
-                createdAt = createdAt,
-            ),
-            record(
                 id = COMPATIBLE_RECORD_ID,
                 key = COMPATIBLE_KEY,
                 payload = """{"value":"compatible"}""",
@@ -118,8 +102,6 @@ class CompatibilityFailureIntegrationTest {
                 PAYLOAD_SUCCESSOR_RECORD_ID,
                 UNKNOWN_HANDLER_RECORD_ID,
                 HANDLER_SUCCESSOR_RECORD_ID,
-                INVALID_PAYLOAD_RECORD_ID,
-                INVALID_CONTEXT_RECORD_ID,
             )
 
         assertThat(records.keys).containsExactlyInAnyOrderElementsOf(incompatibleRecordIds + COMPATIBLE_RECORD_ID)
@@ -149,14 +131,6 @@ class CompatibilityFailureIntegrationTest {
         assertThat(records.getValue(UNKNOWN_HANDLER_RECORD_ID).handlerId).isEqualTo("unavailable-handler")
         assertThat(records.getValue(HANDLER_SUCCESSOR_RECORD_ID).payload)
             .isEqualTo("""{"value":"handler-successor"}""")
-
-        val invalidPayloadRecord = records.getValue(INVALID_PAYLOAD_RECORD_ID)
-        assertThat(invalidPayloadRecord.payload).isEqualTo("{")
-        assertThat(invalidPayloadRecord.context).isEqualTo("""{"traceparent":"trace-context"}""")
-
-        val invalidContextRecord = records.getValue(INVALID_CONTEXT_RECORD_ID)
-        assertThat(invalidContextRecord.payload).isEqualTo("""{"value":"invalid-context"}""")
-        assertThat(invalidContextRecord.context).isEqualTo("{")
     }
 
     private fun persistRecords(vararg records: OutboxRecordEntity) {
@@ -182,14 +156,13 @@ class CompatibilityFailureIntegrationTest {
         handlerId: String,
         createdAt: Instant,
         recordType: String = CompatiblePayload::class.java.name,
-        context: String? = null,
     ) = OutboxRecordEntity(
         id = id,
         status = OutboxRecordStatus.NEW,
         recordKey = key,
         recordType = recordType,
         payload = payload,
-        context = context,
+        context = null,
         partitionNo = PartitionHasher.getPartitionForRecordKey(key),
         createdAt = createdAt,
         completedAt = null,
@@ -219,13 +192,9 @@ class CompatibilityFailureIntegrationTest {
         private const val PAYLOAD_SUCCESSOR_RECORD_ID = "payload-successor-record"
         private const val UNKNOWN_HANDLER_RECORD_ID = "unknown-handler-record"
         private const val HANDLER_SUCCESSOR_RECORD_ID = "handler-successor-record"
-        private const val INVALID_PAYLOAD_RECORD_ID = "invalid-payload-record"
-        private const val INVALID_CONTEXT_RECORD_ID = "invalid-context-record"
         private const val COMPATIBLE_RECORD_ID = "compatible-record"
         private const val UNKNOWN_PAYLOAD_KEY = "unknown-payload-key"
         private const val UNKNOWN_HANDLER_KEY = "unknown-handler-key"
-        private const val INVALID_PAYLOAD_KEY = "invalid-payload-key"
-        private const val INVALID_CONTEXT_KEY = "invalid-context-key"
         private const val COMPATIBLE_KEY = "compatible-key"
         private const val COMPATIBLE_HANDLER_ID = "compatible-handler"
 

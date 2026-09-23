@@ -46,12 +46,16 @@ class MongoOutboxRecordEntityMapper(
      * @param entity the MongoDB entity to map
      * @return the corresponding domain object
      * @throws OutboxPayloadTypeNotFoundException if the record's payload type is unavailable
-     * @throws OutboxRecordDeserializationException if the payload or context cannot be deserialized
      */
     fun map(entity: MongoOutboxRecordEntity): OutboxRecord<*> {
-        val context = deserializeContext(entity)
-        val clazz = resolveClass(entity, context)
-        val payload = deserializePayload(entity, clazz, context)
+        val clazz = resolveClass(entity)
+        val payload = serializer.deserialize(entity.payload, clazz)
+
+        @Suppress("UNCHECKED_CAST")
+        val context =
+            entity.context?.let {
+                serializer.deserialize(it, Map::class.java as Class<Map<String, String>>)
+            } ?: emptyMap()
 
         return OutboxRecord.restore(
             id = entity.id,
@@ -75,67 +79,25 @@ class MongoOutboxRecordEntityMapper(
      *
      * @param entity entity containing the payload type and record metadata
      * @return the resolved class
-     * @throws OutboxPayloadTypeNotFoundException if the record's payload type is unavailable
+     * @throws OutboxPayloadTypeNotFoundException if the class cannot be loaded
      */
-    private fun resolveClass(
-        entity: MongoOutboxRecordEntity,
-        context: Map<String, String>,
-    ): Class<*> =
+    private fun resolveClass(entity: MongoOutboxRecordEntity): Class<*> =
         try {
             Thread.currentThread().contextClassLoader.loadClass(entity.recordType)
         } catch (ex: ClassNotFoundException) {
-            throw OutboxPayloadTypeNotFoundException(
-                recordId = entity.id,
-                recordKey = entity.recordKey,
-                payloadType = entity.recordType,
-                handlerId = entity.handlerId,
-                context = context,
-                cause = ex,
-            )
-        } catch (ex: LinkageError) {
-            throw OutboxPayloadTypeNotFoundException(
-                recordId = entity.id,
-                recordKey = entity.recordKey,
-                payloadType = entity.recordType,
-                handlerId = entity.handlerId,
-                context = context,
-                cause = ex,
-            )
+            throw payloadTypeNotFound(entity, ex)
+        } catch (error: LinkageError) {
+            throw payloadTypeNotFound(entity, error)
         }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun deserializeContext(entity: MongoOutboxRecordEntity): Map<String, String> =
-        try {
-            entity.context?.let {
-                serializer.deserialize(it, Map::class.java as Class<Map<String, String>>)
-            } ?: emptyMap()
-        } catch (ex: Exception) {
-            throw deserializationException(entity, OutboxRecordDeserializationException.Target.CONTEXT, null, ex)
-        }
-
-    private fun deserializePayload(
+    private fun payloadTypeNotFound(
         entity: MongoOutboxRecordEntity,
-        payloadType: Class<*>,
-        context: Map<String, String>,
-    ): Any =
-        try {
-            serializer.deserialize(entity.payload, payloadType)
-        } catch (ex: Exception) {
-            throw deserializationException(entity, OutboxRecordDeserializationException.Target.PAYLOAD, context, ex)
-        }
-
-    private fun deserializationException(
-        entity: MongoOutboxRecordEntity,
-        target: OutboxRecordDeserializationException.Target,
-        context: Map<String, String>?,
-        cause: Exception,
-    ) = OutboxRecordDeserializationException(
+        cause: Throwable,
+    ) = OutboxPayloadTypeNotFoundException(
         recordId = entity.id,
         recordKey = entity.recordKey,
         payloadType = entity.recordType,
         handlerId = entity.handlerId,
-        target = target,
-        context = context,
         cause = cause,
     )
 }

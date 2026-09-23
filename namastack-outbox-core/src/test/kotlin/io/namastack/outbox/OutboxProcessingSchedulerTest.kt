@@ -36,7 +36,7 @@ class OutboxProcessingSchedulerTest {
     private val partitionCoordinator: PartitionCoordinator = mockk(relaxed = true)
 
     private val fixedInstant = Instant.parse("2024-01-01T10:00:00Z")
-    private val clock = Clock.fixed(fixedInstant, ZoneId.of("UTC"))
+    private val clock = MutableClock(fixedInstant)
 
     private val properties =
         OutboxProperties().apply {
@@ -375,7 +375,6 @@ class OutboxProcessingSchedulerTest {
                     status = any(),
                     batchSize = any(),
                     ignoreRecordKeysWithPreviousFailure = any(),
-                    compatibilityExclusions = any(),
                 )
             }
         }
@@ -425,169 +424,88 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
-        fun `uses learned unavailable payload type to exclude complete record keys`() {
-            val payloadTypeAwareRepository = mockk<OutboxRecordRepository>(relaxed = true)
-            val observedExclusions = mutableListOf<Pair<Set<String>, Set<String>>>()
-            val scheduler =
-                OutboxProcessingScheduler(
-                    trigger = trigger,
-                    taskScheduler = taskScheduler,
-                    observationRegistry = { ObservationRegistry.NOOP },
-                    recordRepository = payloadTypeAwareRepository,
-                    recordProcessorChain = recordProcessorChain,
-                    partitionCoordinator = partitionCoordinator,
-                    taskExecutor = SyncTaskExecutor(),
-                    properties = properties,
-                    clock = clock,
-                )
-            every {
-                payloadTypeAwareRepository.findRecordKeysInPartitions(
-                    any(),
-                    any(),
-                    any(),
-                    any(),
-                    any(),
-                )
-            } answers {
-                val exclusions = arg<OutboxCompatibilityExclusions>(4)
-                observedExclusions +=
-                    exclusions.unavailablePayloadTypes to exclusions.unavailableHandlerIds
-                if (exclusions.isEmpty) listOf("blocked-key") else emptyList()
-            }
-            every {
-                payloadTypeAwareRepository.findIncompleteRecordsByRecordKey("blocked-key")
-            } throws
+        fun `unavailable payload type pauses polling until compatibility cooldown expires`() {
+            val recordKey = "incompatible-key"
+            val exception =
                 OutboxPayloadTypeNotFoundException(
                     recordId = "record-id",
-                    recordKey = "blocked-key",
-                    payloadType = "example.MissingPayload",
+                    recordKey = recordKey,
+                    payloadType = "example.UnavailablePayload",
                     handlerId = "handler-id",
-                    cause = ClassNotFoundException("example.MissingPayload"),
+                    cause = ClassNotFoundException("example.UnavailablePayload"),
                 )
-            scheduler.start()
+
+            prepareFindRecordKeysInPartitions(listOf(recordKey))
+            every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } throws exception
+
             scheduler.process()
             scheduler.process()
 
-            assertThat(observedExclusions)
-                .containsExactly(
-                    emptySet<String>() to emptySet(),
-                    setOf("example.MissingPayload") to emptySet(),
-                )
+            verify(exactly = 1) { partitionCoordinator.getAssignedPartitionNumbers() }
+            verify(exactly = 1) { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
+
+            clock.advanceBy(Duration.ofSeconds(30))
+            scheduler.process()
+
+            verify(exactly = 2) { partitionCoordinator.getAssignedPartitionNumbers() }
+            verify(exactly = 2) { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
         }
 
         @Test
-        fun `uses learned unavailable handler to exclude complete record keys`() {
-            val compatibilityAwareRepository = mockk<OutboxRecordRepository>(relaxed = true)
-            val observedExclusions = mutableListOf<Pair<Set<String>, Set<String>>>()
-            val scheduler =
-                OutboxProcessingScheduler(
-                    trigger = trigger,
-                    taskScheduler = taskScheduler,
-                    observationRegistry = { ObservationRegistry.NOOP },
-                    recordRepository = compatibilityAwareRepository,
-                    recordProcessorChain = recordProcessorChain,
-                    partitionCoordinator = partitionCoordinator,
-                    taskExecutor = SyncTaskExecutor(),
-                    properties = properties,
-                    clock = clock,
-                )
-            val record =
+        fun `unavailable handler pauses later polling but lets the current batch finish`() {
+            val incompatibleKey = "incompatible-key"
+            val compatibleKey = "compatible-key"
+            val incompatibleRecord =
                 OutboxRecordTestFactory.outboxRecord(
-                    recordKey = "blocked-key",
-                    handlerId = "missing-handler",
+                    recordKey = incompatibleKey,
                     nextRetryAt = Instant.now(clock).minusSeconds(1),
                 )
-            every {
-                compatibilityAwareRepository.findRecordKeysInPartitions(
-                    any(),
-                    any(),
-                    any(),
-                    any(),
-                    any(),
+            val incompatibleSuccessor =
+                OutboxRecordTestFactory.outboxRecord(
+                    recordKey = incompatibleKey,
+                    nextRetryAt = Instant.now(clock).minusSeconds(1),
                 )
-            } answers {
-                val exclusions = arg<OutboxCompatibilityExclusions>(4)
-                observedExclusions +=
-                    exclusions.unavailablePayloadTypes to exclusions.unavailableHandlerIds
-                if (exclusions.isEmpty) listOf(record.key) else emptyList()
-            }
-            every {
-                compatibilityAwareRepository.findIncompleteRecordsByRecordKey(record.key)
-            } returns listOf(record)
-            every { recordProcessorChain.handle(record) } throws
+            val compatibleRecord =
+                OutboxRecordTestFactory.outboxRecord(
+                    recordKey = compatibleKey,
+                    nextRetryAt = Instant.now(clock).minusSeconds(1),
+                )
+
+            prepareFindRecordKeysInPartitions(listOf(incompatibleKey, compatibleKey))
+            prepareFindIncompleteRecordsByRecordKey(
+                incompatibleKey,
+                listOf(incompatibleRecord, incompatibleSuccessor),
+            )
+            prepareFindIncompleteRecordsByRecordKey(compatibleKey, listOf(compatibleRecord))
+            every { recordProcessorChain.handle(incompatibleRecord) } throws
                 OutboxHandlerNotFoundException(
-                    recordId = record.id,
-                    recordKey = record.key,
-                    handlerId = record.handlerId,
+                    recordId = incompatibleRecord.id,
+                    recordKey = incompatibleRecord.key,
+                    handlerId = incompatibleRecord.handlerId,
                 )
-            scheduler.start()
+            every { recordProcessorChain.handle(compatibleRecord) } returns true
+
             scheduler.process()
             scheduler.process()
 
-            assertThat(record.failureCount).isZero()
-            assertThat(record.status).isEqualTo(OutboxRecordStatus.NEW)
-            assertThat(observedExclusions)
-                .containsExactly(
-                    emptySet<String>() to emptySet(),
-                    emptySet<String>() to setOf("missing-handler"),
-                )
+            verify(exactly = 1) { recordProcessorChain.handle(incompatibleRecord) }
+            verify(exactly = 0) { recordProcessorChain.handle(incompatibleSuccessor) }
+            verify(exactly = 1) { recordProcessorChain.handle(compatibleRecord) }
+            verify(exactly = 1) { partitionCoordinator.getAssignedPartitionNumbers() }
         }
 
         @Test
-        fun `uses learned deserialization failure to exclude its record key`() {
-            val compatibilityAwareRepository = mockk<OutboxRecordRepository>(relaxed = true)
-            val observedExclusions = mutableListOf<Triple<Set<String>, Set<String>, Set<String>>>()
-            val scheduler =
-                OutboxProcessingScheduler(
-                    trigger = trigger,
-                    taskScheduler = taskScheduler,
-                    observationRegistry = { ObservationRegistry.NOOP },
-                    recordRepository = compatibilityAwareRepository,
-                    recordProcessorChain = recordProcessorChain,
-                    partitionCoordinator = partitionCoordinator,
-                    taskExecutor = SyncTaskExecutor(),
-                    properties = properties,
-                    clock = clock,
-                )
-            every {
-                compatibilityAwareRepository.findRecordKeysInPartitions(
-                    any(),
-                    any(),
-                    any(),
-                    any(),
-                    any(),
-                )
-            } answers {
-                val exclusions = arg<OutboxCompatibilityExclusions>(4)
-                observedExclusions +=
-                    Triple(
-                        exclusions.unavailablePayloadTypes,
-                        exclusions.unavailableHandlerIds,
-                        exclusions.unavailableRecordKeys,
-                    )
-                if (exclusions.isEmpty) listOf("blocked-key") else emptyList()
-            }
-            every {
-                compatibilityAwareRepository.findIncompleteRecordsByRecordKey("blocked-key")
-            } throws
-                OutboxRecordDeserializationException(
-                    recordId = "record-id",
-                    recordKey = "blocked-key",
-                    payloadType = "example.Payload",
-                    handlerId = "handler-id",
-                    target = OutboxRecordDeserializationException.Target.PAYLOAD,
-                    context = mapOf("traceparent" to "trace-context"),
-                    cause = IllegalArgumentException("invalid payload"),
-                )
-            scheduler.start()
+        fun `ordinary processing exception does not pause polling`() {
+            val recordKey = "record-key"
+
+            prepareFindRecordKeysInPartitions(listOf(recordKey))
+            every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } throws RuntimeException("DB error")
+
             scheduler.process()
             scheduler.process()
 
-            assertThat(observedExclusions)
-                .containsExactly(
-                    Triple(emptySet(), emptySet(), emptySet()),
-                    Triple(emptySet(), emptySet(), setOf("blocked-key")),
-                )
+            verify(exactly = 2) { partitionCoordinator.getAssignedPartitionNumbers() }
+            verify(exactly = 2) { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
         }
 
         @Test
@@ -604,7 +522,6 @@ class OutboxProcessingSchedulerTest {
                     status = any(),
                     batchSize = 50,
                     ignoreRecordKeysWithPreviousFailure = any(),
-                    compatibilityExclusions = any(),
                 )
             }
         }
@@ -624,7 +541,6 @@ class OutboxProcessingSchedulerTest {
                     status = any(),
                     batchSize = 50,
                     ignoreRecordKeysWithPreviousFailure = any(),
-                    compatibilityExclusions = any(),
                 )
             }
         }
@@ -643,7 +559,6 @@ class OutboxProcessingSchedulerTest {
                     status = any(),
                     batchSize = any(),
                     ignoreRecordKeysWithPreviousFailure = true,
-                    compatibilityExclusions = any(),
                 )
             }
         }
@@ -895,7 +810,6 @@ class OutboxProcessingSchedulerTest {
                 status = any(),
                 batchSize = any(),
                 ignoreRecordKeysWithPreviousFailure = any(),
-                compatibilityExclusions = match { it.isEmpty },
             )
         } returns recordKeys
     }
@@ -905,5 +819,22 @@ class OutboxProcessingSchedulerTest {
         incompleteRecords: List<OutboxRecord<*>>,
     ) {
         every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } returns incompleteRecords
+    }
+
+    private class MutableClock(
+        initialInstant: Instant,
+        private val zoneId: ZoneId = ZoneId.of("UTC"),
+    ) : Clock() {
+        private val currentInstant = AtomicReference(initialInstant)
+
+        override fun getZone(): ZoneId = zoneId
+
+        override fun withZone(zone: ZoneId): Clock = MutableClock(instant(), zone)
+
+        override fun instant(): Instant = currentInstant.get()
+
+        fun advanceBy(duration: Duration) {
+            currentInstant.updateAndGet { it.plus(duration) }
+        }
     }
 }

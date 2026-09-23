@@ -72,33 +72,6 @@ interface OutboxRecordRepository {
     ): List<String>
 
     /**
-     * Finds record keys while excluding complete keys containing records that cannot be processed
-     * by the current instance.
-     *
-     * The default implementation preserves compatibility with existing repository implementations.
-     *
-     * @param partitions List of partition numbers to search in
-     * @param status The status to filter by
-     * @param batchSize Maximum number of record keys to return
-     * @param ignoreRecordKeysWithPreviousFailure Whether to exclude record keys with previous open/failed records
-     * @param compatibilityExclusions Payload types, handler IDs, and record keys unavailable on the current instance
-     * @return List of compatible record keys with pending records in the specified partitions
-     */
-    fun findRecordKeysInPartitions(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-        batchSize: Int,
-        ignoreRecordKeysWithPreviousFailure: Boolean,
-        compatibilityExclusions: OutboxCompatibilityExclusions,
-    ): List<String> =
-        findRecordKeysInPartitions(
-            partitions = partitions,
-            status = status,
-            batchSize = batchSize,
-            ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
-        )
-
-    /**
      * Counts records in a specific partition by status.
      *
      * @param partition The partition number

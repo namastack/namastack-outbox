@@ -23,7 +23,7 @@ class MongoOutboxRecordEntityMapperTest {
                 recordKey = "record-key",
                 recordType = "example.MissingPayload",
                 payload = "{}",
-                context = "serialized-context",
+                context = null,
                 partitionNo = 1,
                 createdAt = now,
                 completedAt = null,
@@ -33,79 +33,13 @@ class MongoOutboxRecordEntityMapperTest {
                 handlerId = "handler-id",
             )
 
-        every { serializer.deserialize("serialized-context", any<Class<Map<String, String>>>()) } returns
-            mapOf("traceparent" to "trace-context")
-
         val exception = assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
 
         assertThat(exception.recordId).isEqualTo("record-id")
         assertThat(exception.recordKey).isEqualTo("record-key")
         assertThat(exception.payloadType).isEqualTo("example.MissingPayload")
         assertThat(exception.handlerId).isEqualTo("handler-id")
-        assertThat(exception.context).containsEntry("traceparent", "trace-context")
         assertThat(exception.cause).isInstanceOf(ClassNotFoundException::class.java)
-    }
-
-    @Test
-    fun `exposes readable context when payload deserialization fails`() {
-        val cause = IllegalArgumentException("invalid payload")
-        val entity =
-            MongoOutboxRecordEntity(
-                id = "record-id",
-                status = OutboxRecordStatus.NEW,
-                recordKey = "record-key",
-                recordType = String::class.java.name,
-                payload = "serialized-payload",
-                context = "serialized-context",
-                partitionNo = 1,
-                createdAt = Instant.now(),
-                completedAt = null,
-                failureCount = 0,
-                failureReason = null,
-                nextRetryAt = Instant.now(),
-                handlerId = "handler-id",
-            )
-        every { serializer.deserialize("serialized-context", any<Class<Map<String, String>>>()) } returns
-            mapOf("traceparent" to "trace-context")
-        every { serializer.deserialize("serialized-payload", any<Class<*>>()) } throws cause
-
-        val exception = assertThrows<OutboxRecordDeserializationException> { mapper.map(entity) }
-
-        assertThat(exception.recordId).isEqualTo("record-id")
-        assertThat(exception.recordKey).isEqualTo("record-key")
-        assertThat(exception.payloadType).isEqualTo(String::class.java.name)
-        assertThat(exception.handlerId).isEqualTo("handler-id")
-        assertThat(exception.target).isEqualTo(OutboxRecordDeserializationException.Target.PAYLOAD)
-        assertThat(exception.context).containsEntry("traceparent", "trace-context")
-        assertThat(exception.cause).isSameAs(cause)
-    }
-
-    @Test
-    fun `identifies context deserialization failure without exposing partial context`() {
-        val cause = IllegalArgumentException("invalid context")
-        val entity =
-            MongoOutboxRecordEntity(
-                id = "record-id",
-                status = OutboxRecordStatus.NEW,
-                recordKey = "record-key",
-                recordType = String::class.java.name,
-                payload = "serialized-payload",
-                context = "serialized-context",
-                partitionNo = 1,
-                createdAt = Instant.now(),
-                completedAt = null,
-                failureCount = 0,
-                failureReason = null,
-                nextRetryAt = Instant.now(),
-                handlerId = "handler-id",
-            )
-        every { serializer.deserialize("serialized-context", any<Class<Map<String, String>>>()) } throws cause
-
-        val exception = assertThrows<OutboxRecordDeserializationException> { mapper.map(entity) }
-
-        assertThat(exception.target).isEqualTo(OutboxRecordDeserializationException.Target.CONTEXT)
-        assertThat(exception.context).isNull()
-        assertThat(exception.cause).isSameAs(cause)
     }
 
     @Test

@@ -28,10 +28,6 @@ internal open class JdbcOutboxRecordRepository(
     private val tableNameResolver: JdbcTableNameResolver,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
-    private companion object {
-        const val COMPATIBILITY_FILTER_PLACEHOLDER = "{{compatibilityFilter}}"
-    }
-
     private val tableName = tableNameResolver.outboxRecord
     private val rowMapper = JdbcOutboxRecordEntityRowMapper()
 
@@ -141,7 +137,6 @@ internal open class JdbcOutboxRecordRepository(
               AND older.completed_at IS NULL
               AND older.created_at < o.created_at
           )
-          $COMPATIBILITY_FILTER_PLACEHOLDER
         GROUP BY o.record_key
         ORDER BY MIN(o.created_at) ASC
         """.toSingleLine()
@@ -157,7 +152,6 @@ internal open class JdbcOutboxRecordRepository(
         WHERE o.partition_no IN (:partitions)
           AND o.status = :status
           AND o.next_retry_at <= :now
-          $COMPATIBILITY_FILTER_PLACEHOLDER
         GROUP BY o.record_key
         ORDER BY MIN(o.created_at) ASC
         """.toSingleLine()
@@ -280,120 +274,25 @@ internal open class JdbcOutboxRecordRepository(
         status: OutboxRecordStatus,
         batchSize: Int,
         ignoreRecordKeysWithPreviousFailure: Boolean,
-    ): List<String> =
-        findRecordKeysInPartitions(
-            partitions = partitions,
-            status = status,
-            batchSize = batchSize,
-            ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
-            compatibilityExclusions = OutboxCompatibilityExclusions(),
-        )
-
-    override fun findRecordKeysInPartitions(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-        batchSize: Int,
-        ignoreRecordKeysWithPreviousFailure: Boolean,
-        compatibilityExclusions: OutboxCompatibilityExclusions,
     ): List<String> {
-        val query = resolveRecordKeysQuery(ignoreRecordKeysWithPreviousFailure, compatibilityExclusions)
+        val now = Instant.now(clock)
 
-        return findRecordKeys(query, partitions, status, batchSize, compatibilityExclusions)
-    }
-
-    private fun resolveRecordKeysQuery(
-        ignoreRecordKeysWithPreviousFailure: Boolean,
-        compatibilityExclusions: OutboxCompatibilityExclusions,
-    ): String {
-        val template =
+        val query =
             if (ignoreRecordKeysWithPreviousFailure) {
                 recordKeysQueryWithPreviousFailureFilterTemplate
             } else {
                 recordKeysQueryWithoutPreviousFailureFilterTemplate
             }
 
-        return template.replace(
-            COMPATIBILITY_FILTER_PLACEHOLDER,
-            compatibilityFilter(compatibilityExclusions),
-        )
-    }
-
-    private fun compatibilityFilter(exclusions: OutboxCompatibilityExclusions): String {
-        if (exclusions.isEmpty) return ""
-
-        val predicates =
-            buildList {
-                if (exclusions.unavailablePayloadTypes.isNotEmpty()) {
-                    add("incompatible.record_type IN (:unavailablePayloadTypes)")
-                }
-                if (exclusions.unavailableHandlerIds.isNotEmpty()) {
-                    add("incompatible.handler_id IN (:unavailableHandlerIds)")
-                }
-                if (exclusions.unavailableRecordKeys.isNotEmpty()) {
-                    add("incompatible.record_key IN (:unavailableRecordKeys)")
-                }
-            }.joinToString(" OR ")
-
-        return """
-            AND NOT EXISTS (
-              SELECT 1 FROM $tableName incompatible
-              WHERE incompatible.record_key = o.record_key
-                AND incompatible.status = :status
-                AND ($predicates)
-            )
-        """.toSingleLine()
-    }
-
-    private fun findRecordKeys(
-        query: String,
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-        batchSize: Int,
-        compatibilityExclusions: OutboxCompatibilityExclusions,
-    ): List<String> {
-        val querySpec =
-            jdbcClient
-                .sql(query)
-                .withMaxRows(batchSize)
-                .param("partitions", partitions.toList())
-                .param("status", status.name)
-                .param("now", Timestamp.from(Instant.now(clock)))
-
-        return bindCompatibilityExclusions(querySpec, compatibilityExclusions)
+        return jdbcClient
+            .sql(query)
+            .withMaxRows(batchSize)
+            .param("partitions", partitions.toList())
+            .param("status", status.name)
+            .param("now", Timestamp.from(now))
             .query(String::class.java)
             .list()
             .filterNotNull()
-    }
-
-    private fun bindCompatibilityExclusions(
-        querySpec: JdbcClient.StatementSpec,
-        exclusions: OutboxCompatibilityExclusions,
-    ): JdbcClient.StatementSpec {
-        var result = querySpec
-
-        if (exclusions.unavailablePayloadTypes.isNotEmpty()) {
-            result =
-                result.param(
-                    "unavailablePayloadTypes",
-                    exclusions.unavailablePayloadTypes.toList(),
-                )
-        }
-        if (exclusions.unavailableHandlerIds.isNotEmpty()) {
-            result =
-                result.param(
-                    "unavailableHandlerIds",
-                    exclusions.unavailableHandlerIds.toList(),
-                )
-        }
-        if (exclusions.unavailableRecordKeys.isNotEmpty()) {
-            result =
-                result.param(
-                    "unavailableRecordKeys",
-                    exclusions.unavailableRecordKeys.toList(),
-                )
-        }
-
-        return result
     }
 
     /**
