@@ -125,24 +125,17 @@ class OutboxProcessingScheduler(
      * If the scheduler is not idle, the cycle is skipped.
      */
     fun process() {
+        if (isCompatibilityCooldownActive()) return
         if (!lifecycle.startProcessing()) return
 
         var processedCount = 0
-        var reportTaskCompletion = true
 
         try {
-            if (isCompatibilityCooldownActive()) {
-                reportTaskCompletion = false
-                return
-            }
-
             processedCount = processAssignedPartitions()
         } catch (ex: Exception) {
             log.error("Error during outbox processing", ex)
         } finally {
-            if (reportTaskCompletion) {
-                trigger.onTaskComplete(processedCount)
-            }
+            trigger.onTaskComplete(processedCount)
             lifecycle.stopProcessing()
         }
     }
