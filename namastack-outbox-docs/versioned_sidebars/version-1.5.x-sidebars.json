@@ -28,8 +28,7 @@
           "collapsed": true,
           "items": [
             "reference/persistence",
-            "reference/database",
-            "reference/mongodb-schema"
+            "reference/database"
           ]
         },
         {

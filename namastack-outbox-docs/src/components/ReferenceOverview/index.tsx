@@ -48,7 +48,6 @@ const referenceGroups: ReferenceGroup[] = [
     items: [
       {title: 'Persistence Modules', link: 'persistence/'},
       {title: 'Database Support', link: 'database/'},
-      {title: 'MongoDB Schema', link: 'mongodb-schema/', sinceVersion: '1.5.x'},
     ],
   },
   {
@@ -57,7 +56,6 @@ const referenceGroups: ReferenceGroup[] = [
     icon: IconAppsFilled,
     items: [
       {title: 'Messaging Integrations', link: 'messaging/', sinceVersion: '1.1.x'},
-      {title: 'RabbitMQ Integration', link: 'rabbitmq/', sinceVersion: '1.7.x'},
       {title: 'Spring Modulith Integration', link: 'spring-modulith/', sinceVersion: '1.7.x'},
     ],
   },

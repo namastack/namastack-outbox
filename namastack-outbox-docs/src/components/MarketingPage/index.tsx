@@ -188,11 +188,16 @@ export function BrandIntro() {
     <section className={styles.surfaceSection}>
       <div className={styles.container}>
         <div className={styles.introRow}>
-          <SectionHeader eyebrow="Brand philosophy" title="What is Namastack?" />
-          <p>
-            Namastack is the umbrella brand for open-source infrastructure tools for modern
-            distributed applications. Today, that work is represented by Namastack Outbox.
-          </p>
+          <SectionHeader
+            eyebrow="Brand philosophy"
+            title="What is Namastack?"
+            description={
+              <>
+                Namastack is the umbrella brand for open-source infrastructure tools for modern
+                distributed applications. Today, that work is represented by Namastack Outbox.
+              </>
+            }
+          />
         </div>
         <div className={styles.tenetGrid}>
           {tenets.map(({title, description, label, icon: Icon}) => (

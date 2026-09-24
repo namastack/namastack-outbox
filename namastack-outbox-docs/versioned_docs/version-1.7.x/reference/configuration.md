@@ -134,7 +134,7 @@ spring:
       mandatory: true
 ```
 
-See [RabbitMQ Integration](rabbitmq.md) for the full reliability semantics.
+See [RabbitMQ Integration](messaging.md#rabbitmq-integration) for the full reliability semantics.
 :::
 
 ---

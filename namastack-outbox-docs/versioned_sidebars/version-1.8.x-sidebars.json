@@ -28,8 +28,7 @@
           "collapsed": true,
           "items": [
             "reference/persistence",
-            "reference/database",
-            "reference/mongodb-schema"
+            "reference/database"
           ]
         },
         {
@@ -38,7 +37,6 @@
           "collapsed": true,
           "items": [
             "reference/messaging",
-            "reference/rabbitmq",
             "reference/modulith"
           ]
         },

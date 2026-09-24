@@ -223,5 +223,5 @@ namastack:
 | `collection-prefix: "tenant1_"` | `tenant1_outbox_records`  |
 
 <Admonition type="note" title="Index Creation">
-Ensure `spring.data.mongodb.auto-index-creation` is set to `true` (or manage indexes manually) so that the required indexes for outbox collections are created automatically. For production environments, consider using the [manual setup script](mongodb-schema.md) instead.
+Ensure `spring.data.mongodb.auto-index-creation` is set to `true` (or manage indexes manually) so that the required indexes for outbox collections are created automatically. For production environments, consider using the [manual setup script](database.md#mongodb-schema) instead.
 </Admonition>

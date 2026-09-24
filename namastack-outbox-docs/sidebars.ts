@@ -28,7 +28,6 @@ const sidebars: SidebarsConfig = {
           items: [
             'reference/persistence',
             'reference/database',
-            'reference/mongodb-schema',
           ],
         },
         {
@@ -37,7 +36,6 @@ const sidebars: SidebarsConfig = {
           collapsed: true,
           items: [
             'reference/messaging',
-            'reference/rabbitmq',
             'reference/modulith',
           ],
         },

@@ -333,18 +333,7 @@
 }
 
 .introRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.8fr);
-  align-items: end;
-  gap: 4rem;
   margin-bottom: 2.25rem;
-}
-
-.introRow > p {
-  margin: 0;
-  color: var(--ns-text-muted);
-  font-size: 0.9rem;
-  line-height: 1.7;
 }
 
 .tenetGrid {
@@ -802,7 +791,6 @@
     padding-top: 4rem;
   }
 
-  .introRow,
   .integrationPanel,
   .productOverviewGrid {
     grid-template-columns: 1fr;
