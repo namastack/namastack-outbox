@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Retry Mechanisms
 description: Sophisticated retry strategies with exponential backoff, jitter, and exception filtering.
 sidebar_position: 7
@@ -739,4 +742,3 @@ OutboxRetryPolicy advancedPolicy = OutboxRetryPolicy.builder()
 
 </TabItem>
 </Tabs>
-

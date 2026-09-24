@@ -1,13 +1,73 @@
-.featureCard {
+.referenceOverview {
+  margin-top: 0.5rem;
+}
+
+.intro {
+  margin-bottom: 2rem;
+}
+
+.intro h1 {
+  margin-bottom: 0.5rem;
+}
+
+.intro p {
+  color: var(--ifm-color-content-secondary);
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.groupCard {
   height: 100%;
   display: flex;
   flex-direction: column;
+  padding: 1.25rem;
+  background: transparent;
+  box-shadow: none;
 }
 
-.featureCard .card__body {
-  flex: 1;
+.groupHeader {
+  align-items: center;
+  display: flex;
+  gap: 0.65rem;
 }
 
-.featureCard .card__footer {
-  margin-top: auto;
+.groupHeader h2 {
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.groupDescription {
+  color: var(--ifm-color-content-secondary);
+  margin: 0.75rem 0 1rem;
+}
+
+.topicList {
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+  list-style: none;
+  margin: auto 0 0;
+  padding: 0;
+}
+
+.topicList li + li {
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.topicLink {
+  align-items: center;
+  display: flex;
+  font-weight: 500;
+  justify-content: space-between;
+  padding: 0.65rem 0;
+}
+
+.topicLink:hover {
+  text-decoration: none;
+}
+
+.topicLink span:last-child {
+  transition: transform var(--ifm-transition-fast) ease;
+}
+
+.topicLink:hover span:last-child {
+  transform: translateX(0.2rem);
 }

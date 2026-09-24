@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: MongoDB Schema
 description: Manual collection and index setup for MongoDB.
 sidebar_position: 13
@@ -88,4 +91,3 @@ For production environments, it is recommended to disable `auto-index-creation` 
 via the setup script (or your own migration tooling). This gives you full control over when and how
 indexes are created, avoiding potential performance impacts during application startup.
 :::
-

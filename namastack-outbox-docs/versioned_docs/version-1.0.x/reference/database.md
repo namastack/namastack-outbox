@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Database Support
 description: Supported databases and schema management.
 sidebar_position: 12

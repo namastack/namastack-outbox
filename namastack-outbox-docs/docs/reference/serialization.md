@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Serialization
 description: Flexible payload serialization with Jackson or custom serializers.
 sidebar_position: 12
@@ -11,6 +14,10 @@ import VersionedCode from '@site/src/components/VersionedCode';
 # Payload Serialization
 
 Records are serialized before storage and deserialized during processing. The library provides flexible serialization through the `OutboxPayloadSerializer` interface.
+
+The fully qualified payload class name is persisted with every record. Package or class renames and
+breaking payload changes therefore require a compatibility rollout. See
+[Rolling Deployments](rolling-deployments.md#changing-a-payload).
 
 ## Jackson Module (Default)
 

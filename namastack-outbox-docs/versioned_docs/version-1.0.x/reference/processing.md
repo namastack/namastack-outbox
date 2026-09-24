@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Processing Chain
 description: Chain of Responsibility pattern for processing records through multiple stages.
 sidebar_position: 3

@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Messaging Integrations
 description: Ready-to-use handlers and configuration for Kafka, RabbitMQ, and SNS integrations.
 sidebar_position: 4.5

@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Core Features
 description: Transactional outbox pattern, record ordering, and hash-based partitioning for horizontal scaling.
 sidebar_position: 1

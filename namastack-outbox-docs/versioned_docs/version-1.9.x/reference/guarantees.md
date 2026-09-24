@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Reliability Guarantees
 description: What Namastack Outbox guarantees about message delivery, ordering, failure recovery, and scalability — and what it intentionally does not guarantee.
 sidebar_position: 13

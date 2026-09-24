@@ -63,12 +63,12 @@ const HowItWorks: React.FC = () => {
 
           <div className="col col--6 text--center">
             <img
-              src="/outbox/img/landing/diagram_light.svg"
+              src="/img/landing/diagram_light.svg"
               alt="Outbox architecture diagram"
               className={`${styles.diagramImage} ${styles.lightDiagram}`}
             />
             <img
-              src="/outbox/img/landing/diagram_dark.svg"
+              src="/img/landing/diagram_dark.svg"
               alt="Outbox architecture diagram"
               className={`${styles.diagramImage} ${styles.darkDiagram}`}
             />

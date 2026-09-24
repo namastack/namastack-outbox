@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Virtual Threads Support
 description: How Namastack Outbox integrates with Java virtual threads in Spring Boot for improved scalability, and when to use virtual threads versus platform thread pools.
 sidebar_position: 11

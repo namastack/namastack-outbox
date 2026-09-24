@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Processing Chain
 description: Chain of Responsibility pattern for processing records through multiple stages.
 sidebar_position: 5
@@ -9,6 +12,12 @@ sidebar_position: 5
 :::info Internal Processing Pipeline
 The library uses a **Chain of Responsibility** pattern to process outbox records through multiple stages. Each processor in the chain handles a specific concern and can delegate to the next processor when needed.
 :::
+
+An unavailable payload type or handler is handled before the normal delivery-failure chain. No
+handler was invoked in that situation, so the record remains `NEW` and does not consume a delivery
+retry. See
+[Rolling Deployments](rolling-deployments.md#compatibility-failures-during-a-rollout) for the
+complete behavior and the required deployment sequence.
 
 ## Chain Architecture
 

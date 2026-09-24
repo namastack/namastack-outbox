@@ -7,9 +7,9 @@ declare global {
   }
 }
 
-const CDN_P5    = '/outbox/vendor/p5.min.js';
-const CDN_THREE = '/outbox/vendor/three.min.js';
-const CDN_VANTA = '/outbox/vendor/vanta.topology.min.js';
+const CDN_P5    = '/vendor/p5.min.js';
+const CDN_THREE = '/vendor/three.min.js';
+const CDN_VANTA = '/vendor/vanta.topology.min.js';
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {

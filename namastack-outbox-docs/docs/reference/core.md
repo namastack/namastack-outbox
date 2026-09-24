@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Core Features
 description: Transactional outbox pattern, record ordering, and hash-based partitioning for horizontal scaling.
 sidebar_position: 1
@@ -154,6 +157,10 @@ val partition = PartitionHasher.getPartitionForAggregate("order-123")
 ### Instance Coordination
 
 Instances automatically coordinate partition assignments and rebalance when topology changes. Configuration controls how aggressive this coordination is:
+
+During a rolling deployment, an old or new instance may own the partition for a record written by
+another version. Follow the [Rolling Deployments](rolling-deployments.md) guide before producing
+records that require new payload classes or handlers.
 
 ```yaml
 namastack:

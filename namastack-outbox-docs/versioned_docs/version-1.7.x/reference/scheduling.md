@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Record Scheduling
 description: Schedule records via the Outbox Service API or use Spring's event system with @OutboxEvent.
 sidebar_position: 2

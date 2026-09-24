@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Monitoring
 description: Built-in metrics with Micrometer and Spring Boot Actuator integration.
 sidebar_position: 9

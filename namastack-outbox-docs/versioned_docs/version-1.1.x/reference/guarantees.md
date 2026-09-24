@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Reliability Guarantees
 description: What the library guarantees and what it does not.
 sidebar_position: 13

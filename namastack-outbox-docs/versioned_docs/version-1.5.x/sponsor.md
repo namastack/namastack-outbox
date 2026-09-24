@@ -48,7 +48,7 @@ Not in a position to sponsor right now? Totally fine — there are plenty of oth
 
 - **Star the repo** on [GitHub](https://github.com/namastack/namastack-outbox) — it helps others discover the library
 - **Spread the word** — share it with your team, write about your experience, mention it when the topic comes up
-- **Contribute** — report bugs, improve docs, submit a PR — see [Contributing](/contributing)
+- **Contribute** — report bugs, improve docs, submit a PR — see [Contributing](/docs/contributing/)
 - **Engage** — open a [Discussion](https://github.com/namastack/namastack-outbox/discussions), ask questions, help others
 
 ---

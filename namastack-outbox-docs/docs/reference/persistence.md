@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Persistence Modules
 description: Choose between JPA, JDBC, and MongoDB persistence modules.
 sidebar_position: 2

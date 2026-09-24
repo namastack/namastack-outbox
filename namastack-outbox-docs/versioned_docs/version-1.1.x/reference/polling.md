@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Polling Strategies
 description: Learn about fixed and adaptive polling strategies for outbox processing, including configuration options and use cases.
 sidebar_position: 4

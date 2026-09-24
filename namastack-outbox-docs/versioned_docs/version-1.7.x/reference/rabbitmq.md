@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: RabbitMQ Integration
 description: RabbitMQ-specific publishing guarantees, required Spring AMQP settings, routing, and failure handling.
 sidebar_position: 4.6

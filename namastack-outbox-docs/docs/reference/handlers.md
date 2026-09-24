@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Handlers
 description: Type-safe and generic handlers for processing outbox records, including fallback handlers for graceful degradation.
 sidebar_position: 3
@@ -313,6 +316,9 @@ The same two-release approach is recommended when moving from a generated ID to 
 first keep the generated ID by omitting `id` and add the future ID as an alias; in the next release,
 set the explicit ID. The generated ID is then retained automatically as a legacy alias where it can
 be reconstructed reliably.
+
+See [Rolling Deployments](rolling-deployments.md) for the general consumer-before-producer rollout,
+removal, and rollback procedures.
 
 ---
 

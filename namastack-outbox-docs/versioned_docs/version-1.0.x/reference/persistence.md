@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Persistence
 description: Choose between JPA and JDBC persistence modules.
 sidebar_position: 8

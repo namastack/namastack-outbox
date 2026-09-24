@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Observability
 description: Built-in metrics, distributed tracing, and programmatic monitoring with Micrometer, OpenTelemetry, and Spring Boot Actuator.
 sidebar_position: 10
@@ -277,4 +280,3 @@ Important notes:
 If you need a completely custom observation lifecycle (e.g., additional spans around multiple handlers
 or custom error handling), consider writing a custom `Advisor` using `OutboxInvokerObservationAdvice` as
 a reference or extending the auto-configuration with your own `@Bean` of type `Advisor`.
-

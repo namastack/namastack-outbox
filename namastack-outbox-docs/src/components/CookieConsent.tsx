@@ -3,6 +3,13 @@ import pluginConfig from './CookieConsentConfig';
 
 const GA_ID = 'G-7T0WYS15SK';
 
+declare global {
+  interface Window {
+    dataLayer: unknown[][];
+    gtag: (...args: unknown[]) => void;
+  }
+}
+
 const CookieConsentComponent = () => {
   const ccRef = useRef<any>(null);
   const gaLoadedRef = useRef(false);
@@ -34,7 +41,7 @@ const CookieConsentComponent = () => {
     gaLoadedRef.current = true;
 
     window.dataLayer = window.dataLayer || [];
-    window.gtag = function(){ window.dataLayer.push(arguments); };
+    window.gtag = (...args: unknown[]) => { window.dataLayer.push(args); };
     window.gtag('js', new Date());
     window.gtag('config', GA_ID);
 

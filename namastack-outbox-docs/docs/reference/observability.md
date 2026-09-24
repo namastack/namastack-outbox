@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Observability
 description: Built-in metrics, distributed tracing, and operational monitoring with Micrometer, OpenTelemetry, and Spring Boot Actuator.
 sidebar_position: 10

@@ -23,8 +23,8 @@
 
 <div align="center">
   <p>
-    <a href="https://www.namastack.io/outbox/">Documentation</a> ·
-    <a href="https://www.namastack.io/outbox/quickstart/">Getting Started</a> ·
+    <a href="https://www.namastack.io/docs/">Documentation</a> ·
+    <a href="https://www.namastack.io/docs/quickstart/">Getting Started</a> ·
     <a href="https://github.com/namastack/namastack-outbox/releases">Releases</a> ·
     <a href="https://github.com/namastack/namastack-outbox/discussions">Community</a>
   </p>
@@ -42,7 +42,7 @@ Namastack Outbox is an open-source **transactional outbox implementation for Spr
 
 It persists events atomically with your business data and processes them asynchronously with built-in support for retries, ordering, horizontal scaling and observability — without requiring additional infrastructure.
 
-**[Explore the documentation →](https://www.namastack.io/outbox/)**
+**[Explore the documentation →](https://www.namastack.io/docs/)**
 
 ## Why Namastack Outbox?
 
@@ -90,9 +90,9 @@ Business data and its outbox record commit together. Namastack delivers the reco
 
 Everything you need to get started, configure and operate Namastack Outbox is available in the documentation.
 
-* **[Getting Started →](https://www.namastack.io/outbox/quickstart/)**
-* **[Documentation →](https://www.namastack.io/outbox/)**
-* **[Reference →](https://www.namastack.io/outbox/reference/)**
+* **[Getting Started →](https://www.namastack.io/docs/quickstart/)**
+* **[Documentation →](https://www.namastack.io/docs/)**
+* **[Reference →](https://www.namastack.io/docs/reference/)**
 * **[API Reference →](https://javadoc.io/doc/io.namastack/namastack-outbox-api)**
 
 ---

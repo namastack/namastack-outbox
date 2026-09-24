@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Spring Modulith Integration
 description: Outbox-backed event externalization for Spring Modulith
 sidebar_position: 4.5

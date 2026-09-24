@@ -2,74 +2,115 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Docusaurus plugin that:
- * 1. Rewrites canonical URLs on older/unreleased version pages to point to the
- *    equivalent latest-version (unversioned) URL.
- * 2. Generates a robots.txt that blocks crawling of old version paths.
+ * Keeps versioned documentation SEO signals aligned with the latest docs,
+ * emits robots.txt, and generates static fallback redirects for the former
+ * /outbox/* documentation routes.
  *
- * All version info is derived automatically from versions.json — no manual
- * configuration needed.
+ * Vercel handles redirects before static files in production. The generated
+ * files keep the migration working on any static host as well.
  */
-module.exports = function canonicalFixPlugin(context) {
+module.exports = function siteMigrationPlugin(context) {
   const {siteConfig} = context;
   const siteUrl = siteConfig.url;
   const baseUrl = siteConfig.baseUrl;
+  const docsPath = 'docs';
 
-  // Read versions.json; first entry is the latest version (served at root)
   const versionsPath = path.join(context.siteDir, 'versions.json');
   const versions = JSON.parse(fs.readFileSync(versionsPath, 'utf-8'));
   const olderVersions = versions.slice(1);
-
-  // Version prefixes that need canonical rewrites (older versions + "next")
   const versionPrefixes = [...olderVersions, 'next'];
 
   return {
-    name: 'canonical-fix-plugin',
+    name: 'site-migration-plugin',
 
     async postBuild({outDir}) {
-      // 1. Rewrite canonical URLs in versioned HTML pages
-      for (const prefix of versionPrefixes) {
-        const versionDir = path.join(outDir, prefix);
-        if (!fs.existsSync(versionDir)) continue;
+      const docsDir = path.join(outDir, docsPath);
 
-        const htmlFiles = findHtmlFiles(versionDir);
-
-        for (const filePath of htmlFiles) {
-          let html = fs.readFileSync(filePath, 'utf-8');
-
-          const canonicalRegex = new RegExp(
-            `(<link[^>]*rel="canonical"[^>]*href=")${escapeRegExp(siteUrl + baseUrl)}${escapeRegExp(prefix)}/([^"]*")`
-          );
-          const replacement = `$1${siteUrl}${baseUrl}$2`;
-          const newHtml = html.replace(canonicalRegex, replacement);
-
-          if (newHtml !== html) {
-            fs.writeFileSync(filePath, newHtml, 'utf-8');
-          }
-        }
-      }
-
-      // 2. Generate robots.txt
-      const disallowRules = versionPrefixes
-        .map((prefix) => `Disallow: ${baseUrl}${prefix}/`)
-        .join('\n');
-
-      const robotsTxt = [
-        'User-agent: *',
-        '',
-        `Allow: ${baseUrl}`,
-        '',
-        '# Block old and unreleased versioned docs',
-        disallowRules,
-        '',
-        `Sitemap: ${siteUrl}${baseUrl}sitemap.xml`,
-        '',
-      ].join('\n');
-
-      fs.writeFileSync(path.join(outDir, 'robots.txt'), robotsTxt, 'utf-8');
+      rewriteVersionCanonicals(docsDir, versionPrefixes, siteUrl, baseUrl, docsPath);
+      createLegacyDocumentationRedirects(docsDir, outDir, siteUrl, baseUrl, docsPath);
+      writeRobotsTxt(outDir, versionPrefixes, siteUrl, baseUrl, docsPath);
     },
   };
 };
+
+function rewriteVersionCanonicals(docsDir, versionPrefixes, siteUrl, baseUrl, docsPath) {
+  for (const prefix of versionPrefixes) {
+    const versionDir = path.join(docsDir, prefix);
+    if (!fs.existsSync(versionDir)) continue;
+
+    for (const filePath of findHtmlFiles(versionDir)) {
+      const html = fs.readFileSync(filePath, 'utf-8');
+      const versionRoot = `${siteUrl}${baseUrl}${docsPath}/${prefix}/`;
+      const latestRoot = `${siteUrl}${baseUrl}${docsPath}/`;
+      const canonicalRegex = new RegExp(
+        `(<link[^>]*rel="canonical"[^>]*href=")${escapeRegExp(versionRoot)}([^"]*")`
+      );
+      const nextHtml = html.replace(canonicalRegex, `$1${latestRoot}$2`);
+
+      if (nextHtml !== html) {
+        fs.writeFileSync(filePath, nextHtml, 'utf-8');
+      }
+    }
+  }
+}
+
+function createLegacyDocumentationRedirects(docsDir, outDir, siteUrl, baseUrl, docsPath) {
+  if (!fs.existsSync(docsDir)) return;
+
+  for (const sourceFile of findHtmlFiles(docsDir)) {
+    const relativePath = path.relative(docsDir, sourceFile);
+
+    // /outbox/ is the product page in the new information architecture.
+    if (relativePath === 'index.html') continue;
+
+    const redirectFile = path.join(outDir, 'outbox', relativePath);
+    const routePath = relativePath.replace(/index\.html$/, '').replace(/\\/g, '/');
+    const targetPath = `${baseUrl}${docsPath}/${routePath}`;
+    const canonicalUrl = new URL(targetPath, siteUrl).toString();
+
+    fs.mkdirSync(path.dirname(redirectFile), {recursive: true});
+    fs.writeFileSync(
+      redirectFile,
+      [
+        '<!doctype html>',
+        '<html lang="en">',
+        '<head>',
+        '<meta charset="utf-8">',
+        '<meta name="robots" content="noindex">',
+        `<link rel="canonical" href="${canonicalUrl}">`,
+        `<meta http-equiv="refresh" content="0; url=${targetPath}">`,
+        '<title>Documentation moved</title>',
+        '</head>',
+        '<body>',
+        `<p>This documentation moved to <a href="${targetPath}">${targetPath}</a>.</p>`,
+        `<script>location.replace(${JSON.stringify(targetPath)} + location.search + location.hash);</script>`,
+        '</body>',
+        '</html>',
+      ].join('\n'),
+      'utf-8'
+    );
+  }
+}
+
+function writeRobotsTxt(outDir, versionPrefixes, siteUrl, baseUrl, docsPath) {
+  const disallowRules = versionPrefixes
+    .map((prefix) => `Disallow: ${baseUrl}${docsPath}/${prefix}/`)
+    .join('\n');
+
+  const robotsTxt = [
+    'User-agent: *',
+    '',
+    `Allow: ${baseUrl}`,
+    '',
+    '# Block old and unreleased versioned docs',
+    disallowRules,
+    '',
+    `Sitemap: ${siteUrl}${baseUrl}sitemap.xml`,
+    '',
+  ].join('\n');
+
+  fs.writeFileSync(path.join(outDir, 'robots.txt'), robotsTxt, 'utf-8');
+}
 
 function findHtmlFiles(dir) {
   const results = [];

@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Handlers
 description: Type-safe and generic handlers for processing outbox records, including fallback handlers for graceful degradation.
 sidebar_position: 4

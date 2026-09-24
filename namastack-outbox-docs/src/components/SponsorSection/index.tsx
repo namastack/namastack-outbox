@@ -27,7 +27,7 @@ const SponsorSection: React.FC = () => {
             </Link>
             <Link
               className="button button--secondary button--lg"
-              to="/sponsor">
+              to="/docs/sponsor/">
               Learn more
             </Link>
           </div>

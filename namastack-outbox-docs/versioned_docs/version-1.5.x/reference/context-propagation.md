@@ -1,4 +1,7 @@
 ---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
 title: Context Propagation
 description: Preserve trace IDs, tenant info, and other metadata across async boundaries.
 sidebar_position: 8

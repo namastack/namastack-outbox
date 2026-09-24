@@ -1,4 +1,26 @@
 {
   "installCommand": "npm ci",
-  "trailingSlash": true
+  "trailingSlash": true,
+  "redirects": [
+    {"source": "/outbox/quickstart/:path*", "destination": "/docs/quickstart/:path*", "permanent": true},
+    {"source": "/outbox/reference/:path*", "destination": "/docs/reference/:path*", "permanent": true},
+    {"source": "/outbox/contributing/:path*", "destination": "/docs/contributing/:path*", "permanent": true},
+    {"source": "/outbox/sponsor/:path*", "destination": "/docs/sponsor/:path*", "permanent": true},
+    {"source": "/outbox/legal-notice/:path*", "destination": "/docs/legal-notice/:path*", "permanent": true},
+    {"source": "/outbox/next/:path*", "destination": "/docs/next/:path*", "permanent": true},
+    {"source": "/outbox/1.9.x/:path*", "destination": "/docs/:path*", "permanent": true},
+    {"source": "/outbox/1.8.x/:path*", "destination": "/docs/1.8.x/:path*", "permanent": true},
+    {"source": "/outbox/1.7.x/:path*", "destination": "/docs/1.7.x/:path*", "permanent": true},
+    {"source": "/outbox/1.6.x/:path*", "destination": "/docs/1.6.x/:path*", "permanent": true},
+    {"source": "/outbox/1.5.x/:path*", "destination": "/docs/1.5.x/:path*", "permanent": true},
+    {"source": "/outbox/1.4.x/:path*", "destination": "/docs/1.4.x/:path*", "permanent": true},
+    {"source": "/outbox/1.3.x/:path*", "destination": "/docs/1.3.x/:path*", "permanent": true},
+    {"source": "/outbox/1.2.x/:path*", "destination": "/docs/1.2.x/:path*", "permanent": true},
+    {"source": "/outbox/1.1.x/:path*", "destination": "/docs/1.1.x/:path*", "permanent": true},
+    {"source": "/outbox/1.0.x/:path*", "destination": "/docs/1.0.x/:path*", "permanent": true},
+    {"source": "/outbox/search/:path*", "destination": "/search/:path*", "permanent": true},
+    {"source": "/outbox/img/:path*", "destination": "/img/:path*", "permanent": true},
+    {"source": "/outbox/sitemap.xml", "destination": "/sitemap.xml", "permanent": true},
+    {"source": "/outbox/robots.txt", "destination": "/robots.txt", "permanent": true}
+  ]
 }

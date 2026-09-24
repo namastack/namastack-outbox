@@ -42,7 +42,7 @@ export default function HomepageContent(): ReactNode {
               while the other fails. Namastack closes that gap by saving the outbox record in the
               same local transaction as the business change. Background workers deliver committed
               records and retry failures. Delivery can repeat after a crash, so consumers should be
-              idempotent. See the <Link to="/reference/guarantees/">delivery guarantees</Link>.
+              idempotent. See the <Link to="/docs/reference/guarantees/">delivery guarantees</Link>.
             </p>
           </article>
 
@@ -56,8 +56,8 @@ export default function HomepageContent(): ReactNode {
               Kafka, RabbitMQ, and Amazon SNS integrations, or write a custom handler. Per-key
               ordering, partition-aware horizontal scaling, configurable retries, fallback handling,
               Micrometer metrics, and trace propagation cover the operational path from persistence
-              to delivery. Explore <Link to="/reference/persistence/">persistence</Link> and{' '}
-              <Link to="/reference/messaging/">messaging</Link> options.
+              to delivery. Explore <Link to="/docs/reference/persistence/">persistence</Link> and{' '}
+              <Link to="/docs/reference/messaging/">messaging</Link> options.
             </p>
           </article>
         </div>

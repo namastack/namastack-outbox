@@ -1,270 +1,232 @@
-import type {ReactNode} from 'react';
+import type {ComponentType, ReactNode} from 'react';
 import clsx from 'clsx';
-import styles from './styles.module.css';
+import Link from '@docusaurus/Link';
+import {useActiveVersion} from '@docusaurus/plugin-content-docs/client';
 import {
-  IconArrowBigRightLinesFilled,
-  IconBrandSketchFilled,
-  IconCalendarEventFilled,
+  IconAppsFilled,
   IconChartBar,
   IconDatabase,
   IconDeviceHeartMonitorFilled,
-  IconDropletsFilled,
   IconFileSettingsFilled,
-  IconManualGearboxFilled,
-  IconMessage2Bolt,
-  IconAppsFilled,
-  IconReplaceFilled,
-  IconShieldCheckeredFilled,
-  IconSignRightFilled,
-  IconTableFilled,
   IconRollercoasterFilled,
+  IconShieldCheckeredFilled,
 } from '@tabler/icons-react';
-import {useActiveVersion} from '@docusaurus/plugin-content-docs/client';
+import styles from './styles.module.css';
 
-const referenceCategories = [
+type VersionedReferenceItem = {
+  title: string;
+  link: string;
+  sinceVersion?: string;
+  untilVersion?: string;
+  excludeInVersion?: string[];
+};
+
+type ReferenceGroup = {
+  title: string;
+  description: string;
+  icon: ComponentType<{size?: number; 'aria-hidden'?: boolean}>;
+  items: VersionedReferenceItem[];
+};
+
+const referenceGroups: ReferenceGroup[] = [
   {
-    title: 'Configuration',
-    icon: IconFileSettingsFilled,
-    description: 'Complete reference of all configuration options.',
-    link: 'configuration/',
-  },
-  {
-    title: 'Core Features',
+    title: 'Core Concepts',
+    description: 'Processing model, delivery guarantees, scheduling, handlers, and the processing chain.',
     icon: IconShieldCheckeredFilled,
-    description: 'Transactional outbox pattern, record ordering, and hash-based partitioning for horizontal scaling.',
-    link: 'core/',
+    items: [
+      {title: 'Core Features', link: 'core/'},
+      {title: 'Reliability Guarantees', link: 'guarantees/'},
+      {title: 'Record Scheduling', link: 'scheduling/'},
+      {title: 'Handlers', link: 'handlers/'},
+      {title: 'Processing Chain', link: 'processing/'},
+    ],
   },
   {
-    title: 'Persistence Modules',
+    title: 'Persistence',
+    description: 'Persistence modules, supported databases, and schema details.',
     icon: IconDatabase,
-    description: 'Choose between JPA and JDBC persistence modules.',
-    link: 'persistence/',
+    items: [
+      {title: 'Persistence Modules', link: 'persistence/'},
+      {title: 'Database Support', link: 'database/'},
+      {title: 'MongoDB Schema', link: 'mongodb-schema/', sinceVersion: '1.5.x'},
+    ],
   },
   {
-    title: 'Record Scheduling',
-    icon: IconCalendarEventFilled,
-    description: 'Schedule records via the Outbox Service API or use Spring\'s event system with @OutboxEvent.',
-    link: 'scheduling/',
+    title: 'Integrations',
+    description: 'Messaging and Spring integrations supported by Namastack Outbox.',
+    icon: IconAppsFilled,
+    items: [
+      {title: 'Messaging Integrations', link: 'messaging/', sinceVersion: '1.1.x'},
+      {title: 'RabbitMQ Integration', link: 'rabbitmq/', sinceVersion: '1.7.x'},
+      {title: 'Spring Modulith Integration', link: 'spring-modulith/', sinceVersion: '1.7.x'},
+    ],
   },
   {
-    title: 'Handlers',
-    icon: IconReplaceFilled,
-    description: 'Type-safe and generic handlers for processing outbox records, including fallback handlers for graceful degradation.',
-    link: 'handlers/',
-  },
-  {
-    title: 'Messaging Integrations',
-    icon: IconMessage2Bolt,
-    description: 'Production-ready Kafka and RabbitMQ handlers with flexible routing and configuration.',
-    link: 'messaging/',
-    sinceVersion: '1.1.x',
-  },
-  {
-    title: 'Polling Strategies',
+    title: 'Processing & Resilience',
+    description: 'Polling, retries, concurrency, and safe behavior during deployments.',
     icon: IconDeviceHeartMonitorFilled,
-    description: 'Supports both fixed and adaptive polling strategies for efficient and responsive outbox processing.',
-    link: 'polling/',
-    sinceVersion: '1.1.x',
-  },
-  {
-    title: 'Processing Chain',
-    icon: IconManualGearboxFilled,
-    description: 'Chain of Responsibility pattern for processing records through multiple stages.',
-    link: 'processing/',
-  },
-  {
-    title: 'Retry Mechanisms',
-    icon: IconSignRightFilled,
-    description: 'Sophisticated retry strategies with exponential backoff, jitter, and exception filtering.',
-    link: 'retry/',
-  },
-  {
-    title: 'Context Propagation',
-    icon: IconDropletsFilled,
-    description: 'Preserve trace IDs, tenant info, and other metadata across async boundaries.',
-    link: 'context-propagation/',
-  },
-  {
-    title: 'Monitoring',
-    icon: IconChartBar,
-    description: 'Built-in metrics with Micrometer and Spring Boot Actuator integration.',
-    link: 'monitoring/',
-    untilVersion: '1.1.x',
+    items: [
+      {title: 'Polling Strategies', link: 'polling/', sinceVersion: '1.1.x'},
+      {title: 'Retry Mechanisms', link: 'retry/'},
+      {title: 'Virtual Threads Support', link: 'virtual-threads/'},
+      {title: 'Rolling Deployments', link: 'rolling-deployments/', sinceVersion: '1.10.x'},
+    ],
   },
   {
     title: 'Observability',
+    description: 'Metrics, tracing, monitoring, and context propagation.',
     icon: IconChartBar,
-    description: 'Built-in metrics, distributed tracing, and programmatic monitoring.',
-    link: 'observability/',
-    sinceVersion: '1.2.x',
+    items: [
+      {title: 'Monitoring', link: 'monitoring/', untilVersion: '1.1.x'},
+      {title: 'Observability', link: 'observability/', sinceVersion: '1.2.x'},
+      {title: 'Context Propagation', link: 'context-propagation/'},
+    ],
   },
   {
-    title: 'Virtual Threads Support',
-    icon: IconTableFilled,
-    description: 'Automatic virtual threads integration for better scalability.',
-    link: 'virtual-threads/',
-  },
-  {
-    title: 'Database Support',
-    icon: IconDatabase,
-    description: 'Supported databases and schema management.',
-    link: 'database/',
-  },
-  {
-    title: 'Serialization',
-    icon: IconArrowBigRightLinesFilled,
-    description: 'Flexible payload serialization with Jackson or custom serializers.',
-    link: 'serialization/',
-  },
-  {
-    title: 'Spring Modulith Integration',
-    icon: IconAppsFilled,
-    description: 'Outbox-backed event externalization for Spring Modulith with transactional guarantees.',
-    link: 'spring-modulith/',
-    sinceVersion: '1.7.0',
-  },
-  {
-    title: 'Reliability Guarantees',
-    icon: IconBrandSketchFilled,
-    description: 'What the library guarantees and what it does not.',
-    link: 'guarantees/',
-  },
-  {
-    title: 'Performance Tuning',
+    title: 'Advanced',
+    description: 'Performance tuning and payload serialization.',
     icon: IconRollercoasterFilled,
-    description: 'Optimize throughput, latency, batching, concurrency, and polling behavior for production workloads.',
-    link: 'performance-tuning/',
-    sinceVersion: '1.7.0',
+    items: [
+      {title: 'Performance Tuning', link: 'performance-tuning/', sinceVersion: '1.7.x'},
+      {title: 'Serialization', link: 'serialization/'},
+    ],
+  },
+  {
+    title: 'Configuration',
+    description: 'Configuration properties, defaults, and available settings.',
+    icon: IconFileSettingsFilled,
+    items: [{title: 'Configuration', link: 'configuration/'}],
   },
 ];
 
-// --- Version utilities -------------------------------------------------
-// Lightweight numeric comparer that understands `.x` wildcards in patterns.
-function parseVersionParts(v: string): Array<number | null> {
-  return v.split('.').map((part) => (part === 'x' ? null : Number(part)));
+function parseVersionParts(version: string): Array<number | null> {
+  return version.split('.').map((part) => (part === 'x' ? null : Number(part)));
 }
 
-function normalizeParts(parts: Array<number | null>, wildcardMax = false, length = 3) {
-  const out: number[] = [];
-  for (let i = 0; i < length; i++) {
-    const p = parts[i];
-    if (p == null) {
-      out.push(wildcardMax ? 9999 : 0);
-    } else if (Number.isNaN(p)) {
-      out.push(wildcardMax ? 9999 : 0);
-    } else {
-      out.push(p as number);
-    }
+function normalizeParts(
+  parts: Array<number | null>,
+  wildcardMax = false,
+  length = 3,
+): number[] {
+  const normalized: number[] = [];
+
+  for (let index = 0; index < length; index += 1) {
+    const part = parts[index];
+    normalized.push(part == null || Number.isNaN(part) ? (wildcardMax ? 9999 : 0) : part);
   }
-  return out;
+
+  return normalized;
 }
 
-function compareVersions(a: string, b: string, wildcardMaxForB = false): number {
-  // Special handling for the `next` pseudo-version used by Docusaurus.
-  // Treat `next` as greater than any numeric version.
-  if (a === 'next' && b === 'next') return 0;
-  if (a === 'next') return 1;
-  if (b === 'next') return -1;
+function compareVersions(version: string, boundary: string, wildcardMaxForBoundary = false): number {
+  if (version === 'next' && boundary === 'next') return 0;
+  if (version === 'next') return 1;
+  if (boundary === 'next') return -1;
 
-  // returns -1 if a < b, 0 if a == b, 1 if a > b
-  const ap = normalizeParts(parseVersionParts(a), false);
-  const bp = normalizeParts(parseVersionParts(b), wildcardMaxForB);
-  for (let i = 0; i < Math.max(ap.length, bp.length); i++) {
-    const ai = ap[i] ?? 0;
-    const bi = bp[i] ?? 0;
-    if (ai < bi) return -1;
-    if (ai > bi) return 1;
+  const versionParts = normalizeParts(parseVersionParts(version));
+  const boundaryParts = normalizeParts(parseVersionParts(boundary), wildcardMaxForBoundary);
+
+  for (let index = 0; index < Math.max(versionParts.length, boundaryParts.length); index += 1) {
+    const versionPart = versionParts[index] ?? 0;
+    const boundaryPart = boundaryParts[index] ?? 0;
+
+    if (versionPart < boundaryPart) return -1;
+    if (versionPart > boundaryPart) return 1;
   }
+
   return 0;
 }
 
 function matchesWildcard(pattern: string, version: string): boolean {
-  // exact match
   if (pattern === version) return true;
-  // special-case: explicit 'next' pattern
   if (pattern === 'next') return version === 'next';
-  // wildcard like 1.0.x
-  if (pattern.includes('x')) {
-    const pp = pattern.split('.');
-    const vp = version.split('.');
-    for (let i = 0; i < pp.length; i++) {
-      if (pp[i] === 'x') return true; // prefix matched so it's ok
-      if (vp[i] === undefined) return false;
-      if (pp[i] !== vp[i]) return false;
-    }
-    return true;
-  }
-  return false;
+
+  const patternParts = pattern.split('.');
+  const versionParts = version.split('.');
+
+  return patternParts.every(
+    (part, index) => part === 'x' || part === versionParts[index],
+  );
 }
 
-function isCategoryVisibleForVersion(cat: any, currentVersion: string) {
-  // 1) excludeInVersion (backwards compatible) supports exact and .x wildcard entries
-  if (Array.isArray(cat.excludeInVersion)) {
-    for (const pattern of cat.excludeInVersion) {
-      if (matchesWildcard(pattern, currentVersion)) return false;
-    }
+function isItemVisibleForVersion(item: VersionedReferenceItem, currentVersion: string): boolean {
+  if (item.excludeInVersion?.some((pattern) => matchesWildcard(pattern, currentVersion))) {
+    return false;
   }
 
-  // 2) sinceVersion — show only if currentVersion >= sinceVersion
-  if (cat.sinceVersion) {
-    if (compareVersions(currentVersion, cat.sinceVersion) < 0) return false;
+  if (item.sinceVersion && compareVersions(currentVersion, item.sinceVersion) < 0) {
+    return false;
   }
 
-  // 3) untilVersion — show only if currentVersion <= untilVersion
-  if (cat.untilVersion) {
-    // treat x in untilVersion as max (e.g., 1.1.x -> 1.1.9999)
-    if (compareVersions(currentVersion, cat.untilVersion, true) > 0) return false;
+  if (
+    item.untilVersion &&
+    compareVersions(currentVersion, item.untilVersion, true) > 0
+  ) {
+    return false;
   }
 
   return true;
 }
 
-function ReferenceCard({title, icon: Icon, description, link}: {
-  title: string,
-  icon: any,
-  description: string,
-  link: string
+function ReferenceGroupCard({
+  group,
+  currentVersion,
+}: {
+  group: ReferenceGroup;
+  currentVersion: string;
 }) {
+  const visibleItems = group.items.filter((item) =>
+    isItemVisibleForVersion(item, currentVersion),
+  );
+
+  if (visibleItems.length === 0) return null;
+
+  const Icon = group.icon;
+
   return (
-      <div className={clsx('col col--6', 'margin-bottom--lg')}>
-        <div className={clsx(styles.featureCard, 'card')}>
-          <div className="card__header"
-               style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-            <Icon size={28} style={{marginRight: 8}}/>
-            <h3 style={{margin: 0}}>{title}</h3>
-          </div>
-          <div className="card__body">
-            <p>{description}</p>
-          </div>
-          <div className="card__footer">
-            <a className="button button--secondary button--block" href={link}>
-              Read more
-            </a>
-          </div>
+    <div className={clsx('col col--6', 'margin-bottom--lg')}>
+      <section className={clsx('card', styles.groupCard)}>
+        <div className={styles.groupHeader}>
+          <Icon size={24} aria-hidden={true} />
+          <h2>{group.title}</h2>
         </div>
-      </div>
+        <p className={styles.groupDescription}>{group.description}</p>
+        <ul className={styles.topicList}>
+          {visibleItems.map((item) => (
+            <li key={item.title}>
+              <Link className={styles.topicLink} to={item.link}>
+                <span>{item.title}</span>
+                <span aria-hidden={true}>→</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
   );
 }
 
 export default function ReferenceOverview(): ReactNode {
   const activeVersion = useActiveVersion(undefined);
-  // In some Docusaurus setups the active version name may be 'current' (non-numeric).
-  // For development/unreleased docs we want to treat 'current' as 'next' so
-  // `sinceVersion` comparisons behave intuitively and unreleased features appear.
-  const rawName = activeVersion?.name;
-  const currentVersion = rawName === 'current' || !rawName ? 'next' : rawName;
+  const rawVersionName = activeVersion?.name;
+  const currentVersion =
+    rawVersionName === 'current' || !rawVersionName ? 'next' : rawVersionName;
 
   return (
-      <section>
-        <div className="container">
-          <div className="row">
-            {referenceCategories
-                .filter((cat) => isCategoryVisibleForVersion(cat, currentVersion))
-                .map((props, idx) => (
-                    <ReferenceCard key={idx} {...props} />
-                ))}
-          </div>
-        </div>
-      </section>
+    <section className={styles.referenceOverview}>
+      <header className={styles.intro}>
+        <h1>Reference</h1>
+        <p>Technical reference for Namastack Outbox.</p>
+      </header>
+      <div className="row">
+        {referenceGroups.map((group) => (
+          <ReferenceGroupCard
+            key={group.title}
+            group={group}
+            currentVersion={currentVersion}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
