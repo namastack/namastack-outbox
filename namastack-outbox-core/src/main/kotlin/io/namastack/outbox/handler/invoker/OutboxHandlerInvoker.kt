@@ -1,6 +1,7 @@
 package io.namastack.outbox.handler.invoker
 
 import io.namastack.outbox.OpenForProxy
+import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 
@@ -20,6 +21,19 @@ import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 class OutboxHandlerInvoker(
     private val handlerRegistry: OutboxHandlerRegistry,
 ) {
+    /**
+     * Verifies that the handler referenced by a record is registered on this instance.
+     *
+     * This check is intentionally separate from [dispatch] so the processor can perform it before
+     * entering handler-delivery failure handling.
+     *
+     * @param record The record whose handler registration should be verified
+     * @throws OutboxHandlerNotFoundException if the record's handler is unavailable
+     */
+    fun ensureHandlerAvailable(record: OutboxRecord<*>) {
+        requireHandler(record)
+    }
+
     /**
      * Dispatches a record to its registered handler.
      *
@@ -42,17 +56,23 @@ class OutboxHandlerInvoker(
      * ```
      *
      * @param record The record to process
-     * @throws IllegalStateException if no handler with the given ID exists
+     * @throws OutboxHandlerNotFoundException if no handler with the given ID exists
      * @throws Throwable the original exception thrown by the handler (will trigger retries)
      */
     fun dispatch(record: OutboxRecord<*>) {
         val payload = record.payload ?: return
         val metadata = OutboxHandlerContextFactory.metadata(record)
 
-        val handler =
-            handlerRegistry.getHandlerById(record.handlerId)
-                ?: throw IllegalStateException("No handler with id ${record.handlerId}")
+        val handler = requireHandler(record)
 
         handler.invoke(payload, metadata)
     }
+
+    private fun requireHandler(record: OutboxRecord<*>) =
+        handlerRegistry.getHandlerById(record.handlerId)
+            ?: throw OutboxHandlerNotFoundException(
+                recordId = record.id,
+                recordKey = record.key,
+                handlerId = record.handlerId,
+            )
 }

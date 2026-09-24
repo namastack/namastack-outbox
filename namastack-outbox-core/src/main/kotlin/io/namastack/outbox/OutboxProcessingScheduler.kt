@@ -13,6 +13,7 @@ import org.springframework.scheduling.support.ScheduledMethodRunnable
 import java.lang.reflect.Method
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -57,6 +58,7 @@ class OutboxProcessingScheduler(
     companion object {
         const val SCHEDULER_NAME: String = "outboxDefaultScheduler"
 
+        private val COMPATIBILITY_COOLDOWN: Duration = Duration.ofSeconds(30)
         private val SCHEDULE_METHOD_NAME: String = (OutboxProcessingScheduler::process).name
         private val SCHEDULE_METHOD: Method = OutboxProcessingScheduler::class.java.getMethod(SCHEDULE_METHOD_NAME)
     }
@@ -66,6 +68,8 @@ class OutboxProcessingScheduler(
     private val lifecycle = SchedulerLifecycleStateMachine(properties.processing.effectiveShutdownTimeout)
 
     private var scheduledTask: ScheduledFuture<*>? = null
+
+    private val compatibilityCooldownUntil = AtomicReference<Instant?>()
 
     /**
      * Starts this lifecycle bean after [io.namastack.outbox.instance.OutboxInstanceRegistry] (`phase = 0`).
@@ -121,6 +125,7 @@ class OutboxProcessingScheduler(
      * If the scheduler is not idle, the cycle is skipped.
      */
     fun process() {
+        if (isCompatibilityCooldownActive()) return
         if (!lifecycle.startProcessing()) return
 
         var processedCount = 0
@@ -185,6 +190,10 @@ class OutboxProcessingScheduler(
             for (record in records) {
                 if (!processRecord(record)) break
             }
+        } catch (ex: OutboxPayloadTypeNotFoundException) {
+            handleUnavailablePayloadType(ex)
+        } catch (ex: OutboxHandlerNotFoundException) {
+            handleUnavailableHandler(ex)
         } catch (ex: Exception) {
             log.error("Error processing key {}", recordKey, ex)
         }
@@ -202,6 +211,63 @@ class OutboxProcessingScheduler(
     }
 
     private fun continueOnFailure(): Boolean = !properties.processing.stopOnFirstFailure
+
+    private fun handleUnavailablePayloadType(ex: OutboxPayloadTypeNotFoundException) {
+        val cooldownUntil = activateCompatibilityCooldown()
+        log.warn(
+            "Payload type {} is unavailable on this scheduler instance; pausing polling until {} and leaving " +
+                "the record pending without consuming a delivery retry " +
+                "(recordId={}, recordKey={}, handlerId={})",
+            ex.payloadType,
+            cooldownUntil,
+            ex.recordId,
+            ex.recordKey,
+            ex.handlerId,
+            ex,
+        )
+    }
+
+    private fun handleUnavailableHandler(ex: OutboxHandlerNotFoundException) {
+        val cooldownUntil = activateCompatibilityCooldown()
+        log.warn(
+            "Handler {} is unavailable on this scheduler instance; pausing polling until {} and leaving the " +
+                "record pending without consuming a delivery retry (recordId={}, recordKey={})",
+            ex.handlerId,
+            cooldownUntil,
+            ex.recordId,
+            ex.recordKey,
+            ex,
+        )
+    }
+
+    private fun isCompatibilityCooldownActive(): Boolean {
+        val cooldownUntil = compatibilityCooldownUntil.get() ?: return false
+        if (clock.instant().isBefore(cooldownUntil)) {
+            log.trace(
+                "Skipping outbox polling until {} because this scheduler instance encountered a compatibility failure",
+                cooldownUntil,
+            )
+            return true
+        }
+
+        compatibilityCooldownUntil.compareAndSet(cooldownUntil, null)
+        return false
+    }
+
+    private fun activateCompatibilityCooldown(): Instant {
+        val requestedCooldownUntil = clock.instant().plus(COMPATIBILITY_COOLDOWN)
+
+        val cooldownUntil =
+            compatibilityCooldownUntil.updateAndGet { currentCooldownUntil ->
+                if (currentCooldownUntil == null || requestedCooldownUntil.isAfter(currentCooldownUntil)) {
+                    requestedCooldownUntil
+                } else {
+                    currentCooldownUntil
+                }
+            }
+
+        return checkNotNull(cooldownUntil)
+    }
 
     /**
      * Thread-safe lifecycle state machine used by [OutboxProcessingScheduler].

@@ -4,6 +4,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.handler.OutboxRecordMetadata
@@ -15,6 +16,7 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.time.Instant
 
 @DisplayName("OutboxHandlerInvoker")
@@ -80,15 +82,17 @@ class OutboxHandlerInvokerTest {
     }
 
     @Test
-    fun `throws IllegalStateException when handler not found`() {
+    fun `throws compatibility exception with record details when handler not found`() {
         val (record, _) = createRecord(handlerId = "unknown-handler")
 
         every { handlerRegistry.getHandlerById("unknown-handler") } returns null
 
-        assertThatThrownBy {
-            invoker.dispatch(record)
-        }.isInstanceOf(IllegalStateException::class.java)
-            .hasMessageContaining("No handler with id unknown-handler")
+        val exception = assertThrows<OutboxHandlerNotFoundException> { invoker.dispatch(record) }
+
+        assertThat(exception.message).contains("No handler with id unknown-handler")
+        assertThat(exception.recordId).isEqualTo(record.id)
+        assertThat(exception.recordKey).isEqualTo(record.key)
+        assertThat(exception.handlerId).isEqualTo(record.handlerId)
     }
 
     @Test

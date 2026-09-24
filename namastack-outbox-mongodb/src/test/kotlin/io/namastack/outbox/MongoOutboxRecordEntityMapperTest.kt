@@ -5,12 +5,116 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.time.Instant
 import java.util.UUID
 
 class MongoOutboxRecordEntityMapperTest {
     private val serializer = mockk<OutboxPayloadSerializer>()
     private val mapper = MongoOutboxRecordEntityMapper(serializer)
+
+    @Test
+    fun `exposes record details when payload type is unavailable`() {
+        val now = Instant.now()
+        val entity =
+            MongoOutboxRecordEntity(
+                id = "record-id",
+                status = OutboxRecordStatus.NEW,
+                recordKey = "record-key",
+                recordType = "example.MissingPayload",
+                payload = "{}",
+                context = null,
+                partitionNo = 1,
+                createdAt = now,
+                completedAt = null,
+                failureCount = 0,
+                failureReason = null,
+                nextRetryAt = now,
+                handlerId = "handler-id",
+            )
+
+        val exception = assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
+
+        assertThat(exception.recordId).isEqualTo("record-id")
+        assertThat(exception.recordKey).isEqualTo("record-key")
+        assertThat(exception.payloadType).isEqualTo("example.MissingPayload")
+        assertThat(exception.handlerId).isEqualTo("handler-id")
+        assertThat(exception.cause).isInstanceOf(ClassNotFoundException::class.java)
+    }
+
+    @Test
+    fun `exposes record details when a payload dependency is unavailable`() {
+        val now = Instant.now()
+        val entity =
+            MongoOutboxRecordEntity(
+                id = "record-id",
+                status = OutboxRecordStatus.NEW,
+                recordKey = "record-key",
+                recordType = "example.DependentPayload",
+                payload = "{}",
+                context = null,
+                partitionNo = 1,
+                createdAt = now,
+                completedAt = null,
+                failureCount = 0,
+                failureReason = null,
+                nextRetryAt = now,
+                handlerId = "handler-id",
+            )
+        val thread = Thread.currentThread()
+        val originalClassLoader = thread.contextClassLoader
+        val classLoadingFailure = NoClassDefFoundError("example/MissingDependency")
+        val exception =
+            try {
+                thread.contextClassLoader =
+                    object : ClassLoader(originalClassLoader) {
+                        override fun loadClass(name: String): Class<*> {
+                            if (name == entity.recordType) throw classLoadingFailure
+                            return super.loadClass(name)
+                        }
+                    }
+                assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
+            } finally {
+                thread.contextClassLoader = originalClassLoader
+            }
+
+        assertThat(exception.recordId).isEqualTo("record-id")
+        assertThat(exception.recordKey).isEqualTo("record-key")
+        assertThat(exception.payloadType).isEqualTo("example.DependentPayload")
+        assertThat(exception.handlerId).isEqualTo("handler-id")
+        assertThat(exception.cause).isSameAs(classLoadingFailure)
+    }
+
+    @Test
+    fun `wraps linkage error propagated during payload deserialization`() {
+        val now = Instant.now()
+        val entity =
+            MongoOutboxRecordEntity(
+                id = "record-id",
+                status = OutboxRecordStatus.NEW,
+                recordKey = "record-key",
+                recordType = String::class.java.name,
+                payload = "{}",
+                context = null,
+                partitionNo = 1,
+                createdAt = now,
+                completedAt = null,
+                failureCount = 0,
+                failureReason = null,
+                nextRetryAt = now,
+                handlerId = "handler-id",
+            )
+        val linkageFailure = NoClassDefFoundError("example/MissingDependency")
+        every { serializer.deserialize(entity.payload, String::class.java) } throws linkageFailure
+
+        val exception = assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
+
+        assertThat(exception.recordId).isEqualTo("record-id")
+        assertThat(exception.recordKey).isEqualTo("record-key")
+        assertThat(exception.payloadType).isEqualTo(String::class.java.name)
+        assertThat(exception.handlerId).isEqualTo("handler-id")
+        assertThat(exception.cause).isSameAs(linkageFailure)
+    }
 
     @Test
     fun `maps domain record to entity`() {

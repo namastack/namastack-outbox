@@ -45,11 +45,16 @@ class MongoOutboxRecordEntityMapper(
      *
      * @param entity the MongoDB entity to map
      * @return the corresponding domain object
-     * @throws IllegalStateException if the record type class cannot be found
+     * @throws OutboxPayloadTypeNotFoundException if the record's payload type is unavailable
      */
     fun map(entity: MongoOutboxRecordEntity): OutboxRecord<*> {
-        val clazz = resolveClass(entity.recordType)
-        val payload = serializer.deserialize(entity.payload, clazz)
+        val clazz = resolveClass(entity)
+        val payload =
+            try {
+                serializer.deserialize(entity.payload, clazz)
+            } catch (error: LinkageError) {
+                throw payloadTypeNotFound(entity, error)
+            }
 
         @Suppress("UNCHECKED_CAST")
         val context =
@@ -77,14 +82,27 @@ class MongoOutboxRecordEntityMapper(
     /**
      * Resolves a class by its fully qualified name using the current thread's context class loader.
      *
-     * @param className the fully qualified class name to resolve
+     * @param entity entity containing the payload type and record metadata
      * @return the resolved class
-     * @throws IllegalStateException if the class cannot be found
+     * @throws OutboxPayloadTypeNotFoundException if the class cannot be loaded
      */
-    private fun resolveClass(className: String): Class<*> =
+    private fun resolveClass(entity: MongoOutboxRecordEntity): Class<*> =
         try {
-            Thread.currentThread().contextClassLoader.loadClass(className)
+            Thread.currentThread().contextClassLoader.loadClass(entity.recordType)
         } catch (ex: ClassNotFoundException) {
-            throw IllegalStateException("Cannot find class for record type $className", ex)
+            throw payloadTypeNotFound(entity, ex)
+        } catch (error: LinkageError) {
+            throw payloadTypeNotFound(entity, error)
         }
+
+    private fun payloadTypeNotFound(
+        entity: MongoOutboxRecordEntity,
+        cause: Throwable,
+    ) = OutboxPayloadTypeNotFoundException(
+        recordId = entity.id,
+        recordKey = entity.recordKey,
+        payloadType = entity.recordType,
+        handlerId = entity.handlerId,
+        cause = cause,
+    )
 }

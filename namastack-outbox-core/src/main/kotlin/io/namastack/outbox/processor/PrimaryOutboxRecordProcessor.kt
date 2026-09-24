@@ -36,6 +36,10 @@ class PrimaryOutboxRecordProcessor(
      *   processor in the chain handled the record
      */
     override fun handle(record: OutboxRecord<*>): Boolean {
+        if (record.payload != null) {
+            handlerInvoker.ensureHandlerAvailable(record)
+        }
+
         try {
             log.trace("Dispatching record {} to handler {}", record.id, record.handlerId)
             handlerInvoker.dispatch(record)

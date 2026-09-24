@@ -4,12 +4,14 @@ import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
+import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Clock
@@ -34,6 +36,7 @@ class PrimaryOutboxRecordProcessorTest {
 
         processor = PrimaryOutboxRecordProcessor(handlerInvoker, recordRepository, properties, clock)
         processor.setNext(nextProcessor)
+        justRun { handlerInvoker.ensureHandlerAvailable(any()) }
     }
 
     @Test
@@ -138,6 +141,63 @@ class PrimaryOutboxRecordProcessorTest {
 
         assertThat(record.failureException).isEqualTo(exception)
         assertThat(record.failureReason).isNull()
+    }
+
+    @Test
+    fun `handle leaves record unchanged when referenced handler is unavailable`() {
+        val record = createRecord(handlerId = "missing-handler")
+        val exception =
+            OutboxHandlerNotFoundException(
+                recordId = record.id,
+                recordKey = record.key,
+                handlerId = record.handlerId,
+            )
+        every { handlerInvoker.ensureHandlerAvailable(record) } throws exception
+
+        assertThatThrownBy { processor.handle(record) }.isSameAs(exception)
+
+        assertThat(record.status).isEqualTo(OutboxRecordStatus.NEW)
+        assertThat(record.failureCount).isZero()
+        assertThat(record.failureException).isNull()
+        verify(exactly = 0) { handlerInvoker.dispatch(any()) }
+        verify(exactly = 0) { nextProcessor.handle(any()) }
+    }
+
+    @Test
+    fun `handle preserves null-payload behavior without requiring a handler`() {
+        val record = createRecord(payload = null)
+        properties.processing.deleteCompletedRecords = false
+        justRun { handlerInvoker.dispatch(record) }
+        every { recordRepository.save(record) } returns record
+
+        val result = processor.handle(record)
+
+        assertThat(result).isTrue()
+        assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
+        assertThat(record.failureCount).isZero()
+        verify(exactly = 0) { handlerInvoker.ensureHandlerAvailable(any()) }
+        verify { handlerInvoker.dispatch(record) }
+        verify { recordRepository.save(record) }
+        verify(exactly = 0) { nextProcessor.handle(any()) }
+    }
+
+    @Test
+    fun `handle treats compatibility exception thrown by invoked handler as delivery failure`() {
+        val record = createRecord()
+        val exception =
+            OutboxHandlerNotFoundException(
+                recordId = "another-record",
+                recordKey = "another-key",
+                handlerId = "another-handler",
+            )
+        every { handlerInvoker.dispatch(record) } throws exception
+        every { nextProcessor.handle(record) } returns false
+
+        processor.handle(record)
+
+        assertThat(record.failureCount).isEqualTo(1)
+        assertThat(record.failureException).isSameAs(exception)
+        verify { nextProcessor.handle(record) }
     }
 
     private fun createRecord(

@@ -50,10 +50,16 @@ class JdbcOutboxRecordEntityMapper(
      *
      * @param entity The entity to convert
      * @return Corresponding domain object
+     * @throws OutboxPayloadTypeNotFoundException if the record's payload type is unavailable
      */
     fun map(entity: JdbcOutboxRecordEntity): OutboxRecord<*> {
-        val clazz = resolveClass(entity.recordType)
-        val payload = serializer.deserialize(entity.payload, clazz)
+        val clazz = resolveClass(entity)
+        val payload =
+            try {
+                serializer.deserialize(entity.payload, clazz)
+            } catch (error: LinkageError) {
+                throw payloadTypeNotFound(entity, error)
+            }
 
         @Suppress("UNCHECKED_CAST")
         val context =
@@ -81,14 +87,27 @@ class JdbcOutboxRecordEntityMapper(
     /**
      * Resolves a class by name using the current thread's context ClassLoader.
      *
-     * @param className The fully qualified class name
+     * @param entity Entity containing the payload type and record metadata
      * @return The resolved Class object
-     * @throws IllegalStateException if the class cannot be found
+     * @throws OutboxPayloadTypeNotFoundException if the class cannot be loaded
      */
-    private fun resolveClass(className: String): Class<*> =
+    private fun resolveClass(entity: JdbcOutboxRecordEntity): Class<*> =
         try {
-            Thread.currentThread().contextClassLoader.loadClass(className)
+            Thread.currentThread().contextClassLoader.loadClass(entity.recordType)
         } catch (ex: ClassNotFoundException) {
-            throw IllegalStateException("Cannot find class for record type $className", ex)
+            throw payloadTypeNotFound(entity, ex)
+        } catch (error: LinkageError) {
+            throw payloadTypeNotFound(entity, error)
         }
+
+    private fun payloadTypeNotFound(
+        entity: JdbcOutboxRecordEntity,
+        cause: Throwable,
+    ) = OutboxPayloadTypeNotFoundException(
+        recordId = entity.id,
+        recordKey = entity.recordKey,
+        payloadType = entity.recordType,
+        handlerId = entity.handlerId,
+        cause = cause,
+    )
 }

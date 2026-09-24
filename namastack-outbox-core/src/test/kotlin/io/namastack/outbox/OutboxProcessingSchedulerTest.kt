@@ -36,7 +36,7 @@ class OutboxProcessingSchedulerTest {
     private val partitionCoordinator: PartitionCoordinator = mockk(relaxed = true)
 
     private val fixedInstant = Instant.parse("2024-01-01T10:00:00Z")
-    private val clock = Clock.fixed(fixedInstant, ZoneId.of("UTC"))
+    private val clock = MutableClock(fixedInstant)
 
     private val properties =
         OutboxProperties().apply {
@@ -424,6 +424,93 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
+        fun `unavailable payload type pauses polling without reporting cooldown skips to trigger`() {
+            val recordKey = "incompatible-key"
+            val exception =
+                OutboxPayloadTypeNotFoundException(
+                    recordId = "record-id",
+                    recordKey = recordKey,
+                    payloadType = "example.UnavailablePayload",
+                    handlerId = "handler-id",
+                    cause = ClassNotFoundException("example.UnavailablePayload"),
+                )
+
+            prepareFindRecordKeysInPartitions(listOf(recordKey))
+            every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } throws exception
+
+            scheduler.process()
+            scheduler.process()
+
+            verify(exactly = 1) { partitionCoordinator.getAssignedPartitionNumbers() }
+            verify(exactly = 1) { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
+            verify(exactly = 1) { trigger.onTaskComplete(any()) }
+
+            clock.advanceBy(Duration.ofSeconds(30))
+            scheduler.process()
+
+            verify(exactly = 2) { partitionCoordinator.getAssignedPartitionNumbers() }
+            verify(exactly = 2) { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
+            verify(exactly = 2) { trigger.onTaskComplete(any()) }
+        }
+
+        @Test
+        fun `unavailable handler pauses later polling but lets the current batch finish`() {
+            val incompatibleKey = "incompatible-key"
+            val compatibleKey = "compatible-key"
+            val incompatibleRecord =
+                OutboxRecordTestFactory.outboxRecord(
+                    recordKey = incompatibleKey,
+                    nextRetryAt = Instant.now(clock).minusSeconds(1),
+                )
+            val incompatibleSuccessor =
+                OutboxRecordTestFactory.outboxRecord(
+                    recordKey = incompatibleKey,
+                    nextRetryAt = Instant.now(clock).minusSeconds(1),
+                )
+            val compatibleRecord =
+                OutboxRecordTestFactory.outboxRecord(
+                    recordKey = compatibleKey,
+                    nextRetryAt = Instant.now(clock).minusSeconds(1),
+                )
+
+            prepareFindRecordKeysInPartitions(listOf(incompatibleKey, compatibleKey))
+            prepareFindIncompleteRecordsByRecordKey(
+                incompatibleKey,
+                listOf(incompatibleRecord, incompatibleSuccessor),
+            )
+            prepareFindIncompleteRecordsByRecordKey(compatibleKey, listOf(compatibleRecord))
+            every { recordProcessorChain.handle(incompatibleRecord) } throws
+                OutboxHandlerNotFoundException(
+                    recordId = incompatibleRecord.id,
+                    recordKey = incompatibleRecord.key,
+                    handlerId = incompatibleRecord.handlerId,
+                )
+            every { recordProcessorChain.handle(compatibleRecord) } returns true
+
+            scheduler.process()
+            scheduler.process()
+
+            verify(exactly = 1) { recordProcessorChain.handle(incompatibleRecord) }
+            verify(exactly = 0) { recordProcessorChain.handle(incompatibleSuccessor) }
+            verify(exactly = 1) { recordProcessorChain.handle(compatibleRecord) }
+            verify(exactly = 1) { partitionCoordinator.getAssignedPartitionNumbers() }
+        }
+
+        @Test
+        fun `ordinary processing exception does not pause polling`() {
+            val recordKey = "record-key"
+
+            prepareFindRecordKeysInPartitions(listOf(recordKey))
+            every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } throws RuntimeException("DB error")
+
+            scheduler.process()
+            scheduler.process()
+
+            verify(exactly = 2) { partitionCoordinator.getAssignedPartitionNumbers() }
+            verify(exactly = 2) { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
+        }
+
+        @Test
         fun `process respects batch size configuration`() {
             properties.polling.batchSize = 50
 
@@ -734,5 +821,22 @@ class OutboxProcessingSchedulerTest {
         incompleteRecords: List<OutboxRecord<*>>,
     ) {
         every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } returns incompleteRecords
+    }
+
+    private class MutableClock(
+        initialInstant: Instant,
+        private val zoneId: ZoneId = ZoneId.of("UTC"),
+    ) : Clock() {
+        private val currentInstant = AtomicReference(initialInstant)
+
+        override fun getZone(): ZoneId = zoneId
+
+        override fun withZone(zone: ZoneId): Clock = MutableClock(instant(), zone)
+
+        override fun instant(): Instant = currentInstant.get()
+
+        fun advanceBy(duration: Duration) {
+            currentInstant.updateAndGet { it.plus(duration) }
+        }
     }
 }

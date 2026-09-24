@@ -1,10 +1,13 @@
 package io.namastack.outbox
 
+import io.mockk.every
+import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.entry
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import tools.jackson.module.kotlin.jsonMapper
 import tools.jackson.module.kotlin.kotlinModule
 import java.time.Instant
@@ -257,6 +260,111 @@ class OutboxRecordEntityMapperTest {
     @Nested
     @DisplayName("map OutboxRecordEntity to OutboxRecord")
     inner class MapOutboxRecordEntityTests {
+        @Test
+        fun `should expose record details when payload type is unavailable`() {
+            val now = Instant.now()
+            val entity =
+                OutboxRecordEntity(
+                    id = "record-id",
+                    status = OutboxRecordStatus.NEW,
+                    recordKey = "record-key",
+                    recordType = "example.MissingPayload",
+                    payload = "{}",
+                    context = null,
+                    partitionNo = 1,
+                    createdAt = now,
+                    completedAt = null,
+                    failureCount = 0,
+                    failureReason = null,
+                    nextRetryAt = now,
+                    handlerId = "handler-id",
+                )
+
+            val exception = assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
+
+            assertThat(exception.recordId).isEqualTo("record-id")
+            assertThat(exception.recordKey).isEqualTo("record-key")
+            assertThat(exception.payloadType).isEqualTo("example.MissingPayload")
+            assertThat(exception.handlerId).isEqualTo("handler-id")
+            assertThat(exception.cause).isInstanceOf(ClassNotFoundException::class.java)
+        }
+
+        @Test
+        fun `should expose record details when a payload dependency is unavailable`() {
+            val now = Instant.now()
+            val entity =
+                OutboxRecordEntity(
+                    id = "record-id",
+                    status = OutboxRecordStatus.NEW,
+                    recordKey = "record-key",
+                    recordType = "example.DependentPayload",
+                    payload = "{}",
+                    context = null,
+                    partitionNo = 1,
+                    createdAt = now,
+                    completedAt = null,
+                    failureCount = 0,
+                    failureReason = null,
+                    nextRetryAt = now,
+                    handlerId = "handler-id",
+                )
+            val thread = Thread.currentThread()
+            val originalClassLoader = thread.contextClassLoader
+            val classLoadingFailure = NoClassDefFoundError("example/MissingDependency")
+            val exception =
+                try {
+                    thread.contextClassLoader =
+                        object : ClassLoader(originalClassLoader) {
+                            override fun loadClass(name: String): Class<*> {
+                                if (name == entity.recordType) throw classLoadingFailure
+                                return super.loadClass(name)
+                            }
+                        }
+                    assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
+                } finally {
+                    thread.contextClassLoader = originalClassLoader
+                }
+
+            assertThat(exception.recordId).isEqualTo("record-id")
+            assertThat(exception.recordKey).isEqualTo("record-key")
+            assertThat(exception.payloadType).isEqualTo("example.DependentPayload")
+            assertThat(exception.handlerId).isEqualTo("handler-id")
+            assertThat(exception.cause).isSameAs(classLoadingFailure)
+        }
+
+        @Test
+        fun `should wrap linkage error propagated during payload deserialization`() {
+            val now = Instant.now()
+            val entity =
+                OutboxRecordEntity(
+                    id = "record-id",
+                    status = OutboxRecordStatus.NEW,
+                    recordKey = "record-key",
+                    recordType = String::class.java.name,
+                    payload = "{}",
+                    context = null,
+                    partitionNo = 1,
+                    createdAt = now,
+                    completedAt = null,
+                    failureCount = 0,
+                    failureReason = null,
+                    nextRetryAt = now,
+                    handlerId = "handler-id",
+                )
+            val linkageFailure = NoClassDefFoundError("example/MissingDependency")
+            val failingSerializer = mockk<OutboxPayloadSerializer>()
+            val mapper = OutboxRecordEntityMapper(failingSerializer)
+            every { failingSerializer.deserialize(entity.payload, String::class.java) } throws linkageFailure
+
+            val exception = assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
+
+            assertThat(exception.recordId).isEqualTo("record-id")
+            assertThat(exception.recordKey).isEqualTo("record-key")
+            assertThat(exception.payloadType).isEqualTo(String::class.java.name)
+            assertThat(exception.handlerId).isEqualTo("handler-id")
+            assertThat(exception.cause).isSameAs(linkageFailure)
+        }
+
         @Test
         fun `should map OrderCreatedEvent payload`() {
             val now = Instant.now()
