@@ -78,8 +78,15 @@ and pauses new polling on that scheduler instance for 30 seconds. Record-key tas
 already submitted in the current batch can finish normally. After the cooldown, the scheduler
 queries another batch and reevaluates the pending record.
 
-Failures that occur after the payload class was loaded, such as invalid payload or context data,
-are outside this compatibility safeguard and continue through the existing scheduler error path.
+The persisted root payload class is resolved before deserialization, so an unavailable root type is
+always detected by the built-in repositories. A referenced type may be resolved only inside the
+configured serializer. In that case, compatibility handling applies when the serializer propagates
+the JVM `LinkageError`. Serializer-specific failures cannot be classified generically and retain the
+normal deserialization-error behavior.
+
+Other failures that occur after the payload class was loaded, such as invalid payload or context
+data, are outside this compatibility safeguard and continue through the existing scheduler error
+path.
 
 This behavior has several consequences:
 

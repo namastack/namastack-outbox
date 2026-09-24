@@ -1,5 +1,7 @@
 package io.namastack.outbox
 
+import io.mockk.every
+import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -194,6 +196,39 @@ class JdbcOutboxRecordEntityMapperTest {
             assertThat(exception.payloadType).isEqualTo("example.DependentPayload")
             assertThat(exception.handlerId).isEqualTo("handler-id")
             assertThat(exception.cause).isSameAs(classLoadingFailure)
+        }
+
+        @Test
+        fun `should wrap linkage error propagated during payload deserialization`() {
+            val now = Instant.now()
+            val entity =
+                JdbcOutboxRecordEntity(
+                    id = "record-id",
+                    status = OutboxRecordStatus.NEW,
+                    recordKey = "record-key",
+                    recordType = String::class.java.name,
+                    payload = "{}",
+                    context = null,
+                    partitionNo = 1,
+                    createdAt = now,
+                    completedAt = null,
+                    failureCount = 0,
+                    failureReason = null,
+                    nextRetryAt = now,
+                    handlerId = "handler-id",
+                )
+            val linkageFailure = NoClassDefFoundError("example/MissingDependency")
+            val failingSerializer = mockk<OutboxPayloadSerializer>()
+            val mapper = JdbcOutboxRecordEntityMapper(failingSerializer)
+            every { failingSerializer.deserialize(entity.payload, String::class.java) } throws linkageFailure
+
+            val exception = assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
+
+            assertThat(exception.recordId).isEqualTo("record-id")
+            assertThat(exception.recordKey).isEqualTo("record-key")
+            assertThat(exception.payloadType).isEqualTo(String::class.java.name)
+            assertThat(exception.handlerId).isEqualTo("handler-id")
+            assertThat(exception.cause).isSameAs(linkageFailure)
         }
 
         @Test

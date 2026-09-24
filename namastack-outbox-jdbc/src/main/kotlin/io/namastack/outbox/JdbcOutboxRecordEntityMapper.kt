@@ -54,7 +54,12 @@ class JdbcOutboxRecordEntityMapper(
      */
     fun map(entity: JdbcOutboxRecordEntity): OutboxRecord<*> {
         val clazz = resolveClass(entity)
-        val payload = serializer.deserialize(entity.payload, clazz)
+        val payload =
+            try {
+                serializer.deserialize(entity.payload, clazz)
+            } catch (error: LinkageError) {
+                throw payloadTypeNotFound(entity, error)
+            }
 
         @Suppress("UNCHECKED_CAST")
         val context =

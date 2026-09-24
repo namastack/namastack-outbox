@@ -43,10 +43,16 @@ interface OutboxPayloadSerializer {
      * The provided type information is used to determine the target class for deserialization.
      * This ensures type safety when reconstructing payload objects from the outbox database.
      *
+     * Implementations may report format-specific deserialization failures. If resolving the payload
+     * class or one of its referenced JVM types raises a [LinkageError], preserving that error allows
+     * the built-in persistence mappers to classify the record as incompatible with the current
+     * instance. Equivalent serializer-specific failures cannot be classified generically.
+     *
      * @param serialized The serialized payload data (typically JSON)
      * @param type The target class to deserialize into
      * @return The deserialized payload object of type T
      * @throws Exception if deserialization fails or type conversion is invalid
+     * @throws LinkageError if JVM type resolution fails and the implementation propagates the error
      */
     fun <T> deserialize(
         serialized: String,

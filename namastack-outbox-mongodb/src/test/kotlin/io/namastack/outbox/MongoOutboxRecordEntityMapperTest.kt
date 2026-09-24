@@ -86,6 +86,37 @@ class MongoOutboxRecordEntityMapperTest {
     }
 
     @Test
+    fun `wraps linkage error propagated during payload deserialization`() {
+        val now = Instant.now()
+        val entity =
+            MongoOutboxRecordEntity(
+                id = "record-id",
+                status = OutboxRecordStatus.NEW,
+                recordKey = "record-key",
+                recordType = String::class.java.name,
+                payload = "{}",
+                context = null,
+                partitionNo = 1,
+                createdAt = now,
+                completedAt = null,
+                failureCount = 0,
+                failureReason = null,
+                nextRetryAt = now,
+                handlerId = "handler-id",
+            )
+        val linkageFailure = NoClassDefFoundError("example/MissingDependency")
+        every { serializer.deserialize(entity.payload, String::class.java) } throws linkageFailure
+
+        val exception = assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
+
+        assertThat(exception.recordId).isEqualTo("record-id")
+        assertThat(exception.recordKey).isEqualTo("record-key")
+        assertThat(exception.payloadType).isEqualTo(String::class.java.name)
+        assertThat(exception.handlerId).isEqualTo("handler-id")
+        assertThat(exception.cause).isSameAs(linkageFailure)
+    }
+
+    @Test
     fun `maps domain record to entity`() {
         val payload = "test-payload"
         val context = mapOf("traceId" to "123")

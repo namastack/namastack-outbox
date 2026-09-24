@@ -55,7 +55,7 @@ processing lifecycle for an incompatible deployment.
 
 The following concerns are outside this decision:
 
-- arbitrary payload or context deserialization failures;
+- arbitrary payload or context deserialization failures unrelated to unavailable payload types;
 - poison-record management;
 - lazy or metadata-first materialization;
 - persisted management and healing of incompatible records;
@@ -118,8 +118,10 @@ actionable diagnostic.
 primary processor verifies handler availability before entering its delivery failure handling. An exception thrown by a
 handler after invocation remains a delivery failure.
 
-Payload and context deserialization failures do not activate this compatibility mechanism. Their existing
-scheduler-level error handling remains unchanged.
+Payload deserialization failures do not activate this compatibility mechanism unless the serializer propagates a JVM
+linkage failure showing that the payload type or one of its referenced types is unavailable. Serializer-specific
+failures cannot be classified generically and retain their existing scheduler-level error handling, as do context and
+other payload deserialization failures.
 
 ### Record-key behavior
 
@@ -181,7 +183,8 @@ sequence.
   the same batch may each produce a warning.
 - A backlog can grow until the incompatible instance is replaced or the deployment is corrected.
 - A permanently incompatible record requires operational or data correction.
-- Arbitrary deserialization failures retain their previous behavior and may be retried on every polling cycle.
+- Arbitrary deserialization failures unrelated to unavailable payload types retain their previous behavior and may be
+  retried on every polling cycle.
 - Instances running an older Namastack Outbox version do not have this protection and must be upgraded before new record
   contracts are enabled.
 

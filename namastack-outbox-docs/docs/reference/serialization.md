@@ -135,3 +135,10 @@ public class OutboxSerializationConfig {
 </Tabs>
 
 **Important:** When you provide a custom serializer as a Spring bean, it automatically replaces the default Jackson serializer.
+
+The built-in repositories resolve the persisted root payload class before calling `deserialize`.
+They also recognize a JVM `LinkageError` propagated by the serializer when a referenced payload type
+is unavailable. Errors specific to a serialization library have no common meaning and are handled as
+ordinary deserialization failures. See
+[Rolling Deployments](rolling-deployments.md#compatibility-failures-during-a-rollout) for the
+resulting compatibility behavior.

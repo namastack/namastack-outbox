@@ -49,7 +49,12 @@ class MongoOutboxRecordEntityMapper(
      */
     fun map(entity: MongoOutboxRecordEntity): OutboxRecord<*> {
         val clazz = resolveClass(entity)
-        val payload = serializer.deserialize(entity.payload, clazz)
+        val payload =
+            try {
+                serializer.deserialize(entity.payload, clazz)
+            } catch (error: LinkageError) {
+                throw payloadTypeNotFound(entity, error)
+            }
 
         @Suppress("UNCHECKED_CAST")
         val context =
