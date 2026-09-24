@@ -424,7 +424,7 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
-        fun `unavailable payload type pauses polling until compatibility cooldown expires`() {
+        fun `unavailable payload type pauses polling without reporting cooldown skips to trigger`() {
             val recordKey = "incompatible-key"
             val exception =
                 OutboxPayloadTypeNotFoundException(
@@ -443,12 +443,14 @@ class OutboxProcessingSchedulerTest {
 
             verify(exactly = 1) { partitionCoordinator.getAssignedPartitionNumbers() }
             verify(exactly = 1) { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
+            verify(exactly = 1) { trigger.onTaskComplete(any()) }
 
             clock.advanceBy(Duration.ofSeconds(30))
             scheduler.process()
 
             verify(exactly = 2) { partitionCoordinator.getAssignedPartitionNumbers() }
             verify(exactly = 2) { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
+            verify(exactly = 2) { trigger.onTaskComplete(any()) }
         }
 
         @Test

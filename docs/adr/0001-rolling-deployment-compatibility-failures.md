@@ -136,7 +136,8 @@ When a compatibility failure occurs, the scheduler sets one instance-local coold
 failure. Concurrent failures may extend the deadline but cannot shorten an existing cooldown.
 
 Before loading another batch, the scheduler checks the deadline. While the cooldown is active, it performs no repository
-query and reports no processed records to the polling trigger. Once the deadline expires, the scheduler probes again.
+query and reports no task result to the polling trigger. This prevents compatibility cooldowns from affecting adaptive
+polling intervals. Once the deadline expires, the scheduler probes again.
 
 The deadline is held only in memory and disappears when the process stops. A restarted or replacement instance therefore
 reevaluates the unchanged record on its next polling cycle without inheriting the cooldown. The duration is an internal

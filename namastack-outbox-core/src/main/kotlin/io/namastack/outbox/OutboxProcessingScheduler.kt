@@ -128,20 +128,26 @@ class OutboxProcessingScheduler(
         if (!lifecycle.startProcessing()) return
 
         var processedCount = 0
+        var reportTaskCompletion = true
 
         try {
+            if (isCompatibilityCooldownActive()) {
+                reportTaskCompletion = false
+                return
+            }
+
             processedCount = processAssignedPartitions()
         } catch (ex: Exception) {
             log.error("Error during outbox processing", ex)
         } finally {
-            trigger.onTaskComplete(processedCount)
+            if (reportTaskCompletion) {
+                trigger.onTaskComplete(processedCount)
+            }
             lifecycle.stopProcessing()
         }
     }
 
     private fun processAssignedPartitions(): Int {
-        if (isCompatibilityCooldownActive()) return 0
-
         val partitions = partitionCoordinator.getAssignedPartitionNumbers()
         if (partitions.isEmpty()) return 0
 
