@@ -1,7 +1,5 @@
 package io.namastack.outbox.observability
 
-import io.micrometer.common.KeyValue
-import io.micrometer.observation.Observation
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.instrumentation.OutboxHandlerInvocation
@@ -11,7 +9,6 @@ import io.namastack.outbox.instrumentation.OutboxRecordProcessingInvocation
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.observability.OutboxHandlerObservationContext.HandlerKind
-import io.namastack.outbox.observability.OutboxObservationDocumentation.AttemptLowCardinalityKeyNames
 import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxHandlerObservationConvention
 import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxRecordProcessingObservationConvention
 import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxScheduleObservationConvention
@@ -126,10 +123,10 @@ class MicrometerOutboxInstrumentation(
             Supplier {
                 try {
                     action().also { outcome ->
-                        completeAttempt(observation, context, outcome.toObservationOutcome())
+                        context.setOutcome(outcome.toObservationOutcome())
                     }
                 } catch (ex: Throwable) {
-                    completeAttempt(observation, context, classifyException(ex))
+                    context.setOutcome(classifyException(ex))
                     throw ex
                 }
             },
@@ -160,20 +157,6 @@ class MicrometerOutboxInstrumentation(
                 { context },
                 observationRegistry,
             ).observe(action)
-    }
-
-    private fun completeAttempt(
-        observation: Observation,
-        context: OutboxRecordProcessingObservationContext,
-        outcome: Outcome,
-    ) {
-        context.setOutcome(outcome)
-        observation.lowCardinalityKeyValue(
-            KeyValue.of(
-                AttemptLowCardinalityKeyNames.OUTCOME.asString(),
-                outcome.value,
-            ),
-        )
     }
 
     private fun OutboxRecordProcessingOutcome.toObservationOutcome(): Outcome =

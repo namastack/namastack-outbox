@@ -104,7 +104,7 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
         /**
          * Final outcome of the processing attempt.
          *
-         * Possible values: `completed`, `retry_scheduled`, `failed`, `compatibility_deferred`, or `error`.
+         * Possible values: `completed`, `retry_scheduled`, `failed`, `compatibility_deferred`, `error`, or `unknown`.
          *
          * @see OutboxRecordProcessingObservationContext.Outcome
          */
@@ -214,9 +214,7 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
     /**
      * Default implementation of [OutboxRecordProcessingObservationConvention].
      *
-     * Produces the observation name `outbox.record.attempt`. The final
-     * [OutboxRecordProcessingObservationContext.Outcome] is added by the instrumentation when
-     * processing completes.
+     * Produces the observation name `outbox.record.attempt`.
      */
     class DefaultOutboxRecordProcessingObservationConvention : OutboxRecordProcessingObservationConvention {
         companion object {
@@ -230,6 +228,7 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
 
         override fun getLowCardinalityKeyValues(context: OutboxRecordProcessingObservationContext): KeyValues =
             KeyValues.of(
+                AttemptLowCardinalityKeyNames.OUTCOME.withValue(context.getOutcome().toString()),
                 AttemptLowCardinalityKeyNames.CHANNEL.withValue(context.getChannel()),
             )
 

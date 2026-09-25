@@ -20,7 +20,7 @@ class OutboxRecordProcessingObservationContext(
     private val record: OutboxRecord<*>,
     private val channel: String = OutboxChannelNameProvider.DEFAULT_CHANNEL,
 ) : ReceiverContext<OutboxRecord<*>>({ carrier: OutboxRecord<*>, key: String -> carrier.context[key] }) {
-    private var outcome: Outcome? = null
+    private var outcome: Outcome = Outcome.UNKNOWN
 
     /**
      * Delivery attempt at observation start (`failureCount + 1`).
@@ -47,8 +47,13 @@ class OutboxRecordProcessingObservationContext(
     /** Returns the logical outbox channel name. */
     fun getChannel(): String = channel
 
-    /** Returns the final outcome, or `null` while processing is still active. */
-    fun getOutcome(): Outcome? = outcome
+    /**
+     * Returns the outcome currently associated with this attempt.
+     *
+     * The value is initially [Outcome.UNKNOWN]. Instrumentation sets the final outcome before
+     * the observation stops.
+     */
+    fun getOutcome(): Outcome = outcome
 
     /** Records the final observable outcome before the observation stops. */
     fun setOutcome(outcome: Outcome) {
@@ -77,6 +82,9 @@ class OutboxRecordProcessingObservationContext(
 
         /** Processing ended with an unexpected exception outside the normal Core outcomes. */
         ERROR("error"),
+
+        /** The attempt has not reached a final outcome yet. */
+        UNKNOWN("unknown"),
         ;
 
         override fun toString(): String = value

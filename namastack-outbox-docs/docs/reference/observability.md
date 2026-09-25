@@ -193,7 +193,7 @@ Low-cardinality tags are safe for metric dimensions.
 |---------|--------|---------|-------------|
 | `outbox.channel` | channel name, defaults to `default` | all outbox metrics | Logical outbox channel |
 | `outbox.record.status` | `new`, `failed`, `completed` | `outbox.records` | Record status |
-| `outbox.processing.outcome` | `completed`, `retry_scheduled`, `failed`, `compatibility_deferred`, `error` | `outbox.record.attempt` | Final observable outcome of a record attempt |
+| `outbox.processing.outcome` | `completed`, `retry_scheduled`, `failed`, `compatibility_deferred`, `error`, `unknown` | `outbox.record.attempt` | Outcome of a record attempt; `unknown` until its final outcome is determined |
 | `outbox.handler.kind` | `primary`, `fallback` | `outbox.record.process` | Whether the primary or fallback handler processed the record |
 | `outbox.handler.id` | handler id | `outbox.record.process` | Handler identifier stored with the outbox record |
 
@@ -377,7 +377,8 @@ convention beans.
 ### Record Attempts
 
 Implement `OutboxRecordProcessingObservationConvention` to customize `outbox.record.attempt`.
-The instrumentation adds `outbox.processing.outcome` when the attempt completes:
+The default convention reads `outbox.processing.outcome` from the observation context. The outcome
+is initially `unknown` and is updated to its final value before the observation stops:
 
 - `completed`, `retry_scheduled`, or `failed` for a normal Core processor-chain outcome
 - `compatibility_deferred` when `OutboxHandlerNotFoundException` escapes the attempt
@@ -400,6 +401,8 @@ class CustomOutboxRecordProcessingObservationConfig {
             override fun getLowCardinalityKeyValues(
                 context: OutboxRecordProcessingObservationContext,
             ) = KeyValues.of(
+                OutboxObservationDocumentation.AttemptLowCardinalityKeyNames.OUTCOME
+                    .withValue(context.getOutcome().toString()),
                 OutboxObservationDocumentation.AttemptLowCardinalityKeyNames.CHANNEL
                     .withValue(context.getChannel()),
             )
