@@ -18,6 +18,7 @@ import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingInvocation
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
+import io.namastack.outbox.observability.OutboxRecordProcessingObservationContext.Outcome
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import org.assertj.core.api.Assertions.assertThat
@@ -66,7 +67,7 @@ class OutboxObservabilityCoreIntegrationTest {
             assertThat(TestConfiguration.scheduleContexts.single().recordKey).isEqualTo("order-1")
             assertThat(TestConfiguration.recordProcessingContexts).hasSize(1)
             assertThat(TestConfiguration.recordProcessingContexts.single().getOutcome())
-                .isEqualTo(OutboxRecordProcessingOutcome.COMPLETED)
+                .isEqualTo(Outcome.COMPLETED)
             assertThat(TestConfiguration.handlerContexts).hasSize(1)
             assertThat(TestConfiguration.handlerContexts.single().getHandlerId())
                 .isEqualTo("integration-handler")

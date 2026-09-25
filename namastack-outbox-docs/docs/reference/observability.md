@@ -193,7 +193,7 @@ Low-cardinality tags are safe for metric dimensions.
 |---------|--------|---------|-------------|
 | `outbox.channel` | channel name, defaults to `default` | all outbox metrics | Logical outbox channel |
 | `outbox.record.status` | `new`, `failed`, `completed` | `outbox.records` | Record status |
-| `outbox.processing.outcome` | `completed`, `retry_scheduled`, `failed` | `outbox.record.attempt` | Final Core outcome of a normally completed record attempt |
+| `outbox.processing.outcome` | `completed`, `retry_scheduled`, `failed`, `compatibility_deferred`, `error` | `outbox.record.attempt` | Final observable outcome of a record attempt |
 | `outbox.handler.kind` | `primary`, `fallback` | `outbox.record.process` | Whether the primary or fallback handler processed the record |
 | `outbox.handler.id` | handler id | `outbox.record.process` | Handler identifier stored with the outbox record |
 
@@ -377,7 +377,14 @@ convention beans.
 ### Record Attempts
 
 Implement `OutboxRecordProcessingObservationConvention` to customize `outbox.record.attempt`.
-The instrumentation adds `outbox.processing.outcome` when the attempt completes normally.
+The instrumentation adds `outbox.processing.outcome` when the attempt completes:
+
+- `completed`, `retry_scheduled`, or `failed` for a normal Core processor-chain outcome
+- `compatibility_deferred` when `OutboxHandlerNotFoundException` escapes the attempt
+- `error` for any other escaping exception
+
+Payload-type compatibility failures (`OutboxPayloadTypeNotFoundException`) occur during
+materialization and never enter the attempt observation.
 
 ```kotlin
 @Configuration

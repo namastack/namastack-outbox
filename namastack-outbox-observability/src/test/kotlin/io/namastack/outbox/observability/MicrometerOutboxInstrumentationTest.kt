@@ -13,6 +13,7 @@ import io.namastack.outbox.instrumentation.OutboxRecordProcessingInvocation
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.observability.OutboxHandlerObservationContext.HandlerKind
+import io.namastack.outbox.observability.OutboxRecordProcessingObservationContext.Outcome
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -110,7 +111,7 @@ class MicrometerOutboxInstrumentationTest {
         val context = recordProcessingContexts.single()
         assertThat(actual).isEqualTo(OutboxRecordProcessingOutcome.RETRY_SCHEDULED)
         assertThat(context.name).isEqualTo(OutboxMetricNames.RECORD_ATTEMPT)
-        assertThat(context.getOutcome()).isEqualTo(OutboxRecordProcessingOutcome.RETRY_SCHEDULED)
+        assertThat(context.getOutcome()).isEqualTo(Outcome.RETRY_SCHEDULED)
         assertThat(context.getDeliveryAttempt()).isEqualTo(2)
         assertThat(context.lowCardinalityValue(OutboxMetricKeyNames.LowCardinality.PROCESSING_OUTCOME))
             .isEqualTo("retry_scheduled")
@@ -160,7 +161,7 @@ class MicrometerOutboxInstrumentationTest {
     }
 
     @Test
-    fun `record processing records compatibility exception without creating a Core outcome`() {
+    fun `record processing records compatibility exception as compatibility_deferred`() {
         val failure =
             OutboxHandlerNotFoundException(
                 recordId = "record-1",
@@ -178,13 +179,13 @@ class MicrometerOutboxInstrumentationTest {
 
         val context = recordProcessingContexts.single()
         assertThat(context.error).isSameAs(failure)
-        assertThat(context.getOutcome()).isNull()
+        assertThat(context.getOutcome()).isEqualTo(Outcome.COMPATIBILITY_DEFERRED)
         assertThat(context.lowCardinalityValue(OutboxMetricKeyNames.LowCardinality.PROCESSING_OUTCOME))
-            .isNull()
+            .isEqualTo("compatibility_deferred")
     }
 
     @Test
-    fun `record processing records unexpected exception without creating a Core outcome`() {
+    fun `record processing records unexpected exception as error`() {
         val failure = IllegalStateException("database unavailable")
 
         assertThatThrownBy {
@@ -197,7 +198,9 @@ class MicrometerOutboxInstrumentationTest {
 
         val context = recordProcessingContexts.single()
         assertThat(context.error).isSameAs(failure)
-        assertThat(context.getOutcome()).isNull()
+        assertThat(context.getOutcome()).isEqualTo(Outcome.ERROR)
+        assertThat(context.lowCardinalityValue(OutboxMetricKeyNames.LowCardinality.PROCESSING_OUTCOME))
+            .isEqualTo("error")
     }
 
     @Test

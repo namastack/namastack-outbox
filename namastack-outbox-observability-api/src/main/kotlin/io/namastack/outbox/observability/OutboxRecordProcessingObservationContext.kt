@@ -3,7 +3,6 @@ package io.namastack.outbox.observability
 import io.micrometer.observation.transport.ReceiverContext
 import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxRecord
-import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 
 /**
  * Observation context for one fully materialized record-processing attempt.
@@ -21,7 +20,7 @@ class OutboxRecordProcessingObservationContext(
     private val record: OutboxRecord<*>,
     private val channel: String = OutboxChannelNameProvider.DEFAULT_CHANNEL,
 ) : ReceiverContext<OutboxRecord<*>>({ carrier: OutboxRecord<*>, key: String -> carrier.context[key] }) {
-    private var outcome: OutboxRecordProcessingOutcome? = null
+    private var outcome: Outcome? = null
 
     init {
         setCarrier(record)
@@ -43,10 +42,37 @@ class OutboxRecordProcessingObservationContext(
     fun getChannel(): String = channel
 
     /** Returns the final outcome, or `null` while processing is still active. */
-    fun getOutcome(): OutboxRecordProcessingOutcome? = outcome
+    fun getOutcome(): Outcome? = outcome
 
     /** Records the final observable outcome before the observation stops. */
-    fun setOutcome(outcome: OutboxRecordProcessingOutcome) {
+    fun setOutcome(outcome: Outcome) {
         this.outcome = outcome
+    }
+
+    /**
+     * Observable outcome of one record-processing attempt.
+     *
+     * @property value String representation used as the observation key value.
+     */
+    enum class Outcome(
+        val value: String,
+    ) {
+        /** The record was completed or deleted. */
+        COMPLETED("completed"),
+
+        /** The record remains pending with a future retry time. */
+        RETRY_SCHEDULED("retry_scheduled"),
+
+        /** The record reached the terminal failed state. */
+        FAILED("failed"),
+
+        /** Processing stopped because a required handler is unavailable on this instance. */
+        COMPATIBILITY_DEFERRED("compatibility_deferred"),
+
+        /** Processing ended with an unexpected exception outside the normal Core outcomes. */
+        ERROR("error"),
+        ;
+
+        override fun toString(): String = value
     }
 }

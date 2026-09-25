@@ -3,6 +3,7 @@ package io.namastack.outbox.observability
 import io.micrometer.common.KeyValue
 import io.micrometer.observation.Observation
 import io.micrometer.observation.ObservationRegistry
+import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.instrumentation.OutboxHandlerInvocation
 import io.namastack.outbox.instrumentation.OutboxHandlerKind
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
@@ -14,6 +15,7 @@ import io.namastack.outbox.observability.OutboxObservationDocumentation.AttemptL
 import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxHandlerObservationConvention
 import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxRecordProcessingObservationConvention
 import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxScheduleObservationConvention
+import io.namastack.outbox.observability.OutboxRecordProcessingObservationContext.Outcome
 import java.util.function.Supplier
 
 /**
@@ -122,8 +124,13 @@ class MicrometerOutboxInstrumentation(
 
         return observation.observe(
             Supplier {
-                action().also { outcome ->
-                    completeAttempt(observation, context, outcome)
+                try {
+                    action().also { outcome ->
+                        completeAttempt(observation, context, outcome.toObservationOutcome())
+                    }
+                } catch (ex: Throwable) {
+                    completeAttempt(observation, context, classifyException(ex))
+                    throw ex
                 }
             },
         )
@@ -158,16 +165,29 @@ class MicrometerOutboxInstrumentation(
     private fun completeAttempt(
         observation: Observation,
         context: OutboxRecordProcessingObservationContext,
-        outcome: OutboxRecordProcessingOutcome,
+        outcome: Outcome,
     ) {
         context.setOutcome(outcome)
         observation.lowCardinalityKeyValue(
             KeyValue.of(
                 AttemptLowCardinalityKeyNames.OUTCOME.asString(),
-                outcome.name.lowercase(),
+                outcome.value,
             ),
         )
     }
+
+    private fun OutboxRecordProcessingOutcome.toObservationOutcome(): Outcome =
+        when (this) {
+            OutboxRecordProcessingOutcome.COMPLETED -> Outcome.COMPLETED
+            OutboxRecordProcessingOutcome.RETRY_SCHEDULED -> Outcome.RETRY_SCHEDULED
+            OutboxRecordProcessingOutcome.FAILED -> Outcome.FAILED
+        }
+
+    private fun classifyException(ex: Throwable): Outcome =
+        when (ex) {
+            is OutboxHandlerNotFoundException -> Outcome.COMPATIBILITY_DEFERRED
+            else -> Outcome.ERROR
+        }
 
     private fun OutboxHandlerKind.toObservationHandlerKind(): HandlerKind =
         when (this) {
