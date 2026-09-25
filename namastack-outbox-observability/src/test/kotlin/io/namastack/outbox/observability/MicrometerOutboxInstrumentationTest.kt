@@ -3,26 +3,39 @@ package io.namastack.outbox.observability
 import io.micrometer.observation.Observation
 import io.micrometer.observation.ObservationHandler
 import io.micrometer.observation.ObservationRegistry
+import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.OutboxRecord
-import io.namastack.outbox.instrumentation.OutboxProcessHandlerKind.FALLBACK
-import io.namastack.outbox.instrumentation.OutboxProcessHandlerKind.PRIMARY
-import io.namastack.outbox.instrumentation.OutboxProcessInvocation
+import io.namastack.outbox.OutboxRecordStatus
+import io.namastack.outbox.instrumentation.OutboxHandlerInvocation
+import io.namastack.outbox.instrumentation.OutboxHandlerKind.FALLBACK
+import io.namastack.outbox.instrumentation.OutboxHandlerKind.PRIMARY
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingInvocation
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
-import io.namastack.outbox.observability.OutboxProcessObservationContext.HandlerKind
+import io.namastack.outbox.observability.OutboxHandlerObservationContext.HandlerKind
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
-import java.time.Clock
 import java.time.Instant
-import java.time.ZoneOffset
 import java.util.concurrent.atomic.AtomicInteger
 
 class MicrometerOutboxInstrumentationTest {
     private val observationRegistry = ObservationRegistry.create()
     private val scheduleContexts = mutableListOf<OutboxScheduleObservationContext>()
-    private val processContexts = mutableListOf<OutboxProcessObservationContext>()
+    private val recordProcessingContexts = mutableListOf<OutboxRecordProcessingObservationContext>()
+    private val handlerContexts = mutableListOf<OutboxHandlerObservationContext>()
 
     init {
+        observationRegistry.observationConfig().observationHandler(
+            object : ObservationHandler<OutboxRecordProcessingObservationContext> {
+                override fun onStop(context: OutboxRecordProcessingObservationContext) {
+                    recordProcessingContexts += context
+                }
+
+                override fun supportsContext(context: Observation.Context): Boolean =
+                    context is OutboxRecordProcessingObservationContext
+            },
+        )
         observationRegistry.observationConfig().observationHandler(
             object : ObservationHandler<OutboxScheduleObservationContext> {
                 override fun onStop(context: OutboxScheduleObservationContext) {
@@ -34,13 +47,13 @@ class MicrometerOutboxInstrumentationTest {
             },
         )
         observationRegistry.observationConfig().observationHandler(
-            object : ObservationHandler<OutboxProcessObservationContext> {
-                override fun onStop(context: OutboxProcessObservationContext) {
-                    processContexts += context
+            object : ObservationHandler<OutboxHandlerObservationContext> {
+                override fun onStop(context: OutboxHandlerObservationContext) {
+                    handlerContexts += context
                 }
 
                 override fun supportsContext(context: Observation.Context): Boolean =
-                    context is OutboxProcessObservationContext
+                    context is OutboxHandlerObservationContext
             },
         )
     }
@@ -76,13 +89,115 @@ class MicrometerOutboxInstrumentationTest {
         val instrumentation = MicrometerOutboxInstrumentation(observationRegistry)
         val record = outboxRecord()
 
-        instrumentation.process(OutboxProcessInvocation(record, PRIMARY, "orders")) {}
-        instrumentation.process(OutboxProcessInvocation(record, FALLBACK, "orders")) {}
+        instrumentation.invokeHandler(OutboxHandlerInvocation(record, PRIMARY, "orders")) {}
+        instrumentation.invokeHandler(OutboxHandlerInvocation(record, FALLBACK, "orders")) {}
 
-        assertThat(processContexts.map { it.getHandlerKind() })
+        assertThat(handlerContexts.map { it.getHandlerKind() })
             .containsExactly(HandlerKind.PRIMARY, HandlerKind.FALLBACK)
-        assertThat(processContexts.map { it.getChannel() }).containsOnly("orders")
-        assertThat(processContexts.map { it.name }).containsOnly(OutboxMetricNames.RECORD_PROCESS)
+        assertThat(handlerContexts.map { it.getChannel() }).containsOnly("orders")
+        assertThat(handlerContexts.map { it.name }).containsOnly(OutboxMetricNames.RECORD_PROCESS)
+    }
+
+    @Test
+    fun `record processing records and returns normal outcome`() {
+        val actual =
+            MicrometerOutboxInstrumentation(observationRegistry).processRecord(
+                OutboxRecordProcessingInvocation(outboxRecord(failureCount = 1), "orders"),
+            ) {
+                OutboxRecordProcessingOutcome.RETRY_SCHEDULED
+            }
+
+        val context = recordProcessingContexts.single()
+        assertThat(actual).isEqualTo(OutboxRecordProcessingOutcome.RETRY_SCHEDULED)
+        assertThat(context.name).isEqualTo(OutboxMetricNames.RECORD_ATTEMPT)
+        assertThat(context.getOutcome()).isEqualTo(OutboxRecordProcessingOutcome.RETRY_SCHEDULED)
+        assertThat(context.getDeliveryAttempt()).isEqualTo(2)
+        assertThat(context.lowCardinalityValue(OutboxMetricKeyNames.LowCardinality.PROCESSING_OUTCOME))
+            .isEqualTo("retry_scheduled")
+    }
+
+    @Test
+    fun `record processing tags every normal Core outcome`() {
+        val instrumentation = MicrometerOutboxInstrumentation(observationRegistry)
+
+        OutboxRecordProcessingOutcome.entries.forEach { outcome ->
+            instrumentation.processRecord(
+                OutboxRecordProcessingInvocation(outboxRecord(), "orders"),
+            ) {
+                outcome
+            }
+        }
+
+        assertThat(
+            recordProcessingContexts.map {
+                it.lowCardinalityValue(OutboxMetricKeyNames.LowCardinality.PROCESSING_OUTCOME)
+            },
+        ).containsExactly("completed", "retry_scheduled", "failed")
+    }
+
+    @Test
+    fun `handler observation is nested under record processing observation`() {
+        val instrumentation = MicrometerOutboxInstrumentation(observationRegistry)
+        val record = outboxRecord()
+
+        instrumentation.processRecord(OutboxRecordProcessingInvocation(record, "orders")) {
+            instrumentation.invokeHandler(OutboxHandlerInvocation(record, PRIMARY, "orders")) {}
+            OutboxRecordProcessingOutcome.COMPLETED
+        }
+
+        assertThat(handlerContexts.single().parentObservation).isNotNull()
+    }
+
+    @Test
+    fun `handler observation derives delivery attempt from record`() {
+        val record = outboxRecord(failureCount = 2)
+
+        MicrometerOutboxInstrumentation(observationRegistry).invokeHandler(
+            OutboxHandlerInvocation(record, PRIMARY, "orders"),
+        ) {}
+
+        assertThat(handlerContexts.single().getDeliveryAttempt()).isEqualTo(3)
+    }
+
+    @Test
+    fun `record processing records compatibility exception without creating a Core outcome`() {
+        val failure =
+            OutboxHandlerNotFoundException(
+                recordId = "record-1",
+                recordKey = "order-42",
+                handlerId = "order-handler",
+            )
+
+        assertThatThrownBy {
+            MicrometerOutboxInstrumentation(observationRegistry).processRecord(
+                OutboxRecordProcessingInvocation(outboxRecord(), "orders"),
+            ) {
+                throw failure
+            }
+        }.isSameAs(failure)
+
+        val context = recordProcessingContexts.single()
+        assertThat(context.error).isSameAs(failure)
+        assertThat(context.getOutcome()).isNull()
+        assertThat(context.lowCardinalityValue(OutboxMetricKeyNames.LowCardinality.PROCESSING_OUTCOME))
+            .isNull()
+    }
+
+    @Test
+    fun `record processing records unexpected exception without creating a Core outcome`() {
+        val failure = IllegalStateException("database unavailable")
+
+        assertThatThrownBy {
+            MicrometerOutboxInstrumentation(observationRegistry).processRecord(
+                OutboxRecordProcessingInvocation(outboxRecord(), "orders"),
+            ) {
+                throw failure
+            }
+        }.isSameAs(failure)
+
+        val context = recordProcessingContexts.single()
+        assertThat(context.error).isSameAs(failure)
+        assertThat(context.getOutcome()).isNull()
     }
 
     @Test
@@ -96,24 +211,37 @@ class MicrometerOutboxInstrumentationTest {
                             override fun getName(): String = "custom.schedule"
                         }
                     },
-                customProcessConventionSupplier =
+                customRecordProcessingConventionSupplier =
                     {
-                        object : OutboxProcessObservationConvention {
+                        object : OutboxRecordProcessingObservationConvention {
+                            override fun getName(): String = "custom.attempt"
+                        }
+                    },
+                customHandlerConventionSupplier =
+                    {
+                        object : OutboxHandlerObservationConvention {
                             override fun getName(): String = "custom.process"
                         }
                     },
             )
 
         instrumentation.schedule(OutboxScheduleInvocation(Any(), "order-42", "orders")) {}
-        instrumentation.process(OutboxProcessInvocation(outboxRecord(), PRIMARY, "orders")) {}
+        instrumentation.processRecord(
+            OutboxRecordProcessingInvocation(outboxRecord(), "orders"),
+        ) {
+            OutboxRecordProcessingOutcome.COMPLETED
+        }
+        instrumentation.invokeHandler(OutboxHandlerInvocation(outboxRecord(), PRIMARY, "orders")) {}
 
         assertThat(scheduleContexts.single().name).isEqualTo("custom.schedule")
-        assertThat(processContexts.single().name).isEqualTo("custom.process")
+        assertThat(recordProcessingContexts.single().name).isEqualTo("custom.attempt")
+        assertThat(handlerContexts.single().name).isEqualTo("custom.process")
     }
 
     @Test
     fun `custom convention suppliers resolve lazily once`() {
         val scheduleResolutions = AtomicInteger()
+        val recordProcessingResolutions = AtomicInteger()
         val processResolutions = AtomicInteger()
         val instrumentation =
             MicrometerOutboxInstrumentation(
@@ -122,21 +250,34 @@ class MicrometerOutboxInstrumentationTest {
                     scheduleResolutions.incrementAndGet()
                     null
                 },
-                customProcessConventionSupplier = {
+                customRecordProcessingConventionSupplier = {
+                    recordProcessingResolutions.incrementAndGet()
+                    null
+                },
+                customHandlerConventionSupplier = {
                     processResolutions.incrementAndGet()
                     null
                 },
             )
 
         assertThat(scheduleResolutions).hasValue(0)
+        assertThat(recordProcessingResolutions).hasValue(0)
         assertThat(processResolutions).hasValue(0)
 
         instrumentation.schedule(OutboxScheduleInvocation(Any(), "order-1", "orders")) {}
         instrumentation.schedule(OutboxScheduleInvocation(Any(), "order-2", "orders")) {}
-        instrumentation.process(OutboxProcessInvocation(outboxRecord(), PRIMARY, "orders")) {}
-        instrumentation.process(OutboxProcessInvocation(outboxRecord(), PRIMARY, "orders")) {}
+        repeat(2) {
+            instrumentation.processRecord(
+                OutboxRecordProcessingInvocation(outboxRecord(), "orders"),
+            ) {
+                OutboxRecordProcessingOutcome.COMPLETED
+            }
+        }
+        instrumentation.invokeHandler(OutboxHandlerInvocation(outboxRecord(), PRIMARY, "orders")) {}
+        instrumentation.invokeHandler(OutboxHandlerInvocation(outboxRecord(), PRIMARY, "orders")) {}
 
         assertThat(scheduleResolutions).hasValue(1)
+        assertThat(recordProcessingResolutions).hasValue(1)
         assertThat(processResolutions).hasValue(1)
     }
 
@@ -155,7 +296,7 @@ class MicrometerOutboxInstrumentationTest {
 
         instrumentation.schedule(OutboxScheduleInvocation(Any(), "order-1", "orders")) {}
         instrumentation.schedule(OutboxScheduleInvocation(Any(), "order-2", "orders")) {}
-        instrumentation.process(OutboxProcessInvocation(outboxRecord(), PRIMARY, "orders")) {}
+        instrumentation.invokeHandler(OutboxHandlerInvocation(outboxRecord(), PRIMARY, "orders")) {}
 
         assertThat(registryResolutions).hasValue(1)
     }
@@ -165,36 +306,51 @@ class MicrometerOutboxInstrumentationTest {
         val failure = IllegalStateException("handler failed")
 
         assertThatThrownBy {
-            MicrometerOutboxInstrumentation(observationRegistry).process(
-                OutboxProcessInvocation(outboxRecord(), PRIMARY, "orders"),
+            MicrometerOutboxInstrumentation(observationRegistry).invokeHandler(
+                OutboxHandlerInvocation(outboxRecord(), PRIMARY, "orders"),
             ) {
                 throw failure
             }
         }.isSameAs(failure)
-        assertThat(processContexts.single().error).isSameAs(failure)
+        assertThat(handlerContexts.single().error).isSameAs(failure)
     }
 
     @Test
     fun `process context retains stored trace propagation carrier`() {
         val record = outboxRecord(context = mapOf("traceparent" to "stored-trace-context"))
 
-        MicrometerOutboxInstrumentation(observationRegistry).process(
-            OutboxProcessInvocation(record, PRIMARY, "orders"),
-        ) {}
+        MicrometerOutboxInstrumentation(observationRegistry).processRecord(
+            OutboxRecordProcessingInvocation(record, "orders"),
+        ) {
+            OutboxRecordProcessingOutcome.COMPLETED
+        }
 
-        val context = processContexts.single()
+        val context = recordProcessingContexts.single()
         assertThat(context.carrier).isSameAs(record)
         assertThat(context.getter.get(record, "traceparent")).isEqualTo("stored-trace-context")
     }
 
-    private fun outboxRecord(context: Map<String, String> = emptyMap()): OutboxRecord<Any> =
-        OutboxRecord
-            .Builder<Any>()
-            .key("order-42")
-            .payload(Any())
-            .context(context)
-            .handlerId("order-handler")
-            .build(Clock.fixed(Instant.parse("2025-01-01T00:00:00Z"), ZoneOffset.UTC))
+    private fun outboxRecord(
+        context: Map<String, String> = emptyMap(),
+        failureCount: Int = 0,
+    ): OutboxRecord<Any> {
+        val now = Instant.parse("2025-01-01T00:00:00Z")
+        return OutboxRecord.restore(
+            id = "record-1",
+            recordKey = "order-42",
+            payload = Any(),
+            context = context,
+            createdAt = now,
+            status = OutboxRecordStatus.NEW,
+            completedAt = null,
+            failureCount = failureCount,
+            failureException = null,
+            failureReason = null,
+            partition = 1,
+            nextRetryAt = now,
+            handlerId = "order-handler",
+        )
+    }
 
     private fun Observation.Context.lowCardinalityValue(key: String): String? = getLowCardinalityKeyValue(key)?.value
 }

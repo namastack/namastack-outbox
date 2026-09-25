@@ -6,9 +6,11 @@ import io.mockk.verify
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordTestFactory.outboxRecord
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Clock
@@ -55,7 +57,7 @@ class RetryOutboxRecordProcessorTest {
 
         val result = processor.handle(record)
 
-        assertThat(result).isFalse()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.RETRY_SCHEDULED)
         assertThat(record.nextRetryAt).isEqualTo(Instant.now(clock).plus(5, ChronoUnit.MINUTES))
 
         verify { retryPolicyRegistry.getByHandlerId("test-handler") }
@@ -76,11 +78,11 @@ class RetryOutboxRecordProcessorTest {
 
         every { retryPolicy.maxRetries() } returns 5
         every { retryPolicy.shouldRetry(any()) } returns true
-        every { nextProcessor.handle(any()) } returns false
+        every { nextProcessor.handle(any()) } returns OutboxRecordProcessingOutcome.FAILED
 
         val result = processor.handle(record)
 
-        assertThat(result).isFalse()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.FAILED)
 
         verify { nextProcessor.handle(record) }
         verify(exactly = 0) { recordRepository.save(any() as OutboxRecord<*>) }
@@ -97,18 +99,18 @@ class RetryOutboxRecordProcessorTest {
 
         every { retryPolicy.maxRetries() } returns 5
         every { retryPolicy.shouldRetry(any()) } returns false
-        every { nextProcessor.handle(any()) } returns true
+        every { nextProcessor.handle(any()) } returns OutboxRecordProcessingOutcome.COMPLETED
 
         val result = processor.handle(record)
 
-        assertThat(result).isTrue()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.COMPLETED)
 
         verify { nextProcessor.handle(record) }
         verify(exactly = 0) { recordRepository.save(any() as OutboxRecord<*>) }
     }
 
     @Test
-    fun `handle returns false when no next processor and cannot retry`() {
+    fun `handle throws when no next processor and cannot retry`() {
         val record =
             outboxRecord(
                 handlerId = "test-handler",
@@ -120,9 +122,8 @@ class RetryOutboxRecordProcessorTest {
         every { retryPolicy.maxRetries() } returns 5
         every { retryPolicy.shouldRetry(any()) } returns true
 
-        val result = processorWithoutNext.handle(record)
-
-        assertThat(result).isFalse()
+        assertThatThrownBy { processorWithoutNext.handle(record) }
+            .isInstanceOf(IllegalStateException::class.java)
 
         verify(exactly = 0) { recordRepository.save(any() as OutboxRecord<*>) }
         verify(exactly = 0) { retryPolicy.nextDelay(any()) }
@@ -203,7 +204,7 @@ class RetryOutboxRecordProcessorTest {
 
         val result = processor.handle(record)
 
-        assertThat(result).isFalse()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.RETRY_SCHEDULED)
         assertThat(record.nextRetryAt).isEqualTo(Instant.now(clock).plus(2, ChronoUnit.MINUTES))
     }
 
@@ -218,11 +219,11 @@ class RetryOutboxRecordProcessorTest {
 
         every { retryPolicy.maxRetries() } returns 10
         every { retryPolicy.shouldRetry(any()) } returns false
-        every { nextProcessor.handle(any()) } returns false
+        every { nextProcessor.handle(any()) } returns OutboxRecordProcessingOutcome.FAILED
 
         val result = processor.handle(record)
 
-        assertThat(result).isFalse()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.FAILED)
 
         verify { nextProcessor.handle(record) }
         verify(exactly = 0) { recordRepository.save(any() as OutboxRecord<*>) }

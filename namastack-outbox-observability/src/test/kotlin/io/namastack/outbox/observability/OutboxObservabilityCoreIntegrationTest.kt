@@ -11,13 +11,15 @@ import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
-import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.instrumentation.OutboxHandlerInvocation
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
-import io.namastack.outbox.instrumentation.OutboxProcessInvocation
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingInvocation
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.partition.PartitionAssignmentRepository
+import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.getBean
@@ -38,6 +40,7 @@ class OutboxObservabilityCoreIntegrationTest {
                 AutoConfigurations.of(
                     OutboxObservabilityAutoConfiguration::class.java,
                     io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration::class.java,
+                    io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration::class.java,
                 ),
             ).withUserConfiguration(TestConfiguration::class.java)
             .withPropertyValues("namastack.outbox.instance.graceful-shutdown-timeout=1ms")
@@ -46,7 +49,8 @@ class OutboxObservabilityCoreIntegrationTest {
     fun `Core boundaries invoke user and Micrometer instrumentation exactly once`() {
         TestConfiguration.events.clear()
         TestConfiguration.scheduleContexts.clear()
-        TestConfiguration.processContexts.clear()
+        TestConfiguration.recordProcessingContexts.clear()
+        TestConfiguration.handlerContexts.clear()
 
         contextRunner.run { context ->
             assertThat(context).hasNotFailed()
@@ -56,20 +60,25 @@ class OutboxObservabilityCoreIntegrationTest {
             assertThat(context).doesNotHaveBean("outboxObservabilityScheduleAdvisor")
 
             context.getBean<Outbox>().schedule(IntegrationPayload("created"), "order-1")
-            context.getBean<OutboxHandlerInvoker>().dispatch(outboxRecord())
+            context.getBean<OutboxRecordProcessorChainInvoker>().process(outboxRecord())
 
             assertThat(TestConfiguration.scheduleContexts).hasSize(1)
             assertThat(TestConfiguration.scheduleContexts.single().recordKey).isEqualTo("order-1")
-            assertThat(TestConfiguration.processContexts).hasSize(1)
-            assertThat(TestConfiguration.processContexts.single().getHandlerId())
+            assertThat(TestConfiguration.recordProcessingContexts).hasSize(1)
+            assertThat(TestConfiguration.recordProcessingContexts.single().getOutcome())
+                .isEqualTo(OutboxRecordProcessingOutcome.COMPLETED)
+            assertThat(TestConfiguration.handlerContexts).hasSize(1)
+            assertThat(TestConfiguration.handlerContexts.single().getHandlerId())
                 .isEqualTo("integration-handler")
             assertThat(TestConfiguration.events)
                 .containsExactly(
                     "user.schedule.before",
                     "user.schedule.after",
+                    "user.record.before",
                     "user.process.before",
                     "handler",
                     "user.process.after",
+                    "user.record.after",
                 )
         }
     }
@@ -116,6 +125,16 @@ class OutboxObservabilityCoreIntegrationTest {
         fun observationRegistry(outbox: Outbox): ObservationRegistry =
             ObservationRegistry.create().apply {
                 observationConfig().observationHandler(
+                    object : ObservationHandler<OutboxRecordProcessingObservationContext> {
+                        override fun onStop(context: OutboxRecordProcessingObservationContext) {
+                            recordProcessingContexts += context
+                        }
+
+                        override fun supportsContext(context: Observation.Context): Boolean =
+                            context is OutboxRecordProcessingObservationContext
+                    },
+                )
+                observationConfig().observationHandler(
                     object : ObservationHandler<OutboxScheduleObservationContext> {
                         override fun onStop(context: OutboxScheduleObservationContext) {
                             scheduleContexts += context
@@ -126,13 +145,13 @@ class OutboxObservabilityCoreIntegrationTest {
                     },
                 )
                 observationConfig().observationHandler(
-                    object : ObservationHandler<OutboxProcessObservationContext> {
-                        override fun onStop(context: OutboxProcessObservationContext) {
-                            processContexts += context
+                    object : ObservationHandler<OutboxHandlerObservationContext> {
+                        override fun onStop(context: OutboxHandlerObservationContext) {
+                            handlerContexts += context
                         }
 
                         override fun supportsContext(context: Observation.Context): Boolean =
-                            context is OutboxProcessObservationContext
+                            context is OutboxHandlerObservationContext
                     },
                 )
             }
@@ -154,8 +173,8 @@ class OutboxObservabilityCoreIntegrationTest {
                     }
                 }
 
-                override fun process(
-                    invocation: OutboxProcessInvocation,
+                override fun invokeHandler(
+                    invocation: OutboxHandlerInvocation,
                     action: () -> Unit,
                 ) {
                     events += "user.process.before"
@@ -163,6 +182,18 @@ class OutboxObservabilityCoreIntegrationTest {
                         action()
                     } finally {
                         events += "user.process.after"
+                    }
+                }
+
+                override fun processRecord(
+                    invocation: OutboxRecordProcessingInvocation,
+                    action: () -> OutboxRecordProcessingOutcome,
+                ): OutboxRecordProcessingOutcome {
+                    events += "user.record.before"
+                    return try {
+                        action()
+                    } finally {
+                        events += "user.record.after"
                     }
                 }
             }
@@ -198,7 +229,8 @@ class OutboxObservabilityCoreIntegrationTest {
         companion object {
             val events = mutableListOf<String>()
             val scheduleContexts = mutableListOf<OutboxScheduleObservationContext>()
-            val processContexts = mutableListOf<OutboxProcessObservationContext>()
+            val recordProcessingContexts = mutableListOf<OutboxRecordProcessingObservationContext>()
+            val handlerContexts = mutableListOf<OutboxHandlerObservationContext>()
         }
     }
 

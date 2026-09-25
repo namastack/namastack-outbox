@@ -22,6 +22,7 @@ import org.springframework.context.annotation.Bean
  * - `namastack.outbox.enabled` is `true` (default)
  *
  * Provides observation-based instrumentation for:
+ * - **Record processing** (`outbox.record.attempt`) — timer per fully materialized record attempt
  * - **Handler dispatch** (`outbox.record.process`) — timer per handler invocation
  * - **Record scheduling** (`outbox.record.schedule`) — timer per schedule call
  *
@@ -43,7 +44,8 @@ class OutboxObservabilityAutoConfiguration {
      *
      * @param observationRegistry Provider for the registry used to create observations.
      * @param scheduleConvention Optional custom scheduling convention.
-     * @param processConvention Optional custom processing convention.
+     * @param recordProcessingConvention Optional custom record-processing convention.
+     * @param handlerConvention Optional custom handler-invocation convention.
      * @return The Micrometer outbox instrumentation.
      */
     @Bean
@@ -52,11 +54,13 @@ class OutboxObservabilityAutoConfiguration {
     fun micrometerOutboxInstrumentation(
         observationRegistry: ObjectProvider<ObservationRegistry>,
         scheduleConvention: ObjectProvider<OutboxScheduleObservationConvention>,
-        processConvention: ObjectProvider<OutboxProcessObservationConvention>,
+        recordProcessingConvention: ObjectProvider<OutboxRecordProcessingObservationConvention>,
+        handlerConvention: ObjectProvider<OutboxHandlerObservationConvention>,
     ): MicrometerOutboxInstrumentation =
         MicrometerOutboxInstrumentation(
             observationRegistrySupplier = observationRegistry::getObject,
             customScheduleConventionSupplier = scheduleConvention::getIfAvailable,
-            customProcessConventionSupplier = processConvention::getIfAvailable,
+            customRecordProcessingConventionSupplier = recordProcessingConvention::getIfAvailable,
+            customHandlerConventionSupplier = handlerConvention::getIfAvailable,
         )
 }

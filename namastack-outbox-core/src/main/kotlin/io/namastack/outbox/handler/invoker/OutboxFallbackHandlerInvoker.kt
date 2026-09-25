@@ -4,9 +4,9 @@ import io.namastack.outbox.OpenForProxy
 import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
+import io.namastack.outbox.instrumentation.OutboxHandlerInvocation
+import io.namastack.outbox.instrumentation.OutboxHandlerKind
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
-import io.namastack.outbox.instrumentation.OutboxProcessHandlerKind
-import io.namastack.outbox.instrumentation.OutboxProcessInvocation
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 
 /**
@@ -43,15 +43,15 @@ class OutboxFallbackHandlerInvoker internal constructor(
      * or if the record does not contain a failure exception (which is expected for failed records)
      */
     fun dispatch(record: OutboxRecord<*>) {
-        instrumentation.process(
+        instrumentation.invokeHandler(
             invocation =
-                OutboxProcessInvocation(
+                OutboxHandlerInvocation(
                     record = record,
-                    handlerKind = OutboxProcessHandlerKind.FALLBACK,
+                    handlerKind = OutboxHandlerKind.FALLBACK,
                     channel = channelNameProvider.getChannelName(),
                 ),
             action = {
-                val payload = record.payload ?: return@process
+                val payload = record.payload ?: return@invokeHandler
                 val failureException = getFailureException(record)
                 val registration =
                     handlerRegistry.getRegistrationById(record.handlerId)

@@ -10,6 +10,7 @@ import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -49,7 +50,7 @@ class PrimaryOutboxRecordProcessorTest {
 
         val result = processor.handle(record)
 
-        assertThat(result).isTrue()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.COMPLETED)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
         assertThat(record.completedAt).isEqualTo(Instant.now(clock))
 
@@ -69,7 +70,7 @@ class PrimaryOutboxRecordProcessorTest {
 
         val result = processor.handle(record)
 
-        assertThat(result).isTrue()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.COMPLETED)
 
         verify { handlerInvoker.dispatch(record) }
         verify { recordRepository.deleteById(record.id) }
@@ -83,11 +84,11 @@ class PrimaryOutboxRecordProcessorTest {
         val exception = RuntimeException("Handler failed")
 
         every { handlerInvoker.dispatch(any()) } throws exception
-        every { nextProcessor.handle(any()) } returns false
+        every { nextProcessor.handle(any()) } returns OutboxRecordProcessingOutcome.RETRY_SCHEDULED
 
         val result = processor.handle(record)
 
-        assertThat(result).isFalse()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.RETRY_SCHEDULED)
         assertThat(record.failureCount).isEqualTo(1)
         assertThat(record.failureException).isEqualTo(exception)
         assertThat(record.failureReason).isEqualTo("Handler failed")
@@ -104,27 +105,27 @@ class PrimaryOutboxRecordProcessorTest {
         val exception = IllegalStateException("Processing error")
 
         every { handlerInvoker.dispatch(any()) } throws exception
-        every { nextProcessor.handle(any()) } returns true
+        every { nextProcessor.handle(any()) } returns OutboxRecordProcessingOutcome.COMPLETED
 
         val result = processor.handle(record)
 
-        assertThat(result).isTrue()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.COMPLETED)
         assertThat(record.failureCount).isEqualTo(1)
 
         verify { nextProcessor.handle(record) }
     }
 
     @Test
-    fun `handle returns false when dispatch fails and no next processor exists`() {
+    fun `handle throws when dispatch fails and no next processor exists`() {
         val record = createRecord()
         val exception = RuntimeException("Handler error")
         val processorWithoutNext = PrimaryOutboxRecordProcessor(handlerInvoker, recordRepository, properties, clock)
 
         every { handlerInvoker.dispatch(any()) } throws exception
 
-        val result = processorWithoutNext.handle(record)
+        assertThatThrownBy { processorWithoutNext.handle(record) }
+            .isInstanceOf(IllegalStateException::class.java)
 
-        assertThat(result).isFalse()
         assertThat(record.failureCount).isEqualTo(1)
         assertThat(record.failureException).isEqualTo(exception)
     }
@@ -135,7 +136,7 @@ class PrimaryOutboxRecordProcessorTest {
         val exception = RuntimeException()
 
         every { handlerInvoker.dispatch(any()) } throws exception
-        every { nextProcessor.handle(any()) } returns false
+        every { nextProcessor.handle(any()) } returns OutboxRecordProcessingOutcome.RETRY_SCHEDULED
 
         processor.handle(record)
 
@@ -172,7 +173,7 @@ class PrimaryOutboxRecordProcessorTest {
 
         val result = processor.handle(record)
 
-        assertThat(result).isTrue()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.COMPLETED)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
         assertThat(record.failureCount).isZero()
         verify(exactly = 0) { handlerInvoker.ensureHandlerAvailable(any()) }
@@ -191,7 +192,7 @@ class PrimaryOutboxRecordProcessorTest {
                 handlerId = "another-handler",
             )
         every { handlerInvoker.dispatch(record) } throws exception
-        every { nextProcessor.handle(record) } returns false
+        every { nextProcessor.handle(record) } returns OutboxRecordProcessingOutcome.FAILED
 
         processor.handle(record)
 

@@ -1,7 +1,7 @@
 package io.namastack.outbox.instrumentation
 
 /**
- * Instruments scheduling and processing at the stable outbox operation boundaries.
+ * Instruments scheduling, record processing, and handler invocation at stable outbox boundaries.
  *
  * Implementations are observational around-interceptors. They must invoke action exactly once
  * and propagate its result or failure unchanged.
@@ -22,13 +22,28 @@ interface OutboxInstrumentation {
     ) = action()
 
     /**
+     * Instruments one attempt to process a fully materialized record.
+     *
+     * Implementations must return the exact outcome returned by [action]. If [action] throws,
+     * implementations must propagate that same exception unchanged.
+     *
+     * @param invocation Description of the record-processing attempt.
+     * @param action Processor-chain action to invoke exactly once.
+     * @return The unchanged outcome returned by [action].
+     */
+    fun processRecord(
+        invocation: OutboxRecordProcessingInvocation,
+        action: () -> OutboxRecordProcessingOutcome,
+    ): OutboxRecordProcessingOutcome = action()
+
+    /**
      * Instruments one primary or fallback handler invocation.
      *
-     * @param invocation Description of the processing operation.
+     * @param invocation Description of the handler invocation.
      * @param action Handler action to invoke exactly once.
      */
-    fun process(
-        invocation: OutboxProcessInvocation,
+    fun invokeHandler(
+        invocation: OutboxHandlerInvocation,
         action: () -> Unit,
     ) = action()
 

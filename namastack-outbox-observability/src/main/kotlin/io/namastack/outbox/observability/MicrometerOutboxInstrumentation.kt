@@ -1,24 +1,31 @@
 package io.namastack.outbox.observability
 
+import io.micrometer.common.KeyValue
+import io.micrometer.observation.Observation
 import io.micrometer.observation.ObservationRegistry
+import io.namastack.outbox.instrumentation.OutboxHandlerInvocation
+import io.namastack.outbox.instrumentation.OutboxHandlerKind
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
-import io.namastack.outbox.instrumentation.OutboxProcessHandlerKind
-import io.namastack.outbox.instrumentation.OutboxProcessInvocation
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingInvocation
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
-import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxProcessObservationConvention
+import io.namastack.outbox.observability.OutboxHandlerObservationContext.HandlerKind
+import io.namastack.outbox.observability.OutboxObservationDocumentation.AttemptLowCardinalityKeyNames
+import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxHandlerObservationConvention
+import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxRecordProcessingObservationConvention
 import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxScheduleObservationConvention
-import io.namastack.outbox.observability.OutboxProcessObservationContext.HandlerKind
+import java.util.function.Supplier
 
 /**
- * Instruments outbox scheduling and handler processing with Micrometer observations.
+ * Instruments outbox scheduling, record processing, and handler invocation with Micrometer.
  *
- * Uses the existing outbox observation documentation, contexts, and conventions. Processing
- * observations retain the outbox record as their receiver carrier so stored propagation context
- * remains available to Micrometer tracing handlers.
+ * The record-processing observation restores persisted propagation context. Primary and fallback
+ * handler observations execute as its children.
  *
  * @param observationRegistrySupplier Lazy supplier for the registry used to create observations.
  * @param customScheduleConventionSupplier Lazy supplier for an optional custom scheduling observation convention.
- * @param customProcessConventionSupplier Lazy supplier for an optional custom processing observation convention.
+ * @param customRecordProcessingConventionSupplier Lazy supplier for an optional record-processing convention.
+ * @param customHandlerConventionSupplier Lazy supplier for an optional handler observation convention.
  *
  * @author Roland Beisel
  * @since 1.10.0
@@ -26,7 +33,8 @@ import io.namastack.outbox.observability.OutboxProcessObservationContext.Handler
 class MicrometerOutboxInstrumentation(
     observationRegistrySupplier: () -> ObservationRegistry,
     customScheduleConventionSupplier: () -> OutboxScheduleObservationConvention? = { null },
-    customProcessConventionSupplier: () -> OutboxProcessObservationConvention? = { null },
+    customRecordProcessingConventionSupplier: () -> OutboxRecordProcessingObservationConvention? = { null },
+    customHandlerConventionSupplier: () -> OutboxHandlerObservationConvention? = { null },
 ) : OutboxInstrumentation {
     private val observationRegistry: ObservationRegistry by lazy {
         observationRegistrySupplier()
@@ -34,8 +42,11 @@ class MicrometerOutboxInstrumentation(
     private val resolvedScheduleConvention: OutboxScheduleObservationConvention? by lazy {
         customScheduleConventionSupplier()
     }
-    private val resolvedProcessConvention: OutboxProcessObservationConvention? by lazy {
-        customProcessConventionSupplier()
+    private val resolvedRecordProcessingConvention: OutboxRecordProcessingObservationConvention? by lazy {
+        customRecordProcessingConventionSupplier()
+    }
+    private val resolvedHandlerConvention: OutboxHandlerObservationConvention? by lazy {
+        customHandlerConventionSupplier()
     }
 
     /**
@@ -43,16 +54,19 @@ class MicrometerOutboxInstrumentation(
      *
      * @param observationRegistry Registry used to create observations.
      * @param customScheduleConventionSupplier Lazy supplier for an optional custom scheduling observation convention.
-     * @param customProcessConventionSupplier Lazy supplier for an optional custom processing observation convention.
+     * @param customRecordProcessingConventionSupplier Lazy supplier for an optional record-processing convention.
+     * @param customHandlerConventionSupplier Lazy supplier for an optional handler observation convention.
      */
     constructor(
         observationRegistry: ObservationRegistry,
         customScheduleConventionSupplier: () -> OutboxScheduleObservationConvention? = { null },
-        customProcessConventionSupplier: () -> OutboxProcessObservationConvention? = { null },
+        customRecordProcessingConventionSupplier: () -> OutboxRecordProcessingObservationConvention? = { null },
+        customHandlerConventionSupplier: () -> OutboxHandlerObservationConvention? = { null },
     ) : this(
         observationRegistrySupplier = { observationRegistry },
         customScheduleConventionSupplier = customScheduleConventionSupplier,
-        customProcessConventionSupplier = customProcessConventionSupplier,
+        customRecordProcessingConventionSupplier = customRecordProcessingConventionSupplier,
+        customHandlerConventionSupplier = customHandlerConventionSupplier,
     )
 
     /**
@@ -82,17 +96,51 @@ class MicrometerOutboxInstrumentation(
     }
 
     /**
+     * Observes one complete record-processing attempt.
+     *
+     * @param invocation Description used to create the record-processing observation context.
+     * @param action Processor-chain action executed within the observation scope.
+     * @return The unchanged processing outcome returned by [action].
+     */
+    override fun processRecord(
+        invocation: OutboxRecordProcessingInvocation,
+        action: () -> OutboxRecordProcessingOutcome,
+    ): OutboxRecordProcessingOutcome {
+        val context =
+            OutboxRecordProcessingObservationContext(
+                record = invocation.record,
+                channel = invocation.channel,
+            )
+        val observation =
+            OutboxObservationDocumentation.OUTBOX_RECORD_ATTEMPT
+                .observation(
+                    resolvedRecordProcessingConvention,
+                    DefaultOutboxRecordProcessingObservationConvention.INSTANCE,
+                    { context },
+                    observationRegistry,
+                )
+
+        return observation.observe(
+            Supplier {
+                action().also { outcome ->
+                    completeAttempt(observation, context, outcome)
+                }
+            },
+        )
+    }
+
+    /**
      * Observes one primary or fallback handler invocation.
      *
-     * @param invocation Description used to create the processing observation context.
+     * @param invocation Description used to create the handler observation context.
      * @param action Handler action executed within the observation scope.
      */
-    override fun process(
-        invocation: OutboxProcessInvocation,
+    override fun invokeHandler(
+        invocation: OutboxHandlerInvocation,
         action: () -> Unit,
     ) {
         val context =
-            OutboxProcessObservationContext(
+            OutboxHandlerObservationContext(
                 record = invocation.record,
                 handlerKind = invocation.handlerKind.toObservationHandlerKind(),
                 channel = invocation.channel,
@@ -100,21 +148,30 @@ class MicrometerOutboxInstrumentation(
 
         OutboxObservationDocumentation.OUTBOX_RECORD_PROCESS
             .observation(
-                resolvedProcessConvention,
-                DefaultOutboxProcessObservationConvention.INSTANCE,
+                resolvedHandlerConvention,
+                DefaultOutboxHandlerObservationConvention.INSTANCE,
                 { context },
                 observationRegistry,
             ).observe(action)
     }
 
-    /**
-     * Maps the Core handler kind to the handler kind used by the observation context.
-     *
-     * @return The corresponding observation handler kind.
-     */
-    private fun OutboxProcessHandlerKind.toObservationHandlerKind(): HandlerKind =
+    private fun completeAttempt(
+        observation: Observation,
+        context: OutboxRecordProcessingObservationContext,
+        outcome: OutboxRecordProcessingOutcome,
+    ) {
+        context.setOutcome(outcome)
+        observation.lowCardinalityKeyValue(
+            KeyValue.of(
+                AttemptLowCardinalityKeyNames.OUTCOME.asString(),
+                outcome.name.lowercase(),
+            ),
+        )
+    }
+
+    private fun OutboxHandlerKind.toObservationHandlerKind(): HandlerKind =
         when (this) {
-            OutboxProcessHandlerKind.PRIMARY -> HandlerKind.PRIMARY
-            OutboxProcessHandlerKind.FALLBACK -> HandlerKind.FALLBACK
+            OutboxHandlerKind.PRIMARY -> HandlerKind.PRIMARY
+            OutboxHandlerKind.FALLBACK -> HandlerKind.FALLBACK
         }
 }

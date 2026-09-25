@@ -1,13 +1,13 @@
 package io.namastack.outbox.handler.invoker
 
 import io.namastack.outbox.OpenForProxy
-import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.OutboxChannelNameProvider
+import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
+import io.namastack.outbox.instrumentation.OutboxHandlerInvocation
+import io.namastack.outbox.instrumentation.OutboxHandlerKind
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
-import io.namastack.outbox.instrumentation.OutboxProcessHandlerKind
-import io.namastack.outbox.instrumentation.OutboxProcessInvocation
 
 /**
  * Invokes the appropriate handler for a given record.
@@ -71,15 +71,15 @@ class OutboxHandlerInvoker(
      * @throws Throwable the original exception thrown by the handler (will trigger retries)
      */
     fun dispatch(record: OutboxRecord<*>) {
-        instrumentation.process(
+        instrumentation.invokeHandler(
             invocation =
-                OutboxProcessInvocation(
+                OutboxHandlerInvocation(
                     record = record,
-                    handlerKind = OutboxProcessHandlerKind.PRIMARY,
+                    handlerKind = OutboxHandlerKind.PRIMARY,
                     channel = channelNameProvider.getChannelName(),
                 ),
             action = {
-                val payload = record.payload ?: return@process
+                val payload = record.payload ?: return@invokeHandler
                 val metadata = OutboxHandlerContextFactory.metadata(record)
 
                 val handler = requireHandler(record)

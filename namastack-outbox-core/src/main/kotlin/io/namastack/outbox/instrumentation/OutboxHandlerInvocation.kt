@@ -12,8 +12,8 @@ import io.namastack.outbox.OutboxRecord
  * @author Roland Beisel
  * @since 1.10.0
  */
-data class OutboxProcessInvocation(
+data class OutboxHandlerInvocation(
     val record: OutboxRecord<*>,
-    val handlerKind: OutboxProcessHandlerKind,
+    val handlerKind: OutboxHandlerKind,
     val channel: String,
 )

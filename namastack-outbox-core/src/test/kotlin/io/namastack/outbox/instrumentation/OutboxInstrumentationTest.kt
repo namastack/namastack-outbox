@@ -1,7 +1,8 @@
 package io.namastack.outbox.instrumentation
 
 import io.namastack.outbox.OutboxRecordTestFactory.outboxRecord
-import io.namastack.outbox.instrumentation.OutboxProcessHandlerKind.FALLBACK
+import io.namastack.outbox.instrumentation.OutboxHandlerKind.FALLBACK
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome.COMPLETED
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -19,10 +20,10 @@ class OutboxInstrumentationTest {
     }
 
     @Test
-    fun `NOOP executes process action exactly once`() {
+    fun `NOOP executes handler action exactly once`() {
         var invocations = 0
 
-        OutboxInstrumentation.NOOP.process(processInvocation()) {
+        OutboxInstrumentation.NOOP.invokeHandler(handlerInvocation()) {
             invocations++
         }
 
@@ -41,7 +42,7 @@ class OutboxInstrumentationTest {
     }
 
     @Test
-    fun `schedule-only instrumentation uses default process implementation`() {
+    fun `schedule-only instrumentation uses default handler implementation`() {
         var invocations = 0
         val instrumentation =
             object : OutboxInstrumentation {
@@ -51,7 +52,7 @@ class OutboxInstrumentationTest {
                 ) = action()
             }
 
-        instrumentation.process(processInvocation()) {
+        instrumentation.invokeHandler(handlerInvocation()) {
             invocations++
         }
 
@@ -59,12 +60,12 @@ class OutboxInstrumentationTest {
     }
 
     @Test
-    fun `process-only instrumentation uses default schedule implementation`() {
+    fun `handler-only instrumentation uses default schedule implementation`() {
         var invocations = 0
         val instrumentation =
             object : OutboxInstrumentation {
-                override fun process(
-                    invocation: OutboxProcessInvocation,
+                override fun invokeHandler(
+                    invocation: OutboxHandlerInvocation,
                     action: () -> Unit,
                 ) = action()
             }
@@ -93,11 +94,11 @@ class OutboxInstrumentationTest {
     }
 
     @Test
-    fun `process invocation retains supplied operation data`() {
+    fun `handler invocation retains supplied operation data`() {
         val record = outboxRecord(recordKey = "order-42")
 
         val invocation =
-            OutboxProcessInvocation(
+            OutboxHandlerInvocation(
                 record = record,
                 handlerKind = FALLBACK,
                 channel = "orders",
@@ -106,6 +107,43 @@ class OutboxInstrumentationTest {
         assertThat(invocation.record).isSameAs(record)
         assertThat(invocation.handlerKind).isEqualTo(FALLBACK)
         assertThat(invocation.channel).isEqualTo("orders")
+    }
+
+    @Test
+    fun `NOOP returns record processing outcome`() {
+        val actual =
+            OutboxInstrumentation.NOOP.processRecord(recordProcessingInvocation()) {
+                COMPLETED
+            }
+
+        assertThat(actual).isEqualTo(COMPLETED)
+    }
+
+    @Test
+    fun `composition invokes record processing instrumentations in nesting order and retains outcome`() {
+        val calls = mutableListOf<String>()
+        val composite =
+            OutboxInstrumentation.compose(
+                listOf(
+                    recordingInstrumentation("first", calls),
+                    recordingInstrumentation("second", calls),
+                ),
+            )
+
+        val actual =
+            composite.processRecord(recordProcessingInvocation()) {
+                calls += "action"
+                COMPLETED
+            }
+
+        assertThat(actual).isEqualTo(COMPLETED)
+        assertThat(calls).containsExactly(
+            "first-before",
+            "second-before",
+            "action",
+            "second-after",
+            "first-after",
+        )
     }
 
     @Test
@@ -145,7 +183,7 @@ class OutboxInstrumentationTest {
     }
 
     @Test
-    fun `composition invokes process instrumentations in nesting order`() {
+    fun `composition invokes handler instrumentations in nesting order`() {
         val calls = mutableListOf<String>()
         val composite =
             OutboxInstrumentation.compose(
@@ -155,7 +193,7 @@ class OutboxInstrumentationTest {
                 ),
             )
 
-        composite.process(processInvocation()) {
+        composite.invokeHandler(handlerInvocation()) {
             calls += "action"
         }
 
@@ -205,7 +243,27 @@ class OutboxInstrumentationTest {
             )
 
         assertThatThrownBy {
-            composite.process(processInvocation()) {
+            composite.invokeHandler(handlerInvocation()) {
+                throw failure
+            }
+        }.isSameAs(failure)
+        assertThat(calls).containsExactly("second-error", "first-error")
+    }
+
+    @Test
+    fun `record processing composition propagates original exception through every instrumentation`() {
+        val calls = mutableListOf<String>()
+        val failure = IllegalStateException("failed")
+        val composite =
+            OutboxInstrumentation.compose(
+                listOf(
+                    errorRecordingRecordProcessingInstrumentation("first", calls),
+                    errorRecordingRecordProcessingInstrumentation("second", calls),
+                ),
+            )
+
+        assertThatThrownBy {
+            composite.processRecord(recordProcessingInvocation()) {
                 throw failure
             }
         }.isSameAs(failure)
@@ -219,10 +277,16 @@ class OutboxInstrumentationTest {
             channel = "orders",
         )
 
-    private fun processInvocation() =
-        OutboxProcessInvocation(
+    private fun handlerInvocation() =
+        OutboxHandlerInvocation(
             record = outboxRecord(),
             handlerKind = FALLBACK,
+            channel = "orders",
+        )
+
+    private fun recordProcessingInvocation() =
+        OutboxRecordProcessingInvocation(
+            record = outboxRecord(),
             channel = "orders",
         )
 
@@ -235,10 +299,16 @@ class OutboxInstrumentationTest {
             action()
             calls += "$name-after"
         },
-        processAction = { _, action ->
+        handlerAction = { _, action ->
             calls += "$name-before"
             action()
             calls += "$name-after"
+        },
+        recordProcessingAction = { _, action ->
+            calls += "$name-before"
+            action().also {
+                calls += "$name-after"
+            }
         },
     )
 
@@ -246,7 +316,21 @@ class OutboxInstrumentationTest {
         name: String,
         calls: MutableList<String>,
     ) = instrumentation(
-        processAction = { _, action ->
+        handlerAction = { _, action ->
+            try {
+                action()
+            } catch (failure: Throwable) {
+                calls += "$name-error"
+                throw failure
+            }
+        },
+    )
+
+    private fun errorRecordingRecordProcessingInstrumentation(
+        name: String,
+        calls: MutableList<String>,
+    ) = instrumentation(
+        recordProcessingAction = { _, action ->
             try {
                 action()
             } catch (failure: Throwable) {
@@ -258,7 +342,9 @@ class OutboxInstrumentationTest {
 
     private fun instrumentation(
         scheduleAction: (OutboxScheduleInvocation, () -> Unit) -> Unit = { _, action -> action() },
-        processAction: (OutboxProcessInvocation, () -> Unit) -> Unit = { _, action -> action() },
+        handlerAction: (OutboxHandlerInvocation, () -> Unit) -> Unit = { _, action -> action() },
+        recordProcessingAction: (OutboxRecordProcessingInvocation, () -> OutboxRecordProcessingOutcome) ->
+        OutboxRecordProcessingOutcome = { _, action -> action() },
     ): OutboxInstrumentation =
         object : OutboxInstrumentation {
             override fun schedule(
@@ -266,9 +352,14 @@ class OutboxInstrumentationTest {
                 action: () -> Unit,
             ) = scheduleAction(invocation, action)
 
-            override fun process(
-                invocation: OutboxProcessInvocation,
+            override fun invokeHandler(
+                invocation: OutboxHandlerInvocation,
                 action: () -> Unit,
-            ) = processAction(invocation, action)
+            ) = handlerAction(invocation, action)
+
+            override fun processRecord(
+                invocation: OutboxRecordProcessingInvocation,
+                action: () -> OutboxRecordProcessingOutcome,
+            ): OutboxRecordProcessingOutcome = recordProcessingAction(invocation, action)
         }
 }

@@ -28,16 +28,28 @@ internal class CompositeOutboxInstrumentation(
     }
 
     /**
-     * Instruments one processing operation with the complete ordered chain.
+     * Instruments one record-processing attempt with the complete ordered chain.
      *
-     * @param invocation Description of the processing operation.
+     * @param invocation Description of the record-processing attempt.
+     * @param action Processor-chain action to invoke after all interceptors have been entered.
+     * @return The unchanged outcome returned by the instrumentation chain.
+     */
+    override fun processRecord(
+        invocation: OutboxRecordProcessingInvocation,
+        action: () -> OutboxRecordProcessingOutcome,
+    ): OutboxRecordProcessingOutcome = processRecord(0, invocation, action)
+
+    /**
+     * Instruments one handler invocation with the complete ordered chain.
+     *
+     * @param invocation Description of the handler invocation.
      * @param action Handler action to invoke after all interceptors have been entered.
      */
-    override fun process(
-        invocation: OutboxProcessInvocation,
+    override fun invokeHandler(
+        invocation: OutboxHandlerInvocation,
         action: () -> Unit,
     ) {
-        process(0, invocation, action)
+        invokeHandler(0, invocation, action)
     }
 
     /**
@@ -62,22 +74,43 @@ internal class CompositeOutboxInstrumentation(
     }
 
     /**
-     * Enters the processing instrumentation at [index].
+     * Enters the record-processing instrumentation at [index].
      *
      * @param index Index of the next instrumentation to invoke.
-     * @param invocation Description of the processing operation.
+     * @param invocation Description of the record-processing attempt.
+     * @param action Processor-chain action at the end of the chain.
+     * @return The unchanged outcome returned by the instrumentation chain.
+     */
+    private fun processRecord(
+        index: Int,
+        invocation: OutboxRecordProcessingInvocation,
+        action: () -> OutboxRecordProcessingOutcome,
+    ): OutboxRecordProcessingOutcome =
+        if (index == instrumentations.size) {
+            action()
+        } else {
+            instrumentations[index].processRecord(invocation) {
+                processRecord(index + 1, invocation, action)
+            }
+        }
+
+    /**
+     * Enters the handler instrumentation at [index].
+     *
+     * @param index Index of the next instrumentation to invoke.
+     * @param invocation Description of the handler invocation.
      * @param action Handler action at the end of the chain.
      */
-    private fun process(
+    private fun invokeHandler(
         index: Int,
-        invocation: OutboxProcessInvocation,
+        invocation: OutboxHandlerInvocation,
         action: () -> Unit,
     ) {
         if (index == instrumentations.size) {
             action()
         } else {
-            instrumentations[index].process(invocation) {
-                process(index + 1, invocation, action)
+            instrumentations[index].invokeHandler(invocation) {
+                invokeHandler(index + 1, invocation, action)
             }
         }
     }

@@ -9,9 +9,9 @@ import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.handler.method.fallback.OutboxFallbackHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
+import io.namastack.outbox.instrumentation.OutboxHandlerInvocation
+import io.namastack.outbox.instrumentation.OutboxHandlerKind
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
-import io.namastack.outbox.instrumentation.OutboxProcessHandlerKind
-import io.namastack.outbox.instrumentation.OutboxProcessInvocation
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
@@ -75,7 +75,7 @@ class OutboxOperationInstrumentationTest {
     @Test
     fun `instruments the primary handler invocation`() {
         val events = mutableListOf<String>()
-        val processInvocations = mutableListOf<OutboxProcessInvocation>()
+        val processInvocations = mutableListOf<OutboxHandlerInvocation>()
         val instrumentation = recordingProcessInstrumentation(events, processInvocations)
         val handlerRegistry = mockk<OutboxHandlerRegistry>()
         val handler = mockk<TypedHandlerMethod>()
@@ -96,14 +96,14 @@ class OutboxOperationInstrumentationTest {
         assertThat(events).containsExactly("before", "handler", "after")
         assertThat(processInvocations).hasSize(1)
         assertThat(processInvocations.single().record).isSameAs(record)
-        assertThat(processInvocations.single().handlerKind).isEqualTo(OutboxProcessHandlerKind.PRIMARY)
+        assertThat(processInvocations.single().handlerKind).isEqualTo(OutboxHandlerKind.PRIMARY)
         assertThat(processInvocations.single().channel).isEqualTo("orders")
     }
 
     @Test
     fun `instruments the fallback handler invocation`() {
         val events = mutableListOf<String>()
-        val processInvocations = mutableListOf<OutboxProcessInvocation>()
+        val processInvocations = mutableListOf<OutboxHandlerInvocation>()
         val instrumentation = recordingProcessInstrumentation(events, processInvocations)
         val retryPolicyRegistry = mockk<OutboxRetryPolicyRegistry>()
         val handlerRegistry = mockk<OutboxHandlerRegistry>()
@@ -136,16 +136,16 @@ class OutboxOperationInstrumentationTest {
         assertThat(events).containsExactly("before", "handler", "after")
         assertThat(processInvocations).hasSize(1)
         assertThat(processInvocations.single().record).isSameAs(record)
-        assertThat(processInvocations.single().handlerKind).isEqualTo(OutboxProcessHandlerKind.FALLBACK)
+        assertThat(processInvocations.single().handlerKind).isEqualTo(OutboxHandlerKind.FALLBACK)
         assertThat(processInvocations.single().channel).isEqualTo("payments")
     }
 
     private fun recordingProcessInstrumentation(
         events: MutableList<String>,
-        invocations: MutableList<OutboxProcessInvocation>,
+        invocations: MutableList<OutboxHandlerInvocation>,
     ): OutboxInstrumentation =
         instrumentation(
-            process = { invocation, action ->
+            invokeHandler = { invocation, action ->
                 invocations += invocation
                 events += "before"
                 try {
@@ -158,7 +158,7 @@ class OutboxOperationInstrumentationTest {
 
     private fun instrumentation(
         schedule: (OutboxScheduleInvocation, () -> Unit) -> Unit = { _, action -> action() },
-        process: (OutboxProcessInvocation, () -> Unit) -> Unit = { _, action -> action() },
+        invokeHandler: (OutboxHandlerInvocation, () -> Unit) -> Unit = { _, action -> action() },
     ): OutboxInstrumentation =
         object : OutboxInstrumentation {
             override fun schedule(
@@ -166,10 +166,10 @@ class OutboxOperationInstrumentationTest {
                 action: () -> Unit,
             ) = schedule(invocation, action)
 
-            override fun process(
-                invocation: OutboxProcessInvocation,
+            override fun invokeHandler(
+                invocation: OutboxHandlerInvocation,
                 action: () -> Unit,
-            ) = process(invocation, action)
+            ) = invokeHandler(invocation, action)
         }
 
     private fun record(failureException: Throwable? = null): OutboxRecord<String> {

@@ -9,13 +9,19 @@ import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
+import io.namastack.outbox.handler.OutboxHandlerIdentity
+import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.handler.OutboxTypedHandler
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
+import io.namastack.outbox.instrumentation.OutboxHandlerInvocation
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
-import io.namastack.outbox.instrumentation.OutboxProcessInvocation
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingInvocation
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.partition.PartitionAssignmentRepository
+import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.trigger.AdaptivePollingTrigger
 import io.namastack.outbox.trigger.FixedPollingTrigger
@@ -154,11 +160,29 @@ class OutboxCoreAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(ConfigWithOrderedInstrumentations::class.java)
                 .run { context ->
+
                     val outbox = context.getBean<Outbox>() as OutboxService
                     outbox.schedule("payload", "record-key")
 
+                    val record = OutboxRecordTestFactory.outboxRecord(handlerId = "ordered-handler")
+                    context.getBean<OutboxRecordProcessorChainInvoker>().process(record)
+
                     assertThat(ConfigWithOrderedInstrumentations.events)
-                        .containsExactly("outer.before", "inner.before", "inner.after", "outer.after")
+                        .containsExactly(
+                            "outer.schedule.before",
+                            "inner.schedule.before",
+                            "inner.schedule.after",
+                            "outer.schedule.after",
+                            "outer.record.before",
+                            "inner.record.before",
+                            "outer.handler.before",
+                            "inner.handler.before",
+                            "handler.action",
+                            "inner.handler.after",
+                            "outer.handler.after",
+                            "inner.record.after",
+                            "outer.record.after",
+                        )
                     assertThat(context.getBeansOfType(OutboxInstrumentation::class.java)).hasSize(2)
                 }
         }
@@ -676,6 +700,19 @@ class OutboxCoreAutoConfigurationTest {
         @Bean
         fun innerInstrumentation(): OutboxInstrumentation = instrumentation("inner", 2)
 
+        @Bean
+        fun orderedHandler(): OutboxTypedHandler<OutboxRecordTestFactory.CreatedEvent> =
+            object : OutboxTypedHandler<OutboxRecordTestFactory.CreatedEvent> {
+                override fun getTypedHandlerIdentity() = OutboxHandlerIdentity("ordered-handler")
+
+                override fun handle(
+                    payload: OutboxRecordTestFactory.CreatedEvent,
+                    metadata: OutboxRecordMetadata,
+                ) {
+                    events += "handler.action"
+                }
+            }
+
         private fun instrumentation(
             name: String,
             order: Int,
@@ -687,23 +724,35 @@ class OutboxCoreAutoConfigurationTest {
                     invocation: OutboxScheduleInvocation,
                     action: () -> Unit,
                 ) {
-                    events += "$name.before"
+                    events += "$name.schedule.before"
                     try {
                         action()
                     } finally {
-                        events += "$name.after"
+                        events += "$name.schedule.after"
                     }
                 }
 
-                override fun process(
-                    invocation: OutboxProcessInvocation,
+                override fun processRecord(
+                    invocation: OutboxRecordProcessingInvocation,
+                    action: () -> OutboxRecordProcessingOutcome,
+                ): OutboxRecordProcessingOutcome {
+                    events += "$name.record.before"
+                    return try {
+                        action()
+                    } finally {
+                        events += "$name.record.after"
+                    }
+                }
+
+                override fun invokeHandler(
+                    invocation: OutboxHandlerInvocation,
                     action: () -> Unit,
                 ) {
-                    events += "$name.before"
+                    events += "$name.handler.before"
                     try {
                         action()
                     } finally {
-                        events += "$name.after"
+                        events += "$name.handler.after"
                     }
                 }
             }
