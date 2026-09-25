@@ -118,6 +118,21 @@ class MicrometerOutboxInstrumentationTest {
     }
 
     @Test
+    fun `record processing snapshots delivery attempt before retry increments failureCount`() {
+        val record = outboxRecord(failureCount = 0)
+
+        MicrometerOutboxInstrumentation(observationRegistry).processRecord(
+            OutboxRecordProcessingInvocation(record, "orders"),
+        ) {
+            setFailureCount(record, 1)
+            OutboxRecordProcessingOutcome.RETRY_SCHEDULED
+        }
+
+        assertThat(record.failureCount).isEqualTo(1)
+        assertThat(recordProcessingContexts.single().getDeliveryAttempt()).isEqualTo(1)
+    }
+
+    @Test
     fun `record processing tags every normal Core outcome`() {
         val instrumentation = MicrometerOutboxInstrumentation(observationRegistry)
 
@@ -353,6 +368,19 @@ class MicrometerOutboxInstrumentationTest {
             nextRetryAt = now,
             handlerId = "order-handler",
         )
+    }
+
+    /**
+     * Simulates Core mutating [OutboxRecord.failureCount] while an observation is open.
+     * The setter is `internal`, so tests outside Core use reflection.
+     */
+    private fun setFailureCount(
+        record: OutboxRecord<*>,
+        failureCount: Int,
+    ) {
+        val field = OutboxRecord::class.java.getDeclaredField("failureCount")
+        field.isAccessible = true
+        field.setInt(record, failureCount)
     }
 
     private fun Observation.Context.lowCardinalityValue(key: String): String? = getLowCardinalityKeyValue(key)?.value

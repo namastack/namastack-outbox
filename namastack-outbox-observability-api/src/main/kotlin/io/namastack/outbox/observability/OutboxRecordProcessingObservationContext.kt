@@ -22,6 +22,12 @@ class OutboxRecordProcessingObservationContext(
 ) : ReceiverContext<OutboxRecord<*>>({ carrier: OutboxRecord<*>, key: String -> carrier.context[key] }) {
     private var outcome: Outcome? = null
 
+    /**
+     * Delivery attempt at observation start (`failureCount + 1`).
+     * Snapshotted so later mutations to the record do not change the tag on this observation.
+     */
+    private val deliveryAttempt: Int = record.failureCount + 1
+
     init {
         setCarrier(record)
     }
@@ -36,7 +42,7 @@ class OutboxRecordProcessingObservationContext(
      * Returns the current delivery attempt number, calculated as `failureCount + 1`.
      * The value is `1` for a record that has not failed before.
      */
-    fun getDeliveryAttempt(): Int = record.failureCount + 1
+    fun getDeliveryAttempt(): Int = deliveryAttempt
 
     /** Returns the logical outbox channel name. */
     fun getChannel(): String = channel
