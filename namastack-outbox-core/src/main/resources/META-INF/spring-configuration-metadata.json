@@ -75,6 +75,13 @@
       "description": "Whether the outbox functionality is enabled. Set to false to disable outbox auto-configuration entirely."
     },
     {
+      "name": "namastack.outbox.mode",
+      "type": "io.namastack.outbox.OutboxRuntimeMode",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "defaultValue": "single",
+      "description": "Runtime implementation used by the outbox. Supported values are 'single' and 'channels'."
+    },
+    {
       "name": "namastack.outbox.poll-interval",
       "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties",

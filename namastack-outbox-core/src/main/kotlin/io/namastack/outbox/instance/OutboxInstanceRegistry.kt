@@ -15,6 +15,8 @@ import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /**
  * Registry service for managing outbox processor instances in a distributed system.
@@ -62,6 +64,7 @@ class OutboxInstanceRegistry(
     private val gracefulShutdownTimeout = properties.instance.effectiveGracefulShutdownTimeout
 
     private val running = AtomicBoolean(false)
+    private val heartbeatLock = ReentrantLock()
     private var scheduledHeartbeat: ScheduledFuture<*>? = null
 
     override fun getPhase(): Int = 0
@@ -80,7 +83,13 @@ class OutboxInstanceRegistry(
         registerInstance()
         running.set(true)
         val rate = properties.instance.effectiveHeartbeatInterval
-        val runnable = ScheduledMethodRunnable(this, SCHEDULE_METHOD, SCHEDULER_NAME, observationRegistry)
+        val observedHeartbeat = ScheduledMethodRunnable(this, SCHEDULE_METHOD, SCHEDULER_NAME, observationRegistry)
+        val runnable =
+            Runnable {
+                heartbeatLock.withLock {
+                    if (running.get()) observedHeartbeat.run()
+                }
+            }
         scheduledHeartbeat = taskScheduler.scheduleAtFixedRate(runnable, rate)
     }
 
@@ -92,25 +101,29 @@ class OutboxInstanceRegistry(
      * to redistribute work before shutdown completes.
      */
     override fun stop() {
-        try {
-            log.info("Initiating graceful shutdown for instance {}", currentInstanceId)
-            scheduledHeartbeat?.cancel(false)
+        scheduledHeartbeat?.cancel(false)
+        scheduledHeartbeat = null
 
-            instanceRepository.updateStatus(
-                currentInstanceId,
-                OutboxInstanceStatus.SHUTTING_DOWN,
-                Instant.now(clock),
-            )
+        heartbeatLock.withLock {
+            if (!running.compareAndSet(true, false)) return
 
-            Thread.sleep(gracefulShutdownTimeout.toMillis())
+            try {
+                log.info("Initiating graceful shutdown for instance {}", currentInstanceId)
 
-            instanceRepository.deleteById(currentInstanceId)
+                instanceRepository.updateStatus(
+                    currentInstanceId,
+                    OutboxInstanceStatus.SHUTTING_DOWN,
+                    Instant.now(clock),
+                )
 
-            log.info("Graceful shutdown completed for instance {}", currentInstanceId)
-        } catch (ex: Exception) {
-            log.error("Error during graceful shutdown of instance {}", currentInstanceId, ex)
-        } finally {
-            running.set(false)
+                Thread.sleep(gracefulShutdownTimeout.toMillis())
+
+                instanceRepository.deleteById(currentInstanceId)
+
+                log.info("Graceful shutdown completed for instance {}", currentInstanceId)
+            } catch (ex: Exception) {
+                log.error("Error during graceful shutdown of instance {}", currentInstanceId, ex)
+            }
         }
     }
 
@@ -163,14 +176,15 @@ class OutboxInstanceRegistry(
      * Periodic heartbeat + stale cleanup trigger.
      * Combines update & pruning to reduce scheduling overhead.
      */
-    fun performHeartbeatAndCleanup() {
-        try {
-            sendHeartbeat()
-            cleanupStaleInstances()
-        } catch (ex: Exception) {
-            log.error("Error during heartbeat and cleanup", ex)
+    fun performHeartbeatAndCleanup(): Unit =
+        heartbeatLock.withLock {
+            try {
+                sendHeartbeat()
+                cleanupStaleInstances()
+            } catch (ex: Exception) {
+                log.error("Error during heartbeat and cleanup", ex)
+            }
         }
-    }
 
     /**
      * Sends heartbeat for current instance.

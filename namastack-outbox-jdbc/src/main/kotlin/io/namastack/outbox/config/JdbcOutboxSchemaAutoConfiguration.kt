@@ -23,6 +23,7 @@ import javax.sql.DataSource
 @AutoConfiguration
 @ConditionalOnClass(DataSource::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
+@ConditionalOnSingleRuntimeMode
 class JdbcOutboxSchemaAutoConfiguration {
     /**
      * Creates a database initializer for outbox schema when schema initialization is enabled.
