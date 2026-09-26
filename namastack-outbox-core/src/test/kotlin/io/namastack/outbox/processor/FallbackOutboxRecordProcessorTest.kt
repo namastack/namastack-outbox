@@ -10,7 +10,9 @@ import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Clock
@@ -57,7 +59,7 @@ class FallbackOutboxRecordProcessorTest {
 
         val result = processor.handle(record)
 
-        assertThat(result).isTrue()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.COMPLETED)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.COMPLETED)
         assertThat(record.completedAt).isEqualTo(Instant.now(clock))
         assertThat(record.failureCount).isEqualTo(4)
@@ -81,7 +83,7 @@ class FallbackOutboxRecordProcessorTest {
 
         val result = processor.handle(record)
 
-        assertThat(result).isTrue()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.COMPLETED)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
         assertThat(record.completedAt).isNull()
 
@@ -97,11 +99,11 @@ class FallbackOutboxRecordProcessorTest {
         val record = createFailedRecord()
 
         every { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) } returns false
-        every { nextProcessor.handle(any()) } returns false
+        every { nextProcessor.handle(any()) } returns OutboxRecordProcessingOutcome.FAILED
 
         val result = processor.handle(record)
 
-        assertThat(result).isFalse()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.FAILED)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
         assertThat(record.completedAt).isNull()
         assertThat(record.failureCount).isEqualTo(4)
@@ -122,11 +124,11 @@ class FallbackOutboxRecordProcessorTest {
 
         every { fallbackHandlerRegistry.existsByHandlerId(any()) } returns true
         every { fallbackHandlerInvoker.dispatch(any()) } throws fallbackException
-        every { nextProcessor.handle(any()) } returns false
+        every { nextProcessor.handle(any()) } returns OutboxRecordProcessingOutcome.FAILED
 
         val result = processor.handle(record)
 
-        assertThat(result).isFalse()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.FAILED)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
         assertThat(record.completedAt).isNull()
         assertThat(record.failureCount).isEqualTo(4)
@@ -147,7 +149,7 @@ class FallbackOutboxRecordProcessorTest {
 
         every { fallbackHandlerRegistry.existsByHandlerId(any()) } returns true
         every { fallbackHandlerInvoker.dispatch(any()) } throws fallbackException
-        every { nextProcessor.handle(any()) } returns false
+        every { nextProcessor.handle(any()) } returns OutboxRecordProcessingOutcome.FAILED
 
         processor.handle(record)
 
@@ -156,7 +158,7 @@ class FallbackOutboxRecordProcessorTest {
     }
 
     @Test
-    fun `handle returns false when no fallback handler is registered and no next processor exists`() {
+    fun `handle throws when no fallback handler is registered and no next processor exists`() {
         val record = createFailedRecord()
         val processorWithoutNext =
             FallbackOutboxRecordProcessor(
@@ -169,9 +171,8 @@ class FallbackOutboxRecordProcessorTest {
 
         every { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) } returns false
 
-        val result = processorWithoutNext.handle(record)
-
-        assertThat(result).isFalse()
+        assertThatThrownBy { processorWithoutNext.handle(record) }
+            .isInstanceOf(IllegalStateException::class.java)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
         assertThat(record.completedAt).isNull()
         verify { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) }
@@ -185,11 +186,11 @@ class FallbackOutboxRecordProcessorTest {
         val record = createFailedRecord()
 
         every { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) } returns false
-        every { nextProcessor.handle(any()) } returns true
+        every { nextProcessor.handle(any()) } returns OutboxRecordProcessingOutcome.COMPLETED
 
         val result = processor.handle(record)
 
-        assertThat(result).isTrue()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.COMPLETED)
 
         verify { fallbackHandlerRegistry.existsByHandlerId(record.handlerId) }
         verify { nextProcessor.handle(record) }

@@ -9,7 +9,8 @@ import io.micrometer.observation.docs.ObservationDocumentation
 /**
  * Documents the Micrometer observations produced by the outbox library.
  *
- * Two observations cover the outbox lifecycle:
+ * Three observations cover the outbox lifecycle:
+ * - [OUTBOX_RECORD_ATTEMPT]: Processing one fully materialized record
  * - [OUTBOX_RECORD_PROCESS]: Dispatching a record to its handler (primary or fallback)
  * - [OUTBOX_RECORD_SCHEDULE]: Scheduling one or more records into the outbox
  *
@@ -21,13 +22,24 @@ import io.micrometer.observation.docs.ObservationDocumentation
  */
 enum class OutboxObservationDocumentation : ObservationDocumentation {
     /**
-     * Observation that covers the full lifecycle of processing a single polled outbox record —
-     * from the moment the handler is invoked until it succeeds, fails, or is handed off to the
-     * fallback handler.
+     * Observation that covers one complete attempt to process a fully materialized record.
+     */
+    OUTBOX_RECORD_ATTEMPT {
+        override fun getDefaultConvention(): Class<out ObservationConvention<out Observation.Context>> =
+            DefaultOutboxRecordProcessingObservationConvention::class.java
+
+        override fun getLowCardinalityKeyNames(): Array<out KeyName> =
+            AttemptLowCardinalityKeyNames.entries.toTypedArray()
+
+        override fun getHighCardinalityKeyNames(): Array<out KeyName> = HighCardinalityKeyNames.entries.toTypedArray()
+    },
+
+    /**
+     * Observation that covers one primary or fallback handler invocation.
      */
     OUTBOX_RECORD_PROCESS {
         override fun getDefaultConvention(): Class<out ObservationConvention<out Observation.Context>> =
-            DefaultOutboxProcessObservationConvention::class.java
+            DefaultOutboxHandlerObservationConvention::class.java
 
         override fun getLowCardinalityKeyNames(): Array<out KeyName> = LowCardinalityKeyNames.entries.toTypedArray()
 
@@ -62,7 +74,7 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
          *
          * Possible values: `primary`, `fallback`.
          *
-         * @see OutboxProcessObservationContext.HandlerKind
+         * @see OutboxHandlerObservationContext.HandlerKind
          */
         HANDLER_KIND {
             override fun asString(): String = OutboxMetricKeyNames.LowCardinality.HANDLER_KIND
@@ -86,7 +98,30 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
     }
 
     /**
-     * High-cardinality key names attached to every [OUTBOX_RECORD_PROCESS] observation.
+     * Low-cardinality key names attached to every [OUTBOX_RECORD_ATTEMPT] observation.
+     */
+    enum class AttemptLowCardinalityKeyNames : KeyName {
+        /**
+         * Final outcome of the processing attempt.
+         *
+         * Possible values: `completed`, `retry_scheduled`, `failed`, `compatibility_deferred`, `error`, or `unknown`.
+         *
+         * @see OutboxRecordProcessingObservationContext.Outcome
+         */
+        OUTCOME {
+            override fun asString(): String = OutboxMetricKeyNames.LowCardinality.PROCESSING_OUTCOME
+        },
+
+        /**
+         * Logical channel name of the outbox runtime processing this record.
+         */
+        CHANNEL {
+            override fun asString(): String = OutboxMetricKeyNames.LowCardinality.CHANNEL
+        },
+    }
+
+    /**
+     * High-cardinality key names attached to record-attempt and handler observations.
      *
      * High-cardinality keys must not be used as metric dimensions; they are intended for
      * distributed traces and log correlation only.
@@ -147,28 +182,57 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
     }
 
     /**
-     * Default implementation of [OutboxProcessObservationConvention].
+     * Default implementation of [OutboxHandlerObservationConvention].
      *
-     * Produces the observation name `outbox.record.process` and populates all low- and
-     * high-cardinality key values from the supplied [OutboxProcessObservationContext].
+     * Produces the established observation name `outbox.record.process` for one primary or
+     * fallback handler invocation and populates all key values from the supplied context.
      */
-    class DefaultOutboxProcessObservationConvention : OutboxProcessObservationConvention {
+    class DefaultOutboxHandlerObservationConvention : OutboxHandlerObservationConvention {
         companion object {
-            val INSTANCE = DefaultOutboxProcessObservationConvention()
+            val INSTANCE = DefaultOutboxHandlerObservationConvention()
         }
 
         override fun getName(): String = OutboxMetricNames.RECORD_PROCESS
 
-        override fun getContextualName(context: OutboxProcessObservationContext): String = "outbox process"
+        override fun getContextualName(context: OutboxHandlerObservationContext): String = "outbox process"
 
-        override fun getLowCardinalityKeyValues(context: OutboxProcessObservationContext): KeyValues =
+        override fun getLowCardinalityKeyValues(context: OutboxHandlerObservationContext): KeyValues =
             KeyValues.of(
                 LowCardinalityKeyNames.HANDLER_KIND.withValue(context.getHandlerKind().toString()),
                 LowCardinalityKeyNames.HANDLER_ID.withValue(context.getHandlerId()),
                 LowCardinalityKeyNames.CHANNEL.withValue(context.getChannel()),
             )
 
-        override fun getHighCardinalityKeyValues(context: OutboxProcessObservationContext): KeyValues =
+        override fun getHighCardinalityKeyValues(context: OutboxHandlerObservationContext): KeyValues =
+            KeyValues.of(
+                HighCardinalityKeyNames.RECORD_ID.withValue(context.getRecordId()),
+                HighCardinalityKeyNames.RECORD_KEY.withValue(context.getRecordKey()),
+                HighCardinalityKeyNames.DELIVERY_ATTEMPT.withValue(context.getDeliveryAttempt().toString()),
+            )
+    }
+
+    /**
+     * Default implementation of [OutboxRecordProcessingObservationConvention].
+     *
+     * Produces the observation name `outbox.record.attempt`.
+     */
+    class DefaultOutboxRecordProcessingObservationConvention : OutboxRecordProcessingObservationConvention {
+        companion object {
+            val INSTANCE = DefaultOutboxRecordProcessingObservationConvention()
+        }
+
+        override fun getName(): String = OutboxMetricNames.RECORD_ATTEMPT
+
+        override fun getContextualName(context: OutboxRecordProcessingObservationContext): String =
+            "outbox record attempt"
+
+        override fun getLowCardinalityKeyValues(context: OutboxRecordProcessingObservationContext): KeyValues =
+            KeyValues.of(
+                AttemptLowCardinalityKeyNames.OUTCOME.withValue(context.getOutcome().toString()),
+                AttemptLowCardinalityKeyNames.CHANNEL.withValue(context.getChannel()),
+            )
+
+        override fun getHighCardinalityKeyValues(context: OutboxRecordProcessingObservationContext): KeyValues =
             KeyValues.of(
                 HighCardinalityKeyNames.RECORD_ID.withValue(context.getRecordId()),
                 HighCardinalityKeyNames.RECORD_KEY.withValue(context.getRecordKey()),

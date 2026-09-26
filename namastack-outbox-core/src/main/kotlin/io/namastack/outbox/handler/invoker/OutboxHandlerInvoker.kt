@@ -1,9 +1,13 @@
 package io.namastack.outbox.handler.invoker
 
 import io.namastack.outbox.OpenForProxy
+import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
+import io.namastack.outbox.instrumentation.OutboxHandlerInvocation
+import io.namastack.outbox.instrumentation.OutboxHandlerKind
+import io.namastack.outbox.instrumentation.OutboxInstrumentation
 
 /**
  * Invokes the appropriate handler for a given record.
@@ -13,6 +17,8 @@ import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
  * with the correct parameter passing.
  *
  * @param handlerRegistry Registry of all registered handlers
+ * @param instrumentationSupplier Supplies instrumentation applied around each primary handler invocation
+ * @param channelNameProviderSupplier Supplies the provider for the logical outbox channel name
  *
  * @author Roland Beisel
  * @since 0.4.0
@@ -20,7 +26,12 @@ import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 @OpenForProxy
 class OutboxHandlerInvoker(
     private val handlerRegistry: OutboxHandlerRegistry,
+    instrumentationSupplier: () -> OutboxInstrumentation = { OutboxInstrumentation.NOOP },
+    channelNameProviderSupplier: () -> OutboxChannelNameProvider = { OutboxChannelNameProvider.DEFAULT },
 ) {
+    private val instrumentation: OutboxInstrumentation by lazy(instrumentationSupplier)
+    private val channelNameProvider: OutboxChannelNameProvider by lazy(channelNameProviderSupplier)
+
     /**
      * Verifies that the handler referenced by a record is registered on this instance.
      *
@@ -60,12 +71,22 @@ class OutboxHandlerInvoker(
      * @throws Throwable the original exception thrown by the handler (will trigger retries)
      */
     fun dispatch(record: OutboxRecord<*>) {
-        val payload = record.payload ?: return
-        val metadata = OutboxHandlerContextFactory.metadata(record)
+        instrumentation.invokeHandler(
+            invocation =
+                OutboxHandlerInvocation(
+                    record = record,
+                    handlerKind = OutboxHandlerKind.PRIMARY,
+                    channel = channelNameProvider.getChannelName(),
+                ),
+            action = {
+                val payload = record.payload ?: return@invokeHandler
+                val metadata = OutboxHandlerContextFactory.metadata(record)
 
-        val handler = requireHandler(record)
+                val handler = requireHandler(record)
 
-        handler.invoke(payload, metadata)
+                handler.invoke(payload, metadata)
+            },
+        )
     }
 
     private fun requireHandler(record: OutboxRecord<*>) =

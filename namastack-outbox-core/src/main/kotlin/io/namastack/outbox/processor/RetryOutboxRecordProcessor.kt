@@ -2,6 +2,7 @@ package io.namastack.outbox.processor
 
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.slf4j.LoggerFactory
@@ -30,10 +31,10 @@ class RetryOutboxRecordProcessor(
     /**
      * Processes record by scheduling retry if possible.
      *
-     * @return false if retry was scheduled or if processing chain ends,
-     *         true if next processor in chain should handle the record
+     * @return [OutboxRecordProcessingOutcome.RETRY_SCHEDULED] if a retry was persisted,
+     * otherwise the outcome returned by the downstream chain.
      */
-    override fun handle(record: OutboxRecord<*>): Boolean {
+    override fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome {
         val retryPolicy = retryPolicyRegistry.getByHandlerId(record.handlerId)
 
         if (shouldRetry(record, retryPolicy)) {
@@ -43,7 +44,7 @@ class RetryOutboxRecordProcessor(
 
             log.debug("Scheduled retry #{} for record {} in {}", record.failureCount, record.id, delay)
 
-            return false
+            return OutboxRecordProcessingOutcome.RETRY_SCHEDULED
         }
 
         return handleNext(record)

@@ -7,6 +7,7 @@ import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.OutboxRecordTestFactory.outboxRecord
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -37,14 +38,14 @@ class PermanentFailureOutboxRecordProcessorTest {
 
         val result = processor.handle(record)
 
-        assertThat(result).isFalse()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.FAILED)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
 
         verify { recordRepository.save(record) }
     }
 
     @Test
-    fun `handle returns false when no next processor exists`() {
+    fun `handle returns failed when no next processor exists`() {
         val record =
             outboxRecord(
                 handlerId = "test-handler",
@@ -57,7 +58,7 @@ class PermanentFailureOutboxRecordProcessorTest {
 
         val result = processorWithoutNext.handle(record)
 
-        assertThat(result).isFalse()
+        assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.FAILED)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
 
         verify { recordRepository.save(record) }
