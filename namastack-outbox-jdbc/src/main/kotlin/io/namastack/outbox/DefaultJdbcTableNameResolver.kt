@@ -14,22 +14,20 @@ import io.namastack.outbox.config.JdbcOutboxConfigurationProperties
  * @since 1.0.0
  */
 class DefaultJdbcTableNameResolver(
-    private val properties: JdbcOutboxConfigurationProperties,
+    properties: JdbcOutboxConfigurationProperties,
 ) : JdbcTableNameResolver {
-    /**
-     * Resolves the fully qualified table name for the given base table name.
-     *
-     * @param baseTableName The base table name without prefix or schema (e.g., "outbox_record")
-     * @return The fully qualified table name with schema and prefix applied
-     */
-    private fun resolve(baseTableName: String): String {
-        val prefixedTable = "${properties.tablePrefix}$baseTableName"
-        return properties.schemaName?.let { "$it.$prefixedTable" } ?: prefixedTable
-    }
+    private val namespace =
+        JdbcOutboxTableNamespace(
+            schemaName = properties.schemaName,
+            tablePrefix = properties.tablePrefix,
+            recordTableName = properties.tableNames.record,
+            instanceTableName = properties.tableNames.instance,
+            partitionTableName = properties.tableNames.partition,
+        )
 
-    override val outboxRecord: String by lazy { resolve(properties.tableNames.record) }
+    override val outboxRecord: String = namespace.outboxRecord
 
-    override val outboxInstance: String by lazy { resolve(properties.tableNames.instance) }
+    override val outboxInstance: String = namespace.outboxInstance
 
-    override val outboxPartitionAssignment: String by lazy { resolve(properties.tableNames.partition) }
+    override val outboxPartitionAssignment: String = namespace.outboxPartitionAssignment
 }
