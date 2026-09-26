@@ -412,21 +412,21 @@ class CustomOutboxRecordProcessingObservationConfig {
 
 ### Handler Invocations
 
-Implement `OutboxHandlerObservationConvention` to customize `outbox.record.process`. The
+Implement `OutboxProcessObservationConvention` to customize `outbox.record.process`. The
 established observation name uses “process” to mean one primary or fallback handler invocation.
 
 ```kotlin
 @Configuration
-class CustomOutboxHandlerObservationConfig {
+class CustomOutboxProcessObservationConfig {
     @Bean
-    fun customOutboxHandlerConvention(): OutboxHandlerObservationConvention =
-        object : OutboxHandlerObservationConvention {
+    fun customOutboxProcessConvention(): OutboxProcessObservationConvention =
+        object : OutboxProcessObservationConvention {
             override fun getName(): String = "myapp.outbox.process"
 
-            override fun getContextualName(context: OutboxHandlerObservationContext): String =
+            override fun getContextualName(context: OutboxProcessObservationContext): String =
                 "outbox process"
 
-            override fun getLowCardinalityKeyValues(context: OutboxHandlerObservationContext) =
+            override fun getLowCardinalityKeyValues(context: OutboxProcessObservationContext) =
                 KeyValues.of(
                     OutboxObservationDocumentation.LowCardinalityKeyNames.HANDLER_KIND
                         .withValue(context.getHandlerKind().toString()),
@@ -436,7 +436,7 @@ class CustomOutboxHandlerObservationConfig {
                         .withValue(context.getChannel()),
                 )
 
-            override fun getHighCardinalityKeyValues(context: OutboxHandlerObservationContext) =
+            override fun getHighCardinalityKeyValues(context: OutboxProcessObservationContext) =
                 KeyValues.of(
                     OutboxObservationDocumentation.HighCardinalityKeyNames.RECORD_ID
                         .withValue(context.getRecordId()),

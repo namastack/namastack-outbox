@@ -146,13 +146,13 @@ class OutboxObservabilityCoreIntegrationTest {
                     },
                 )
                 observationConfig().observationHandler(
-                    object : ObservationHandler<OutboxHandlerObservationContext> {
-                        override fun onStop(context: OutboxHandlerObservationContext) {
+                    object : ObservationHandler<OutboxProcessObservationContext> {
+                        override fun onStop(context: OutboxProcessObservationContext) {
                             handlerContexts += context
                         }
 
                         override fun supportsContext(context: Observation.Context): Boolean =
-                            context is OutboxHandlerObservationContext
+                            context is OutboxProcessObservationContext
                     },
                 )
             }
@@ -231,7 +231,7 @@ class OutboxObservabilityCoreIntegrationTest {
             val events = mutableListOf<String>()
             val scheduleContexts = mutableListOf<OutboxScheduleObservationContext>()
             val recordProcessingContexts = mutableListOf<OutboxRecordProcessingObservationContext>()
-            val handlerContexts = mutableListOf<OutboxHandlerObservationContext>()
+            val handlerContexts = mutableListOf<OutboxProcessObservationContext>()
         }
     }
 

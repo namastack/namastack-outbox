@@ -39,7 +39,7 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
      */
     OUTBOX_RECORD_PROCESS {
         override fun getDefaultConvention(): Class<out ObservationConvention<out Observation.Context>> =
-            DefaultOutboxHandlerObservationConvention::class.java
+            DefaultOutboxProcessObservationConvention::class.java
 
         override fun getLowCardinalityKeyNames(): Array<out KeyName> = LowCardinalityKeyNames.entries.toTypedArray()
 
@@ -74,7 +74,7 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
          *
          * Possible values: `primary`, `fallback`.
          *
-         * @see OutboxHandlerObservationContext.HandlerKind
+         * @see OutboxProcessObservationContext.HandlerKind
          */
         HANDLER_KIND {
             override fun asString(): String = OutboxMetricKeyNames.LowCardinality.HANDLER_KIND
@@ -182,28 +182,28 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
     }
 
     /**
-     * Default implementation of [OutboxHandlerObservationConvention].
+     * Default implementation of [OutboxProcessObservationConvention].
      *
      * Produces the established observation name `outbox.record.process` for one primary or
      * fallback handler invocation and populates all key values from the supplied context.
      */
-    class DefaultOutboxHandlerObservationConvention : OutboxHandlerObservationConvention {
+    class DefaultOutboxProcessObservationConvention : OutboxProcessObservationConvention {
         companion object {
-            val INSTANCE = DefaultOutboxHandlerObservationConvention()
+            val INSTANCE = DefaultOutboxProcessObservationConvention()
         }
 
         override fun getName(): String = OutboxMetricNames.RECORD_PROCESS
 
-        override fun getContextualName(context: OutboxHandlerObservationContext): String = "outbox process"
+        override fun getContextualName(context: OutboxProcessObservationContext): String = "outbox process"
 
-        override fun getLowCardinalityKeyValues(context: OutboxHandlerObservationContext): KeyValues =
+        override fun getLowCardinalityKeyValues(context: OutboxProcessObservationContext): KeyValues =
             KeyValues.of(
                 LowCardinalityKeyNames.HANDLER_KIND.withValue(context.getHandlerKind().toString()),
                 LowCardinalityKeyNames.HANDLER_ID.withValue(context.getHandlerId()),
                 LowCardinalityKeyNames.CHANNEL.withValue(context.getChannel()),
             )
 
-        override fun getHighCardinalityKeyValues(context: OutboxHandlerObservationContext): KeyValues =
+        override fun getHighCardinalityKeyValues(context: OutboxProcessObservationContext): KeyValues =
             KeyValues.of(
                 HighCardinalityKeyNames.RECORD_ID.withValue(context.getRecordId()),
                 HighCardinalityKeyNames.RECORD_KEY.withValue(context.getRecordKey()),

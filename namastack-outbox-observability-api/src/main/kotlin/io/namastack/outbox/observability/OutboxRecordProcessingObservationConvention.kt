@@ -11,6 +11,10 @@ import io.micrometer.observation.ObservationConvention
  */
 interface OutboxRecordProcessingObservationConvention :
     ObservationConvention<OutboxRecordProcessingObservationContext> {
+    /**
+     * Returns `true` when [context] is an [OutboxRecordProcessingObservationContext], ensuring that this
+     * convention is only applied to outbox record processing observations.
+     */
     override fun supportsContext(context: Observation.Context): Boolean =
         context is OutboxRecordProcessingObservationContext
 }

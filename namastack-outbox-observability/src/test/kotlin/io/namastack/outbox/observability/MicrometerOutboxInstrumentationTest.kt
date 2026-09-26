@@ -12,7 +12,7 @@ import io.namastack.outbox.instrumentation.OutboxHandlerKind.PRIMARY
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingInvocation
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
-import io.namastack.outbox.observability.OutboxHandlerObservationContext.HandlerKind
+import io.namastack.outbox.observability.OutboxProcessObservationContext.HandlerKind
 import io.namastack.outbox.observability.OutboxRecordProcessingObservationContext.Outcome
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -24,7 +24,7 @@ class MicrometerOutboxInstrumentationTest {
     private val observationRegistry = ObservationRegistry.create()
     private val scheduleContexts = mutableListOf<OutboxScheduleObservationContext>()
     private val recordProcessingContexts = mutableListOf<OutboxRecordProcessingObservationContext>()
-    private val handlerContexts = mutableListOf<OutboxHandlerObservationContext>()
+    private val handlerContexts = mutableListOf<OutboxProcessObservationContext>()
 
     init {
         observationRegistry.observationConfig().observationHandler(
@@ -48,13 +48,13 @@ class MicrometerOutboxInstrumentationTest {
             },
         )
         observationRegistry.observationConfig().observationHandler(
-            object : ObservationHandler<OutboxHandlerObservationContext> {
-                override fun onStop(context: OutboxHandlerObservationContext) {
+            object : ObservationHandler<OutboxProcessObservationContext> {
+                override fun onStop(context: OutboxProcessObservationContext) {
                     handlerContexts += context
                 }
 
                 override fun supportsContext(context: Observation.Context): Boolean =
-                    context is OutboxHandlerObservationContext
+                    context is OutboxProcessObservationContext
             },
         )
     }
@@ -237,7 +237,7 @@ class MicrometerOutboxInstrumentationTest {
                     },
                 customHandlerConventionSupplier =
                     {
-                        object : OutboxHandlerObservationConvention {
+                        object : OutboxProcessObservationConvention {
                             override fun getName(): String = "custom.process"
                         }
                     },

@@ -55,7 +55,7 @@ class OutboxObservabilityAutoConfiguration {
         observationRegistry: ObjectProvider<ObservationRegistry>,
         scheduleConvention: ObjectProvider<OutboxScheduleObservationConvention>,
         recordProcessingConvention: ObjectProvider<OutboxRecordProcessingObservationConvention>,
-        handlerConvention: ObjectProvider<OutboxHandlerObservationConvention>,
+        handlerConvention: ObjectProvider<OutboxProcessObservationConvention>,
     ): MicrometerOutboxInstrumentation =
         MicrometerOutboxInstrumentation(
             observationRegistrySupplier = observationRegistry::getObject,

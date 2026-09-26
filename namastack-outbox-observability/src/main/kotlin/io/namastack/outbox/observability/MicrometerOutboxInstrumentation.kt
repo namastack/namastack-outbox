@@ -8,10 +8,10 @@ import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingInvocation
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
-import io.namastack.outbox.observability.OutboxHandlerObservationContext.HandlerKind
-import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxHandlerObservationConvention
+import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxProcessObservationConvention
 import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxRecordProcessingObservationConvention
 import io.namastack.outbox.observability.OutboxObservationDocumentation.DefaultOutboxScheduleObservationConvention
+import io.namastack.outbox.observability.OutboxProcessObservationContext.HandlerKind
 import io.namastack.outbox.observability.OutboxRecordProcessingObservationContext.Outcome
 import java.util.function.Supplier
 
@@ -33,7 +33,7 @@ class MicrometerOutboxInstrumentation(
     observationRegistrySupplier: () -> ObservationRegistry,
     customScheduleConventionSupplier: () -> OutboxScheduleObservationConvention? = { null },
     customRecordProcessingConventionSupplier: () -> OutboxRecordProcessingObservationConvention? = { null },
-    customHandlerConventionSupplier: () -> OutboxHandlerObservationConvention? = { null },
+    customHandlerConventionSupplier: () -> OutboxProcessObservationConvention? = { null },
 ) : OutboxInstrumentation {
     private val observationRegistry: ObservationRegistry by lazy {
         observationRegistrySupplier()
@@ -44,7 +44,7 @@ class MicrometerOutboxInstrumentation(
     private val resolvedRecordProcessingConvention: OutboxRecordProcessingObservationConvention? by lazy {
         customRecordProcessingConventionSupplier()
     }
-    private val resolvedHandlerConvention: OutboxHandlerObservationConvention? by lazy {
+    private val resolvedHandlerConvention: OutboxProcessObservationConvention? by lazy {
         customHandlerConventionSupplier()
     }
 
@@ -60,7 +60,7 @@ class MicrometerOutboxInstrumentation(
         observationRegistry: ObservationRegistry,
         customScheduleConventionSupplier: () -> OutboxScheduleObservationConvention? = { null },
         customRecordProcessingConventionSupplier: () -> OutboxRecordProcessingObservationConvention? = { null },
-        customHandlerConventionSupplier: () -> OutboxHandlerObservationConvention? = { null },
+        customHandlerConventionSupplier: () -> OutboxProcessObservationConvention? = { null },
     ) : this(
         observationRegistrySupplier = { observationRegistry },
         customScheduleConventionSupplier = customScheduleConventionSupplier,
@@ -144,7 +144,7 @@ class MicrometerOutboxInstrumentation(
         action: () -> Unit,
     ) {
         val context =
-            OutboxHandlerObservationContext(
+            OutboxProcessObservationContext(
                 record = invocation.record,
                 handlerKind = invocation.handlerKind.toObservationHandlerKind(),
                 channel = invocation.channel,
@@ -153,7 +153,7 @@ class MicrometerOutboxInstrumentation(
         OutboxObservationDocumentation.OUTBOX_RECORD_PROCESS
             .observation(
                 resolvedHandlerConvention,
-                DefaultOutboxHandlerObservationConvention.INSTANCE,
+                DefaultOutboxProcessObservationConvention.INSTANCE,
                 { context },
                 observationRegistry,
             ).observe(action)

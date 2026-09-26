@@ -15,9 +15,9 @@ import io.namastack.outbox.OutboxRecord
  * @param channel The logical channel name (defaults to `"default"` in OSS mode).
  *
  * @author Aleksander Zamojski, Roland Beisel
- * @since 1.10.0
+ * @since 1.2.0
  */
-class OutboxHandlerObservationContext(
+class OutboxProcessObservationContext(
     private val record: OutboxRecord<*>,
     private val handlerKind: HandlerKind,
     private val channel: String = OutboxChannelNameProvider.DEFAULT_CHANNEL,
