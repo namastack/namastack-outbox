@@ -57,12 +57,17 @@ package io.namastack.outbox.annotation
  * to [id] while retaining the previous ID as an alias. When [id] is set, the generated legacy ID
  * is registered automatically where it can be reconstructed reliably.
  *
+ * ## Composed annotations
+ *
+ * [OutboxHandler] can be used as a meta-annotation for a method-targeted composed annotation.
+ * Attribute overrides declared with Spring's `@AliasFor` retain the same ID and alias semantics.
+ *
  * @property id optional canonical ID; empty retains the generated ID
  * @property aliases lookup-only IDs for persisted records
  * @author Roland Beisel
  * @since 0.4.0
  */
-@Target(AnnotationTarget.FUNCTION)
+@Target(AnnotationTarget.FUNCTION, AnnotationTarget.ANNOTATION_CLASS)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class OutboxHandler(
     val id: String = "",
