@@ -1,7 +1,9 @@
 package io.namastack.outbox.handler
 
 import io.namastack.outbox.OutboxChannelNameProvider
+import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
+import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.retry.OutboxRetryPolicy
@@ -34,6 +36,14 @@ class OutboxHandlerInfrastructure internal constructor(
         )
     internal val handlerInvoker =
         OutboxHandlerInvoker(
+            handlerRegistry = handlerRegistry,
+            instrumentationSupplier = { instrumentation },
+            channelNameProviderSupplier = { channelNameProvider },
+        )
+    internal val fallbackHandlerRegistry = OutboxFallbackHandlerRegistry(handlerRegistry)
+    internal val fallbackHandlerInvoker =
+        OutboxFallbackHandlerInvoker(
+            retryPolicyRegistry = retryPolicyRegistry,
             handlerRegistry = handlerRegistry,
             instrumentationSupplier = { instrumentation },
             channelNameProviderSupplier = { channelNameProvider },
