@@ -10,7 +10,7 @@ dependencies {
     api(project(":namastack-outbox-api"))
     api(project(":namastack-outbox-core"))
 
-    implementation(platform(libs.spring.boot.bom))
+    api(platform(libs.spring.boot.bom))
     implementation(libs.spring.jdbc)
     api(libs.spring.tx)
     implementation(libs.spring.boot.autoconfigure)
