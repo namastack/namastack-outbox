@@ -5,31 +5,52 @@ import io.namastack.outbox.config.JdbcOutboxConfigurationProperties
 /**
  * Default [JdbcTableNameResolver] implementation.
  *
- * Applies the configured schema name and table prefix to the configured base table names,
- * producing fully qualified table names for use in SQL queries.
+ * Applies the schema name and table prefix to the configured base table names, producing fully
+ * qualified table names for use in SQL queries. It can be constructed from plain namespace values
+ * for programmatic runtimes or from [JdbcOutboxConfigurationProperties] for auto-configuration.
  *
- * @param properties Configuration properties containing schema name, table prefix and base table names
+ * @param schemaName Optional database schema containing the outbox tables
+ * @param tablePrefix Prefix applied to every outbox table name
+ * @param recordTableName Base table name for outbox records
+ * @param instanceTableName Base table name for outbox instances
+ * @param partitionTableName Base table name for partition assignments
  *
  * @author Roland Beisel
  * @since 1.0.0
  */
 class DefaultJdbcTableNameResolver(
-    private val properties: JdbcOutboxConfigurationProperties,
+    schemaName: String? = null,
+    tablePrefix: String = "",
+    recordTableName: String = "outbox_record",
+    instanceTableName: String = "outbox_instance",
+    partitionTableName: String = "outbox_partition",
 ) : JdbcTableNameResolver {
     /**
-     * Resolves the fully qualified table name for the given base table name.
+     * Creates the resolver from the properties used by JDBC auto-configuration.
      *
-     * @param baseTableName The base table name without prefix or schema (e.g., "outbox_record")
-     * @return The fully qualified table name with schema and prefix applied
+     * @param properties JDBC outbox configuration properties
      */
-    private fun resolve(baseTableName: String): String {
-        val prefixedTable = "${properties.tablePrefix}$baseTableName"
-        return properties.schemaName?.let { "$it.$prefixedTable" } ?: prefixedTable
+    constructor(properties: JdbcOutboxConfigurationProperties) :
+        this(
+            schemaName = properties.schemaName,
+            tablePrefix = properties.tablePrefix,
+            recordTableName = properties.tableNames.record,
+            instanceTableName = properties.tableNames.instance,
+            partitionTableName = properties.tableNames.partition,
+        )
+
+    override val outboxRecord: String = resolve(schemaName, tablePrefix, recordTableName)
+
+    override val outboxInstance: String = resolve(schemaName, tablePrefix, instanceTableName)
+
+    override val outboxPartitionAssignment: String = resolve(schemaName, tablePrefix, partitionTableName)
+
+    private fun resolve(
+        schemaName: String?,
+        tablePrefix: String,
+        baseTableName: String,
+    ): String {
+        val tableName = "$tablePrefix$baseTableName"
+        return schemaName?.let { "$it.$tableName" } ?: tableName
     }
-
-    override val outboxRecord: String by lazy { resolve(properties.tableNames.record) }
-
-    override val outboxInstance: String by lazy { resolve(properties.tableNames.instance) }
-
-    override val outboxPartitionAssignment: String by lazy { resolve(properties.tableNames.partition) }
 }
