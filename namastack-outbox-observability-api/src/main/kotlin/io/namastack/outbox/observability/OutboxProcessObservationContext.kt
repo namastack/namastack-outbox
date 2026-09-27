@@ -22,6 +22,12 @@ class OutboxProcessObservationContext(
     private val handlerKind: HandlerKind,
     private val channel: String = OutboxChannelNameProvider.DEFAULT_CHANNEL,
 ) : Observation.Context() {
+    private val deliveryAttempt: Int =
+        when (handlerKind) {
+            HandlerKind.PRIMARY -> record.failureCount + 1
+            HandlerKind.FALLBACK -> record.failureCount
+        }
+
     /** Returns whether the primary or fallback handler is being invoked. */
     fun getHandlerKind(): HandlerKind = handlerKind
 
@@ -35,10 +41,11 @@ class OutboxProcessObservationContext(
     fun getRecordKey(): String = record.key
 
     /**
-     * Returns the current delivery attempt number, calculated as `failureCount + 1`.
-     * The value is `1` for a record that has not failed before.
+     * Returns the delivery attempt snapshotted when this handler context was created.
+     * Primary handlers use `failureCount + 1`. Fallback handlers use `failureCount` because the
+     * primary processor has already incremented it before fallback dispatch.
      */
-    fun getDeliveryAttempt(): Int = record.failureCount + 1
+    fun getDeliveryAttempt(): Int = deliveryAttempt
 
     /** Returns the logical channel name of the outbox runtime. */
     fun getChannel(): String = channel

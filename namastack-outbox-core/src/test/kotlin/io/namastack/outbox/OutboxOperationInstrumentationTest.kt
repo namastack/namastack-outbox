@@ -16,6 +16,7 @@ import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
@@ -140,6 +141,65 @@ class OutboxOperationInstrumentationTest {
         assertThat(processInvocations.single().channel).isEqualTo("payments")
     }
 
+    @Test
+    fun `does not instrument a primary handler that cannot be resolved`() {
+        val processInvocations = mutableListOf<OutboxHandlerInvocation>()
+        val handlerRegistry = mockk<OutboxHandlerRegistry>()
+        val record = record()
+        every { handlerRegistry.getHandlerById("handler-1") } returns null
+        val invoker =
+            OutboxHandlerInvoker(
+                handlerRegistry = handlerRegistry,
+                instrumentationSupplier = {
+                    recordingProcessInstrumentation(mutableListOf(), processInvocations)
+                },
+            )
+
+        assertThatThrownBy { invoker.dispatch(record) }
+            .isInstanceOf(OutboxHandlerNotFoundException::class.java)
+
+        assertThat(processInvocations).isEmpty()
+    }
+
+    @Test
+    fun `does not instrument fallback preparation failures`() {
+        val processInvocations = mutableListOf<OutboxHandlerInvocation>()
+        val retryPolicyRegistry = mockk<OutboxRetryPolicyRegistry>()
+        val handlerRegistry = mockk<OutboxHandlerRegistry>()
+        val record = record()
+        val invoker =
+            OutboxFallbackHandlerInvoker(
+                retryPolicyRegistry = retryPolicyRegistry,
+                handlerRegistry = handlerRegistry,
+                instrumentationSupplier = {
+                    recordingProcessInstrumentation(mutableListOf(), processInvocations)
+                },
+            )
+
+        assertThatThrownBy { invoker.dispatch(record) }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessage("Expected failure exception in record ${record.id} but found none")
+
+        assertThat(processInvocations).isEmpty()
+    }
+
+    @Test
+    fun `does not instrument a skipped null payload`() {
+        val processInvocations = mutableListOf<OutboxHandlerInvocation>()
+        val handlerRegistry = mockk<OutboxHandlerRegistry>()
+        val invoker =
+            OutboxHandlerInvoker(
+                handlerRegistry = handlerRegistry,
+                instrumentationSupplier = {
+                    recordingProcessInstrumentation(mutableListOf(), processInvocations)
+                },
+            )
+
+        invoker.dispatch(record(payload = null))
+
+        assertThat(processInvocations).isEmpty()
+    }
+
     private fun recordingProcessInstrumentation(
         events: MutableList<String>,
         invocations: MutableList<OutboxHandlerInvocation>,
@@ -172,12 +232,15 @@ class OutboxOperationInstrumentationTest {
             ) = invokeHandler(invocation, action)
         }
 
-    private fun record(failureException: Throwable? = null): OutboxRecord<String> {
+    private fun record(
+        payload: String? = "payload",
+        failureException: Throwable? = null,
+    ): OutboxRecord<String?> {
         val now = Instant.parse("2026-01-01T00:00:00Z")
         return OutboxRecord.restore(
             id = "record-1",
             recordKey = "order-1",
-            payload = "payload",
+            payload = payload,
             context = emptyMap(),
             createdAt = now,
             status = OutboxRecordStatus.NEW,

@@ -43,6 +43,20 @@ class OutboxFallbackHandlerInvoker internal constructor(
      * or if the record does not contain a failure exception (which is expected for failed records)
      */
     fun dispatch(record: OutboxRecord<*>) {
+        val payload = record.payload ?: return
+        val failureException = getFailureException(record)
+        val registration = handlerRegistry.getRegistrationById(record.handlerId)
+        val fallback =
+            registration?.fallback
+                ?: throw IllegalStateException("No fallback handler with id ${record.handlerId}")
+        val context =
+            OutboxHandlerContextFactory.failure(
+                record,
+                failureException,
+                retryPolicyRegistry,
+                registration.explicitRetryPolicy,
+            )
+
         instrumentation.invokeHandler(
             invocation =
                 OutboxHandlerInvocation(
@@ -51,22 +65,6 @@ class OutboxFallbackHandlerInvoker internal constructor(
                     channel = channelNameProvider.getChannelName(),
                 ),
             action = {
-                val payload = record.payload ?: return@invokeHandler
-                val failureException = getFailureException(record)
-                val registration =
-                    handlerRegistry.getRegistrationById(record.handlerId)
-                val fallback =
-                    registration?.fallback
-                        ?: throw IllegalStateException("No fallback handler with id ${record.handlerId}")
-
-                val context =
-                    OutboxHandlerContextFactory.failure(
-                        record,
-                        failureException,
-                        retryPolicyRegistry,
-                        registration.explicitRetryPolicy,
-                    )
-
                 fallback.invoke(payload, context)
             },
         )

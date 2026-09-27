@@ -176,6 +176,18 @@ class MicrometerOutboxInstrumentationTest {
     }
 
     @Test
+    fun `primary and fallback observations report the same delivery attempt`() {
+        val instrumentation = MicrometerOutboxInstrumentation(observationRegistry)
+        val record = outboxRecord(failureCount = 2)
+
+        instrumentation.invokeHandler(OutboxHandlerInvocation(record, PRIMARY, "orders")) {}
+        setFailureCount(record, 3)
+        instrumentation.invokeHandler(OutboxHandlerInvocation(record, FALLBACK, "orders")) {}
+
+        assertThat(handlerContexts.map { it.getDeliveryAttempt() }).containsExactly(3, 3)
+    }
+
+    @Test
     fun `record processing records compatibility exception as compatibility_deferred`() {
         val failure =
             OutboxHandlerNotFoundException(

@@ -71,6 +71,10 @@ class OutboxHandlerInvoker(
      * @throws Throwable the original exception thrown by the handler (will trigger retries)
      */
     fun dispatch(record: OutboxRecord<*>) {
+        val payload = record.payload ?: return
+        val metadata = OutboxHandlerContextFactory.metadata(record)
+        val handler = requireHandler(record)
+
         instrumentation.invokeHandler(
             invocation =
                 OutboxHandlerInvocation(
@@ -79,11 +83,6 @@ class OutboxHandlerInvoker(
                     channel = channelNameProvider.getChannelName(),
                 ),
             action = {
-                val payload = record.payload ?: return@invokeHandler
-                val metadata = OutboxHandlerContextFactory.metadata(record)
-
-                val handler = requireHandler(record)
-
                 handler.invoke(payload, metadata)
             },
         )
