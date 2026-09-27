@@ -10,6 +10,7 @@ package io.namastack.outbox.observability
  * @since 1.7.0
  */
 object OutboxMetricNames {
+    const val RECORD_ATTEMPT: String = "outbox.record.attempt"
     const val RECORD_PROCESS: String = "outbox.record.process"
     const val RECORD_SCHEDULE: String = "outbox.record.schedule"
 
@@ -33,6 +34,7 @@ object OutboxMetricKeyNames {
     object LowCardinality {
         const val CHANNEL: String = "outbox.channel"
         const val RECORD_STATUS: String = "outbox.record.status"
+        const val PROCESSING_OUTCOME: String = "outbox.processing.outcome"
         const val HANDLER_KIND: String = "outbox.handler.kind"
         const val HANDLER_ID: String = "outbox.handler.id"
     }

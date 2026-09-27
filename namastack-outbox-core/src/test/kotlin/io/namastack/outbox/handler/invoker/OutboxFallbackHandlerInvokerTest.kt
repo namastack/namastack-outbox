@@ -8,8 +8,9 @@ import io.mockk.verify
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.handler.OutboxFailureContext
+import io.namastack.outbox.handler.assembly.HandlerRegistration
 import io.namastack.outbox.handler.method.fallback.OutboxFallbackHandlerMethod
-import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
+import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -21,14 +22,14 @@ import java.time.Instant
 @DisplayName("OutboxFallbackHandlerInvoker")
 class OutboxFallbackHandlerInvokerTest {
     private val retryPolicyRegistry = mockk<OutboxRetryPolicyRegistry>()
-    private val fallbackHandlerRegistry = mockk<OutboxFallbackHandlerRegistry>()
+    private val handlerRegistry = mockk<OutboxHandlerRegistry>()
     private lateinit var invoker: OutboxFallbackHandlerInvoker
     private val now = Instant.now()
     private val retryPolicy = mockk<OutboxRetryPolicy>()
 
     @BeforeEach
     fun setUp() {
-        invoker = OutboxFallbackHandlerInvoker(retryPolicyRegistry, fallbackHandlerRegistry)
+        invoker = OutboxFallbackHandlerInvoker(retryPolicyRegistry, handlerRegistry)
         every { retryPolicyRegistry.getByHandlerId(any()) } returns retryPolicy
         every { retryPolicy.maxRetries() } returns 3
         every { retryPolicy.shouldRetry(any()) } returns true
@@ -39,7 +40,7 @@ class OutboxFallbackHandlerInvokerTest {
         val (record, context) = createRecord(handlerId = "handler-id")
         val fallbackHandler = mockk<OutboxFallbackHandlerMethod>()
 
-        every { fallbackHandlerRegistry.getByHandlerId("handler-id") } returns fallbackHandler
+        every { handlerRegistry.getRegistrationById("handler-id") } returns registration(fallbackHandler)
         every { fallbackHandler.invoke(any(), any()) } just runs
 
         invoker.dispatch(record)
@@ -53,7 +54,7 @@ class OutboxFallbackHandlerInvokerTest {
 
         invoker.dispatch(record)
 
-        verify(exactly = 0) { fallbackHandlerRegistry.getByHandlerId(any()) }
+        verify(exactly = 0) { handlerRegistry.getRegistrationById(any()) }
     }
 
     @Test
@@ -70,14 +71,14 @@ class OutboxFallbackHandlerInvokerTest {
     fun `throws when no fallback handler registered`() {
         val (record, _) = createRecord(handlerId = "handler-without-fallback")
 
-        every { fallbackHandlerRegistry.getByHandlerId("handler-without-fallback") } returns null
+        every { handlerRegistry.getRegistrationById("handler-without-fallback") } returns null
 
         assertThatThrownBy {
             invoker.dispatch(record)
         }.isInstanceOf(IllegalStateException::class.java)
             .hasMessage("No fallback handler with id handler-without-fallback")
 
-        verify { fallbackHandlerRegistry.getByHandlerId("handler-without-fallback") }
+        verify { handlerRegistry.getRegistrationById("handler-without-fallback") }
     }
 
     @Test
@@ -86,13 +87,21 @@ class OutboxFallbackHandlerInvokerTest {
         val fallbackHandler = mockk<OutboxFallbackHandlerMethod>()
         val exception = RuntimeException("Fallback handler error")
 
-        every { fallbackHandlerRegistry.getByHandlerId("failing-handler") } returns fallbackHandler
+        every { handlerRegistry.getRegistrationById("failing-handler") } returns registration(fallbackHandler)
         every { fallbackHandler.invoke(any(), any()) } throws exception
 
         assertThatThrownBy {
             invoker.dispatch(record)
         }.isSameAs(exception)
     }
+
+    private fun registration(fallback: OutboxFallbackHandlerMethod): HandlerRegistration =
+        HandlerRegistration(
+            beanName = "handler",
+            primary = mockk(),
+            fallback = fallback,
+            explicitRetryPolicy = null,
+        )
 
     private fun createRecord(
         id: String = "test-payload",

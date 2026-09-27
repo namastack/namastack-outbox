@@ -2,8 +2,9 @@ package io.namastack.outbox
 
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.partition.PartitionCoordinator
-import io.namastack.outbox.processor.OutboxRecordProcessor
+import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
@@ -34,7 +35,7 @@ import kotlin.concurrent.withLock
  * @param taskScheduler Spring TaskScheduler for scheduling the processing job
  * @param observationRegistry Supplier for obtaining the Micrometer [ObservationRegistry]
  * @param recordRepository Repository for loading records
- * @param recordProcessorChain Root processor of the chain (typically PrimaryOutboxRecordProcessor)
+ * @param recordProcessorChainInvoker Invoker for the instrumented record processor chain
  * @param partitionCoordinator Coordinator for partition assignments
  * @param taskExecutor Executor for parallel key processing
  * @param properties Configuration properties
@@ -49,7 +50,7 @@ class OutboxProcessingScheduler(
     private val taskScheduler: TaskScheduler,
     private val observationRegistry: () -> ObservationRegistry,
     private val recordRepository: OutboxRecordRepository,
-    private val recordProcessorChain: OutboxRecordProcessor,
+    private val recordProcessorChainInvoker: OutboxRecordProcessorChainInvoker,
     private val partitionCoordinator: PartitionCoordinator,
     private val taskExecutor: TaskExecutor,
     private val properties: OutboxProperties,
@@ -205,9 +206,9 @@ class OutboxProcessingScheduler(
             return continueOnFailure()
         }
 
-        val success = recordProcessorChain.handle(record)
+        val outcome = recordProcessorChainInvoker.process(record)
 
-        return success || continueOnFailure()
+        return outcome == OutboxRecordProcessingOutcome.COMPLETED || continueOnFailure()
     }
 
     private fun continueOnFailure(): Boolean = !properties.processing.stopOnFirstFailure

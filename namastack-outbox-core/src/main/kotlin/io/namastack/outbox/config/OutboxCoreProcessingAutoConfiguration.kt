@@ -1,16 +1,20 @@
 package io.namastack.outbox.config
 
+import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
+import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.processor.FallbackOutboxRecordProcessor
 import io.namastack.outbox.processor.OutboxRecordProcessor
+import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.processor.PermanentFailureOutboxRecordProcessor
 import io.namastack.outbox.processor.PrimaryOutboxRecordProcessor
 import io.namastack.outbox.processor.RetryOutboxRecordProcessor
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -50,4 +54,19 @@ class OutboxCoreProcessingAutoConfiguration {
 
         return primary
     }
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxRecordProcessorChainInvoker(
+        recordProcessorChain: OutboxRecordProcessor,
+        instrumentations: ObjectProvider<OutboxInstrumentation>,
+        channelNameProvider: ObjectProvider<OutboxChannelNameProvider>,
+    ): OutboxRecordProcessorChainInvoker =
+        OutboxRecordProcessorChainInvoker(
+            recordProcessorChain = recordProcessorChain,
+            instrumentationSupplier = {
+                OutboxInstrumentation.compose(instrumentations.orderedStream().toList())
+            },
+            channelNameProviderSupplier = channelNameProvider::getObject,
+        )
 }

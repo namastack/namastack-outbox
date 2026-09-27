@@ -5,8 +5,9 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.OutboxProcessingScheduler.SchedulerLifecycleStateMachine.LifecycleState
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.partition.PartitionCoordinator
-import io.namastack.outbox.processor.OutboxRecordProcessor
+import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
@@ -32,7 +33,7 @@ class OutboxProcessingSchedulerTest {
     private val taskScheduler: TaskScheduler = mockk(relaxed = true)
     private val scheduledFuture: ScheduledFuture<*> = mockk(relaxed = true)
     private val recordRepository: OutboxRecordRepository = mockk(relaxed = true)
-    private val recordProcessorChain: OutboxRecordProcessor = mockk(relaxed = true)
+    private val recordProcessorChainInvoker: OutboxRecordProcessorChainInvoker = mockk(relaxed = true)
     private val partitionCoordinator: PartitionCoordinator = mockk(relaxed = true)
 
     private val fixedInstant = Instant.parse("2024-01-01T10:00:00Z")
@@ -54,7 +55,7 @@ class OutboxProcessingSchedulerTest {
                 taskScheduler = taskScheduler,
                 observationRegistry = { ObservationRegistry.NOOP },
                 recordRepository = recordRepository,
-                recordProcessorChain = recordProcessorChain,
+                recordProcessorChainInvoker = recordProcessorChainInvoker,
                 partitionCoordinator = partitionCoordinator,
                 taskExecutor = SyncTaskExecutor(),
                 properties = properties,
@@ -145,8 +146,9 @@ class OutboxProcessingSchedulerTest {
             prepareFindIncompleteRecordsByRecordKey(recordKey, listOf(record))
 
             val allowProcessingToFinish = CountDownLatch(1)
-            every { recordProcessorChain.handle(record) } answers {
+            every { recordProcessorChainInvoker.process(record) } answers {
                 allowProcessingToFinish.await(5, SECONDS)
+                OutboxRecordProcessingOutcome.COMPLETED
             }
 
             val executor = Executors.newFixedThreadPool(2)
@@ -195,8 +197,9 @@ class OutboxProcessingSchedulerTest {
             prepareFindIncompleteRecordsByRecordKey(recordKey, listOf(record))
 
             val allowProcessingToFinish = CountDownLatch(1)
-            every { recordProcessorChain.handle(record) } answers {
+            every { recordProcessorChainInvoker.process(record) } answers {
                 allowProcessingToFinish.await(5, SECONDS)
+                OutboxRecordProcessingOutcome.COMPLETED
             }
 
             val executor = Executors.newFixedThreadPool(3)
@@ -244,7 +247,7 @@ class OutboxProcessingSchedulerTest {
                     taskScheduler = taskScheduler,
                     observationRegistry = { ObservationRegistry.NOOP },
                     recordRepository = recordRepository,
-                    recordProcessorChain = recordProcessorChain,
+                    recordProcessorChainInvoker = recordProcessorChainInvoker,
                     partitionCoordinator = partitionCoordinator,
                     taskExecutor = SyncTaskExecutor(),
                     properties = properties,
@@ -264,8 +267,9 @@ class OutboxProcessingSchedulerTest {
             prepareFindIncompleteRecordsByRecordKey(recordKey, listOf(record))
 
             val allowProcessingToFinish = CountDownLatch(1)
-            every { recordProcessorChain.handle(record) } answers {
+            every { recordProcessorChainInvoker.process(record) } answers {
                 allowProcessingToFinish.await(5, SECONDS)
+                OutboxRecordProcessingOutcome.COMPLETED
             }
 
             val executor = Executors.newFixedThreadPool(2)
@@ -308,8 +312,9 @@ class OutboxProcessingSchedulerTest {
             prepareFindIncompleteRecordsByRecordKey(recordKey, listOf(record))
 
             val allowProcessingToFinish = CountDownLatch(1)
-            every { recordProcessorChain.handle(record) } answers {
+            every { recordProcessorChainInvoker.process(record) } answers {
                 allowProcessingToFinish.await(5, SECONDS)
+                OutboxRecordProcessingOutcome.COMPLETED
             }
 
             val processExecutor = Executors.newSingleThreadExecutor()
@@ -479,20 +484,21 @@ class OutboxProcessingSchedulerTest {
                 listOf(incompatibleRecord, incompatibleSuccessor),
             )
             prepareFindIncompleteRecordsByRecordKey(compatibleKey, listOf(compatibleRecord))
-            every { recordProcessorChain.handle(incompatibleRecord) } throws
+            every { recordProcessorChainInvoker.process(incompatibleRecord) } throws
                 OutboxHandlerNotFoundException(
                     recordId = incompatibleRecord.id,
                     recordKey = incompatibleRecord.key,
                     handlerId = incompatibleRecord.handlerId,
                 )
-            every { recordProcessorChain.handle(compatibleRecord) } returns true
+            every { recordProcessorChainInvoker.process(compatibleRecord) } returns
+                OutboxRecordProcessingOutcome.COMPLETED
 
             scheduler.process()
             scheduler.process()
 
-            verify(exactly = 1) { recordProcessorChain.handle(incompatibleRecord) }
-            verify(exactly = 0) { recordProcessorChain.handle(incompatibleSuccessor) }
-            verify(exactly = 1) { recordProcessorChain.handle(compatibleRecord) }
+            verify(exactly = 1) { recordProcessorChainInvoker.process(incompatibleRecord) }
+            verify(exactly = 0) { recordProcessorChainInvoker.process(incompatibleSuccessor) }
+            verify(exactly = 1) { recordProcessorChainInvoker.process(compatibleRecord) }
             verify(exactly = 1) { partitionCoordinator.getAssignedPartitionNumbers() }
         }
 
@@ -577,7 +583,7 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 0) { recordProcessorChain.handle(any()) }
+            verify(exactly = 0) { recordProcessorChainInvoker.process(any()) }
         }
 
         @Test
@@ -597,7 +603,7 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 0) { recordProcessorChain.handle(record) }
+            verify(exactly = 0) { recordProcessorChainInvoker.process(record) }
         }
 
         @Test
@@ -617,7 +623,7 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 1) { recordProcessorChain.handle(record) }
+            verify(exactly = 1) { recordProcessorChainInvoker.process(record) }
         }
 
         @Test
@@ -640,12 +646,12 @@ class OutboxProcessingSchedulerTest {
                 incompleteRecords = listOf(record1, record2),
             )
 
-            every { recordProcessorChain.handle(any()) } returns true
+            every { recordProcessorChainInvoker.process(any()) } returns OutboxRecordProcessingOutcome.COMPLETED
 
             scheduler.process()
 
-            verify(exactly = 1) { recordProcessorChain.handle(record1) }
-            verify(exactly = 1) { recordProcessorChain.handle(record2) }
+            verify(exactly = 1) { recordProcessorChainInvoker.process(record1) }
+            verify(exactly = 1) { recordProcessorChainInvoker.process(record2) }
         }
 
         @Test
@@ -672,8 +678,8 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 0) { recordProcessorChain.handle(notReadyRecord) }
-            verify(exactly = 0) { recordProcessorChain.handle(readyRecord) }
+            verify(exactly = 0) { recordProcessorChainInvoker.process(notReadyRecord) }
+            verify(exactly = 0) { recordProcessorChainInvoker.process(readyRecord) }
         }
 
         @Test
@@ -698,12 +704,12 @@ class OutboxProcessingSchedulerTest {
                 incompleteRecords = listOf(notReadyRecord, readyRecord),
             )
 
-            every { recordProcessorChain.handle(any()) } returns true
+            every { recordProcessorChainInvoker.process(any()) } returns OutboxRecordProcessingOutcome.COMPLETED
 
             scheduler.process()
 
-            verify(exactly = 0) { recordProcessorChain.handle(notReadyRecord) }
-            verify(exactly = 1) { recordProcessorChain.handle(readyRecord) }
+            verify(exactly = 0) { recordProcessorChainInvoker.process(notReadyRecord) }
+            verify(exactly = 1) { recordProcessorChainInvoker.process(readyRecord) }
         }
 
         @Test
@@ -728,13 +734,14 @@ class OutboxProcessingSchedulerTest {
                 incompleteRecords = listOf(record1, record2),
             )
 
-            every { recordProcessorChain.handle(record1) } returns false
-            every { recordProcessorChain.handle(record2) } returns true
+            every { recordProcessorChainInvoker.process(record1) } returns
+                OutboxRecordProcessingOutcome.RETRY_SCHEDULED
+            every { recordProcessorChainInvoker.process(record2) } returns OutboxRecordProcessingOutcome.COMPLETED
 
             scheduler.process()
 
-            verify(exactly = 1) { recordProcessorChain.handle(record1) }
-            verify(exactly = 0) { recordProcessorChain.handle(record2) }
+            verify(exactly = 1) { recordProcessorChainInvoker.process(record1) }
+            verify(exactly = 0) { recordProcessorChainInvoker.process(record2) }
         }
 
         @Test
@@ -759,13 +766,14 @@ class OutboxProcessingSchedulerTest {
                 incompleteRecords = listOf(record1, record2),
             )
 
-            every { recordProcessorChain.handle(record1) } returns false
-            every { recordProcessorChain.handle(record2) } returns true
+            every { recordProcessorChainInvoker.process(record1) } returns
+                OutboxRecordProcessingOutcome.RETRY_SCHEDULED
+            every { recordProcessorChainInvoker.process(record2) } returns OutboxRecordProcessingOutcome.COMPLETED
 
             scheduler.process()
 
-            verify(exactly = 1) { recordProcessorChain.handle(record1) }
-            verify(exactly = 1) { recordProcessorChain.handle(record2) }
+            verify(exactly = 1) { recordProcessorChainInvoker.process(record1) }
+            verify(exactly = 1) { recordProcessorChainInvoker.process(record2) }
         }
 
         @Test
@@ -795,13 +803,13 @@ class OutboxProcessingSchedulerTest {
                 incompleteRecords = listOf(record1, record2, record3),
             )
 
-            every { recordProcessorChain.handle(any()) } returns true
+            every { recordProcessorChainInvoker.process(any()) } returns OutboxRecordProcessingOutcome.COMPLETED
 
             scheduler.process()
 
-            verify(exactly = 1) { recordProcessorChain.handle(record1) }
-            verify(exactly = 1) { recordProcessorChain.handle(record2) }
-            verify(exactly = 1) { recordProcessorChain.handle(record3) }
+            verify(exactly = 1) { recordProcessorChainInvoker.process(record1) }
+            verify(exactly = 1) { recordProcessorChainInvoker.process(record2) }
+            verify(exactly = 1) { recordProcessorChainInvoker.process(record3) }
         }
     }
 

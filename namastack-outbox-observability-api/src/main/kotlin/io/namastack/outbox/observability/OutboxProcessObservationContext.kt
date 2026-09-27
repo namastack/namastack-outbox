@@ -1,20 +1,17 @@
 package io.namastack.outbox.observability
 
-import io.micrometer.observation.transport.ReceiverContext
+import io.micrometer.observation.Observation
 import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxRecord
 
 /**
- * Micrometer [ReceiverContext] that carries all information needed to instrument the processing
- * of a single outbox record.
+ * Micrometer context for one primary or fallback handler invocation.
  *
- * An instance of this context is created just before the handler (primary or fallback) is invoked
- * for a polled outbox record. The carrier is the [OutboxRecord] itself, so propagation headers
- * stored in [OutboxRecord.context] are automatically made available to Micrometer's propagation
- * mechanism (e.g. for distributed tracing).
+ * The enclosing [OutboxRecordProcessingObservationContext] restores propagation headers from the
+ * record. Handler observations therefore use the active record-processing observation as parent.
  *
- * @param record The outbox record that is about to be processed.
- * @param handlerKind Whether this processing attempt uses the primary or the fallback handler.
+ * @param record The outbox record passed to the handler.
+ * @param handlerKind Whether the primary or fallback handler is being invoked.
  * @param channel The logical channel name (defaults to `"default"` in OSS mode).
  *
  * @author Aleksander Zamojski, Roland Beisel
@@ -24,63 +21,47 @@ class OutboxProcessObservationContext(
     private val record: OutboxRecord<*>,
     private val handlerKind: HandlerKind,
     private val channel: String = OutboxChannelNameProvider.DEFAULT_CHANNEL,
-) : ReceiverContext<OutboxRecord<*>>({ carrier: OutboxRecord<*>, key: String -> carrier.context[key] }) {
-    init {
-        setCarrier(record)
-    }
+) : Observation.Context() {
+    private val deliveryAttempt: Int =
+        when (handlerKind) {
+            HandlerKind.PRIMARY -> record.failureCount + 1
+            HandlerKind.FALLBACK -> record.failureCount
+        }
 
-    /**
-     * Returns whether the current processing attempt is performed by the primary or the fallback
-     * handler.
-     */
+    /** Returns whether the primary or fallback handler is being invoked. */
     fun getHandlerKind(): HandlerKind = handlerKind
 
-    /**
-     * Returns the unique identifier of the handler that is processing this record.
-     * Matches the `handlerId` field persisted with the outbox record.
-     */
+    /** Returns the identifier of the handler being invoked. */
     fun getHandlerId(): String = record.handlerId
 
-    /**
-     * Returns the unique identifier (UUID) of the outbox record being processed.
-     */
+    /** Returns the unique identifier of the outbox record. */
     fun getRecordId(): String = record.id
 
-    /**
-     * Returns the business key of the outbox record. Related records share the same key and are
-     * processed in order within the same partition.
-     */
+    /** Returns the business key used to order the outbox record. */
     fun getRecordKey(): String = record.key
 
     /**
-     * Returns the current delivery attempt number, calculated as `failureCount + 1`.
-     * The value is `1` the first time a record is processed and increases with every failed
-     * attempt.
+     * Returns the delivery attempt snapshotted when this handler context was created.
+     * Primary handlers use `failureCount + 1`. Fallback handlers use `failureCount` because the
+     * primary processor has already incremented it before fallback dispatch.
      */
-    fun getDeliveryAttempt(): Int = record.failureCount + 1
+    fun getDeliveryAttempt(): Int = deliveryAttempt
 
-    /**
-     * Returns the logical channel name of the outbox runtime.
-     */
+    /** Returns the logical channel name of the outbox runtime. */
     fun getChannel(): String = channel
 
     /**
-     * Indicates which type of handler is processing the outbox record.
+     * Indicates which handler is being invoked.
      *
      * @property value String representation used as the observation key value.
      */
     enum class HandlerKind(
         val value: String,
     ) {
-        /**
-         * The primary handler, which is the first handler invoked for every polled record.
-         */
+        /** The primary handler invoked first for an outbox record. */
         PRIMARY("primary"),
 
-        /**
-         * The fallback handler, which is invoked when the primary handler has exhausted its
-         * retries or thrown a non-retryable exception.
-         */
+        /** The fallback handler invoked after primary delivery cannot complete. */
         FALLBACK("fallback"),
         ;
 

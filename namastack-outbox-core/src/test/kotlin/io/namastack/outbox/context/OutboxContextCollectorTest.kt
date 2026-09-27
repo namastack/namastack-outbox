@@ -8,6 +8,7 @@ import org.assertj.core.api.Assertions.entry
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.util.concurrent.atomic.AtomicInteger
 
 @DisplayName("OutboxContextCollector")
 class OutboxContextCollectorTest {
@@ -41,6 +42,28 @@ class OutboxContextCollectorTest {
                     entry("spanId", "xyz789"),
                 )
             verify(exactly = 1) { provider.provide() }
+        }
+
+        @Test
+        fun `should resolve provider supplier once on first collection`() {
+            val resolutions = AtomicInteger()
+            val provider = mockk<OutboxContextProvider>()
+            every { provider.provide() } returns mapOf("key" to "value")
+            contextCollector =
+                OutboxContextCollector(
+                    providersSupplier = {
+                        resolutions.incrementAndGet()
+                        listOf(provider)
+                    },
+                )
+
+            assertThat(resolutions).hasValue(0)
+
+            contextCollector.collectContext()
+            contextCollector.collectContext()
+
+            assertThat(resolutions).hasValue(1)
+            verify(exactly = 2) { provider.provide() }
         }
 
         @Test

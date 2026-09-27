@@ -4,6 +4,7 @@ import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import org.slf4j.LoggerFactory
 import java.time.Clock
 
@@ -32,10 +33,10 @@ class PrimaryOutboxRecordProcessor(
     /**
      * Processes record by dispatching to its handler.
      *
-     * @return true if the handler succeeded, false if the handler failed and no further
-     *   processor in the chain handled the record
+     * @return [OutboxRecordProcessingOutcome.COMPLETED] if the handler succeeds, otherwise the
+     * outcome returned by the downstream chain.
      */
-    override fun handle(record: OutboxRecord<*>): Boolean {
+    override fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome {
         if (record.payload != null) {
             handlerInvoker.ensureHandlerAvailable(record)
         }
@@ -46,7 +47,7 @@ class PrimaryOutboxRecordProcessor(
 
             completeRecord(record, recordRepository, properties, clock)
 
-            return true
+            return OutboxRecordProcessingOutcome.COMPLETED
         } catch (ex: Exception) {
             log.debug("Handler failed for record {} (key: {}): {}", record.id, record.key, ex.message)
 

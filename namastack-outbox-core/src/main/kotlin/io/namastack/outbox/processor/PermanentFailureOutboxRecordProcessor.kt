@@ -2,6 +2,7 @@ package io.namastack.outbox.processor
 
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import org.slf4j.LoggerFactory
 
 /**
@@ -23,9 +24,9 @@ class PermanentFailureOutboxRecordProcessor(
     /**
      * Processes record by marking it as permanently FAILED.
      *
-     * @return false as this is the last processor
+     * @return [OutboxRecordProcessingOutcome.FAILED].
      */
-    override fun handle(record: OutboxRecord<*>): Boolean {
+    override fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome {
         record.markFailed()
         recordRepository.save(record)
 
@@ -36,6 +37,6 @@ class PermanentFailureOutboxRecordProcessor(
             record.failureCount,
         )
 
-        return false
+        return OutboxRecordProcessingOutcome.FAILED
     }
 }

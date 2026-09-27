@@ -5,7 +5,7 @@ import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.partition.PartitionCoordinator
-import io.namastack.outbox.processor.OutboxRecordProcessor
+import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import io.namastack.outbox.trigger.OutboxPollingTriggerFactory
 import org.springframework.beans.factory.BeanFactory
@@ -46,7 +46,7 @@ class OutboxCoreSchedulingAutoConfiguration {
         trigger: OutboxPollingTrigger,
         observationRegistry: ObjectProvider<ObservationRegistry>,
         recordRepository: OutboxRecordRepository,
-        recordProcessorChain: OutboxRecordProcessor,
+        recordProcessorChainInvoker: OutboxRecordProcessorChainInvoker,
         partitionCoordinator: PartitionCoordinator,
         properties: OutboxProperties,
         clock: Clock,
@@ -60,7 +60,7 @@ class OutboxCoreSchedulingAutoConfiguration {
             taskScheduler = taskScheduler,
             observationRegistry = { observationRegistry.getIfAvailable { ObservationRegistry.NOOP } },
             recordRepository = recordRepository,
-            recordProcessorChain = recordProcessorChain,
+            recordProcessorChainInvoker = recordProcessorChainInvoker,
             partitionCoordinator = partitionCoordinator,
             taskExecutor = taskExecutor,
             properties = properties,

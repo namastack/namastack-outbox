@@ -3,6 +3,7 @@ package io.namastack.outbox.processor
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import org.slf4j.LoggerFactory
 import java.time.Clock
 
@@ -34,16 +35,19 @@ abstract class OutboxRecordProcessor(
     /**
      * Passes record to next processor in chain.
      *
-     * @return Result from next processor, or false if no next processor exists
+     * @return Outcome returned by the next processor.
+     * @throws IllegalStateException if the chain has no next processor.
      */
-    fun handleNext(record: OutboxRecord<*>): Boolean = next?.handle(record) ?: false
+    protected fun handleNext(record: OutboxRecord<*>): OutboxRecordProcessingOutcome =
+        next?.handle(record)
+            ?: error("No next processor configured after ${javaClass.simpleName}")
 
     /**
      * Processes the record.
      *
-     * @return true if record was successfully processed, false otherwise
+     * @return Final outcome produced by this processor or a downstream processor.
      */
-    abstract fun handle(record: OutboxRecord<*>): Boolean
+    abstract fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome
 
     /**
      * Completes record after successful processing.
