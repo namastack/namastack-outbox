@@ -56,6 +56,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         )
 
     @Bean
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean
     fun outboxHandlerInvoker(
         outboxHandlerRegistry: OutboxHandlerRegistry,
@@ -73,6 +74,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         )
 
     @Bean
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean
     fun outboxFallbackHandlerInvoker(
         retryPolicyRegistry: OutboxRetryPolicyRegistry,
@@ -92,6 +94,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         )
 
     @Bean
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean
     fun outboxInstanceRegistry(
         instanceRepository: OutboxInstanceRepository,
@@ -111,6 +114,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean
     fun partitionCoordinator(
         instanceRegistry: OutboxInstanceRegistry,
@@ -126,6 +130,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         )
 
     @Bean
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean
     fun partitionAssignmentCache(
         partitionAssignmentRepository: PartitionAssignmentRepository,
@@ -135,15 +140,18 @@ class OutboxCoreInfrastructureAutoConfiguration {
         )
 
     @Bean("outboxRetryPolicy")
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean(name = ["outboxRetryPolicy"])
     fun defaultOutboxRetryPolicy(builder: OutboxRetryPolicy.Builder): OutboxRetryPolicy = builder.build()
 
     @Bean("outboxRetryPolicyBuilder")
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean(name = ["outboxRetryPolicyBuilder"])
     fun defaultOutboxRetryPolicyBuilder(properties: OutboxProperties): OutboxRetryPolicy.Builder =
         OutboxRetryPolicyFactory.createDefault(retryProperties = properties.retry)
 
     @Bean
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean
     fun outbox(
         outboxContextCollector: OutboxContextCollector,
@@ -168,12 +176,14 @@ class OutboxCoreInfrastructureAutoConfiguration {
 
     companion object {
         @Bean
+        @ConditionalOnSingleRuntimeMode
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
         internal fun outboxHandlerRegistry(): OutboxHandlerRegistry = OutboxHandlerRegistry()
 
         @Bean
+        @ConditionalOnSingleRuntimeMode
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
@@ -182,6 +192,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         ): OutboxFallbackHandlerRegistry = OutboxFallbackHandlerRegistry(handlerRegistry)
 
         @Bean
+        @ConditionalOnSingleRuntimeMode
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
@@ -191,6 +202,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         ): OutboxRetryPolicyRegistry = OutboxRetryPolicyRegistry(beanFactory, handlerRegistry)
 
         @Bean
+        @ConditionalOnSingleRuntimeMode
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic

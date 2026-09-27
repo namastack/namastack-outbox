@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 
 @AutoConfiguration
+@ConditionalOnSingleRuntimeMode
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class OutboxCoreMulticasterAutoConfiguration {
     @Bean(name = ["applicationEventMulticaster"])

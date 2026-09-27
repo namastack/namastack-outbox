@@ -22,6 +22,7 @@ import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProc
 import java.time.Clock
 
 @AutoConfiguration
+@ConditionalOnSingleRuntimeMode
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class OutboxCoreSchedulingAutoConfiguration {
     @Configuration

@@ -22,6 +22,7 @@ import org.springframework.context.annotation.Bean
 import java.time.Clock
 
 @AutoConfiguration
+@ConditionalOnSingleRuntimeMode
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class OutboxCoreProcessingAutoConfiguration {
     @Bean

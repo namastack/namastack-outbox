@@ -39,6 +39,7 @@ import javax.sql.DataSource
  * @since 1.0.0
  */
 @AutoConfiguration
+@ConditionalOnSingleRuntimeMode
 @AutoConfigureAfter(
     value = [
         TransactionAutoConfiguration::class,
