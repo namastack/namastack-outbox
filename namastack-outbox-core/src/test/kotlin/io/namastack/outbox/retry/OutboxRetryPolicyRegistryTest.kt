@@ -64,6 +64,19 @@ class OutboxRetryPolicyRegistryTest {
         }
 
         @Test
+        fun `should use supplied runtime default policy`() {
+            val runtimeDefault = createMockRetryPolicy("runtime-default")
+            val registry =
+                OutboxRetryPolicyRegistry(
+                    beanFactory = beanFactory,
+                    handlerRegistry = handlerRegistry,
+                    defaultRetryPolicyProvider = { runtimeDefault },
+                )
+
+            assertThat(registry.getByHandlerId("handler")).isSameAs(runtimeDefault)
+        }
+
+        @Test
         fun `backed registry resolves canonical ID and alias without copying policy locally`() {
             val handlerRegistry = mockk<OutboxHandlerRegistry>()
             val policy = createMockRetryPolicy("registration-policy")

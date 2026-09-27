@@ -9,6 +9,7 @@ import io.namastack.outbox.OutboxService
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
+import io.namastack.outbox.handler.OutboxHandlerInfrastructureFactory
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
@@ -53,6 +54,17 @@ class OutboxCoreInfrastructureAutoConfiguration {
     fun outboxContextCollector(providers: ObjectProvider<OutboxContextProvider>): OutboxContextCollector =
         OutboxContextCollector(
             providersSupplier = { providers.orderedStream().toList() },
+        )
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxHandlerInfrastructureFactory(
+        beanFactory: BeanFactory,
+        instrumentations: ObjectProvider<OutboxInstrumentation>,
+    ): OutboxHandlerInfrastructureFactory =
+        OutboxHandlerInfrastructureFactory(
+            beanFactory = beanFactory,
+            instrumentationsSupplier = { instrumentations.orderedStream().toList() },
         )
 
     @Bean

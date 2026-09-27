@@ -3,6 +3,7 @@ package io.namastack.outbox
 import io.namastack.outbox.OutboxRuntimeMode.CHANNELS
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
+import io.namastack.outbox.handler.OutboxHandlerInfrastructureFactory
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
@@ -39,6 +40,7 @@ class OutboxChannelsModeAutoConfigurationTest {
             assertThat(context).hasSingleBean(Clock::class.java)
             assertThat(context).hasSingleBean(OutboxChannelNameProvider::class.java)
             assertThat(context).hasSingleBean(OutboxContextCollector::class.java)
+            assertThat(context).hasSingleBean(OutboxHandlerInfrastructureFactory::class.java)
 
             assertThat(context).doesNotHaveBean(Outbox::class.java)
             assertThat(context).doesNotHaveBean(OutboxRetryPolicy::class.java)
