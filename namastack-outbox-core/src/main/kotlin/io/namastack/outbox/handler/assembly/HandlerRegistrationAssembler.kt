@@ -29,6 +29,7 @@ internal class HandlerRegistrationAssembler(
      * present.
      *
      * @param declarations Primary and fallback declarations discovered on one bean
+     * @param handlerSelector Selects primary handler methods after relationship validation
      * @return Complete registrations ready to be installed in the handler registry
      * @throws IllegalStateException if the declarations contain an ambiguous relationship
      */

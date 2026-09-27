@@ -17,6 +17,11 @@ import java.lang.reflect.Method
  * Handler objects remain Spring-managed. Registering a handler only adds its selected methods and
  * related fallback and retry configuration to this infrastructure.
  *
+ * @param beanFactory Spring bean factory used to resolve named retry policies
+ * @param defaultRetryPolicy Default policy for handlers without an explicit policy
+ * @param instrumentation Instrumentation applied to scheduling, processing, and handler invocation
+ * @param channelName Logical channel name reported to instrumentation
+ *
  * @author Roland Beisel
  * @since 1.10.0
  */
@@ -54,9 +59,13 @@ class OutboxHandlerInfrastructure internal constructor(
     /**
      * Registers handler methods declared by an initialized Spring bean.
      *
+     * All declarations on the bean are validated before the selector is applied. Fallback handlers
+     * and retry policies associated with selected primary methods are registered with them.
+     *
      * @param bean Initialized handler bean
      * @param beanName Spring name of the handler bean
      * @param handlerSelector Selects primary handler methods for this runtime
+     * @throws IllegalStateException if declarations are ambiguous or routing identities collide
      */
     fun register(
         bean: Any,

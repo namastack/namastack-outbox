@@ -7,6 +7,10 @@ import org.springframework.beans.factory.BeanFactory
 /**
  * Creates isolated handler infrastructure using the application instrumentation beans.
  *
+ * @param beanFactory Spring bean factory used to resolve named retry policies
+ * @param instrumentationsSupplier Supplies the instrumentation beans to compose for each
+ * infrastructure
+ *
  * @author Roland Beisel
  * @since 1.10.0
  */

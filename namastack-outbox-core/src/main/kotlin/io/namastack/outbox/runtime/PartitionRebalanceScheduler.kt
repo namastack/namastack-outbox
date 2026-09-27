@@ -10,7 +10,17 @@ import java.lang.reflect.Method
 import java.time.Duration
 import java.util.concurrent.ScheduledFuture
 
-/** Schedules the existing partition coordinator for a programmatically assembled runtime. */
+/**
+ * Schedules initial and recurring partition rebalancing for one programmatic outbox runtime.
+ *
+ * @param partitionCoordinator Coordinator invoked for each rebalance
+ * @param taskScheduler Scheduler shared with runtime polling
+ * @param interval Delay between completed rebalances
+ * @param observationRegistry Registry used for scheduled-task observations
+ *
+ * @author Roland Beisel
+ * @since 1.10.0
+ */
 internal class PartitionRebalanceScheduler(
     private val partitionCoordinator: PartitionCoordinator,
     private val taskScheduler: TaskScheduler,

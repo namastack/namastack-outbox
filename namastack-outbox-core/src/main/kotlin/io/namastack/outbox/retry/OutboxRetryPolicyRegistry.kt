@@ -22,7 +22,8 @@ import kotlin.reflect.KClass
  *
  * @param beanFactory Spring bean factory for loading policy beans by name or class
  * @param handlerRegistry Registry owning the complete handler registrations
- * @param defaultRetryPolicyProvider Provider for the default policy used when no explicit policy is configured
+ * @param defaultRetryPolicyProvider Provider for the default policy used when no explicit policy is
+ * configured
  *
  * @author Roland Beisel
  * @since 1.0.0

@@ -9,6 +9,10 @@ import io.namastack.outbox.partition.PartitionAssignmentRepository
  *
  * The runtime borrows these repositories and does not close their underlying resources.
  *
+ * @property recordRepository Repository for outbox records
+ * @property instanceRepository Repository for processor instances
+ * @property partitionAssignmentRepository Repository for partition assignments
+ *
  * @author Roland Beisel
  * @since 1.10.0
  */

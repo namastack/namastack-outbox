@@ -7,8 +7,11 @@ import org.springframework.context.Lifecycle
  * One isolated outbox graph with explicit lifecycle.
  *
  * A newly created runtime is stopped. [start] starts its components in dependency order and
- * [close] stops them in reverse order. Supplied persistence and threading resources remain owned
- * by the application.
+ * [close] stops them in reverse order. Closing the runtime stops scheduled work but does not close
+ * repositories, executors, or schedulers supplied through its specification.
+ *
+ * @property outbox Scheduling API backed by this runtime
+ * @param lifecycleComponents Runtime components in startup order
  *
  * @author Roland Beisel
  * @since 1.10.0
@@ -23,7 +26,14 @@ class OutboxRuntime internal constructor(
     private var started = false
     private var closed = false
 
-    /** Starts this runtime once in dependency order. */
+    /**
+     * Starts this runtime once in dependency order.
+     *
+     * Repeated calls while the runtime is running are ignored. If startup fails, components that
+     * started successfully are stopped before the failure is rethrown.
+     *
+     * @throws IllegalStateException if the runtime has already been closed
+     */
     @Synchronized
     fun start() {
         check(!closed) { "Outbox runtime is already closed" }
@@ -47,14 +57,25 @@ class OutboxRuntime internal constructor(
         }
     }
 
-    /** Returns whether this runtime and all of its lifecycle components are running. */
+    /**
+     * Returns whether this runtime and all of its lifecycle components are running.
+     *
+     * @return `true` after successful startup and before closing
+     */
     @Synchronized
     fun isRunning(): Boolean =
         started &&
             !closed &&
             lifecycleComponents.all(Lifecycle::isRunning)
 
-    /** Stops this runtime once in reverse dependency order. */
+    /**
+     * Stops this runtime once in reverse dependency order.
+     *
+     * Repeated calls are ignored. If stopping a component fails, the remaining components are still
+     * stopped and the first failure is rethrown.
+     *
+     * @throws Throwable if a lifecycle component fails while stopping
+     */
     @Synchronized
     override fun close() {
         if (closed) return

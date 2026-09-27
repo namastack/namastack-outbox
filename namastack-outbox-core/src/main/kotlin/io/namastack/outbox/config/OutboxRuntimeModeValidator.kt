@@ -7,6 +7,9 @@ import org.springframework.beans.factory.InitializingBean
 /**
  * Validates that exactly one provider supports the selected outbox runtime mode.
  *
+ * @param properties Bound outbox configuration containing the selected mode
+ * @param providers Available runtime mode providers
+ *
  * @author Roland Beisel
  * @since 1.10.0
  */

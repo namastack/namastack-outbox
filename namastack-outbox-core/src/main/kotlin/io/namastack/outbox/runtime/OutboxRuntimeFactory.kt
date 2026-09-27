@@ -14,9 +14,22 @@ import io.namastack.outbox.processor.PrimaryOutboxRecordProcessor
 import io.namastack.outbox.processor.RetryOutboxRecordProcessor
 import io.namastack.outbox.trigger.OutboxPollingTriggerFactory
 
-/** Constructs one stopped outbox runtime from fully resolved inputs. */
+/**
+ * Constructs one stopped outbox runtime from fully resolved inputs.
+ *
+ * The factory performs no Spring bean lookup, persistence selection, or lifecycle startup.
+ *
+ * @author Roland Beisel
+ * @since 1.10.0
+ */
 object OutboxRuntimeFactory {
-    /** Creates one isolated runtime without starting it. */
+    /**
+     * Creates one isolated runtime without starting it.
+     *
+     * @param spec Fully resolved inputs for the runtime
+     * @return Stopped runtime ready for handler use and explicit startup
+     * @throws IllegalStateException if the polling configuration is unsupported
+     */
     fun create(spec: OutboxRuntimeSpec): OutboxRuntime {
         val persistence = spec.persistence
         val handlers = spec.handlerInfrastructure

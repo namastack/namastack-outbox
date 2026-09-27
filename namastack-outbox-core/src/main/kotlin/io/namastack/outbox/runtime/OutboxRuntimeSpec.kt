@@ -9,8 +9,17 @@ import java.time.Clock
 /**
  * Fully resolved inputs for one outbox runtime.
  *
- * The specification contains no configuration binding, bean names, persistence selection, or
- * knowledge of other runtimes.
+ * The caller resolves persistence, handler infrastructure, context collection, threading, time,
+ * and observation before invoking [OutboxRuntimeFactory]. The factory does not discover bean names,
+ * select persistence, or coordinate this specification with other runtimes.
+ *
+ * @property properties Runtime-local processing and lifecycle configuration
+ * @property persistence Resolved persistence repositories
+ * @property handlerInfrastructure Isolated handler registration and invocation state
+ * @property contextCollector Collector for context added during scheduling
+ * @property resources Executor and schedulers used by the runtime
+ * @property clock Clock used throughout the runtime
+ * @property observationRegistry Registry used for scheduled-task observations
  *
  * @author Roland Beisel
  * @since 1.10.0
