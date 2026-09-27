@@ -8,6 +8,7 @@ import io.namastack.outbox.partition.PartitionAssignmentCache
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.FallbackOutboxRecordProcessor
 import io.namastack.outbox.processor.OutboxRecordProcessor
+import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.processor.PermanentFailureOutboxRecordProcessor
 import io.namastack.outbox.processor.PrimaryOutboxRecordProcessor
 import io.namastack.outbox.processor.RetryOutboxRecordProcessor
@@ -64,6 +65,12 @@ object OutboxRuntimeFactory {
                 observationRegistry = spec.observationRegistry,
             )
         val processorChain = createProcessorChain(handlers, spec)
+        val processorChainInvoker =
+            OutboxRecordProcessorChainInvoker(
+                recordProcessorChain = processorChain,
+                instrumentationSupplier = { spec.instrumentation },
+                channelNameProviderSupplier = { spec.channelNameProvider },
+            )
         val trigger = OutboxPollingTriggerFactory.create(properties, spec.clock)
         val processingScheduler =
             OutboxProcessingScheduler(
@@ -71,7 +78,7 @@ object OutboxRuntimeFactory {
                 taskScheduler = resources.taskScheduler,
                 observationRegistry = spec.observationRegistry,
                 recordRepository = persistence.recordRepository,
-                recordProcessorChain = processorChain,
+                recordProcessorChainInvoker = processorChainInvoker,
                 partitionCoordinator = partitionCoordinator,
                 taskExecutor = resources.taskExecutor,
                 properties = properties,

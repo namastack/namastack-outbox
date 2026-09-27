@@ -12,7 +12,7 @@ import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.handler.OutboxHandlerInfrastructure
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
-import io.namastack.outbox.instrumentation.OutboxProcessInvocation
+import io.namastack.outbox.instrumentation.OutboxHandlerInvocation
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.retry.OutboxRetryPolicy
@@ -133,8 +133,8 @@ class OutboxRuntimeFactoryTest {
             action()
         }
 
-        override fun process(
-            invocation: OutboxProcessInvocation,
+        override fun invokeHandler(
+            invocation: OutboxHandlerInvocation,
             action: () -> Unit,
         ) {
             processChannels += invocation.channel

@@ -103,7 +103,7 @@ class OutboxMetricsAutoConfigurationTest {
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>()
 
         @Bean
-        fun partitionCoordinator() = mockk<io.namastack.outbox.partition.PartitionCoordinator>()
+        fun partitionCoordinator() = mockk<io.namastack.outbox.partition.PartitionCoordinator>(relaxed = true)
 
         @Bean
         fun outboxInstanceRegistry(): OutboxInstanceRegistry {
@@ -119,7 +119,7 @@ class OutboxMetricsAutoConfigurationTest {
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>()
 
         @Bean
-        fun partitionCoordinator() = mockk<io.namastack.outbox.partition.PartitionCoordinator>()
+        fun partitionCoordinator() = mockk<io.namastack.outbox.partition.PartitionCoordinator>(relaxed = true)
 
         @Bean
         fun outboxInstanceRegistry(): OutboxInstanceRegistry {
@@ -135,7 +135,7 @@ class OutboxMetricsAutoConfigurationTest {
         fun outboxRecordStatusRepository() = mockk<OutboxRecordStatusRepository>()
 
         @Bean
-        fun partitionCoordinator() = mockk<io.namastack.outbox.partition.PartitionCoordinator>()
+        fun partitionCoordinator() = mockk<io.namastack.outbox.partition.PartitionCoordinator>(relaxed = true)
 
         @Bean
         fun outboxInstanceRegistry(): OutboxInstanceRegistry {
@@ -170,7 +170,7 @@ class OutboxMetricsAutoConfigurationTest {
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>()
 
         @Bean
-        fun partitionCoordinator() = mockk<io.namastack.outbox.partition.PartitionCoordinator>()
+        fun partitionCoordinator() = mockk<io.namastack.outbox.partition.PartitionCoordinator>(relaxed = true)
     }
 
     @Configuration
@@ -182,7 +182,7 @@ class OutboxMetricsAutoConfigurationTest {
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>()
 
         @Bean
-        fun partitionCoordinator() = mockk<io.namastack.outbox.partition.PartitionCoordinator>()
+        fun partitionCoordinator() = mockk<io.namastack.outbox.partition.PartitionCoordinator>(relaxed = true)
 
         @Bean
         fun outboxInstanceRegistry(): OutboxInstanceRegistry {

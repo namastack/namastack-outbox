@@ -123,7 +123,7 @@ class OutboxObservabilityCoreIntegrationTest {
     @Configuration
     class TestConfiguration {
         @Bean
-        fun observationRegistry(outbox: Outbox): ObservationRegistry =
+        fun observationRegistry(): ObservationRegistry =
             ObservationRegistry.create().apply {
                 observationConfig().observationHandler(
                     object : ObservationHandler<OutboxRecordProcessingObservationContext> {
@@ -223,6 +223,9 @@ class OutboxObservabilityCoreIntegrationTest {
             mockk<OutboxInstanceRepository>(relaxed = true).apply {
                 every { findActiveInstances() } returns listOf(mockk<OutboxInstance>(relaxed = true))
             }
+
+        @Bean("outboxDefaultScheduler")
+        fun outboxDefaultScheduler() = mockk<TaskScheduler>(relaxed = true)
 
         @Bean("outboxHeartbeatScheduler")
         fun outboxHeartbeatScheduler() = mockk<TaskScheduler>(relaxed = true)
