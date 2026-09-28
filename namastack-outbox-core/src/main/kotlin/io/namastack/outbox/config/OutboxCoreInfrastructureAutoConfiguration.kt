@@ -22,6 +22,7 @@ import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
+import io.namastack.outbox.runtime.toRuntimeSettings
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.config.BeanDefinition
@@ -118,7 +119,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         val taskScheduler = beanFactory.getBean(OutboxInstanceRegistry.SCHEDULER_NAME) as TaskScheduler
         return OutboxInstanceRegistry(
             instanceRepository,
-            properties,
+            properties.toRuntimeSettings().instance,
             clock,
             taskScheduler,
             { observationRegistry.getIfAvailable { ObservationRegistry.NOOP } },
@@ -144,7 +145,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
     @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean(name = ["outboxRetryPolicyBuilder"])
     fun defaultOutboxRetryPolicyBuilder(properties: OutboxProperties): OutboxRetryPolicy.Builder =
-        OutboxRetryPolicyFactory.createDefault(retryProperties = properties.retry)
+        OutboxRetryPolicyFactory.createDefault(retrySettings = properties.toRuntimeSettings().retry)
 
     @Bean
     @ConditionalOnSingleRuntimeMode

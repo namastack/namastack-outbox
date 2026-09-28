@@ -2,6 +2,8 @@ package io.namastack.outbox.multicaster
 
 import io.namastack.outbox.Outbox
 import io.namastack.outbox.OutboxProperties
+import io.namastack.outbox.runtime.OutboxRuntimeSettings
+import io.namastack.outbox.runtime.toRuntimeSettings
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.ApplicationEvent
@@ -35,11 +37,25 @@ import org.springframework.core.ResolvableType
  * @author Roland Beisel
  * @since 0.3.0
  */
-class OutboxEventMulticaster(
+class OutboxEventMulticaster private constructor(
     private val outboxProvider: ObjectProvider<Outbox>,
-    private val outboxProperties: OutboxProperties,
+    private val settingsProvider: () -> OutboxRuntimeSettings.Multicaster,
     private val delegateEventMulticaster: SimpleApplicationEventMulticaster,
 ) : ApplicationEventMulticaster by delegateEventMulticaster {
+    /** Creates a multicaster from effective runtime settings. */
+    constructor(
+        outboxProvider: ObjectProvider<Outbox>,
+        settings: OutboxRuntimeSettings.Multicaster,
+        delegateEventMulticaster: SimpleApplicationEventMulticaster,
+    ) : this(outboxProvider, { settings }, delegateEventMulticaster)
+
+    /** Creates a multicaster from Spring-bound properties. */
+    constructor(
+        outboxProvider: ObjectProvider<Outbox>,
+        outboxProperties: OutboxProperties,
+        delegateEventMulticaster: SimpleApplicationEventMulticaster,
+    ) : this(outboxProvider, { outboxProperties.toRuntimeSettings().multicaster }, delegateEventMulticaster)
+
     companion object {
         private val log = LoggerFactory.getLogger(OutboxEventMulticaster::class.java)
     }
@@ -87,7 +103,7 @@ class OutboxEventMulticaster(
         log.debug("Saving @OutboxEvent to outbox: $classSimpleName")
         saveOutboxRecord(resolvedEvent)
 
-        if (outboxProperties.processing.publishAfterSave ?: outboxProperties.multicaster.publishAfterSave) {
+        if (settingsProvider().publishAfterSave) {
             log.debug("Publishing @OutboxEvent to listeners: $classSimpleName")
             delegateEventMulticaster.multicastEvent(event, eventType)
         }

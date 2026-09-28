@@ -5,6 +5,8 @@ import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
+import io.namastack.outbox.runtime.OutboxRuntimeSettings
+import io.namastack.outbox.runtime.toRuntimeSettings
 import org.slf4j.LoggerFactory
 import java.time.Clock
 
@@ -16,18 +18,34 @@ import java.time.Clock
  *
  * @param handlerInvoker Invoker for handlers
  * @param recordRepository Repository for persisting record state
- * @param properties Configuration
+ * @param settingsProvider Effective processing settings
  * @param clock Clock for completion timestamp
  *
  * @author Roland Beisel
  * @since 1.0.0
  */
-class PrimaryOutboxRecordProcessor(
+class PrimaryOutboxRecordProcessor private constructor(
     private val handlerInvoker: OutboxHandlerInvoker,
     private val recordRepository: OutboxRecordRepository,
-    private val properties: OutboxProperties,
+    private val settingsProvider: () -> OutboxRuntimeSettings.Processing,
     private val clock: Clock,
 ) : OutboxRecordProcessor() {
+    /** Creates a processor from effective runtime settings. */
+    constructor(
+        handlerInvoker: OutboxHandlerInvoker,
+        recordRepository: OutboxRecordRepository,
+        settings: OutboxRuntimeSettings.Processing,
+        clock: Clock,
+    ) : this(handlerInvoker, recordRepository, { settings }, clock)
+
+    /** Creates a processor from Spring-bound properties. */
+    constructor(
+        handlerInvoker: OutboxHandlerInvoker,
+        recordRepository: OutboxRecordRepository,
+        properties: OutboxProperties,
+        clock: Clock,
+    ) : this(handlerInvoker, recordRepository, { properties.toRuntimeSettings().processing }, clock)
+
     private val log = LoggerFactory.getLogger(PrimaryOutboxRecordProcessor::class.java)
 
     /**
@@ -45,7 +63,7 @@ class PrimaryOutboxRecordProcessor(
             log.trace("Dispatching record {} to handler {}", record.id, record.handlerId)
             handlerInvoker.dispatch(record)
 
-            completeRecord(record, recordRepository, properties, clock)
+            completeRecord(record, recordRepository, settingsProvider(), clock)
 
             return OutboxRecordProcessingOutcome.COMPLETED
         } catch (ex: Exception) {

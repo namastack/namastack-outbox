@@ -1,6 +1,8 @@
 package io.namastack.outbox.retry
 
 import io.namastack.outbox.OutboxProperties
+import io.namastack.outbox.runtime.OutboxRuntimeSettings
+import io.namastack.outbox.runtime.toRuntimeSettings
 
 /**
  * Factory for creating retry policy instances based on configuration.
@@ -12,6 +14,25 @@ import io.namastack.outbox.OutboxProperties
  * @since 0.1.0
  */
 object OutboxRetryPolicyFactory {
+    /**
+     * Creates a pre-configured retry policy builder from programmatic runtime settings.
+     *
+     * @param retrySettings Runtime-local retry settings
+     * @return A configured builder ready to build or customize
+     * @throws IllegalStateException if the policy name or configuration is unsupported
+     */
+    fun createDefault(retrySettings: OutboxRuntimeSettings.Retry): OutboxRetryPolicy.Builder {
+        val includeExceptions = convertExceptionNames(retrySettings.includeExceptions)
+        val excludeExceptions = convertExceptionNames(retrySettings.excludeExceptions)
+
+        return OutboxRetryPolicy
+            .builder()
+            .maxRetries(retrySettings.maxRetries)
+            .let { configureDelay(retrySettings, it) }
+            .retryOn(includeExceptions)
+            .noRetryOn(excludeExceptions)
+    }
+
     /**
      * Creates a pre-configured retry policy builder based on application properties.
      *
@@ -28,17 +49,8 @@ object OutboxRetryPolicyFactory {
      * @return A configured Builder instance ready to build or further customize
      * @throws IllegalStateException if the policy name is unsupported or configuration is invalid
      */
-    fun createDefault(retryProperties: OutboxProperties.Retry): OutboxRetryPolicy.Builder {
-        val includeExceptions = convertExceptionNames(retryProperties.includeExceptions)
-        val excludeExceptions = convertExceptionNames(retryProperties.excludeExceptions)
-
-        return OutboxRetryPolicy
-            .builder()
-            .maxRetries(retryProperties.maxRetries)
-            .let { configureDelay(retryProperties, it) }
-            .retryOn(includeExceptions)
-            .noRetryOn(excludeExceptions)
-    }
+    fun createDefault(retryProperties: OutboxProperties.Retry): OutboxRetryPolicy.Builder =
+        createDefault(retryProperties.toRuntimeSettings())
 
     /**
      * Configures the delay strategy based on the policy name from properties.
@@ -51,42 +63,41 @@ object OutboxRetryPolicyFactory {
      * Jitter can be applied to any base policy (fixed, linear, or exponential) via the `jitter` property
      * in the retry configuration section. This adds randomness to prevent the thundering herd problem.
      *
-     * @param retryProperties Configuration properties containing policy name and delay settings
+     * @param retrySettings Runtime settings containing the policy name and delay configuration
      * @param builder The builder instance to configure
      * @return The builder with configured delay strategy
      * @throws IllegalStateException if the policy name is unsupported
      */
-    @Suppress("DEPRECATION")
     private fun configureDelay(
-        retryProperties: OutboxProperties.Retry,
+        retrySettings: OutboxRuntimeSettings.Retry,
         builder: OutboxRetryPolicy.Builder,
     ): OutboxRetryPolicy.Builder {
-        val name = retryProperties.policy
+        val name = retrySettings.policy
 
         return when (name.lowercase()) {
             "fixed" -> {
                 builder
                     .fixedBackOff(
-                        delay = retryProperties.fixed.delay,
-                    ).jitter(jitter = retryProperties.jitter)
+                        delay = retrySettings.fixed.delay,
+                    ).jitter(jitter = retrySettings.jitter)
             }
 
             "linear" -> {
                 builder
                     .linearBackoff(
-                        initialDelay = retryProperties.linear.initialDelay,
-                        increment = retryProperties.linear.increment,
-                        maxDelay = retryProperties.linear.maxDelay,
-                    ).jitter(jitter = retryProperties.jitter)
+                        initialDelay = retrySettings.linear.initialDelay,
+                        increment = retrySettings.linear.increment,
+                        maxDelay = retrySettings.linear.maxDelay,
+                    ).jitter(jitter = retrySettings.jitter)
             }
 
             "exponential" -> {
                 builder
                     .exponentialBackoff(
-                        initialDelay = retryProperties.exponential.initialDelay,
-                        multiplier = retryProperties.exponential.multiplier,
-                        maxDelay = retryProperties.exponential.maxDelay,
-                    ).jitter(jitter = retryProperties.jitter)
+                        initialDelay = retrySettings.exponential.initialDelay,
+                        multiplier = retrySettings.exponential.multiplier,
+                        maxDelay = retrySettings.exponential.maxDelay,
+                    ).jitter(jitter = retrySettings.jitter)
             }
 
             else -> {

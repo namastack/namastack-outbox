@@ -1,6 +1,7 @@
 package io.namastack.outbox.config
 
 import io.namastack.outbox.OutboxProperties
+import io.namastack.outbox.runtime.toRuntimeSettings
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -28,8 +29,8 @@ class OutboxCoreThreadingAutoConfiguration {
         properties: OutboxProperties,
     ): ThreadPoolTaskExecutor =
         builder
-            .corePoolSize(properties.processing.executorCorePoolSize)
-            .maxPoolSize(properties.processing.executorMaxPoolSize)
+            .corePoolSize(properties.toRuntimeSettings().processing.executorCorePoolSize)
+            .maxPoolSize(properties.toRuntimeSettings().processing.executorMaxPoolSize)
             .threadNamePrefix("outbox-proc-")
             .build()
 
@@ -41,7 +42,7 @@ class OutboxCoreThreadingAutoConfiguration {
         properties: OutboxProperties,
     ): SimpleAsyncTaskExecutor =
         builder
-            .concurrencyLimit(properties.processing.executorConcurrencyLimit)
+            .concurrencyLimit(properties.toRuntimeSettings().processing.executorConcurrencyLimit)
             .threadNamePrefix("outbox-proc-")
             .build()
 
