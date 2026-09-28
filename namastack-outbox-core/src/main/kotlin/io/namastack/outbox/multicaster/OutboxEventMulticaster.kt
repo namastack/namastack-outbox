@@ -1,5 +1,7 @@
-package io.namastack.outbox
+package io.namastack.outbox.multicaster
 
+import io.namastack.outbox.Outbox
+import io.namastack.outbox.OutboxProperties
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.ApplicationEvent

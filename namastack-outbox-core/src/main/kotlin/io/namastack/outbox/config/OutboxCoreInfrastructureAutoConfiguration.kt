@@ -19,7 +19,6 @@ import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.partition.PartitionAssignmentCache
 import io.namastack.outbox.partition.PartitionAssignmentRepository
-import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
@@ -57,6 +56,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         )
 
     @Bean
+    @ConditionalOnProperty(name = ["namastack.outbox.mode"], havingValue = "channels")
     @ConditionalOnMissingBean
     fun outboxHandlerInfrastructureFactory(
         beanFactory: BeanFactory,
@@ -124,22 +124,6 @@ class OutboxCoreInfrastructureAutoConfiguration {
             { observationRegistry.getIfAvailable { ObservationRegistry.NOOP } },
         )
     }
-
-    @Bean
-    @ConditionalOnSingleRuntimeMode
-    @ConditionalOnMissingBean
-    fun partitionCoordinator(
-        instanceRegistry: OutboxInstanceRegistry,
-        partitionAssignmentRepository: PartitionAssignmentRepository,
-        partitionAssignmentCache: PartitionAssignmentCache,
-        clock: Clock,
-    ): PartitionCoordinator =
-        PartitionCoordinator(
-            instanceRegistry = instanceRegistry,
-            partitionAssignmentRepository = partitionAssignmentRepository,
-            partitionAssignmentCache = partitionAssignmentCache,
-            clock = clock,
-        )
 
     @Bean
     @ConditionalOnSingleRuntimeMode

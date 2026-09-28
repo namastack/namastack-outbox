@@ -58,6 +58,9 @@ object OutboxRuntimeFactory {
                 partitionAssignmentRepository = persistence.partitionAssignmentRepository,
                 partitionAssignmentCache = PartitionAssignmentCache(persistence.partitionAssignmentRepository),
                 clock = spec.clock,
+                taskScheduler = resources.taskScheduler,
+                rebalanceInterval = spec.properties.effectiveRebalanceInterval,
+                observationRegistry = { spec.observationRegistry },
             )
         val processorChain = createProcessorChain(handlers, spec)
         val processorChainInvoker =
@@ -78,23 +81,11 @@ object OutboxRuntimeFactory {
                 properties = spec.properties,
                 clock = spec.clock,
             )
-        val rebalanceScheduler =
-            PartitionRebalanceScheduler(
-                partitionCoordinator = partitionCoordinator,
-                taskScheduler = resources.taskScheduler,
-                interval = effectiveRebalanceInterval(spec),
-                observationRegistry = spec.observationRegistry,
-            )
-
         return OutboxRuntime(
             outbox = outbox,
-            lifecycleComponents = listOf(instanceRegistry, rebalanceScheduler, processingScheduler),
+            lifecycleComponents = listOf(instanceRegistry, partitionCoordinator, processingScheduler),
         )
     }
-
-    @Suppress("DEPRECATION")
-    private fun effectiveRebalanceInterval(spec: OutboxRuntimeSpec) =
-        spec.properties.rebalanceInterval ?: spec.properties.instance.rebalanceInterval
 
     private fun createProcessorChain(
         handlers: OutboxHandlerInfrastructure,

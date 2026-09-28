@@ -1,4 +1,4 @@
-package io.namastack.outbox
+package io.namastack.outbox.multicaster
 
 import io.namastack.outbox.annotation.OutboxEvent
 import org.springframework.context.ApplicationEvent

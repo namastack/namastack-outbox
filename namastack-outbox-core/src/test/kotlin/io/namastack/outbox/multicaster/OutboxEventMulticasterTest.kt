@@ -1,9 +1,11 @@
-package io.namastack.outbox
+package io.namastack.outbox.multicaster
 
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import io.namastack.outbox.Outbox
+import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.annotation.OutboxEvent
 import io.namastack.outbox.annotation.OutboxEvent.OutboxContextEntry
 import org.assertj.core.api.Assertions.assertThat

@@ -1,8 +1,8 @@
 package io.namastack.outbox.config
 
 import io.namastack.outbox.Outbox
-import io.namastack.outbox.OutboxEventMulticaster
 import io.namastack.outbox.OutboxProperties
+import io.namastack.outbox.multicaster.OutboxEventMulticaster
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration

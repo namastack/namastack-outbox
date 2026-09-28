@@ -1,4 +1,4 @@
-package io.namastack.outbox
+package io.namastack.outbox.multicaster
 
 /**
  * Resolved scheduling values for one Spring event carrying an outbox payload.

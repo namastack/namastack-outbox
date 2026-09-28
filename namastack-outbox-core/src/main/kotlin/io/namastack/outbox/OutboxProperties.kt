@@ -41,6 +41,12 @@ data class OutboxProperties(
     var mode: OutboxRuntimeMode = OutboxRuntimeMode.SINGLE,
 ) {
     /**
+     * Returns the effective partition rebalance interval, using the deprecated root property when set.
+     */
+    val effectiveRebalanceInterval: Duration
+        get() = rebalanceInterval ?: instance.rebalanceInterval
+
+    /**
      * Configuration for polling behavior.
      *
      * @param batchSize Maximum number of record keys to process in a single batch
