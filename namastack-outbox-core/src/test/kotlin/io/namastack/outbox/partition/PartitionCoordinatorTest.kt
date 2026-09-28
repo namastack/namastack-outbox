@@ -209,6 +209,37 @@ class PartitionCoordinatorTest {
                 executor.shutdownNow()
             }
         }
+
+        @Test
+        fun `stop does not wait for active processing`() {
+            partitionCoordinator.start()
+
+            val processingStarted = CountDownLatch(1)
+            val allowProcessingToFinish = CountDownLatch(1)
+            val executor = Executors.newFixedThreadPool(2)
+            try {
+                val processingFuture =
+                    executor.submit {
+                        partitionCoordinator.withStableAssignments {
+                            processingStarted.countDown()
+                            allowProcessingToFinish.await(2, SECONDS)
+                        }
+                    }
+                assertThat(processingStarted.await(2, SECONDS)).isTrue()
+
+                val stopFuture = executor.submit(partitionCoordinator::stop)
+                stopFuture.get(2, SECONDS)
+
+                assertThat(partitionCoordinator.isRunning).isFalse()
+                assertThat(processingFuture.isDone).isFalse()
+
+                allowProcessingToFinish.countDown()
+                processingFuture.get(2, SECONDS)
+            } finally {
+                allowProcessingToFinish.countDown()
+                executor.shutdownNow()
+            }
+        }
     }
 
     @Nested

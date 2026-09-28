@@ -50,6 +50,7 @@ class PartitionCoordinator(
     private val log = LoggerFactory.getLogger(PartitionCoordinator::class.java)
     private val currentInstanceId by lazy { instanceRegistry.getCurrentInstanceId() }
     private val assignmentLock = ReentrantLock()
+    private val rebalanceLock = ReentrantLock()
     private val running = AtomicBoolean(false)
 
     private var scheduledRebalance: ScheduledFuture<*>? = null
@@ -76,7 +77,9 @@ class PartitionCoordinator(
             val runnable =
                 Runnable {
                     assignmentLock.withLock {
-                        if (running.get()) observedRebalance.run()
+                        rebalanceLock.withLock {
+                            if (running.get()) observedRebalance.run()
+                        }
                     }
                 }
             val firstExecution = taskScheduler.clock.instant().plus(rebalanceInterval)
@@ -102,7 +105,7 @@ class PartitionCoordinator(
         try {
             scheduledTask?.cancel(false)
         } finally {
-            assignmentLock.withLock {}
+            rebalanceLock.withLock {}
         }
     }
 
@@ -123,19 +126,21 @@ class PartitionCoordinator(
      */
     fun rebalance(): Unit =
         assignmentLock.withLock {
-            log.debug("Starting rebalance for instance {}", currentInstanceId)
+            rebalanceLock.withLock {
+                log.debug("Starting rebalance for instance {}", currentInstanceId)
 
-            try {
-                val partitionContext = getPartitionContext()
-                if (partitionContext.hasNoPartitionAssignments()) {
-                    bootstrapPartitions()
-                    return
+                try {
+                    val partitionContext = getPartitionContext()
+                    if (partitionContext.hasNoPartitionAssignments()) {
+                        bootstrapPartitions()
+                        return
+                    }
+
+                    claimStalePartitions(partitionContext)
+                    releaseSurplusPartitions(partitionContext)
+                } finally {
+                    partitionAssignmentCache.evictAll()
                 }
-
-                claimStalePartitions(partitionContext)
-                releaseSurplusPartitions(partitionContext)
-            } finally {
-                partitionAssignmentCache.evictAll()
             }
         }
 
