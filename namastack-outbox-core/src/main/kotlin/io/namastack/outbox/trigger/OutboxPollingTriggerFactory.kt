@@ -1,8 +1,6 @@
 package io.namastack.outbox.trigger
 
-import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.runtime.OutboxRuntimeSettings
-import io.namastack.outbox.runtime.toRuntimeSettings
 import java.time.Clock
 
 /**
@@ -57,10 +55,4 @@ internal object OutboxPollingTriggerFactory {
             }
         }
     }
-
-    /** Creates a trigger from Spring-bound properties while preserving deprecated fallbacks. */
-    fun create(
-        properties: OutboxProperties,
-        clock: Clock,
-    ): OutboxPollingTrigger = create(properties.toRuntimeSettings().polling, clock)
 }

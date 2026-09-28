@@ -2,10 +2,8 @@ package io.namastack.outbox.instance
 
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OpenForProxy
-import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
 import io.namastack.outbox.runtime.OutboxRuntimeSettings
-import io.namastack.outbox.runtime.toRuntimeSettings
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
 import org.springframework.scheduling.TaskScheduler
@@ -35,7 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * stale instance entries in shared databases when Spring test contexts are cycled.
  *
  * @param instanceRepository Repository for persisting instance data
- * @param settingsProvider Effective settings for outbox instance management
+ * @param settings Effective settings for outbox instance management
  * @param clock Clock for consistent time-based operations
  * @param taskScheduler TaskScheduler used to schedule the heartbeat
  *
@@ -43,41 +41,14 @@ import java.util.concurrent.atomic.AtomicBoolean
  * @since 0.2.0
  */
 @OpenForProxy
-class OutboxInstanceRegistry private constructor(
+class OutboxInstanceRegistry(
     private val instanceRepository: OutboxInstanceRepository,
-    private val settingsProvider: () -> OutboxRuntimeSettings.Instance,
+    private val settings: OutboxRuntimeSettings.Instance,
     private val clock: Clock,
     private val taskScheduler: TaskScheduler,
     private val observationRegistry: () -> ObservationRegistry,
     private val currentInstanceId: String = UUID.randomUUID().toString(),
 ) : SmartLifecycle {
-    /** Creates a registry from effective runtime settings. */
-    constructor(
-        instanceRepository: OutboxInstanceRepository,
-        settings: OutboxRuntimeSettings.Instance,
-        clock: Clock,
-        taskScheduler: TaskScheduler,
-        observationRegistry: () -> ObservationRegistry,
-        currentInstanceId: String = UUID.randomUUID().toString(),
-    ) : this(instanceRepository, { settings }, clock, taskScheduler, observationRegistry, currentInstanceId)
-
-    /** Creates a registry from Spring-bound properties. */
-    constructor(
-        instanceRepository: OutboxInstanceRepository,
-        properties: OutboxProperties,
-        clock: Clock,
-        taskScheduler: TaskScheduler,
-        observationRegistry: () -> ObservationRegistry,
-        currentInstanceId: String = UUID.randomUUID().toString(),
-    ) : this(
-        instanceRepository,
-        { properties.toRuntimeSettings().instance },
-        clock,
-        taskScheduler,
-        observationRegistry,
-        currentInstanceId,
-    )
-
     companion object {
         const val SCHEDULER_NAME: String = "outboxHeartbeatScheduler"
 
@@ -87,8 +58,8 @@ class OutboxInstanceRegistry private constructor(
 
     private val log = LoggerFactory.getLogger(OutboxInstanceRegistry::class.java)
 
-    private val staleInstanceTimeout = settingsProvider().staleInstanceTimeout
-    private val gracefulShutdownTimeout = settingsProvider().gracefulShutdownTimeout
+    private val staleInstanceTimeout = settings.staleInstanceTimeout
+    private val gracefulShutdownTimeout = settings.gracefulShutdownTimeout
 
     private val running = AtomicBoolean(false)
     private var scheduledHeartbeat: ScheduledFuture<*>? = null
@@ -108,7 +79,7 @@ class OutboxInstanceRegistry private constructor(
     override fun start() {
         registerInstance()
         running.set(true)
-        val rate = settingsProvider().heartbeatInterval
+        val rate = settings.heartbeatInterval
         val runnable = ScheduledMethodRunnable(this, SCHEDULE_METHOD, SCHEDULER_NAME, observationRegistry)
         scheduledHeartbeat = taskScheduler.scheduleAtFixedRate(runnable, rate)
     }

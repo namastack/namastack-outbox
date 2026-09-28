@@ -1,9 +1,7 @@
 package io.namastack.outbox.multicaster
 
 import io.namastack.outbox.Outbox
-import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.runtime.OutboxRuntimeSettings
-import io.namastack.outbox.runtime.toRuntimeSettings
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.ApplicationEvent
@@ -37,25 +35,11 @@ import org.springframework.core.ResolvableType
  * @author Roland Beisel
  * @since 0.3.0
  */
-class OutboxEventMulticaster private constructor(
+class OutboxEventMulticaster(
     private val outboxProvider: ObjectProvider<Outbox>,
-    private val settingsProvider: () -> OutboxRuntimeSettings.Multicaster,
+    private val settings: OutboxRuntimeSettings.Multicaster,
     private val delegateEventMulticaster: SimpleApplicationEventMulticaster,
 ) : ApplicationEventMulticaster by delegateEventMulticaster {
-    /** Creates a multicaster from effective runtime settings. */
-    constructor(
-        outboxProvider: ObjectProvider<Outbox>,
-        settings: OutboxRuntimeSettings.Multicaster,
-        delegateEventMulticaster: SimpleApplicationEventMulticaster,
-    ) : this(outboxProvider, { settings }, delegateEventMulticaster)
-
-    /** Creates a multicaster from Spring-bound properties. */
-    constructor(
-        outboxProvider: ObjectProvider<Outbox>,
-        outboxProperties: OutboxProperties,
-        delegateEventMulticaster: SimpleApplicationEventMulticaster,
-    ) : this(outboxProvider, { outboxProperties.toRuntimeSettings().multicaster }, delegateEventMulticaster)
-
     companion object {
         private val log = LoggerFactory.getLogger(OutboxEventMulticaster::class.java)
     }
@@ -103,7 +87,7 @@ class OutboxEventMulticaster private constructor(
         log.debug("Saving @OutboxEvent to outbox: $classSimpleName")
         saveOutboxRecord(resolvedEvent)
 
-        if (settingsProvider().publishAfterSave) {
+        if (settings.publishAfterSave) {
             log.debug("Publishing @OutboxEvent to listeners: $classSimpleName")
             delegateEventMulticaster.multicastEvent(event, eventType)
         }

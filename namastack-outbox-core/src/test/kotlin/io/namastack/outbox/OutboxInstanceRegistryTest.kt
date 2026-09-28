@@ -10,6 +10,7 @@ import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
 import io.namastack.outbox.instance.OutboxInstanceStatus.DEAD
 import io.namastack.outbox.instance.OutboxInstanceStatus.SHUTTING_DOWN
+import io.namastack.outbox.runtime.toRuntimeSettings
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -42,7 +43,14 @@ class OutboxInstanceRegistryTest {
 
     @BeforeEach
     fun setUp() {
-        registry = OutboxInstanceRegistry(instanceRepository, properties, clock, taskScheduler, observationRegistry)
+        registry =
+            OutboxInstanceRegistry(
+                instanceRepository,
+                properties.toRuntimeSettings().instance,
+                clock,
+                taskScheduler,
+                observationRegistry,
+            )
 
         every { instanceRepository.save(any()) } returns mockk()
         every { instanceRepository.findActiveInstances() } returns emptyList()
@@ -344,7 +352,7 @@ class OutboxInstanceRegistryTest {
             val customRegistry =
                 OutboxInstanceRegistry(
                     instanceRepository,
-                    customProperties,
+                    customProperties.toRuntimeSettings().instance,
                     clock,
                     taskScheduler,
                     observationRegistry,
@@ -367,7 +375,7 @@ class OutboxInstanceRegistryTest {
             val customRegistry =
                 OutboxInstanceRegistry(
                     instanceRepository,
-                    customProperties,
+                    customProperties.toRuntimeSettings().instance,
                     clock,
                     taskScheduler,
                     observationRegistry,

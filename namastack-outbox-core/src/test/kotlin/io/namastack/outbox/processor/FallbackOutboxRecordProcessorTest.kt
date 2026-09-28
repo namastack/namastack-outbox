@@ -11,6 +11,7 @@ import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
+import io.namastack.outbox.runtime.toRuntimeSettings
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -37,21 +38,23 @@ class FallbackOutboxRecordProcessorTest {
         clock = Clock.fixed(Instant.parse("2024-01-01T10:00:00Z"), ZoneOffset.UTC)
         nextProcessor = mockk()
 
-        processor =
-            FallbackOutboxRecordProcessor(
-                recordRepository,
-                fallbackHandlerRegistry,
-                fallbackHandlerInvoker,
-                properties,
-                clock,
-            )
-        processor.setNext(nextProcessor)
+        processor = createProcessor()
     }
+
+    private fun createProcessor(): FallbackOutboxRecordProcessor =
+        FallbackOutboxRecordProcessor(
+            recordRepository,
+            fallbackHandlerRegistry,
+            fallbackHandlerInvoker,
+            properties.toRuntimeSettings().processing,
+            clock,
+        ).also { it.setNext(nextProcessor) }
 
     @Test
     fun `handle completes and saves the record when fallback dispatch succeeds`() {
         val record = createFailedRecord()
         properties.processing.deleteCompletedRecords = false
+        processor = createProcessor()
 
         every { fallbackHandlerRegistry.existsByHandlerId(any()) } returns true
         justRun { fallbackHandlerInvoker.dispatch(any()) }
@@ -76,6 +79,7 @@ class FallbackOutboxRecordProcessorTest {
     fun `handle deletes the record when fallback dispatch succeeds`() {
         val record = createFailedRecord()
         properties.processing.deleteCompletedRecords = true
+        processor = createProcessor()
 
         every { fallbackHandlerRegistry.existsByHandlerId(any()) } returns true
         justRun { fallbackHandlerInvoker.dispatch(any()) }
@@ -165,7 +169,7 @@ class FallbackOutboxRecordProcessorTest {
                 recordRepository,
                 fallbackHandlerRegistry,
                 fallbackHandlerInvoker,
-                properties,
+                properties.toRuntimeSettings().processing,
                 clock,
             )
 

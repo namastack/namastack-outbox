@@ -6,7 +6,6 @@ import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.runtime.OutboxRuntimeSettings
-import io.namastack.outbox.runtime.toRuntimeSettings
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
@@ -40,14 +39,14 @@ import kotlin.concurrent.withLock
  * @param recordProcessorChainInvoker Invoker for the instrumented record processor chain
  * @param partitionCoordinator Coordinator for partition assignments
  * @param taskExecutor Executor for parallel key processing
- * @param settingsProvider Effective runtime settings
+ * @param settings Effective runtime settings
  * @param clock Clock for time calculations
  *
  * @author Roland Beisel
  * @since 0.2.0
  */
 @OpenForProxy
-class OutboxProcessingScheduler private constructor(
+class OutboxProcessingScheduler(
     private val trigger: OutboxPollingTrigger,
     private val taskScheduler: TaskScheduler,
     private val observationRegistry: () -> ObservationRegistry,
@@ -55,55 +54,9 @@ class OutboxProcessingScheduler private constructor(
     private val recordProcessorChainInvoker: OutboxRecordProcessorChainInvoker,
     private val partitionCoordinator: PartitionCoordinator,
     private val taskExecutor: TaskExecutor,
-    private val settingsProvider: () -> OutboxRuntimeSettings,
+    private val settings: OutboxRuntimeSettings,
     private val clock: Clock,
 ) : SmartLifecycle {
-    /** Creates a scheduler from effective runtime settings. */
-    constructor(
-        trigger: OutboxPollingTrigger,
-        taskScheduler: TaskScheduler,
-        observationRegistry: () -> ObservationRegistry,
-        recordRepository: OutboxRecordRepository,
-        recordProcessorChainInvoker: OutboxRecordProcessorChainInvoker,
-        partitionCoordinator: PartitionCoordinator,
-        taskExecutor: TaskExecutor,
-        settings: OutboxRuntimeSettings,
-        clock: Clock,
-    ) : this(
-        trigger,
-        taskScheduler,
-        observationRegistry,
-        recordRepository,
-        recordProcessorChainInvoker,
-        partitionCoordinator,
-        taskExecutor,
-        { settings },
-        clock,
-    )
-
-    /** Creates a scheduler from Spring-bound properties. */
-    constructor(
-        trigger: OutboxPollingTrigger,
-        taskScheduler: TaskScheduler,
-        observationRegistry: () -> ObservationRegistry,
-        recordRepository: OutboxRecordRepository,
-        recordProcessorChainInvoker: OutboxRecordProcessorChainInvoker,
-        partitionCoordinator: PartitionCoordinator,
-        taskExecutor: TaskExecutor,
-        properties: OutboxProperties,
-        clock: Clock,
-    ) : this(
-        trigger,
-        taskScheduler,
-        observationRegistry,
-        recordRepository,
-        recordProcessorChainInvoker,
-        partitionCoordinator,
-        taskExecutor,
-        properties::toRuntimeSettings,
-        clock,
-    )
-
     companion object {
         const val SCHEDULER_NAME: String = "outboxDefaultScheduler"
 
@@ -114,7 +67,7 @@ class OutboxProcessingScheduler private constructor(
 
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
-    private val lifecycle = SchedulerLifecycleStateMachine(settingsProvider().processing.shutdownTimeout)
+    private val lifecycle = SchedulerLifecycleStateMachine(settings.processing.shutdownTimeout)
 
     private var scheduledTask: ScheduledFuture<*>? = null
 
@@ -207,8 +160,8 @@ class OutboxProcessingScheduler private constructor(
         recordRepository.findRecordKeysInPartitions(
             partitions = partitions,
             status = NEW,
-            batchSize = settingsProvider().polling.batchSize,
-            ignoreRecordKeysWithPreviousFailure = settingsProvider().processing.stopOnFirstFailure,
+            batchSize = settings.polling.batchSize,
+            ignoreRecordKeysWithPreviousFailure = settings.processing.stopOnFirstFailure,
         )
 
     private fun processBatch(recordKeys: List<String>) {
@@ -257,7 +210,7 @@ class OutboxProcessingScheduler private constructor(
         return outcome == OutboxRecordProcessingOutcome.COMPLETED || continueOnFailure()
     }
 
-    private fun continueOnFailure(): Boolean = !settingsProvider().processing.stopOnFirstFailure
+    private fun continueOnFailure(): Boolean = !settings.processing.stopOnFirstFailure
 
     private fun handleUnavailablePayloadType(ex: OutboxPayloadTypeNotFoundException) {
         val cooldownUntil = activateCompatibilityCooldown()
