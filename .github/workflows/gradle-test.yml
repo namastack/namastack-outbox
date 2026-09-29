@@ -11,6 +11,10 @@ on:
       - 'main'
       - 'release/**'
 
+concurrency:
+  group: gradle-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,7 +23,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '17', '21', '25' ]
+        include:
+          - java: '17'
+            tasks: build
+          - java: '21'
+            tasks: test
+          - java: '25'
+            tasks: test
     name: Java ${{ matrix.java }} tests
 
     steps:
@@ -36,17 +46,17 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Build and run tests
-        run: ./gradlew clean build --no-build-cache --rerun-tasks
+        run: ./gradlew ${{ matrix.tasks }}
 
       - name: Upload coverage report (artifact)
-        if: matrix.java == '21'
+        if: matrix.java == '17'
         uses: actions/upload-artifact@v7
         with:
           name: jacoco-coverage
           path: build/reports/jacoco/testCodeCoverageReport/html
 
       - name: Upload coverage report to Codecov
-        if: matrix.java == '21'
+        if: matrix.java == '17'
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -55,11 +65,11 @@ jobs:
           name: coverage-${{ matrix.java }}
 
       - name: Publish to Maven
-        if: github.ref == 'refs/heads/main' && matrix.java == '21'
+        if: github.ref == 'refs/heads/main' && matrix.java == '17'
         env:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKey }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKeyId }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKeyPassword }}
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralUsername }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralPassword }}
-        run: ./gradlew publishToMavenCentral -Prelease=false --no-daemon
+        run: ./gradlew publishToMavenCentral -Prelease=false

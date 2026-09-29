@@ -1,6 +1,5 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
 import org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED
-import org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED
 import org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -36,6 +35,7 @@ dependencies {
 val javaVersion = 17
 val jvmTargetVersion = JvmTarget.fromTarget(javaVersion.toString())
 val isRelease = project.hasProperty("release") && project.property("release") == "true"
+val isCi = providers.environmentVariable("CI").getOrElse("false").toBoolean()
 
 allprojects {
     group = "io.namastack"
@@ -77,10 +77,15 @@ subprojects {
     tasks.withType<Test> {
         useJUnitPlatform()
 
+        if (isCi) {
+            outputs.doNotCacheIf("Tests must execute in CI") { true }
+            outputs.upToDateWhen { false }
+        }
+
         testLogging {
             exceptionFormat = FULL
-            showStandardStreams = true
-            events(PASSED, SKIPPED, FAILED)
+            showStandardStreams = false
+            events(SKIPPED, FAILED)
         }
     }
 
@@ -105,8 +110,10 @@ subprojects {
             moduleName = rootProject.name
         }
 
-        tasks.build {
-            finalizedBy(tasks.named("publishToMavenLocal"))
+        if (!isCi) {
+            tasks.build {
+                finalizedBy(tasks.named("publishToMavenLocal"))
+            }
         }
 
         mavenPublishing {
