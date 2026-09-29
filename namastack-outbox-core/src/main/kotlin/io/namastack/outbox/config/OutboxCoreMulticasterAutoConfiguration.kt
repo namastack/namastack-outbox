@@ -1,8 +1,8 @@
 package io.namastack.outbox.config
 
 import io.namastack.outbox.Outbox
-import io.namastack.outbox.OutboxEventMulticaster
 import io.namastack.outbox.OutboxProperties
+import io.namastack.outbox.multicaster.OutboxEventMulticaster
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 
 @AutoConfiguration
+@ConditionalOnSingleRuntimeMode
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class OutboxCoreMulticasterAutoConfiguration {
     @Bean(name = ["applicationEventMulticaster"])

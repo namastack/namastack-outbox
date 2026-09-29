@@ -9,6 +9,7 @@ import io.namastack.outbox.OutboxService
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.handler.OutboxHandlerBeanPostProcessor
+import io.namastack.outbox.handler.OutboxHandlerInfrastructureFactory
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
@@ -18,7 +19,6 @@ import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.partition.PartitionAssignmentCache
 import io.namastack.outbox.partition.PartitionAssignmentRepository
-import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyFactory
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
@@ -56,6 +56,19 @@ class OutboxCoreInfrastructureAutoConfiguration {
         )
 
     @Bean
+    @ConditionalOnProperty(name = ["namastack.outbox.mode"], havingValue = "channels")
+    @ConditionalOnMissingBean
+    fun outboxHandlerInfrastructureFactory(
+        beanFactory: BeanFactory,
+        instrumentations: ObjectProvider<OutboxInstrumentation>,
+    ): OutboxHandlerInfrastructureFactory =
+        OutboxHandlerInfrastructureFactory(
+            beanFactory = beanFactory,
+            instrumentationsSupplier = { instrumentations.orderedStream().toList() },
+        )
+
+    @Bean
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean
     fun outboxHandlerInvoker(
         outboxHandlerRegistry: OutboxHandlerRegistry,
@@ -73,6 +86,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         )
 
     @Bean
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean
     fun outboxFallbackHandlerInvoker(
         retryPolicyRegistry: OutboxRetryPolicyRegistry,
@@ -92,6 +106,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         )
 
     @Bean
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean
     fun outboxInstanceRegistry(
         instanceRepository: OutboxInstanceRepository,
@@ -111,21 +126,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean
-    fun partitionCoordinator(
-        instanceRegistry: OutboxInstanceRegistry,
-        partitionAssignmentRepository: PartitionAssignmentRepository,
-        partitionAssignmentCache: PartitionAssignmentCache,
-        clock: Clock,
-    ): PartitionCoordinator =
-        PartitionCoordinator(
-            instanceRegistry = instanceRegistry,
-            partitionAssignmentRepository = partitionAssignmentRepository,
-            partitionAssignmentCache = partitionAssignmentCache,
-            clock = clock,
-        )
-
-    @Bean
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean
     fun partitionAssignmentCache(
         partitionAssignmentRepository: PartitionAssignmentRepository,
@@ -135,15 +136,18 @@ class OutboxCoreInfrastructureAutoConfiguration {
         )
 
     @Bean("outboxRetryPolicy")
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean(name = ["outboxRetryPolicy"])
     fun defaultOutboxRetryPolicy(builder: OutboxRetryPolicy.Builder): OutboxRetryPolicy = builder.build()
 
     @Bean("outboxRetryPolicyBuilder")
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean(name = ["outboxRetryPolicyBuilder"])
     fun defaultOutboxRetryPolicyBuilder(properties: OutboxProperties): OutboxRetryPolicy.Builder =
         OutboxRetryPolicyFactory.createDefault(retryProperties = properties.retry)
 
     @Bean
+    @ConditionalOnSingleRuntimeMode
     @ConditionalOnMissingBean
     fun outbox(
         outboxContextCollector: OutboxContextCollector,
@@ -168,12 +172,14 @@ class OutboxCoreInfrastructureAutoConfiguration {
 
     companion object {
         @Bean
+        @ConditionalOnSingleRuntimeMode
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
         internal fun outboxHandlerRegistry(): OutboxHandlerRegistry = OutboxHandlerRegistry()
 
         @Bean
+        @ConditionalOnSingleRuntimeMode
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
@@ -182,6 +188,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         ): OutboxFallbackHandlerRegistry = OutboxFallbackHandlerRegistry(handlerRegistry)
 
         @Bean
+        @ConditionalOnSingleRuntimeMode
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic
@@ -191,6 +198,7 @@ class OutboxCoreInfrastructureAutoConfiguration {
         ): OutboxRetryPolicyRegistry = OutboxRetryPolicyRegistry(beanFactory, handlerRegistry)
 
         @Bean
+        @ConditionalOnSingleRuntimeMode
         @ConditionalOnMissingBean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
         @JvmStatic

@@ -21,6 +21,7 @@ import javax.sql.DataSource
  * @since 1.0.0
  */
 @AutoConfiguration
+@ConditionalOnSingleRuntimeMode
 @ConditionalOnClass(DataSource::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class JdbcOutboxSchemaAutoConfiguration {

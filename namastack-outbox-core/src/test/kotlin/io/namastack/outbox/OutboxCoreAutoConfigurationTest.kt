@@ -7,9 +7,11 @@ import io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
+import io.namastack.outbox.config.OutboxRuntimeModeAutoConfiguration
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.handler.OutboxHandlerIdentity
+import io.namastack.outbox.handler.OutboxHandlerInfrastructureFactory
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
 import io.namastack.outbox.instance.OutboxInstance
@@ -21,6 +23,7 @@ import io.namastack.outbox.instrumentation.OutboxRecordProcessingInvocation
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.partition.PartitionAssignmentRepository
+import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.trigger.AdaptivePollingTrigger
@@ -61,6 +64,7 @@ class OutboxCoreAutoConfigurationTest {
                 AutoConfigurations.of(
                     TaskExecutionAutoConfiguration::class.java,
                     TaskSchedulingAutoConfiguration::class.java,
+                    OutboxRuntimeModeAutoConfiguration::class.java,
                     OutboxCoreInfrastructureAutoConfiguration::class.java,
                     OutboxCoreThreadingAutoConfiguration::class.java,
                     OutboxCoreProcessingAutoConfiguration::class.java,
@@ -132,6 +136,26 @@ class OutboxCoreAutoConfigurationTest {
                         ReflectionTestUtils.getField(processingScheduler, "taskExecutor") as TaskExecutor
                     val outboxTaskExecutor = context.getBean("outboxTaskExecutor") as TaskExecutor
                     assertThat(injectedExecutor).isSameAs(outboxTaskExecutor)
+                }
+        }
+
+        @Test
+        fun `does not create channel handler infrastructure factory in single mode`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    assertThat(context).doesNotHaveBean(OutboxHandlerInfrastructureFactory::class.java)
+                }
+        }
+
+        @Test
+        fun `starts lifecycle components in dependency order`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    assertThat(context.getBean<OutboxInstanceRegistry>().phase).isEqualTo(0)
+                    assertThat(context.getBean<PartitionCoordinator>().phase).isEqualTo(1)
+                    assertThat(context.getBean<OutboxProcessingScheduler>().phase).isEqualTo(2)
                 }
         }
     }

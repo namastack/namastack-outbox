@@ -4,6 +4,9 @@ import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.instance.OutboxInstanceRegistry
+import io.namastack.outbox.partition.PartitionAssignmentCache
+import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.trigger.OutboxPollingTrigger
@@ -22,12 +25,36 @@ import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProc
 import java.time.Clock
 
 @AutoConfiguration
+@ConditionalOnSingleRuntimeMode
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 class OutboxCoreSchedulingAutoConfiguration {
     @Configuration
     @EnableScheduling
     @ConditionalOnMissingBean(ScheduledAnnotationBeanPostProcessor::class)
     class OutboxEnableSchedulingConfiguration
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun partitionCoordinator(
+        instanceRegistry: OutboxInstanceRegistry,
+        partitionAssignmentRepository: PartitionAssignmentRepository,
+        partitionAssignmentCache: PartitionAssignmentCache,
+        properties: OutboxProperties,
+        clock: Clock,
+        beanFactory: BeanFactory,
+        observationRegistry: ObjectProvider<ObservationRegistry>,
+    ): PartitionCoordinator {
+        val taskScheduler = beanFactory.getBean(OutboxProcessingScheduler.SCHEDULER_NAME) as TaskScheduler
+        return PartitionCoordinator(
+            instanceRegistry = instanceRegistry,
+            partitionAssignmentRepository = partitionAssignmentRepository,
+            partitionAssignmentCache = partitionAssignmentCache,
+            clock = clock,
+            taskScheduler = taskScheduler,
+            rebalanceInterval = properties.effectiveRebalanceInterval,
+            observationRegistry = { observationRegistry.getIfAvailable { ObservationRegistry.NOOP } },
+        )
+    }
 
     @Bean
     @ConditionalOnMissingBean

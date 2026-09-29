@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.ConditionalOnSingleRuntimeMode
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
@@ -16,6 +17,7 @@ import org.springframework.context.annotation.Bean
  * @since 0.1.0
  */
 @AutoConfiguration
+@ConditionalOnSingleRuntimeMode
 @ConditionalOnClass(OutboxService::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 internal class OutboxActuatorAutoConfiguration {

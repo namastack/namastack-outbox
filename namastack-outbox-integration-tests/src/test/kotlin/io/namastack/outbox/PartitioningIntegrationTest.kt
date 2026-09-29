@@ -162,6 +162,9 @@ class PartitioningIntegrationTest {
             partitionAssignmentRepository = partitionAssignmentRepository,
             partitionAssignmentCache = partitionAssignmentCache,
             clock = Clock.systemDefaultZone(),
+            taskScheduler = taskScheduler,
+            rebalanceInterval = outboxProperties.effectiveRebalanceInterval,
+            observationRegistry = { ObservationRegistry.NOOP },
         )
     }
 

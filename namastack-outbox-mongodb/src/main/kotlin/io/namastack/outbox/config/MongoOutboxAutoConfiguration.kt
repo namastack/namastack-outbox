@@ -36,6 +36,7 @@ import java.time.Clock
  * @since 1.5.0
  */
 @AutoConfiguration
+@ConditionalOnSingleRuntimeMode
 @AutoConfigureAfter(
     value = [
         TransactionAutoConfiguration::class,

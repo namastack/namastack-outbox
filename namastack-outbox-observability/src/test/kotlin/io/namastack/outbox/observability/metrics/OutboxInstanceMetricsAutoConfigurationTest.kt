@@ -112,7 +112,7 @@ class OutboxInstanceMetricsAutoConfigurationTest {
         fun outboxRecordRepository(): OutboxRecordRepository = mockk()
 
         @Bean
-        fun partitionCoordinator(): PartitionCoordinator = mockk()
+        fun partitionCoordinator(): PartitionCoordinator = mockk(relaxed = true)
 
         @Bean
         fun outboxInstanceRegistry(): OutboxInstanceRegistry = mockk(relaxed = true)
@@ -133,7 +133,7 @@ class OutboxInstanceMetricsAutoConfigurationTest {
     @Configuration
     class MissingRecordRepositoryConfig {
         @Bean
-        fun partitionCoordinator(): PartitionCoordinator = mockk()
+        fun partitionCoordinator(): PartitionCoordinator = mockk(relaxed = true)
 
         @Bean
         fun outboxInstanceRegistry(): OutboxInstanceRegistry = mockk(relaxed = true)
@@ -154,6 +154,6 @@ class OutboxInstanceMetricsAutoConfigurationTest {
         fun outboxRecordRepository(): OutboxRecordRepository = mockk()
 
         @Bean
-        fun partitionCoordinator(): PartitionCoordinator = mockk()
+        fun partitionCoordinator(): PartitionCoordinator = mockk(relaxed = true)
     }
 }

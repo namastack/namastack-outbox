@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.ConditionalOnSingleRuntimeMode
 import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
@@ -35,6 +36,7 @@ import java.time.Clock
  * @since 0.1.0
  */
 @AutoConfiguration
+@ConditionalOnSingleRuntimeMode
 @AutoConfigureAfter(TransactionAutoConfiguration::class)
 @AutoConfigureBefore(OutboxCoreInfrastructureAutoConfiguration::class)
 @ConditionalOnClass(EntityManagerFactory::class, OutboxService::class)

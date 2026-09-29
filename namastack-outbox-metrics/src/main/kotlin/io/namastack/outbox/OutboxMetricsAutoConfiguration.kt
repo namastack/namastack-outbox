@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.ConditionalOnSingleRuntimeMode
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionCoordinator
 import org.springframework.beans.factory.ObjectProvider
@@ -32,6 +33,7 @@ import org.springframework.context.annotation.Bean
             "This module provides legacy gauge-based metrics and will be removed in a future major version.",
 )
 @AutoConfiguration
+@ConditionalOnSingleRuntimeMode
 @ConditionalOnClass(OutboxService::class)
 @ConditionalOnProperty(name = ["namastack.outbox.enabled"], havingValue = "true", matchIfMissing = true)
 internal class OutboxMetricsAutoConfiguration {
