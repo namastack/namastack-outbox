@@ -8,8 +8,8 @@ import java.time.Clock
  *
  * This factory creates the appropriate trigger implementation based on the configured
  * polling strategy. It supports:
- * - "fixed": Creates a [FixedPollingTrigger] with constant delay
- * - "adaptive": Creates an [AdaptivePollingTrigger] with dynamic delay adjustment
+ * - [OutboxRuntimeSettings.Polling.Trigger.FIXED]: Creates a [FixedPollingTrigger] with constant delay
+ * - [OutboxRuntimeSettings.Polling.Trigger.ADAPTIVE]: Creates an [AdaptivePollingTrigger] with dynamic delay adjustment
  *
  * @author Aleksander Zamojski
  * @since 1.1.0
@@ -18,30 +18,25 @@ internal object OutboxPollingTriggerFactory {
     /**
      * Creates an appropriate [OutboxPollingTrigger] based on the provided settings.
      *
-     * The trigger type is determined by [OutboxRuntimeSettings.Polling.trigger]. Supported values:
-     * - "fixed": Creates a fixed delay trigger
-     * - "adaptive": Creates an adaptive delay trigger
+     * The trigger type is determined by [OutboxRuntimeSettings.Polling.trigger].
      *
      * @param settings Effective polling settings
      * @param clock The clock to use for time calculations
      * @return The configured polling trigger
-     * @throws IllegalStateException if an unsupported trigger type is specified
      */
     fun create(
         settings: OutboxRuntimeSettings.Polling,
         clock: Clock,
-    ): OutboxPollingTrigger {
-        val name = settings.trigger
-
-        return when (name.lowercase()) {
-            "fixed" -> {
+    ): OutboxPollingTrigger =
+        when (settings.trigger) {
+            OutboxRuntimeSettings.Polling.Trigger.FIXED -> {
                 FixedPollingTrigger(
                     delay = settings.fixed.interval,
                     clock = clock,
                 )
             }
 
-            "adaptive" -> {
+            OutboxRuntimeSettings.Polling.Trigger.ADAPTIVE -> {
                 AdaptivePollingTrigger(
                     minDelay = settings.adaptive.minInterval,
                     maxDelay = settings.adaptive.maxInterval,
@@ -49,10 +44,5 @@ internal object OutboxPollingTriggerFactory {
                     clock = clock,
                 )
             }
-
-            else -> {
-                error("Unsupported polling-trigger: $name")
-            }
         }
-    }
 }

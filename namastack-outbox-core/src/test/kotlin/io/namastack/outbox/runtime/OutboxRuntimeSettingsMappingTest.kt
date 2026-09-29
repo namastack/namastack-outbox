@@ -49,4 +49,18 @@ class OutboxRuntimeSettingsMappingTest {
         assertThat(settings.instance.rebalanceInterval).isEqualTo(Duration.ofSeconds(12))
         assertThat(settings.multicaster.publishAfterSave).isFalse()
     }
+
+    @Test
+    fun `maps property strategy names to runtime enums`() {
+        val properties =
+            OutboxProperties(
+                polling = OutboxProperties.Polling(trigger = "ADAPTIVE"),
+                retry = OutboxProperties.Retry(policy = "LINEAR"),
+            )
+
+        val settings = properties.toRuntimeSettings()
+
+        assertThat(settings.polling.trigger).isEqualTo(OutboxRuntimeSettings.Polling.Trigger.ADAPTIVE)
+        assertThat(settings.retry.policy).isEqualTo(OutboxRuntimeSettings.Retry.Policy.LINEAR)
+    }
 }

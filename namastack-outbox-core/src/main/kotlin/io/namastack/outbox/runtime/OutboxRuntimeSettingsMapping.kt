@@ -9,7 +9,7 @@ internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
         polling =
             OutboxRuntimeSettings.Polling(
                 batchSize = batchSize ?: polling.batchSize,
-                trigger = polling.trigger,
+                trigger = polling.trigger.toPollingTrigger(),
                 fixed =
                     OutboxRuntimeSettings.FixedPolling(
                         interval = pollInterval ?: polling.fixed.interval,
@@ -47,7 +47,7 @@ internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
 internal fun OutboxProperties.Retry.toRuntimeSettings(): OutboxRuntimeSettings.Retry =
     OutboxRuntimeSettings.Retry(
         maxRetries = maxRetries,
-        policy = policy,
+        policy = policy.toRetryPolicy(),
         fixed = OutboxRuntimeSettings.Retry.FixedRetry(fixed.delay),
         linear =
             OutboxRuntimeSettings.Retry.LinearRetry(
@@ -65,3 +65,18 @@ internal fun OutboxProperties.Retry.toRuntimeSettings(): OutboxRuntimeSettings.R
         includeExceptions = includeExceptions,
         excludeExceptions = excludeExceptions,
     )
+
+private fun String.toPollingTrigger(): OutboxRuntimeSettings.Polling.Trigger =
+    when {
+        equals("fixed", ignoreCase = true) -> OutboxRuntimeSettings.Polling.Trigger.FIXED
+        equals("adaptive", ignoreCase = true) -> OutboxRuntimeSettings.Polling.Trigger.ADAPTIVE
+        else -> error("Unsupported polling-trigger: $this")
+    }
+
+private fun String.toRetryPolicy(): OutboxRuntimeSettings.Retry.Policy =
+    when {
+        equals("fixed", ignoreCase = true) -> OutboxRuntimeSettings.Retry.Policy.FIXED
+        equals("linear", ignoreCase = true) -> OutboxRuntimeSettings.Retry.Policy.LINEAR
+        equals("exponential", ignoreCase = true) -> OutboxRuntimeSettings.Retry.Policy.EXPONENTIAL
+        else -> error("Unsupported retry-policy: $this")
+    }

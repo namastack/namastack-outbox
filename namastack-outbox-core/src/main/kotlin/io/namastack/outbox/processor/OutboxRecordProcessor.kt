@@ -1,11 +1,9 @@
 package io.namastack.outbox.processor
 
-import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.runtime.OutboxRuntimeSettings
-import io.namastack.outbox.runtime.toRuntimeSettings
 import org.slf4j.LoggerFactory
 import java.time.Clock
 
@@ -70,12 +68,4 @@ abstract class OutboxRecordProcessor(
             repository.save(record)
         }
     }
-
-    /** Completes a record using Spring-bound properties. */
-    protected fun completeRecord(
-        record: OutboxRecord<*>,
-        repository: OutboxRecordRepository,
-        properties: OutboxProperties,
-        clock: Clock,
-    ) = completeRecord(record, repository, properties.toRuntimeSettings().processing, clock)
 }

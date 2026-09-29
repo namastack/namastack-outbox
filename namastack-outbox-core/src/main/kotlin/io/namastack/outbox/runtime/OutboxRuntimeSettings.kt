@@ -6,7 +6,8 @@ import java.time.Duration
  * Programmatic settings for one isolated outbox runtime.
  *
  * Unlike the Spring configuration-properties model, this type contains only effective runtime
- * settings. It is suitable for callers that assemble runtimes directly.
+ * settings. It is suitable for callers that assemble runtimes directly. Settings are captured when
+ * a runtime is assembled and remain fixed until that runtime is recreated.
  *
  * @property polling Polling behavior
  * @property retry Default retry behavior
@@ -26,16 +27,25 @@ data class OutboxRuntimeSettings(
 ) {
     /**
      * @property batchSize Maximum number of record keys processed in one batch
-     * @property trigger Polling trigger strategy (`fixed` or `adaptive`)
+     * @property trigger Polling trigger strategy
      * @property fixed Fixed polling settings
      * @property adaptive Adaptive polling settings
      */
     data class Polling(
         val batchSize: Int = 10,
-        val trigger: String = "fixed",
+        val trigger: Trigger = Trigger.FIXED,
         val fixed: FixedPolling = FixedPolling(),
         val adaptive: AdaptivePolling = AdaptivePolling(),
-    )
+    ) {
+        /** Available polling trigger strategies. */
+        enum class Trigger {
+            /** Polls at a constant interval. */
+            FIXED,
+
+            /** Adjusts the polling interval based on previous batch utilization. */
+            ADAPTIVE,
+        }
+    }
 
     /** @property interval Fixed interval between polling cycles. */
     data class FixedPolling(
@@ -53,7 +63,7 @@ data class OutboxRuntimeSettings(
 
     /**
      * @property maxRetries Maximum number of retry attempts
-     * @property policy Retry policy (`fixed`, `linear`, or `exponential`)
+     * @property policy Retry policy
      * @property fixed Fixed retry settings
      * @property linear Linear retry settings
      * @property exponential Exponential retry settings
@@ -63,7 +73,7 @@ data class OutboxRuntimeSettings(
      */
     data class Retry(
         val maxRetries: Int = 3,
-        val policy: String = "exponential",
+        val policy: Policy = Policy.EXPONENTIAL,
         val fixed: FixedRetry = FixedRetry(),
         val linear: LinearRetry = LinearRetry(),
         val exponential: ExponentialRetry = ExponentialRetry(),
@@ -71,6 +81,18 @@ data class OutboxRuntimeSettings(
         val includeExceptions: Set<String> = emptySet(),
         val excludeExceptions: Set<String> = emptySet(),
     ) {
+        /** Available retry policies. */
+        enum class Policy {
+            /** Uses a constant delay between retries. */
+            FIXED,
+
+            /** Increases the delay by a constant increment. */
+            LINEAR,
+
+            /** Multiplies the delay after each failed attempt. */
+            EXPONENTIAL,
+        }
+
         /** @property delay Fixed delay between retries. */
         data class FixedRetry(
             val delay: Duration = Duration.ofSeconds(5),

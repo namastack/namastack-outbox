@@ -19,7 +19,7 @@ object OutboxRetryPolicyFactory {
      *
      * @param retrySettings Runtime-local retry settings
      * @return A configured builder ready to build or customize
-     * @throws IllegalStateException if the policy name or configuration is unsupported
+     * @throws IllegalStateException if an included or excluded exception class cannot be resolved
      */
     fun createDefault(retrySettings: OutboxRuntimeSettings.Retry): OutboxRetryPolicy.Builder {
         val includeExceptions = convertExceptionNames(retrySettings.includeExceptions)
@@ -53,7 +53,7 @@ object OutboxRetryPolicyFactory {
         createDefault(retryProperties.toRuntimeSettings())
 
     /**
-     * Configures the delay strategy based on the policy name from properties.
+     * Configures the delay strategy selected by the runtime settings.
      *
      * Supported delay strategies:
      * - **fixed**: Constant delay between retry attempts
@@ -66,23 +66,20 @@ object OutboxRetryPolicyFactory {
      * @param retrySettings Runtime settings containing the policy name and delay configuration
      * @param builder The builder instance to configure
      * @return The builder with configured delay strategy
-     * @throws IllegalStateException if the policy name is unsupported
      */
     private fun configureDelay(
         retrySettings: OutboxRuntimeSettings.Retry,
         builder: OutboxRetryPolicy.Builder,
-    ): OutboxRetryPolicy.Builder {
-        val name = retrySettings.policy
-
-        return when (name.lowercase()) {
-            "fixed" -> {
+    ): OutboxRetryPolicy.Builder =
+        when (retrySettings.policy) {
+            OutboxRuntimeSettings.Retry.Policy.FIXED -> {
                 builder
                     .fixedBackOff(
                         delay = retrySettings.fixed.delay,
                     ).jitter(jitter = retrySettings.jitter)
             }
 
-            "linear" -> {
+            OutboxRuntimeSettings.Retry.Policy.LINEAR -> {
                 builder
                     .linearBackoff(
                         initialDelay = retrySettings.linear.initialDelay,
@@ -91,7 +88,7 @@ object OutboxRetryPolicyFactory {
                     ).jitter(jitter = retrySettings.jitter)
             }
 
-            "exponential" -> {
+            OutboxRuntimeSettings.Retry.Policy.EXPONENTIAL -> {
                 builder
                     .exponentialBackoff(
                         initialDelay = retrySettings.exponential.initialDelay,
@@ -99,12 +96,7 @@ object OutboxRetryPolicyFactory {
                         maxDelay = retrySettings.exponential.maxDelay,
                     ).jitter(jitter = retrySettings.jitter)
             }
-
-            else -> {
-                error("Unsupported retry-policy: $name")
-            }
         }
-    }
 
     /**
      * Converts fully qualified exception class names to Kotlin class references.
