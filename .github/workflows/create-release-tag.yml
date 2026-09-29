@@ -1,0 +1,107 @@
+name: Create Release Tag
+
+on:
+  workflow_run:
+    workflows:
+      - namastack-outbox CI
+      - Example smoke tests
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: create-release-tag
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Verify all release gates
+        id: gates
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$RELEASE_SHA" != "$current_main_sha" ]]; then
+            echo "Ignoring superseded main commit $RELEASE_SHA"
+            exit 0
+          fi
+
+          runs="$(
+            gh api --method GET "repos/$GITHUB_REPOSITORY/actions/runs" \
+              --field head_sha="$RELEASE_SHA" \
+              --field event=push \
+              --field per_page=100
+          )"
+
+          for workflow_name in "namastack-outbox CI" "Example smoke tests"; do
+            if ! jq --exit-status --arg name "$workflow_name" \
+              '[.workflow_runs[] | select(.name == $name and .conclusion == "success")] | length > 0' \
+              <<< "$runs" >/dev/null; then
+              echo "$workflow_name has not completed successfully for $RELEASE_SHA"
+              exit 0
+            fi
+          done
+
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout validated main commit
+        if: steps.gates.outputs.ready == 'true'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.gates.outputs.release_sha }}
+          fetch-depth: 0
+
+      - name: Create release tag
+        if: steps.gates.outputs.ready == 'true'
+        id: release-tag
+        env:
+          RELEASE_SHA: ${{ steps.gates.outputs.release_sha }}
+        run: |
+          version="$(scripts/current-version.sh)"
+          tag="v$version"
+          git fetch --force --tags origin
+
+          if git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null; then
+            tagged_sha="$(git rev-list --max-count=1 "$tag")"
+            if [[ "$tagged_sha" != "$RELEASE_SHA" ]]; then
+              echo "$tag was already released from $tagged_sha; no new release is required"
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "$tag already exists at the validated commit"
+          else
+            git config user.name "Namastack Release Automation"
+            git config user.email "info@rolandbeisel.de"
+            git tag --annotate "$tag" "$RELEASE_SHA" --message "Namastack Outbox $version"
+            git push origin "$tag"
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+
+      - name: Start production release
+        if: steps.release-tag.outputs.publish == 'true'
+        env:
+          RELEASE_TAG: ${{ steps.release-tag.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "GitHub release $RELEASE_TAG already exists"
+            exit 0
+          fi
+
+          gh workflow run release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            --field tag="$RELEASE_TAG"

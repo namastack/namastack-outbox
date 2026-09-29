@@ -1,6 +1,12 @@
 name: Release Production
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish
+        required: true
+        type: string
   push:
     tags:
       - 'v*.*.*'
@@ -9,12 +15,28 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    concurrency:
+      group: release-${{ inputs.tag || github.ref_name }}
+      cancel-in-progress: false
     permissions:
       contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+
+      - name: Validate release tag
+        run: |
+          expected_tag="v$(scripts/current-version.sh)"
+          if [[ "$RELEASE_TAG" != "$expected_tag" ]]; then
+            echo "Release tag $RELEASE_TAG does not match Gradle version $expected_tag" >&2
+            exit 1
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -38,6 +60,18 @@ jobs:
         run: ./gradlew publishToMavenCentral -Prelease=true --no-configuration-cache --no-daemon
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_args=(
+            "$RELEASE_TAG"
+            --repo "$GITHUB_REPOSITORY"
+            --title "Namastack Outbox $RELEASE_TAG"
+            --generate-notes
+            --verify-tag
+            --fail-on-no-commits
+          )
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            release_args+=(--prerelease --latest=false)
+          fi
+          gh release create "${release_args[@]}"

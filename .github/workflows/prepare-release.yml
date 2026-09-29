@@ -1,0 +1,105 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable release version without the v prefix (for example 1.10.0)
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_VERSION: ${{ inputs.version }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: namastack-outbox-docs/package-lock.json
+
+      - name: Install documentation dependencies
+        working-directory: namastack-outbox-docs
+        run: npm ci
+
+      - name: Update versions and version the documentation
+        run: node scripts/prepare-release.mjs "$RELEASE_VERSION"
+
+      - name: Validate documentation
+        working-directory: namastack-outbox-docs
+        run: |
+          npm run typecheck
+          npm run build
+
+      - name: Validate generated changes
+        run: |
+          test "$(scripts/current-version.sh)" = "$RELEASE_VERSION"
+          git diff --check
+          git diff --exit-code --quiet && {
+            echo "Release preparation did not change any files" >&2
+            exit 1
+          }
+
+      - name: Create release branch and commit
+        id: release-branch
+        run: |
+          branch="release/$RELEASE_VERSION"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "Remote branch $branch already exists" >&2
+            exit 1
+          fi
+
+          git config user.name "Namastack Release Automation"
+          git config user.email "info@rolandbeisel.de"
+          git switch --create "$branch"
+          git add --all
+          git commit -m "Prepare release $RELEASE_VERSION"
+          git push --set-upstream origin "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Open release pull request
+        env:
+          RELEASE_BRANCH: ${{ steps.release-branch.outputs.branch }}
+        run: |
+          body_file="$RUNNER_TEMP/release-pr.md"
+          cat > "$body_file" <<EOF
+          Prepares Namastack Outbox $RELEASE_VERSION.
+
+          This pull request updates the Gradle project version, example and performance-test dependencies, and the versioned documentation where required.
+
+          After this pull request is merged, successful main-branch CI runs will create tag v$RELEASE_VERSION and start the production release workflow.
+          EOF
+
+          gh pr create \
+            --base main \
+            --head "$RELEASE_BRANCH" \
+            --title "Prepare release $RELEASE_VERSION" \
+            --label release \
+            --body-file "$body_file"
+
+      - name: Start release validation workflows
+        env:
+          RELEASE_BRANCH: ${{ steps.release-branch.outputs.branch }}
+        run: |
+          gh workflow run gradle-test.yml --ref "$RELEASE_BRANCH"
+          gh workflow run example-smoke-tests.yml --ref "$RELEASE_BRANCH"

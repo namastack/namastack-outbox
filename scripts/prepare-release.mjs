@@ -1,0 +1,124 @@
+#!/usr/bin/env node
+
+import {execFileSync} from 'node:child_process';
+import {readFileSync, writeFileSync} from 'node:fs';
+import {dirname, resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const version = process.argv[2];
+
+if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
+  throw new Error('Usage: node scripts/prepare-release.mjs <major.minor.patch>');
+}
+
+const files = {
+  build: resolve(repositoryRoot, 'build.gradle.kts'),
+  examples: resolve(repositoryRoot, 'namastack-outbox-examples/gradle/libs.versions.toml'),
+  performance: resolve(repositoryRoot, 'namastack-outbox-performance-test/build.gradle.kts'),
+  security: resolve(repositoryRoot, 'SECURITY.md'),
+  docsVersions: resolve(repositoryRoot, 'namastack-outbox-docs/versions.json'),
+};
+
+const contents = Object.fromEntries(
+  Object.entries(files).map(([name, path]) => [name, readFileSync(path, 'utf8')]),
+);
+
+const buildVersionPattern =
+  /version = "(\d+\.\d+\.\d+)" \+ if \(!isRelease\) "-SNAPSHOT" else ""/;
+const currentVersion = matchExactlyOnce(contents.build, buildVersionPattern, 'root build version')[1];
+
+if (compareVersions(version, currentVersion) <= 0) {
+  throw new Error(`Release version ${version} must be newer than ${currentVersion}`);
+}
+
+const releaseLine = `${version.split('.').slice(0, 2).join('.')}.x`;
+const docsVersions = JSON.parse(contents.docsVersions);
+const createsDocumentationVersion = !docsVersions.includes(releaseLine);
+
+matchExactlyOnce(
+  contents.examples,
+  /namastackOutbox = "\d+\.\d+\.\d+-SNAPSHOT"/,
+  'example dependency version',
+);
+matchExactlyOnce(
+  contents.performance,
+  /version = "\d+\.\d+\.\d+-SNAPSHOT"/,
+  'performance-test version',
+);
+
+let security = contents.security;
+if (createsDocumentationVersion) {
+  const currentSecurityLine =
+    /^\|\s*(\d+\.\d+\.x)\s*\|\s*Current release line \(starting with (\d+\.\d+\.\d+)\)\s*\|\s*:white_check_mark:\s*\|$/m;
+  const securityMatch = matchExactlyOnce(security, currentSecurityLine, 'current security release line');
+  const previousReleaseLine = securityMatch[1];
+  const currentStatus = `Current release line (starting with ${version})`;
+
+  security = security.replace(
+    currentSecurityLine,
+    `${securityRow(releaseLine, currentStatus, ':white_check_mark:')}\n` +
+      securityRow(previousReleaseLine, 'End of security support', ':x:'),
+  );
+
+  execFileSync('npm', ['run', 'docusaurus', '--', 'docs:version', releaseLine], {
+    cwd: resolve(repositoryRoot, 'namastack-outbox-docs'),
+    stdio: 'inherit',
+  });
+}
+
+writeFileSync(
+  files.build,
+  contents.build.replace(
+    buildVersionPattern,
+    `version = "${version}" + if (!isRelease) "-SNAPSHOT" else ""`,
+  ),
+);
+writeFileSync(
+  files.examples,
+  contents.examples.replace(
+    /namastackOutbox = "\d+\.\d+\.\d+-SNAPSHOT"/,
+    `namastackOutbox = "${version}-SNAPSHOT"`,
+  ),
+);
+writeFileSync(
+  files.performance,
+  contents.performance.replace(
+    /version = "\d+\.\d+\.\d+-SNAPSHOT"/,
+    `version = "${version}-SNAPSHOT"`,
+  ),
+);
+if (createsDocumentationVersion) {
+  writeFileSync(files.security, security);
+}
+
+console.log(`Prepared Namastack Outbox ${version}`);
+console.log(
+  createsDocumentationVersion
+    ? `Created documentation version ${releaseLine}`
+    : `Documentation version ${releaseLine} already exists; no new snapshot was created`,
+);
+
+function matchExactlyOnce(content, pattern, description) {
+  const globalPattern = new RegExp(pattern.source, `${pattern.flags.replace('g', '')}g`);
+  const matches = [...content.matchAll(globalPattern)];
+  if (matches.length !== 1) {
+    throw new Error(`Expected exactly one ${description}, found ${matches.length}`);
+  }
+  return matches[0];
+}
+
+function compareVersions(left, right) {
+  const leftParts = left.split('.').map(Number);
+  const rightParts = right.split('.').map(Number);
+  for (let index = 0; index < leftParts.length; index += 1) {
+    if (leftParts[index] !== rightParts[index]) {
+      return leftParts[index] - rightParts[index];
+    }
+  }
+  return 0;
+}
+
+function securityRow(releaseLine, status, supported) {
+  return `| ${releaseLine.padEnd(17)} | ${status.padEnd(42)} | ${supported.padEnd(18)} |`;
+}
