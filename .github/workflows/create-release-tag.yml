@@ -13,6 +13,7 @@ on:
 permissions:
   actions: write
   contents: write
+  pull-requests: read
 
 concurrency:
   group: create-release-tag
@@ -34,6 +35,22 @@ jobs:
           current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
           if [[ "$RELEASE_SHA" != "$current_main_sha" ]]; then
             echo "Ignoring superseded main commit $RELEASE_SHA"
+            exit 0
+          fi
+
+          associated_pull_requests="$(
+            gh api --method GET \
+              "repos/$GITHUB_REPOSITORY/commits/$RELEASE_SHA/pulls" \
+              --field per_page=100
+          )"
+          if ! jq --exit-status '
+            any(.[];
+              .merged_at != null and
+              .base.ref == "main" and
+              ((.labels | map(.name) | index("release")) != null)
+            )
+          ' <<< "$associated_pull_requests" >/dev/null; then
+            echo "Ignoring $RELEASE_SHA because it was not produced by a release-labelled pull request"
             exit 0
           fi
 

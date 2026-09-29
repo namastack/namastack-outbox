@@ -12,7 +12,7 @@ The workflow creates a `release/<version>` pull request that:
 - builds the documentation; and
 - dispatches the Gradle and example validation workflows for the release branch.
 
-Review and merge the pull request after both validation workflows pass. When both workflows also pass for the resulting `main` commit, **Create Release Tag** creates the corresponding `v<version>` tag and dispatches **Release Production**. The production workflow verifies that the tag matches the Gradle version, publishes the artifacts to Maven Central, and creates the GitHub release with generated release notes.
+Review and merge the pull request after both validation workflows pass. When both workflows also pass for the resulting `main` commit, **Create Release Tag** verifies that the commit came from a merged pull request carrying the `release` label, creates the corresponding `v<version>` tag, and dispatches **Release Production**. Normal pull request merges and direct pushes to `main` cannot create a release tag. The production workflow verifies that the tag matches the Gradle version, publishes the artifacts to Maven Central, and creates the GitHub release with generated release notes.
 
 The release tag acts as the dispatch marker, so repeated gate events cannot enqueue the same Maven Central publication twice. If the initial production dispatch fails after the tag was created, rerun **Release Production** manually with that existing tag.
 
