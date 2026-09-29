@@ -7,6 +7,7 @@ import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
@@ -45,9 +46,13 @@ class EventMulticasterIntegrationTest {
     @Autowired
     private lateinit var eventPublisherService: EventPublisherService
 
+    @BeforeEach
+    fun resetHandledEvents() {
+        handledEvents.clear()
+    }
+
     @AfterEach
     fun cleanup() {
-        handledEvents.clear()
         cleanupTables()
     }
 

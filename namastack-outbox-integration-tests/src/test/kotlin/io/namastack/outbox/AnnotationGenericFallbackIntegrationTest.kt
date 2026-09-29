@@ -8,6 +8,7 @@ import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
@@ -35,10 +36,14 @@ class AnnotationGenericFallbackIntegrationTest {
     @Autowired
     private lateinit var outbox: Outbox
 
-    @AfterEach
-    fun cleanup() {
+    @BeforeEach
+    fun resetRecordedCalls() {
         handlerCalls.clear()
         fallbackCalls.clear()
+    }
+
+    @AfterEach
+    fun cleanup() {
         transactionTemplate.executeWithoutResult {
             entityManager.createQuery("DELETE FROM OutboxRecordEntity").executeUpdate()
             entityManager.createQuery("DELETE FROM OutboxInstanceEntity").executeUpdate()
