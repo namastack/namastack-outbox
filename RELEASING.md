@@ -18,8 +18,6 @@ The release tag acts as the dispatch marker, so repeated gate events cannot enqu
 
 The production workflow also accepts existing prerelease tags such as `v1.10.0-RC1`. It preserves the suffix in the Maven coordinates and marks the corresponding GitHub release as a prerelease.
 
-The main CI includes a release automation dry run. It prepares synthetic minor and patch releases in a temporary repository copy, builds the resulting documentation, verifies version and redirect behavior, and generates an RC Maven POM with the expected coordinates. It never creates a tag, Maven Central deployment, or GitHub release.
-
 GitHub builds the release notes from merged pull requests using `.github/release.yml`. Apply `enhancement`, `bug`, `documentation`, `dependencies`, or `breaking-change` labels to place pull requests in a specific section. Unlabelled pull requests remain visible under **Other Changes**. The prompt in `.github/prompts/release-notes.prompt.md` is an optional editorial aid and is not used by CI.
 
 Release preparation pull requests receive the `release` label and are excluded from the generated release notes.
