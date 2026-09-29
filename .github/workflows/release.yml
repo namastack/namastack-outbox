@@ -65,6 +65,12 @@ jobs:
 
       - name: Create release tag
         run: |
+          git fetch origin '+refs/heads/main:refs/remotes/origin/main'
+          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse refs/remotes/origin/main)" ]]; then
+            echo "main changed while the release build was running; rerun Publish Release" >&2
+            exit 1
+          fi
+
           git config user.name "Namastack Release Automation"
           git config user.email "info@rolandbeisel.de"
           git tag --annotate "$RELEASE_TAG" --message "Namastack Outbox $RELEASE_VERSION"

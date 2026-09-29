@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import {execFileSync} from 'node:child_process';
-import {readFileSync, writeFileSync} from 'node:fs';
+import {readFileSync, rmSync, writeFileSync} from 'node:fs';
 import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -36,6 +36,16 @@ if (compareVersions(version, currentVersion) <= 0) {
 const releaseLine = `${version.split('.').slice(0, 2).join('.')}.x`;
 const docsVersions = JSON.parse(contents.docsVersions);
 const createsDocumentationVersion = !docsVersions.includes(releaseLine);
+const versionedDocsPath = resolve(
+  repositoryRoot,
+  'namastack-outbox-docs/versioned_docs',
+  `version-${releaseLine}`,
+);
+const versionedSidebarPath = resolve(
+  repositoryRoot,
+  'namastack-outbox-docs/versioned_sidebars',
+  `version-${releaseLine}-sidebars.json`,
+);
 
 matchExactlyOnce(
   contents.examples,
@@ -74,7 +84,7 @@ if (createsDocumentationVersion) {
 
   const latestRedirectPattern = new RegExp(
     `^(\\s*)\\{"source": "/outbox/${escapeRegExp(previousReleaseLine)}/:path\\*", ` +
-      '"destination": "/docs/:path\\*", "permanent": true\\},$',
+      '"destination": "/docs/:path\\*", "permanent": false\\},$',
     'm',
   );
   const latestRedirectMatch = matchExactlyOnce(
@@ -85,16 +95,23 @@ if (createsDocumentationVersion) {
   const redirectIndent = latestRedirectMatch[1];
   vercel = vercel.replace(
     latestRedirectPattern,
-    `${redirectIndent}{"source": "/outbox/${releaseLine}/:path*", "destination": "/docs/:path*", "permanent": true},\n` +
+    `${redirectIndent}{"source": "/outbox/${releaseLine}/:path*", "destination": "/docs/:path*", "permanent": false},\n` +
       `${redirectIndent}{"source": "/outbox/${previousReleaseLine}/:path*", ` +
       `"destination": "/docs/${previousReleaseLine}/:path*", "permanent": true},`,
   );
-
-  execFileSync('npm', ['run', 'docusaurus', '--', 'docs:version', releaseLine], {
-    cwd: resolve(repositoryRoot, 'namastack-outbox-docs'),
-    stdio: 'inherit',
-  });
+} else {
+  rmSync(versionedDocsPath, {recursive: true});
+  rmSync(versionedSidebarPath);
+  writeFileSync(
+    files.docsVersions,
+    `${JSON.stringify(docsVersions.filter((existingLine) => existingLine !== releaseLine), null, 2)}\n`,
+  );
 }
+
+execFileSync('npm', ['run', 'docusaurus', '--', 'docs:version', releaseLine], {
+  cwd: resolve(repositoryRoot, 'namastack-outbox-docs'),
+  stdio: 'inherit',
+});
 
 writeFileSync(
   files.build,
@@ -126,7 +143,7 @@ console.log(`Prepared Namastack Outbox ${version}`);
 console.log(
   createsDocumentationVersion
     ? `Created documentation version ${releaseLine}`
-    : `Documentation version ${releaseLine} already exists; no new snapshot was created`,
+    : `Refreshed documentation version ${releaseLine}`,
 );
 
 function matchExactlyOnce(content, pattern, description) {

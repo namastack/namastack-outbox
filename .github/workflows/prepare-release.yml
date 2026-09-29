@@ -64,17 +64,25 @@ jobs:
         id: release-branch
         run: |
           branch="release/$RELEASE_VERSION"
+          git add --all
+          desired_tree="$(git write-tree)"
+
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
-            echo "Remote branch $branch already exists" >&2
-            exit 1
+            git fetch --force origin "$branch:refs/remotes/origin/$branch"
+            remote_tree="$(git rev-parse "refs/remotes/origin/$branch^{tree}")"
+            if [[ "$remote_tree" != "$desired_tree" ]]; then
+              echo "Remote branch $branch exists with different release changes" >&2
+              exit 1
+            fi
+            echo "Reusing existing release branch $branch"
+          else
+            git config user.name "Namastack Release Automation"
+            git config user.email "info@rolandbeisel.de"
+            git switch --create "$branch"
+            git commit -m "Prepare release $RELEASE_VERSION"
+            git push --set-upstream origin "$branch"
           fi
 
-          git config user.name "Namastack Release Automation"
-          git config user.email "info@rolandbeisel.de"
-          git switch --create "$branch"
-          git add --all
-          git commit -m "Prepare release $RELEASE_VERSION"
-          git push --set-upstream origin "$branch"
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
 
       - name: Open release pull request
@@ -90,12 +98,24 @@ jobs:
           After this pull request is merged and the main-branch checks pass, run the Publish Release workflow with version $RELEASE_VERSION.
           EOF
 
-          gh pr create \
-            --base main \
-            --head "$RELEASE_BRANCH" \
-            --title "Prepare release $RELEASE_VERSION" \
-            --label release \
-            --body-file "$body_file"
+          existing_pr_url="$(
+            gh pr list \
+              --base main \
+              --head "$RELEASE_BRANCH" \
+              --state open \
+              --json url \
+              --jq '.[0].url // empty'
+          )"
+          if [[ -n "$existing_pr_url" ]]; then
+            echo "Reusing existing release pull request $existing_pr_url"
+          else
+            gh pr create \
+              --base main \
+              --head "$RELEASE_BRANCH" \
+              --title "Prepare release $RELEASE_VERSION" \
+              --label release \
+              --body-file "$body_file"
+          fi
 
       - name: Start release validation workflows
         env:

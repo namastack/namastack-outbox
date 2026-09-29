@@ -6,7 +6,7 @@ The workflow creates a `release/<version>` pull request that:
 
 - updates the release version in the root Gradle build;
 - updates the example dependency catalog and performance-test snapshot version;
-- creates a Docusaurus `major.minor.x` snapshot when that release line does not exist yet;
+- creates or refreshes the Docusaurus `major.minor.x` snapshot for the release line;
 - rotates the legacy `/outbox/<version>` redirects so each released line keeps pointing to its own documentation;
 - moves the current security-support line when a new documentation release line is created;
 - builds the documentation; and
