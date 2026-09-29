@@ -8,7 +8,7 @@
     {"source": "/outbox/sponsor/:path*", "destination": "/docs/sponsor/:path*", "permanent": true},
     {"source": "/outbox/legal-notice/:path*", "destination": "/docs/legal-notice/:path*", "permanent": true},
     {"source": "/outbox/next/:path*", "destination": "/docs/next/:path*", "permanent": true},
-    {"source": "/outbox/1.9.x/:path*", "destination": "/docs/:path*", "permanent": true},
+    {"source": "/outbox/1.9.x/:path*", "destination": "/docs/:path*", "permanent": false},
     {"source": "/outbox/1.8.x/:path*", "destination": "/docs/1.8.x/:path*", "permanent": true},
     {"source": "/outbox/1.7.x/:path*", "destination": "/docs/1.7.x/:path*", "permanent": true},
     {"source": "/outbox/1.6.x/:path*", "destination": "/docs/1.6.x/:path*", "permanent": true},

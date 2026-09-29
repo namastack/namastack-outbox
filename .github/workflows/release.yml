@@ -1,20 +1,55 @@
-name: Release Production
+name: Publish Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
-      - 'v*.*.*-*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable release version without the v prefix (for example 1.10.0)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-release-${{ inputs.version }}
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_TAG: v${{ inputs.version }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout main
         uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate release version
+        run: |
+          if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release version $RELEASE_VERSION is not a stable release version" >&2
+            exit 1
+          fi
+
+          expected_version="$(scripts/current-version.sh)"
+          if [[ "$RELEASE_VERSION" != "$expected_version" ]]; then
+            echo "Requested version $RELEASE_VERSION does not match main version $expected_version" >&2
+            exit 1
+          fi
+
+      - name: Check release state
+        run: |
+          git fetch --force --tags origin
+          if git rev-parse --quiet --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+            echo "$RELEASE_TAG already exists; investigate before retrying" >&2
+            exit 1
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -28,6 +63,19 @@ jobs:
       - name: Build and run tests
         run: ./gradlew clean build
 
+      - name: Create release tag
+        run: |
+          git fetch origin '+refs/heads/main:refs/remotes/origin/main'
+          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse refs/remotes/origin/main)" ]]; then
+            echo "main changed while the release build was running; rerun Publish Release" >&2
+            exit 1
+          fi
+
+          git config user.name "Namastack Release Automation"
+          git config user.email "info@rolandbeisel.de"
+          git tag --annotate "$RELEASE_TAG" --message "Namastack Outbox $RELEASE_VERSION"
+          git push origin "$RELEASE_TAG"
+
       - name: Publish to Maven Central
         env:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKey }}
@@ -38,6 +86,10 @@ jobs:
         run: ./gradlew publishToMavenCentral -Prelease=true --no-configuration-cache --no-daemon
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Namastack Outbox $RELEASE_TAG" \
+            --generate-notes \
+            --verify-tag \
+            --fail-on-no-commits
