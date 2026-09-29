@@ -18,6 +18,7 @@ const files = {
   performance: resolve(repositoryRoot, 'namastack-outbox-performance-test/build.gradle.kts'),
   security: resolve(repositoryRoot, 'SECURITY.md'),
   docsVersions: resolve(repositoryRoot, 'namastack-outbox-docs/versions.json'),
+  vercel: resolve(repositoryRoot, 'namastack-outbox-docs/vercel.json'),
 };
 
 const contents = Object.fromEntries(
@@ -48,17 +49,45 @@ matchExactlyOnce(
 );
 
 let security = contents.security;
+let vercel = contents.vercel;
 if (createsDocumentationVersion) {
+  const previousReleaseLine = docsVersions[0];
+  if (typeof previousReleaseLine !== 'string') {
+    throw new Error('Expected versions.json to contain the current documentation release line');
+  }
+
   const currentSecurityLine =
     /^\|\s*(\d+\.\d+\.x)\s*\|\s*Current release line \(starting with (\d+\.\d+\.\d+)\)\s*\|\s*:white_check_mark:\s*\|$/m;
   const securityMatch = matchExactlyOnce(security, currentSecurityLine, 'current security release line');
-  const previousReleaseLine = securityMatch[1];
+  if (securityMatch[1] !== previousReleaseLine) {
+    throw new Error(
+      `Current security line ${securityMatch[1]} does not match latest documentation line ${previousReleaseLine}`,
+    );
+  }
   const currentStatus = `Current release line (starting with ${version})`;
 
   security = security.replace(
     currentSecurityLine,
     `${securityRow(releaseLine, currentStatus, ':white_check_mark:')}\n` +
       securityRow(previousReleaseLine, 'End of security support', ':x:'),
+  );
+
+  const latestRedirectPattern = new RegExp(
+    `^(\\s*)\\{"source": "/outbox/${escapeRegExp(previousReleaseLine)}/:path\\*", ` +
+      '"destination": "/docs/:path\\*", "permanent": true\\},$',
+    'm',
+  );
+  const latestRedirectMatch = matchExactlyOnce(
+    vercel,
+    latestRedirectPattern,
+    `latest documentation redirect for ${previousReleaseLine}`,
+  );
+  const redirectIndent = latestRedirectMatch[1];
+  vercel = vercel.replace(
+    latestRedirectPattern,
+    `${redirectIndent}{"source": "/outbox/${releaseLine}/:path*", "destination": "/docs/:path*", "permanent": true},\n` +
+      `${redirectIndent}{"source": "/outbox/${previousReleaseLine}/:path*", ` +
+      `"destination": "/docs/${previousReleaseLine}/:path*", "permanent": true},`,
   );
 
   execFileSync('npm', ['run', 'docusaurus', '--', 'docs:version', releaseLine], {
@@ -90,6 +119,7 @@ writeFileSync(
 );
 if (createsDocumentationVersion) {
   writeFileSync(files.security, security);
+  writeFileSync(files.vercel, vercel);
 }
 
 console.log(`Prepared Namastack Outbox ${version}`);
@@ -121,4 +151,8 @@ function compareVersions(left, right) {
 
 function securityRow(releaseLine, status, supported) {
   return `| ${releaseLine.padEnd(17)} | ${status.padEnd(42)} | ${supported.padEnd(18)} |`;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
