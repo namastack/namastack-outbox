@@ -36,15 +36,10 @@ dependencies {
 val javaVersion = 17
 val jvmTargetVersion = JvmTarget.fromTarget(javaVersion.toString())
 val isRelease = project.hasProperty("release") && project.property("release") == "true"
-val releaseSuffix = providers.gradleProperty("releaseSuffix").orNull.orEmpty()
-
-require(releaseSuffix.isEmpty() || (isRelease && releaseSuffix.matches(Regex("-[0-9A-Za-z][0-9A-Za-z.-]*")))) {
-    "releaseSuffix must be empty or a valid prerelease suffix used together with -Prelease=true"
-}
 
 allprojects {
     group = "io.namastack"
-    version = "1.9.0" + if (!isRelease) "-SNAPSHOT" else releaseSuffix
+    version = "1.9.0" + if (!isRelease) "-SNAPSHOT" else ""
 
     repositories {
         mavenLocal()

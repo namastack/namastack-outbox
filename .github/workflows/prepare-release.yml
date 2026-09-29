@@ -87,7 +87,7 @@ jobs:
 
           This pull request updates the Gradle project version, example and performance-test dependencies, and the versioned documentation where required.
 
-          After this pull request is merged, successful main-branch CI runs will create tag v$RELEASE_VERSION and start the production release workflow.
+          After this pull request is merged and the main-branch checks pass, run the Publish Release workflow with version $RELEASE_VERSION.
           EOF
 
           gh pr create \

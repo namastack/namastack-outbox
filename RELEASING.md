@@ -12,11 +12,9 @@ The workflow creates a `release/<version>` pull request that:
 - builds the documentation; and
 - dispatches the Gradle and example validation workflows for the release branch.
 
-Review and merge the pull request after both validation workflows pass. When both workflows also pass for the resulting `main` commit, **Create Release Tag** verifies that the commit came from a merged pull request carrying the `release` label, creates the corresponding `v<version>` tag, and dispatches **Release Production**. Normal pull request merges and direct pushes to `main` cannot create a release tag. The production workflow verifies that the tag matches the Gradle version, publishes the artifacts to Maven Central, and creates the GitHub release with generated release notes.
+Review and merge the pull request after both validation workflows pass. Wait for the resulting `main` checks, then run **Publish Release** manually with the same stable version. The workflow verifies that `main` contains that version, builds and tests the tagged commit, creates the corresponding `v<version>` tag, publishes the artifacts to Maven Central, and creates the GitHub release with generated release notes.
 
-The release tag acts as the dispatch marker, so repeated gate events cannot enqueue the same Maven Central publication twice. If the initial production dispatch fails after the tag was created, rerun **Release Production** manually with that existing tag.
-
-The production workflow also accepts existing prerelease tags such as `v1.10.0-RC1`. It preserves the suffix in the Maven coordinates and marks the corresponding GitHub release as a prerelease.
+Normal pull request merges and direct pushes to `main` never create a release tag. If the requested tag already exists, the publication stops and requires manual investigation to avoid publishing the same immutable Maven coordinates twice.
 
 GitHub builds the release notes from merged pull requests using `.github/release.yml`. Apply `enhancement`, `bug`, `documentation`, `dependencies`, or `breaking-change` labels to place pull requests in a specific section. Unlabelled pull requests remain visible under **Other Changes**. The prompt in `.github/prompts/release-notes.prompt.md` is an optional editorial aid and is not used by CI.
 

@@ -26,7 +26,7 @@ const contents = Object.fromEntries(
 );
 
 const buildVersionPattern =
-  /version = "(\d+\.\d+\.\d+)" \+ if \(!isRelease\) "-SNAPSHOT" else releaseSuffix/;
+  /version = "(\d+\.\d+\.\d+)" \+ if \(!isRelease\) "-SNAPSHOT" else ""/;
 const currentVersion = matchExactlyOnce(contents.build, buildVersionPattern, 'root build version')[1];
 
 if (compareVersions(version, currentVersion) <= 0) {
@@ -100,7 +100,7 @@ writeFileSync(
   files.build,
   contents.build.replace(
     buildVersionPattern,
-    `version = "${version}" + if (!isRelease) "-SNAPSHOT" else releaseSuffix`,
+    `version = "${version}" + if (!isRelease) "-SNAPSHOT" else ""`,
   ),
 );
 writeFileSync(
