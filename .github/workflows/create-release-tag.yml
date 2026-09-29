@@ -80,7 +80,9 @@ jobs:
               echo "publish=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            echo "$tag already exists at the validated commit"
+            echo "$tag already exists at the validated commit; production was already dispatched"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
           else
             git config user.name "Namastack Release Automation"
             git config user.email "info@rolandbeisel.de"

@@ -32,9 +32,16 @@ jobs:
 
       - name: Validate release tag
         run: |
-          expected_tag="v$(scripts/current-version.sh)"
-          if [[ "$RELEASE_TAG" != "$expected_tag" ]]; then
-            echo "Release tag $RELEASE_TAG does not match Gradle version $expected_tag" >&2
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "Release tag $RELEASE_TAG is not a supported release tag" >&2
+            exit 1
+          fi
+
+          expected_version="$(scripts/current-version.sh)"
+          tagged_version="${RELEASE_TAG#v}"
+          tagged_base_version="${tagged_version%%-*}"
+          if [[ "$tagged_base_version" != "$expected_version" ]]; then
+            echo "Release tag $RELEASE_TAG does not match Gradle version $expected_version" >&2
             exit 1
           fi
 
