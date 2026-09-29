@@ -9,6 +9,7 @@ import io.namastack.outbox.partition.PartitionAssignmentCache
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
+import io.namastack.outbox.runtime.toRuntimeSettings
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import io.namastack.outbox.trigger.OutboxPollingTriggerFactory
 import org.springframework.beans.factory.BeanFactory
@@ -63,7 +64,7 @@ class OutboxCoreSchedulingAutoConfiguration {
         clock: Clock,
     ): OutboxPollingTrigger =
         OutboxPollingTriggerFactory.create(
-            properties = properties,
+            settings = properties.toRuntimeSettings().polling,
             clock = clock,
         )
 
@@ -90,7 +91,7 @@ class OutboxCoreSchedulingAutoConfiguration {
             recordProcessorChainInvoker = recordProcessorChainInvoker,
             partitionCoordinator = partitionCoordinator,
             taskExecutor = taskExecutor,
-            properties = properties,
+            settings = properties.toRuntimeSettings(),
             clock = clock,
         )
     }

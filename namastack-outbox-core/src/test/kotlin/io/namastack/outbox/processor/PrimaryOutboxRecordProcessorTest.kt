@@ -11,6 +11,7 @@ import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
+import io.namastack.outbox.runtime.toRuntimeSettings
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -35,15 +36,23 @@ class PrimaryOutboxRecordProcessorTest {
         clock = Clock.fixed(Instant.parse("2024-01-01T10:00:00Z"), ZoneOffset.UTC)
         nextProcessor = mockk()
 
-        processor = PrimaryOutboxRecordProcessor(handlerInvoker, recordRepository, properties, clock)
-        processor.setNext(nextProcessor)
+        processor = createProcessor()
         justRun { handlerInvoker.ensureHandlerAvailable(any()) }
     }
+
+    private fun createProcessor(): PrimaryOutboxRecordProcessor =
+        PrimaryOutboxRecordProcessor(
+            handlerInvoker,
+            recordRepository,
+            properties.toRuntimeSettings().processing,
+            clock,
+        ).also { it.setNext(nextProcessor) }
 
     @Test
     fun `handle completes and saves the record when dispatch succeeds and completed records are retained`() {
         val record = createRecord()
         properties.processing.deleteCompletedRecords = false
+        processor = createProcessor()
 
         justRun { handlerInvoker.dispatch(any()) }
         every { recordRepository.save(any() as OutboxRecord<*>) } returns record
@@ -64,6 +73,7 @@ class PrimaryOutboxRecordProcessorTest {
     fun `handle deletes the record when dispatch succeeds and completed records are configured for deletion`() {
         val record = createRecord()
         properties.processing.deleteCompletedRecords = true
+        processor = createProcessor()
 
         justRun { handlerInvoker.dispatch(any()) }
         justRun { recordRepository.deleteById(any()) }
@@ -119,7 +129,13 @@ class PrimaryOutboxRecordProcessorTest {
     fun `handle throws when dispatch fails and no next processor exists`() {
         val record = createRecord()
         val exception = RuntimeException("Handler error")
-        val processorWithoutNext = PrimaryOutboxRecordProcessor(handlerInvoker, recordRepository, properties, clock)
+        val processorWithoutNext =
+            PrimaryOutboxRecordProcessor(
+                handlerInvoker,
+                recordRepository,
+                properties.toRuntimeSettings().processing,
+                clock,
+            )
 
         every { handlerInvoker.dispatch(any()) } throws exception
 
@@ -168,6 +184,7 @@ class PrimaryOutboxRecordProcessorTest {
     fun `handle preserves null-payload behavior without requiring a handler`() {
         val record = createRecord(payload = null)
         properties.processing.deleteCompletedRecords = false
+        processor = createProcessor()
         justRun { handlerInvoker.dispatch(record) }
         every { recordRepository.save(record) } returns record
 

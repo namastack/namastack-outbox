@@ -3,6 +3,7 @@ package io.namastack.outbox.config
 import io.namastack.outbox.Outbox
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.multicaster.OutboxEventMulticaster
+import io.namastack.outbox.runtime.toRuntimeSettings
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -25,7 +26,7 @@ class OutboxCoreMulticasterAutoConfiguration {
     ): OutboxEventMulticaster =
         OutboxEventMulticaster(
             outboxProvider = outboxProvider,
-            outboxProperties = outboxProperties,
+            settings = outboxProperties.toRuntimeSettings().multicaster,
             delegateEventMulticaster = SimpleApplicationEventMulticaster(beanFactory),
         )
 }

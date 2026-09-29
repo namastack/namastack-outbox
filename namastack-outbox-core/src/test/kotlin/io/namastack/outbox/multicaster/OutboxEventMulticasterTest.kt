@@ -8,6 +8,7 @@ import io.namastack.outbox.Outbox
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.annotation.OutboxEvent
 import io.namastack.outbox.annotation.OutboxEvent.OutboxContextEntry
+import io.namastack.outbox.runtime.toRuntimeSettings
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
@@ -40,7 +41,7 @@ class OutboxEventMulticasterTest {
         eventMulticaster =
             OutboxEventMulticaster(
                 outboxProvider = outboxProvider,
-                outboxProperties = outboxProperties,
+                settings = outboxProperties.toRuntimeSettings().multicaster,
                 delegateEventMulticaster = delegateEventMulticaster,
             )
 
@@ -158,7 +159,7 @@ class OutboxEventMulticasterTest {
             val localMulticaster =
                 OutboxEventMulticaster(
                     outboxProvider = outboxProvider,
-                    outboxProperties = localProperties,
+                    settings = localProperties.toRuntimeSettings().multicaster,
                     delegateEventMulticaster = delegateEventMulticaster,
                 )
 
@@ -194,7 +195,7 @@ class OutboxEventMulticasterTest {
             val localMulticaster =
                 OutboxEventMulticaster(
                     outboxProvider = outboxProvider,
-                    outboxProperties = localProperties,
+                    settings = localProperties.toRuntimeSettings().multicaster,
                     delegateEventMulticaster = delegateEventMulticaster,
                 )
 

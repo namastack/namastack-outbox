@@ -14,6 +14,7 @@ import io.namastack.outbox.processor.PermanentFailureOutboxRecordProcessor
 import io.namastack.outbox.processor.PrimaryOutboxRecordProcessor
 import io.namastack.outbox.processor.RetryOutboxRecordProcessor
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
+import io.namastack.outbox.runtime.toRuntimeSettings
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -36,14 +37,15 @@ class OutboxCoreProcessingAutoConfiguration {
         properties: OutboxProperties,
         clock: Clock,
     ): OutboxRecordProcessor {
-        val primary = PrimaryOutboxRecordProcessor(handlerInvoker, recordRepository, properties, clock)
+        val processing = properties.toRuntimeSettings().processing
+        val primary = PrimaryOutboxRecordProcessor(handlerInvoker, recordRepository, processing, clock)
         val retry = RetryOutboxRecordProcessor(retryPolicyRegistry, recordRepository, clock)
         val fallback =
             FallbackOutboxRecordProcessor(
                 recordRepository = recordRepository,
                 fallbackHandlerRegistry = fallbackHandlerRegistry,
                 fallbackHandlerInvoker = fallbackHandlerInvoker,
-                properties = properties,
+                settings = processing,
                 clock = clock,
             )
         val permanentFailure = PermanentFailureOutboxRecordProcessor(recordRepository)

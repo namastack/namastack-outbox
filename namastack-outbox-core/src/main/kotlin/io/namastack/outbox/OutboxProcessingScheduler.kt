@@ -5,6 +5,7 @@ import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
+import io.namastack.outbox.runtime.OutboxRuntimeSettings
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
@@ -38,7 +39,7 @@ import kotlin.concurrent.withLock
  * @param recordProcessorChainInvoker Invoker for the instrumented record processor chain
  * @param partitionCoordinator Coordinator for partition assignments
  * @param taskExecutor Executor for parallel key processing
- * @param properties Configuration properties
+ * @param settings Effective runtime settings
  * @param clock Clock for time calculations
  *
  * @author Roland Beisel
@@ -53,7 +54,7 @@ class OutboxProcessingScheduler(
     private val recordProcessorChainInvoker: OutboxRecordProcessorChainInvoker,
     private val partitionCoordinator: PartitionCoordinator,
     private val taskExecutor: TaskExecutor,
-    private val properties: OutboxProperties,
+    private val settings: OutboxRuntimeSettings,
     private val clock: Clock,
 ) : SmartLifecycle {
     companion object {
@@ -66,7 +67,7 @@ class OutboxProcessingScheduler(
 
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
-    private val lifecycle = SchedulerLifecycleStateMachine(properties.processing.effectiveShutdownTimeout)
+    private val lifecycle = SchedulerLifecycleStateMachine(settings.processing.shutdownTimeout)
 
     private var scheduledTask: ScheduledFuture<*>? = null
 
@@ -99,7 +100,7 @@ class OutboxProcessingScheduler(
      *
      * Automatically invoked during application shutdown. Cancels future scheduling and,
      * if a cycle is currently running, blocks until completion, timeout, or interruption
-     * (up to [OutboxProperties.Processing.shutdownTimeout]).
+     * (up to [OutboxRuntimeSettings.Processing.shutdownTimeout]).
      */
     override fun stop() {
         log.info("Initiating OutboxProcessingScheduler shutdown...")
@@ -159,8 +160,8 @@ class OutboxProcessingScheduler(
         recordRepository.findRecordKeysInPartitions(
             partitions = partitions,
             status = NEW,
-            batchSize = properties.batchSize ?: properties.polling.batchSize,
-            ignoreRecordKeysWithPreviousFailure = properties.processing.stopOnFirstFailure,
+            batchSize = settings.polling.batchSize,
+            ignoreRecordKeysWithPreviousFailure = settings.processing.stopOnFirstFailure,
         )
 
     private fun processBatch(recordKeys: List<String>) {
@@ -209,7 +210,7 @@ class OutboxProcessingScheduler(
         return outcome == OutboxRecordProcessingOutcome.COMPLETED || continueOnFailure()
     }
 
-    private fun continueOnFailure(): Boolean = !properties.processing.stopOnFirstFailure
+    private fun continueOnFailure(): Boolean = !settings.processing.stopOnFirstFailure
 
     private fun handleUnavailablePayloadType(ex: OutboxPayloadTypeNotFoundException) {
         val cooldownUntil = activateCompatibilityCooldown()

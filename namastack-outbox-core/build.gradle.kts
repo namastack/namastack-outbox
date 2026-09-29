@@ -11,10 +11,10 @@ allOpen {
 }
 
 dependencies {
-    implementation(project(":namastack-outbox-api"))
+    api(project(":namastack-outbox-api"))
 
-    implementation(platform(libs.spring.boot.bom))
-    implementation(libs.spring.boot)
+    api(platform(libs.spring.boot.bom))
+    api(libs.spring.boot)
     implementation(libs.spring.boot.autoconfigure)
     implementation(libs.spring.tx)
     implementation(libs.commons.codec)

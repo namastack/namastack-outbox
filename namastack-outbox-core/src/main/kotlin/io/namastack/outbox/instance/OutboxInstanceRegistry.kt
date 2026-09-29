@@ -2,8 +2,8 @@ package io.namastack.outbox.instance
 
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OpenForProxy
-import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
+import io.namastack.outbox.runtime.OutboxRuntimeSettings
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
 import org.springframework.scheduling.TaskScheduler
@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * stale instance entries in shared databases when Spring test contexts are cycled.
  *
  * @param instanceRepository Repository for persisting instance data
- * @param properties Configuration properties for outbox instance management
+ * @param settings Effective settings for outbox instance management
  * @param clock Clock for consistent time-based operations
  * @param taskScheduler TaskScheduler used to schedule the heartbeat
  *
@@ -43,7 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 @OpenForProxy
 class OutboxInstanceRegistry(
     private val instanceRepository: OutboxInstanceRepository,
-    private val properties: OutboxProperties,
+    private val settings: OutboxRuntimeSettings.Instance,
     private val clock: Clock,
     private val taskScheduler: TaskScheduler,
     private val observationRegistry: () -> ObservationRegistry,
@@ -58,8 +58,8 @@ class OutboxInstanceRegistry(
 
     private val log = LoggerFactory.getLogger(OutboxInstanceRegistry::class.java)
 
-    private val staleInstanceTimeout = properties.instance.effectiveStaleInstanceTimeout
-    private val gracefulShutdownTimeout = properties.instance.effectiveGracefulShutdownTimeout
+    private val staleInstanceTimeout = settings.staleInstanceTimeout
+    private val gracefulShutdownTimeout = settings.gracefulShutdownTimeout
 
     private val running = AtomicBoolean(false)
     private var scheduledHeartbeat: ScheduledFuture<*>? = null
@@ -79,7 +79,7 @@ class OutboxInstanceRegistry(
     override fun start() {
         registerInstance()
         running.set(true)
-        val rate = properties.instance.effectiveHeartbeatInterval
+        val rate = settings.heartbeatInterval
         val runnable = ScheduledMethodRunnable(this, SCHEDULE_METHOD, SCHEDULER_NAME, observationRegistry)
         scheduledHeartbeat = taskScheduler.scheduleAtFixedRate(runnable, rate)
     }

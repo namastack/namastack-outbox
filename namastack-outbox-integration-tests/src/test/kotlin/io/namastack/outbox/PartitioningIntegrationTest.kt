@@ -7,6 +7,7 @@ import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentCache
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
+import io.namastack.outbox.runtime.OutboxRuntimeSettings
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
@@ -144,7 +145,13 @@ class PartitioningIntegrationTest {
             OutboxInstanceRegistry(
                 currentInstanceId = instanceId,
                 instanceRepository = instanceRepository,
-                properties = outboxProperties,
+                settings =
+                    OutboxRuntimeSettings.Instance(
+                        rebalanceInterval = outboxProperties.instance.rebalanceInterval,
+                        heartbeatInterval = outboxProperties.instance.effectiveHeartbeatInterval,
+                        staleInstanceTimeout = outboxProperties.instance.effectiveStaleInstanceTimeout,
+                        gracefulShutdownTimeout = outboxProperties.instance.effectiveGracefulShutdownTimeout,
+                    ),
                 clock = clock,
                 taskScheduler = taskScheduler,
                 observationRegistry = { ObservationRegistry.NOOP },

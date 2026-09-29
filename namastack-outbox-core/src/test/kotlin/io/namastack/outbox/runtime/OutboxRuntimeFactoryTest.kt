@@ -2,7 +2,6 @@ package io.namastack.outbox.runtime
 
 import io.mockk.mockk
 import io.mockk.verify
-import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.annotation.OutboxHandler
@@ -71,7 +70,7 @@ class OutboxRuntimeFactoryTest {
         val instanceRepository = mockk<OutboxInstanceRepository>(relaxed = true)
         val spec =
             OutboxRuntimeSpec(
-                properties = OutboxProperties(),
+                settings = OutboxRuntimeSettings(),
                 persistence =
                     OutboxRuntimePersistence(
                         recordRepository = recordRepository,

@@ -3,6 +3,7 @@ package io.namastack.outbox.trigger
 import io.mockk.every
 import io.mockk.mockk
 import io.namastack.outbox.OutboxProperties
+import io.namastack.outbox.runtime.toRuntimeSettings
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
@@ -32,7 +33,7 @@ class OutboxPollingTriggerFactoryTest {
                 )
             every { triggerContext.lastCompletion() } returns instant
 
-            val trigger = OutboxPollingTriggerFactory.create(prop, clock)
+            val trigger = OutboxPollingTriggerFactory.create(prop.toRuntimeSettings().polling, clock)
 
             assertThat(trigger).isInstanceOf(FixedPollingTrigger::class.java)
             val next = trigger.nextExecution(triggerContext)
@@ -48,7 +49,7 @@ class OutboxPollingTriggerFactoryTest {
                 )
             every { triggerContext.lastCompletion() } returns instant
 
-            val trigger = OutboxPollingTriggerFactory.create(prop, clock)
+            val trigger = OutboxPollingTriggerFactory.create(prop.toRuntimeSettings().polling, clock)
             assertThat(trigger).isInstanceOf(FixedPollingTrigger::class.java)
 
             val next = trigger.nextExecution(triggerContext)
@@ -67,7 +68,7 @@ class OutboxPollingTriggerFactoryTest {
             )
         every { triggerContext.lastCompletion() } returns instant
 
-        val trigger = OutboxPollingTriggerFactory.create(prop, clock)
+        val trigger = OutboxPollingTriggerFactory.create(prop.toRuntimeSettings().polling, clock)
         assertThat(trigger).isInstanceOf(AdaptivePollingTrigger::class.java)
 
         // min boundary
@@ -85,7 +86,7 @@ class OutboxPollingTriggerFactoryTest {
     fun `throws on unsupported polling trigger`() {
         val prop = properties(pollingTrigger = "unknown")
 
-        assertThatThrownBy { OutboxPollingTriggerFactory.create(prop, clock) }
+        assertThatThrownBy { OutboxPollingTriggerFactory.create(prop.toRuntimeSettings().polling, clock) }
             .isInstanceOf(IllegalStateException::class.java)
             .hasMessageContaining("Unsupported polling-trigger")
     }

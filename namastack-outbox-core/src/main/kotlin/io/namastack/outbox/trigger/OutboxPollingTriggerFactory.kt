@@ -1,64 +1,48 @@
 package io.namastack.outbox.trigger
 
-import io.namastack.outbox.OutboxProperties
+import io.namastack.outbox.runtime.OutboxRuntimeSettings
 import java.time.Clock
 
 /**
- * Factory for creating [OutboxPollingTrigger] instances based on configuration properties.
+ * Factory for creating [OutboxPollingTrigger] instances based on effective runtime settings.
  *
  * This factory creates the appropriate trigger implementation based on the configured
  * polling strategy. It supports:
- * - "fixed": Creates a [FixedPollingTrigger] with constant delay
- * - "adaptive": Creates an [AdaptivePollingTrigger] with dynamic delay adjustment
- *
- * The factory handles backward compatibility with deprecated properties by falling back
- * to legacy configuration values when new properties are not set.
+ * - [OutboxRuntimeSettings.Polling.Trigger.FIXED]: Creates a [FixedPollingTrigger] with constant delay
+ * - [OutboxRuntimeSettings.Polling.Trigger.ADAPTIVE]: Creates an [AdaptivePollingTrigger] with dynamic delay adjustment
  *
  * @author Aleksander Zamojski
  * @since 1.1.0
  */
 internal object OutboxPollingTriggerFactory {
     /**
-     * Creates an appropriate [OutboxPollingTrigger] based on the provided properties.
+     * Creates an appropriate [OutboxPollingTrigger] based on the provided settings.
      *
-     * The trigger type is determined by [OutboxProperties.Polling.trigger]. Supported values:
-     * - "fixed": Creates a fixed delay trigger
-     * - "adaptive": Creates an adaptive delay trigger
+     * The trigger type is determined by [OutboxRuntimeSettings.Polling.trigger].
      *
-     * For backward compatibility, deprecated properties ([OutboxProperties.pollInterval]
-     * and [OutboxProperties.batchSize]) are used as fallbacks when new properties are not set.
-     *
-     * @param properties The outbox configuration properties
+     * @param settings Effective polling settings
      * @param clock The clock to use for time calculations
      * @return The configured polling trigger
-     * @throws IllegalStateException if an unsupported trigger type is specified
      */
     fun create(
-        properties: OutboxProperties,
+        settings: OutboxRuntimeSettings.Polling,
         clock: Clock,
-    ): OutboxPollingTrigger {
-        val name = properties.polling.trigger
-
-        return when (name.lowercase()) {
-            "fixed" -> {
+    ): OutboxPollingTrigger =
+        when (settings.trigger) {
+            OutboxRuntimeSettings.Polling.Trigger.FIXED -> {
                 FixedPollingTrigger(
-                    delay = properties.pollInterval ?: properties.polling.fixed.interval,
+                    delay = settings.fixed.interval,
                     clock = clock,
                 )
             }
 
-            "adaptive" -> {
+            OutboxRuntimeSettings.Polling.Trigger.ADAPTIVE -> {
                 AdaptivePollingTrigger(
-                    minDelay = properties.polling.adaptive.minInterval,
-                    maxDelay = properties.polling.adaptive.maxInterval,
-                    batchSize = properties.batchSize ?: properties.polling.batchSize,
+                    minDelay = settings.adaptive.minInterval,
+                    maxDelay = settings.adaptive.maxInterval,
+                    batchSize = settings.batchSize,
                     clock = clock,
                 )
-            }
-
-            else -> {
-                error("Unsupported polling-trigger: $name")
             }
         }
-    }
 }

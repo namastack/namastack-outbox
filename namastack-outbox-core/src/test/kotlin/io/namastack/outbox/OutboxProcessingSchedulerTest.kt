@@ -8,6 +8,7 @@ import io.namastack.outbox.OutboxProcessingScheduler.SchedulerLifecycleStateMach
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
+import io.namastack.outbox.runtime.toRuntimeSettings
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
@@ -49,23 +50,30 @@ class OutboxProcessingSchedulerTest {
 
     @BeforeEach
     fun setUp() {
-        scheduler =
-            OutboxProcessingScheduler(
-                trigger = trigger,
-                taskScheduler = taskScheduler,
-                observationRegistry = { ObservationRegistry.NOOP },
-                recordRepository = recordRepository,
-                recordProcessorChainInvoker = recordProcessorChainInvoker,
-                partitionCoordinator = partitionCoordinator,
-                taskExecutor = SyncTaskExecutor(),
-                properties = properties,
-                clock = clock,
-            )
+        scheduler = createScheduler()
 
         every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
         every { partitionCoordinator.withStableAssignments<Int>(any()) } answers {
             firstArg<(Set<Int>) -> Int>().invoke(partitionCoordinator.getAssignedPartitionNumbers())
         }
+    }
+
+    private fun createScheduler(): OutboxProcessingScheduler =
+        OutboxProcessingScheduler(
+            trigger = trigger,
+            taskScheduler = taskScheduler,
+            observationRegistry = { ObservationRegistry.NOOP },
+            recordRepository = recordRepository,
+            recordProcessorChainInvoker = recordProcessorChainInvoker,
+            partitionCoordinator = partitionCoordinator,
+            taskExecutor = SyncTaskExecutor(),
+            settings = properties.toRuntimeSettings(),
+            clock = clock,
+        )
+
+    private fun recreateStartedScheduler() {
+        scheduler = createScheduler()
+        scheduler.start()
     }
 
     @Nested
@@ -253,7 +261,7 @@ class OutboxProcessingSchedulerTest {
                     recordProcessorChainInvoker = recordProcessorChainInvoker,
                     partitionCoordinator = partitionCoordinator,
                     taskExecutor = SyncTaskExecutor(),
-                    properties = properties,
+                    settings = properties.toRuntimeSettings(),
                     clock = clock,
                 )
 
@@ -522,6 +530,7 @@ class OutboxProcessingSchedulerTest {
         @Test
         fun `process respects batch size configuration`() {
             properties.polling.batchSize = 50
+            recreateStartedScheduler()
 
             prepareFindRecordKeysInPartitions(emptyList())
 
@@ -541,6 +550,7 @@ class OutboxProcessingSchedulerTest {
         fun `process respects batch size deprecated configuration`() {
             properties.polling.batchSize = 100
             properties.batchSize = 50
+            recreateStartedScheduler()
 
             prepareFindRecordKeysInPartitions(emptyList())
 
@@ -559,6 +569,7 @@ class OutboxProcessingSchedulerTest {
         @Test
         fun `process passes stopOnFirstFailure flag to repository`() {
             properties.processing.stopOnFirstFailure = true
+            recreateStartedScheduler()
 
             prepareFindRecordKeysInPartitions(emptyList())
 
@@ -660,6 +671,7 @@ class OutboxProcessingSchedulerTest {
         @Test
         fun `stops processing key when record not ready and stopOnFirstFailure enabled`() {
             properties.processing.stopOnFirstFailure = true
+            recreateStartedScheduler()
 
             val key = "record-key"
             val notReadyRecord =
@@ -688,6 +700,7 @@ class OutboxProcessingSchedulerTest {
         @Test
         fun `continues processing when record not ready and stopOnFirstFailure disabled`() {
             properties.processing.stopOnFirstFailure = false
+            recreateStartedScheduler()
 
             val key = "record-key"
             val notReadyRecord =
@@ -718,6 +731,7 @@ class OutboxProcessingSchedulerTest {
         @Test
         fun `stops processing key when processor chain returns false and stopOnFirstFailure enabled`() {
             properties.processing.stopOnFirstFailure = true
+            recreateStartedScheduler()
 
             val key = "record-key"
             val record1 =
@@ -750,6 +764,7 @@ class OutboxProcessingSchedulerTest {
         @Test
         fun `continues processing when processor chain returns false and stopOnFirstFailure disabled`() {
             properties.processing.stopOnFirstFailure = false
+            recreateStartedScheduler()
 
             val key = "record-key"
             val record1 =
@@ -782,6 +797,7 @@ class OutboxProcessingSchedulerTest {
         @Test
         fun `processes all ready records when all succeed and stopOnFirstFailure disabled`() {
             properties.processing.stopOnFirstFailure = false
+            recreateStartedScheduler()
 
             val key = "record-key"
             val record1 =

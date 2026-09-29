@@ -47,7 +47,7 @@ object OutboxRuntimeFactory {
         val instanceRegistry =
             OutboxInstanceRegistry(
                 instanceRepository = persistence.instanceRepository,
-                properties = spec.properties,
+                settings = spec.settings.instance,
                 clock = spec.clock,
                 taskScheduler = resources.heartbeatScheduler,
                 observationRegistry = { spec.observationRegistry },
@@ -59,7 +59,7 @@ object OutboxRuntimeFactory {
                 partitionAssignmentCache = PartitionAssignmentCache(persistence.partitionAssignmentRepository),
                 clock = spec.clock,
                 taskScheduler = resources.taskScheduler,
-                rebalanceInterval = spec.properties.effectiveRebalanceInterval,
+                rebalanceInterval = spec.settings.instance.rebalanceInterval,
                 observationRegistry = { spec.observationRegistry },
             )
         val processorChain = createProcessorChain(handlers, spec)
@@ -71,14 +71,14 @@ object OutboxRuntimeFactory {
             )
         val processingScheduler =
             OutboxProcessingScheduler(
-                trigger = OutboxPollingTriggerFactory.create(spec.properties, spec.clock),
+                trigger = OutboxPollingTriggerFactory.create(spec.settings.polling, spec.clock),
                 taskScheduler = resources.taskScheduler,
                 observationRegistry = { spec.observationRegistry },
                 recordRepository = persistence.recordRepository,
                 recordProcessorChainInvoker = processorChainInvoker,
                 partitionCoordinator = partitionCoordinator,
                 taskExecutor = resources.taskExecutor,
-                properties = spec.properties,
+                settings = spec.settings,
                 clock = spec.clock,
             )
         return OutboxRuntime(
@@ -92,14 +92,15 @@ object OutboxRuntimeFactory {
         spec: OutboxRuntimeSpec,
     ): OutboxRecordProcessor {
         val repository = spec.persistence.recordRepository
-        val primary = PrimaryOutboxRecordProcessor(handlers.handlerInvoker, repository, spec.properties, spec.clock)
+        val processing = spec.settings.processing
+        val primary = PrimaryOutboxRecordProcessor(handlers.handlerInvoker, repository, processing, spec.clock)
         val retry = RetryOutboxRecordProcessor(handlers.retryPolicyRegistry, repository, spec.clock)
         val fallback =
             FallbackOutboxRecordProcessor(
                 recordRepository = repository,
                 fallbackHandlerRegistry = handlers.fallbackHandlerRegistry,
                 fallbackHandlerInvoker = handlers.fallbackHandlerInvoker,
-                properties = spec.properties,
+                settings = processing,
                 clock = spec.clock,
             )
         val permanentFailure = PermanentFailureOutboxRecordProcessor(repository)

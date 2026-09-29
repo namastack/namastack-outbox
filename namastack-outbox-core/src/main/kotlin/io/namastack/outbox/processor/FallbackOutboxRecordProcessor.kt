@@ -1,11 +1,11 @@
 package io.namastack.outbox.processor
 
-import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
+import io.namastack.outbox.runtime.OutboxRuntimeSettings
 import org.slf4j.LoggerFactory
 import java.time.Clock
 
@@ -17,7 +17,7 @@ import java.time.Clock
  *
  * @param recordRepository Repository for persisting record state
  * @param fallbackHandlerInvoker Invoker for fallback handlers
- * @param properties Configuration
+ * @param settings Effective processing settings
  * @param clock Clock for completion timestamp
  *
  * @author Roland Beisel
@@ -27,7 +27,7 @@ class FallbackOutboxRecordProcessor(
     private val recordRepository: OutboxRecordRepository,
     private val fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
     private val fallbackHandlerInvoker: OutboxFallbackHandlerInvoker,
-    private val properties: OutboxProperties,
+    private val settings: OutboxRuntimeSettings.Processing,
     private val clock: Clock,
 ) : OutboxRecordProcessor() {
     private val log = LoggerFactory.getLogger(FallbackOutboxRecordProcessor::class.java)
@@ -50,7 +50,7 @@ class FallbackOutboxRecordProcessor(
             log.debug("Dispatching record {} to fallback handler", record.id)
             fallbackHandlerInvoker.dispatch(record)
 
-            completeRecord(record, recordRepository, properties, clock)
+            completeRecord(record, recordRepository, settings, clock)
 
             return OutboxRecordProcessingOutcome.COMPLETED
         } catch (ex: Exception) {

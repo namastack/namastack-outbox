@@ -1,7 +1,7 @@
 package io.namastack.outbox.multicaster
 
 import io.namastack.outbox.Outbox
-import io.namastack.outbox.OutboxProperties
+import io.namastack.outbox.runtime.OutboxRuntimeSettings
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.ApplicationEvent
@@ -37,7 +37,7 @@ import org.springframework.core.ResolvableType
  */
 class OutboxEventMulticaster(
     private val outboxProvider: ObjectProvider<Outbox>,
-    private val outboxProperties: OutboxProperties,
+    private val settings: OutboxRuntimeSettings.Multicaster,
     private val delegateEventMulticaster: SimpleApplicationEventMulticaster,
 ) : ApplicationEventMulticaster by delegateEventMulticaster {
     companion object {
@@ -87,7 +87,7 @@ class OutboxEventMulticaster(
         log.debug("Saving @OutboxEvent to outbox: $classSimpleName")
         saveOutboxRecord(resolvedEvent)
 
-        if (outboxProperties.processing.publishAfterSave ?: outboxProperties.multicaster.publishAfterSave) {
+        if (settings.publishAfterSave) {
             log.debug("Publishing @OutboxEvent to listeners: $classSimpleName")
             delegateEventMulticaster.multicastEvent(event, eventType)
         }
