@@ -44,6 +44,7 @@ jobs:
             echo "Release tag $RELEASE_TAG does not match Gradle version $expected_version" >&2
             exit 1
           fi
+          echo "RELEASE_SUFFIX=${tagged_version#"$tagged_base_version"}" >> "$GITHUB_ENV"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -64,7 +65,7 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKeyPassword }}
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralUsername }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralPassword }}
-        run: ./gradlew publishToMavenCentral -Prelease=true --no-configuration-cache --no-daemon
+        run: ./gradlew publishToMavenCentral -Prelease=true "-PreleaseSuffix=$RELEASE_SUFFIX" --no-configuration-cache --no-daemon
 
       - name: Create GitHub Release
         env:

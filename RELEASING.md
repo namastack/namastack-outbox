@@ -16,6 +16,8 @@ Review and merge the pull request after both validation workflows pass. When bot
 
 The release tag acts as the dispatch marker, so repeated gate events cannot enqueue the same Maven Central publication twice. If the initial production dispatch fails after the tag was created, rerun **Release Production** manually with that existing tag.
 
+The production workflow also accepts existing prerelease tags such as `v1.10.0-RC1`. It preserves the suffix in the Maven coordinates and marks the corresponding GitHub release as a prerelease.
+
 GitHub builds the release notes from merged pull requests using `.github/release.yml`. Apply `enhancement`, `bug`, `documentation`, `dependencies`, or `breaking-change` labels to place pull requests in a specific section. Unlabelled pull requests remain visible under **Other Changes**. The prompt in `.github/prompts/release-notes.prompt.md` is an optional editorial aid and is not used by CI.
 
 Release preparation pull requests receive the `release` label and are excluded from the generated release notes.
