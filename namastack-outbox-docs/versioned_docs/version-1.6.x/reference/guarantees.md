@@ -39,11 +39,12 @@ processed by one instance at a time.
 ### Failure Recovery
 
 A system failure (JVM crash, OOM, power loss) at any point during processing does not result in
-lost records. Records remain `PENDING` or `PROCESSING` in the database. On restart, the library
-picks up where it left off and resumes processing.
+lost records. A record remains `NEW` in the database until processing completes successfully or
+fails permanently. On restart, the library picks up where it left off and resumes processing.
 
-Records that were mid-processing when a crash occurred are automatically detected as stale and
-returned to the `PENDING` state after a configurable timeout.
+If an instance crashes while processing a record, stale-instance detection makes its partition
+available to an active instance after a configurable timeout. The `NEW` record can then be
+processed again.
 
 ### Horizontal Scalability
 
@@ -85,7 +86,7 @@ roughly triples it, and so on.
 Records may be processed **more than once**. This happens in scenarios such as:
 
 - The handler succeeds but the application crashes before the outbox record is marked as
-  `PROCESSED`
+  `COMPLETED`
 - A record is picked up by two instances during a rebalancing window
 
 **Consequence:** Handlers must be **idempotent** — processing the same record twice must produce
