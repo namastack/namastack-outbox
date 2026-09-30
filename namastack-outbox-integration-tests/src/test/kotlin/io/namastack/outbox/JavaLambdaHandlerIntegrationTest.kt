@@ -8,6 +8,7 @@ import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
@@ -44,9 +45,13 @@ class JavaLambdaHandlerIntegrationTest {
     @Qualifier("javaLambdaHandler")
     private lateinit var javaLambdaHandler: OutboxHandler
 
+    @BeforeEach
+    fun resetInvocations() {
+        invocations.clear()
+    }
+
     @AfterEach
     fun cleanup() {
-        invocations.clear()
         transactionTemplate.executeWithoutResult {
             entityManager.createQuery("DELETE FROM OutboxRecordEntity").executeUpdate()
             entityManager.createQuery("DELETE FROM OutboxInstanceEntity").executeUpdate()

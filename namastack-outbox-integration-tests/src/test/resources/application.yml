@@ -10,13 +10,16 @@ spring:
 
 namastack:
   outbox:
+    polling:
+      fixed:
+        interval: "50ms"
     retry:
       policy: "fixed"
       fixed:
-        delay: "1s"
+        delay: "10ms"
       max-retries: 2
 
 logging:
   level:
     root: warn
-    io.namastack.outbox: trace
+    io.namastack.outbox: warn
