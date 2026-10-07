@@ -8,7 +8,8 @@ latest available patch release in their selected line.
 
 | Version           | Status                                     | Supported          |
 |-------------------|--------------------------------------------|--------------------|
-| 1.9.x             | Current release line (starting with 1.9.0) | :white_check_mark: |
+| 1.10.x            | Current release line (starting with 1.10.0) | :white_check_mark: |
+| 1.9.x             | End of security support                    | :x:                |
 | 1.8.x             | End of security support                    | :x:                |
 | 1.7.x             | Spring Modulith integration line           | :white_check_mark: |
 | 1.6.x and earlier | End of security support                    | :x:                |

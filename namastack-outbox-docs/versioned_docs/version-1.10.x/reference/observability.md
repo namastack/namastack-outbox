@@ -1,0 +1,497 @@
+---
+custom_edit_url: null
+pagination_prev: null
+pagination_next: null
+title: Observability
+description: Built-in metrics, distributed tracing, and operational monitoring with Micrometer, OpenTelemetry, and Spring Boot Actuator.
+sidebar_position: 10
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import VersionedCode from '@site/src/components/VersionedCode';
+
+# Observability
+
+The `namastack-outbox-observability` module is the current observability integration for
+Namastack Outbox. It provides:
+
+- Micrometer observations for record scheduling and record processing
+- timer metrics derived from those observations
+- trace propagation across the transactional outbox boundary
+- instance and cluster gauges for operational state
+- one shared tag schema for metrics and traces
+
+:::warning Deprecated modules
+
+The old `namastack-outbox-metrics` and `namastack-outbox-tracing` modules are deprecated.
+Use `namastack-outbox-observability` for new applications.
+
+The legacy modules remain available for users who need the old metric names or tracing setup, but
+new features and metric naming improvements are provided by the observability module.
+
+:::
+
+## Setup
+
+Add the observability module together with your outbox starter. If you want to export Prometheus
+metrics, also add the Prometheus Micrometer registry.
+
+<Tabs>
+<TabItem value="gradle" label="Gradle">
+
+<VersionedCode language="kotlin" template= {`dependencies {
+      implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
+      implementation("io.namastack:namastack-outbox-starter-jpa")
+      implementation("io.namastack:namastack-outbox-observability")
+
+      // For Prometheus endpoint (optional)
+      implementation("io.micrometer:micrometer-registry-prometheus")
+
+      // For distributed tracing (optional, choose your tracing bridge)
+      implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
+}`} />
+
+</TabItem>
+<TabItem value="maven" label="Maven">
+
+<VersionedCode language="xml" template= {`<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>io.namastack</groupId>
+            <artifactId>namastack-outbox-bom</artifactId>
+            <version>{{versionLabel}}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+
+<dependency>
+      <groupId>io.namastack</groupId>
+      <artifactId>namastack-outbox-starter-jpa</artifactId>
+</dependency>
+
+<dependency>
+      <groupId>io.namastack</groupId>
+      <artifactId>namastack-outbox-observability</artifactId>
+</dependency>
+
+<!-- For Prometheus endpoint (optional) -->
+<dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+</dependency>
+
+<!-- For distributed tracing (optional, choose your tracing bridge) -->
+<dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-opentelemetry</artifactId>
+</dependency>`} />
+
+</TabItem>
+</Tabs>
+
+The module auto-configures when:
+
+- `OutboxService` is on the classpath
+- a Micrometer `ObservationRegistry` is available
+- `namastack.outbox.enabled=true` (the default)
+
+Tracing context propagation is enabled automatically when Micrometer `Tracer` and `Propagator`
+beans are present.
+
+## Metrics
+
+The observability module exposes two kinds of metrics:
+
+- **Observation-based timers** for actual scheduling and processing work
+- **Gauge metrics** for current outbox state
+
+Observation-based metrics are event-driven. They measure real calls to `Outbox.schedule(...)` and
+handler dispatches. Gauges are state snapshots, read when your metrics backend scrapes the
+application.
+
+### Observation Metrics
+
+| Metric | Type | Description | Low-cardinality tags |
+|--------|------|-------------|----------------------|
+| `outbox.record.schedule` | timer | Time spent scheduling one outbox operation | `outbox.channel` |
+| `outbox.record.attempt` | timer | Time spent processing one fully materialized record | `outbox.channel`, `outbox.processing.outcome` |
+| `outbox.record.process` | timer | Time spent dispatching one outbox record to a primary or fallback handler | `outbox.channel`, `outbox.handler.kind`, `outbox.handler.id` |
+
+Use these metrics for latency, throughput, and error monitoring:
+
+- throughput: rate of timer count
+- latency: timer percentiles or max
+- error rate: timer count grouped by the Micrometer error/exception tags provided by your metrics setup
+- record outcomes: group `outbox.record.attempt` by `outbox.processing.outcome`
+- handler-level analysis: group `outbox.record.process` by `outbox.handler.kind` and `outbox.handler.id`
+
+Example PromQL:
+
+```promql
+rate(outbox_record_process_seconds_count[5m])
+```
+
+```promql
+histogram_quantile(0.95, rate(outbox_record_process_seconds_bucket[5m]))
+```
+
+```promql
+sum by (outbox_handler_id, outbox_handler_kind) (
+  rate(outbox_record_process_seconds_count[5m])
+)
+```
+
+:::note Metric names in Prometheus
+
+Micrometer converts dotted meter names to Prometheus naming conventions. For example,
+`outbox.record.process` is usually exported as `outbox_record_process_seconds`.
+
+:::
+
+### Gauge Metrics
+
+| Metric | Description | Tags |
+|--------|-------------|------|
+| `outbox.records` | Count of outbox records by status | `outbox.channel`, `outbox.record.status=new\|failed\|completed` |
+| `outbox.instance.partitions.assigned` | Number of partitions assigned to this application instance | `outbox.channel` |
+| `outbox.instance.records.pending` | Total pending records across partitions assigned to this instance | `outbox.channel` |
+| `outbox.cluster.instances.active` | Number of active outbox instances in the cluster | `outbox.channel` |
+| `outbox.cluster.partitions.unassigned` | Number of partitions not assigned to any active instance | `outbox.channel` |
+
+Use gauges for operational state:
+
+- backlog: `outbox.records{outbox.record.status="new"}`
+- failed records: `outbox.records{outbox.record.status="failed"}`
+- per-instance pressure: `outbox.instance.records.pending`
+- cluster health: `outbox.cluster.instances.active` and `outbox.cluster.partitions.unassigned`
+
+:::info Actuator endpoints
+
+Common Spring Boot Actuator endpoints:
+
+- `/actuator/metrics/outbox.record.attempt`
+- `/actuator/metrics/outbox.record.process`
+- `/actuator/metrics/outbox.record.schedule`
+- `/actuator/metrics/outbox.records`
+- `/actuator/metrics/outbox.instance.records.pending`
+- `/actuator/prometheus` (if Prometheus is enabled)
+
+:::
+
+## Tag Schema
+
+The module uses one shared tag schema across observations and metrics.
+
+### Low-Cardinality Tags
+
+Low-cardinality tags are safe for metric dimensions.
+
+| Tag key | Values | Used by | Description |
+|---------|--------|---------|-------------|
+| `outbox.channel` | channel name, defaults to `default` | all outbox metrics | Logical outbox channel |
+| `outbox.record.status` | `new`, `failed`, `completed` | `outbox.records` | Record status |
+| `outbox.processing.outcome` | `completed`, `retry_scheduled`, `failed`, `compatibility_deferred`, `error`, `unknown` | `outbox.record.attempt` | Outcome of a record attempt; `unknown` until its final outcome is determined |
+| `outbox.handler.kind` | `primary`, `fallback` | `outbox.record.process` | Whether the primary or fallback handler processed the record |
+| `outbox.handler.id` | handler id | `outbox.record.process` | Handler identifier stored with the outbox record |
+
+### High-Cardinality Observation Keys
+
+High-cardinality keys are intended for traces and log correlation. Do not promote them to metric
+dimensions unless you fully control their cardinality.
+
+| Key | Used by | Description |
+|-----|---------|-------------|
+| `outbox.record.id` | `outbox.record.attempt`, `outbox.record.process` | Unique outbox record id |
+| `outbox.record.key` | `outbox.record.attempt`, `outbox.record.process` | Business key used for ordering and partitioning |
+| `outbox.delivery.attempt` | `outbox.record.attempt`, `outbox.record.process` | Current delivery attempt (`failureCount + 1`) |
+| `outbox.schedule.record.key` | `outbox.record.schedule` | Explicit schedule key, or `auto-generated` for overloads without a key argument |
+| `outbox.schedule.payload.type` | `outbox.record.schedule` | Simple class name of the scheduled payload |
+
+## Tracing
+
+The observability module preserves tracing across both sides of the async boundary.
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant Outbox as Outbox Service
+    participant Provider as Tracing Context Provider
+    participant DB as Outbox Table
+    participant Scheduler
+    participant Processing as Processing Chain
+    participant Handler as Primary / Fallback Handler
+
+    Note over App,DB: Scheduling time
+    App->>Outbox: Schedule record
+    Note over Outbox,DB: Start outbox.record.schedule observation
+    Outbox->>Provider: Request current tracing context
+    Provider-->>Outbox: traceparent, tracestate, ...
+    Outbox->>DB: Save record and context
+    Note over Outbox,DB: Stop outbox.record.schedule observation
+
+    Note over DB,Handler: Processing time
+    Scheduler->>DB: Poll records
+    DB-->>Scheduler: Record and context
+    Note over Scheduler,Handler: Restore persisted context<br/>Start outbox.record.attempt observation
+    Scheduler->>Processing: Process record
+
+    Note over Processing,Handler: Start outbox.record.process observation
+    Processing->>Handler: Invoke primary handler
+    Handler-->>Processing: Success / Error
+    Note over Processing,Handler: Stop outbox.record.process observation
+
+    opt Fallback required
+        Note over Processing,Handler: Start outbox.record.process observation
+        Processing->>Handler: Invoke fallback handler
+        Handler-->>Processing: Success / Error
+        Note over Processing,Handler: Stop outbox.record.process observation
+    end
+
+    Note over Scheduler,Handler: Stop outbox.record.attempt observation
+```
+
+The observations produced by that flow have this parent-child trace structure:
+
+```text
+producer span
+└── outbox.record.schedule
+    └── outbox.record.attempt
+        ├── outbox.record.process (primary)
+        └── outbox.record.process (fallback)
+```
+
+At scheduling time, `OutboxObservabilityTracingContextProvider` serializes the active span context
+into the outbox record's `context` map using the configured Micrometer `Propagator`. With W3C Trace
+Context this usually stores headers such as `traceparent` and `tracestate`.
+
+At processing time, `outbox.record.attempt` uses a Micrometer receiver context, so the tracing
+bridge can read the stored propagation headers and create a child span under the original producer
+trace. Primary and fallback `outbox.record.process` observations are children of that attempt.
+Retry coordination, fallback selection, completion, and permanent-failure persistence remain inside
+the attempt without creating additional spans.
+
+Core invokes each instrumentation hook at its actual operation boundary:
+
+- `OutboxService` invokes `schedule` around record creation and persistence.
+- `OutboxRecordProcessorChainInvoker` invokes `processRecord` around one complete processor-chain attempt.
+- `OutboxHandlerInvoker` invokes `invokeHandler` around one primary handler invocation.
+- `OutboxFallbackHandlerInvoker` invokes `invokeHandler` around one fallback handler invocation.
+
+Each retry creates a new sibling attempt. Loading and materialization happen before this boundary;
+failures there remain associated with the scheduler observation and do not create a record attempt.
+
+:::tip See also
+
+For details on how trace headers are stored in and read from `record.context`, how to add your own
+context alongside tracing, or how to manually override context at scheduling time, see
+[Context Propagation](./context-propagation.md).
+
+:::
+
+## Custom Instrumentation
+
+`OutboxInstrumentation` is the general-purpose Core extension point for observing scheduling and
+complete record attempts and handler invocations. It is useful for logging, auditing, custom
+metrics, profiling, or integrating an observability library other than Micrometer. It is available
+through the normal outbox starter; the observability module is not required.
+
+Register an `OutboxInstrumentation` bean and invoke the supplied action exactly once:
+
+```kotlin
+import io.namastack.outbox.instrumentation.OutboxHandlerInvocation
+import io.namastack.outbox.instrumentation.OutboxInstrumentation
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingInvocation
+import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
+import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
+import org.slf4j.LoggerFactory
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
+import org.springframework.stereotype.Component
+
+@Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
+class LoggingOutboxInstrumentation : OutboxInstrumentation {
+    private val logger = LoggerFactory.getLogger(LoggingOutboxInstrumentation::class.java)
+
+    override fun schedule(
+        invocation: OutboxScheduleInvocation,
+        action: () -> Unit,
+    ) = observe("schedule", invocation.channel, action)
+
+    override fun processRecord(
+        invocation: OutboxRecordProcessingInvocation,
+        action: () -> OutboxRecordProcessingOutcome,
+    ): OutboxRecordProcessingOutcome =
+        observe("process", invocation.channel, action)
+
+    override fun invokeHandler(
+        invocation: OutboxHandlerInvocation,
+        action: () -> Unit,
+    ) = observe("handler:${invocation.handlerKind}", invocation.channel, action)
+
+    private fun <T> observe(
+        operation: String,
+        channel: String,
+        action: () -> T,
+    ): T {
+        logger.info("Outbox {} started for channel {}", operation, channel)
+        try {
+            return action()
+        } catch (failure: Throwable) {
+            logger.warn("Outbox {} failed for channel {}", operation, channel, failure)
+            throw failure
+        }
+    }
+}
+```
+
+Spring orders all instrumentation beans using `@Order` or `Ordered`. The first item is the outermost
+interceptor. Adding a custom instrumentation does not disable
+`MicrometerOutboxInstrumentation`; both participate in the same ordered chain.
+
+An instrumentation must remain observational:
+
+- invoke `action` exactly once;
+- return the exact `OutboxRecordProcessingOutcome` produced by `processRecord`;
+- rethrow the same failure unchanged;
+- do not implement retry, fallback, persistence, or other business behavior;
+- avoid turning record keys, record IDs, or payload values into low-cardinality metric tags.
+
+The standard `OutboxService`, `OutboxRecordProcessorChainInvoker`, `OutboxHandlerInvoker`, and
+`OutboxFallbackHandlerInvoker` invoke these hooks directly. There is no Spring AOP advisor around
+arbitrary `Outbox` implementations. If an application replaces the standard `Outbox` bean and
+wants scheduling instrumentation, that custom implementation must invoke an
+`OutboxInstrumentation` itself.
+
+If you only need to change Micrometer observation names or tags, use the custom observation
+conventions below instead of adding another instrumentation.
+
+## Custom Observation Conventions
+
+You can override the default observation naming and tag conventions by registering custom
+convention beans.
+
+### Record Attempts
+
+Implement `OutboxRecordProcessingObservationConvention` to customize `outbox.record.attempt`.
+The default convention reads `outbox.processing.outcome` from the observation context. The outcome
+is initially `unknown` and is updated to its final value before the observation stops:
+
+- `completed`, `retry_scheduled`, or `failed` for a normal Core processor-chain outcome
+- `compatibility_deferred` when `OutboxHandlerNotFoundException` escapes the attempt
+- `error` for any other escaping exception
+
+Payload-type compatibility failures (`OutboxPayloadTypeNotFoundException`) occur during
+materialization and never enter the attempt observation.
+
+```kotlin
+@Configuration
+class CustomOutboxRecordProcessingObservationConfig {
+    @Bean
+    fun customOutboxRecordProcessingConvention(): OutboxRecordProcessingObservationConvention =
+        object : OutboxRecordProcessingObservationConvention {
+            override fun getName(): String = "myapp.outbox.attempt"
+
+            override fun getContextualName(context: OutboxRecordProcessingObservationContext): String = 
+                "outbox record attempt"
+
+            override fun getLowCardinalityKeyValues(
+                context: OutboxRecordProcessingObservationContext,
+            ) = KeyValues.of(
+                OutboxObservationDocumentation.AttemptLowCardinalityKeyNames.OUTCOME
+                    .withValue(context.getOutcome().toString()),
+                OutboxObservationDocumentation.AttemptLowCardinalityKeyNames.CHANNEL
+                    .withValue(context.getChannel()),
+            )
+        }
+}
+```
+
+### Handler Invocations
+
+Implement `OutboxProcessObservationConvention` to customize `outbox.record.process`. The
+established observation name uses “process” to mean one primary or fallback handler invocation.
+
+```kotlin
+@Configuration
+class CustomOutboxProcessObservationConfig {
+    @Bean
+    fun customOutboxProcessConvention(): OutboxProcessObservationConvention =
+        object : OutboxProcessObservationConvention {
+            override fun getName(): String = "myapp.outbox.process"
+
+            override fun getContextualName(context: OutboxProcessObservationContext): String =
+                "outbox process"
+
+            override fun getLowCardinalityKeyValues(context: OutboxProcessObservationContext) =
+                KeyValues.of(
+                    OutboxObservationDocumentation.LowCardinalityKeyNames.HANDLER_KIND
+                        .withValue(context.getHandlerKind().toString()),
+                    OutboxObservationDocumentation.LowCardinalityKeyNames.HANDLER_ID
+                        .withValue(context.getHandlerId()),
+                    OutboxObservationDocumentation.LowCardinalityKeyNames.CHANNEL
+                        .withValue(context.getChannel()),
+                )
+
+            override fun getHighCardinalityKeyValues(context: OutboxProcessObservationContext) =
+                KeyValues.of(
+                    OutboxObservationDocumentation.HighCardinalityKeyNames.RECORD_ID
+                        .withValue(context.getRecordId()),
+                    OutboxObservationDocumentation.HighCardinalityKeyNames.RECORD_KEY
+                        .withValue(context.getRecordKey()),
+                    OutboxObservationDocumentation.HighCardinalityKeyNames.DELIVERY_ATTEMPT
+                        .withValue(context.getDeliveryAttempt().toString()),
+                )
+        }
+}
+```
+
+### Record Scheduling
+
+Implement `OutboxScheduleObservationConvention` to customize `outbox.record.schedule`.
+
+```kotlin
+@Configuration
+class CustomOutboxScheduleObservationConfig {
+    @Bean
+    fun customOutboxScheduleConvention(): OutboxScheduleObservationConvention =
+        object : OutboxScheduleObservationConvention {
+            override fun getName(): String = "myapp.outbox.schedule"
+
+            override fun getContextualName(context: OutboxScheduleObservationContext): String = 
+                "outbox schedule"
+
+            override fun getLowCardinalityKeyValues(context: OutboxScheduleObservationContext) =
+                KeyValues.of(
+                    OutboxObservationDocumentation.ScheduleLowCardinalityKeyNames.CHANNEL
+                        .withValue(context.channel),
+                )
+
+            override fun getHighCardinalityKeyValues(context: OutboxScheduleObservationContext) =
+                KeyValues.of(
+                    OutboxObservationDocumentation.ScheduleHighCardinalityKeyNames.RECORD_KEY
+                        .withValue(context.recordKey),
+                    OutboxObservationDocumentation.ScheduleHighCardinalityKeyNames.PAYLOAD_TYPE
+                        .withValue(context.payloadType),
+                )
+        }
+}
+```
+
+Keep high-cardinality values out of low-cardinality tags to avoid excessive time series in metrics
+backends.
+
+## Legacy Metric Names
+
+The deprecated `namastack-outbox-metrics` module used older metric names such as:
+
+- `outbox.records.count`
+- `outbox.partitions.assigned.count`
+- `outbox.partitions.pending.records.total`
+- `outbox.partitions.pending.records.max`
+- `outbox.cluster.instances.total`
+
+New applications should use the canonical names from `namastack-outbox-observability` instead.
