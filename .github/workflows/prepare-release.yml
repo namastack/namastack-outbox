@@ -55,10 +55,10 @@ jobs:
         run: |
           test "$(scripts/current-version.sh)" = "$RELEASE_VERSION"
           git diff --check
-          git diff --exit-code --quiet && {
+          if git diff --exit-code --quiet; then
             echo "Release preparation did not change any files" >&2
             exit 1
-          }
+          fi
 
       - name: Create release branch and commit
         id: release-branch
