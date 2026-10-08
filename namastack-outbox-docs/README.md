@@ -39,3 +39,9 @@ GIT_USER=<Your GitHub username> yarn deploy
 ```
 
 If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+
+## Outbox overview video
+
+The homepage and `/outbox/` embed the version 10 showreel through `OutboxShowreel` in `src/components/MarketingPage/index.tsx`. Assets live in `static/videos/`: the H.264/AAC MP4, poster, and English WebVTT captions. Playback is user-initiated with native controls and inline mobile playback; `preload="none"` avoids downloading the video on page load.
+
+The MP4 comes from `namastack-showreel/out/namastack-showreel-v10.mp4`, remuxed with `-c copy -movflags +faststart` for web playback without re-encoding. Captions come from the matching `out/namastack-story.srt`. When replacing the film, update all three assets together and change the versioned URLs in the component to avoid stale browser caches. These assets ship with the normal static site build and require no external video service.

@@ -3,6 +3,25 @@
   margin-inline: auto;
 }
 
+.showreel {
+  display: block;
+  width: 100%;
+  max-width: 1080px;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  margin-top: 2rem;
+  margin-inline: auto;
+  background: #090a0f;
+  border: 1px solid var(--ns-border-active);
+  border-radius: 12px;
+  box-shadow: 0 24px 64px -32px rgb(0 0 0 / 55%);
+}
+
+.showreel:focus-visible {
+  outline: 2px solid var(--ns-accent);
+  outline-offset: 4px;
+}
+
 .hero,
 .productHero {
   position: relative;

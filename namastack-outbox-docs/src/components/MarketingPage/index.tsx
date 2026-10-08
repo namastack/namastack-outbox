@@ -1,5 +1,6 @@
-import React, {useState, type ComponentType, type ReactNode} from 'react';
+import React, {useState, type ReactNode} from 'react';
 import Link from '@docusaurus/Link';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 import Heading from '@theme/Heading';
 import versions from '@site/versions.json';
 import {
@@ -23,7 +24,7 @@ const GITHUB_URL = 'https://github.com/namastack/namastack-outbox';
 const SPONSOR_URL = 'https://github.com/sponsors/namastack';
 const latestVersion = versions[0];
 
-type IconComponent = ComponentType<React.ComponentProps<'svg'>>;
+type IconComponent = typeof IconShieldCheckeredFilled;
 
 type SectionHeaderProps = {
   eyebrow: string;
@@ -509,11 +510,44 @@ export function ProductDetails() {
   );
 }
 
+export function OutboxShowreel() {
+  const videoUrl = useBaseUrl('/videos/namastack-outbox-v10.mp4');
+  const posterUrl = useBaseUrl('/videos/namastack-outbox-v10.png');
+  const captionsUrl = useBaseUrl('/videos/namastack-outbox-v10.en.vtt');
+
+  return (
+    <section className={styles.surfaceSection} aria-label="Namastack Outbox overview video">
+      <div className={styles.container}>
+        <SectionHeader
+          align="center"
+          eyebrow="Watch · 58 seconds"
+          title="Every event matters."
+          description="Meet Namastack Outbox and see how reliable event delivery fits into Spring Boot."
+        />
+        <video
+          className={styles.showreel}
+          aria-label="Namastack Outbox: reliable event delivery for Spring Boot"
+          controls
+          playsInline
+          preload="none"
+          poster={posterUrl}
+          width={1920}
+          height={1080}>
+          <source src={videoUrl} type="video/mp4" />
+          <track kind="captions" src={captionsUrl} srcLang="en" label="English" />
+          <a href={videoUrl}>Download the Namastack Outbox overview video.</a>
+        </video>
+      </div>
+    </section>
+  );
+}
+
 export function HomeContent() {
   return (
     <>
       <Hero />
       <main>
+        <OutboxShowreel />
         <BrandIntro />
         <FeaturedOutbox />
         <IntegrationSection />
@@ -530,6 +564,7 @@ export function OutboxContent() {
     <>
       <Hero product />
       <main>
+        <OutboxShowreel />
         <ProductOverview />
         <section className={styles.surfaceSection}>
           <div className={styles.container}><ArchitectureFlow /></div>

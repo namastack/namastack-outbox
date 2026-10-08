@@ -1,0 +1,105 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:01.360
+Every event matters.
+
+2
+00:00:02.140 --> 00:00:05.800
+But in distributed systems, reliability isn’t guaranteed.
+
+3
+00:00:06.500 --> 00:00:07.540
+Transactions fail.
+
+4
+00:00:08.160 --> 00:00:09.120
+Messages get lost.
+
+5
+00:00:09.740 --> 00:00:10.780
+Systems go down.
+
+6
+00:00:11.560 --> 00:00:14.600
+The transactional outbox pattern solves part of the problem.
+
+7
+00:00:15.040 --> 00:00:18.100
+But what about ordering, retries, scaling,
+
+8
+00:00:18.420 --> 00:00:20.960
+and everything that happens after the commit?
+
+9
+00:00:21.500 --> 00:00:23.140
+That’s where Namastack comes in.
+
+10
+00:00:23.780 --> 00:00:28.340
+Namastack Outbox brings production-grade event delivery directly into Spring Boot.
+
+11
+00:00:28.800 --> 00:00:29.840
+Atomic persistence.
+
+12
+00:00:30.440 --> 00:00:31.420
+Reliable retries.
+
+13
+00:00:31.920 --> 00:00:33.300
+Strict per-key ordering.
+
+14
+00:00:33.760 --> 00:00:34.680
+Horizontal scaling.
+
+15
+00:00:35.180 --> 00:00:36.400
+Built-in observability.
+
+16
+00:00:36.820 --> 00:00:37.580
+Multiple databases.
+
+17
+00:00:38.280 --> 00:00:39.660
+Multiple messaging systems.
+
+18
+00:00:40.220 --> 00:00:41.620
+No fragile workarounds.
+
+19
+00:00:42.220 --> 00:00:43.600
+No infrastructure maze.
+
+20
+00:00:44.200 --> 00:00:45.880
+Just reliable event delivery.
+
+21
+00:00:46.360 --> 00:00:47.860
+Designed for the real world.
+
+22
+00:00:48.360 --> 00:00:49.340
+Namastack Outbox.
+
+23
+00:00:49.940 --> 00:00:50.800
+Built for reliability.
+
+24
+00:00:51.400 --> 00:00:52.460
+Designed for scale.
+
+25
+00:00:53.000 --> 00:00:53.600
+Open source.
+
+26
+00:00:54.240 --> 00:00:55.280
+Built for Spring Boot.
