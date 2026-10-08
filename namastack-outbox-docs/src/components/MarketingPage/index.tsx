@@ -511,8 +511,8 @@ export function ProductDetails() {
 }
 
 export function OutboxShowreel() {
-  const videoUrl = useBaseUrl('/videos/namastack-outbox-v10.mp4');
-  const posterUrl = useBaseUrl('/videos/namastack-outbox-v10.png');
+  const videoUrl = useBaseUrl('/videos/namastack-outbox-v11.mp4');
+  const posterUrl = useBaseUrl('/videos/namastack-outbox-v11.png');
   const captionsUrl = useBaseUrl('/videos/namastack-outbox-v10.en.vtt');
 
   return (
