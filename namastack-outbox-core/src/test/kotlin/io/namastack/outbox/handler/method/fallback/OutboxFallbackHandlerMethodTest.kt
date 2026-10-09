@@ -1,6 +1,7 @@
 package io.namastack.outbox.handler.method.fallback
 
 import io.namastack.outbox.handler.OutboxFailureContext
+import io.namastack.outbox.handler.OutboxFallbackDisposition
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -23,7 +24,12 @@ class OutboxFallbackHandlerMethodTest {
     @Test
     fun `invokes fallback with payload and context`() {
         val bean = RecordingFallback()
-        val fallback = OutboxFallbackHandlerMethod(bean, fallbackMethod(RecordingFallback::class.java))
+        val fallback =
+            OutboxFallbackHandlerMethod(
+                bean,
+                fallbackMethod(RecordingFallback::class.java),
+                OutboxFallbackDisposition.COMPLETE,
+            )
 
         fallback.invoke("payload", context)
 
@@ -36,7 +42,7 @@ class OutboxFallbackHandlerMethodTest {
         val bean = InvalidFallback()
         val method = bean::class.java.getDeclaredMethod("handleFailure", Any::class.java)
 
-        assertThatThrownBy { OutboxFallbackHandlerMethod(bean, method) }
+        assertThatThrownBy { OutboxFallbackHandlerMethod(bean, method, OutboxFallbackDisposition.COMPLETE) }
             .isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("must have 2 parameters")
     }
@@ -45,7 +51,12 @@ class OutboxFallbackHandlerMethodTest {
     fun `rethrows original fallback exception instead of reflection wrapper`() {
         val failure = IllegalArgumentException("fallback failed")
         val bean = ThrowingFallback(failure)
-        val fallback = OutboxFallbackHandlerMethod(bean, fallbackMethod(ThrowingFallback::class.java))
+        val fallback =
+            OutboxFallbackHandlerMethod(
+                bean,
+                fallbackMethod(ThrowingFallback::class.java),
+                OutboxFallbackDisposition.COMPLETE,
+            )
 
         assertThatThrownBy { fallback.invoke("payload", context) }.isSameAs(failure)
     }

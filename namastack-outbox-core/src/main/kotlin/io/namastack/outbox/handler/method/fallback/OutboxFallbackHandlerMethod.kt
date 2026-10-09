@@ -1,6 +1,7 @@
 package io.namastack.outbox.handler.method.fallback
 
 import io.namastack.outbox.handler.OutboxFailureContext
+import io.namastack.outbox.handler.OutboxFallbackDisposition
 import io.namastack.outbox.handler.method.InvocableHandlerMethod
 import java.lang.reflect.Method
 
@@ -9,12 +10,14 @@ import java.lang.reflect.Method
  *
  * @param bean Bean containing the fallback handler method
  * @param method Handler method (must have 2 parameters: payload, context)
+ * @property disposition Final record state after the fallback returns normally
  * @author Roland Beisel
  * @since 1.0.0
  */
 open class OutboxFallbackHandlerMethod(
     bean: Any,
     method: Method,
+    val disposition: OutboxFallbackDisposition,
 ) : InvocableHandlerMethod(bean, method) {
     init {
         require(method.parameterCount == 2) {

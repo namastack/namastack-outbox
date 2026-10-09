@@ -36,7 +36,7 @@ package io.namastack.outbox.handler
  * Both handle() and handleFailure() should be idempotent. Exceptions in handleFailure()
  * are logged but do not trigger retries.
  *
- * @author Roland Beisel
+ * @author Roland Beisel, Aleksander Zamojski
  * @since 1.0.0
  */
 interface OutboxHandlerWithFallback : OutboxHandler {
@@ -55,4 +55,14 @@ interface OutboxHandlerWithFallback : OutboxHandler {
         payload: Any,
         context: OutboxFailureContext,
     )
+
+    /**
+     * Returns the disposition applied when [handleFailure] returns normally.
+     *
+     * Defaults to [OutboxFallbackDisposition.COMPLETE].
+     *
+     * @return The disposition applied after a successful generic fallback
+     * @since 1.11.0
+     */
+    fun getGenericFallbackDisposition(): OutboxFallbackDisposition = OutboxFallbackDisposition.COMPLETE
 }

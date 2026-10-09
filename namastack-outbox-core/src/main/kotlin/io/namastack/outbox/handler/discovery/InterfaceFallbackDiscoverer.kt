@@ -38,6 +38,7 @@ internal object InterfaceFallbackDiscoverer {
                             ),
                         payloadType = payloadType,
                         source = HandlerSource.TYPED_INTERFACE,
+                        disposition = bean.getTypedFallbackDisposition(),
                     ),
                 )
             }
@@ -54,6 +55,7 @@ internal object InterfaceFallbackDiscoverer {
                             ),
                         payloadType = Any::class.java,
                         source = HandlerSource.GENERIC_INTERFACE,
+                        disposition = bean.getGenericFallbackDisposition(),
                     ),
                 )
             }

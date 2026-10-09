@@ -1,5 +1,7 @@
 package io.namastack.outbox.annotation
 
+import io.namastack.outbox.handler.OutboxFallbackDisposition
+
 /**
  * Marks a method as a fallback handler for failed outbox records.
  *
@@ -37,6 +39,18 @@ package io.namastack.outbox.annotation
  * }
  * ```
  *
+ * ## Disposition
+ *
+ * [disposition] determines the final state of the record when the fallback returns normally.
+ * Defaults to [OutboxFallbackDisposition.COMPLETE].
+ *
+ * ```kotlin
+ * @OutboxFallbackHandler(disposition = OutboxFallbackDisposition.FAIL)
+ * fun handleFailure(payload: OrderEvent, context: OutboxFailureContext) {
+ *     logger.error("Order ${payload.orderId} failed after ${context.failureCount} attempts")
+ * }
+ * ```
+ *
  * ## Failure Context
  *
  * OutboxFailureContext provides: recordId, recordKey, createdAt, handlerId,
@@ -47,14 +61,19 @@ package io.namastack.outbox.annotation
  * - Do NOT mix annotations with interface-based handlers in the same bean
  * - If multiple fallbacks exist for the same type, first one is used (warning logged)
  * - Exceptions from fallback handlers are logged but don't trigger retries
- * - Record is marked FAILED if fallback fails, COMPLETED if fallback succeeds
+ * - Record is marked FAILED if fallback fails; if it succeeds, the record is handled according to [disposition]
  *
  * @see io.namastack.outbox.annotation.OutboxHandler
  * @see io.namastack.outbox.handler.OutboxFailureContext
+ * @see io.namastack.outbox.handler.OutboxFallbackDisposition
  *
- * @author Roland Beisel
+ * @property disposition Final record state after the fallback returns normally
+ *
+ * @author Roland Beisel, Aleksander Zamojski
  * @since 1.0.0
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class OutboxFallbackHandler
+annotation class OutboxFallbackHandler(
+    val disposition: OutboxFallbackDisposition = OutboxFallbackDisposition.COMPLETE,
+)

@@ -1,11 +1,15 @@
 package io.namastack.outbox.handler.discovery
 
 import io.namastack.outbox.annotation.OutboxFallbackHandler
+import io.namastack.outbox.handler.JavaHandlerWithFallbackDispositions
 import io.namastack.outbox.handler.OutboxFailureContext
+import io.namastack.outbox.handler.OutboxFallbackDisposition
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxHandlerIdentity
+import io.namastack.outbox.handler.OutboxHandlerWithFallback
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
+import io.namastack.outbox.handler.OutboxTypedHandlerWithFallback
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
@@ -45,6 +49,32 @@ class HandlerDiscoveryTest {
         assertThat(fallback.bean).isSameAs(bean)
         assertThat(fallback.method.name).isEqualTo("handleFailure")
         assertThat(fallback.source).isEqualTo(HandlerSource.ANNOTATION)
+        assertThat(fallback.disposition).isEqualTo(OutboxFallbackDisposition.COMPLETE)
+    }
+
+    @Test
+    fun `discovers fallback disposition declared on the annotation`() {
+        val fallback = HandlerDiscovery.discover(FailDispositionAnnotatedHandler(), "failBean").fallbacks.single()
+
+        assertThat(fallback.disposition).isEqualTo(OutboxFallbackDisposition.FAIL)
+    }
+
+    @Test
+    fun `discovers fallback dispositions declared by typed and generic interfaces`() {
+        val fallbacks = InterfaceFallbackDiscoverer.discover(CombinedInterfaceHandlerWithFallback())
+
+        assertThat(fallbacks.associate { it.source to it.disposition })
+            .containsEntry(HandlerSource.TYPED_INTERFACE, OutboxFallbackDisposition.FAIL)
+            .containsEntry(HandlerSource.GENERIC_INTERFACE, OutboxFallbackDisposition.COMPLETE)
+    }
+
+    @Test
+    fun `discovers fallback dispositions declared by a Java bean implementing both interfaces`() {
+        val fallbacks = InterfaceFallbackDiscoverer.discover(JavaHandlerWithFallbackDispositions())
+
+        assertThat(fallbacks.associate { it.source to it.disposition })
+            .containsEntry(HandlerSource.TYPED_INTERFACE, OutboxFallbackDisposition.FAIL)
+            .containsEntry(HandlerSource.GENERIC_INTERFACE, OutboxFallbackDisposition.COMPLETE)
     }
 
     @Test
@@ -103,6 +133,33 @@ class HandlerDiscoveryTest {
             payload: String,
             context: OutboxFailureContext,
         ) = Unit
+    }
+
+    private class FailDispositionAnnotatedHandler {
+        @OutboxHandlerAnnotation
+        fun handle(payload: String) = Unit
+
+        @OutboxFallbackHandler(disposition = OutboxFallbackDisposition.FAIL)
+        fun handleFailure(
+            payload: String,
+            context: OutboxFailureContext,
+        ) = Unit
+    }
+
+    private class CombinedInterfaceHandlerWithFallback :
+        OutboxTypedHandlerWithFallback<Any>,
+        OutboxHandlerWithFallback {
+        override fun handle(
+            payload: Any,
+            metadata: OutboxRecordMetadata,
+        ) = Unit
+
+        override fun handleFailure(
+            payload: Any,
+            context: OutboxFailureContext,
+        ) = Unit
+
+        override fun getTypedFallbackDisposition() = OutboxFallbackDisposition.FAIL
     }
 
     private class SelectiveInterfaceHandler : OutboxHandler {
