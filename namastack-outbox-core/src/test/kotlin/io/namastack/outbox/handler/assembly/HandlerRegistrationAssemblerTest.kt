@@ -6,6 +6,7 @@ import io.mockk.verify
 import io.namastack.outbox.annotation.OutboxFallbackHandler
 import io.namastack.outbox.annotation.OutboxRetryable
 import io.namastack.outbox.handler.OutboxFailureContext
+import io.namastack.outbox.handler.OutboxFallbackDisposition
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
@@ -48,8 +49,16 @@ class HandlerRegistrationAssemblerTest {
         assertThat(registration.primary.id).isEqualTo("orders-v2")
         assertThat(registration.primary.aliases).contains("orders-v1")
         assertThat(registration.fallback).isNotNull
+        assertThat(registration.fallback?.disposition).isEqualTo(OutboxFallbackDisposition.COMPLETE)
         assertThat(registration.explicitRetryPolicy).isSameAs(retryPolicy)
         verify { retryPolicies.getRetryPolicy("namedPolicy") }
+    }
+
+    @Test
+    fun `assembles fallback with its declared disposition`() {
+        val registration = assembler.assemble(HandlerDiscovery.discover(KeepFailedHandler(), "keepFailedBean")).single()
+
+        assertThat(registration.fallback?.disposition).isEqualTo(OutboxFallbackDisposition.KEEP_FAILED)
     }
 
     @Test
@@ -159,6 +168,17 @@ class HandlerRegistrationAssemblerTest {
         assertThat(registration.explicitRetryPolicy).isSameAs(annotationPolicy)
         assertThat(bean.retryPolicyRequestCount).isZero()
         verify(exactly = 1) { retryPolicies.getRetryPolicy("methodPolicy") }
+    }
+
+    private class KeepFailedHandler {
+        @OutboxHandlerAnnotation
+        fun handle(payload: String) = Unit
+
+        @OutboxFallbackHandler(disposition = OutboxFallbackDisposition.KEEP_FAILED)
+        fun handleFailure(
+            payload: String,
+            context: OutboxFailureContext,
+        ) = Unit
     }
 
     private class CompleteAnnotatedHandler {

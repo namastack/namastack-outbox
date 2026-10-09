@@ -32,7 +32,7 @@ package io.namastack.outbox.handler
  *
  * @param T The type of the payload this handler processes
  *
- * @author Roland Beisel
+ * @author Roland Beisel, Aleksander Zamojski
  * @since 1.0.0
  */
 interface OutboxTypedHandlerWithFallback<T> : OutboxTypedHandler<T> {
@@ -51,4 +51,14 @@ interface OutboxTypedHandlerWithFallback<T> : OutboxTypedHandler<T> {
         payload: T,
         context: OutboxFailureContext,
     )
+
+    /**
+     * Returns the disposition applied when [handleFailure] returns normally.
+     *
+     * Defaults to [OutboxFallbackDisposition.COMPLETE].
+     *
+     * @return The disposition applied after a successful typed fallback
+     * @since 1.11.0
+     */
+    fun getTypedFallbackDisposition(): OutboxFallbackDisposition = OutboxFallbackDisposition.COMPLETE
 }

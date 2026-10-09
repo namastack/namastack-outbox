@@ -577,8 +577,88 @@ public interface OutboxFailureContext {
 
 **Record Status After Fallback:**
 
-- **Fallback Succeeds**: Record marked as `COMPLETED`
-- **Fallback Fails**: Record marked as `FAILED` (requires manual intervention)
+The final state of the record depends on the fallback's disposition and on whether the fallback
+returns normally or throws:
+
+| Disposition          | Fallback         | Record status | Failure reason         | Later records with the same key           |
+|----------------------|------------------|---------------|------------------------|-------------------------------------------|
+| `COMPLETE` (default) | Returns normally | `COMPLETED`   | Original handler error | Processed                                 |
+| `COMPLETE` (default) | Throws           | `FAILED`      | Fallback error         | Blocked when `stop-on-first-failure=true` |
+| `KEEP_FAILED`        | Returns normally | `FAILED`      | Original handler error | Blocked when `stop-on-first-failure=true` |
+| `KEEP_FAILED`        | Throws           | `FAILED`      | Fallback error         | Blocked when `stop-on-first-failure=true` |
+
+A `FAILED` record requires manual intervention.
+
+The disposition is configured per fallback handler:
+
+<Tabs>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Annotation-based
+@OutboxFallbackHandler(disposition = OutboxFallbackDisposition.KEEP_FAILED)
+fun handleOrderFailure(payload: OrderEvent, context: OutboxFailureContext) {
+    logger.error("Order ${payload.orderId} failed after ${context.failureCount} attempts")
+}
+
+// Interface-based
+@Component
+class OrderHandler : OutboxTypedHandlerWithFallback<OrderEvent> {
+    override fun handle(payload: OrderEvent, metadata: OutboxRecordMetadata) {
+        emailService.send(payload.email)
+    }
+
+    override fun handleFailure(payload: OrderEvent, context: OutboxFailureContext) {
+        logger.error("Order ${payload.orderId} failed after ${context.failureCount} attempts")
+    }
+
+    override fun getTypedFallbackDisposition() = OutboxFallbackDisposition.KEEP_FAILED
+}
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+// Annotation-based
+@OutboxFallbackHandler(disposition = OutboxFallbackDisposition.KEEP_FAILED)
+public void handleOrderFailure(OrderEvent payload, OutboxFailureContext context) {
+    logger.error(
+        "Order {} failed after {} attempts",
+        payload.getOrderId(),
+        context.getFailureCount()
+    );
+}
+
+// Interface-based
+@Component
+public class OrderHandler implements OutboxTypedHandlerWithFallback<OrderEvent> {
+    @Override
+    public void handle(OrderEvent payload, OutboxRecordMetadata metadata) {
+        emailService.send(payload.getEmail());
+    }
+
+    @Override
+    public void handleFailure(OrderEvent payload, OutboxFailureContext context) {
+        logger.error(
+            "Order {} failed after {} attempts",
+            payload.getOrderId(),
+            context.getFailureCount()
+        );
+    }
+
+    @Override
+    public OutboxFallbackDisposition getTypedFallbackDisposition() {
+        return OutboxFallbackDisposition.KEEP_FAILED;
+    }
+}
+```
+
+</TabItem>
+</Tabs>
+
+Generic handlers implementing `OutboxHandlerWithFallback` override `getGenericFallbackDisposition()`
+instead.
 
 **Fallback Matching:**
 

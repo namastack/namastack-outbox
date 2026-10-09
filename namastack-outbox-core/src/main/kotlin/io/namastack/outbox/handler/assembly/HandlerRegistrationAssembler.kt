@@ -54,9 +54,9 @@ internal class HandlerRegistrationAssembler(
                 val identity = OutboxHandlerMethodIdentityResolver.resolve(candidate)
                 val primary = HandlerMethodFactory.primary(candidate, identity)
                 val fallback =
-                    FallbackMatcher.match(candidate, declarations.fallbacks)?.let {
-                        HandlerMethodFactory.fallback(it.bean, it.method)
-                    }
+                    FallbackMatcher
+                        .match(candidate, declarations.fallbacks)
+                        ?.let(HandlerMethodFactory::fallback)
 
                 HandlerRegistration(
                     beanName = candidate.beanName,

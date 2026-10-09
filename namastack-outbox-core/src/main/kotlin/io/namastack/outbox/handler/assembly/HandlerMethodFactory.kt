@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.assembly
 
+import io.namastack.outbox.handler.discovery.FallbackCandidate
 import io.namastack.outbox.handler.discovery.HandlerCandidate
 import io.namastack.outbox.handler.discovery.HandlerSource
 import io.namastack.outbox.handler.identity.HandlerIdentity
@@ -7,7 +8,6 @@ import io.namastack.outbox.handler.method.fallback.OutboxFallbackHandlerMethod
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
-import java.lang.reflect.Method
 
 /**
  * Creates invocable method wrappers from validated handler declarations.
@@ -51,14 +51,15 @@ internal object HandlerMethodFactory {
     /**
      * Creates the invocation wrapper shared by typed and generic fallback declarations.
      *
-     * @param bean Bean that owns the fallback method
-     * @param method Reflected fallback method
+     * @param candidate Validated fallback declaration
      * @return An invocable fallback handler method
      */
-    fun fallback(
-        bean: Any,
-        method: Method,
-    ) = OutboxFallbackHandlerMethod(bean, method)
+    fun fallback(candidate: FallbackCandidate) =
+        OutboxFallbackHandlerMethod(
+            bean = candidate.bean,
+            method = candidate.method,
+            disposition = candidate.disposition,
+        )
 
     private fun isGeneric(candidate: HandlerCandidate): Boolean =
         when (candidate.source) {

@@ -2,6 +2,7 @@ package io.namastack.outbox.handler.discovery
 
 import io.namastack.outbox.annotation.OutboxFallbackHandler
 import io.namastack.outbox.handler.ReflectionUtils
+import org.springframework.core.annotation.AnnotatedElementUtils
 
 /**
  * Discovers fallback methods declared with [OutboxFallbackHandler].
@@ -20,11 +21,15 @@ internal object AnnotatedFallbackDiscoverer {
         ReflectionUtils
             .findAnnotatedMethods(bean, OutboxFallbackHandler::class.java)
             .map { method ->
+                val annotation = AnnotatedElementUtils.findMergedAnnotation(method, OutboxFallbackHandler::class.java)
+                checkNotNull(annotation)
+
                 FallbackCandidate(
                     bean = bean,
                     method = method,
                     payloadType = method.parameterTypes.firstOrNull(),
                     source = HandlerSource.ANNOTATION,
+                    disposition = annotation.disposition,
                 )
             }.toList()
 }

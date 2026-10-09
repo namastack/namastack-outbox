@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.discovery
 
+import io.namastack.outbox.handler.OutboxFallbackDisposition
 import java.lang.reflect.Method
 
 /**
@@ -9,6 +10,7 @@ import java.lang.reflect.Method
  * @property method reflected fallback method
  * @property payloadType resolved payload type, if the declaration has a payload parameter
  * @property source declaration mechanism used to find the method
+ * @property disposition final record state after the fallback returns normally
  *
  * @author Roland Beisel
  * @since 1.9.0
@@ -18,4 +20,5 @@ internal data class FallbackCandidate(
     val method: Method,
     val payloadType: Class<*>?,
     val source: HandlerSource,
+    val disposition: OutboxFallbackDisposition,
 )
