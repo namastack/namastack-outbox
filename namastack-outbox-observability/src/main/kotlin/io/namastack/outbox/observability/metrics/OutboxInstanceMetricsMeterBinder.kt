@@ -79,7 +79,7 @@ class OutboxInstanceMetricsMeterBinder(
 
         Gauge
             .builder(OutboxMetricNames.INSTANCE_RECORDS_PENDING) {
-                safeGet { getPendingRecordsPerPartition().values.sum().toDouble() }
+                safeGet { getPendingRecordCount().toDouble() }
             }.description("Total pending records across all assigned partitions")
             .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
             .register(meterRegistry)
@@ -106,15 +106,18 @@ class OutboxInstanceMetricsMeterBinder(
     }
 
     /**
-     * Returns a map of assigned partition numbers to the count of pending (NEW) records in each partition.
+     * Counts pending ([NEW]) records across the currently assigned partitions with one batch repository call.
      *
-     * @return a map where the key is the partition number and the value is the count of pending records
+     * Includes records awaiting a future retry. Reads the current assignments on every invocation
+     * and skips the repository call when no partitions are assigned.
+     *
+     * @return Total pending records, or zero if no partitions are assigned or no records match
      */
-    private fun getPendingRecordsPerPartition(): Map<Int, Long> {
+    private fun getPendingRecordCount(): Long {
         val partitions = partitionCoordinator.getAssignedPartitionNumbers()
-        return partitions.associateWith { partition ->
-            recordRepository.countRecordsByPartition(partition, NEW)
-        }
+        if (partitions.isEmpty()) return 0L
+
+        return recordRepository.countRecordsByPartitions(partitions, NEW)
     }
 
     /**

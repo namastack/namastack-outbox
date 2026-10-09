@@ -258,6 +258,29 @@ class JpaOutboxRecordRepositoryTest {
     }
 
     @Test
+    fun `counts records across selected partitions and status including future retries`() {
+        createRecordWithPartition(UUID.randomUUID().toString(), NEW, 1)
+        createRecordWithPartition(UUID.randomUUID().toString(), NEW, 1)
+        createRecordWithPartition(UUID.randomUUID().toString(), NEW, 2, Instant.now(clock).plus(10, MINUTES))
+        createRecordWithPartition(UUID.randomUUID().toString(), FAILED, 1)
+        createRecordWithPartition(UUID.randomUUID().toString(), COMPLETED, 2)
+        createRecordWithPartition(UUID.randomUUID().toString(), NEW, 3)
+
+        assertThat(jpaOutboxRecordRepository.countRecordsByPartitions(setOf(1, 2), NEW)).isEqualTo(3)
+        assertThat(jpaOutboxRecordRepository.countRecordsByPartitions(setOf(1, 2), FAILED)).isEqualTo(1)
+        assertThat(jpaOutboxRecordRepository.countRecordsByPartitions(setOf(1, 2), COMPLETED)).isEqualTo(1)
+        assertThat(jpaOutboxRecordRepository.countRecordsByPartitions(setOf(2), NEW)).isEqualTo(1)
+        assertThat(jpaOutboxRecordRepository.countRecordsByPartitions(setOf(4), NEW)).isZero()
+    }
+
+    @Test
+    fun `counts zero records for empty partitions`() {
+        createRecordWithPartition(UUID.randomUUID().toString(), NEW, 1)
+
+        assertThat(jpaOutboxRecordRepository.countRecordsByPartitions(emptySet(), NEW)).isZero()
+    }
+
+    @Test
     fun `counts records by partition and status`() {
         createRecordWithPartition(UUID.randomUUID().toString(), NEW, 1)
         createRecordWithPartition(UUID.randomUUID().toString(), NEW, 1)

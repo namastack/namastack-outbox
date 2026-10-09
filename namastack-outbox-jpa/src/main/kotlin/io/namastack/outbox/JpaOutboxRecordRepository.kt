@@ -138,6 +138,16 @@ internal open class JpaOutboxRecordRepository(
     """
 
     /**
+     * Query to count records across the specified partitions by status.
+     */
+    private val countRecordsByPartitionsQuery = """
+        select count(o)
+        from OutboxRecordEntity o
+        where o.partitionNo in :partitions
+        and o.status = :status
+    """
+
+    /**
      * Saves an outbox record to the database.
      *
      * If a record with the same ID already exists, it is updated (merged).
@@ -236,6 +246,29 @@ internal open class JpaOutboxRecordRepository(
             .setParameter("partition", partition)
             .setParameter("status", status)
             .singleResult
+
+    /**
+     * Counts outbox records across the specified partitions by status in a single query.
+     *
+     * Includes records awaiting a future retry. Returns zero without querying the data store
+     * when [partitions] is empty.
+     *
+     * @param partitions The partition numbers to count
+     * @param status The status to count
+     * @return Total number of matching records, or zero if the set is empty or no records match
+     */
+    override fun countRecordsByPartitions(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+    ): Long {
+        if (partitions.isEmpty()) return 0L
+
+        return entityManager
+            .createQuery(countRecordsByPartitionsQuery, Long::class.java)
+            .setParameter("partitions", partitions)
+            .setParameter("status", status)
+            .singleResult
+    }
 
     /**
      * Deletes all records with the specified status.

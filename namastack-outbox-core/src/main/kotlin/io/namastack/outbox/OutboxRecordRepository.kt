@@ -84,6 +84,23 @@ interface OutboxRecordRepository {
     ): Long
 
     /**
+     * Counts records across the specified partitions by status, regardless of their next retry time.
+     *
+     * Returns zero without querying the data store when [partitions] is empty.
+     * The default implementation calls [countRecordsByPartition] once per partition and sums the
+     * results for compatibility with custom repositories. Persistence implementations should override
+     * this method with a single aggregate query for non-empty sets.
+     *
+     * @param partitions The partition numbers to count
+     * @param status The status to count
+     * @return Total number of matching records, or zero if the set is empty or no records match
+     */
+    fun countRecordsByPartitions(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+    ): Long = partitions.sumOf { countRecordsByPartition(it, status) }
+
+    /**
      * Deletes all records with the specified status.
      *
      * @param status The status of records to delete

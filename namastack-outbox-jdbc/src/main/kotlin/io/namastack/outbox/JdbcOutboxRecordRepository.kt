@@ -94,6 +94,15 @@ internal open class JdbcOutboxRecordRepository(
         """.toSingleLine()
 
     /**
+     * Query to count records across the specified partitions by status.
+     */
+    private val countByPartitionsStatusQuery =
+        """
+        SELECT COUNT(*) FROM $tableName
+        WHERE partition_no IN (:partitions) AND status = :status
+        """.toSingleLine()
+
+    /**
      * Query to delete outbox records by status.
      */
     private val deleteByStatusQuery =
@@ -224,6 +233,30 @@ internal open class JdbcOutboxRecordRepository(
             .param("status", status.name)
             .query(Long::class.java)
             .single()
+
+    /**
+     * Counts outbox records across the specified partitions by status in a single query.
+     *
+     * Includes records awaiting a future retry. Returns zero without querying the data store
+     * when [partitions] is empty.
+     *
+     * @param partitions The partition numbers to count
+     * @param status The status to count
+     * @return Total number of matching records, or zero if the set is empty or no records match
+     */
+    override fun countRecordsByPartitions(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+    ): Long {
+        if (partitions.isEmpty()) return 0L
+
+        return jdbcClient
+            .sql(countByPartitionsStatusQuery)
+            .param("partitions", partitions)
+            .param("status", status.name)
+            .query(Long::class.java)
+            .single()
+    }
 
     /**
      * Deletes all outbox records with the specified status.
