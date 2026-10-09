@@ -1,8 +1,10 @@
 package io.namastack.outbox.observability.metrics
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import io.mockk.Called
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
@@ -76,11 +78,11 @@ class OutboxInstanceMetricsMeterBinderTest {
         }
 
         @Test
-        fun `registers pending records gauge as sum across assigned partitions`() {
+        fun `reads pending records with one batch count across all assigned partitions`() {
             stubStatusCounts()
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
-            every { recordRepository.countRecordsByPartition(1, NEW) } returns 4L
-            every { recordRepository.countRecordsByPartition(2, NEW) } returns 6L
+            val partitions = (0 until 256).toSet()
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns partitions
+            every { recordRepository.countRecordsByPartitions(partitions, NEW) } returns 10L
 
             meterBinder.bindTo(meterRegistry)
 
@@ -91,6 +93,45 @@ class OutboxInstanceMetricsMeterBinderTest {
                     .gauge()
                     .value(),
             ).isEqualTo(10.0)
+
+            verify(exactly = 1) { recordRepository.countRecordsByPartitions(partitions, NEW) }
+            verify(exactly = 0) { recordRepository.countRecordsByPartition(any(), any()) }
+        }
+
+        @Test
+        fun `returns zero without querying records when no partitions are assigned`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns emptySet()
+            meterBinder.bindTo(meterRegistry)
+
+            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_PENDING).gauge().value()).isZero()
+
+            verify { recordRepository wasNot Called }
+        }
+
+        @Test
+        fun `uses current assignments on each pending gauge read`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returnsMany listOf(setOf(1, 2), setOf(3))
+            every { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) } returns 10L
+            every { recordRepository.countRecordsByPartitions(setOf(3), NEW) } returns 4L
+            meterBinder.bindTo(meterRegistry)
+            val gauge = meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_PENDING).gauge()
+
+            assertThat(gauge.value()).isEqualTo(10.0)
+            assertThat(gauge.value()).isEqualTo(4.0)
+
+            verify(exactly = 1) { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) }
+            verify(exactly = 1) { recordRepository.countRecordsByPartitions(setOf(3), NEW) }
+            verify(exactly = 0) { recordRepository.countRecordsByPartition(any(), any()) }
+        }
+
+        @Test
+        fun `returns zero when the pending batch count fails`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
+            every { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) } throws
+                RuntimeException("count failed")
+            meterBinder.bindTo(meterRegistry)
+
+            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_PENDING).gauge().value()).isZero()
         }
 
         @Test

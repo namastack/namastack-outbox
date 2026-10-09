@@ -252,6 +252,33 @@ internal open class MongoOutboxRecordRepository(
     }
 
     /**
+     * Counts outbox records across the specified partitions by status in a single query.
+     *
+     * Includes records awaiting a future retry. Returns zero without querying the data store
+     * when [partitions] is empty.
+     *
+     * @param partitions The partition numbers to count
+     * @param status The status to count
+     * @return Total number of matching records, or zero if the set is empty or no records match
+     */
+    override fun countRecordsByPartitions(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+    ): Long {
+        if (partitions.isEmpty()) return 0L
+
+        val query =
+            Query(
+                Criteria
+                    .where("partitionNo")
+                    .`in`(partitions)
+                    .and("status")
+                    .`is`(status),
+            )
+        return mongoTemplate.count(query, collectionNameResolver.outboxRecords)
+    }
+
+    /**
      * Deletes all outbox records with the specified status.
      *
      * @param status the record status to delete
