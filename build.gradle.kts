@@ -39,7 +39,7 @@ val isCi = providers.environmentVariable("CI").getOrElse("false").toBoolean()
 
 allprojects {
     group = "io.namastack"
-    version = "1.10.0" + if (!isRelease) "-SNAPSHOT" else ""
+    version = "1.10.1" + if (!isRelease) "-SNAPSHOT" else ""
 
     repositories {
         mavenLocal()
