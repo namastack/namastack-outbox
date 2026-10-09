@@ -156,6 +156,9 @@ When using a custom collection prefix (e.g. `myapp_`), all collection names are 
 | `record_key_completed_created_idx` | `{ recordKey: 1, completedAt: 1, createdAt: 1 }` | Completed record cleanup                         |
 | `fifo_pipeline_idx`                | `{ partitionNo: 1, recordKey: 1, createdAt: 1 }` | FIFO aggregation pipeline for ordered processing |
 
+For time-based retention of completed records, an additional `{ status: 1, completedAt: 1 }` index is
+recommended but not created automatically. See [Record Retention](retention.md#indexes).
+
 #### outbox_instances Indexes
 
 | Index Name             | Fields                            | Purpose                           |

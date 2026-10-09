@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import org.bson.Document
 import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.aggregation.Aggregation
@@ -51,11 +52,67 @@ internal open class MongoOutboxRecordRepository(
     override fun findCompletedRecords(): List<OutboxRecord<*>> = findRecordsByStatus(OutboxRecordStatus.COMPLETED)
 
     /**
+     * Finds at most [limit] completed records completed before the cutoff, oldest first.
+     *
+     * @param completedBefore exclusive upper bound for completedAt
+     * @param limit maximum number of records to return
+     * @return matching records, oldest first
+     */
+    override fun findCompletedRecords(
+        completedBefore: Instant,
+        limit: Int,
+    ): List<OutboxRecord<*>> {
+        require(limit > 0) { "limit must be positive but was $limit" }
+
+        val query =
+            Query(
+                Criteria
+                    .where("status")
+                    .`is`(OutboxRecordStatus.COMPLETED)
+                    .and("completedAt")
+                    .lt(completedBefore),
+            ).with(Sort.by(Sort.Order.asc("completedAt")))
+                .limit(limit)
+
+        return mongoTemplate
+            .find(query, MongoOutboxRecordEntity::class.java, collectionNameResolver.outboxRecords)
+            .map { entityMapper.map(it) }
+    }
+
+    /**
      * Finds all failed outbox records ordered by creation time.
      *
      * @return list of records with FAILED status
      */
     override fun findFailedRecords(): List<OutboxRecord<*>> = findRecordsByStatus(OutboxRecordStatus.FAILED)
+
+    /**
+     * Finds at most [limit] failed records whose last scheduled attempt is before the cutoff, oldest first.
+     *
+     * @param lastRetryBefore exclusive upper bound for nextRetryAt
+     * @param limit maximum number of records to return
+     * @return matching records, oldest first
+     */
+    override fun findFailedRecords(
+        lastRetryBefore: Instant,
+        limit: Int,
+    ): List<OutboxRecord<*>> {
+        require(limit > 0) { "limit must be positive but was $limit" }
+
+        val query =
+            Query(
+                Criteria
+                    .where("status")
+                    .`is`(OutboxRecordStatus.FAILED)
+                    .and("nextRetryAt")
+                    .lt(lastRetryBefore),
+            ).with(Sort.by(Sort.Order.asc("nextRetryAt")))
+                .limit(limit)
+
+        return mongoTemplate
+            .find(query, MongoOutboxRecordEntity::class.java, collectionNameResolver.outboxRecords)
+            .map { entityMapper.map(it) }
+    }
 
     /**
      * Finds all incomplete records for a specific record key ordered by creation time.
@@ -117,106 +174,6 @@ internal open class MongoOutboxRecordRepository(
             ).mappedResults
             .map { it.recordKey }
     }
-
-    /**
-     * Builds an aggregation pipeline that enforces strict FIFO processing per record key.
-     *
-     * Pipeline stages:
-     * 1. Match all incomplete records (completedAt is null) in the given partitions
-     * 2. Sort by recordKey and createdAt to prepare for grouping
-     * 3. Group by recordKey, capturing the oldest record as the "blocker"
-     * 4. Filter to only keys where the oldest record matches the target status and retry time
-     * 5. Order by oldest record's creation time and limit results
-     *
-     * @param partitions the set of partition numbers to query
-     * @param status the record status to match
-     * @param now the current timestamp for retry comparison
-     * @param batchSize the maximum number of record keys to return
-     * @return the aggregation pipeline
-     */
-    private fun buildStrictFifoAggregation(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-        now: Instant,
-        batchSize: Int,
-    ): Aggregation =
-        Aggregation.newAggregation(
-            // Match all incomplete records in partitions
-            Aggregation.match(
-                Criteria
-                    .where("partitionNo")
-                    .`in`(partitions)
-                    .and("completedAt")
-                    .`is`(null),
-            ),
-            // Sort to ensure the 'first' in group is the oldest
-            Aggregation.sort(Sort.by(Sort.Direction.ASC, "recordKey", "createdAt")),
-            // Group by recordKey and take the absolute oldest record (the "blocker")
-            Aggregation
-                .group("recordKey")
-                .first(Aggregation.ROOT)
-                .`as`("oldestDoc"),
-            // Only process if the oldest record for this key is actually ready
-            Aggregation.match(
-                Criteria
-                    .where("oldestDoc.status")
-                    .`is`(status.name)
-                    .and("oldestDoc.nextRetryAt")
-                    .lte(now),
-            ),
-            // Order keys by their oldest record's creation time
-            Aggregation.sort(Sort.by(Sort.Direction.ASC, "oldestDoc.createdAt")),
-            Aggregation.limit(batchSize.toLong()),
-            Aggregation
-                .project()
-                .andExclude("_id")
-                .and("_id")
-                .`as`("recordKey"),
-        )
-
-    /**
-     * Builds a standard aggregation pipeline that finds record keys with ready records.
-     *
-     * Unlike [buildStrictFifoAggregation], this does not check for older incomplete records
-     * blocking the key. It simply finds all records matching the criteria and groups by key.
-     *
-     * @param partitions the set of partition numbers to query
-     * @param status the record status to match
-     * @param now the current timestamp for retry comparison
-     * @param batchSize the maximum number of record keys to return
-     * @return the aggregation pipeline
-     */
-    private fun buildStandardAggregation(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-        now: Instant,
-        batchSize: Int,
-    ): Aggregation =
-        Aggregation.newAggregation(
-            // Match all records that are ready for processing
-            Aggregation.match(
-                Criteria
-                    .where("partitionNo")
-                    .`in`(partitions)
-                    .and("status")
-                    .`is`(status.name)
-                    .and("nextRetryAt")
-                    .lte(now),
-            ),
-            // Group by recordKey to get unique keys and find oldest record for sorting
-            Aggregation
-                .group("recordKey")
-                .min("createdAt")
-                .`as`("minCreatedAt"),
-            // Order by creation time of the oldest ready record
-            Aggregation.sort(Sort.by(Sort.Direction.ASC, "minCreatedAt")),
-            Aggregation.limit(batchSize.toLong()),
-            Aggregation
-                .project()
-                .andExclude("_id")
-                .and("_id")
-                .`as`("recordKey"),
-        )
 
     /**
      * Counts outbox records by status.
@@ -320,6 +277,87 @@ internal open class MongoOutboxRecordRepository(
     }
 
     /**
+     * Deletes outbox records by ids.
+     *
+     * @param ids the record ids to delete
+     * @return the number of records actually deleted
+     */
+    override fun deleteByIds(ids: Collection<String>): Int {
+        if (ids.isEmpty()) return 0
+
+        val query = Query(Criteria.where("_id").`in`(ids))
+        return mongoTemplate.remove(query, collectionNameResolver.outboxRecords).deletedCount.toInt()
+    }
+
+    /**
+     * Deletes at most [limit] completed records completed before the cutoff, oldest first.
+     *
+     * Not atomic: MongoDB has no limited delete, so the ids are selected first and deleted with [deleteByIds].
+     *
+     * @param completedBefore exclusive upper bound for completedAt
+     * @param limit maximum number of records to delete
+     * @return the number of records actually deleted
+     */
+    override fun deleteCompletedRecords(
+        completedBefore: Instant,
+        limit: Int,
+    ): Int {
+        require(limit > 0) { "limit must be positive but was $limit" }
+
+        val query =
+            Query(
+                Criteria
+                    .where("status")
+                    .`is`(OutboxRecordStatus.COMPLETED)
+                    .and("completedAt")
+                    .lt(completedBefore),
+            ).with(Sort.by(Sort.Order.asc("completedAt")))
+                .limit(limit)
+        query.fields().include("_id")
+
+        val ids =
+            mongoTemplate
+                .find(query, Document::class.java, collectionNameResolver.outboxRecords)
+                .map { it.get("_id").toString() }
+
+        return deleteByIds(ids)
+    }
+
+    /**
+     * Deletes at most [limit] failed records whose last scheduled attempt is before the cutoff, oldest first.
+     *
+     * Not atomic: MongoDB has no limited delete, so the ids are selected first and deleted with [deleteByIds].
+     *
+     * @param lastRetryBefore exclusive upper bound for nextRetryAt
+     * @param limit maximum number of records to delete
+     * @return the number of records actually deleted
+     */
+    override fun deleteFailedRecords(
+        lastRetryBefore: Instant,
+        limit: Int,
+    ): Int {
+        require(limit > 0) { "limit must be positive but was $limit" }
+
+        val query =
+            Query(
+                Criteria
+                    .where("status")
+                    .`is`(OutboxRecordStatus.FAILED)
+                    .and("nextRetryAt")
+                    .lt(lastRetryBefore),
+            ).with(Sort.by(Sort.Order.asc("nextRetryAt")))
+                .limit(limit)
+        query.fields().include("_id")
+
+        val ids =
+            mongoTemplate
+                .find(query, Document::class.java, collectionNameResolver.outboxRecords)
+                .map { it.get("_id").toString() }
+
+        return deleteByIds(ids)
+    }
+
+    /**
      * Finds all records with the specified status, ordered by creation time.
      *
      * @param status the record status to filter by
@@ -333,6 +371,106 @@ internal open class MongoOutboxRecordRepository(
             .find(query, MongoOutboxRecordEntity::class.java, collectionNameResolver.outboxRecords)
             .map { entityMapper.map(it) }
     }
+
+    /**
+     * Builds an aggregation pipeline that enforces strict FIFO processing per record key.
+     *
+     * Pipeline stages:
+     * 1. Match all incomplete records (completedAt is null) in the given partitions
+     * 2. Sort by recordKey and createdAt to prepare for grouping
+     * 3. Group by recordKey, capturing the oldest record as the "blocker"
+     * 4. Filter to only keys where the oldest record matches the target status and retry time
+     * 5. Order by oldest record's creation time and limit results
+     *
+     * @param partitions the set of partition numbers to query
+     * @param status the record status to match
+     * @param now the current timestamp for retry comparison
+     * @param batchSize the maximum number of record keys to return
+     * @return the aggregation pipeline
+     */
+    private fun buildStrictFifoAggregation(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+        now: Instant,
+        batchSize: Int,
+    ): Aggregation =
+        Aggregation.newAggregation(
+            // Match all incomplete records in partitions
+            Aggregation.match(
+                Criteria
+                    .where("partitionNo")
+                    .`in`(partitions)
+                    .and("completedAt")
+                    .`is`(null),
+            ),
+            // Sort to ensure the 'first' in group is the oldest
+            Aggregation.sort(Sort.by(Sort.Direction.ASC, "recordKey", "createdAt")),
+            // Group by recordKey and take the absolute oldest record (the "blocker")
+            Aggregation
+                .group("recordKey")
+                .first(Aggregation.ROOT)
+                .`as`("oldestDoc"),
+            // Only process if the oldest record for this key is actually ready
+            Aggregation.match(
+                Criteria
+                    .where("oldestDoc.status")
+                    .`is`(status.name)
+                    .and("oldestDoc.nextRetryAt")
+                    .lte(now),
+            ),
+            // Order keys by their oldest record's creation time
+            Aggregation.sort(Sort.by(Sort.Direction.ASC, "oldestDoc.createdAt")),
+            Aggregation.limit(batchSize.toLong()),
+            Aggregation
+                .project()
+                .andExclude("_id")
+                .and("_id")
+                .`as`("recordKey"),
+        )
+
+    /**
+     * Builds a standard aggregation pipeline that finds record keys with ready records.
+     *
+     * Unlike [buildStrictFifoAggregation], this does not check for older incomplete records
+     * blocking the key. It simply finds all records matching the criteria and groups by key.
+     *
+     * @param partitions the set of partition numbers to query
+     * @param status the record status to match
+     * @param now the current timestamp for retry comparison
+     * @param batchSize the maximum number of record keys to return
+     * @return the aggregation pipeline
+     */
+    private fun buildStandardAggregation(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+        now: Instant,
+        batchSize: Int,
+    ): Aggregation =
+        Aggregation.newAggregation(
+            // Match all records that are ready for processing
+            Aggregation.match(
+                Criteria
+                    .where("partitionNo")
+                    .`in`(partitions)
+                    .and("status")
+                    .`is`(status.name)
+                    .and("nextRetryAt")
+                    .lte(now),
+            ),
+            // Group by recordKey to get unique keys and find oldest record for sorting
+            Aggregation
+                .group("recordKey")
+                .min("createdAt")
+                .`as`("minCreatedAt"),
+            // Order by creation time of the oldest ready record
+            Aggregation.sort(Sort.by(Sort.Direction.ASC, "minCreatedAt")),
+            Aggregation.limit(batchSize.toLong()),
+            Aggregation
+                .project()
+                .andExclude("_id")
+                .and("_id")
+                .`as`("recordKey"),
+        )
 }
 
 /**

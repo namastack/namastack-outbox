@@ -28,6 +28,7 @@ const sidebars: SidebarsConfig = {
           items: [
             'reference/persistence',
             'reference/database',
+            'reference/retention',
           ],
         },
         {

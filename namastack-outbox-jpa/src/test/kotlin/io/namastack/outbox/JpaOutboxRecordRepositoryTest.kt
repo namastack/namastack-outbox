@@ -8,6 +8,7 @@ import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -612,6 +613,157 @@ class JpaOutboxRecordRepositoryTest {
 
         jpaOutboxRecordRepository.save(record)
         return record
+    }
+
+    // ==================== Retention ====================
+
+    @Test
+    fun `finds completed records older than cutoff oldest first`() {
+        val newest = saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(10))
+        val oldest = saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(30))
+        val middle = saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(20))
+        saveRetentionRecord(COMPLETED, completedAt = retentionBase)
+        saveRetentionRecord(COMPLETED, completedAt = retentionBase.plusSeconds(10))
+        saveRetentionRecord(FAILED, nextRetryAt = retentionBase.minusSeconds(60))
+        saveRetentionRecord(NEW, createdAt = retentionBase.minusSeconds(60))
+
+        assertThat(
+            jpaOutboxRecordRepository.findCompletedRecords(retentionBase, 10).map { it.id },
+        ).containsExactly(oldest, middle, newest)
+        assertThat(
+            jpaOutboxRecordRepository.findCompletedRecords(retentionBase, 2).map {
+                it.id
+            },
+        ).containsExactly(oldest, middle)
+    }
+
+    @Test
+    fun `finds failed records by next retry time instead of creation time`() {
+        val createdLongAgoRetriedRecently =
+            saveRetentionRecord(
+                FAILED,
+                createdAt = retentionBase.minusSeconds(3600),
+                nextRetryAt = retentionBase.plusSeconds(10),
+            )
+        val newer = saveRetentionRecord(FAILED, nextRetryAt = retentionBase.minusSeconds(10))
+        val older = saveRetentionRecord(FAILED, nextRetryAt = retentionBase.minusSeconds(20))
+        saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(60))
+        saveRetentionRecord(NEW, createdAt = retentionBase.minusSeconds(60))
+
+        val ids = jpaOutboxRecordRepository.findFailedRecords(retentionBase, 10).map { it.id }
+
+        assertThat(ids).containsExactly(older, newer)
+        assertThat(ids).doesNotContain(createdLongAgoRetriedRecently)
+    }
+
+    @Test
+    fun `rejects non positive limit`() {
+        assertThatThrownBy { jpaOutboxRecordRepository.findCompletedRecords(retentionBase, 0) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { jpaOutboxRecordRepository.findFailedRecords(retentionBase, -1) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { jpaOutboxRecordRepository.deleteCompletedRecords(retentionBase, 0) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { jpaOutboxRecordRepository.deleteFailedRecords(retentionBase, 0) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+    }
+
+    @Test
+    fun `deletes completed records older than cutoff up to limit oldest first`() {
+        val oldest = saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(30))
+        val middle = saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(20))
+        val newest = saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(10))
+        val recent = saveRetentionRecord(COMPLETED, completedAt = retentionBase.plusSeconds(10))
+        saveRetentionRecord(FAILED, nextRetryAt = retentionBase.minusSeconds(60))
+        saveRetentionRecord(NEW, createdAt = retentionBase.minusSeconds(60))
+
+        assertThat(jpaOutboxRecordRepository.deleteCompletedRecords(retentionBase, 2)).isEqualTo(2)
+        val remaining = jpaOutboxRecordRepository.findCompletedRecords().map { it.id }
+        assertThat(remaining).containsExactlyInAnyOrder(newest, recent)
+        assertThat(remaining).doesNotContain(oldest, middle)
+
+        assertThat(jpaOutboxRecordRepository.deleteCompletedRecords(retentionBase, 2)).isEqualTo(1)
+        assertThat(jpaOutboxRecordRepository.deleteCompletedRecords(retentionBase, 2)).isZero()
+        assertThat(jpaOutboxRecordRepository.findCompletedRecords().map { it.id }).containsExactly(recent)
+        assertThat(jpaOutboxRecordRepository.countByStatus(FAILED)).isEqualTo(1)
+        assertThat(jpaOutboxRecordRepository.countByStatus(NEW)).isEqualTo(1)
+    }
+
+    @Test
+    fun `deletes failed records by next retry time and keeps other statuses`() {
+        saveRetentionRecord(FAILED, nextRetryAt = retentionBase.minusSeconds(20))
+        saveRetentionRecord(FAILED, nextRetryAt = retentionBase.minusSeconds(10))
+        val retriedRecently =
+            saveRetentionRecord(
+                FAILED,
+                createdAt = retentionBase.minusSeconds(3600),
+                nextRetryAt = retentionBase.plusSeconds(10),
+            )
+        saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(60))
+        saveRetentionRecord(NEW, createdAt = retentionBase.minusSeconds(60))
+
+        assertThat(jpaOutboxRecordRepository.deleteFailedRecords(retentionBase, 10)).isEqualTo(2)
+
+        assertThat(jpaOutboxRecordRepository.findFailedRecords().map { it.id }).containsExactly(retriedRecently)
+        assertThat(jpaOutboxRecordRepository.countByStatus(COMPLETED)).isEqualTo(1)
+        assertThat(jpaOutboxRecordRepository.countByStatus(NEW)).isEqualTo(1)
+    }
+
+    @Test
+    fun `returns zero when no records are eligible for retention`() {
+        saveRetentionRecord(NEW, createdAt = retentionBase.minusSeconds(60))
+
+        assertThat(jpaOutboxRecordRepository.deleteCompletedRecords(retentionBase, 10)).isZero()
+        assertThat(jpaOutboxRecordRepository.deleteFailedRecords(retentionBase, 10)).isZero()
+        assertThat(jpaOutboxRecordRepository.countByStatus(NEW)).isEqualTo(1)
+    }
+
+    @Test
+    fun `deletes records by ids`() {
+        val completed = saveRetentionRecord(COMPLETED, completedAt = retentionBase)
+        val failed = saveRetentionRecord(FAILED, nextRetryAt = retentionBase)
+        val kept = saveRetentionRecord(COMPLETED, completedAt = retentionBase)
+
+        assertThat(jpaOutboxRecordRepository.deleteByIds(listOf(completed, failed, "unknown-id"))).isEqualTo(2)
+
+        assertThat(jpaOutboxRecordRepository.findCompletedRecords().map { it.id }).containsExactly(kept)
+        assertThat(jpaOutboxRecordRepository.countByStatus(FAILED)).isZero()
+    }
+
+    @Test
+    fun `deletes nothing for empty ids`() {
+        saveRetentionRecord(COMPLETED, completedAt = retentionBase)
+
+        assertThat(jpaOutboxRecordRepository.deleteByIds(emptyList())).isZero()
+        assertThat(jpaOutboxRecordRepository.countByStatus(COMPLETED)).isEqualTo(1)
+    }
+
+    private val retentionBase: Instant = Instant.parse("2026-01-01T12:00:00Z")
+
+    private fun saveRetentionRecord(
+        status: OutboxRecordStatus,
+        createdAt: Instant = retentionBase.minusSeconds(7200),
+        completedAt: Instant? = null,
+        nextRetryAt: Instant = createdAt,
+    ): String {
+        val record =
+            OutboxRecord.restore(
+                id = UUID.randomUUID().toString(),
+                recordKey = UUID.randomUUID().toString(),
+                payload = "payload",
+                context = emptyMap(),
+                partition = 1,
+                createdAt = createdAt,
+                status = status,
+                completedAt = completedAt,
+                failureCount = 0,
+                failureReason = null,
+                nextRetryAt = nextRetryAt,
+                handlerId = "handlerId",
+                failureException = null,
+            )
+        jpaOutboxRecordRepository.save(record)
+        return record.id
     }
 
     @SpringBootApplication

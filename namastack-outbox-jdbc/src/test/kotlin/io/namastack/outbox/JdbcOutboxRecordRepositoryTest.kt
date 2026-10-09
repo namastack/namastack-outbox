@@ -6,6 +6,7 @@ import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.config.JdbcOutboxAutoConfiguration
 import io.namastack.outbox.config.JdbcOutboxSchemaAutoConfiguration
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -14,6 +15,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.jdbc.autoconfigure.JdbcClientAutoConfiguration
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Instant
@@ -37,6 +39,9 @@ class JdbcOutboxRecordRepositoryTest {
 
     @Autowired
     private lateinit var transactionTemplate: TransactionTemplate
+
+    @Autowired
+    private lateinit var jdbcClient: JdbcClient
 
     @Test
     fun `saves an entity`() {
@@ -609,6 +614,167 @@ class JdbcOutboxRecordRepositoryTest {
 
         jdbcOutboxRecordRepository.save(record)
         return record
+    }
+
+    // ==================== Retention ====================
+
+    @Test
+    fun `finds completed records older than cutoff oldest first`() {
+        val newest = saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(10))
+        val oldest = saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(30))
+        val middle = saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(20))
+        saveRetentionRecord(COMPLETED, completedAt = retentionBase)
+        saveRetentionRecord(COMPLETED, completedAt = retentionBase.plusSeconds(10))
+        saveRetentionRecord(FAILED, nextRetryAt = retentionBase.minusSeconds(60))
+        saveRetentionRecord(NEW, createdAt = retentionBase.minusSeconds(60))
+
+        assertThat(
+            jdbcOutboxRecordRepository.findCompletedRecords(retentionBase, 10).map { it.id },
+        ).containsExactly(oldest, middle, newest)
+        assertThat(
+            jdbcOutboxRecordRepository.findCompletedRecords(retentionBase, 2).map { it.id },
+        ).containsExactly(oldest, middle)
+    }
+
+    @Test
+    fun `finds failed records by next retry time instead of creation time`() {
+        val createdLongAgoRetriedRecently =
+            saveRetentionRecord(
+                FAILED,
+                createdAt = retentionBase.minusSeconds(3600),
+                nextRetryAt = retentionBase.plusSeconds(10),
+            )
+        val newer = saveRetentionRecord(FAILED, nextRetryAt = retentionBase.minusSeconds(10))
+        val older = saveRetentionRecord(FAILED, nextRetryAt = retentionBase.minusSeconds(20))
+        saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(60))
+        saveRetentionRecord(NEW, createdAt = retentionBase.minusSeconds(60))
+
+        val ids = jdbcOutboxRecordRepository.findFailedRecords(retentionBase, 10).map { it.id }
+
+        assertThat(ids).containsExactly(older, newer)
+        assertThat(ids).doesNotContain(createdLongAgoRetriedRecently)
+    }
+
+    @Test
+    fun `rejects non positive limit`() {
+        assertThatThrownBy { jdbcOutboxRecordRepository.findCompletedRecords(retentionBase, 0) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { jdbcOutboxRecordRepository.findFailedRecords(retentionBase, -1) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { jdbcOutboxRecordRepository.deleteCompletedRecords(retentionBase, 0) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { jdbcOutboxRecordRepository.deleteFailedRecords(retentionBase, 0) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+    }
+
+    @Test
+    fun `deletes completed records older than cutoff up to limit oldest first`() {
+        val oldest = saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(30))
+        val middle = saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(20))
+        val newest = saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(10))
+        val recent = saveRetentionRecord(COMPLETED, completedAt = retentionBase.plusSeconds(10))
+        saveRetentionRecord(FAILED, nextRetryAt = retentionBase.minusSeconds(60))
+        saveRetentionRecord(NEW, createdAt = retentionBase.minusSeconds(60))
+
+        assertThat(jdbcOutboxRecordRepository.deleteCompletedRecords(retentionBase, 2)).isEqualTo(2)
+        val remaining = jdbcOutboxRecordRepository.findCompletedRecords().map { it.id }
+        assertThat(remaining).containsExactlyInAnyOrder(newest, recent)
+        assertThat(remaining).doesNotContain(oldest, middle)
+
+        assertThat(jdbcOutboxRecordRepository.deleteCompletedRecords(retentionBase, 2)).isEqualTo(1)
+        assertThat(jdbcOutboxRecordRepository.deleteCompletedRecords(retentionBase, 2)).isZero()
+        assertThat(jdbcOutboxRecordRepository.findCompletedRecords().map { it.id }).containsExactly(recent)
+        assertThat(jdbcOutboxRecordRepository.countByStatus(FAILED)).isEqualTo(1)
+        assertThat(jdbcOutboxRecordRepository.countByStatus(NEW)).isEqualTo(1)
+    }
+
+    @Test
+    fun `deletes failed records by next retry time and keeps other statuses`() {
+        saveRetentionRecord(FAILED, nextRetryAt = retentionBase.minusSeconds(20))
+        saveRetentionRecord(FAILED, nextRetryAt = retentionBase.minusSeconds(10))
+        val retriedRecently =
+            saveRetentionRecord(
+                FAILED,
+                createdAt = retentionBase.minusSeconds(3600),
+                nextRetryAt = retentionBase.plusSeconds(10),
+            )
+        saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(60))
+        saveRetentionRecord(NEW, createdAt = retentionBase.minusSeconds(60))
+
+        assertThat(jdbcOutboxRecordRepository.deleteFailedRecords(retentionBase, 10)).isEqualTo(2)
+
+        assertThat(jdbcOutboxRecordRepository.findFailedRecords().map { it.id }).containsExactly(retriedRecently)
+        assertThat(jdbcOutboxRecordRepository.countByStatus(COMPLETED)).isEqualTo(1)
+        assertThat(jdbcOutboxRecordRepository.countByStatus(NEW)).isEqualTo(1)
+    }
+
+    @Test
+    fun `returns zero when no records are eligible for retention`() {
+        saveRetentionRecord(NEW, createdAt = retentionBase.minusSeconds(60))
+
+        assertThat(jdbcOutboxRecordRepository.deleteCompletedRecords(retentionBase, 10)).isZero()
+        assertThat(jdbcOutboxRecordRepository.deleteFailedRecords(retentionBase, 10)).isZero()
+        assertThat(jdbcOutboxRecordRepository.countByStatus(NEW)).isEqualTo(1)
+    }
+
+    @Test
+    fun `deletes completed records whose payload type no longer exists`() {
+        val id = saveRetentionRecord(COMPLETED, completedAt = retentionBase.minusSeconds(10))
+        jdbcClient
+            .sql("UPDATE outbox_record SET record_type = 'com.example.RemovedEvent' WHERE id = :id")
+            .param("id", id)
+            .update()
+
+        assertThat(jdbcOutboxRecordRepository.deleteCompletedRecords(retentionBase, 10)).isEqualTo(1)
+        assertThat(jdbcOutboxRecordRepository.countByStatus(COMPLETED)).isZero()
+    }
+
+    @Test
+    fun `deletes records by ids`() {
+        val completed = saveRetentionRecord(COMPLETED, completedAt = retentionBase)
+        val failed = saveRetentionRecord(FAILED, nextRetryAt = retentionBase)
+        val kept = saveRetentionRecord(COMPLETED, completedAt = retentionBase)
+
+        assertThat(jdbcOutboxRecordRepository.deleteByIds(listOf(completed, failed, "unknown-id"))).isEqualTo(2)
+
+        assertThat(jdbcOutboxRecordRepository.findCompletedRecords().map { it.id }).containsExactly(kept)
+        assertThat(jdbcOutboxRecordRepository.countByStatus(FAILED)).isZero()
+    }
+
+    @Test
+    fun `deletes nothing for empty ids`() {
+        saveRetentionRecord(COMPLETED, completedAt = retentionBase)
+
+        assertThat(jdbcOutboxRecordRepository.deleteByIds(emptyList())).isZero()
+        assertThat(jdbcOutboxRecordRepository.countByStatus(COMPLETED)).isEqualTo(1)
+    }
+
+    private val retentionBase: Instant = Instant.parse("2026-01-01T12:00:00Z")
+
+    private fun saveRetentionRecord(
+        status: OutboxRecordStatus,
+        createdAt: Instant = retentionBase.minusSeconds(7200),
+        completedAt: Instant? = null,
+        nextRetryAt: Instant = createdAt,
+    ): String {
+        val record =
+            OutboxRecord.restore(
+                id = UUID.randomUUID().toString(),
+                recordKey = UUID.randomUUID().toString(),
+                payload = "payload",
+                context = emptyMap(),
+                partition = 1,
+                createdAt = createdAt,
+                status = status,
+                completedAt = completedAt,
+                failureCount = 0,
+                failureReason = null,
+                nextRetryAt = nextRetryAt,
+                handlerId = "handlerId",
+                failureException = null,
+            )
+        jdbcOutboxRecordRepository.save(record)
+        return record.id
     }
 
     @SpringBootApplication
