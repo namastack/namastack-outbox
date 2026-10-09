@@ -14,7 +14,7 @@ import java.time.Clock
  * Processor that handles permanently failed records by invoking fallback handlers.
  *
  * On success with [OutboxFallbackDisposition.COMPLETE]: marks record as COMPLETED or deletes it.
- * On success with [OutboxFallbackDisposition.KEEP_FAILED]: keeps the original failure and passes
+ * On success with [OutboxFallbackDisposition.FAIL]: keeps the original failure and passes
  * the record to the next processor in chain, which marks it as FAILED.
  * On failure: stores fallback exception, passes to next processor in chain.
  *
@@ -40,7 +40,7 @@ class FallbackOutboxRecordProcessor(
      *
      * If no fallback handler is registered, delegates to the next processor in the chain.
      * If the fallback handler throws, stores the exception on the record and delegates to the next processor.
-     * If the fallback handler succeeds with [OutboxFallbackDisposition.KEEP_FAILED], delegates to the next
+     * If the fallback handler succeeds with [OutboxFallbackDisposition.FAIL], delegates to the next
      * processor without replacing the original failure.
      *
      * @return [OutboxRecordProcessingOutcome.COMPLETED] if the fallback succeeds with
@@ -70,7 +70,7 @@ class FallbackOutboxRecordProcessor(
                 OutboxRecordProcessingOutcome.COMPLETED
             }
 
-            OutboxFallbackDisposition.KEEP_FAILED -> {
+            OutboxFallbackDisposition.FAIL -> {
                 log.debug("Fallback handler succeeded for record {}, keeping original failure", record.id)
                 handleNext(record)
             }

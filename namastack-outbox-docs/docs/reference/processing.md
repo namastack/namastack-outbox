@@ -40,7 +40,7 @@ flowchart LR
 
     H -- Yes --> I{Disposition?}
     I -- COMPLETE --> Z
-    I -- KEEP_FAILED --> Y
+    I -- FAIL --> Y
     H -- No --> Y[Mark FAILED]
 
     F -- No --> Y
@@ -55,7 +55,7 @@ flowchart LR
 
 2. **Retry Processor** - Evaluates if the exception is retryable and if retry limit is not exceeded. Schedules next retry with calculated delay or passes to Fallback Processor. When the scheduled retry becomes due, the scheduler sends the record through the Primary Handler Processor again; `OutboxRecordMetadata.failureCount` reflects the previous failed attempts.
 
-3. **Fallback Processor** - Invokes registered fallback handler if available. On success, marks record as `COMPLETED`, unless the fallback declares the `KEEP_FAILED` [disposition](handlers.md#fallback-behavior), in which case the record keeps its original failure and is passed to the Permanent Failure Processor. On failure or if no fallback exists, passes to Permanent Failure Processor.
+3. **Fallback Processor** - Invokes registered fallback handler if available. On success, marks record as `COMPLETED`, unless the fallback declares the `FAIL` [disposition](handlers.md#fallback-behavior), in which case the record keeps its original failure and is passed to the Permanent Failure Processor. On failure or if no fallback exists, passes to Permanent Failure Processor.
 
 4. **Permanent Failure Processor** - Marks the record as permanently `FAILED`. Final state - no further processing.
 

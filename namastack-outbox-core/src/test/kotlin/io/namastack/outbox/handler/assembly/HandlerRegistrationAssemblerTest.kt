@@ -56,9 +56,9 @@ class HandlerRegistrationAssemblerTest {
 
     @Test
     fun `assembles fallback with its declared disposition`() {
-        val registration = assembler.assemble(HandlerDiscovery.discover(KeepFailedHandler(), "keepFailedBean")).single()
+        val registration = assembler.assemble(HandlerDiscovery.discover(FailDispositionHandler(), "failBean")).single()
 
-        assertThat(registration.fallback?.disposition).isEqualTo(OutboxFallbackDisposition.KEEP_FAILED)
+        assertThat(registration.fallback?.disposition).isEqualTo(OutboxFallbackDisposition.FAIL)
     }
 
     @Test
@@ -170,11 +170,11 @@ class HandlerRegistrationAssemblerTest {
         verify(exactly = 1) { retryPolicies.getRetryPolicy("methodPolicy") }
     }
 
-    private class KeepFailedHandler {
+    private class FailDispositionHandler {
         @OutboxHandlerAnnotation
         fun handle(payload: String) = Unit
 
-        @OutboxFallbackHandler(disposition = OutboxFallbackDisposition.KEEP_FAILED)
+        @OutboxFallbackHandler(disposition = OutboxFallbackDisposition.FAIL)
         fun handleFailure(
             payload: String,
             context: OutboxFailureContext,

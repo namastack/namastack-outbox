@@ -24,19 +24,19 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit.SECONDS
 
 /**
- * Integration test for [OutboxFallbackDisposition.KEEP_FAILED].
+ * Integration test for [OutboxFallbackDisposition.FAIL].
  *
  * Scenario:
  * - Schedules two records for the same key: a record whose handler always fails, then a record
  *   that would succeed
- * - The fallback of the first record returns normally with [OutboxFallbackDisposition.KEEP_FAILED]
+ * - The fallback of the first record returns normally with [OutboxFallbackDisposition.FAIL]
  * - Verifies that the first record stays FAILED with its original failure reason and the second
  *   record remains blocked
  */
 @OutboxIntegrationTest
 @Import(
-    FallbackDispositionIntegrationTest.AnnotatedKeepFailedHandler::class,
-    FallbackDispositionIntegrationTest.InterfaceKeepFailedHandler::class,
+    FallbackDispositionIntegrationTest.AnnotatedFailDispositionHandler::class,
+    FallbackDispositionIntegrationTest.InterfaceFailDispositionHandler::class,
 )
 @TestPropertySource(properties = ["namastack.outbox.processing.stop-on-first-failure=true"])
 class FallbackDispositionIntegrationTest {
@@ -65,24 +65,24 @@ class FallbackDispositionIntegrationTest {
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    fun `annotated fallback with KEEP_FAILED keeps the key blocked`() {
+    fun `annotated fallback with FAIL keeps the key blocked`() {
         transactionTemplate.executeWithoutResult {
             outbox.schedule(AnnotatedEvent("e1", fail = true), "annotated-key")
             outbox.schedule(AnnotatedEvent("e2", fail = false), "annotated-key")
         }
 
-        assertKeyStaysBlocked("AnnotatedKeepFailedHandler", "e1")
+        assertKeyStaysBlocked("AnnotatedFailDispositionHandler", "e1")
     }
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    fun `interface fallback with KEEP_FAILED keeps the key blocked`() {
+    fun `interface fallback with FAIL keeps the key blocked`() {
         transactionTemplate.executeWithoutResult {
             outbox.schedule(InterfaceEvent("e1", fail = true), "interface-key")
             outbox.schedule(InterfaceEvent("e2", fail = false), "interface-key")
         }
 
-        assertKeyStaysBlocked("InterfaceKeepFailedHandler", "e1")
+        assertKeyStaysBlocked("InterfaceFailDispositionHandler", "e1")
     }
 
     private fun assertKeyStaysBlocked(
@@ -133,29 +133,29 @@ class FallbackDispositionIntegrationTest {
 
     // Test Handlers
     @Component
-    class AnnotatedKeepFailedHandler {
+    class AnnotatedFailDispositionHandler {
         @OutboxHandler
         fun handle(payload: AnnotatedEvent) {
-            handledEvents.computeIfAbsent("AnnotatedKeepFailedHandler") { mutableListOf() }.add(payload.value)
+            handledEvents.computeIfAbsent("AnnotatedFailDispositionHandler") { mutableListOf() }.add(payload.value)
             if (payload.fail) throw RuntimeException("Delivery failed for ${payload.value}")
         }
 
-        @OutboxFallbackHandler(disposition = OutboxFallbackDisposition.KEEP_FAILED)
+        @OutboxFallbackHandler(disposition = OutboxFallbackDisposition.FAIL)
         fun handleFailure(
             payload: AnnotatedEvent,
             context: OutboxFailureContext,
         ) {
-            fallbackCalls.computeIfAbsent("AnnotatedKeepFailedHandler") { mutableListOf() }.add(context)
+            fallbackCalls.computeIfAbsent("AnnotatedFailDispositionHandler") { mutableListOf() }.add(context)
         }
     }
 
     @Component
-    class InterfaceKeepFailedHandler : OutboxTypedHandlerWithFallback<InterfaceEvent> {
+    class InterfaceFailDispositionHandler : OutboxTypedHandlerWithFallback<InterfaceEvent> {
         override fun handle(
             payload: InterfaceEvent,
             metadata: OutboxRecordMetadata,
         ) {
-            handledEvents.computeIfAbsent("InterfaceKeepFailedHandler") { mutableListOf() }.add(payload.value)
+            handledEvents.computeIfAbsent("InterfaceFailDispositionHandler") { mutableListOf() }.add(payload.value)
             if (payload.fail) throw RuntimeException("Delivery failed for ${payload.value}")
         }
 
@@ -163,10 +163,10 @@ class FallbackDispositionIntegrationTest {
             payload: InterfaceEvent,
             context: OutboxFailureContext,
         ) {
-            fallbackCalls.computeIfAbsent("InterfaceKeepFailedHandler") { mutableListOf() }.add(context)
+            fallbackCalls.computeIfAbsent("InterfaceFailDispositionHandler") { mutableListOf() }.add(context)
         }
 
-        override fun getTypedFallbackDisposition() = OutboxFallbackDisposition.KEEP_FAILED
+        override fun getTypedFallbackDisposition() = OutboxFallbackDisposition.FAIL
     }
 
     companion object {

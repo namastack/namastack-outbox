@@ -54,9 +54,9 @@ class HandlerDiscoveryTest {
 
     @Test
     fun `discovers fallback disposition declared on the annotation`() {
-        val fallback = HandlerDiscovery.discover(KeepFailedAnnotatedHandler(), "keepFailedBean").fallbacks.single()
+        val fallback = HandlerDiscovery.discover(FailDispositionAnnotatedHandler(), "failBean").fallbacks.single()
 
-        assertThat(fallback.disposition).isEqualTo(OutboxFallbackDisposition.KEEP_FAILED)
+        assertThat(fallback.disposition).isEqualTo(OutboxFallbackDisposition.FAIL)
     }
 
     @Test
@@ -64,7 +64,7 @@ class HandlerDiscoveryTest {
         val fallbacks = InterfaceFallbackDiscoverer.discover(CombinedInterfaceHandlerWithFallback())
 
         assertThat(fallbacks.associate { it.source to it.disposition })
-            .containsEntry(HandlerSource.TYPED_INTERFACE, OutboxFallbackDisposition.KEEP_FAILED)
+            .containsEntry(HandlerSource.TYPED_INTERFACE, OutboxFallbackDisposition.FAIL)
             .containsEntry(HandlerSource.GENERIC_INTERFACE, OutboxFallbackDisposition.COMPLETE)
     }
 
@@ -73,7 +73,7 @@ class HandlerDiscoveryTest {
         val fallbacks = InterfaceFallbackDiscoverer.discover(JavaHandlerWithFallbackDispositions())
 
         assertThat(fallbacks.associate { it.source to it.disposition })
-            .containsEntry(HandlerSource.TYPED_INTERFACE, OutboxFallbackDisposition.KEEP_FAILED)
+            .containsEntry(HandlerSource.TYPED_INTERFACE, OutboxFallbackDisposition.FAIL)
             .containsEntry(HandlerSource.GENERIC_INTERFACE, OutboxFallbackDisposition.COMPLETE)
     }
 
@@ -135,11 +135,11 @@ class HandlerDiscoveryTest {
         ) = Unit
     }
 
-    private class KeepFailedAnnotatedHandler {
+    private class FailDispositionAnnotatedHandler {
         @OutboxHandlerAnnotation
         fun handle(payload: String) = Unit
 
-        @OutboxFallbackHandler(disposition = OutboxFallbackDisposition.KEEP_FAILED)
+        @OutboxFallbackHandler(disposition = OutboxFallbackDisposition.FAIL)
         fun handleFailure(
             payload: String,
             context: OutboxFailureContext,
@@ -159,7 +159,7 @@ class HandlerDiscoveryTest {
             context: OutboxFailureContext,
         ) = Unit
 
-        override fun getTypedFallbackDisposition() = OutboxFallbackDisposition.KEEP_FAILED
+        override fun getTypedFallbackDisposition() = OutboxFallbackDisposition.FAIL
     }
 
     private class SelectiveInterfaceHandler : OutboxHandler {

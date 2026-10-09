@@ -19,5 +19,5 @@ enum class OutboxFallbackDisposition {
      * The record is marked `FAILED` and keeps the failure reason of the primary handler.
      * When stop-on-first-failure is enabled, later records with the same key remain blocked.
      */
-    KEEP_FAILED,
+    FAIL,
 }

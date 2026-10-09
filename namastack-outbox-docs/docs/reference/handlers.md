@@ -584,8 +584,8 @@ returns normally or throws:
 |----------------------|------------------|---------------|------------------------|-------------------------------------------|
 | `COMPLETE` (default) | Returns normally | `COMPLETED`   | Original handler error | Processed                                 |
 | `COMPLETE` (default) | Throws           | `FAILED`      | Fallback error         | Blocked when `stop-on-first-failure=true` |
-| `KEEP_FAILED`        | Returns normally | `FAILED`      | Original handler error | Blocked when `stop-on-first-failure=true` |
-| `KEEP_FAILED`        | Throws           | `FAILED`      | Fallback error         | Blocked when `stop-on-first-failure=true` |
+| `FAIL`               | Returns normally | `FAILED`      | Original handler error | Blocked when `stop-on-first-failure=true` |
+| `FAIL`               | Throws           | `FAILED`      | Fallback error         | Blocked when `stop-on-first-failure=true` |
 
 A `FAILED` record requires manual intervention.
 
@@ -596,7 +596,7 @@ The disposition is configured per fallback handler:
 
 ```kotlin
 // Annotation-based
-@OutboxFallbackHandler(disposition = OutboxFallbackDisposition.KEEP_FAILED)
+@OutboxFallbackHandler(disposition = OutboxFallbackDisposition.FAIL)
 fun handleOrderFailure(payload: OrderEvent, context: OutboxFailureContext) {
     logger.error("Order ${payload.orderId} failed after ${context.failureCount} attempts")
 }
@@ -612,7 +612,7 @@ class OrderHandler : OutboxTypedHandlerWithFallback<OrderEvent> {
         logger.error("Order ${payload.orderId} failed after ${context.failureCount} attempts")
     }
 
-    override fun getTypedFallbackDisposition() = OutboxFallbackDisposition.KEEP_FAILED
+    override fun getTypedFallbackDisposition() = OutboxFallbackDisposition.FAIL
 }
 ```
 
@@ -621,7 +621,7 @@ class OrderHandler : OutboxTypedHandlerWithFallback<OrderEvent> {
 
 ```java
 // Annotation-based
-@OutboxFallbackHandler(disposition = OutboxFallbackDisposition.KEEP_FAILED)
+@OutboxFallbackHandler(disposition = OutboxFallbackDisposition.FAIL)
 public void handleOrderFailure(OrderEvent payload, OutboxFailureContext context) {
     logger.error(
         "Order {} failed after {} attempts",
@@ -649,7 +649,7 @@ public class OrderHandler implements OutboxTypedHandlerWithFallback<OrderEvent> 
 
     @Override
     public OutboxFallbackDisposition getTypedFallbackDisposition() {
-        return OutboxFallbackDisposition.KEEP_FAILED;
+        return OutboxFallbackDisposition.FAIL;
     }
 }
 ```

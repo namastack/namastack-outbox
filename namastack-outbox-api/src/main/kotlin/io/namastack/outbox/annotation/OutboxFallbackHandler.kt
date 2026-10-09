@@ -45,7 +45,7 @@ import io.namastack.outbox.handler.OutboxFallbackDisposition
  * Defaults to [OutboxFallbackDisposition.COMPLETE].
  *
  * ```kotlin
- * @OutboxFallbackHandler(disposition = OutboxFallbackDisposition.KEEP_FAILED)
+ * @OutboxFallbackHandler(disposition = OutboxFallbackDisposition.FAIL)
  * fun handleFailure(payload: OrderEvent, context: OutboxFailureContext) {
  *     logger.error("Order ${payload.orderId} failed after ${context.failureCount} attempts")
  * }

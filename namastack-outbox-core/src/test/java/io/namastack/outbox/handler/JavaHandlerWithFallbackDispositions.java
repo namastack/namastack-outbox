@@ -17,6 +17,6 @@ public class JavaHandlerWithFallbackDispositions
 
     @Override
     public OutboxFallbackDisposition getTypedFallbackDisposition() {
-        return OutboxFallbackDisposition.KEEP_FAILED;
+        return OutboxFallbackDisposition.FAIL;
     }
 }

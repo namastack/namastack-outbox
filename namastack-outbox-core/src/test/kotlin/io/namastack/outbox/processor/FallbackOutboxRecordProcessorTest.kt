@@ -57,11 +57,11 @@ class FallbackOutboxRecordProcessorTest {
     ): OutboxFallbackHandlerMethod = mockk { every { this@mockk.disposition } returns disposition }
 
     @Test
-    fun `handle keeps the original failure and delegates when fallback with KEEP_FAILED succeeds`() {
+    fun `handle keeps the original failure and delegates when fallback with FAIL succeeds`() {
         val record = createFailedRecord()
 
         every { fallbackHandlerRegistry.getByHandlerId(record.handlerId) } returns
-            fallbackMethod(OutboxFallbackDisposition.KEEP_FAILED)
+            fallbackMethod(OutboxFallbackDisposition.FAIL)
         justRun { fallbackHandlerInvoker.dispatch(any()) }
         every { nextProcessor.handle(any()) } returns OutboxRecordProcessingOutcome.FAILED
 
@@ -80,12 +80,12 @@ class FallbackOutboxRecordProcessorTest {
     }
 
     @Test
-    fun `handle stores the fallback exception when fallback with KEEP_FAILED throws`() {
+    fun `handle stores the fallback exception when fallback with FAIL throws`() {
         val record = createFailedRecord()
         val fallbackException = IllegalStateException("Fallback failed")
 
         every { fallbackHandlerRegistry.getByHandlerId(record.handlerId) } returns
-            fallbackMethod(OutboxFallbackDisposition.KEEP_FAILED)
+            fallbackMethod(OutboxFallbackDisposition.FAIL)
         every { fallbackHandlerInvoker.dispatch(any()) } throws fallbackException
         every { nextProcessor.handle(any()) } returns OutboxRecordProcessingOutcome.FAILED
 
