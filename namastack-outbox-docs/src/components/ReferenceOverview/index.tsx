@@ -43,11 +43,12 @@ const referenceGroups: ReferenceGroup[] = [
   },
   {
     title: 'Persistence',
-    description: 'Persistence modules, supported databases, and schema details.',
+    description: 'Persistence modules, supported databases, schema details, and record retention.',
     icon: IconDatabase,
     items: [
       {title: 'Persistence Modules', link: 'persistence/'},
       {title: 'Database Support', link: 'database/'},
+      {title: 'Record Retention', link: 'retention/', sinceVersion: '1.11.x'},
     ],
   },
   {
