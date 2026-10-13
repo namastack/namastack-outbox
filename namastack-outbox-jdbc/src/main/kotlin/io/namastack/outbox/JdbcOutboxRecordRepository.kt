@@ -76,6 +76,82 @@ internal open class JdbcOutboxRecordRepository(
         """.toSingleLine()
 
     /**
+     * Query to select outbox records by status completed before a cutoff, oldest first.
+     */
+    private val findByStatusAndCompletedBeforeQuery =
+        """
+        SELECT * FROM $tableName
+        WHERE status = :status AND completed_at < :cutoff
+        ORDER BY completed_at
+        """.toSingleLine()
+
+    /**
+     * Query to select outbox records by status with next retry time before a cutoff, oldest first.
+     */
+    private val findByStatusAndNextRetryBeforeQuery =
+        """
+        SELECT * FROM $tableName
+        WHERE status = :status AND next_retry_at < :cutoff
+        ORDER BY next_retry_at
+        """.toSingleLine()
+
+    /**
+     * Query to select ids of outbox records by status completed before a cutoff, oldest first.
+     */
+    private val findIdsByStatusAndCompletedBeforeQuery =
+        """
+        SELECT id FROM $tableName
+        WHERE status = :status AND completed_at < :cutoff
+        ORDER BY completed_at
+        """.toSingleLine()
+
+    /**
+     * Query to select ids of outbox records by status with next retry time before a cutoff, oldest first.
+     */
+    private val findIdsByStatusAndNextRetryBeforeQuery =
+        """
+        SELECT id FROM $tableName
+        WHERE status = :status AND next_retry_at < :cutoff
+        ORDER BY next_retry_at
+        """.toSingleLine()
+
+    /**
+     * Query to select record keys with no previous open/failed event (older.completedAt is null).
+     * Used when ignoreRecordKeysWithPreviousFailure is true.
+     */
+    private val recordKeysQueryWithPreviousFailureFilterTemplate =
+        """
+        SELECT o.record_key
+        FROM $tableName o
+        WHERE o.partition_no IN (:partitions)
+          AND o.status = :status
+          AND o.next_retry_at <= :now
+          AND NOT EXISTS (
+            SELECT 1 FROM $tableName older
+            WHERE older.record_key = o.record_key
+              AND older.completed_at IS NULL
+              AND older.created_at < o.created_at
+          )
+        GROUP BY o.record_key
+        ORDER BY MIN(o.created_at) ASC
+        """.toSingleLine()
+
+    /**
+     * Query to select all record keys with pending records, regardless of previous failures.
+     * Used when ignoreRecordKeysWithPreviousFailure is false.
+     */
+    private val recordKeysQueryWithoutPreviousFailureFilterTemplate =
+        """
+        SELECT o.record_key
+        FROM $tableName o
+        WHERE o.partition_no IN (:partitions)
+          AND o.status = :status
+          AND o.next_retry_at <= :now
+        GROUP BY o.record_key
+        ORDER BY MIN(o.created_at) ASC
+        """.toSingleLine()
+
+    /**
      * Query to count outbox records by status.
      */
     private val countByStatusQuery =
@@ -130,39 +206,12 @@ internal open class JdbcOutboxRecordRepository(
         """.toSingleLine()
 
     /**
-     * Query to select record keys with no previous open/failed event (older.completedAt is null).
-     * Used when ignoreRecordKeysWithPreviousFailure is true.
+     * Query to delete outbox records by ids.
      */
-    private val recordKeysQueryWithPreviousFailureFilterTemplate =
+    private val deleteByIdsQuery =
         """
-        SELECT o.record_key
-        FROM $tableName o
-        WHERE o.partition_no IN (:partitions)
-          AND o.status = :status
-          AND o.next_retry_at <= :now
-          AND NOT EXISTS (
-            SELECT 1 FROM $tableName older
-            WHERE older.record_key = o.record_key
-              AND older.completed_at IS NULL
-              AND older.created_at < o.created_at
-          )
-        GROUP BY o.record_key
-        ORDER BY MIN(o.created_at) ASC
-        """.toSingleLine()
-
-    /**
-     * Query to select all record keys with pending records, regardless of previous failures.
-     * Used when ignoreRecordKeysWithPreviousFailure is false.
-     */
-    private val recordKeysQueryWithoutPreviousFailureFilterTemplate =
-        """
-        SELECT o.record_key
-        FROM $tableName o
-        WHERE o.partition_no IN (:partitions)
-          AND o.status = :status
-          AND o.next_retry_at <= :now
-        GROUP BY o.record_key
-        ORDER BY MIN(o.created_at) ASC
+        DELETE FROM $tableName
+        WHERE id IN (:ids)
         """.toSingleLine()
 
     /**
@@ -193,9 +242,49 @@ internal open class JdbcOutboxRecordRepository(
     override fun findCompletedRecords(): List<OutboxRecord<*>> = findRecordsByStatus(OutboxRecordStatus.COMPLETED)
 
     /**
+     * Finds at most [limit] completed records completed before the cutoff, oldest first.
+     */
+    override fun findCompletedRecords(
+        completedBefore: Instant,
+        limit: Int,
+    ): List<OutboxRecord<*>> {
+        require(limit > 0) { "limit must be positive but was $limit" }
+
+        return jdbcClient
+            .sql(findByStatusAndCompletedBeforeQuery)
+            .param("status", OutboxRecordStatus.COMPLETED.name)
+            .param("cutoff", Timestamp.from(completedBefore))
+            .withMaxRows(limit)
+            .query(rowMapper)
+            .list()
+            .filterNotNull()
+            .map { entityMapper.map(it) }
+    }
+
+    /**
      * Finds all failed outbox records ordered by creation time.
      */
     override fun findFailedRecords(): List<OutboxRecord<*>> = findRecordsByStatus(OutboxRecordStatus.FAILED)
+
+    /**
+     * Finds at most [limit] failed records whose last scheduled attempt is before the cutoff, oldest first.
+     */
+    override fun findFailedRecords(
+        lastRetryBefore: Instant,
+        limit: Int,
+    ): List<OutboxRecord<*>> {
+        require(limit > 0) { "limit must be positive but was $limit" }
+
+        return jdbcClient
+            .sql(findByStatusAndNextRetryBeforeQuery)
+            .param("status", OutboxRecordStatus.FAILED.name)
+            .param("cutoff", Timestamp.from(lastRetryBefore))
+            .withMaxRows(limit)
+            .query(rowMapper)
+            .list()
+            .filterNotNull()
+            .map { entityMapper.map(it) }
+    }
 
     /**
      * Finds all incomplete records for a specific record key ordered by creation time.
@@ -209,6 +298,36 @@ internal open class JdbcOutboxRecordRepository(
             .list()
             .filterNotNull()
             .map { entityMapper.map(it) }
+
+    /**
+     * Finds record keys in specified partitions that are ready for processing.
+     * Optionally filters out keys with previous incomplete records.
+     */
+    override fun findRecordKeysInPartitions(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+        batchSize: Int,
+        ignoreRecordKeysWithPreviousFailure: Boolean,
+    ): List<String> {
+        val now = Instant.now(clock)
+
+        val query =
+            if (ignoreRecordKeysWithPreviousFailure) {
+                recordKeysQueryWithPreviousFailureFilterTemplate
+            } else {
+                recordKeysQueryWithoutPreviousFailureFilterTemplate
+            }
+
+        return jdbcClient
+            .sql(query)
+            .withMaxRows(batchSize)
+            .param("partitions", partitions.toList())
+            .param("status", status.name)
+            .param("now", Timestamp.from(now))
+            .query(String::class.java)
+            .list()
+            .filterNotNull()
+    }
 
     /**
      * Counts outbox records by status.
@@ -299,33 +418,65 @@ internal open class JdbcOutboxRecordRepository(
     }
 
     /**
-     * Finds record keys in specified partitions that are ready for processing.
-     * Optionally filters out keys with previous incomplete records.
+     * Deletes outbox records by ids.
      */
-    override fun findRecordKeysInPartitions(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-        batchSize: Int,
-        ignoreRecordKeysWithPreviousFailure: Boolean,
-    ): List<String> {
-        val now = Instant.now(clock)
+    override fun deleteByIds(ids: Collection<String>): Int {
+        if (ids.isEmpty()) return 0
 
-        val query =
-            if (ignoreRecordKeysWithPreviousFailure) {
-                recordKeysQueryWithPreviousFailureFilterTemplate
-            } else {
-                recordKeysQueryWithoutPreviousFailureFilterTemplate
-            }
+        return transactionTemplate.execute {
+            jdbcClient
+                .sql(deleteByIdsQuery)
+                .param("ids", ids)
+                .update()
+        } ?: 0
+    }
 
-        return jdbcClient
-            .sql(query)
-            .withMaxRows(batchSize)
-            .param("partitions", partitions.toList())
-            .param("status", status.name)
-            .param("now", Timestamp.from(now))
-            .query(String::class.java)
-            .list()
-            .filterNotNull()
+    /**
+     * Deletes at most [limit] completed records completed before the cutoff, oldest first.
+     */
+    override fun deleteCompletedRecords(
+        completedBefore: Instant,
+        limit: Int,
+    ): Int {
+        require(limit > 0) { "limit must be positive but was $limit" }
+
+        return transactionTemplate.execute {
+            val ids =
+                jdbcClient
+                    .sql(findIdsByStatusAndCompletedBeforeQuery)
+                    .param("status", OutboxRecordStatus.COMPLETED.name)
+                    .param("cutoff", Timestamp.from(completedBefore))
+                    .withMaxRows(limit)
+                    .query(String::class.java)
+                    .list()
+                    .filterNotNull()
+
+            deleteByIds(ids)
+        } ?: 0
+    }
+
+    /**
+     * Deletes at most [limit] failed records whose last scheduled attempt is before the cutoff, oldest first.
+     */
+    override fun deleteFailedRecords(
+        lastRetryBefore: Instant,
+        limit: Int,
+    ): Int {
+        require(limit > 0) { "limit must be positive but was $limit" }
+
+        return transactionTemplate.execute {
+            val ids =
+                jdbcClient
+                    .sql(findIdsByStatusAndNextRetryBeforeQuery)
+                    .param("status", OutboxRecordStatus.FAILED.name)
+                    .param("cutoff", Timestamp.from(lastRetryBefore))
+                    .withMaxRows(limit)
+                    .query(String::class.java)
+                    .list()
+                    .filterNotNull()
+
+            deleteByIds(ids)
+        } ?: 0
     }
 
     /**

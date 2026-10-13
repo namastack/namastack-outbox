@@ -1,5 +1,7 @@
 package io.namastack.outbox
 
+import java.time.Instant
+
 /**
  * Repository interface for managing outbox records.
  *
@@ -35,12 +37,52 @@ interface OutboxRecordRepository {
     fun findCompletedRecords(): List<OutboxRecord<*>>
 
     /**
+     * Finds `COMPLETED` records completed before the given instant.
+     *
+     * Implementations **must** return records sorted by completion time ascending (oldest first)
+     * and **must** return at most [limit] records. The method is not scoped to partitions; callers
+     * are responsible for coordinating retention across instances.
+     *
+     * @param completedBefore Exclusive upper bound for `completedAt`
+     * @param limit Maximum number of records to return, must be positive
+     * @return Matching records, oldest first
+     * @throws IllegalArgumentException if [limit] is not positive
+     * @since 1.11.0
+     */
+    fun findCompletedRecords(
+        completedBefore: Instant,
+        limit: Int,
+    ): List<OutboxRecord<*>>
+
+    /**
      * Finds all failed outbox records.
      * Implementations **must** return records sorted by creation time ascending
      *
      * @return List of failed outbox records
      */
     fun findFailedRecords(): List<OutboxRecord<*>>
+
+    /**
+     * Finds `FAILED` records whose last scheduled attempt was before the given instant.
+     *
+     * The age of a failed record is measured by `nextRetryAt`, which keeps the scheduled time of
+     * the last attempt when a record is marked as failed. It is a lower bound for the failure time,
+     * not the exact time the record became `FAILED`: a record created at 10:00 and first processed
+     * and permanently failed at 18:00 still has `nextRetryAt` 10:00.
+     *
+     * Implementations **must** return records sorted by `nextRetryAt` ascending (oldest first)
+     * and **must** return at most [limit] records. The method is not scoped to partitions.
+     *
+     * @param lastRetryBefore Exclusive upper bound for `nextRetryAt`
+     * @param limit Maximum number of records to return, must be positive
+     * @return Matching records, oldest first
+     * @throws IllegalArgumentException if [limit] is not positive
+     * @since 1.11.0
+     */
+    fun findFailedRecords(
+        lastRetryBefore: Instant,
+        limit: Int,
+    ): List<OutboxRecord<*>>
 
     /**
      * Finds all incomplete records for a specific record key.
@@ -124,4 +166,62 @@ interface OutboxRecordRepository {
      * @param id The unique identifier of the outbox record
      */
     fun deleteById(id: String)
+
+    /**
+     * Deletes the records with the given ids regardless of their status.
+     *
+     * Unknown ids are ignored. Returns zero without querying the data store when [ids] is empty.
+     * Callers must not pass ids of `NEW` records unless they intend to drop them unprocessed.
+     *
+     * @param ids Ids of the records to delete
+     * @return Number of records actually deleted
+     * @since 1.11.0
+     */
+    fun deleteByIds(ids: Collection<String>): Int
+
+    /**
+     * Deletes at most [limit] `COMPLETED` records completed before the given instant, oldest first.
+     *
+     * Eligible ids are selected first and then deleted with [deleteByIds], so [limit] is subject to the
+     * same `IN` list limits. A record that changes between both steps is still deleted. Records are not
+     * deserialized, so records whose payload type no longer exists are deleted as well. To delete
+     * everything eligible, call this method repeatedly until it returns less than [limit].
+     *
+     * @param completedBefore Exclusive upper bound for `completedAt`
+     * @param limit Maximum number of records to delete, must be positive
+     * @return Number of records actually deleted
+     * @throws IllegalArgumentException if [limit] is not positive
+     * @since 1.11.0
+     */
+    fun deleteCompletedRecords(
+        completedBefore: Instant,
+        limit: Int,
+    ): Int
+
+    /**
+     * Deletes at most [limit] `FAILED` records whose last scheduled attempt was before the given instant,
+     * oldest first.
+     *
+     * The age of a failed record is measured by `nextRetryAt`, see [findFailedRecords].
+     *
+     * **Ordering:** a `FAILED` record blocks later records with the same record key when
+     * `stop-on-first-failure` is enabled. Deleting it releases that barrier, and the later records
+     * of the key are processed afterwards.
+     *
+     * Eligible ids are selected first and then deleted with [deleteByIds], so [limit] is subject to the
+     * same `IN` list limits. A record that changes between both steps is still deleted, for example a
+     * `FAILED` record that is reset to `NEW` in the meantime. Records are not deserialized, so records
+     * whose payload type no longer exists are deleted as well. To delete everything eligible, call this
+     * method repeatedly until it returns less than [limit].
+     *
+     * @param lastRetryBefore Exclusive upper bound for `nextRetryAt`
+     * @param limit Maximum number of records to delete, must be positive
+     * @return Number of records actually deleted
+     * @throws IllegalArgumentException if [limit] is not positive
+     * @since 1.11.0
+     */
+    fun deleteFailedRecords(
+        lastRetryBefore: Instant,
+        limit: Int,
+    ): Int
 }
