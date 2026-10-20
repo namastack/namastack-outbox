@@ -16,6 +16,15 @@ import TabItem from '@theme/TabItem';
 
 Schedule records for processing via the `Outbox` service:
 
+Every `schedule()` overload requires an active Spring-managed transaction on the calling thread.
+Calls without one throw `IllegalStateException` before collecting context or persisting records.
+Place both the business write and scheduling call inside a proxied `@Transactional` method or a
+`TransactionTemplate` callback. Calling a `@Transactional` method from another method on the same
+instance does not activate Spring's transaction proxy.
+
+With multiple transaction managers, select the one that manages the outbox's database and your
+business data. The active-transaction check does not verify that both use the same resource.
+
 <Tabs>
 <TabItem value="kotlin" label="Kotlin">
 

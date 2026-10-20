@@ -6,6 +6,7 @@ import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
@@ -463,6 +464,11 @@ class OutboxService(
                     channel = channelNameProvider.getChannelName(),
                 ),
             action = {
+                check(TransactionSynchronizationManager.isActualTransactionActive()) {
+                    "Outbox.schedule requires an active transaction. " +
+                        "Call it within a Spring-managed @Transactional method or TransactionTemplate."
+                }
+
                 // Collect context from providers and merge with additional context
                 val context = contextCollector.collectContext() + additionalContext
                 val createdAt = clock.instant()

@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.stereotype.Component
 import org.springframework.test.annotation.DirtiesContext
+import org.springframework.transaction.support.TransactionTemplate
 import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
 
@@ -40,13 +41,16 @@ abstract class AbstractJdbcSchemaInitializationTest {
     @Autowired
     private lateinit var outboxRecordRepository: OutboxRecordRepository
 
+    @Autowired
+    private lateinit var transactionTemplate: TransactionTemplate
+
     @Test
     fun `schema initialization creates outbox tables and processing works`() {
         assertThat(tableExists("outbox_record")).isTrue()
         assertThat(tableExists("outbox_instance")).isTrue()
         assertThat(tableExists("outbox_partition")).isTrue()
 
-        outbox.schedule("hello")
+        transactionTemplate.executeWithoutResult { outbox.schedule("hello") }
 
         await().atMost(5, TimeUnit.SECONDS).untilAsserted {
             assertThat(outboxRecordRepository.findCompletedRecords()).hasSize(1)

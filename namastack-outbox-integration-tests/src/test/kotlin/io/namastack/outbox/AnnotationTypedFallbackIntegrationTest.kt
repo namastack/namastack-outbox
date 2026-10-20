@@ -53,7 +53,9 @@ class AnnotationTypedFallbackIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `typed handler with typed fallback`() {
-        outbox.schedule(TypedEvent("typed-fail"), "key1")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(TypedEvent("typed-fail"), "key1")
+        }
 
         await()
             .atMost(15, SECONDS)
@@ -72,7 +74,9 @@ class AnnotationTypedFallbackIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `fallback context contains correct failure information`() {
-        outbox.schedule(TypedEvent("context-check"), "key2")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(TypedEvent("context-check"), "key2")
+        }
 
         await()
             .atMost(15, SECONDS)

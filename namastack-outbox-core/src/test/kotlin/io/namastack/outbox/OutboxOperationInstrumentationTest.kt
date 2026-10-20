@@ -17,13 +17,26 @@ import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
 import java.util.concurrent.atomic.AtomicInteger
 
 class OutboxOperationInstrumentationTest {
+    @BeforeEach
+    fun setUpTransactionState() {
+        TransactionSynchronizationManager.setActualTransactionActive(true)
+    }
+
+    @AfterEach
+    fun clearTransactionState() {
+        TransactionSynchronizationManager.clear()
+    }
+
     @Test
     fun `instruments every schedule overload exactly once with documented key semantics`() {
         val scheduleInvocations = mutableListOf<OutboxScheduleInvocation>()

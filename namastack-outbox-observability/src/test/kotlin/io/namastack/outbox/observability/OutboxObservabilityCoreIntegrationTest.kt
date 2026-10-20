@@ -22,6 +22,8 @@ import io.namastack.outbox.observability.OutboxRecordProcessingObservationContex
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfigurations
@@ -30,11 +32,22 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.Ordered
 import org.springframework.scheduling.TaskScheduler
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
 
 class OutboxObservabilityCoreIntegrationTest {
+    @BeforeEach
+    fun setUpTransactionState() {
+        TransactionSynchronizationManager.setActualTransactionActive(true)
+    }
+
+    @AfterEach
+    fun clearTransactionState() {
+        TransactionSynchronizationManager.clear()
+    }
+
     private val contextRunner =
         ApplicationContextRunner()
             .withConfiguration(

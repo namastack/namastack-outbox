@@ -9,10 +9,12 @@ import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -30,7 +32,13 @@ class OutboxServiceTest {
 
     @BeforeEach
     fun setUp() {
+        TransactionSynchronizationManager.setActualTransactionActive(true)
         outboxService = OutboxService(contextCollector, handlerRegistry, outboxRecordRepository, clock)
+    }
+
+    @AfterEach
+    fun clearTransactionState() {
+        TransactionSynchronizationManager.clear()
     }
 
     @Nested

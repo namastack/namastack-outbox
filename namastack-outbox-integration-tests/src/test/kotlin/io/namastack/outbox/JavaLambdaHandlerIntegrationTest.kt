@@ -64,7 +64,9 @@ class JavaLambdaHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `Java lambda uses Spring bean name without generated class alias`() {
-        outbox.schedule(LambdaEvent("lambda"), "lambda-key")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(LambdaEvent("lambda"), "lambda-key")
+        }
 
         await().atMost(10, SECONDS).untilAsserted {
             assertThat(invocations).containsExactly("lambda" to "javaLambdaHandler")

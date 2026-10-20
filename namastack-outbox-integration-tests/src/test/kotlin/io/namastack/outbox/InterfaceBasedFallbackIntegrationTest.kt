@@ -63,7 +63,9 @@ class InterfaceBasedFallbackIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `generic handler with fallback on retry exhaustion`() {
-        outbox.schedule(GenericFailureEvent("will-fail"), "key1")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(GenericFailureEvent("will-fail"), "key1")
+        }
 
         await()
             .atMost(15, SECONDS)
@@ -83,7 +85,9 @@ class InterfaceBasedFallbackIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `typed handler with fallback on retry exhaustion`() {
-        outbox.schedule(TypedFailureEvent("typed-fail"), "key2")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(TypedFailureEvent("typed-fail"), "key2")
+        }
 
         await()
             .atMost(15, SECONDS)
@@ -102,7 +106,9 @@ class InterfaceBasedFallbackIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `typed interface fallback is invoked when annotated overloads share the method names`() {
-        outbox.schedule(OverloadedInterfaceFailureEvent("overloaded-fail"), "overloaded-key")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(OverloadedInterfaceFailureEvent("overloaded-fail"), "overloaded-key")
+        }
 
         await()
             .atMost(15, SECONDS)
@@ -116,7 +122,9 @@ class InterfaceBasedFallbackIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `successful fallback marks record as completed`() {
-        outbox.schedule(SuccessfulFallbackEvent("success-fallback"), "key3")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(SuccessfulFallbackEvent("success-fallback"), "key3")
+        }
 
         await()
             .atMost(15, SECONDS)
@@ -131,7 +139,9 @@ class InterfaceBasedFallbackIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `fallback exception marks record as failed`() {
-        outbox.schedule(FallbackExceptionEvent("fallback-throws"), "key4")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(FallbackExceptionEvent("fallback-throws"), "key4")
+        }
 
         await()
             .atMost(15, SECONDS)
@@ -146,7 +156,9 @@ class InterfaceBasedFallbackIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `fallback context contains correct failure information`() {
-        outbox.schedule(GenericFailureEvent("context-check"), "key5")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(GenericFailureEvent("context-check"), "key5")
+        }
 
         await()
             .atMost(15, SECONDS)
