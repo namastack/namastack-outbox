@@ -25,9 +25,6 @@ instance does not activate Spring's transaction proxy.
 With multiple transaction managers, select the one that manages the outbox's database and your
 business data. The active-transaction check does not verify that both use the same resource.
 
-**Upgrade note:** Calls that previously succeeded without a surrounding transaction now fail.
-Move the transaction boundary to include both the business operation and `schedule()`.
-
 <Tabs>
 <TabItem value="kotlin" label="Kotlin">
 
