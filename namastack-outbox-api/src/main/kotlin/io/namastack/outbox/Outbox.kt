@@ -7,6 +7,11 @@ package io.namastack.outbox
  * reliably with automatic retry logic. Records are routed to registered handlers
  * based on payload type or handled generically.
  *
+ * All scheduling methods require an active Spring-managed transaction on the calling thread.
+ * Use a proxied `@Transactional` method or `TransactionTemplate` around both business writes and
+ * scheduling. The transaction must manage the outbox's database as well as the business data;
+ * the active-transaction check does not validate resource participation.
+ *
  * ## Context Handling
  *
  * Outbox records can include context metadata (key-value pairs) for tracing, debugging, and filtering.

@@ -52,8 +52,10 @@ class AnnotationMultipleFallbacksIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `multiple handlers with their own fallbacks`() {
-        outbox.schedule(Event1("event1"), "key1")
-        outbox.schedule(Event2("event2"), "key2")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(Event1("event1"), "key1")
+            outbox.schedule(Event2("event2"), "key2")
+        }
 
         await()
             .atMost(15, SECONDS)
@@ -71,7 +73,9 @@ class AnnotationMultipleFallbacksIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `handler with multiple matching fallbacks uses first one`() {
-        outbox.schedule(Event1("multi-match"), "key3")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(Event1("multi-match"), "key3")
+        }
 
         await()
             .atMost(15, SECONDS)

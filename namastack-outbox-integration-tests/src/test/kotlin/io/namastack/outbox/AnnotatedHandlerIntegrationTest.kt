@@ -59,7 +59,9 @@ class AnnotatedHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `test simple class with annotated handler`() {
-        outbox.schedule(SimpleEvent("simple-test"), "key1")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(SimpleEvent("simple-test"), "key1")
+        }
 
         await()
             .atMost(10, SECONDS)
@@ -72,7 +74,9 @@ class AnnotatedHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `test generic interface implementation`() {
-        outbox.schedule(GenericEvent("generic-test"), "key2")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(GenericEvent("generic-test"), "key2")
+        }
 
         await()
             .atMost(10, SECONDS)
@@ -85,7 +89,9 @@ class AnnotatedHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `test non-generic interface implementation`() {
-        outbox.schedule(NonGenericEvent("non-generic-test"), "key3")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(NonGenericEvent("non-generic-test"), "key3")
+        }
 
         await()
             .atMost(10, SECONDS)
@@ -98,7 +104,9 @@ class AnnotatedHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `test abstract class implementation`() {
-        outbox.schedule(AbstractEvent("abstract-test"), "key4")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(AbstractEvent("abstract-test"), "key4")
+        }
 
         await()
             .atMost(10, SECONDS)
@@ -111,7 +119,9 @@ class AnnotatedHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `test multi-level inheritance`() {
-        outbox.schedule(MultiLevelEvent("multi-level-test"), "key5")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(MultiLevelEvent("multi-level-test"), "key5")
+        }
 
         await()
             .atMost(10, SECONDS)
@@ -124,7 +134,9 @@ class AnnotatedHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `test multiple interfaces implementation`() {
-        outbox.schedule(MultiInterfaceEvent("multi-interface-test"), "key6")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(MultiInterfaceEvent("multi-interface-test"), "key6")
+        }
 
         await()
             .atMost(10, SECONDS)
@@ -137,8 +149,10 @@ class AnnotatedHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `test overloaded methods in same class`() {
-        outbox.schedule(OverloadEvent1("overload-1"), "key7")
-        outbox.schedule(OverloadEvent2("overload-2"), "key8")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(OverloadEvent1("overload-1"), "key7")
+            outbox.schedule(OverloadEvent2("overload-2"), "key8")
+        }
 
         await()
             .atMost(10, SECONDS)
@@ -152,7 +166,9 @@ class AnnotatedHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `test handler with metadata parameter`() {
-        outbox.schedule(MetadataEvent("metadata-test"), "key9")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(MetadataEvent("metadata-test"), "key9")
+        }
 
         await()
             .atMost(10, SECONDS)
@@ -166,7 +182,9 @@ class AnnotatedHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `test typed annotated handler without metadata parameter`() {
-        outbox.schedule(WithoutMetadataEvent("without-metadata"), "key10")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(WithoutMetadataEvent("without-metadata"), "key10")
+        }
 
         await()
             .atMost(10, SECONDS)
@@ -179,8 +197,10 @@ class AnnotatedHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `test different annotation and interface methods on the same bean`() {
-        outbox.schedule(MixedInterfaceEvent("interface-method"), "key11")
-        outbox.schedule(MixedAnnotationEvent("annotation-method"), "key12")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(MixedInterfaceEvent("interface-method"), "key11")
+            outbox.schedule(MixedAnnotationEvent("annotation-method"), "key12")
+        }
 
         await()
             .atMost(10, SECONDS)

@@ -60,7 +60,9 @@ class InterfaceHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `typed interface handler processes matching payload`() {
-        outbox.schedule(TypedEvent("typed"), "typed-key")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(TypedEvent("typed"), "typed-key")
+        }
 
         await().atMost(10, SECONDS).untilAsserted {
             assertThat(invocations["typed-interface"]).containsExactly("typed")
@@ -73,7 +75,9 @@ class InterfaceHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `generic interface handler processes supported payload`() {
-        outbox.schedule(GenericEvent("generic"), "generic-key")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(GenericEvent("generic"), "generic-key")
+        }
 
         await().atMost(10, SECONDS).untilAsserted {
             assertThat(invocations["generic-interface"]).containsExactly("generic")
@@ -86,7 +90,9 @@ class InterfaceHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `selective generic handler schedules supported payload`() {
-        outbox.schedule(SupportedSelectiveEvent("supported"), "supported-key")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(SupportedSelectiveEvent("supported"), "supported-key")
+        }
 
         await().atMost(10, SECONDS).untilAsserted {
             assertThat(invocations["selective-generic"]).containsExactly("supported")
@@ -99,7 +105,9 @@ class InterfaceHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `selective generic handler does not schedule unsupported payload`() {
-        outbox.schedule(UnsupportedSelectiveEvent("unsupported"), "unsupported-key")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(UnsupportedSelectiveEvent("unsupported"), "unsupported-key")
+        }
 
         assertThat(invocations["selective-generic"]).isNull()
         assertThat(recordRepository.findPendingRecords()).isEmpty()
@@ -110,7 +118,9 @@ class InterfaceHandlerIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `typed and generic handlers each receive one record for the same payload`() {
-        outbox.schedule(SharedEvent("shared"), "shared-key")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(SharedEvent("shared"), "shared-key")
+        }
 
         await().atMost(10, SECONDS).untilAsserted {
             assertThat(invocations["shared-typed"]).containsExactly("shared")

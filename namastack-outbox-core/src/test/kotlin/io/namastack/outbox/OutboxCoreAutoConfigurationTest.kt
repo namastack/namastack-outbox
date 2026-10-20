@@ -30,6 +30,8 @@ import io.namastack.outbox.trigger.AdaptivePollingTrigger
 import io.namastack.outbox.trigger.FixedPollingTrigger
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -51,6 +53,7 @@ import org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import org.springframework.test.util.ReflectionTestUtils
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -163,6 +166,16 @@ class OutboxCoreAutoConfigurationTest {
     @Nested
     @DisplayName("Instrumentation")
     inner class InstrumentationConfiguration {
+        @BeforeEach
+        fun setUpTransactionState() {
+            TransactionSynchronizationManager.setActualTransactionActive(true)
+        }
+
+        @AfterEach
+        fun clearTransactionState() {
+            TransactionSynchronizationManager.clear()
+        }
+
         @Test
         fun `uses no-op instrumentation and default channel without instrumentation beans`() {
             contextRunner

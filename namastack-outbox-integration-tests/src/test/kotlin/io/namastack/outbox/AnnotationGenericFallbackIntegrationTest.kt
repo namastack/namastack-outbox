@@ -56,7 +56,9 @@ class AnnotationGenericFallbackIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `generic annotated handler invokes matching fallback after retry exhaustion`() {
-        outbox.schedule(GenericFailureEvent("generic-failure"), "generic-fallback-key")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(GenericFailureEvent("generic-failure"), "generic-fallback-key")
+        }
 
         await().atMost(15, SECONDS).untilAsserted {
             assertThat(handlerCalls).hasSize(3)

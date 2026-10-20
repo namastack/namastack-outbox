@@ -83,9 +83,11 @@ class StableHandlerRoutingIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `annotation and interface stable IDs are persisted and exposed as canonical descriptors`() {
-        outbox.schedule(StableAnnotatedEvent("annotation"), "stable-annotation-key")
-        outbox.schedule(StableTypedEvent("typed"), "stable-typed-key")
-        outbox.schedule(StableGenericEvent("generic"), "stable-generic-key")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(StableAnnotatedEvent("annotation"), "stable-annotation-key")
+            outbox.schedule(StableTypedEvent("typed"), "stable-typed-key")
+            outbox.schedule(StableGenericEvent("generic"), "stable-generic-key")
+        }
 
         await().atMost(10, SECONDS).untilAsserted {
             assertThat(invocations)
@@ -140,7 +142,9 @@ class StableHandlerRoutingIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `configured alias without stable ID remains lookup only`() {
-        outbox.schedule(GeneratedAliasEvent("canonical"), "generated-canonical-key")
+        transactionTemplate.executeWithoutResult {
+            outbox.schedule(GeneratedAliasEvent("canonical"), "generated-canonical-key")
+        }
 
         await().atMost(10, SECONDS).untilAsserted {
             assertThat(invocations).hasSize(1)

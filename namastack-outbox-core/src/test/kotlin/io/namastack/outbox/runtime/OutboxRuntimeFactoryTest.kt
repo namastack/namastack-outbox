@@ -14,15 +14,28 @@ import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.support.DefaultListableBeanFactory
 import org.springframework.core.task.SyncTaskExecutor
 import org.springframework.scheduling.TaskScheduler
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
 
 class OutboxRuntimeFactoryTest {
+    @BeforeEach
+    fun setUpTransactionState() {
+        TransactionSynchronizationManager.setActualTransactionActive(true)
+    }
+
+    @AfterEach
+    fun clearTransactionState() {
+        TransactionSynchronizationManager.clear()
+    }
+
     @Test
     fun `creates separate stopped runtimes backed by their own persistence`() {
         val orders = fixture("orders")
