@@ -19,6 +19,9 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 
 @DisplayName("OutboxInstanceMetricsMeterBinder")
 class OutboxInstanceMetricsMeterBinderTest {
@@ -28,15 +31,10 @@ class OutboxInstanceMetricsMeterBinderTest {
     private val instanceRegistry = mockk<OutboxInstanceRegistry>(relaxed = true)
     private val channelNameProvider = OutboxChannelNameProvider { "orders" }
     private val meterRegistry = SimpleMeterRegistry()
+    private val now = Instant.parse("2026-01-01T12:00:00Z")
+    private val clock = Clock.fixed(now, ZoneOffset.UTC)
 
-    private val meterBinder =
-        OutboxInstanceMetricsMeterBinder(
-            recordRepository = recordRepository,
-            recordStatusRepository = recordStatusRepository,
-            partitionCoordinator = partitionCoordinator,
-            instanceRegistry = instanceRegistry,
-            channelNameProvider = channelNameProvider,
-        )
+    private val meterBinder = createMeterBinder(stopOnFirstFailure = true)
 
     @Nested
     @DisplayName("Gauge Registration")
@@ -179,9 +177,134 @@ class OutboxInstanceMetricsMeterBinderTest {
                     OutboxMetricNames.RECORDS,
                     OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED,
                     OutboxMetricNames.INSTANCE_RECORDS_PENDING,
+                    OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE,
+                    OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE,
                     OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE,
                     OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED,
                 )
+        }
+    }
+
+    @Nested
+    @DisplayName("Record Age Gauges")
+    inner class RecordAgeGauges {
+        private val partitions = setOf(1, 2)
+
+        @Test
+        fun `registers age gauges in seconds with only the channel tag`() {
+            meterBinder.bindTo(meterRegistry)
+
+            listOf(
+                OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE,
+                OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE,
+            ).forEach { name ->
+                val gauge = meterRegistry.get(name).gauge()
+
+                assertThat(gauge.id.baseUnit).isEqualTo("seconds")
+                assertThat(gauge.id.tags.map { it.key to it.value })
+                    .containsExactly(OutboxMetricKeyNames.LowCardinality.CHANNEL to "orders")
+            }
+        }
+
+        @Test
+        fun `reports age of the oldest pending record across assigned partitions`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns partitions
+            every { recordRepository.findOldestCreatedAtByPartitions(partitions, NEW) } returns
+                now.minusMillis(90_500)
+            meterBinder.bindTo(meterRegistry)
+
+            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE).gauge().value())
+                .isEqualTo(90.5)
+
+            verify(exactly = 1) { recordRepository.findOldestCreatedAtByPartitions(partitions, NEW) }
+        }
+
+        @Test
+        fun `reports overdue age since the earliest due next retry time`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns partitions
+            every { recordRepository.findOldestDueNextRetryAtByPartitions(partitions, NEW, now, true) } returns
+                now.minusSeconds(30)
+            meterBinder.bindTo(meterRegistry)
+
+            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE).gauge().value())
+                .isEqualTo(30.0)
+        }
+
+        @Test
+        fun `excludes keys blocked by earlier incomplete records when stop on first failure is enabled`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns partitions
+            createMeterBinder(stopOnFirstFailure = true).bindTo(meterRegistry)
+
+            meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE).gauge().value()
+
+            verify(exactly = 1) {
+                recordRepository.findOldestDueNextRetryAtByPartitions(
+                    partitions = partitions,
+                    status = NEW,
+                    now = now,
+                    ignoreRecordKeysWithPreviousFailure = true,
+                )
+            }
+        }
+
+        @Test
+        fun `includes keys blocked by earlier incomplete records when stop on first failure is disabled`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns partitions
+            createMeterBinder(stopOnFirstFailure = false).bindTo(meterRegistry)
+
+            meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE).gauge().value()
+
+            verify(exactly = 1) {
+                recordRepository.findOldestDueNextRetryAtByPartitions(
+                    partitions = partitions,
+                    status = NEW,
+                    now = now,
+                    ignoreRecordKeysWithPreviousFailure = false,
+                )
+            }
+        }
+
+        @Test
+        fun `reports zero when no records match`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns partitions
+            every { recordRepository.findOldestCreatedAtByPartitions(partitions, NEW) } returns null
+            every { recordRepository.findOldestDueNextRetryAtByPartitions(partitions, NEW, now, true) } returns null
+            meterBinder.bindTo(meterRegistry)
+
+            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE).gauge().value()).isZero()
+            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE).gauge().value()).isZero()
+        }
+
+        @Test
+        fun `reports zero without querying records when no partitions are assigned`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns emptySet()
+            meterBinder.bindTo(meterRegistry)
+
+            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE).gauge().value()).isZero()
+            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE).gauge().value()).isZero()
+
+            verify { recordRepository wasNot Called }
+        }
+
+        @Test
+        fun `reports zero for records created after now`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns partitions
+            every { recordRepository.findOldestCreatedAtByPartitions(partitions, NEW) } returns now.plusSeconds(5)
+            meterBinder.bindTo(meterRegistry)
+
+            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE).gauge().value()).isZero()
+        }
+
+        @Test
+        fun `uses current assignments on each age gauge read`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returnsMany listOf(setOf(1, 2), setOf(3))
+            every { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2), NEW) } returns now.minusSeconds(10)
+            every { recordRepository.findOldestCreatedAtByPartitions(setOf(3), NEW) } returns now.minusSeconds(4)
+            meterBinder.bindTo(meterRegistry)
+            val gauge = meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE).gauge()
+
+            assertThat(gauge.value()).isEqualTo(10.0)
+            assertThat(gauge.value()).isEqualTo(4.0)
         }
     }
 
@@ -229,7 +352,47 @@ class OutboxInstanceMetricsMeterBinderTest {
                     .value(),
             ).isEqualTo(0.0)
         }
+
+        @Test
+        fun `reports NaN when the oldest record query fails`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
+            every { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2), NEW) } throws
+                RuntimeException("query failed")
+            meterBinder.bindTo(meterRegistry)
+
+            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE).gauge().value()).isNaN()
+        }
+
+        @Test
+        fun `reports NaN when the overdue record query fails`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
+            every { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), NEW, now, true) } throws
+                RuntimeException("query failed")
+            meterBinder.bindTo(meterRegistry)
+
+            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE).gauge().value()).isNaN()
+        }
+
+        @Test
+        fun `reports NaN for age gauges when partition assignments cannot be read`() {
+            every { partitionCoordinator.getAssignedPartitionNumbers() } throws RuntimeException("partition failed")
+            meterBinder.bindTo(meterRegistry)
+
+            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE).gauge().value()).isNaN()
+            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE).gauge().value()).isNaN()
+        }
     }
+
+    private fun createMeterBinder(stopOnFirstFailure: Boolean) =
+        OutboxInstanceMetricsMeterBinder(
+            recordRepository = recordRepository,
+            recordStatusRepository = recordStatusRepository,
+            partitionCoordinator = partitionCoordinator,
+            instanceRegistry = instanceRegistry,
+            channelNameProvider = channelNameProvider,
+            clock = clock,
+            stopOnFirstFailure = stopOnFirstFailure,
+        )
 
     private fun stubStatusCounts() {
         every { recordStatusRepository.countByStatus(NEW) } returns 1L
