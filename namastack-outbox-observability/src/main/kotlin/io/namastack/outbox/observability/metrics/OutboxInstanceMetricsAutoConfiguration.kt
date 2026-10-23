@@ -1,6 +1,7 @@
 package io.namastack.outbox.observability.metrics
 
 import io.namastack.outbox.OutboxChannelNameProvider
+import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.OutboxService
@@ -16,6 +17,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
+import java.time.Clock
 
 /**
  * Conditional configuration that registers instance and cluster gauge metrics
@@ -47,6 +49,8 @@ internal class OutboxInstanceMetricsAutoConfiguration {
         partitionCoordinator: PartitionCoordinator,
         instanceRegistry: OutboxInstanceRegistry,
         channelNameProvider: OutboxChannelNameProvider,
+        clock: Clock,
+        properties: OutboxProperties,
     ): OutboxInstanceMetricsMeterBinder =
         OutboxInstanceMetricsMeterBinder(
             recordRepository = recordRepository,
@@ -54,5 +58,7 @@ internal class OutboxInstanceMetricsAutoConfiguration {
             partitionCoordinator = partitionCoordinator,
             instanceRegistry = instanceRegistry,
             channelNameProvider = channelNameProvider,
+            clock = clock,
+            stopOnFirstFailure = properties.processing.stopOnFirstFailure,
         )
 }

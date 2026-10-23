@@ -1,26 +1,36 @@
 package io.namastack.outbox.observability.metrics
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import io.namastack.outbox.OutboxChannelNameProvider
+import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.instance.OutboxInstanceRegistry
+import io.namastack.outbox.observability.OutboxMetricNames
 import io.namastack.outbox.partition.PartitionCoordinator
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.AutoConfigurations
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 
 @DisplayName("OutboxInstanceMetricsAutoConfiguration")
 class OutboxInstanceMetricsAutoConfigurationTest {
     private val contextRunner =
         ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(OutboxInstanceMetricsAutoConfiguration::class.java))
-            .withUserConfiguration(ChannelProviderConfig::class.java)
+            .withUserConfiguration(ChannelProviderConfig::class.java, CoreInfrastructureConfig::class.java)
 
     @Nested
     @DisplayName("Bean Creation")
@@ -51,6 +61,29 @@ class OutboxInstanceMetricsAutoConfigurationTest {
                     assertThat(context).hasSingleBean(OutboxInstanceMetricsMeterBinder::class.java)
                     assertThat(context).hasBean("customMeterBinder")
                     assertThat(context).doesNotHaveBean("outboxInstanceMetricsMeterBinder")
+                }
+        }
+    }
+
+    @Nested
+    @DisplayName("Record Age Gauges")
+    inner class RecordAgeGauges {
+        @Test
+        fun `uses outbox clock and stop on first failure setting for overdue age`() {
+            contextRunner
+                .withUserConfiguration(AgeGaugeBeansConfig::class.java)
+                .withPropertyValues("namastack.outbox.processing.stop-on-first-failure=false")
+                .run { context ->
+                    val recordRepository = context.getBean(OutboxRecordRepository::class.java)
+                    val meterRegistry = SimpleMeterRegistry()
+                    context.getBean(OutboxInstanceMetricsMeterBinder::class.java).bindTo(meterRegistry)
+
+                    assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE).gauge().value())
+                        .isEqualTo(30.0)
+
+                    verify(exactly = 1) {
+                        recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1), NEW, NOW, false)
+                    }
                 }
         }
     }
@@ -107,6 +140,31 @@ class OutboxInstanceMetricsAutoConfigurationTest {
     }
 
     @Configuration
+    @EnableConfigurationProperties(OutboxProperties::class)
+    class CoreInfrastructureConfig {
+        @Bean
+        fun clock(): Clock = Clock.fixed(NOW, ZoneOffset.UTC)
+    }
+
+    @Configuration
+    class AgeGaugeBeansConfig {
+        @Bean
+        fun outboxRecordRepository(): OutboxRecordRepository =
+            mockk {
+                every { findOldestDueNextRetryAtByPartitions(setOf(1), NEW, NOW, false) } returns NOW.minusSeconds(30)
+            }
+
+        @Bean
+        fun partitionCoordinator(): PartitionCoordinator =
+            mockk(relaxed = true) {
+                every { getAssignedPartitionNumbers() } returns setOf(1)
+            }
+
+        @Bean
+        fun outboxInstanceRegistry(): OutboxInstanceRegistry = mockk(relaxed = true)
+    }
+
+    @Configuration
     class RequiredBeansConfig {
         @Bean
         fun outboxRecordRepository(): OutboxRecordRepository = mockk()
@@ -155,5 +213,9 @@ class OutboxInstanceMetricsAutoConfigurationTest {
 
         @Bean
         fun partitionCoordinator(): PartitionCoordinator = mockk(relaxed = true)
+    }
+
+    companion object {
+        private val NOW: Instant = Instant.parse("2026-01-01T12:00:00Z")
     }
 }

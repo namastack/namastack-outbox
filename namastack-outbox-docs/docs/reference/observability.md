@@ -158,6 +158,8 @@ Micrometer converts dotted meter names to Prometheus naming conventions. For exa
 | `outbox.records` | Count of outbox records by status | `outbox.channel`, `outbox.record.status=new\|failed\|completed` |
 | `outbox.instance.partitions.assigned` | Number of partitions assigned to this application instance | `outbox.channel` |
 | `outbox.instance.records.pending` | Total pending records across partitions assigned to this instance | `outbox.channel` |
+| `outbox.instance.records.oldest.age` | Age in seconds of the oldest pending record across partitions assigned to this instance | `outbox.channel` |
+| `outbox.instance.records.overdue.age` | Time in seconds since the longest overdue record across partitions assigned to this instance became due; can include records currently being processed | `outbox.channel` |
 | `outbox.cluster.instances.active` | Number of active outbox instances in the cluster | `outbox.channel` |
 | `outbox.cluster.partitions.unassigned` | Number of partitions not assigned to any active instance | `outbox.channel` |
 
@@ -166,6 +168,7 @@ Use gauges for operational state:
 - backlog: `outbox.records{outbox.record.status="new"}`
 - failed records: `outbox.records{outbox.record.status="failed"}`
 - per-instance pressure: `outbox.instance.records.pending`
+- delivery staleness: `outbox.instance.records.oldest.age` and `outbox.instance.records.overdue.age`
 - cluster health: `outbox.cluster.instances.active` and `outbox.cluster.partitions.unassigned`
 
 :::info Actuator endpoints
@@ -177,6 +180,8 @@ Common Spring Boot Actuator endpoints:
 - `/actuator/metrics/outbox.record.schedule`
 - `/actuator/metrics/outbox.records`
 - `/actuator/metrics/outbox.instance.records.pending`
+- `/actuator/metrics/outbox.instance.records.oldest.age`
+- `/actuator/metrics/outbox.instance.records.overdue.age`
 - `/actuator/prometheus` (if Prometheus is enabled)
 
 :::
