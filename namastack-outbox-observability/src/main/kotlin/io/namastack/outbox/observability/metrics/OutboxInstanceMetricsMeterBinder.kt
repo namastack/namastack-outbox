@@ -4,135 +4,82 @@ import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.binder.MeterBinder
 import io.namastack.outbox.OutboxChannelNameProvider
-import io.namastack.outbox.OutboxRecordRepository
-import io.namastack.outbox.OutboxRecordStatus
-import io.namastack.outbox.OutboxRecordStatus.NEW
-import io.namastack.outbox.OutboxRecordStatusRepository
-import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.observability.OutboxMetricKeyNames
 import io.namastack.outbox.observability.OutboxMetricNames
-import io.namastack.outbox.partition.PartitionCoordinator
-import org.slf4j.LoggerFactory
 
 /**
- * Micrometer [MeterBinder] that registers instance-level and cluster-level gauges
- * for monitoring the outbox processing infrastructure.
+ * Registers record, instance, and cluster gauges backed exclusively by background readings.
+ * Unknown, failed, or expired state readings return NaN. The last-success timestamp remains
+ * available after a failed collection and does not expire. All gauges include the outbox channel tag.
  *
- * These are state-based gauges (polled on scrape) that complement the Observation-based
- * timer metrics. Together they provide full operational visibility.
- *
- * **Record metrics:**
- * - `outbox.records{outbox.record.status=new|failed|completed}` — Record counts by status
- *
- * **Instance metrics:**
- * - `outbox.instance.partitions.assigned` — Number of partitions assigned to this instance
- * - `outbox.instance.records.pending` — Total pending records across assigned partitions
- *
- * **Cluster metrics:**
- * - `outbox.cluster.instances.active` — Number of active instances in the cluster
- * - `outbox.cluster.partitions.unassigned` — Partitions not assigned to any instance
- *
- * All gauges include the `outbox.channel` tag for multi-channel support.
+ * This binder is runtime infrastructure, not an application extension point.
  *
  * @author Roland Beisel
  * @since 1.7.0
  */
-class OutboxInstanceMetricsMeterBinder(
-    private val recordRepository: OutboxRecordRepository,
-    private val recordStatusRepository: OutboxRecordStatusRepository?,
-    private val partitionCoordinator: PartitionCoordinator,
-    private val instanceRegistry: OutboxInstanceRegistry,
+class OutboxInstanceMetricsMeterBinder internal constructor(
+    private val collector: OutboxMetricsCollector,
     private val channelNameProvider: OutboxChannelNameProvider,
 ) : MeterBinder {
-    private val log = LoggerFactory.getLogger(OutboxInstanceMetricsMeterBinder::class.java)
-
-    /**
-     * Register all instance-level and cluster-level gauges for the outbox metrics.
-     *
-     * This method is called by Micrometer to bind the defined gauges to the provided [MeterRegistry].
-     * It registers gauges for record counts by status, partition assignments, pending records,
-     * and cluster-wide statistics, all tagged with the outbox channel.
-     *
-     * @param meterRegistry the [MeterRegistry] to register metrics with
-     */
     override fun bindTo(meterRegistry: MeterRegistry) {
         val channelTag = channelNameProvider.getChannelName()
 
-        if (recordStatusRepository != null) {
-            OutboxRecordStatus.entries.forEach { status ->
-                Gauge
-                    .builder(OutboxMetricNames.RECORDS) {
-                        safeGet { recordStatusRepository.countByStatus(status).toDouble() }
-                    }.description("Count of outbox records by status")
-                    .tag(OutboxMetricKeyNames.LowCardinality.RECORD_STATUS, status.name.lowercase())
-                    .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
-                    .register(meterRegistry)
-            }
+        collector.recordCounts.forEach { (status, reading) ->
+            Gauge
+                .builder(OutboxMetricNames.RECORDS, reading::value)
+                .description("Count of outbox records by status")
+                .tag(OutboxMetricKeyNames.LowCardinality.RECORD_STATUS, status.name.lowercase())
+                .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
+                .register(meterRegistry)
         }
 
-        Gauge
-            .builder(OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED) {
-                safeGet { partitionCoordinator.getAssignedPartitionNumbers().size.toDouble() }
-            }.description("Number of partitions assigned to this instance")
-            .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
-            .register(meterRegistry)
-
-        Gauge
-            .builder(OutboxMetricNames.INSTANCE_RECORDS_PENDING) {
-                safeGet { getPendingRecordCount().toDouble() }
-            }.description("Total pending records across all assigned partitions")
-            .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
-            .register(meterRegistry)
-
-        Gauge
-            .builder(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE) {
-                safeGet { instanceRegistry.getActiveInstanceCount().toDouble() }
-            }.description("Number of active instances in the outbox cluster")
-            .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
-            .register(meterRegistry)
-
-        Gauge
-            .builder(OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED) {
-                safeGet {
-                    partitionCoordinator
-                        .getPartitionContext()
-                        .getPartitionStats()
-                        .unassignedPartitionsCount
-                        .toDouble()
-                }
-            }.description("Number of partitions currently not assigned to any instance")
-            .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
-            .register(meterRegistry)
-    }
-
-    /**
-     * Counts pending ([NEW]) records across the currently assigned partitions with one batch repository call.
-     *
-     * Includes records awaiting a future retry. Reads the current assignments on every invocation
-     * and skips the repository call when no partitions are assigned.
-     *
-     * @return Total pending records, or zero if no partitions are assigned or no records match
-     */
-    private fun getPendingRecordCount(): Long {
-        val partitions = partitionCoordinator.getAssignedPartitionNumbers()
-        if (partitions.isEmpty()) return 0L
-
-        return recordRepository.countRecordsByPartitions(partitions, NEW)
-    }
-
-    /**
-     * Executes the given supplier and returns its value, or 0.0 if an exception occurs.
-     *
-     * This is used to safely read metric values without failing the gauge registration.
-     *
-     * @param supplier the function to execute
-     * @return the value from the supplier, or 0.0 if an exception is thrown
-     */
-    private fun safeGet(supplier: () -> Double): Double =
-        try {
-            supplier()
-        } catch (ex: Exception) {
-            log.trace("Failed to read metric value", ex)
-            0.0
+        register(
+            registry = meterRegistry,
+            name = OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED,
+            description = "Number of partitions assigned to this instance",
+        ) {
+            collector.assignedPartitions.value()
         }
+        register(
+            registry = meterRegistry,
+            name = OutboxMetricNames.INSTANCE_RECORDS_PENDING,
+            description = "Total pending records across all assigned partitions",
+        ) {
+            collector.pendingRecords.value()
+        }
+        register(
+            registry = meterRegistry,
+            name = OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE,
+            description = "Number of active instances in the outbox cluster",
+        ) {
+            collector.activeInstances.value()
+        }
+        register(
+            registry = meterRegistry,
+            name = OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED,
+            description = "Number of partitions currently not assigned to any instance",
+        ) {
+            collector.unassignedPartitions.value()
+        }
+        register(
+            registry = meterRegistry,
+            name = OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP,
+            description = "Unix timestamp in seconds of the last successful collection of all outbox gauges",
+        ) {
+            collector.lastSuccessTimestamp
+        }
+    }
+
+    private fun register(
+        registry: MeterRegistry,
+        name: String,
+        description: String,
+        value: () -> Double,
+    ) {
+        Gauge
+            .builder(name, value)
+            .description(description)
+            .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelNameProvider.getChannelName())
+            .register(registry)
+    }
 }
