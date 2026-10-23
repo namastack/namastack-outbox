@@ -27,6 +27,7 @@ This directory contains various example projects demonstrating different feature
 - **[namastack-outbox-example-sns-java](namastack-outbox-example-sns-java)** - Externalizing outbox records to AWS SNS (Java) via LocalStack
 - **[namastack-outbox-example-modulith](namastack-outbox-example-modulith)** - Spring Modulith example externalizing payment events to Kafka
 - **[namastack-outbox-example-multicaster](namastack-outbox-example-multicaster)** - Transaction isolation between Spring events and outbox
+- **[namastack-outbox-example-metrics](namastack-outbox-example-metrics)** - Prometheus metrics, background collection, and database outage/recovery testing
 - **[namastack-outbox-example-tracing](namastack-outbox-example-tracing)** - Distributed tracing with OpenTelemetry and Micrometer
 
 ### 💾 Database Support
