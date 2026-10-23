@@ -24,6 +24,12 @@
       "type": "java.lang.Boolean",
       "description": "Whether to enable JSON support for Kafka outbox integration.",
       "defaultValue": true
+    },
+    {
+      "name": "namastack.outbox.kafka.idempotency-header-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to add Idempotency-Key using the persisted record ID unless a route overrides it. Rejects empty or whitespace-only keys when enabled.",
+      "defaultValue": false
     }
   ],
   "hints": []

@@ -1,13 +1,19 @@
 package io.namastack.outbox.sns
 
+import io.awspring.cloud.sns.core.SnsNotification
 import io.awspring.cloud.sns.core.SnsOperations
 import io.awspring.cloud.sns.core.SnsTemplate
 import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.routing.OutboxHeaders
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.NoSuchBeanDefinitionException
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
@@ -20,6 +26,48 @@ class SnsOutboxAutoConfigurationTest {
     private fun contextRunner() =
         ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(SnsOutboxAutoConfiguration::class.java))
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `binds idempotency setting for custom routing`(enabled: Boolean) {
+        contextRunner()
+            .withUserConfiguration(ConfigWithSnsOperations::class.java, ConfigWithCustomRouting::class.java)
+            .withPropertyValues("namastack.outbox.sns.idempotency-header-enabled=$enabled")
+            .run { context ->
+                assertThat(context).hasNotFailed()
+                val metadata = createMetadata().copy(recordId = "record-id")
+                val operations = context.getBean("snsOperations", SnsOperations::class.java)
+                val notificationSlot = slot<SnsNotification<*>>()
+
+                context.getBean(SnsOutboxHandler::class.java).handle("payload", metadata)
+
+                verify { operations.sendNotification(any<String>(), capture(notificationSlot)) }
+                assertThat(notificationSlot.captured.headers?.get(OutboxHeaders.IDEMPOTENCY_KEY))
+                    .isEqualTo(if (enabled) metadata.recordId else null)
+                assertThat(notificationSlot.captured.deduplicationId).isNull()
+            }
+    }
+
+    @Test
+    fun `binds native FIFO deduplication independently of idempotency attributes`() {
+        contextRunner()
+            .withUserConfiguration(ConfigWithSnsOperations::class.java)
+            .withPropertyValues(
+                "namastack.outbox.sns.fifo-deduplication-id-enabled=true",
+                "namastack.outbox.sns.default-topic-arn=arn:aws:sns:us-east-1:123456789012:events.fifo",
+            ).run { context ->
+                assertThat(context).hasNotFailed()
+                val metadata = createMetadata().copy(recordId = "record-id")
+                val operations = context.getBean("snsOperations", SnsOperations::class.java)
+                val notificationSlot = slot<SnsNotification<*>>()
+
+                context.getBean(SnsOutboxHandler::class.java).handle("payload", metadata)
+
+                verify { operations.sendNotification(any<String>(), capture(notificationSlot)) }
+                assertThat(notificationSlot.captured.deduplicationId).isEqualTo(metadata.recordId)
+                assertThat(notificationSlot.captured.headers).doesNotContainKey(OutboxHeaders.IDEMPOTENCY_KEY)
+            }
+    }
 
     @Nested
     @DisplayName("SnsOutboxRouting bean")

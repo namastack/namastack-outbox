@@ -4,11 +4,15 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.routing.OutboxHeaders
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.time.Instant
 
 @DisplayName("RabbitOutboxHandler")
@@ -18,6 +22,7 @@ class RabbitOutboxHandlerTest {
 
     private val metadata =
         OutboxRecordMetadata(
+            recordId = "record-id",
             key = "order-123",
             handlerId = "test-handler",
             createdAt = Instant.now(),
@@ -27,6 +32,76 @@ class RabbitOutboxHandlerTest {
     @BeforeEach
     fun setUp() {
         publisher = mockk(relaxed = true)
+    }
+
+    @Nested
+    @DisplayName("Idempotency")
+    inner class Idempotency {
+        @Test
+        fun `publishes the same persisted ID on every attempt when enabled`() {
+            val routing = rabbitOutboxRouting { defaults { target("events") } }
+            handler = RabbitOutboxHandler(publisher, routing, idempotencyHeaderEnabled = true)
+            val messages = mutableListOf<RabbitOutboxMessage>()
+
+            handler.handle("payload", metadata)
+            handler.handle("payload", metadata.copy(failureCount = 1))
+
+            verify(exactly = 2) { publisher.publish(capture(messages)) }
+            messages.forEach { message ->
+                assertThat(message.headers).containsEntry(OutboxHeaders.IDEMPOTENCY_KEY, "record-id")
+                assertThat(message.routingKey).isEqualTo("order-123")
+            }
+        }
+
+        @Test
+        fun `preserves custom idempotency key and other headers`() {
+            val routing =
+                rabbitOutboxRouting {
+                    defaults {
+                        target("events")
+                        header(OutboxHeaders.IDEMPOTENCY_KEY) { _, _ -> "event-id" }
+                        headers { _, meta -> meta.context }
+                    }
+                }
+            handler = RabbitOutboxHandler(publisher, routing, idempotencyHeaderEnabled = true)
+            val messageSlot = slot<RabbitOutboxMessage>()
+
+            handler.handle("payload", metadata)
+
+            verify { publisher.publish(capture(messageSlot)) }
+            assertThat(messageSlot.captured.headers)
+                .containsEntry(OutboxHeaders.IDEMPOTENCY_KEY, "event-id")
+                .containsEntry("tenant", "acme")
+        }
+
+        @Test
+        fun `does not add an idempotency header by default`() {
+            handler = RabbitOutboxHandler(publisher, rabbitOutboxRouting { defaults { target("events") } })
+            val messageSlot = slot<RabbitOutboxMessage>()
+
+            handler.handle("payload", metadata)
+
+            verify { publisher.publish(capture(messageSlot)) }
+            assertThat(messageSlot.captured.headers).isEmpty()
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["", " ", "\t\n"])
+        fun `rejects blank keys before publishing`(key: String) {
+            val routing =
+                rabbitOutboxRouting {
+                    defaults {
+                        target("events")
+                        header(OutboxHeaders.IDEMPOTENCY_KEY, key)
+                    }
+                }
+            handler = RabbitOutboxHandler(publisher, routing, idempotencyHeaderEnabled = true)
+
+            assertThatThrownBy { handler.handle("payload", metadata) }
+                .isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining(OutboxHeaders.IDEMPOTENCY_KEY)
+            verify(exactly = 0) { publisher.publish(any()) }
+        }
     }
 
     @Nested

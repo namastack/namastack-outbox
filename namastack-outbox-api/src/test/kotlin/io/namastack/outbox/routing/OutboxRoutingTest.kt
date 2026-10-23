@@ -6,11 +6,14 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.time.Instant
 
 class OutboxRoutingTest {
     private val metadata =
         OutboxRecordMetadata(
+            recordId = "record-id",
             key = "test-key",
             handlerId = "test-handler",
             createdAt = Instant.now(),
@@ -26,6 +29,96 @@ class OutboxRoutingTest {
         val builder = OutboxRoutingConfigurer()
         builder.configurer()
         return TestOutboxRouting(builder.rules(), builder.defaultRule())
+    }
+
+    @Nested
+    inner class IdempotencyHeaders {
+        @Test
+        fun `requires a record ID only when the automatic fallback is needed`() {
+            val routing = testRouting { defaults { target("events") } }
+            val metadataWithoutId = metadata.copy(recordId = null)
+
+            assertThatThrownBy { routing.buildHeaders("payload", metadataWithoutId, true) }
+                .isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("recordId")
+            assertThat(routing.buildHeaders("payload", metadataWithoutId, false)).isEmpty()
+            assertThat(routing.buildHeaders("payload", metadataWithoutId)).isEmpty()
+        }
+
+        @Test
+        fun `adds persisted record ID without changing routing key or other headers`() {
+            val routing =
+                testRouting {
+                    defaults {
+                        target("events")
+                        headers { _, meta -> meta.context }
+                    }
+                }
+
+            assertThat(routing.buildHeaders("payload", metadata, true))
+                .containsExactlyInAnyOrderEntriesOf(
+                    mapOf("tenant" to "acme", OutboxHeaders.IDEMPOTENCY_KEY to "record-id"),
+                )
+            assertThat(routing.extractKey("payload", metadata)).isEqualTo("test-key")
+        }
+
+        @Test
+        fun `explicit route header overrides the default and stays stable across retries`() {
+            val routing =
+                testRouting {
+                    route(OutboxPayloadSelector.type(String::class.java)) {
+                        target("events")
+                        header(OutboxHeaders.IDEMPOTENCY_KEY) { payload, meta -> "${meta.context["tenant"]}:$payload" }
+                    }
+                }
+
+            val metadataWithoutId = metadata.copy(recordId = null)
+            val headers = routing.buildHeaders("event-id", metadataWithoutId, true)
+            val retryHeaders = routing.buildHeaders("event-id", metadataWithoutId.copy(failureCount = 1), true)
+
+            assertThat(headers).containsEntry(OutboxHeaders.IDEMPOTENCY_KEY, "acme:event-id")
+            assertThat(retryHeaders).isEqualTo(headers)
+        }
+
+        @Test
+        fun `does not add a header when disabled`() {
+            val routing = testRouting { defaults { target("events") } }
+
+            assertThat(routing.buildHeaders("payload", metadata, false)).isEmpty()
+            assertThat(routing.buildHeaders("payload", metadata)).isEmpty()
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["", " ", "\t\n"])
+        fun `rejects blank explicit keys only when enabled`(key: String) {
+            val routing =
+                testRouting {
+                    defaults {
+                        target("events")
+                        header(OutboxHeaders.IDEMPOTENCY_KEY, key)
+                    }
+                }
+
+            assertThatThrownBy { routing.buildHeaders("payload", metadata, true) }
+                .isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining(OutboxHeaders.IDEMPOTENCY_KEY)
+            assertThat(routing.buildHeaders("payload", metadata, false))
+                .containsEntry(OutboxHeaders.IDEMPOTENCY_KEY, key)
+        }
+
+        @Test
+        fun `allows custom header names without enabling the feature`() {
+            val routing =
+                testRouting {
+                    defaults {
+                        target("events")
+                        header("event-id") { _, meta -> requireNotNull(meta.recordId) }
+                    }
+                }
+
+            assertThat(routing.buildHeaders("payload", metadata, false))
+                .containsExactlyEntriesOf(mapOf("event-id" to "record-id"))
+        }
     }
 
     @Nested

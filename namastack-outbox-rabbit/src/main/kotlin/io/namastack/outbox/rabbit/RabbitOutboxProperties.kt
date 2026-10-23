@@ -33,4 +33,11 @@ data class RabbitOutboxProperties(
      * When enabled, Spring AMQP publisher returns and mandatory publishing must also be enabled.
      */
     var failOnUnroutable: Boolean = false,
+    /**
+     * Whether to add an `Idempotency-Key` header, defaulting to the persisted record ID.
+     *
+     * Explicit route headers override the default. Empty or whitespace-only keys are rejected
+     * when enabled. Disabled by default to preserve existing message headers.
+     */
+    var idempotencyHeaderEnabled: Boolean = false,
 )

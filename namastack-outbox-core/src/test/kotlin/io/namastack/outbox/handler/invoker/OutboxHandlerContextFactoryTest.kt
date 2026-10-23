@@ -21,12 +21,25 @@ class OutboxHandlerContextFactoryTest {
 
         val metadata = OutboxHandlerContextFactory.metadata(record)
 
+        assertThat(metadata.recordId).isEqualTo(record.id)
         assertThat(metadata.key).isEqualTo("record-key")
         assertThat(metadata.handlerId).isEqualTo("handler-id")
         assertThat(metadata.createdAt).isEqualTo(createdAt)
         assertThat(metadata.context).containsEntry("tenant", "north")
         assertThat(metadata.failureCount).isEqualTo(2)
         assertThat(metadata.attempt).isEqualTo(3)
+    }
+
+    @Test
+    fun `retains record ID across retries`() {
+        val record = record(failureCount = 0)
+        val firstAttempt = OutboxHandlerContextFactory.metadata(record)
+
+        record.incrementFailureCount()
+        val retry = OutboxHandlerContextFactory.metadata(record)
+
+        assertThat(retry.recordId).isEqualTo(firstAttempt.recordId)
+        assertThat(retry.attempt).isEqualTo(2)
     }
 
     @Test

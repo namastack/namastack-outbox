@@ -1,11 +1,16 @@
 package io.namastack.outbox.rabbit
 
 import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.routing.OutboxHeaders
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory
 import org.springframework.amqp.rabbit.connection.ConnectionFactory
 import org.springframework.amqp.rabbit.core.RabbitOperations
@@ -24,6 +29,27 @@ class RabbitOutboxAutoConfigurationTest {
     private fun contextRunner() =
         ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(RabbitOutboxAutoConfiguration::class.java))
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `binds idempotency setting for custom routing`(enabled: Boolean) {
+        contextRunner()
+            .withUserConfiguration(ConfigWithCustomPublisher::class.java, ConfigWithCustomRouting::class.java)
+            .withPropertyValues("namastack.outbox.rabbit.idempotency-header-enabled=$enabled")
+            .run { context ->
+                assertThat(context).hasNotFailed()
+                val metadata = createMetadata().copy(recordId = "record-id")
+                val publisher = context.getBean(RabbitOutboxPublisher::class.java)
+                val messageSlot = slot<RabbitOutboxMessage>()
+
+                context.getBean(RabbitOutboxHandler::class.java).handle("payload", metadata)
+
+                verify { publisher.publish(capture(messageSlot)) }
+                assertThat(messageSlot.captured.exchange).isEqualTo("custom-exchange")
+                assertThat(messageSlot.captured.headers[OutboxHeaders.IDEMPOTENCY_KEY])
+                    .isEqualTo(if (enabled) metadata.recordId else null)
+            }
+    }
 
     @Nested
     @DisplayName("RabbitOutboxRouting bean")
