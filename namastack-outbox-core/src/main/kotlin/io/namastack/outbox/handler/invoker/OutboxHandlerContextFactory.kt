@@ -23,6 +23,7 @@ internal object OutboxHandlerContextFactory {
      */
     fun metadata(record: OutboxRecord<*>): OutboxRecordMetadata =
         OutboxRecordMetadata(
+            recordId = record.id,
             key = record.key,
             handlerId = record.handlerId,
             createdAt = record.createdAt,

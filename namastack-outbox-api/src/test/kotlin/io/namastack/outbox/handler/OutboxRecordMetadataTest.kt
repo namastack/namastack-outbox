@@ -10,6 +10,23 @@ class OutboxRecordMetadataTest {
     private val createdAt = Instant.parse("2026-05-29T12:00:00Z")
 
     @Test
+    fun `copies preserve persisted record ID unless explicitly changed`() {
+        val metadata =
+            OutboxRecordMetadata(
+                key = "test-key",
+                handlerId = "test-handler",
+                createdAt = createdAt,
+                context = emptyMap(),
+                recordId = "record-id",
+            )
+
+        assertThat(metadata.copy(failureCount = 2).recordId).isEqualTo("record-id")
+        assertThat(metadata.copy(recordId = "other-id").recordId).isEqualTo("other-id")
+        assertThat(metadata.copy(recordId = "other-id").key).isEqualTo("test-key")
+        assertThat(metadata.copy(recordId = null).recordId).isNull()
+    }
+
+    @Test
     fun `defaults to first attempt for existing constructor`() {
         val metadata =
             OutboxRecordMetadata(
@@ -22,6 +39,7 @@ class OutboxRecordMetadataTest {
         assertThat(metadata.failureCount).isZero()
         assertThat(metadata.attempt).isEqualTo(1)
         assertThat(metadata.isRetry).isFalse()
+        assertThat(metadata.recordId).isNull()
     }
 
     @Test
@@ -54,6 +72,7 @@ class OutboxRecordMetadataTest {
         val copy = metadata.copy(key = "other-key")
 
         assertThat(copy.key).isEqualTo("other-key")
+        assertThat(copy.recordId).isEqualTo(metadata.recordId)
         assertThat(copy.failureCount).isEqualTo(2)
         assertThat(copy.attempt).isEqualTo(3)
         assertThat(copy.isRetry).isTrue()

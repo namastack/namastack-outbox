@@ -36,6 +36,12 @@
       "type": "java.lang.Boolean",
       "description": "Whether unroutable RabbitMQ messages should fail outbox processing. Requires publisher returns and mandatory publishing when enabled.",
       "defaultValue": false
+    },
+    {
+      "name": "namastack.outbox.rabbit.idempotency-header-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to add Idempotency-Key using the persisted record ID unless a route overrides it. Rejects empty or whitespace-only keys when enabled.",
+      "defaultValue": false
     }
   ],
   "hints": []

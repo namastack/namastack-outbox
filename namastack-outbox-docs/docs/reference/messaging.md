@@ -134,11 +134,12 @@ public class KafkaOutboxConfig {
 
 **Configuration Properties**
 
-| Property                               | Default         | Description                                      |
-|----------------------------------------|-----------------|--------------------------------------------------|
-| `namastack.outbox.kafka.enabled`       | `true`          | Enable Kafka outbox integration                  |
-| `namastack.outbox.kafka.default-topic` | `outbox-events` | Default Kafka topic for outbox events            |
-| `namastack.outbox.kafka.enable-json`   | `true`          | Enable JSON support for Kafka outbox integration |
+| Property                                            | Default         | Description                                      |
+|-----------------------------------------------------|-----------------|--------------------------------------------------|
+| `namastack.outbox.kafka.enabled`                    | `true`          | Enable Kafka outbox integration                  |
+| `namastack.outbox.kafka.default-topic`              | `outbox-events` | Default Kafka topic for outbox events            |
+| `namastack.outbox.kafka.enable-json`                | `true`          | Enable JSON support for Kafka outbox integration |
+| `namastack.outbox.kafka.idempotency-header-enabled` | `false`         | Add an `Idempotency-Key` header                  |
 
 </TabItem>
 <TabItem value="rabbit" label="RabbitMQ Integration">
@@ -222,13 +223,114 @@ public class SnsOutboxConfig {
 
 **Configuration Properties**
 
-| Property                                    | Default                                                    | Description                                      |
-|---------------------------------------------|------------------------------------------------------------|--------------------------------------------------|
-| `namastack.outbox.sns.enabled`              | `true`                                                     | Enable SNS outbox integration                    |
-| `namastack.outbox.sns.default-topic-arn`    | `arn:aws:sns:us-east-1:000000000000:outbox-events`         | Default SNS topic ARN for outbox events          |
+| Property                                             | Default                                            | Description                                      |
+|------------------------------------------------------|----------------------------------------------------|--------------------------------------------------|
+| `namastack.outbox.sns.enabled`                       | `true`                                             | Enable SNS outbox integration                    |
+| `namastack.outbox.sns.default-topic-arn`             | `arn:aws:sns:us-east-1:000000000000:outbox-events` | Default SNS topic ARN for outbox events          |
+| `namastack.outbox.sns.idempotency-header-enabled`    | `false`                                            | Add an `Idempotency-Key` message attribute       |
+| `namastack.outbox.sns.fifo-deduplication-id-enabled` | `false`                                            | Supply a native deduplication ID for FIFO topics |
 
 </TabItem>
 </Tabs>
+
+## Idempotency Keys
+
+Since 1.12.0, each messaging integration can add an `Idempotency-Key` header or SNS message
+attribute. The feature is disabled by default. Enable it independently for each integration:
+
+```yaml
+namastack:
+  outbox:
+    kafka:
+      idempotency-header-enabled: true
+    rabbit:
+      idempotency-header-enabled: true
+    sns:
+      idempotency-header-enabled: true
+      fifo-deduplication-id-enabled: false
+```
+
+`metadata.recordId` is nullable because scheduling predicates run before a record exists. During
+record processing, the framework always supplies the persisted ID. If you invoke a messaging handler
+manually with automatic idempotency headers enabled, provide a record ID or an explicit idempotency key;
+a missing key is rejected.
+
+The default value is `metadata.recordId`, the persisted ID of the outbox record. It stays the same
+across retries. Each handler has a separate record ID, and scheduling an event again creates new
+IDs. The ordering key (`metadata.key`) is unchanged.
+
+Override the value with the existing routing DSL. `OutboxHeaders.IDEMPOTENCY_KEY` is the public
+constant for the fixed header name:
+
+<Tabs>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+header(OutboxHeaders.IDEMPOTENCY_KEY) { payload, _ ->
+    (payload as OrderEvent).eventId
+}
+```
+
+</TabItem>
+<TabItem value="java" label="Java">
+
+```java
+route.header(OutboxHeaders.IDEMPOTENCY_KEY,
+    (payload, metadata) -> ((OrderEvent) payload).getEventId());
+```
+
+</TabItem>
+</Tabs>
+
+You can also read a key from `metadata.context`, populated through `additionalContext` when
+scheduling. Custom keys must identify an individual event or operation and stay stable across
+retries. Empty or whitespace-only explicit keys are rejected before publication when the
+relevant setting is enabled; they do not fall back to the record ID.
+
+For a different header name, leave automatic idempotency headers disabled and configure it directly:
+
+```kotlin
+header("event-id") { _, metadata -> requireNotNull(metadata.recordId) }
+```
+
+Sending a header alone does not deduplicate messages. Consumers must use the key to detect and
+handle duplicates.
+
+### Native SNS FIFO Deduplication
+
+`namastack.outbox.sns.fifo-deduplication-id-enabled=true` automatically supplies a native deduplication ID
+for topics ending in `.fifo`. It works independently of automatic `Idempotency-Key` attributes.
+Standard topics retain their existing behavior.
+
+The native ID is resolved in this order:
+
+1. An explicit `SnsHeaders.MESSAGE_DEDUPLICATION_ID_HEADER` route header.
+2. An explicit `Idempotency-Key` route header.
+3. The persisted `recordId`.
+
+An explicit native ID does not replace the consumer-facing `Idempotency-Key` value. With automatic
+FIFO deduplication IDs enabled, both explicit keys are checked for empty or whitespace-only values.
+Existing route headers continue to be sent when the settings are disabled.
+
+SNS suppresses duplicate IDs within a five-minute window. An explicit native ID overrides
+SNS content-based deduplication. Consumers still need to handle duplicates outside that window.
+See [AWS SNS message deduplication](https://docs.aws.amazon.com/sns/latest/dg/fifo-message-dedup.html).
+
+### Direct Handler Construction in 1.12.0
+
+The messaging handlers now accept the new Boolean settings in their constructors. Java callers
+constructing handlers directly must pass them explicitly, for example:
+
+```java
+new KafkaOutboxHandler(kafkaOperations, routing, false);
+new RabbitOutboxHandler(publisher, routing, false);
+new SnsOutboxHandler(snsOperations, routing, false, false);
+```
+
+Kotlin callers can omit these settings because they default to `false`. Existing compiled callers
+of the old constructors must be recompiled. Direct calls to the auto-configuration handler factory
+methods must now also supply the integration's properties. Spring-managed applications receive
+these properties through auto-configuration.
 
 ## RabbitMQ Integration
 
@@ -341,13 +443,14 @@ the responsibility of RabbitMQ and the consuming applications.
 
 ### Configuration Properties
 
-| Property                                            | Default         | Description                                                                                                                                                                       |
-|-----------------------------------------------------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `namastack.outbox.rabbit.enabled`                   | `true`          | Enable Rabbit outbox integration.                                                                                                                                                 |
-| `namastack.outbox.rabbit.default-exchange`          | `outbox-events` | Default Rabbit exchange for outbox events.                                                                                                                                        |
-| `namastack.outbox.rabbit.enable-json`               | `true`          | Enable Jackson JSON message conversion for `RabbitTemplate`.                                                                                                                      |
-| `namastack.outbox.rabbit.publisher-confirm-timeout` | `10s`           | Maximum time to wait for RabbitMQ publisher confirms.                                                                                                                             |
-| `namastack.outbox.rabbit.fail-on-unroutable`        | `false`         | Whether returned unroutable messages should fail outbox processing. Requires `spring.rabbitmq.publisher-returns=true` and `spring.rabbitmq.template.mandatory=true` when enabled. |
+| Property                                             | Default         | Description                                                                                                                                                                       |
+|------------------------------------------------------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `namastack.outbox.rabbit.enabled`                    | `true`          | Enable Rabbit outbox integration.                                                                                                                                                 |
+| `namastack.outbox.rabbit.default-exchange`           | `outbox-events` | Default Rabbit exchange for outbox events.                                                                                                                                        |
+| `namastack.outbox.rabbit.enable-json`                | `true`          | Enable Jackson JSON message conversion for `RabbitTemplate`.                                                                                                                      |
+| `namastack.outbox.rabbit.idempotency-header-enabled` | `false`         | Add an `Idempotency-Key` header.                                                                                                                                                  |
+| `namastack.outbox.rabbit.publisher-confirm-timeout`  | `10s`           | Maximum time to wait for RabbitMQ publisher confirms.                                                                                                                             |
+| `namastack.outbox.rabbit.fail-on-unroutable`         | `false`         | Whether returned unroutable messages should fail outbox processing. Requires `spring.rabbitmq.publisher-returns=true` and `spring.rabbitmq.template.mandatory=true` when enabled. |
 
 ### Routing
 

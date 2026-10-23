@@ -1,5 +1,6 @@
 package io.namastack.outbox.sns
 
+import io.awspring.cloud.sns.core.SnsHeaders
 import io.awspring.cloud.sns.core.SnsNotification
 import io.awspring.cloud.sns.core.SnsOperations
 import io.mockk.every
@@ -7,6 +8,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.routing.OutboxHeaders
 import io.namastack.outbox.routing.selector.OutboxPayloadSelector
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -14,6 +16,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.time.Instant
 import java.util.concurrent.ExecutionException
 
@@ -24,6 +29,7 @@ class SnsOutboxHandlerTest {
 
     private val metadata =
         OutboxRecordMetadata(
+            recordId = "record-id",
             key = "order-123",
             handlerId = "test-handler",
             createdAt = Instant.now(),
@@ -33,6 +39,184 @@ class SnsOutboxHandlerTest {
     @BeforeEach
     fun setUp() {
         snsOperations = mockk(relaxed = true)
+    }
+
+    @Nested
+    @DisplayName("Idempotency")
+    inner class Idempotency {
+        private val fifoTopic = "arn:aws:sns:us-east-1:123456789012:events.fifo"
+        private val standardTopic = "arn:aws:sns:us-east-1:123456789012:events"
+
+        @Test
+        fun `rejects missing record ID for native FIFO fallback before sending`() {
+            handler = SnsOutboxHandler(snsOperations, routing(fifoTopic), fifoDeduplicationIdEnabled = true)
+
+            assertThatThrownBy { handler.handle("payload", metadata.copy(recordId = null)) }
+                .isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("recordId")
+            verify(exactly = 0) { snsOperations.sendNotification(any<String>(), any<SnsNotification<*>>()) }
+        }
+
+        @ParameterizedTest
+        @CsvSource(
+            "false, false, false",
+            "false, false, true",
+            "true, false, false",
+            "true, false, true",
+            "false, true, false",
+            "false, true, true",
+            "true, true, false",
+            "true, true, true",
+        )
+        fun `controls attributes and native FIFO deduplication independently`(
+            idempotencyHeaderEnabled: Boolean,
+            fifoDeduplicationIdEnabled: Boolean,
+            fifo: Boolean,
+        ) {
+            val topic = if (fifo) fifoTopic else standardTopic
+            handler =
+                SnsOutboxHandler(
+                    snsOperations,
+                    routing(topic),
+                    idempotencyHeaderEnabled,
+                    fifoDeduplicationIdEnabled,
+                )
+            val notifications = mutableListOf<SnsNotification<*>>()
+            every { snsOperations.sendNotification(topic, capture(notifications)) } returns Unit
+
+            handler.handle("payload", metadata)
+            handler.handle("payload", metadata.copy(failureCount = 1))
+
+            assertThat(notifications).hasSize(2)
+            notifications.forEach { notification ->
+                assertThat(notification.headers?.get(OutboxHeaders.IDEMPOTENCY_KEY))
+                    .isEqualTo(if (idempotencyHeaderEnabled) "record-id" else null)
+                assertThat(notification.deduplicationId)
+                    .isEqualTo(if (fifoDeduplicationIdEnabled && fifo) "record-id" else null)
+                assertThat(notification.groupId).isEqualTo("order-123")
+            }
+        }
+
+        @Test
+        fun `uses explicit idempotency header for native deduplication without automatic attributes`() {
+            handler =
+                SnsOutboxHandler(
+                    snsOperations,
+                    routing(fifoTopic, mapOf(OutboxHeaders.IDEMPOTENCY_KEY to "event-id")),
+                    fifoDeduplicationIdEnabled = true,
+                )
+            val notificationSlot = slot<SnsNotification<*>>()
+            every { snsOperations.sendNotification(fifoTopic, capture(notificationSlot)) } returns Unit
+
+            handler.handle("payload", metadata.copy(recordId = null))
+
+            assertThat(notificationSlot.captured.deduplicationId).isEqualTo("event-id")
+            assertThat(notificationSlot.captured.headers).containsEntry(OutboxHeaders.IDEMPOTENCY_KEY, "event-id")
+        }
+
+        @Test
+        fun `native header takes precedence without replacing the custom idempotency attribute`() {
+            handler =
+                SnsOutboxHandler(
+                    snsOperations,
+                    routing(
+                        fifoTopic,
+                        mapOf(
+                            SnsHeaders.MESSAGE_DEDUPLICATION_ID_HEADER to "native-id",
+                            OutboxHeaders.IDEMPOTENCY_KEY to "event-id",
+                            "tenant" to "acme",
+                        ),
+                    ),
+                    idempotencyHeaderEnabled = true,
+                    fifoDeduplicationIdEnabled = true,
+                )
+            val notificationSlot = slot<SnsNotification<*>>()
+            every { snsOperations.sendNotification(fifoTopic, capture(notificationSlot)) } returns Unit
+
+            handler.handle("payload", metadata)
+
+            assertThat(notificationSlot.captured.deduplicationId).isEqualTo("native-id")
+            assertThat(notificationSlot.captured.headers)
+                .containsEntry(OutboxHeaders.IDEMPOTENCY_KEY, "event-id")
+                .containsEntry("tenant", "acme")
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["", " ", "\t\n"])
+        fun `rejects blank idempotency attributes before sending`(key: String) {
+            handler =
+                SnsOutboxHandler(
+                    snsOperations,
+                    routing(standardTopic, mapOf(OutboxHeaders.IDEMPOTENCY_KEY to key)),
+                    idempotencyHeaderEnabled = true,
+                )
+
+            assertThatThrownBy { handler.handle("payload", metadata) }
+                .isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining(OutboxHeaders.IDEMPOTENCY_KEY)
+            verify(exactly = 0) { snsOperations.sendNotification(any<String>(), any<SnsNotification<*>>()) }
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["", " ", "\t\n"])
+        fun `native FIFO deduplication rejects both blank explicit keys`(key: String) {
+            listOf(SnsHeaders.MESSAGE_DEDUPLICATION_ID_HEADER, OutboxHeaders.IDEMPOTENCY_KEY).forEach { header ->
+                val headers =
+                    mapOf(
+                        SnsHeaders.MESSAGE_DEDUPLICATION_ID_HEADER to "native-id",
+                        OutboxHeaders.IDEMPOTENCY_KEY to "event-id",
+                    ) + (header to key)
+                handler =
+                    SnsOutboxHandler(snsOperations, routing(fifoTopic, headers), fifoDeduplicationIdEnabled = true)
+
+                assertThatThrownBy { handler.handle("payload", metadata) }
+                    .isInstanceOf(IllegalArgumentException::class.java)
+                    .hasMessageContaining(header)
+            }
+            verify(exactly = 0) { snsOperations.sendNotification(any<String>(), any<SnsNotification<*>>()) }
+        }
+
+        @Test
+        fun `disabled settings preserve existing blank and native headers`() {
+            val headers =
+                mapOf(
+                    OutboxHeaders.IDEMPOTENCY_KEY to "",
+                    SnsHeaders.MESSAGE_DEDUPLICATION_ID_HEADER to "existing-native-id",
+                )
+            handler = SnsOutboxHandler(snsOperations, routing(fifoTopic, headers))
+            val notificationSlot = slot<SnsNotification<*>>()
+            every { snsOperations.sendNotification(fifoTopic, capture(notificationSlot)) } returns Unit
+
+            handler.handle("payload", metadata)
+
+            assertThat(notificationSlot.captured.headers).containsAllEntriesOf(headers)
+            assertThat(notificationSlot.captured.deduplicationId).isEqualTo("existing-native-id")
+        }
+
+        @Test
+        fun `native FIFO option does not validate or modify standard topic headers`() {
+            val headers = mapOf(OutboxHeaders.IDEMPOTENCY_KEY to "")
+            handler =
+                SnsOutboxHandler(snsOperations, routing(standardTopic, headers), fifoDeduplicationIdEnabled = true)
+            val notificationSlot = slot<SnsNotification<*>>()
+            every { snsOperations.sendNotification(standardTopic, capture(notificationSlot)) } returns Unit
+
+            handler.handle("payload", metadata)
+
+            assertThat(notificationSlot.captured.headers).containsAllEntriesOf(headers)
+            assertThat(notificationSlot.captured.deduplicationId).isNull()
+        }
+
+        private fun routing(
+            topic: String,
+            configuredHeaders: Map<String, String> = emptyMap(),
+        ): SnsOutboxRouting =
+            snsOutboxRouting {
+                defaults {
+                    target(topic)
+                    headers { _, _ -> configuredHeaders }
+                }
+            }
     }
 
     @Nested

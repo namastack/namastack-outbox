@@ -59,12 +59,14 @@ import org.slf4j.LoggerFactory
  *
  * @param publisher Rabbit outbox publisher for broker interaction
  * @param routing configuration for routing payloads to exchanges
+ * @param idempotencyHeaderEnabled Whether to supply and validate the idempotency header
  * @author Roland Beisel
  * @since 1.1.0
  */
 class RabbitOutboxHandler(
     private val publisher: RabbitOutboxPublisher,
     private val routing: RabbitOutboxRouting,
+    private val idempotencyHeaderEnabled: Boolean = false,
 ) : OutboxHandler {
     private val logger = LoggerFactory.getLogger(RabbitOutboxHandler::class.java)
 
@@ -102,7 +104,7 @@ class RabbitOutboxHandler(
             payload = routing.mapPayload(payload, metadata),
             exchange = routing.resolveExchange(payload, metadata),
             routingKey = routing.extractKey(payload, metadata) ?: "",
-            headers = routing.buildHeaders(payload, metadata),
+            headers = routing.buildHeaders(payload, metadata, idempotencyHeaderEnabled),
             handlerId = metadata.handlerId,
         )
 }

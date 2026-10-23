@@ -62,12 +62,14 @@ import java.util.concurrent.ExecutionException
  *
  * @param kafkaOperations Spring Kafka operations for sending messages
  * @param routing Configuration for routing payloads to topics
+ * @param idempotencyHeaderEnabled Whether to supply and validate the idempotency header
  * @author Roland Beisel
  * @since 1.1.0
  */
 class KafkaOutboxHandler(
     private val kafkaOperations: KafkaOperations<Any, Any>,
     private val routing: KafkaOutboxRouting,
+    private val idempotencyHeaderEnabled: Boolean = false,
 ) : OutboxHandler {
     private val logger = LoggerFactory.getLogger(KafkaOutboxHandler::class.java)
 
@@ -87,7 +89,7 @@ class KafkaOutboxHandler(
 
         val topic = routing.resolveTopic(payload, metadata)
         val key = routing.extractKey(payload, metadata)
-        val headers = routing.buildHeaders(payload, metadata)
+        val headers = routing.buildHeaders(payload, metadata, idempotencyHeaderEnabled)
         val mappedPayload = routing.mapPayload(payload, metadata)
 
         val record = createProducerRecord(topic, key, mappedPayload, headers)

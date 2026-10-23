@@ -18,4 +18,11 @@ data class KafkaOutboxProperties(
      * Default Kafka topic for outbox events.
      */
     var defaultTopic: String = "outbox-events",
+    /**
+     * Whether to add an `Idempotency-Key` header, defaulting to the persisted record ID.
+     *
+     * Explicit route headers override the default. Empty or whitespace-only keys are rejected
+     * when enabled. Disabled by default to preserve existing message headers.
+     */
+    var idempotencyHeaderEnabled: Boolean = false,
 )

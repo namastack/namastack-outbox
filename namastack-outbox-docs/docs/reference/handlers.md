@@ -328,6 +328,7 @@ Handlers that accept `OutboxRecordMetadata` receive processing metadata for the 
 handler invocation:
 
 - `key` - Logical record key used for ordered processing
+- `recordId` - Nullable persisted record ID, populated during processing and stable across retries
 - `handlerId` - Handler assigned to the record
 - `createdAt` - Time when the outbox record was created
 - `context` - Propagated context such as trace IDs or tenant IDs
@@ -337,6 +338,21 @@ handler invocation:
 
 For normal handlers, `failureCount == 0` means the first delivery attempt. A retry is
 processed by the same `@OutboxHandler` with `failureCount > 0`.
+
+Each handler receives its own record ID, even when several handlers process the same scheduled
+event. Use `recordId` for [message idempotency](messaging.md#idempotency-keys); `key` groups records
+for ordering and can be shared by many events.
+
+`recordId` is nullable because the same metadata type is used during handler selection and record
+processing. During scheduling, `supports(...)` receives `recordId = null`: the record is only created
+after a handler accepts the payload. When the framework invokes a handler to process a stored record,
+`recordId` is always populated. Route selectors and filters used during scheduling must therefore
+work without a record ID.
+
+Existing metadata constructors remain available and leave `recordId` unset. When manually invoking
+handlers in tests, pass `recordId` explicitly if the test needs the automatic idempotency fallback.
+Existing `copy()` calls retain the ID, and previously compiled Java and Kotlin constructor and copy
+calls remain supported.
 
 <Tabs>
 <TabItem value="kotlin" label="Kotlin">

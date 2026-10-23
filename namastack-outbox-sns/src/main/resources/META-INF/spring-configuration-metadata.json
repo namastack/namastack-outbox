@@ -18,8 +18,19 @@
       "type": "java.lang.String",
       "description": "Default SNS topic ARN for outbox events.",
       "defaultValue": "arn:aws:sns:us-east-1:000000000000:outbox-events"
+    },
+    {
+      "name": "namastack.outbox.sns.idempotency-header-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to add Idempotency-Key using the persisted record ID unless a route overrides it. Rejects empty or whitespace-only keys when enabled.",
+      "defaultValue": false
+    },
+    {
+      "name": "namastack.outbox.sns.fifo-deduplication-id-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to resolve native deduplication IDs for FIFO topics. Uses an explicit SNS deduplication header, then Idempotency-Key, then the persisted record ID. Independent of idempotency-header-enabled.",
+      "defaultValue": false
     }
   ],
   "hints": []
 }
-
