@@ -12,6 +12,9 @@ import io.namastack.outbox.observability.OutboxMetricNames
  * Unknown, failed, or expired state readings return NaN. The last-success timestamp remains
  * available after a failed collection and does not expire. All gauges include the outbox channel tag.
  *
+ * Age gauges report zero when no records match or no partitions are assigned.
+ * The overdue age can include records currently being processed.
+ *
  * This binder is runtime infrastructure, not an application extension point.
  *
  * @author Roland Beisel
@@ -41,6 +44,18 @@ class OutboxInstanceMetricsMeterBinder internal constructor(
         Gauge
             .builder(OutboxMetricNames.INSTANCE_RECORDS_PENDING, collector::pendingRecords)
             .description("Total pending records across all assigned partitions")
+            .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
+            .register(meterRegistry)
+        Gauge
+            .builder(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE, collector::oldestRecordAge)
+            .description("Age of the oldest pending record across all assigned partitions")
+            .baseUnit("seconds")
+            .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
+            .register(meterRegistry)
+        Gauge
+            .builder(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE, collector::overdueRecordAge)
+            .description("Time since the longest overdue record across all assigned partitions became due")
+            .baseUnit("seconds")
             .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
             .register(meterRegistry)
         Gauge

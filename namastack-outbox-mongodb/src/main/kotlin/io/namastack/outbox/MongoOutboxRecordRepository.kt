@@ -4,6 +4,7 @@ import org.bson.Document
 import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.aggregation.Aggregation
+import org.springframework.data.mongodb.core.aggregation.AggregationOperation
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
 import java.time.Clock
@@ -236,6 +237,47 @@ internal open class MongoOutboxRecordRepository(
     }
 
     /**
+     * Finds the earliest creation time of outbox records across the specified partitions by status.
+     */
+    override fun findOldestCreatedAtByPartitions(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+    ): Instant? {
+        if (partitions.isEmpty()) return null
+
+        val match =
+            Aggregation.match(
+                Criteria
+                    .where("partitionNo")
+                    .`in`(partitions)
+                    .and("status")
+                    .`is`(status.name),
+            )
+        return aggregateMin(listOf(match), "createdAt")
+    }
+
+    /**
+     * Finds the earliest next retry time of due outbox records across the specified partitions.
+     *
+     * With [ignoreRecordKeysWithPreviousFailure], only the oldest incomplete record of each key is
+     * considered, as in [buildStrictFifoAggregation].
+     */
+    override fun findOldestDueNextRetryAtByPartitions(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+        now: Instant,
+        ignoreRecordKeysWithPreviousFailure: Boolean,
+    ): Instant? {
+        if (partitions.isEmpty()) return null
+
+        return if (ignoreRecordKeysWithPreviousFailure) {
+            aggregateMin(strictFifoReadyKeyStages(partitions, status, now), "oldestDoc.nextRetryAt")
+        } else {
+            aggregateMin(listOf(readyRecordsMatchStage(partitions, status, now)), "nextRetryAt")
+        }
+    }
+
+    /**
      * Deletes all outbox records with the specified status.
      *
      * @param status the record status to delete
@@ -395,6 +437,64 @@ internal open class MongoOutboxRecordRepository(
         batchSize: Int,
     ): Aggregation =
         Aggregation.newAggregation(
+            strictFifoReadyKeyStages(partitions, status, now) +
+                listOf(
+                    // Order keys by their oldest record's creation time
+                    Aggregation.sort(Sort.by(Sort.Direction.ASC, "oldestDoc.createdAt")),
+                    Aggregation.limit(batchSize.toLong()),
+                    Aggregation
+                        .project()
+                        .andExclude("_id")
+                        .and("_id")
+                        .`as`("recordKey"),
+                ),
+        )
+
+    /**
+     * Builds a standard aggregation pipeline that finds record keys with ready records.
+     *
+     * Unlike [buildStrictFifoAggregation], this does not check for older incomplete records
+     * blocking the key. It simply finds all records matching the criteria and groups by key.
+     *
+     * @param partitions the set of partition numbers to query
+     * @param status the record status to match
+     * @param now the current timestamp for retry comparison
+     * @param batchSize the maximum number of record keys to return
+     * @return the aggregation pipeline
+     */
+    private fun buildStandardAggregation(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+        now: Instant,
+        batchSize: Int,
+    ): Aggregation =
+        Aggregation.newAggregation(
+            readyRecordsMatchStage(partitions, status, now),
+            // Group by recordKey to get unique keys and find oldest record for sorting
+            Aggregation
+                .group("recordKey")
+                .min("createdAt")
+                .`as`("minCreatedAt"),
+            // Order by creation time of the oldest ready record
+            Aggregation.sort(Sort.by(Sort.Direction.ASC, "minCreatedAt")),
+            Aggregation.limit(batchSize.toLong()),
+            Aggregation
+                .project()
+                .andExclude("_id")
+                .and("_id")
+                .`as`("recordKey"),
+        )
+
+    /**
+     * Builds the stages that reduce incomplete records to one `oldestDoc` per record key whose
+     * oldest incomplete record is ready for processing.
+     */
+    private fun strictFifoReadyKeyStages(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+        now: Instant,
+    ): List<AggregationOperation> =
+        listOf(
             // Match all incomplete records in partitions
             Aggregation.match(
                 Criteria
@@ -418,58 +518,41 @@ internal open class MongoOutboxRecordRepository(
                     .and("oldestDoc.nextRetryAt")
                     .lte(now),
             ),
-            // Order keys by their oldest record's creation time
-            Aggregation.sort(Sort.by(Sort.Direction.ASC, "oldestDoc.createdAt")),
-            Aggregation.limit(batchSize.toLong()),
-            Aggregation
-                .project()
-                .andExclude("_id")
-                .and("_id")
-                .`as`("recordKey"),
         )
 
     /**
-     * Builds a standard aggregation pipeline that finds record keys with ready records.
+     * Runs the given stages followed by a group stage that reduces all documents to the minimum of [field].
      *
-     * Unlike [buildStrictFifoAggregation], this does not check for older incomplete records
-     * blocking the key. It simply finds all records matching the criteria and groups by key.
-     *
-     * @param partitions the set of partition numbers to query
-     * @param status the record status to match
-     * @param now the current timestamp for retry comparison
-     * @param batchSize the maximum number of record keys to return
-     * @return the aggregation pipeline
+     * @return the minimum instant, or null if no documents match
      */
-    private fun buildStandardAggregation(
+    private fun aggregateMin(
+        stages: List<AggregationOperation>,
+        field: String,
+    ): Instant? =
+        mongoTemplate
+            .aggregate(
+                Aggregation.newAggregation(stages + Aggregation.group().min(field).`as`("value")),
+                collectionNameResolver.outboxRecords,
+                MinInstantDto::class.java,
+            ).uniqueMappedResult
+            ?.value
+
+    /**
+     * Builds the stage that matches records in the given partitions and status that are due at [now].
+     */
+    private fun readyRecordsMatchStage(
         partitions: Set<Int>,
         status: OutboxRecordStatus,
         now: Instant,
-        batchSize: Int,
-    ): Aggregation =
-        Aggregation.newAggregation(
-            // Match all records that are ready for processing
-            Aggregation.match(
-                Criteria
-                    .where("partitionNo")
-                    .`in`(partitions)
-                    .and("status")
-                    .`is`(status.name)
-                    .and("nextRetryAt")
-                    .lte(now),
-            ),
-            // Group by recordKey to get unique keys and find oldest record for sorting
-            Aggregation
-                .group("recordKey")
-                .min("createdAt")
-                .`as`("minCreatedAt"),
-            // Order by creation time of the oldest ready record
-            Aggregation.sort(Sort.by(Sort.Direction.ASC, "minCreatedAt")),
-            Aggregation.limit(batchSize.toLong()),
-            Aggregation
-                .project()
-                .andExclude("_id")
-                .and("_id")
-                .`as`("recordKey"),
+    ): AggregationOperation =
+        Aggregation.match(
+            Criteria
+                .where("partitionNo")
+                .`in`(partitions)
+                .and("status")
+                .`is`(status.name)
+                .and("nextRetryAt")
+                .lte(now),
         )
 }
 
@@ -479,4 +562,11 @@ internal open class MongoOutboxRecordRepository(
  */
 internal data class RecordKeyDto(
     val recordKey: String = "",
+)
+
+/**
+ * Result DTO for aggregation pipelines that reduce records to a single minimum instant.
+ */
+internal data class MinInstantDto(
+    val value: Instant? = null,
 )

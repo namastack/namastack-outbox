@@ -158,6 +158,8 @@ Micrometer converts dotted meter names to Prometheus naming conventions. For exa
 | `outbox.records` | Count of outbox records by status | `outbox.channel`, `outbox.record.status=new\|failed\|completed` |
 | `outbox.instance.partitions.assigned` | Number of partitions assigned to this application instance | `outbox.channel` |
 | `outbox.instance.records.pending` | Total pending records across partitions assigned to this instance | `outbox.channel` |
+| `outbox.instance.records.oldest.age` | Age in seconds of the oldest pending record across partitions assigned to this instance | `outbox.channel` |
+| `outbox.instance.records.overdue.age` | Time in seconds since the longest overdue record across partitions assigned to this instance became due; can include records currently being processed | `outbox.channel` |
 | `outbox.cluster.instances.active` | Number of active outbox instances in the cluster | `outbox.channel` |
 | `outbox.cluster.partitions.unassigned` | Number of partitions not assigned to any active instance | `outbox.channel` |
 | `outbox.metrics.collection.last.success.timestamp` | Unix timestamp in seconds of the last successful collection of all state gauges | `outbox.channel` |
@@ -167,7 +169,19 @@ Use gauges for operational state:
 - backlog: `outbox.records{outbox.record.status="new"}`
 - failed records: `outbox.records{outbox.record.status="failed"}`
 - per-instance pressure: `outbox.instance.records.pending`
+- delivery staleness: `outbox.instance.records.oldest.age` and `outbox.instance.records.overdue.age`
 - cluster health: `outbox.cluster.instances.active` and `outbox.cluster.partitions.unassigned`
+
+The oldest age includes `NEW` records waiting for a future retry. The overdue age includes only
+`NEW` records due at collection time. When `stop-on-first-failure` is enabled, it excludes records
+blocked by an earlier incomplete record with the same key, using the poller's ordering by creation
+time and record ID. It can include records currently being processed.
+
+Both ages are sampled by the background collector and remain unchanged until the next collection.
+They report zero when no records match or no partitions are assigned, and `NaN` before the first
+reading, after a failed query, or when the reading expires. Custom repositories that do not implement
+the age queries report `NaN` for these gauges; other gauges can still refresh independently. The
+last-success timestamp advances only when all gauges, including both ages, are collected successfully.
 
 ### Background Gauge Collection
 
@@ -238,6 +252,8 @@ Common Spring Boot Actuator endpoints:
 - `/actuator/metrics/outbox.record.schedule`
 - `/actuator/metrics/outbox.records`
 - `/actuator/metrics/outbox.instance.records.pending`
+- `/actuator/metrics/outbox.instance.records.oldest.age`
+- `/actuator/metrics/outbox.instance.records.overdue.age`
 - `/actuator/prometheus` (if Prometheus is enabled)
 
 :::

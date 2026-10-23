@@ -8,21 +8,28 @@ import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.observability.MicrometerOutboxInstrumentation
+import io.namastack.outbox.observability.OutboxMetricNames
 import io.namastack.outbox.observability.OutboxObservabilityAutoConfiguration
 import io.namastack.outbox.partition.PartitionCoordinator
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.TaskScheduler
+import java.time.Clock
 import java.time.Duration
+import java.time.Instant
+import java.time.ZoneOffset
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -220,6 +227,46 @@ class OutboxInstanceMetricsAutoConfigurationTest {
         } finally {
             release.countDown()
             closer.shutdownNow()
+            registry.close()
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `age collector uses the configured clock and stop on first failure setting`(stopOnFirstFailure: Boolean) {
+        val now = Instant.parse("2026-01-01T12:00:00Z")
+        val scheduler = mockk<TaskScheduler>(relaxed = true)
+        val registry = SimpleMeterRegistry()
+        try {
+            contextRunner
+                .withUserConfiguration(RequiredBeansConfig::class.java)
+                .withBean(Clock::class.java, { Clock.fixed(now, ZoneOffset.UTC) })
+                .withBean(OutboxMetricsCollector.SCHEDULER_NAME, TaskScheduler::class.java, { scheduler })
+                .withPropertyValues("namastack.outbox.processing.stop-on-first-failure=$stopOnFirstFailure")
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    val repository = context.getBean(OutboxRecordRepository::class.java)
+                    every { context.getBean(PartitionCoordinator::class.java).getAssignedPartitionNumbers() } returns
+                        setOf(1)
+                    every { repository.countRecordsByPartitions(setOf(1), NEW) } returns 1
+                    every { repository.findOldestCreatedAtByPartitions(setOf(1), NEW) } returns now.minusSeconds(90)
+                    every {
+                        repository.findOldestDueNextRetryAtByPartitions(setOf(1), NEW, now, stopOnFirstFailure)
+                    } returns now.minusSeconds(30)
+                    context.getBean(OutboxInstanceMetricsMeterBinder::class.java).bindTo(registry)
+                    context.getBean(OutboxMetricsCollector::class.java).refresh()
+
+                    assertThat(
+                        registry.get(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE).gauge().value(),
+                    ).isEqualTo(90.0)
+                    assertThat(
+                        registry.get(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE).gauge().value(),
+                    ).isEqualTo(30.0)
+                    verify(exactly = 1) {
+                        repository.findOldestDueNextRetryAtByPartitions(setOf(1), NEW, now, stopOnFirstFailure)
+                    }
+                }
+        } finally {
             registry.close()
         }
     }

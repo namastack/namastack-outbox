@@ -1,7 +1,9 @@
 package io.namastack.outbox.schema
 
 import io.namastack.outbox.Outbox
+import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.schema.AbstractJdbcSchemaInitializationTest.MyHandler
@@ -18,6 +20,9 @@ import org.springframework.context.annotation.Import
 import org.springframework.stereotype.Component
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.transaction.support.TransactionTemplate
+import java.time.Instant
+import java.time.temporal.ChronoUnit.SECONDS
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
 
@@ -57,6 +62,52 @@ abstract class AbstractJdbcSchemaInitializationTest {
         }
     }
 
+    @Test
+    fun `record age queries run against shipped schema`() {
+        val createdAt = Instant.now().truncatedTo(SECONDS).minusSeconds(60)
+        val nextRetryAt = createdAt.plusSeconds(3600)
+        transactionTemplate.executeWithoutResult {
+            outboxRecordRepository.save(
+                OutboxRecord.restore(
+                    id = UUID.randomUUID().toString(),
+                    recordKey = UUID.randomUUID().toString(),
+                    payload = "payload",
+                    context = emptyMap(),
+                    partition = AGE_QUERY_PARTITION,
+                    createdAt = createdAt,
+                    status = NEW,
+                    completedAt = null,
+                    failureCount = 0,
+                    failureReason = null,
+                    nextRetryAt = nextRetryAt,
+                    handlerId = "handlerId",
+                    failureException = null,
+                ),
+            )
+        }
+
+        assertThat(outboxRecordRepository.findOldestCreatedAtByPartitions(setOf(AGE_QUERY_PARTITION), NEW))
+            .isEqualTo(createdAt)
+        listOf(true, false).forEach { ignoreRecordKeysWithPreviousFailure ->
+            assertThat(
+                outboxRecordRepository.findOldestDueNextRetryAtByPartitions(
+                    partitions = setOf(AGE_QUERY_PARTITION),
+                    status = NEW,
+                    now = nextRetryAt,
+                    ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
+                ),
+            ).isEqualTo(nextRetryAt)
+            assertThat(
+                outboxRecordRepository.findOldestDueNextRetryAtByPartitions(
+                    partitions = setOf(AGE_QUERY_PARTITION),
+                    status = NEW,
+                    now = nextRetryAt.minusSeconds(1),
+                    ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
+                ),
+            ).isNull()
+        }
+    }
+
     private fun tableExists(tableName: String): Boolean {
         dataSource.connection.use { connection ->
             val meta = connection.metaData
@@ -75,6 +126,10 @@ abstract class AbstractJdbcSchemaInitializationTest {
 
     @SpringBootApplication
     class TestApplication
+
+    companion object {
+        private const val AGE_QUERY_PARTITION = 42
+    }
 
     @Component
     class MyHandler : OutboxHandler {
