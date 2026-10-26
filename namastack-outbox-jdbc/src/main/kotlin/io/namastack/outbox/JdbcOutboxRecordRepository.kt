@@ -62,7 +62,7 @@ internal open class JdbcOutboxRecordRepository(
         """
         SELECT * FROM $tableName
         WHERE status = :status
-        ORDER BY created_at
+        ORDER BY created_at, id
         """.toSingleLine()
 
     /**
@@ -72,7 +72,7 @@ internal open class JdbcOutboxRecordRepository(
         """
         SELECT * FROM $tableName
         WHERE record_key = :recordKey AND status = :status
-        ORDER BY created_at
+        ORDER BY created_at, id
         """.toSingleLine()
 
     /**
@@ -130,7 +130,10 @@ internal open class JdbcOutboxRecordRepository(
             SELECT 1 FROM $tableName older
             WHERE older.record_key = o.record_key
               AND older.completed_at IS NULL
-              AND older.created_at < o.created_at
+              AND (
+                older.created_at < o.created_at
+                OR (older.created_at = o.created_at AND older.id < o.id)
+              )
           )
         GROUP BY o.record_key
         ORDER BY MIN(o.created_at) ASC

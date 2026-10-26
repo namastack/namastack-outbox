@@ -5,6 +5,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import io.namastack.outbox.context.OutboxContextCollector
+import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
@@ -83,6 +84,38 @@ class OutboxServiceTest {
             assertThat(recordSlots).hasSize(2)
             assertThat(recordSlots[0].handlerId).isEqualTo("handler1")
             assertThat(recordSlots[1].handlerId).isEqualTo("handler2")
+        }
+
+        @Test
+        fun `should keep selection metadata and record timestamps equal while the clock advances`() {
+            val advancingClock = mockk<Clock>()
+            var currentTime = now
+            every { advancingClock.instant() } answers { currentTime }
+            every { advancingClock.zone } returns ZoneOffset.UTC
+            val service = OutboxService(contextCollector, handlerRegistry, outboxRecordRepository, advancingClock)
+            val payload = TestPayload("test-id")
+            val records = mutableListOf<OutboxRecord<Any>>()
+            val selectionMetadata = mutableListOf<OutboxRecordMetadata>()
+            val handlers = listOf(createGenericMockHandler("first"), createGenericMockHandler("second"))
+            every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, any()) } answers {
+                val metadataProvider = secondArg<(GenericHandlerMethod) -> OutboxRecordMetadata>()
+                handlers.forEach { handler ->
+                    selectionMetadata += metadataProvider(handler)
+                    currentTime = currentTime.plusMillis(1)
+                }
+                handlers
+            }
+            every { outboxRecordRepository.save(capture(records)) } answers {
+                currentTime = currentTime.plusMillis(1)
+                records.last()
+            }
+
+            service.schedule(payload, "key")
+
+            assertThat(selectionMetadata.map { it.createdAt }).containsExactly(now, now)
+            assertThat(records.map { it.createdAt }).containsExactly(now, now)
+            assertThat(records.map { it.nextRetryAt }).containsExactly(now, now)
         }
 
         @Test
