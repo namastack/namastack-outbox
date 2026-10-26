@@ -19,6 +19,7 @@ object OutboxMetricNames {
     const val INSTANCE_RECORDS_PENDING: String = "outbox.instance.records.pending"
     const val CLUSTER_INSTANCES_ACTIVE: String = "outbox.cluster.instances.active"
     const val CLUSTER_PARTITIONS_UNASSIGNED: String = "outbox.cluster.partitions.unassigned"
+    const val METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP: String = "outbox.metrics.collection.last.success.timestamp"
 }
 
 /**
