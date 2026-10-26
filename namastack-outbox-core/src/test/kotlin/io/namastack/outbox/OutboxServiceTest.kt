@@ -131,6 +131,38 @@ class OutboxServiceTest {
         }
 
         @Test
+        fun `should keep selection metadata and record timestamps equal while the clock advances`() {
+            val advancingClock = mockk<Clock>()
+            var currentTime = now
+            every { advancingClock.instant() } answers { currentTime }
+            every { advancingClock.zone } returns ZoneOffset.UTC
+            val service = OutboxService(contextCollector, handlerRegistry, outboxRecordRepository, advancingClock)
+            val payload = TestPayload("test-id")
+            val records = mutableListOf<OutboxRecord<Any>>()
+            val selectionMetadata = mutableListOf<OutboxRecordMetadata>()
+            val handlers = listOf(createGenericMockHandler("first"), createGenericMockHandler("second"))
+            every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns emptyList()
+            every { handlerRegistry.getGenericHandlers(payload, any()) } answers {
+                val metadataProvider = secondArg<(GenericHandlerMethod) -> OutboxRecordMetadata>()
+                handlers.forEach { handler ->
+                    selectionMetadata += metadataProvider(handler)
+                    currentTime = currentTime.plusMillis(1)
+                }
+                handlers
+            }
+            every { outboxRecordRepository.save(capture(records)) } answers {
+                currentTime = currentTime.plusMillis(1)
+                records.last()
+            }
+
+            service.schedule(payload, "key")
+
+            assertThat(selectionMetadata.map { it.createdAt }).containsExactly(now, now)
+            assertThat(records.map { it.createdAt }).containsExactly(now, now)
+            assertThat(records.map { it.nextRetryAt }).containsExactly(now, now)
+        }
+
+        @Test
         fun `should set status to NEW for created records`() {
             val key = "test-key"
             val payload = TestPayload("test-id")
