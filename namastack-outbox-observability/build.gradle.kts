@@ -26,6 +26,7 @@ dependencies {
     testImplementation(libs.jackson.module.kotlin)
     testImplementation(libs.h2)
     testImplementation(libs.mockk)
+    testImplementation(libs.micrometer.registry.prometheus)
     testImplementation(libs.kotlin.reflect)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

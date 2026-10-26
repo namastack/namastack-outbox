@@ -1,12 +1,17 @@
 package io.namastack.outbox.observability.metrics
 
+import io.micrometer.core.instrument.Gauge
+import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import io.micrometer.prometheusmetrics.PrometheusConfig
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import io.mockk.Called
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
@@ -16,224 +21,337 @@ import io.namastack.outbox.observability.OutboxMetricKeyNames
 import io.namastack.outbox.observability.OutboxMetricNames
 import io.namastack.outbox.partition.PartitionCoordinator
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertTimeoutPreemptively
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
-@DisplayName("OutboxInstanceMetricsMeterBinder")
 class OutboxInstanceMetricsMeterBinderTest {
-    private val recordRepository = mockk<OutboxRecordRepository>(relaxed = true)
-    private val recordStatusRepository = mockk<OutboxRecordStatusRepository>()
-    private val partitionCoordinator = mockk<PartitionCoordinator>(relaxed = true)
-    private val instanceRegistry = mockk<OutboxInstanceRegistry>(relaxed = true)
-    private val channelNameProvider = OutboxChannelNameProvider { "orders" }
-    private val meterRegistry = SimpleMeterRegistry()
+    private val recordRepository = mockk<OutboxRecordRepository>()
+    private val statusRepository = mockk<OutboxRecordStatusRepository>()
+    private val coordinator = mockk<PartitionCoordinator>(relaxed = true)
+    private val instanceRegistry = mockk<OutboxInstanceRegistry>()
+    private val now = AtomicReference(Instant.parse("2026-10-22T12:00:00Z"))
+    private val clock = mockk<Clock> { every { instant() } answers { now.get() } }
+    private val properties = OutboxMetricsProperties()
+    private val taskScheduler = ThreadPoolTaskScheduler().apply { initialize() }
+    private val collector = createCollector()
+    private val binder = OutboxInstanceMetricsMeterBinder(collector) { "orders" }
+    private val registry = SimpleMeterRegistry()
 
-    private val meterBinder =
-        OutboxInstanceMetricsMeterBinder(
-            recordRepository = recordRepository,
-            recordStatusRepository = recordStatusRepository,
-            partitionCoordinator = partitionCoordinator,
-            instanceRegistry = instanceRegistry,
-            channelNameProvider = channelNameProvider,
+    private fun createCollector(statuses: OutboxRecordStatusRepository? = statusRepository) =
+        OutboxMetricsCollector(
+            recordRepository,
+            statuses,
+            coordinator,
+            instanceRegistry,
+            properties,
+            clock,
+            taskScheduler,
         )
 
-    @Nested
-    @DisplayName("Gauge Registration")
-    inner class GaugeRegistration {
-        @Test
-        fun `registers canonical record gauges with canonical tags`() {
-            every { recordStatusRepository.countByStatus(NEW) } returns 15L
-            every { recordStatusRepository.countByStatus(FAILED) } returns 3L
-            every { recordStatusRepository.countByStatus(COMPLETED) } returns 42L
+    @AfterEach
+    fun tearDown() {
+        collector.stop()
+        taskScheduler.shutdown()
+        registry.close()
+    }
 
-            meterBinder.bindTo(meterRegistry)
+    @BeforeEach
+    fun setUp() {
+        every { statusRepository.countByStatus(NEW) } returns 15
+        every { statusRepository.countByStatus(FAILED) } returns 3
+        every { statusRepository.countByStatus(COMPLETED) } returns 42
+        every { coordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
+        every { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) } returns 10
+        every { instanceRegistry.getActiveInstanceCount() } returns 2
+        every { coordinator.getPartitionContext().getPartitionStats().unassignedPartitionsCount } returns 5
+        binder.bindTo(registry)
+    }
 
-            assertThat(
-                meterRegistry
-                    .get(OutboxMetricNames.RECORDS)
-                    .tag(OutboxMetricKeyNames.LowCardinality.RECORD_STATUS, "new")
-                    .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, "orders")
-                    .gauge()
-                    .value(),
-            ).isEqualTo(15.0)
+    @Test
+    fun `binding and reading uninitialized gauges never queries infrastructure`() {
+        registry.meters.filterIsInstance<Gauge>().forEach { assertThat(it.value()).isNaN() }
+        verify { listOf(recordRepository, statusRepository, coordinator, instanceRegistry) wasNot Called }
+    }
 
-            assertThat(
-                meterRegistry
-                    .get(OutboxMetricNames.RECORDS)
-                    .tag(OutboxMetricKeyNames.LowCardinality.RECORD_STATUS, "failed")
-                    .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, "orders")
-                    .gauge()
-                    .value(),
-            ).isEqualTo(3.0)
-
-            assertThat(
-                meterRegistry
-                    .get(OutboxMetricNames.RECORDS)
-                    .tag(OutboxMetricKeyNames.LowCardinality.RECORD_STATUS, "completed")
-                    .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, "orders")
-                    .gauge()
-                    .value(),
-            ).isEqualTo(42.0)
+    @Test
+    fun `publishes collected values with existing names and channel and status tags`() {
+        collector.refresh()
+        mapOf(NEW to 15.0, FAILED to 3.0, COMPLETED to 42.0).forEach { (status, count) ->
+            assertThat(recordGauge(status)).isEqualTo(count)
         }
-
-        @Test
-        fun `reads pending records with one batch count across all assigned partitions`() {
-            stubStatusCounts()
-            val partitions = (0 until 256).toSet()
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns partitions
-            every { recordRepository.countRecordsByPartitions(partitions, NEW) } returns 10L
-
-            meterBinder.bindTo(meterRegistry)
-
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isEqualTo(10.0)
+        assertThat(value(OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED)).isEqualTo(2.0)
+        assertThat(value(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE)).isEqualTo(2.0)
+        assertThat(value(OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED)).isEqualTo(5.0)
+        assertThat(
+            value(OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP),
+        ).isEqualTo(now.get().epochSecond.toDouble())
+        assertThat(registry.meters).hasSize(8)
+        assertThat(registry.meters.map { it.id.name }).doesNotContain(
+            "outbox.records.count",
+            "outbox.instance.records.pending.max",
+            "outbox.instance.records.pending.avg",
+        )
+        registry.meters.forEach {
             assertThat(
-                meterRegistry
-                    .get(OutboxMetricNames.INSTANCE_RECORDS_PENDING)
-                    .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, "orders")
-                    .gauge()
-                    .value(),
-            ).isEqualTo(10.0)
-
-            verify(exactly = 1) { recordRepository.countRecordsByPartitions(partitions, NEW) }
-            verify(exactly = 0) { recordRepository.countRecordsByPartition(any(), any()) }
-        }
-
-        @Test
-        fun `returns zero without querying records when no partitions are assigned`() {
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns emptySet()
-            meterBinder.bindTo(meterRegistry)
-
-            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_PENDING).gauge().value()).isZero()
-
-            verify { recordRepository wasNot Called }
-        }
-
-        @Test
-        fun `uses current assignments on each pending gauge read`() {
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returnsMany listOf(setOf(1, 2), setOf(3))
-            every { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) } returns 10L
-            every { recordRepository.countRecordsByPartitions(setOf(3), NEW) } returns 4L
-            meterBinder.bindTo(meterRegistry)
-            val gauge = meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_PENDING).gauge()
-
-            assertThat(gauge.value()).isEqualTo(10.0)
-            assertThat(gauge.value()).isEqualTo(4.0)
-
-            verify(exactly = 1) { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) }
-            verify(exactly = 1) { recordRepository.countRecordsByPartitions(setOf(3), NEW) }
-            verify(exactly = 0) { recordRepository.countRecordsByPartition(any(), any()) }
-        }
-
-        @Test
-        fun `returns zero when the pending batch count fails`() {
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
-            every { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) } throws
-                RuntimeException("count failed")
-            meterBinder.bindTo(meterRegistry)
-
-            assertThat(meterRegistry.get(OutboxMetricNames.INSTANCE_RECORDS_PENDING).gauge().value()).isZero()
-        }
-
-        @Test
-        fun `registers cluster and partition gauges`() {
-            stubStatusCounts()
-            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1, 2, 3)
-            every { instanceRegistry.getActiveInstanceCount() } returns 2
-            every {
-                partitionCoordinator.getPartitionContext().getPartitionStats().unassignedPartitionsCount
-            } returns 5
-
-            meterBinder.bindTo(meterRegistry)
-
-            assertThat(
-                meterRegistry
-                    .get(OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED)
-                    .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, "orders")
-                    .gauge()
-                    .value(),
-            ).isEqualTo(3.0)
-            assertThat(
-                meterRegistry
-                    .get(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE)
-                    .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, "orders")
-                    .gauge()
-                    .value(),
-            ).isEqualTo(2.0)
-            assertThat(
-                meterRegistry
-                    .get(OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED)
-                    .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, "orders")
-                    .gauge()
-                    .value(),
-            ).isEqualTo(5.0)
-        }
-
-        @Test
-        fun `registers canonical state gauge names`() {
-            stubStatusCounts()
-
-            meterBinder.bindTo(meterRegistry)
-
-            assertThat(meterRegistry.meters.map { it.id.name })
-                .contains(
-                    OutboxMetricNames.RECORDS,
-                    OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED,
-                    OutboxMetricNames.INSTANCE_RECORDS_PENDING,
-                    OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE,
-                    OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED,
-                )
+                it.id.getTag(OutboxMetricKeyNames.LowCardinality.CHANNEL),
+            ).isEqualTo("orders")
         }
     }
 
-    @Nested
-    @DisplayName("Legacy Names")
-    inner class LegacyNames {
-        @Test
-        fun `does not register legacy record gauge name`() {
-            stubStatusCounts()
-
-            meterBinder.bindTo(meterRegistry)
-
-            assertThat(meterRegistry.meters.map { it.id.name }).doesNotContain("outbox.records.count")
+    @Test
+    fun `many gauge reads and multiple registries use one collection`() {
+        collector.refresh()
+        SimpleMeterRegistry().useRegistry { other ->
+            binder.bindTo(other)
+            repeat(5) {
+                registry.meters.filterIsInstance<Gauge>().forEach { it.value() }
+                other.meters.filterIsInstance<Gauge>().forEach { it.value() }
+            }
         }
+        OutboxRecordStatus.entries.forEach { verify(exactly = 1) { statusRepository.countByStatus(it) } }
+        verify(exactly = 1) { coordinator.getAssignedPartitionNumbers() }
+        verify(exactly = 1) { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) }
+        verify(exactly = 1) { instanceRegistry.getActiveInstanceCount() }
+        verify(exactly = 1) { coordinator.getPartitionContext() }
+        verify(exactly = 0) { recordRepository.countRecordsByPartition(any(), any()) }
+    }
 
-        @Test
-        fun `does not register dropped aggregate pending gauges`() {
-            stubStatusCounts()
+    @Test
+    fun `refresh uses current assignments and skips record query for no assignments`() {
+        collector.refresh()
+        every { coordinator.getAssignedPartitionNumbers() } returns setOf(3)
+        every { recordRepository.countRecordsByPartitions(setOf(3), NEW) } returns 4
+        collector.refresh()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isEqualTo(4.0)
+        every { coordinator.getAssignedPartitionNumbers() } returns emptySet()
+        collector.refresh()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isZero()
+        assertThat(value(OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED)).isZero()
+        verify(exactly = 2) { recordRepository.countRecordsByPartitions(any(), any()) }
+    }
 
-            meterBinder.bindTo(meterRegistry)
+    @Test
+    fun `failed queries become unknown independently and recover on next refresh`() {
+        collector.refresh()
+        val lastSuccess = value(OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP)
+        now.set(now.get().plusSeconds(15))
+        every { statusRepository.countByStatus(FAILED) } throws IllegalStateException("database unavailable")
+        every { recordRepository.countRecordsByPartitions(any(), any()) } throws IllegalStateException("count failed")
+        every { instanceRegistry.getActiveInstanceCount() } throws IllegalStateException("instance count failed")
+        collector.refresh()
+        assertThat(recordGauge(FAILED)).isNaN()
+        assertThat(recordGauge(NEW)).isEqualTo(15.0)
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isNaN()
+        assertThat(value(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE)).isNaN()
+        assertThat(value(OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED)).isEqualTo(5.0)
+        assertThat(value(OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP)).isEqualTo(lastSuccess)
 
-            assertThat(meterRegistry.meters.map { it.id.name })
-                .doesNotContain(
-                    "outbox.instance.records.pending.max",
-                    "outbox.instance.records.pending.avg",
-                )
+        every { statusRepository.countByStatus(FAILED) } returns 0
+        every { recordRepository.countRecordsByPartitions(any(), any()) } returns 0
+        every { instanceRegistry.getActiveInstanceCount() } returns 1
+        collector.refresh()
+        assertThat(recordGauge(FAILED)).isZero()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isZero()
+        assertThat(value(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE)).isEqualTo(1.0)
+        assertThat(
+            value(OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP),
+        ).isEqualTo(now.get().epochSecond.toDouble())
+    }
+
+    @Test
+    fun `assignment lookup failure makes assigned and pending unknown and skips pending query`() {
+        every { coordinator.getAssignedPartitionNumbers() } throws IllegalStateException("assignment lookup failed")
+        every { coordinator.getPartitionContext() } throws IllegalStateException("context lookup failed")
+        collector.refresh()
+        assertThat(value(OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED)).isNaN()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isNaN()
+        assertThat(value(OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED)).isNaN()
+        assertThat(value(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE)).isEqualTo(2.0)
+        verify { recordRepository wasNot Called }
+    }
+
+    @Test
+    fun `readings expire without requiring another refresh`() {
+        collector.refresh()
+        now.set(now.get().plusSeconds(59))
+        assertThat(recordGauge(NEW)).isEqualTo(15.0)
+        now.set(now.get().plusSeconds(1))
+        registry.meters
+            .filterIsInstance<Gauge>()
+            .filter {
+                it.id.name != OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP
+            }.forEach { assertThat(it.value()).isNaN() }
+        assertThat(value(OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP)).isFinite()
+        collector.refresh()
+        assertThat(recordGauge(NEW)).isEqualTo(15.0)
+    }
+
+    @Test
+    fun `omits status gauges when optional status repository is absent`() {
+        SimpleMeterRegistry().useRegistry { other ->
+            val withoutStatuses = createCollector(null)
+            OutboxInstanceMetricsMeterBinder(withoutStatuses, OutboxChannelNameProvider.DEFAULT).bindTo(other)
+            withoutStatuses.refresh()
+            assertThat(other.find(OutboxMetricNames.RECORDS).gauges()).isEmpty()
+            assertThat(other.get(OutboxMetricNames.INSTANCE_RECORDS_PENDING).gauge().value()).isEqualTo(10.0)
         }
     }
 
-    @Nested
-    @DisplayName("Failure Handling")
-    inner class FailureHandling {
-        @Test
-        fun `returns zero when gauge value supplier fails`() {
-            stubStatusCounts()
-            every { partitionCoordinator.getAssignedPartitionNumbers() } throws RuntimeException("partition failed")
-
-            meterBinder.bindTo(meterRegistry)
-
-            assertThat(
-                meterRegistry
-                    .get(OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED)
-                    .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, "orders")
-                    .gauge()
-                    .value(),
-            ).isEqualTo(0.0)
+    @Test
+    fun `prometheus scrape remains available while database collection is blocked`() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val worker = Executors.newSingleThreadExecutor()
+        PrometheusMeterRegistry(PrometheusConfig.DEFAULT).useRegistry { prometheus ->
+            binder.bindTo(prometheus)
+            prometheus.counter("unrelated.requests").increment()
+            collector.refresh()
+            every { statusRepository.countByStatus(NEW) } answers {
+                entered.countDown()
+                check(release.await(10, TimeUnit.SECONDS))
+                20L
+            }
+            val refresh = worker.submit { collector.refresh() }
+            try {
+                assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue()
+                now.set(now.get().plusSeconds(60))
+                assertTimeoutPreemptively(Duration.ofSeconds(2)) {
+                    val scrape = prometheus.scrape()
+                    assertThat(scrape).contains("unrelated_requests_total 1.0")
+                    assertThat(scrape).contains(
+                        "outbox_metrics_collection_last_success_timestamp_seconds{outbox_channel=\"orders\"} " +
+                            Instant.parse("2026-10-22T12:00:00Z").epochSecond.toDouble(),
+                    )
+                    assertThat(
+                        scrape,
+                    ).contains("outbox_records{outbox_channel=\"orders\",outbox_record_status=\"new\"} NaN")
+                }
+            } finally {
+                release.countDown()
+                worker.shutdownNow()
+            }
+            refresh.get(5, TimeUnit.SECONDS)
         }
     }
 
-    private fun stubStatusCounts() {
-        every { recordStatusRepository.countByStatus(NEW) } returns 1L
-        every { recordStatusRepository.countByStatus(FAILED) } returns 1L
-        every { recordStatusRepository.countByStatus(COMPLETED) } returns 1L
+    @Test
+    fun `collector starts asynchronously only once and stops without waiting for database`() {
+        val entered = CountDownLatch(1)
+        val interrupted = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        every { statusRepository.countByStatus(NEW) } answers {
+            entered.countDown()
+            try {
+                release.await()
+                20L
+            } catch (ex: InterruptedException) {
+                interrupted.countDown()
+                throw ex
+            }
+        }
+        try {
+            assertTimeoutPreemptively(Duration.ofSeconds(2)) {
+                collector.start()
+                collector.start()
+            }
+            assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue()
+            assertThat(collector.isRunning).isTrue()
+            assertTimeoutPreemptively(Duration.ofSeconds(2)) { collector.stop() }
+            assertThat(interrupted.await(5, TimeUnit.SECONDS)).isTrue()
+            assertThat(collector.isRunning).isFalse()
+            verify(exactly = 1) { statusRepository.countByStatus(NEW) }
+        } finally {
+            release.countDown()
+            collector.stop()
+        }
     }
+
+    @Test
+    fun `concurrent refresh is skipped while a previous query remains blocked`() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val worker = Executors.newSingleThreadExecutor()
+        every { statusRepository.countByStatus(NEW) } answers {
+            entered.countDown()
+            check(release.await(10, TimeUnit.SECONDS))
+            15L
+        }
+
+        val firstRefresh = worker.submit { collector.refresh() }
+        try {
+            assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue()
+            assertTimeoutPreemptively(Duration.ofSeconds(2)) { collector.refresh() }
+            verify(exactly = 1) { statusRepository.countByStatus(NEW) }
+        } finally {
+            release.countDown()
+            firstRefresh.get(5, TimeUnit.SECONDS)
+            worker.shutdownNow()
+        }
+
+        collector.refresh()
+        assertThat(recordGauge(NEW)).isEqualTo(15.0)
+        verify(exactly = 2) { statusRepository.countByStatus(NEW) }
+    }
+
+    @Test
+    fun `scheduled collection recovers automatically after a failed query`() {
+        val attempts = AtomicInteger()
+        val recovered = CountDownLatch(1)
+        every { statusRepository.countByStatus(NEW) } answers {
+            if (attempts.incrementAndGet() == 1) throw IllegalStateException("temporary database failure")
+            20L
+        }
+        every { statusRepository.countByStatus(FAILED) } answers {
+            if (attempts.get() >= 2) recovered.countDown()
+            3L
+        }
+        val scheduledCollector =
+            OutboxMetricsCollector(
+                recordRepository,
+                statusRepository,
+                coordinator,
+                instanceRegistry,
+                OutboxMetricsProperties(refreshInterval = Duration.ofMillis(10)),
+                clock,
+                taskScheduler,
+            )
+
+        try {
+            OutboxInstanceMetricsMeterBinder(scheduledCollector, OutboxChannelNameProvider.DEFAULT).bindTo(registry)
+            scheduledCollector.start()
+            assertThat(recovered.await(5, TimeUnit.SECONDS)).isTrue()
+            assertThat(scheduledCollector.recordCount(NEW)).isEqualTo(20.0)
+        } finally {
+            scheduledCollector.stop()
+        }
+    }
+
+    private fun <T : MeterRegistry> T.useRegistry(block: (T) -> Unit) {
+        try {
+            block(this)
+        } finally {
+            close()
+        }
+    }
+
+    private fun value(name: String) = registry.get(name).gauge().value()
+
+    private fun recordGauge(status: OutboxRecordStatus) =
+        registry
+            .get(OutboxMetricNames.RECORDS)
+            .tag(OutboxMetricKeyNames.LowCardinality.RECORD_STATUS, status.name.lowercase())
+            .gauge()
+            .value()
 }

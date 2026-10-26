@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: namastack-outbox-example-metrics
+  datasource:
+    url: jdbc:postgresql://localhost:5440/outbox_metrics?connectTimeout=2&socketTimeout=5
+    username: username
+    password: password
+    hikari:
+      connection-timeout: 5000
+      validation-timeout: 1000
+
+server:
+  port: 8085
+
+namastack:
+  outbox:
+    processing:
+      delete-completed-records: false
+    retry:
+      policy: fixed
+      max-retries: 2
+      fixed:
+        delay: 10s
+    observability:
+      metrics:
+        refresh-interval: 5s
+        max-age: 15s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
+logging:
+  level:
+    root: info
+    io.namastack.demo: debug

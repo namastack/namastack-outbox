@@ -1,0 +1,32 @@
+{
+  "groups": [
+    {
+      "name": "namastack.outbox.observability.metrics",
+      "type": "io.namastack.outbox.observability.metrics.OutboxMetricsProperties",
+      "description": "Background collection of outbox state gauges"
+    }
+  ],
+  "properties": [
+    {
+      "name": "namastack.outbox.observability.metrics.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "io.namastack.outbox.observability.metrics.OutboxMetricsProperties",
+      "defaultValue": true,
+      "description": "Whether to register state gauges and collect their values in the background. Disabling state metrics also stops their database queries. Observation-based timers are unaffected."
+    },
+    {
+      "name": "namastack.outbox.observability.metrics.refresh-interval",
+      "type": "java.time.Duration",
+      "sourceType": "io.namastack.outbox.observability.metrics.OutboxMetricsProperties",
+      "defaultValue": "15s",
+      "description": "Delay between completed background collections of outbox state gauges. Must be at least 1ms. Collections do not overlap."
+    },
+    {
+      "name": "namastack.outbox.observability.metrics.max-age",
+      "type": "java.time.Duration",
+      "sourceType": "io.namastack.outbox.observability.metrics.OutboxMetricsProperties",
+      "defaultValue": "60s",
+      "description": "Maximum age of each collected gauge reading. Readings report NaN once they reach this age, including while collection is blocked. Must be at least refresh-interval."
+    }
+  ]
+}

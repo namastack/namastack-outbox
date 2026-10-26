@@ -21,6 +21,7 @@ updates:
       - "/namastack-outbox-examples/namastack-outbox-example-kafka"
       - "/namastack-outbox-examples/namastack-outbox-example-kafka-java"
       - "/namastack-outbox-examples/namastack-outbox-example-mariadb"
+      - "/namastack-outbox-examples/namastack-outbox-example-metrics"
       - "/namastack-outbox-examples/namastack-outbox-example-mongodb"
       - "/namastack-outbox-examples/namastack-outbox-example-multicaster"
       - "/namastack-outbox-examples/namastack-outbox-example-mysql"

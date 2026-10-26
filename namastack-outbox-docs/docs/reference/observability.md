@@ -109,16 +109,16 @@ The observability module exposes two kinds of metrics:
 - **Gauge metrics** for current outbox state
 
 Observation-based metrics are event-driven. They measure real calls to `Outbox.schedule(...)` and
-handler dispatches. Gauges are state snapshots, read when your metrics backend scrapes the
-application.
+handler dispatches. Gauges read cached state collected in the background. Scraping or publishing
+metrics never queries the outbox database.
 
 ### Observation Metrics
 
-| Metric | Type | Description | Low-cardinality tags |
-|--------|------|-------------|----------------------|
-| `outbox.record.schedule` | timer | Time spent scheduling one outbox operation | `outbox.channel` |
-| `outbox.record.attempt` | timer | Time spent processing one fully materialized record | `outbox.channel`, `outbox.processing.outcome` |
-| `outbox.record.process` | timer | Time spent dispatching one outbox record to a primary or fallback handler | `outbox.channel`, `outbox.handler.kind`, `outbox.handler.id` |
+| Metric                   | Type  | Description                                                               | Low-cardinality tags                                         |
+|--------------------------|-------|---------------------------------------------------------------------------|--------------------------------------------------------------|
+| `outbox.record.schedule` | timer | Time spent scheduling one outbox operation                                | `outbox.channel`                                             |
+| `outbox.record.attempt`  | timer | Time spent processing one fully materialized record                       | `outbox.channel`, `outbox.processing.outcome`                |
+| `outbox.record.process`  | timer | Time spent dispatching one outbox record to a primary or fallback handler | `outbox.channel`, `outbox.handler.kind`, `outbox.handler.id` |
 
 Use these metrics for latency, throughput, and error monitoring:
 
@@ -160,6 +160,7 @@ Micrometer converts dotted meter names to Prometheus naming conventions. For exa
 | `outbox.instance.records.pending` | Total pending records across partitions assigned to this instance | `outbox.channel` |
 | `outbox.cluster.instances.active` | Number of active outbox instances in the cluster | `outbox.channel` |
 | `outbox.cluster.partitions.unassigned` | Number of partitions not assigned to any active instance | `outbox.channel` |
+| `outbox.metrics.collection.last.success.timestamp` | Unix timestamp in seconds of the last successful collection of all state gauges | `outbox.channel` |
 
 Use gauges for operational state:
 
@@ -167,6 +168,66 @@ Use gauges for operational state:
 - failed records: `outbox.records{outbox.record.status="failed"}`
 - per-instance pressure: `outbox.instance.records.pending`
 - cluster health: `outbox.cluster.instances.active` and `outbox.cluster.partitions.unassigned`
+
+### Background Gauge Collection
+
+A dedicated worker collects record, instance, and partition counts once the outbox runtime has
+started and its gauges have been bound to a meter registry, then waits 15 seconds after each
+collection finishes before starting the next. Applications using only tracing without bound gauges
+do not run background metric queries. Collections do not overlap
+and do not use the processing or heartbeat scheduler. All meter registries share the collected
+values for that runtime.
+
+```yaml
+namastack:
+  outbox:
+    observability:
+      metrics:
+        enabled: true
+        refresh-interval: 15s
+        max-age: 60s
+```
+
+`refresh-interval` must be at least 1ms. `max-age` must be at least `refresh-interval`.
+The maximum age applies independently to each reading, including while a collection is blocked.
+
+Before the first reading, after a failed query, or once a reading reaches `max-age`, the affected
+gauge reports `NaN` (unknown). Successful queries that find no matching records still report zero.
+Other successfully collected gauges remain available until they expire. Collection continues after
+failed queries return; values recover on subsequent successful collections. Configure database
+connection and query timeouts to bound blocked operations. Thread interruption cannot reliably
+cancel every database driver, and the collector still shares the runtime's database resources.
+
+`outbox.metrics.collection.last.success.timestamp` starts as `NaN` and advances only after every
+query in a collection succeeds. Its last successful timestamp remains available during failures;
+monitor its age to detect stalled or failing collection. For example, in Prometheus:
+
+```promql
+time() - outbox_metrics_collection_last_success_timestamp_seconds > 60
+```
+
+Also account for missing or unknown readings before the first successful collection. Backend
+handling of `NaN` varies; do not interpret a missing or unknown count as an empty outbox.
+
+Once gauges are bound, a `MeterFilter` or `management.metrics.enable.*` setting controls
+publication only and does not prevent background queries. To disable all state gauges and their
+database collection, set `namastack.outbox.observability.metrics.enabled=false`.
+Observation-based timers remain enabled.
+
+:::note Changed in 1.12.0
+
+State gauges previously queried the database during metric observation and returned zero on
+failure. They now expose background readings, which can lag behind the database, and report
+unknown values on failure or expiry. Existing metric names and tags are unchanged. Review
+alerts and dashboards that relied on immediate updates or zero values during database outages.
+Observation-based timers are unchanged.
+
+The infrastructure class `OutboxInstanceMetricsMeterBinder` has a new constructor. Applications
+using Spring Boot auto-configuration require no wiring changes. Code that directly instantiated
+this implementation must be updated; its former constructor is not binary-compatible. The
+outbox API, repository SPI, and `OutboxInstrumentation` interface are unchanged.
+
+:::
 
 :::info Actuator endpoints
 
@@ -181,6 +242,10 @@ Common Spring Boot Actuator endpoints:
 
 :::
 
+For a runnable PostgreSQL and Prometheus setup, see the
+[metrics example](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-examples/namastack-outbox-example-metrics).
+It includes instructions for testing database outages, stale gauges, and recovery.
+
 ## Tag Schema
 
 The module uses one shared tag schema across observations and metrics.
@@ -189,26 +254,26 @@ The module uses one shared tag schema across observations and metrics.
 
 Low-cardinality tags are safe for metric dimensions.
 
-| Tag key | Values | Used by | Description |
-|---------|--------|---------|-------------|
-| `outbox.channel` | channel name, defaults to `default` | all outbox metrics | Logical outbox channel |
-| `outbox.record.status` | `new`, `failed`, `completed` | `outbox.records` | Record status |
+| Tag key                     | Values                                                                                 | Used by                 | Description                                                                  |
+|-----------------------------|----------------------------------------------------------------------------------------|-------------------------|------------------------------------------------------------------------------|
+| `outbox.channel`            | channel name, defaults to `default`                                                    | all outbox metrics      | Logical outbox channel                                                       |
+| `outbox.record.status`      | `new`, `failed`, `completed`                                                           | `outbox.records`        | Record status                                                                |
 | `outbox.processing.outcome` | `completed`, `retry_scheduled`, `failed`, `compatibility_deferred`, `error`, `unknown` | `outbox.record.attempt` | Outcome of a record attempt; `unknown` until its final outcome is determined |
-| `outbox.handler.kind` | `primary`, `fallback` | `outbox.record.process` | Whether the primary or fallback handler processed the record |
-| `outbox.handler.id` | handler id | `outbox.record.process` | Handler identifier stored with the outbox record |
+| `outbox.handler.kind`       | `primary`, `fallback`                                                                  | `outbox.record.process` | Whether the primary or fallback handler processed the record                 |
+| `outbox.handler.id`         | handler id                                                                             | `outbox.record.process` | Handler identifier stored with the outbox record                             |
 
 ### High-Cardinality Observation Keys
 
 High-cardinality keys are intended for traces and log correlation. Do not promote them to metric
 dimensions unless you fully control their cardinality.
 
-| Key | Used by | Description |
-|-----|---------|-------------|
-| `outbox.record.id` | `outbox.record.attempt`, `outbox.record.process` | Unique outbox record id |
-| `outbox.record.key` | `outbox.record.attempt`, `outbox.record.process` | Business key used for ordering and partitioning |
-| `outbox.delivery.attempt` | `outbox.record.attempt`, `outbox.record.process` | Current delivery attempt (`failureCount + 1`) |
-| `outbox.schedule.record.key` | `outbox.record.schedule` | Explicit schedule key, or `auto-generated` for overloads without a key argument |
-| `outbox.schedule.payload.type` | `outbox.record.schedule` | Simple class name of the scheduled payload |
+| Key                            | Used by                                          | Description                                                                     |
+|--------------------------------|--------------------------------------------------|---------------------------------------------------------------------------------|
+| `outbox.record.id`             | `outbox.record.attempt`, `outbox.record.process` | Unique outbox record id                                                         |
+| `outbox.record.key`            | `outbox.record.attempt`, `outbox.record.process` | Business key used for ordering and partitioning                                 |
+| `outbox.delivery.attempt`      | `outbox.record.attempt`, `outbox.record.process` | Current delivery attempt (`failureCount + 1`)                                   |
+| `outbox.schedule.record.key`   | `outbox.record.schedule`                         | Explicit schedule key, or `auto-generated` for overloads without a key argument |
+| `outbox.schedule.payload.type` | `outbox.record.schedule`                         | Simple class name of the scheduled payload                                      |
 
 ## Tracing
 
