@@ -5,6 +5,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.routing.OutboxHeaders
 import io.namastack.outbox.routing.selector.OutboxPayloadSelector
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.clients.producer.RecordMetadata
@@ -15,6 +16,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.kafka.core.KafkaOperations
 import org.springframework.kafka.support.SendResult
 import java.time.Instant
@@ -28,6 +31,7 @@ class KafkaOutboxHandlerTest {
 
     private val metadata =
         OutboxRecordMetadata(
+            recordId = "record-id",
             key = "order-123",
             handlerId = "test-handler",
             createdAt = Instant.now(),
@@ -37,6 +41,81 @@ class KafkaOutboxHandlerTest {
     @BeforeEach
     fun setUp() {
         kafkaOperations = mockk()
+    }
+
+    @Nested
+    @DisplayName("Idempotency")
+    inner class Idempotency {
+        @Test
+        fun `publishes the same persisted ID on every attempt when enabled`() {
+            val routing = kafkaOutboxRouting { defaults { target("events") } }
+            handler = KafkaOutboxHandler(kafkaOperations, routing, idempotencyHeaderEnabled = true)
+            val records = mutableListOf<ProducerRecord<Any, Any>>()
+            every { kafkaOperations.send(capture(records)) } returns successFuture("events")
+
+            handler.handle("payload", metadata)
+            handler.handle("payload", metadata.copy(failureCount = 1))
+
+            assertThat(records).hasSize(2)
+            records.forEach { record ->
+                assertThat(record.headers().headers(OutboxHeaders.IDEMPOTENCY_KEY)).hasSize(1)
+                assertThat(record.headers().lastHeader(OutboxHeaders.IDEMPOTENCY_KEY).value())
+                    .isEqualTo("record-id".toByteArray(Charsets.UTF_8))
+                assertThat(record.key()).isEqualTo("order-123")
+            }
+        }
+
+        @Test
+        fun `preserves custom key with UTF-8 encoding`() {
+            val routing =
+                kafkaOutboxRouting {
+                    defaults {
+                        target("events")
+                        header(OutboxHeaders.IDEMPOTENCY_KEY) { _, _ -> "event-ä" }
+                    }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing, idempotencyHeaderEnabled = true)
+            val recordSlot = slot<ProducerRecord<Any, Any>>()
+            every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("events")
+
+            handler.handle("payload", metadata)
+
+            assertThat(
+                recordSlot.captured
+                    .headers()
+                    .lastHeader(OutboxHeaders.IDEMPOTENCY_KEY)
+                    .value(),
+            ).isEqualTo("event-ä".toByteArray(Charsets.UTF_8))
+        }
+
+        @Test
+        fun `does not add an idempotency header by default`() {
+            handler = KafkaOutboxHandler(kafkaOperations, kafkaOutboxRouting { defaults { target("events") } })
+            val recordSlot = slot<ProducerRecord<Any, Any>>()
+            every { kafkaOperations.send(capture(recordSlot)) } returns successFuture("events")
+
+            handler.handle("payload", metadata)
+
+            assertThat(recordSlot.captured.headers().lastHeader(OutboxHeaders.IDEMPOTENCY_KEY)).isNull()
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["", " ", "\t\n"])
+        fun `rejects blank keys before sending`(key: String) {
+            val routing =
+                kafkaOutboxRouting {
+                    defaults {
+                        target("events")
+                        header(OutboxHeaders.IDEMPOTENCY_KEY, key)
+                    }
+                }
+            handler = KafkaOutboxHandler(kafkaOperations, routing, idempotencyHeaderEnabled = true)
+
+            assertThatThrownBy { handler.handle("payload", metadata) }
+                .isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining(OutboxHeaders.IDEMPOTENCY_KEY)
+            verify(exactly = 0) { kafkaOperations.send(any<ProducerRecord<Any, Any>>()) }
+        }
     }
 
     @Nested

@@ -1,9 +1,11 @@
 package io.namastack.outbox.sns
 
+import io.awspring.cloud.sns.core.SnsHeaders
 import io.awspring.cloud.sns.core.SnsNotification
 import io.awspring.cloud.sns.core.SnsOperations
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.routing.OutboxHeaders
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ExecutionException
 
@@ -61,12 +63,16 @@ import java.util.concurrent.ExecutionException
  *
  * @param snsOperations Spring Cloud AWS SNS operations for sending messages
  * @param routing configuration for routing payloads to topic ARNs
+ * @param idempotencyHeaderEnabled Whether to supply and validate the idempotency attribute
+ * @param fifoDeduplicationIdEnabled Whether to resolve native FIFO deduplication IDs
  * @author Roland Beisel
  * @since 1.3.0
  */
 class SnsOutboxHandler(
     private val snsOperations: SnsOperations,
     private val routing: SnsOutboxRouting,
+    private val idempotencyHeaderEnabled: Boolean = false,
+    private val fifoDeduplicationIdEnabled: Boolean = false,
 ) : OutboxHandler {
     private val logger = LoggerFactory.getLogger(SnsOutboxHandler::class.java)
 
@@ -87,7 +93,7 @@ class SnsOutboxHandler(
         val mappedPayload = routing.mapPayload(payload, metadata)
         val topicArn = routing.resolveTopicArn(payload, metadata)
         val messageGroupId = routing.extractKey(payload, metadata)
-        val headers = routing.buildHeaders(payload, metadata)
+        val headers = routing.buildHeaders(payload, metadata, idempotencyHeaderEnabled)
 
         logger.debug(
             "Sending outbox record to SNS: topicArn={}, messageGroupId={}, handlerId={}",
@@ -110,6 +116,10 @@ class SnsOutboxHandler(
             val builder = SnsNotification.builder(payload)
 
             headers.forEach { (key, value) -> builder.header(key, value) }
+
+            if (fifoDeduplicationIdEnabled && topicArn.endsWith(".fifo")) {
+                builder.deduplicationId(resolveDeduplicationId(headers, metadata))
+            }
 
             if (messageGroupId != null) {
                 builder.groupId(messageGroupId)
@@ -142,5 +152,35 @@ class SnsOutboxHandler(
             )
             throw ex
         }
+    }
+
+    /**
+     * Resolves the native FIFO deduplication ID without changing consumer-facing attributes.
+     *
+     * An explicit SNS ID takes precedence over the idempotency header and persisted record ID.
+     * Both explicit keys are validated when automatic FIFO deduplication IDs are enabled.
+     *
+     * @throws IllegalArgumentException if an explicit key is blank or the resolved ID is missing or blank
+     */
+    private fun resolveDeduplicationId(
+        headers: Map<String, String>,
+        metadata: OutboxRecordMetadata,
+    ): String {
+        val nativeKey = headers[SnsHeaders.MESSAGE_DEDUPLICATION_ID_HEADER]
+        val idempotencyKey = headers[OutboxHeaders.IDEMPOTENCY_KEY]
+        require(nativeKey == null || nativeKey.isNotBlank()) {
+            "${SnsHeaders.MESSAGE_DEDUPLICATION_ID_HEADER} must not be empty or whitespace-only"
+        }
+        require(idempotencyKey == null || idempotencyKey.isNotBlank()) {
+            "${OutboxHeaders.IDEMPOTENCY_KEY} must not be empty or whitespace-only"
+        }
+
+        val key =
+            requireNotNull(nativeKey ?: idempotencyKey ?: metadata.recordId) {
+                "SNS FIFO deduplication requires an explicit key or a recordId"
+            }
+        require(key.isNotBlank()) { "SNS FIFO deduplication ID must not be empty or whitespace-only" }
+
+        return key
     }
 }

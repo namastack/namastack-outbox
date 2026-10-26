@@ -23,7 +23,7 @@ import org.springframework.context.annotation.Bean
  * ## Default behavior
  *
  * Without any routing configuration:
- * - Exchange defaults to `outbox-events` (or configured via `namastack.outbox.rabbit.default-topic`)
+ * - Exchange defaults to `outbox-events` (or configured via `namastack.outbox.rabbit.default-exchange`)
  * - Routing key is taken from `metadata.key`
  *
  * ## Configuration properties
@@ -32,8 +32,9 @@ import org.springframework.context.annotation.Bean
  * namastack:
  *   outbox:
  *     rabbit:
- *       enabled: true                   # Enable/disable Rabbit integration
- *       default-topic: outbox-events    # Default exchange
+ *       enabled: true                     # Enable/disable Rabbit integration
+ *       default-exchange: outbox-events      # Default exchange
+ *       idempotency-header-enabled: false # Add Idempotency-Key header
  * ```
  *
  * ## Custom routing
@@ -92,5 +93,11 @@ class RabbitOutboxAutoConfiguration {
     fun rabbitOutboxHandler(
         publisher: RabbitOutboxPublisher,
         routingConfiguration: RabbitOutboxRouting,
-    ): RabbitOutboxHandler = RabbitOutboxHandler(publisher, routingConfiguration)
+        properties: RabbitOutboxProperties,
+    ): RabbitOutboxHandler =
+        RabbitOutboxHandler(
+            publisher = publisher,
+            routing = routingConfiguration,
+            idempotencyHeaderEnabled = properties.idempotencyHeaderEnabled,
+        )
 }

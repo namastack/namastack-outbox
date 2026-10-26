@@ -101,12 +101,14 @@ namastack:
     # Kafka Integration
     kafka:
       enabled: true                            # Enable Kafka outbox integration (default: true)
+      idempotency-header-enabled: false        # Add Idempotency-Key (default: false)
       default-topic: outbox-events             # Default Kafka topic (default: outbox-events)
       enable-json: true                        # Enable JSON support (default: true)
 
     # RabbitMQ Integration
     rabbit:
       enabled: true                            # Enable Rabbit outbox integration (default: true)
+      idempotency-header-enabled: false        # Add Idempotency-Key (default: false)
       default-exchange: outbox-events          # Default Rabbit exchange (default: outbox-events)
       enable-json: true                        # Enable JSON support (default: true)
       publisher-confirm-timeout: 10s           # Maximum time to wait for publisher confirms (default: 10s)
@@ -115,6 +117,8 @@ namastack:
     # SNS Integration
     sns:
       enabled: true                            # Enable SNS outbox integration (default: true)
+      idempotency-header-enabled: false        # Add Idempotency-Key attribute (default: false)
+      fifo-deduplication-id-enabled: false     # Set native FIFO deduplication ID (default: false)
       default-topic-arn: arn:aws:sns:us-east-1:000000000000:outbox-events   # Default SNS topic ARN (default: arn:aws:sns:us-east-1:000000000000:outbox-events)
 ```
 

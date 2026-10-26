@@ -150,6 +150,7 @@ class OutboxHandlerInvokerTest {
             )
         val metadata =
             OutboxRecordMetadata(
+                recordId = record.id,
                 key = key,
                 handlerId = handlerId,
                 createdAt = createdAt,

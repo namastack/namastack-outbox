@@ -45,7 +45,8 @@ interface OutboxHandler {
      * Determines whether this handler supports scheduling for a given payload.
      *
      * Called before an outbox record is created. Return `false` to prevent
-     * record creation for this handler.
+     * record creation for this handler. [OutboxRecordMetadata.recordId] is `null` at this stage
+     * because no record has been created yet.
      *
      * Default implementation is `true` for backward compatibility.
      *

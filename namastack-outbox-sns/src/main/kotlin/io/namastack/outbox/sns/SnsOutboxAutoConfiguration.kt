@@ -33,6 +33,8 @@ import org.springframework.context.annotation.Bean
  * namastack:
  *   outbox:
  *     sns:
+ *       idempotency-header-enabled: false    # Add Idempotency-Key attribute
+ *       fifo-deduplication-id-enabled: false # Supply native FIFO deduplication ID
  *       enabled: true
  *       default-topic-arn: arn:aws:sns:us-east-1:123456789012:my-topic
  * ```
@@ -75,5 +77,12 @@ class SnsOutboxAutoConfiguration {
     fun snsOutboxHandler(
         snsOperations: SnsOperations,
         routingConfiguration: SnsOutboxRouting,
-    ): SnsOutboxHandler = SnsOutboxHandler(snsOperations, routingConfiguration)
+        properties: SnsOutboxProperties,
+    ): SnsOutboxHandler =
+        SnsOutboxHandler(
+            snsOperations = snsOperations,
+            routing = routingConfiguration,
+            idempotencyHeaderEnabled = properties.idempotencyHeaderEnabled,
+            fifoDeduplicationIdEnabled = properties.fifoDeduplicationIdEnabled,
+        )
 }

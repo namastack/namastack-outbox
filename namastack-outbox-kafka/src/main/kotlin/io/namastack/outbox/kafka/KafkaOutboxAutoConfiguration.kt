@@ -32,6 +32,7 @@ import org.springframework.kafka.core.KafkaTemplate
  * namastack:
  *   outbox:
  *     kafka:
+ *       idempotency-header-enabled: false # Add Idempotency-Key header
  *       enabled: true              # Enable/disable Kafka integration
  *       default-topic: my-events   # Override default topic
  * ```
@@ -74,5 +75,11 @@ class KafkaOutboxAutoConfiguration {
     fun kafkaOutboxHandler(
         kafkaOperations: KafkaOperations<Any, Any>,
         routingConfiguration: KafkaOutboxRouting,
-    ): KafkaOutboxHandler = KafkaOutboxHandler(kafkaOperations, routingConfiguration)
+        properties: KafkaOutboxProperties,
+    ): KafkaOutboxHandler =
+        KafkaOutboxHandler(
+            kafkaOperations = kafkaOperations,
+            routing = routingConfiguration,
+            idempotencyHeaderEnabled = properties.idempotencyHeaderEnabled,
+        )
 }

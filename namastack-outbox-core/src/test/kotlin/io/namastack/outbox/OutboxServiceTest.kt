@@ -6,6 +6,7 @@ import io.mockk.slot
 import io.mockk.verify
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.handler.assembly.HandlerRegistration
 import io.namastack.outbox.handler.method.handler.GenericHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
@@ -45,6 +46,49 @@ class OutboxServiceTest {
     @Nested
     @DisplayName("schedule()")
     inner class ScheduleTests {
+        @Test
+        fun `selects generic handlers without record IDs before creating records`() {
+            val payload = TestPayload("test-id")
+            val registry = OutboxHandlerRegistry()
+            val acceptedHandler = createGenericMockHandler("accepted-handler")
+            val rejectedHandler = createGenericMockHandler("rejected-handler")
+            val schedulingMetadata = mutableListOf<OutboxRecordMetadata>()
+            val records = mutableListOf<OutboxRecord<Any>>()
+            every { acceptedHandler.aliases } returns emptySet()
+            every { rejectedHandler.aliases } returns emptySet()
+            every { acceptedHandler.supportsPayload(payload, capture(schedulingMetadata)) } returns true
+            every { rejectedHandler.supportsPayload(payload, capture(schedulingMetadata)) } answers {
+                verify(exactly = 0) { outboxRecordRepository.save(any<OutboxRecord<Any>>()) }
+                false
+            }
+            registry.registerBatch(
+                listOf(acceptedHandler, rejectedHandler).map { handler ->
+                    HandlerRegistration(
+                        beanName = handler.id,
+                        primary = handler,
+                        fallback = null,
+                        explicitRetryPolicy = null,
+                    )
+                },
+            )
+            outboxService = OutboxService(contextCollector, registry, outboxRecordRepository, clock)
+            every { contextCollector.collectContext() } returns mapOf("tenant" to "acme")
+            every { outboxRecordRepository.save(capture(records)) } answers { firstArg() }
+
+            outboxService.schedule(payload, "test-key")
+
+            assertThat(schedulingMetadata.map { it.handlerId }).containsExactly("accepted-handler", "rejected-handler")
+            schedulingMetadata.forEach { metadata ->
+                assertThat(metadata.recordId).isNull()
+                assertThat(metadata.key).isEqualTo("test-key")
+                assertThat(metadata.createdAt).isEqualTo(now)
+                assertThat(metadata.context).containsEntry("tenant", "acme")
+            }
+            assertThat(records).hasSize(1)
+            assertThat(records.single().handlerId).isEqualTo("accepted-handler")
+            assertThat(records.single().id).isNotBlank()
+        }
+
         @Test
         fun `should create record for single handler`() {
             val key = "test-key"
