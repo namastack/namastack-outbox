@@ -23,6 +23,7 @@ import java.time.Clock
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.time.temporal.ChronoUnit.MINUTES
+import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
 
 @DataJpaTest
@@ -65,6 +66,7 @@ class JpaOutboxRecordRepositoryTest {
 
             // The first record must not block itself, and loading must choose the same head.
             assertThat(readyKeys()).containsExactly(recordKey)
+            assertThat(oldestDueAt(true)).isEqualTo(retentionBase)
             assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey).first().id)
                 .isEqualTo(first.id)
 
@@ -72,6 +74,7 @@ class JpaOutboxRecordRepositoryTest {
 
             repeat(3) {
                 assertThat(readyKeys()).isEmpty()
+                assertThat(oldestDueAt(true)).isNull()
             }
             assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey).map { it.id })
                 .contains(sibling.id)
@@ -83,10 +86,12 @@ class JpaOutboxRecordRepositoryTest {
             saveRecord(1, nextRetryAt = Instant.now(clock).plusSeconds(3600))
 
             assertThat(readyKeys()).isEmpty()
+            assertThat(oldestDueAt(true)).isNull()
 
             saveRecord(1)
 
             assertThat(readyKeys()).containsExactly(recordKey)
+            assertThat(oldestDueAt(true)).isEqualTo(retentionBase)
         }
 
         @Test
@@ -95,6 +100,7 @@ class JpaOutboxRecordRepositoryTest {
             saveRecord(1, status = COMPLETED)
 
             assertThat(readyKeys()).containsExactly(recordKey)
+            assertThat(oldestDueAt(true)).isEqualTo(retentionBase)
             assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey).map { it.id })
                 .containsExactly(sibling.id)
         }
@@ -106,7 +112,11 @@ class JpaOutboxRecordRepositoryTest {
 
             assertThat(jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, false))
                 .containsExactly(recordKey)
+            assertThat(oldestDueAt(false)).isEqualTo(retentionBase)
         }
+
+        private fun oldestDueAt(strict: Boolean): Instant? =
+            jpaOutboxRecordRepository.findOldestDueNextRetryAtByPartitions(setOf(1), NEW, Instant.now(clock), strict)
 
         private fun readyKeys(): List<String> =
             jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
@@ -597,6 +607,167 @@ class JpaOutboxRecordRepositoryTest {
     }
 
     @Nested
+    @DisplayName("findOldestCreatedAtByPartitions()")
+    inner class FindOldestCreatedAtByPartitionsTests {
+        private val now = Instant.now(clock).truncatedTo(SECONDS)
+
+        @Test
+        fun `finds oldest creation time across selected partitions and status including future retries`() {
+            saveRetentionRecord(NEW, partition = 1, createdAt = now.minusSeconds(60))
+            saveRetentionRecord(
+                NEW,
+                partition = 2,
+                createdAt = now.minusSeconds(120),
+                nextRetryAt = now.plusSeconds(600),
+            )
+            saveRetentionRecord(FAILED, partition = 1, createdAt = now.minusSeconds(300))
+            saveRetentionRecord(COMPLETED, partition = 2, createdAt = now.minusSeconds(400), completedAt = now)
+            saveRetentionRecord(NEW, partition = 3, createdAt = now.minusSeconds(500))
+
+            assertThat(oldestCreatedAt(setOf(1, 2), NEW)).isEqualTo(now.minusSeconds(120))
+            assertThat(oldestCreatedAt(setOf(1), NEW)).isEqualTo(now.minusSeconds(60))
+            assertThat(oldestCreatedAt(setOf(1, 2), FAILED)).isEqualTo(now.minusSeconds(300))
+        }
+
+        @Test
+        fun `returns null when no records match`() {
+            saveRetentionRecord(COMPLETED, partition = 1, completedAt = retentionBase)
+            saveRetentionRecord(NEW, partition = 3)
+
+            assertThat(oldestCreatedAt(setOf(1, 2), NEW)).isNull()
+        }
+
+        @Test
+        fun `returns null for empty partitions`() {
+            saveRetentionRecord(NEW, partition = 1)
+
+            assertThat(oldestCreatedAt(emptySet(), NEW)).isNull()
+        }
+
+        private fun oldestCreatedAt(
+            partitions: Set<Int>,
+            status: OutboxRecordStatus,
+        ): Instant? = jpaOutboxRecordRepository.findOldestCreatedAtByPartitions(partitions, status)
+    }
+
+    @Nested
+    @DisplayName("findOldestDueNextRetryAtByPartitions()")
+    inner class FindOldestDueNextRetryAtByPartitionsTests {
+        private val now = Instant.now(clock).truncatedTo(SECONDS)
+
+        @Test
+        fun `finds oldest next retry time across selected partitions and status`() {
+            saveRetentionRecord(NEW, partition = 1, createdAt = now.minusSeconds(60))
+            saveRetentionRecord(NEW, partition = 2, createdAt = now.minusSeconds(120))
+            saveRetentionRecord(FAILED, partition = 1, createdAt = now.minusSeconds(300))
+            saveRetentionRecord(NEW, partition = 3, createdAt = now.minusSeconds(500))
+
+            assertThat(oldestDueNextRetryAt(setOf(1, 2), now, true)).isEqualTo(now.minusSeconds(120))
+            assertThat(oldestDueNextRetryAt(setOf(1, 2), now, false)).isEqualTo(now.minusSeconds(120))
+        }
+
+        @Test
+        fun `excludes records waiting for a future retry`() {
+            saveRetentionRecord(NEW, createdAt = now.minusSeconds(3600), nextRetryAt = now.plusSeconds(60))
+            saveRetentionRecord(NEW, createdAt = now.minusSeconds(1800), nextRetryAt = now.minusSeconds(30))
+
+            assertThat(oldestDueNextRetryAt(setOf(1), now, false)).isEqualTo(now.minusSeconds(30))
+            assertThat(oldestDueNextRetryAt(setOf(1), now.minusSeconds(31), false)).isNull()
+        }
+
+        @Test
+        fun `includes records due exactly at now`() {
+            saveRetentionRecord(NEW, createdAt = now.minusSeconds(60), nextRetryAt = now)
+
+            assertThat(oldestDueNextRetryAt(setOf(1), now, true)).isEqualTo(now)
+        }
+
+        @Test
+        fun `excludes keys blocked by an earlier failed record only when previous failure filter is enabled`() {
+            val blockedKey = UUID.randomUUID().toString()
+            val readyKey = UUID.randomUUID().toString()
+            saveRetentionRecord(FAILED, recordKey = blockedKey, createdAt = now.minusSeconds(7200))
+            saveRetentionRecord(NEW, recordKey = blockedKey, createdAt = now.minusSeconds(3600))
+            saveRetentionRecord(NEW, recordKey = readyKey, createdAt = now.minusSeconds(600))
+
+            assertThat(oldestDueNextRetryAt(setOf(1), now, true)).isEqualTo(now.minusSeconds(600))
+            assertThat(recordKeys(true)).containsExactly(readyKey)
+
+            assertThat(oldestDueNextRetryAt(setOf(1), now, false)).isEqualTo(now.minusSeconds(3600))
+            assertThat(recordKeys(false)).containsExactlyInAnyOrder(blockedKey, readyKey)
+        }
+
+        @Test
+        fun `excludes keys blocked by an earlier record awaiting retry only when previous failure filter is enabled`() {
+            val recordKey = UUID.randomUUID().toString()
+            saveRetentionRecord(
+                NEW,
+                recordKey = recordKey,
+                createdAt = now.minusSeconds(7200),
+                nextRetryAt = now.plusSeconds(300),
+            )
+            saveRetentionRecord(NEW, recordKey = recordKey, createdAt = now.minusSeconds(3600))
+
+            assertThat(oldestDueNextRetryAt(setOf(1), now, true)).isNull()
+            assertThat(recordKeys(true)).isEmpty()
+
+            assertThat(oldestDueNextRetryAt(setOf(1), now, false)).isEqualTo(now.minusSeconds(3600))
+            assertThat(recordKeys(false)).containsExactly(recordKey)
+        }
+
+        @Test
+        fun `does not treat earlier completed records as blocking`() {
+            val recordKey = UUID.randomUUID().toString()
+            saveRetentionRecord(
+                COMPLETED,
+                recordKey = recordKey,
+                createdAt = now.minusSeconds(7200),
+                completedAt = now.minusSeconds(7000),
+            )
+            saveRetentionRecord(NEW, recordKey = recordKey, createdAt = now.minusSeconds(3600))
+
+            assertThat(oldestDueNextRetryAt(setOf(1), now, true)).isEqualTo(now.minusSeconds(3600))
+        }
+
+        @Test
+        fun `returns null when no records are due`() {
+            saveRetentionRecord(NEW, partition = 3, createdAt = now.minusSeconds(60))
+            saveRetentionRecord(FAILED, partition = 1, createdAt = now.minusSeconds(60))
+
+            assertThat(oldestDueNextRetryAt(setOf(1, 2), now, true)).isNull()
+            assertThat(oldestDueNextRetryAt(setOf(1, 2), now, false)).isNull()
+        }
+
+        @Test
+        fun `returns null for empty partitions`() {
+            saveRetentionRecord(NEW, createdAt = now.minusSeconds(60))
+
+            assertThat(oldestDueNextRetryAt(emptySet(), now, true)).isNull()
+            assertThat(oldestDueNextRetryAt(emptySet(), now, false)).isNull()
+        }
+
+        private fun oldestDueNextRetryAt(
+            partitions: Set<Int>,
+            now: Instant,
+            ignoreRecordKeysWithPreviousFailure: Boolean,
+        ): Instant? =
+            jpaOutboxRecordRepository.findOldestDueNextRetryAtByPartitions(
+                partitions = partitions,
+                status = NEW,
+                now = now,
+                ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
+            )
+
+        private fun recordKeys(ignoreRecordKeysWithPreviousFailure: Boolean): List<String> =
+            jpaOutboxRecordRepository.findRecordKeysInPartitions(
+                partitions = setOf(1),
+                status = NEW,
+                batchSize = 10,
+                ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
+            )
+    }
+
+    @Nested
     @DisplayName("countByStatus()")
     inner class CountByStatusTests {
         @Test
@@ -1059,6 +1230,7 @@ class JpaOutboxRecordRepositoryTest {
         createdAt: Instant = retentionBase.minusSeconds(7200),
         completedAt: Instant? = null,
         nextRetryAt: Instant = createdAt,
+        partition: Int = 1,
     ): String {
         val record =
             OutboxRecord.restore(
@@ -1066,7 +1238,7 @@ class JpaOutboxRecordRepositoryTest {
                 recordKey = recordKey,
                 payload = "payload",
                 context = emptyMap(),
-                partition = 1,
+                partition = partition,
                 createdAt = createdAt,
                 status = status,
                 completedAt = completedAt,

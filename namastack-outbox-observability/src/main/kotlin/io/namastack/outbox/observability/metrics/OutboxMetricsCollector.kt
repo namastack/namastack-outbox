@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
 import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -21,13 +23,14 @@ import java.util.concurrent.atomic.AtomicBoolean
  * with the outbox runtime, so resource contention can affect processing.
  * Each metric is updated independently, retaining fresh readings when another query fails.
  *
- * @param recordRepository Repository for pending record counts
+ * @param recordRepository Repository for pending record counts and ages
  * @param recordStatusRepository Optional repository for record counts by status
  * @param partitionCoordinator Coordinator for partition assignments and cluster state
  * @param instanceRegistry Registry for active instance counts
  * @param properties Background collection interval and maximum reading age
  * @param clock Clock for reading timestamps and expiry
  * @param taskScheduler Dedicated scheduler for background collection
+ * @param stopOnFirstFailure Whether overdue records must be the oldest incomplete record for their key
  *
  * @author Roland Beisel
  * @since 1.12.0
@@ -40,6 +43,7 @@ internal class OutboxMetricsCollector(
     private val properties: OutboxMetricsProperties,
     private val clock: Clock,
     private val taskScheduler: TaskScheduler,
+    private val stopOnFirstFailure: Boolean = true,
 ) : SmartLifecycle {
     companion object {
         const val SCHEDULER_NAME: String = "outboxMetricsScheduler"
@@ -51,6 +55,8 @@ internal class OutboxMetricsCollector(
     private val recordCounts: Map<OutboxRecordStatus, OutboxMetricValue> = createRecordCounts()
     private val assignedPartitions = OutboxMetricValue(properties.maxAge, clock)
     private val pendingRecords = OutboxMetricValue(properties.maxAge, clock)
+    private val oldestRecordAge = OutboxMetricValue(properties.maxAge, clock)
+    private val overdueRecordAge = OutboxMetricValue(properties.maxAge, clock)
     private val activeInstances = OutboxMetricValue(properties.maxAge, clock)
     private val unassignedPartitions = OutboxMetricValue(properties.maxAge, clock)
 
@@ -66,6 +72,10 @@ internal class OutboxMetricsCollector(
     fun assignedPartitions(): Double = assignedPartitions.value()
 
     fun pendingRecords(): Double = pendingRecords.value()
+
+    fun oldestRecordAge(): Double = oldestRecordAge.value()
+
+    fun overdueRecordAge(): Double = overdueRecordAge.value()
 
     fun activeInstances(): Double = activeInstances.value()
 
@@ -161,15 +171,52 @@ internal class OutboxMetricsCollector(
             } catch (ex: Exception) {
                 assignedPartitions.invalidate()
                 pendingRecords.invalidate()
+                oldestRecordAge.invalidate()
+                overdueRecordAge.invalidate()
                 handleCollectionFailure(ex)
                 return false
             }
 
         assignedPartitions.update(partitions.size.toDouble())
 
-        return collectMetric(pendingRecords) {
-            if (partitions.isEmpty()) 0.0 else recordRepository.countRecordsByPartitions(partitions, NEW).toDouble()
-        }
+        val pendingCollected =
+            collectMetric(pendingRecords) {
+                if (partitions.isEmpty()) 0.0 else recordRepository.countRecordsByPartitions(partitions, NEW).toDouble()
+            }
+        val oldestCollected =
+            collectMetric(oldestRecordAge) {
+                if (partitions.isEmpty()) {
+                    0.0
+                } else {
+                    val now = clock.instant()
+                    secondsSince(recordRepository.findOldestCreatedAtByPartitions(partitions, NEW), now)
+                }
+            }
+        val overdueCollected =
+            collectMetric(overdueRecordAge) {
+                if (partitions.isEmpty()) {
+                    0.0
+                } else {
+                    val now = clock.instant()
+                    val oldestDueAt =
+                        recordRepository.findOldestDueNextRetryAtByPartitions(
+                            partitions,
+                            NEW,
+                            now,
+                            stopOnFirstFailure,
+                        )
+                    secondsSince(oldestDueAt, now)
+                }
+            }
+        return pendingCollected && oldestCollected && overdueCollected
+    }
+
+    private fun secondsSince(
+        since: Instant?,
+        now: Instant,
+    ): Double {
+        if (since == null) return 0.0
+        return Duration.between(since, now).toMillis().coerceAtLeast(0L) / 1000.0
     }
 
     private fun collectActiveInstances(): Boolean =

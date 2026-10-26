@@ -157,6 +157,38 @@ internal open class JpaOutboxRecordRepository(
         and o.status = :status
     """
 
+    private val oldestCreatedAtByPartitionsQuery = """
+        select min(o.createdAt)
+        from OutboxRecordEntity o
+        where o.partitionNo in :partitions
+        and o.status = :status
+    """
+
+    private val oldestDueNextRetryAtQueryWithPreviousFailureFilter = """
+        select min(o.nextRetryAt)
+        from OutboxRecordEntity o
+        where o.partitionNo in :partitions
+        and o.status = :status
+        and o.nextRetryAt <= :now
+        and not exists (
+            select 1 from OutboxRecordEntity older
+            where older.recordKey = o.recordKey
+            and older.completedAt is null
+            and (
+                older.createdAt < o.createdAt
+                or (older.createdAt = o.createdAt and older.id < o.id)
+            )
+        )
+    """
+
+    private val oldestDueNextRetryAtQueryWithoutPreviousFailureFilter = """
+        select min(o.nextRetryAt)
+        from OutboxRecordEntity o
+        where o.partitionNo in :partitions
+        and o.status = :status
+        and o.nextRetryAt <= :now
+    """
+
     /**
      * Query to delete all records with the specified status.
      */
@@ -374,6 +406,48 @@ internal open class JpaOutboxRecordRepository(
             .createQuery(countRecordsByPartitionsQuery, Long::class.java)
             .setParameter("partitions", partitions)
             .setParameter("status", status)
+            .singleResult
+    }
+
+    /**
+     * Finds the earliest creation time of outbox records across the specified partitions by status.
+     */
+    override fun findOldestCreatedAtByPartitions(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+    ): Instant? {
+        if (partitions.isEmpty()) return null
+
+        return entityManager
+            .createQuery(oldestCreatedAtByPartitionsQuery, Instant::class.java)
+            .setParameter("partitions", partitions)
+            .setParameter("status", status)
+            .singleResult
+    }
+
+    /**
+     * Finds the earliest next retry time of due outbox records across the specified partitions.
+     */
+    override fun findOldestDueNextRetryAtByPartitions(
+        partitions: Set<Int>,
+        status: OutboxRecordStatus,
+        now: Instant,
+        ignoreRecordKeysWithPreviousFailure: Boolean,
+    ): Instant? {
+        if (partitions.isEmpty()) return null
+
+        val query =
+            if (ignoreRecordKeysWithPreviousFailure) {
+                oldestDueNextRetryAtQueryWithPreviousFailureFilter
+            } else {
+                oldestDueNextRetryAtQueryWithoutPreviousFailureFilter
+            }
+
+        return entityManager
+            .createQuery(query, Instant::class.java)
+            .setParameter("partitions", partitions)
+            .setParameter("status", status)
+            .setParameter("now", now)
             .singleResult
     }
 

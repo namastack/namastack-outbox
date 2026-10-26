@@ -25,6 +25,8 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertTimeoutPreemptively
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import java.time.Clock
 import java.time.Duration
@@ -48,16 +50,19 @@ class OutboxInstanceMetricsMeterBinderTest {
     private val binder = OutboxInstanceMetricsMeterBinder(collector) { "orders" }
     private val registry = SimpleMeterRegistry()
 
-    private fun createCollector(statuses: OutboxRecordStatusRepository? = statusRepository) =
-        OutboxMetricsCollector(
-            recordRepository,
-            statuses,
-            coordinator,
-            instanceRegistry,
-            properties,
-            clock,
-            taskScheduler,
-        )
+    private fun createCollector(
+        statuses: OutboxRecordStatusRepository? = statusRepository,
+        stopOnFirstFailure: Boolean = true,
+    ) = OutboxMetricsCollector(
+        recordRepository,
+        statuses,
+        coordinator,
+        instanceRegistry,
+        properties,
+        clock,
+        taskScheduler,
+        stopOnFirstFailure,
+    )
 
     @AfterEach
     fun tearDown() {
@@ -72,6 +77,8 @@ class OutboxInstanceMetricsMeterBinderTest {
         every { statusRepository.countByStatus(FAILED) } returns 3
         every { statusRepository.countByStatus(COMPLETED) } returns 42
         every { coordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
+        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } returns null
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } returns null
         every { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) } returns 10
         every { instanceRegistry.getActiveInstanceCount() } returns 2
         every { coordinator.getPartitionContext().getPartitionStats().unassignedPartitionsCount } returns 5
@@ -97,7 +104,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         assertThat(
             value(OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP),
         ).isEqualTo(now.get().epochSecond.toDouble())
-        assertThat(registry.meters).hasSize(8)
+        assertThat(registry.meters).hasSize(10)
         assertThat(registry.meters.map { it.id.name }).doesNotContain(
             "outbox.records.count",
             "outbox.instance.records.pending.max",
@@ -122,6 +129,8 @@ class OutboxInstanceMetricsMeterBinderTest {
         }
         OutboxRecordStatus.entries.forEach { verify(exactly = 1) { statusRepository.countByStatus(it) } }
         verify(exactly = 1) { coordinator.getAssignedPartitionNumbers() }
+        verify(exactly = 1) { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2), NEW) }
+        verify(exactly = 1) { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), NEW, now.get(), true) }
         verify(exactly = 1) { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) }
         verify(exactly = 1) { instanceRegistry.getActiveInstanceCount() }
         verify(exactly = 1) { coordinator.getPartitionContext() }
@@ -177,6 +186,8 @@ class OutboxInstanceMetricsMeterBinderTest {
         collector.refresh()
         assertThat(value(OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED)).isNaN()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isNaN()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isNaN()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isNaN()
         assertThat(value(OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED)).isNaN()
         assertThat(value(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE)).isEqualTo(2.0)
         verify { recordRepository wasNot Called }
@@ -335,6 +346,132 @@ class OutboxInstanceMetricsMeterBinderTest {
             assertThat(scheduledCollector.recordCount(NEW)).isEqualTo(20.0)
         } finally {
             scheduledCollector.stop()
+        }
+    }
+
+    @Test
+    fun `age gauges cache fractional seconds with only the channel tag`() {
+        every { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2), NEW) } returns
+            now.get().minusMillis(90_500)
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), NEW, now.get(), true) } returns
+            now.get().minusSeconds(30)
+        collector.refresh()
+        now.set(now.get().plusSeconds(10))
+
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isEqualTo(90.5)
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isEqualTo(30.0)
+        listOf(
+            OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE,
+            OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE,
+        ).forEach { name ->
+            val gauge = registry.get(name).gauge()
+            assertThat(gauge.id.baseUnit).isEqualTo("seconds")
+            assertThat(gauge.id.tags.map { it.key to it.value })
+                .containsExactly(OutboxMetricKeyNames.LowCardinality.CHANNEL to "orders")
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `overdue collection uses the configured stop on first failure setting`(stopOnFirstFailure: Boolean) {
+        createCollector(stopOnFirstFailure = stopOnFirstFailure).refresh()
+
+        verify(exactly = 1) {
+            recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), NEW, now.get(), stopOnFirstFailure)
+        }
+    }
+
+    @Test
+    fun `age collection refreshes assignments and skips all record queries when no partitions are assigned`() {
+        every { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2), NEW) } returns now.get().minusSeconds(90)
+        collector.refresh()
+        every { coordinator.getAssignedPartitionNumbers() } returns setOf(3)
+        every { recordRepository.countRecordsByPartitions(setOf(3), NEW) } returns 1
+        every { recordRepository.findOldestCreatedAtByPartitions(setOf(3), NEW) } returns now.get().minusSeconds(20)
+        collector.refresh()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isEqualTo(20.0)
+        verify(exactly = 1) { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(3), NEW, now.get(), true) }
+
+        every { coordinator.getAssignedPartitionNumbers() } returns emptySet()
+        collector.refresh()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isZero()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isZero()
+        verify(exactly = 2) { recordRepository.countRecordsByPartitions(any(), any()) }
+        verify(exactly = 2) { recordRepository.findOldestCreatedAtByPartitions(any(), any()) }
+        verify(exactly = 2) { recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `age gauges report zero for empty results and future creation times`() {
+        collector.refresh()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isZero()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isZero()
+
+        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } returns now.get().plusSeconds(5)
+        collector.refresh()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isZero()
+    }
+
+    @Test
+    fun `age query failures are independent and prevent advancing the success timestamp until recovery`() {
+        collector.refresh()
+        val lastSuccess = collector.lastSuccessTimestamp
+        now.set(now.get().plusSeconds(15))
+        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } throws
+            IllegalStateException("database unavailable")
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } returns
+            now.get().minusSeconds(30)
+        collector.refresh()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isNaN()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isEqualTo(30.0)
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isEqualTo(10.0)
+        assertThat(collector.lastSuccessTimestamp).isEqualTo(lastSuccess)
+
+        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } returns now.get().minusSeconds(90)
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } throws
+            IllegalStateException()
+        collector.refresh()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isEqualTo(90.0)
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isNaN()
+        assertThat(collector.lastSuccessTimestamp).isEqualTo(lastSuccess)
+
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } returns null
+        collector.refresh()
+        assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isZero()
+        assertThat(collector.lastSuccessTimestamp).isEqualTo(now.get().epochSecond.toDouble())
+    }
+
+    @Test
+    fun `prometheus age scrapes remain responsive and expire while an age query is blocked`() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val worker = Executors.newSingleThreadExecutor()
+        PrometheusMeterRegistry(PrometheusConfig.DEFAULT).useRegistry { prometheus ->
+            binder.bindTo(prometheus)
+            collector.refresh()
+            every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } answers {
+                entered.countDown()
+                check(release.await(10, TimeUnit.SECONDS))
+                null
+            }
+            val refresh = worker.submit { collector.refresh() }
+            try {
+                assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue()
+                now.set(now.get().plusSeconds(60))
+                assertTimeoutPreemptively(Duration.ofSeconds(2)) {
+                    val scrape = prometheus.scrape()
+                    assertThat(
+                        scrape,
+                    ).contains("outbox_instance_records_oldest_age_seconds{outbox_channel=\"orders\"} NaN")
+                    assertThat(
+                        scrape,
+                    ).contains("outbox_instance_records_overdue_age_seconds{outbox_channel=\"orders\"} NaN")
+                }
+            } finally {
+                release.countDown()
+                worker.shutdownNow()
+                refresh.get(5, TimeUnit.SECONDS)
+            }
         }
     }
 

@@ -1,6 +1,7 @@
 package io.namastack.outbox.observability.metrics
 
 import io.namastack.outbox.OutboxChannelNameProvider
+import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.OutboxService
@@ -41,7 +42,7 @@ import java.time.Clock
     ],
 )
 @ConditionalOnSingleRuntimeMode
-@EnableConfigurationProperties(OutboxMetricsProperties::class)
+@EnableConfigurationProperties(OutboxMetricsProperties::class, OutboxProperties::class)
 @ConditionalOnClass(OutboxService::class)
 @ConditionalOnProperty(
     name = ["namastack.outbox.enabled", "namastack.outbox.observability.metrics.enabled"],
@@ -69,6 +70,7 @@ internal class OutboxInstanceMetricsAutoConfiguration {
         partitionCoordinator: PartitionCoordinator,
         instanceRegistry: OutboxInstanceRegistry,
         properties: OutboxMetricsProperties,
+        outboxProperties: OutboxProperties,
         clock: ObjectProvider<Clock>,
         beanFactory: BeanFactory,
     ): OutboxMetricsCollector =
@@ -80,6 +82,7 @@ internal class OutboxInstanceMetricsAutoConfiguration {
             properties = properties,
             clock = clock.getIfAvailable { Clock.systemUTC() },
             taskScheduler = beanFactory.getBean(OutboxMetricsCollector.SCHEDULER_NAME, TaskScheduler::class.java),
+            stopOnFirstFailure = outboxProperties.processing.stopOnFirstFailure,
         )
 
     @Bean
