@@ -523,12 +523,19 @@ class OutboxService(
     ): String {
         if (!processingGroups.enabled) return businessKey
 
-        val group =
-            handlerRegistry.getRegistrationById(handlerId)?.processingGroup
-                ?: OutboxProcessingGroup.DEFAULT
-
-        return OutboxRecordKey.encode(group, businessKey)
+        return OutboxRecordKey.encode(processingGroup(handlerId), businessKey)
     }
+
+    /**
+     * Resolves the effective group for scheduling and generic handler selection.
+     * Disabled processing groups and unregistered handlers use the default group.
+     */
+    private fun processingGroup(handlerId: String): String =
+        if (processingGroups.enabled) {
+            handlerRegistry.getRegistrationById(handlerId)?.processingGroup ?: OutboxProcessingGroup.DEFAULT
+        } else {
+            OutboxProcessingGroup.DEFAULT
+        }
 
     /**
      * Discovers all handlers applicable to a given payload.
@@ -611,6 +618,7 @@ class OutboxService(
                     handlerId = handler.id,
                     createdAt = createdAt,
                     context = context,
+                    processingGroup = processingGroup(handler.id),
                 )
             }
 

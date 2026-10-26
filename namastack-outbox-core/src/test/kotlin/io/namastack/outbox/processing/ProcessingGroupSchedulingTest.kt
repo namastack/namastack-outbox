@@ -93,6 +93,16 @@ class ProcessingGroupSchedulingTest {
             assertThat(record.handlerId).isEqualTo("generic")
             assertThat(record.key).isEqualTo("~ns.pg1~audit:order-42")
         })
+        assertThat(selectionMetadata.map { it.processingGroup }).containsExactly("audit")
+        assertThat(selectionMetadata.map { it.key }).containsExactly("order-42")
+    }
+
+    @Test
+    fun `supports receives the default group when group scheduling is disabled`() {
+        service(handlers = listOf(GenericHandler("audit"))).schedule("event", "order-42")
+
+        assertThat(selectionMetadata.map { it.processingGroup }).containsExactly("default")
+        assertThat(records.map { it.key }).containsExactly("order-42")
     }
 
     @Test

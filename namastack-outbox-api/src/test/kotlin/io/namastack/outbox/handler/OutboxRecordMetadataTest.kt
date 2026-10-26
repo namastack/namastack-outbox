@@ -27,6 +27,28 @@ class OutboxRecordMetadataTest {
     }
 
     @Test
+    fun `copies preserve processing group and record ID unless explicitly changed`() {
+        val metadata =
+            OutboxRecordMetadata(
+                key = "test-key",
+                handlerId = "test-handler",
+                createdAt = createdAt,
+                context = emptyMap(),
+                recordId = "record-id",
+                processingGroup = "billing",
+            )
+
+        val retry = metadata.copy(failureCount = 2)
+
+        assertThat(retry.processingGroup).isEqualTo("billing")
+        assertThat(retry.recordId).isEqualTo("record-id")
+        assertThat(retry.attempt).isEqualTo(3)
+        assertThat(metadata.copy(recordId = "other-id").processingGroup).isEqualTo("billing")
+        assertThat(metadata.copy(processingGroup = "shipping").recordId).isEqualTo("record-id")
+        assertThat(metadata.copy(processingGroup = "shipping").processingGroup).isEqualTo("shipping")
+    }
+
+    @Test
     fun `defaults to first attempt for existing constructor`() {
         val metadata =
             OutboxRecordMetadata(
