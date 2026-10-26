@@ -64,6 +64,97 @@ class MongoOutboxRecordRepositoryTest {
     }
 
     @Nested
+    @DisplayName("Processing group storage keys")
+    inner class ProcessingGroupKeyTests {
+        private val billingKey = "~ns.pg1~billing:order:42"
+        private val auditKey = "~ns.pg1~audit:order:42"
+        private val otherOrderKey = "~ns.pg1~billing:order:99"
+        private val defaultKey = "order:42"
+        private val createdAt = Instant.parse("2026-01-01T12:00:00Z")
+
+        @Test
+        fun `preserves encoded keys and loads only exact matches`() {
+            val maximumLengthKey = "~ns.pg1~billing:".padEnd(255, 'a')
+            val unicodeKey = "~ns.pg1~billing:订单:ä:😀"
+            val keys = listOf(billingKey, auditKey, otherOrderKey, defaultKey, maximumLengthKey, unicodeKey)
+
+            val saved = keys.mapIndexed { index, key -> saveDelivery(index + 1, key) }
+
+            saved.forEach { record ->
+                assertThat(repository.findIncompleteRecordsByRecordKey(record.key))
+                    .singleElement()
+                    .satisfies({ loaded ->
+                        assertThat(loaded.id).isEqualTo(record.id)
+                        assertThat(loaded.key).isEqualTo(record.key)
+                        assertThat(loaded.payload).isEqualTo("payload")
+                    })
+            }
+            assertThat(readyKeys()).containsExactlyInAnyOrderElementsOf(keys)
+        }
+
+        @Test
+        fun `permanent failure blocks its group and key but leaves other keys ready`() {
+            saveDelivery(1, billingKey, status = FAILED)
+            val blockedSibling = saveDelivery(2, billingKey)
+            saveIndependentDeliveries()
+
+            assertThat(readyKeys()).containsExactlyInAnyOrder(auditKey, otherOrderKey, defaultKey)
+            assertThat(repository.findIncompleteRecordsByRecordKey(billingKey).map { it.id })
+                .contains(blockedSibling.id)
+
+            // Completing the predecessor releases this group's sibling as well.
+            saveDelivery(1, billingKey, status = COMPLETED)
+            assertThat(readyKeys()).containsExactlyInAnyOrder(billingKey, auditKey, otherOrderKey, defaultKey)
+        }
+
+        @Test
+        fun `future retry blocks only its group and key even when the sibling is ready`() {
+            val retryAt = clock.instant().plusSeconds(3600)
+            saveDelivery(1, billingKey, nextRetryAt = retryAt)
+            saveDelivery(2, billingKey)
+            saveIndependentDeliveries()
+
+            assertThat(readyKeys()).containsExactlyInAnyOrder(auditKey, otherOrderKey, defaultKey)
+
+            saveDelivery(1, billingKey, nextRetryAt = createdAt)
+            assertThat(readyKeys()).containsExactlyInAnyOrder(billingKey, auditKey, otherOrderKey, defaultKey)
+        }
+
+        private fun saveIndependentDeliveries() {
+            saveDelivery(3, auditKey)
+            saveDelivery(4, otherOrderKey)
+            saveDelivery(5, defaultKey)
+        }
+
+        private fun readyKeys(): List<String> = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+
+        private fun saveDelivery(
+            number: Int,
+            key: String,
+            status: OutboxRecordStatus = NEW,
+            nextRetryAt: Instant = createdAt,
+        ): OutboxRecord<String> =
+            repository.save(
+                OutboxRecord.restore(
+                    id = "00000000-0000-4000-8000-${number.toString().padStart(12, '0')}",
+                    recordKey = key,
+                    payload = "payload",
+                    context = emptyMap(),
+                    // Deliberately share one partition: isolation must come from the complete key.
+                    partition = 1,
+                    createdAt = createdAt,
+                    status = status,
+                    completedAt = if (status == COMPLETED) createdAt else null,
+                    failureCount = if (status == FAILED) 1 else 0,
+                    failureReason = null,
+                    nextRetryAt = nextRetryAt,
+                    handlerId = "handler-$number",
+                    failureException = null,
+                ),
+            )
+    }
+
+    @Nested
     @DisplayName("Ordering with equal timestamps")
     inner class EqualTimestampOrderingTests {
         private val recordKey = "equal-timestamp-key"
