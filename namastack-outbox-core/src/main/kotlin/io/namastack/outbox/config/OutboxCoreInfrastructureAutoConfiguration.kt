@@ -157,12 +157,14 @@ class OutboxCoreInfrastructureAutoConfiguration {
         clock: Clock,
         instrumentations: ObjectProvider<OutboxInstrumentation>,
         channelNameProvider: ObjectProvider<OutboxChannelNameProvider>,
+        properties: OutboxProperties,
     ): Outbox =
         OutboxService(
             contextCollector = outboxContextCollector,
             handlerRegistry = handlerRegistry,
             outboxRecordRepository = recordRepository,
             clock = clock,
+            processingGroups = properties.processingGroups,
             instrumentationSupplier = {
                 OutboxInstrumentation.compose(instrumentations.orderedStream().toList())
             },

@@ -1,5 +1,6 @@
 package io.namastack.outbox.runtime
 
+import io.namastack.outbox.processing.OutboxProcessingGroupSettings
 import java.time.Duration
 
 /**
@@ -14,6 +15,7 @@ import java.time.Duration
  * @property processing Record processing behavior
  * @property instance Instance coordination behavior
  * @property multicaster Spring event multicaster behavior
+ * @property processingGroups Opt-in processing group scheduling
  *
  * @author Roland Beisel
  * @since 1.10.0
@@ -24,6 +26,7 @@ data class OutboxRuntimeSettings(
     val processing: Processing = Processing(),
     val instance: Instance = Instance(),
     val multicaster: Multicaster = Multicaster(),
+    val processingGroups: OutboxProcessingGroupSettings = OutboxProcessingGroupSettings(),
 ) {
     /**
      * @property batchSize Maximum number of record keys processed in one batch

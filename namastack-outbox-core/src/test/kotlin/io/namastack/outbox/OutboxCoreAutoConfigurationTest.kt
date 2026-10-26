@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
@@ -75,6 +76,59 @@ class OutboxCoreAutoConfigurationTest {
                     OutboxCoreMulticasterAutoConfiguration::class.java,
                 ),
             )
+
+    @Nested
+    @DisplayName("Processing Groups")
+    inner class ProcessingGroups {
+        @BeforeEach
+        fun setUpTransactionState() {
+            TransactionSynchronizationManager.setActualTransactionActive(true)
+        }
+
+        @AfterEach
+        fun clearTransactionState() {
+            TransactionSynchronizationManager.clear()
+        }
+
+        @Test
+        fun `leaves processing group writes disabled by default`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithProcessingGroupHandler::class.java)
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context.getBean<OutboxProperties>().processingGroups.enabled).isFalse()
+
+                    context.getBean<Outbox>().schedule("event", "order-42")
+
+                    verify(exactly = 1) {
+                        context
+                            .getBean<OutboxRecordRepository>()
+                            .save(match<OutboxRecord<Any>> { it.key == "order-42" })
+                    }
+                }
+        }
+
+        @Test
+        fun `binds opt-in into the single-mode producer`() {
+            contextRunner
+                .withUserConfiguration(ConfigWithProcessingGroupHandler::class.java)
+                .withPropertyValues(
+                    "namastack.outbox.processing-groups.enabled=true",
+                ).run { context ->
+                    assertThat(context).hasNotFailed()
+                    val settings = context.getBean<OutboxProperties>().processingGroups
+                    assertThat(settings.enabled).isTrue()
+
+                    context.getBean<Outbox>().schedule("event", "order-42")
+
+                    verify(exactly = 1) {
+                        context
+                            .getBean<OutboxRecordRepository>()
+                            .save(match<OutboxRecord<Any>> { it.key == "~ns.pg1~billing:order-42" })
+                    }
+                }
+        }
+    }
 
     @Nested
     @DisplayName("Core Beans")
@@ -637,6 +691,22 @@ class OutboxCoreAutoConfigurationTest {
                         .isEqualTo(ConfigWithCustomTrigger.outboxPollingTrigger)
                 }
         }
+    }
+
+    @Configuration
+    private class ConfigWithProcessingGroupHandler : MinimalTestConfig() {
+        @Bean
+        fun groupedHandler(): OutboxTypedHandler<String> =
+            object : OutboxTypedHandler<String> {
+                override fun getTypedHandlerIdentity() = OutboxHandlerIdentity("orders.invoice")
+
+                override fun getTypedHandlerProcessingGroup() = "billing"
+
+                override fun handle(
+                    payload: String,
+                    metadata: OutboxRecordMetadata,
+                ) = Unit
+            }
     }
 
     @Configuration

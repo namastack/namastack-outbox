@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.processing.OutboxProcessingGroupSettings
 import org.springframework.boot.context.properties.ConfigurationProperties
 import java.time.Duration
 
@@ -20,6 +21,7 @@ import java.time.Duration
  * @param instance Configuration for instance management and coordination
  * @param multicaster Configuration for the custom application event multicaster
  * @param mode Runtime implementation selected during application bootstrap
+ * @param processingGroups Opt-in processing group scheduling
  *
  * @author Roland Beisel
  * @since 0.1.0
@@ -39,6 +41,7 @@ data class OutboxProperties(
     var instance: Instance = Instance(),
     var multicaster: Multicaster = Multicaster(),
     var mode: OutboxRuntimeMode = OutboxRuntimeMode.SINGLE,
+    var processingGroups: OutboxProcessingGroupSettings = OutboxProcessingGroupSettings(),
 ) {
     /**
      * Returns the effective partition rebalance interval, using the deprecated root property when set.

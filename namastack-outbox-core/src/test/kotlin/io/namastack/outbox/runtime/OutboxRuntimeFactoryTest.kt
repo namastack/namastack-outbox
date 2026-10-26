@@ -12,6 +12,7 @@ import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
 import io.namastack.outbox.partition.PartitionAssignmentRepository
+import io.namastack.outbox.processing.OutboxProcessingGroupSettings
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -65,6 +66,28 @@ class OutboxRuntimeFactoryTest {
         runtime.outbox.schedule(RuntimePayload("created"), "order-1")
 
         assertThat(orders.instrumentation.channels).containsExactly("orders")
+    }
+
+    @Test
+    fun `applies processing group settings independently to each runtime`() {
+        val orders = fixture("orders")
+        val payments = fixture("payments")
+        val settings =
+            OutboxRuntimeSettings(
+                processingGroups = OutboxProcessingGroupSettings(enabled = true),
+            )
+        val ordersRuntime = OutboxRuntimeFactory.create(orders.spec.copy(settings = settings))
+        val paymentsRuntime = OutboxRuntimeFactory.create(payments.spec)
+
+        ordersRuntime.outbox.schedule(RuntimePayload("created"), "order-1")
+        paymentsRuntime.outbox.schedule(RuntimePayload("created"), "order-1")
+
+        verify(exactly = 1) {
+            orders.recordRepository.save(match<OutboxRecord<Any>> { it.key == "~ns.pg1~billing:order-1" })
+        }
+        verify(exactly = 1) {
+            payments.recordRepository.save(match<OutboxRecord<Any>> { it.key == "order-1" })
+        }
     }
 
     private fun fixture(channel: String): RuntimeFixture {
@@ -132,7 +155,7 @@ class OutboxRuntimeFactoryTest {
 
     @Suppress("UNUSED_PARAMETER")
     private class RuntimeHandler {
-        @OutboxHandler(id = "runtime-handler")
+        @OutboxHandler(id = "runtime-handler", processingGroup = "billing")
         fun handle(payload: RuntimePayload) = Unit
     }
 

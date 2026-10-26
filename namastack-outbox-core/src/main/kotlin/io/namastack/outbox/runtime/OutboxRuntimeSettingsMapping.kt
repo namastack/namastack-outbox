@@ -21,6 +21,7 @@ internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
                     ),
             ),
         retry = retry.toRuntimeSettings(),
+        processingGroups = processingGroups,
         processing =
             OutboxRuntimeSettings.Processing(
                 stopOnFirstFailure = processing.stopOnFirstFailure,
