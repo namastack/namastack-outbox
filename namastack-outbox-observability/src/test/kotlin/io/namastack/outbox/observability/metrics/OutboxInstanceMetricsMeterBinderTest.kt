@@ -417,7 +417,8 @@ class OutboxInstanceMetricsMeterBinderTest {
         collector.refresh()
         val lastSuccess = collector.lastSuccessTimestamp
         now.set(now.get().plusSeconds(15))
-        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } throws UnsupportedOperationException()
+        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } throws
+            IllegalStateException("database unavailable")
         every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } returns
             now.get().minusSeconds(30)
         collector.refresh()

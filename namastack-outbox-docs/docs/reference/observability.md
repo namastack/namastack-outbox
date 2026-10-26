@@ -179,9 +179,9 @@ time and record ID. It can include records currently being processed.
 
 Both ages are sampled by the background collector and remain unchanged until the next collection.
 They report zero when no records match or no partitions are assigned, and `NaN` before the first
-reading, after a failed query, or when the reading expires. Custom repositories that do not implement
-the age queries report `NaN` for these gauges; other gauges can still refresh independently. The
-last-success timestamp advances only when all gauges, including both ages, are collected successfully.
+reading, after a failed query, or when the reading expires. If an age query fails, other gauges can
+still refresh independently. The last-success timestamp advances only when all gauges, including
+both ages, are collected successfully.
 
 ### Background Gauge Collection
 

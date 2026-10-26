@@ -5,9 +5,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
-import java.time.Instant
 
 class OutboxRecordRepositoryTest {
     private val repository = mockk<OutboxRecordRepository>()
@@ -31,23 +29,5 @@ class OutboxRecordRepositoryTest {
         assertThat(repository.countRecordsByPartitions(emptySet(), NEW)).isZero()
 
         verify(exactly = 0) { repository.countRecordsByPartition(any(), any()) }
-    }
-
-    @Test
-    fun `default oldest created at lookup is unsupported`() {
-        every { repository.findOldestCreatedAtByPartitions(any(), any()) } answers { callOriginal() }
-
-        assertThatThrownBy { repository.findOldestCreatedAtByPartitions(setOf(1), NEW) }
-            .isInstanceOf(UnsupportedOperationException::class.java)
-    }
-
-    @Test
-    fun `default oldest due next retry at lookup is unsupported`() {
-        every { repository.findOldestDueNextRetryAtByPartitions(any(), any(), any(), any()) } answers {
-            callOriginal()
-        }
-
-        assertThatThrownBy { repository.findOldestDueNextRetryAtByPartitions(setOf(1), NEW, Instant.now(), true) }
-            .isInstanceOf(UnsupportedOperationException::class.java)
     }
 }

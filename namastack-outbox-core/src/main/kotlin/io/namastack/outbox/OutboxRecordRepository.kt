@@ -151,20 +151,17 @@ interface OutboxRecordRepository {
      * regardless of their next retry time.
      *
      * Returns `null` without querying the data store when [partitions] is empty.
-     * The default implementation throws [UnsupportedOperationException] for compatibility with
-     * custom repositories. Persistence implementations should override this method with a single
-     * aggregate query.
+     * Persistence implementations must provide this method using a single aggregate query.
      *
      * @param partitions The partition numbers to search in
      * @param status The status to filter by
      * @return Earliest `createdAt` of the matching records, or `null` if the set is empty or no records match
-     * @throws UnsupportedOperationException if the repository does not support this query
      * @since 1.12.0
      */
     fun findOldestCreatedAtByPartitions(
         partitions: Set<Int>,
         status: OutboxRecordStatus,
-    ): Instant? = throw UnsupportedOperationException("findOldestCreatedAtByPartitions is not supported")
+    ): Instant?
 
     /**
      * Finds the earliest next retry time of records across the specified partitions that are due
@@ -178,16 +175,13 @@ interface OutboxRecordRepository {
      * The result can include records that are currently being processed.
      *
      * Returns `null` without querying the data store when [partitions] is empty.
-     * The default implementation throws [UnsupportedOperationException] for compatibility with
-     * custom repositories. Persistence implementations should override this method with a single
-     * aggregate query.
+     * Persistence implementations must provide this method using a single aggregate query.
      *
      * @param partitions The partition numbers to search in
      * @param status The status to filter by
      * @param now Inclusive upper bound for `nextRetryAt`
      * @param ignoreRecordKeysWithPreviousFailure Whether to exclude records blocked by earlier incomplete records
      * @return Earliest `nextRetryAt` of the matching records, or `null` if the set is empty or no records match
-     * @throws UnsupportedOperationException if the repository does not support this query
      * @since 1.12.0
      */
     fun findOldestDueNextRetryAtByPartitions(
@@ -195,7 +189,7 @@ interface OutboxRecordRepository {
         status: OutboxRecordStatus,
         now: Instant,
         ignoreRecordKeysWithPreviousFailure: Boolean,
-    ): Instant? = throw UnsupportedOperationException("findOldestDueNextRetryAtByPartitions is not supported")
+    ): Instant?
 
     /**
      * Deletes all records with the specified status.
