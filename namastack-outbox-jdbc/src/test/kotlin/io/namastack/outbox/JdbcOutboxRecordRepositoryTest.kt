@@ -49,6 +49,101 @@ class JdbcOutboxRecordRepositoryTest {
     private lateinit var jdbcClient: JdbcClient
 
     @Nested
+    @DisplayName("Ordering with equal timestamps")
+    inner class EqualTimestampOrderingTests {
+        private val recordKey = "equal-timestamp-key"
+
+        @Test
+        fun `loads tied records by ID regardless of insertion order`() {
+            val third = saveRecord(3)
+            val second = saveRecord(2)
+            val first = saveRecord(1)
+            val earlier = saveRecord(4, createdAt = retentionBase.minusSeconds(1))
+
+            assertThat(jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey).map { it.id })
+                .containsExactly(earlier.id, first.id, second.id, third.id)
+        }
+
+        @Test
+        fun `failed tied predecessor blocks siblings and later events across polls`() {
+            saveRecord(3, createdAt = retentionBase.plusSeconds(1))
+            val sibling = saveRecord(2)
+            val first = saveRecord(1)
+
+            // The first record must not block itself, and loading must choose the same head.
+            assertThat(readyKeys()).containsExactly(recordKey)
+            assertThat(jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey).first().id)
+                .isEqualTo(first.id)
+
+            saveRecord(1, status = FAILED)
+
+            repeat(3) {
+                assertThat(readyKeys()).isEmpty()
+            }
+            assertThat(jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey).map { it.id })
+                .contains(sibling.id)
+        }
+
+        @Test
+        fun `future retry of tied predecessor blocks a ready sibling`() {
+            saveRecord(2)
+            saveRecord(1, nextRetryAt = Instant.now(clock).plusSeconds(3600))
+
+            assertThat(readyKeys()).isEmpty()
+
+            saveRecord(1)
+
+            assertThat(readyKeys()).containsExactly(recordKey)
+        }
+
+        @Test
+        fun `completed tied predecessor releases the next record`() {
+            val sibling = saveRecord(2)
+            saveRecord(1, status = COMPLETED)
+
+            assertThat(readyKeys()).containsExactly(recordKey)
+            assertThat(jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey).map { it.id })
+                .containsExactly(sibling.id)
+        }
+
+        @Test
+        fun `unordered mode still allows a sibling of a failed tied record`() {
+            saveRecord(2)
+            saveRecord(1, status = FAILED)
+
+            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, false))
+                .containsExactly(recordKey)
+        }
+
+        private fun readyKeys(): List<String> =
+            jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+
+        private fun saveRecord(
+            number: Int,
+            status: OutboxRecordStatus = NEW,
+            createdAt: Instant = retentionBase,
+            nextRetryAt: Instant = createdAt,
+        ): OutboxRecord<String> =
+            jdbcOutboxRecordRepository.save(
+                OutboxRecord.restore(
+                    id = "00000000-0000-4000-8000-${number.toString().padStart(12, '0')}",
+                    recordKey = recordKey,
+                    payload = "payload",
+                    context = emptyMap(),
+                    partition = 1,
+                    createdAt = createdAt,
+                    status = status,
+                    completedAt = if (status == COMPLETED) createdAt else null,
+                    failureCount = if (status == FAILED) 1 else 0,
+                    failureReason = null,
+                    nextRetryAt = nextRetryAt,
+                    handlerId = "handler-$number",
+                    failureException = null,
+                ),
+            )
+    }
+
+    @Nested
     @DisplayName("save()")
     inner class SaveTests {
         @Test

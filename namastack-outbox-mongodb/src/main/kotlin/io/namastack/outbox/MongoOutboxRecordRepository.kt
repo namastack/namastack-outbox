@@ -128,7 +128,7 @@ internal open class MongoOutboxRecordRepository(
                     .`is`(recordKey)
                     .and("status")
                     .`is`(OutboxRecordStatus.NEW),
-            ).with(Sort.by(Sort.Order.asc("createdAt")))
+            ).with(Sort.by(Sort.Direction.ASC, "createdAt", "_id"))
 
         return mongoTemplate
             .find(query, MongoOutboxRecordEntity::class.java, collectionNameResolver.outboxRecords)
@@ -366,7 +366,7 @@ internal open class MongoOutboxRecordRepository(
     private fun findRecordsByStatus(status: OutboxRecordStatus): List<OutboxRecord<*>> {
         val query =
             Query(Criteria.where("status").`is`(status))
-                .with(Sort.by(Sort.Order.asc("createdAt")))
+                .with(Sort.by(Sort.Direction.ASC, "createdAt", "_id"))
         return mongoTemplate
             .find(query, MongoOutboxRecordEntity::class.java, collectionNameResolver.outboxRecords)
             .map { entityMapper.map(it) }
@@ -377,7 +377,7 @@ internal open class MongoOutboxRecordRepository(
      *
      * Pipeline stages:
      * 1. Match all incomplete records (completedAt is null) in the given partitions
-     * 2. Sort by recordKey and createdAt to prepare for grouping
+     * 2. Sort by recordKey, createdAt and _id to prepare for grouping with deterministic ties
      * 3. Group by recordKey, capturing the oldest record as the "blocker"
      * 4. Filter to only keys where the oldest record matches the target status and retry time
      * 5. Order by oldest record's creation time and limit results
@@ -404,7 +404,7 @@ internal open class MongoOutboxRecordRepository(
                     .`is`(null),
             ),
             // Sort to ensure the 'first' in group is the oldest
-            Aggregation.sort(Sort.by(Sort.Direction.ASC, "recordKey", "createdAt")),
+            Aggregation.sort(Sort.by(Sort.Direction.ASC, "recordKey", "createdAt", "_id")),
             // Group by recordKey and take the absolute oldest record (the "blocker")
             Aggregation
                 .group("recordKey")

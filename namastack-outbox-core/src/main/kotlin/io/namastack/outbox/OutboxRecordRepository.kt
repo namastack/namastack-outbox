@@ -22,7 +22,8 @@ interface OutboxRecordRepository {
 
     /**
      * Finds all pending outbox records that are ready for processing.
-     * Implementations **must** return records sorted by creation time ascending
+     * Implementations **must** return records sorted by creation time ascending, then by record ID
+     * ascending to resolve equal timestamps. IDs define a stable tie-breaker, not creation order.
      *
      * @return List of pending outbox records
      */
@@ -86,7 +87,8 @@ interface OutboxRecordRepository {
 
     /**
      * Finds all incomplete records for a specific record key.
-     * Implementations **must** return records sorted by creation time ascending
+     * Implementations **must** return records sorted by creation time ascending, then by record ID
+     * ascending, consistently with the predecessor check in [findRecordKeysInPartitions].
      *
      * @param recordKey The record key to search for
      * @return List of incomplete outbox records for the given record key
@@ -99,6 +101,8 @@ interface OutboxRecordRepository {
      * The query logic depends on the ignoreRecordKeysWithPreviousFailure flag:
      * - If true: only record keys with no previous open/failed record (older.completedAt is null) are returned.
      * - If false: all record keys with pending records are returned, regardless of previous failures.
+     * Previous records are determined by the same creation-time and record-ID ordering used by
+     * [findIncompleteRecordsByRecordKey].
      *
      * @param partitions List of partition numbers to search in
      * @param status The status to filter by

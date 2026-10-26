@@ -33,7 +33,7 @@ internal open class JpaOutboxRecordRepository(
         select o
         from OutboxRecordEntity o
         where o.status = :status
-        order by o.createdAt asc
+        order by o.createdAt asc, o.id asc
     """
 
     /**
@@ -44,7 +44,7 @@ internal open class JpaOutboxRecordRepository(
         from OutboxRecordEntity o
         where o.recordKey = :recordKey
         and o.status = :status
-        order by o.createdAt asc
+        order by o.createdAt asc, o.id asc
     """
 
     /**
@@ -105,7 +105,10 @@ internal open class JpaOutboxRecordRepository(
             select 1 from OutboxRecordEntity older
             where older.recordKey = o.recordKey
             and older.completedAt is null
-            and older.createdAt < o.createdAt
+            and (
+                older.createdAt < o.createdAt
+                or (older.createdAt = o.createdAt and older.id < o.id)
+            )
         )
         group by o.recordKey
         order by minCreated asc
