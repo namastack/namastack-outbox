@@ -40,7 +40,7 @@ class OutboxRoutingTest {
 
             assertThatThrownBy { routing.buildHeaders("payload", metadataWithoutId, true) }
                 .isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("recordId")
+                .hasMessage("${OutboxHeaders.IDEMPOTENCY_KEY} requires an explicit key or metadata with a recordId")
             assertThat(routing.buildHeaders("payload", metadataWithoutId, false)).isEmpty()
             assertThat(routing.buildHeaders("payload", metadataWithoutId)).isEmpty()
         }
@@ -101,7 +101,7 @@ class OutboxRoutingTest {
 
             assertThatThrownBy { routing.buildHeaders("payload", metadata, true) }
                 .isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining(OutboxHeaders.IDEMPOTENCY_KEY)
+                .hasMessage("${OutboxHeaders.IDEMPOTENCY_KEY} must not be empty or whitespace-only")
             assertThat(routing.buildHeaders("payload", metadata, false))
                 .containsEntry(OutboxHeaders.IDEMPOTENCY_KEY, key)
         }

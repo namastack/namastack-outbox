@@ -131,13 +131,19 @@ abstract class OutboxRouting(
         val headers = buildHeaders(payload, metadata)
         if (!idempotencyHeaderEnabled) return headers
 
-        val key =
-            requireNotNull(headers[OutboxHeaders.IDEMPOTENCY_KEY] ?: metadata.recordId) {
-                "${OutboxHeaders.IDEMPOTENCY_KEY} requires an explicit key or a recordId"
+        val explicitKey = headers[OutboxHeaders.IDEMPOTENCY_KEY]
+        if (explicitKey != null) {
+            require(explicitKey.isNotBlank()) {
+                "${OutboxHeaders.IDEMPOTENCY_KEY} must not be empty or whitespace-only"
             }
-        require(key.isNotBlank()) { "${OutboxHeaders.IDEMPOTENCY_KEY} must not be empty or whitespace-only" }
+            return headers
+        }
 
-        return headers + (OutboxHeaders.IDEMPOTENCY_KEY to key)
+        val recordId =
+            requireNotNull(metadata.recordId) {
+                "${OutboxHeaders.IDEMPOTENCY_KEY} requires an explicit key or metadata with a recordId"
+            }
+        return headers + (OutboxHeaders.IDEMPOTENCY_KEY to recordId)
     }
 
     /**

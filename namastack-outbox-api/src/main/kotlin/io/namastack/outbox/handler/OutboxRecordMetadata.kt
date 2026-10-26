@@ -8,11 +8,6 @@ import java.time.Instant
  * Provides information about the record being processed, including custom context
  * for cross-cutting concerns like distributed tracing, multi-tenancy, or correlation IDs.
  *
- * [recordId] is nullable because this metadata is also passed to [OutboxHandler.supports]
- * during scheduling, before a record exists. It is `null` during handler selection. When the
- * framework invokes a handler to process a stored record, it always supplies that record's ID,
- * which remains stable across retries. Manually constructed metadata may also omit the ID.
- *
  * ## Usage
  *
  * Available to all handlers for context-aware record processing:
