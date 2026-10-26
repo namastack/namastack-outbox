@@ -19,6 +19,7 @@ const sidebars: SidebarsConfig = {
             'reference/scheduling',
             'reference/handlers',
             'reference/processing',
+            'reference/processing-groups',
           ],
         },
         {

@@ -87,12 +87,20 @@ public class OrderService {
 </TabItem>
 </Tabs>
 
+### Processing Groups
+
+Keep passing the original business key to `schedule()`. When
+[Processing Groups](processing-groups.md) are enabled, scheduling creates one delivery record per
+matching handler using that handler's group. Records from the same call share the original key,
+payload, context, and creation timestamp. Auto-generated business keys are also shared across
+that call's deliveries.
+
 ### Record Lifecycle
 
 Records go through the following states:
 
 - **NEW**: Freshly scheduled, waiting for processing
-- **COMPLETED**: Successfully processed by all handlers
+- **COMPLETED**: This delivery completed through its handler or a successful `COMPLETE` fallback
 - **FAILED**: Exhausted all retries, requires manual intervention
 
 ---

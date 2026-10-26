@@ -19,6 +19,17 @@ retry. See
 [Rolling Deployments](rolling-deployments.md#compatibility-failures-during-a-rollout) for the
 complete behavior and the required deployment sequence.
 
+## Processing Groups
+
+Each delivery runs through this chain independently. With grouped scheduling enabled, strict
+failure blocking applies to `(processing group, business key)` within the outbox. A retry or
+permanent failure blocks other handlers sharing that boundary. A successful fallback with
+`COMPLETE` releases it; disposition `FAIL` keeps it blocked.
+
+Groups share worker and database capacity. The scheduler waits for its current batch before
+polling again, so a slow handler can delay new work in other groups. See
+[Processing Groups](processing-groups.md) for configuration and ordering limits.
+
 ## Chain Architecture
 
 The processing chain consists of four processors, executed in this exact order:

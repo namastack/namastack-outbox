@@ -30,6 +30,10 @@ namastack:
     rebalance-interval: 10s                    # (deprecated) Use instance.rebalance-interval
     batch-size: 10                             # (deprecated) Use polling.batch-size
 
+    # Processing Groups (since 1.12.0)
+    processing-groups:
+      enabled: false                          # Use declared groups for new deliveries (default: false)
+
     # Processing Configuration
     processing:
       stop-on-first-failure: true              # Stop processing on first failure (default: true)
@@ -121,6 +125,11 @@ namastack:
       fifo-deduplication-id-enabled: false     # Set native FIFO deduplication ID (default: false)
       default-topic-arn: arn:aws:sns:us-east-1:000000000000:outbox-events   # Default SNS topic ARN (default: arn:aws:sns:us-east-1:000000000000:outbox-events)
 ```
+
+`processing-groups.enabled` controls new writes. Existing grouped records are decoded even when
+it is `false`. Upgrade all workers before enabling it, and drain affected deliveries before changing
+a handler's effective group. See [Processing Groups](processing-groups.md) for declarations, key
+limits, and the rollout procedure.
 
 :::info RabbitMQ publisher confirms
 Rabbit outbox publishing requires Spring AMQP correlated publisher confirms:
