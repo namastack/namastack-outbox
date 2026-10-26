@@ -69,7 +69,7 @@ outbox_record_process_seconds_count
 ```
 
 ```promql
-time() - outbox_metrics_collection_last_success_timestamp
+time() - outbox_metrics_collection_last_success_timestamp_seconds
 ```
 
 ```promql
@@ -100,7 +100,7 @@ During the outage:
 - Database-backed gauges become `NaN` when collection fails or their cached values expire.
   With this example's settings, wait at least 15 seconds to see all cached values expire.
 - JVM metrics remain available, and each call to `/ping` increases `demo_pings_total`.
-- `outbox_metrics_collection_last_success_timestamp` stops advancing.
+- `outbox_metrics_collection_last_success_timestamp_seconds` stops advancing.
 - `up{job="outbox-metrics"}` stays `1` in Prometheus. This means scraping works; it does not
   indicate that the database is healthy.
 

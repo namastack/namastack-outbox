@@ -48,28 +48,56 @@ internal class OutboxMetricsCollector(
     private val log = LoggerFactory.getLogger(OutboxMetricsCollector::class.java)
     private val collecting = AtomicBoolean(false)
 
-    val recordCounts: Map<OutboxRecordStatus, OutboxMetricValue> = createRecordCounts()
-    val assignedPartitions = OutboxMetricValue(properties.maxAge, clock)
-    val pendingRecords = OutboxMetricValue(properties.maxAge, clock)
-    val activeInstances = OutboxMetricValue(properties.maxAge, clock)
-    val unassignedPartitions = OutboxMetricValue(properties.maxAge, clock)
+    private val recordCounts: Map<OutboxRecordStatus, OutboxMetricValue> = createRecordCounts()
+    private val assignedPartitions = OutboxMetricValue(properties.maxAge, clock)
+    private val pendingRecords = OutboxMetricValue(properties.maxAge, clock)
+    private val activeInstances = OutboxMetricValue(properties.maxAge, clock)
+    private val unassignedPartitions = OutboxMetricValue(properties.maxAge, clock)
 
     @Volatile
     var lastSuccessTimestamp: Double = Double.NaN
         private set
 
+    /** Status gauges are available only when the optional status repository is present. */
+    val recordStatuses: Set<OutboxRecordStatus> get() = recordCounts.keys
+
+    fun recordCount(status: OutboxRecordStatus): Double = recordCounts.getValue(status).value()
+
+    fun assignedPartitions(): Double = assignedPartitions.value()
+
+    fun pendingRecords(): Double = pendingRecords.value()
+
+    fun activeInstances(): Double = activeInstances.value()
+
+    fun unassignedPartitions(): Double = unassignedPartitions.value()
+
     @Volatile
+    private var running = false
+    private var bound = false
     private var scheduledTask: ScheduledFuture<*>? = null
 
     /** Starts after instance registration and partition coordination, and stops before them. */
     override fun getPhase(): Int = Int.MAX_VALUE
 
-    override fun isRunning(): Boolean = scheduledTask != null
+    // An active lifecycle must receive stop() even while waiting for its first binding.
+    override fun isRunning(): Boolean = running
 
-    /** Registers background collection once, without waiting for a database query. */
+    /** Enables collection once gauges are bound, without waiting for a database query. */
     @Synchronized
     override fun start() {
-        if (isRunning) return
+        running = true
+        scheduleIfReady()
+    }
+
+    /** Enables collection after binding, including when the lifecycle has already started. */
+    @Synchronized
+    fun markBound() {
+        bound = true
+        scheduleIfReady()
+    }
+
+    private fun scheduleIfReady() {
+        if (!running || !bound || scheduledTask != null) return
 
         scheduledTask = taskScheduler.scheduleWithFixedDelay(::refresh, properties.refreshInterval)
         log.debug("Outbox metrics collection scheduled (interval={})", properties.refreshInterval)
@@ -78,6 +106,7 @@ internal class OutboxMetricsCollector(
     /** Cancels collection and interrupts an active query without waiting for it to finish. */
     @Synchronized
     override fun stop() {
+        running = false
         scheduledTask?.cancel(true)
         scheduledTask = null
         log.debug("Outbox metrics collection stopped")

@@ -171,8 +171,10 @@ Use gauges for operational state:
 
 ### Background Gauge Collection
 
-A dedicated worker collects record, instance, and partition counts immediately after the outbox
-runtime starts, then waits 15 seconds after each collection finishes before starting the next. Collections do not overlap
+A dedicated worker collects record, instance, and partition counts once the outbox runtime has
+started and its gauges have been bound to a meter registry, then waits 15 seconds after each
+collection finishes before starting the next. Applications using only tracing without bound gauges
+do not run background metric queries. Collections do not overlap
 and do not use the processing or heartbeat scheduler. All meter registries share the collected
 values for that runtime.
 
@@ -201,23 +203,24 @@ query in a collection succeeds. Its last successful timestamp remains available 
 monitor its age to detect stalled or failing collection. For example, in Prometheus:
 
 ```promql
-time() - outbox_metrics_collection_last_success_timestamp > 60
+time() - outbox_metrics_collection_last_success_timestamp_seconds > 60
 ```
 
 Also account for missing or unknown readings before the first successful collection. Backend
 handling of `NaN` varies; do not interpret a missing or unknown count as an empty outbox.
 
-:::note Changed gauge behavior
+Once gauges are bound, a `MeterFilter` or `management.metrics.enable.*` setting controls
+publication only and does not prevent background queries. To disable all state gauges and their
+database collection, set `namastack.outbox.observability.metrics.enabled=false`.
+Observation-based timers remain enabled.
+
+:::note Changed in 1.12.0
 
 State gauges previously queried the database during metric observation and returned zero on
 failure. They now expose background readings, which can lag behind the database, and report
 unknown values on failure or expiry. Existing metric names and tags are unchanged. Review
 alerts and dashboards that relied on immediate updates or zero values during database outages.
 Observation-based timers are unchanged.
-
-A `MeterFilter` or `management.metrics.enable.*` setting controls publication only; it no longer
-prevents background queries. To disable all state gauges and their database collection, set
-`namastack.outbox.observability.metrics.enabled=false`. Observation-based timers remain enabled.
 
 The infrastructure class `OutboxInstanceMetricsMeterBinder` has a new constructor. Applications
 using Spring Boot auto-configuration require no wiring changes. Code that directly instantiated

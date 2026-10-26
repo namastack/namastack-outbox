@@ -27,7 +27,8 @@ import java.time.Clock
  * beans are available and state metrics are enabled.
  *
  * Creates a dedicated scheduler and collector for this runtime. Collection starts through
- * Spring lifecycle management after instance registration and partition coordination.
+ * Spring lifecycle management after instance registration and partition coordination, once the
+ * gauges have been bound to a meter registry.
  * Observation-based timers are configured separately.
  *
  * @author Roland Beisel

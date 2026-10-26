@@ -1,8 +1,11 @@
 package io.namastack.outbox.observability.metrics
 
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.micrometer.observation.ObservationRegistry
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatusRepository
@@ -18,6 +21,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.scheduling.TaskScheduler
 import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -130,6 +134,34 @@ class OutboxInstanceMetricsAutoConfigurationTest {
     }
 
     @Test
+    fun `tracing without bound gauges does not schedule collection even after context close`() {
+        val scheduler = mockk<TaskScheduler>()
+        var collector: OutboxMetricsCollector? = null
+        var binder: OutboxInstanceMetricsMeterBinder? = null
+        contextRunner
+            .withConfiguration(AutoConfigurations.of(OutboxObservabilityAutoConfiguration::class.java))
+            .withBean(ObservationRegistry::class.java, { ObservationRegistry.create() })
+            .withBean(OutboxMetricsCollector.SCHEDULER_NAME, TaskScheduler::class.java, { scheduler })
+            .withUserConfiguration(RequiredBeansConfig::class.java, StatusRepositoryConfig::class.java)
+            .run { context ->
+                assertThat(context).hasNotFailed()
+                assertThat(context).doesNotHaveBean(MeterRegistry::class.java)
+                assertThat(context).hasSingleBean(MicrometerOutboxInstrumentation::class.java)
+                collector = context.getBean(OutboxMetricsCollector::class.java)
+                binder = context.getBean(OutboxInstanceMetricsMeterBinder::class.java)
+                verify(exactly = 0) { scheduler.scheduleWithFixedDelay(any<Runnable>(), any<Duration>()) }
+            }
+        assertThat(collector!!.isRunning).isFalse()
+        val registry = SimpleMeterRegistry()
+        try {
+            binder!!.bindTo(registry)
+        } finally {
+            registry.close()
+        }
+        verify(exactly = 0) { scheduler.scheduleWithFixedDelay(any<Runnable>(), any<Duration>()) }
+    }
+
+    @Test
     fun `binds collection settings and stops collector when context closes`() {
         var collector: OutboxMetricsCollector? = null
         contextRunner
@@ -153,6 +185,7 @@ class OutboxInstanceMetricsAutoConfigurationTest {
         val entered = CountDownLatch(1)
         val release = CountDownLatch(1)
         val closer = Executors.newSingleThreadExecutor()
+        val registry = SimpleMeterRegistry()
         val repository = mockk<OutboxRecordStatusRepository>()
         every { repository.countByStatus(any()) } answers {
             entered.countDown()
@@ -174,6 +207,7 @@ class OutboxInstanceMetricsAutoConfigurationTest {
                 .withBean(OutboxRecordStatusRepository::class.java, { repository })
                 .run { context ->
                     assertThat(context).hasNotFailed()
+                    context.getBean(OutboxInstanceMetricsMeterBinder::class.java).bindTo(registry)
                     assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue()
                     val closed = closer.submit { context.sourceApplicationContext.close() }
                     try {
@@ -186,6 +220,7 @@ class OutboxInstanceMetricsAutoConfigurationTest {
         } finally {
             release.countDown()
             closer.shutdownNow()
+            registry.close()
         }
     }
 

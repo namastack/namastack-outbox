@@ -230,6 +230,10 @@ class OutboxInstanceMetricsMeterBinderTest {
                 assertTimeoutPreemptively(Duration.ofSeconds(2)) {
                     val scrape = prometheus.scrape()
                     assertThat(scrape).contains("unrelated_requests_total 1.0")
+                    assertThat(scrape).contains(
+                        "outbox_metrics_collection_last_success_timestamp_seconds{outbox_channel=\"orders\"} " +
+                            Instant.parse("2026-10-22T12:00:00Z").epochSecond.toDouble(),
+                    )
                     assertThat(
                         scrape,
                     ).contains("outbox_records{outbox_channel=\"orders\",outbox_record_status=\"new\"} NaN")
@@ -325,9 +329,10 @@ class OutboxInstanceMetricsMeterBinderTest {
             )
 
         try {
+            OutboxInstanceMetricsMeterBinder(scheduledCollector, OutboxChannelNameProvider.DEFAULT).bindTo(registry)
             scheduledCollector.start()
             assertThat(recovered.await(5, TimeUnit.SECONDS)).isTrue()
-            assertThat(scheduledCollector.recordCounts.getValue(NEW).value()).isEqualTo(20.0)
+            assertThat(scheduledCollector.recordCount(NEW)).isEqualTo(20.0)
         } finally {
             scheduledCollector.stop()
         }

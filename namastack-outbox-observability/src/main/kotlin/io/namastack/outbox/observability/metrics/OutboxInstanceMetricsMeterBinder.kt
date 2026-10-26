@@ -24,62 +24,42 @@ class OutboxInstanceMetricsMeterBinder internal constructor(
     override fun bindTo(meterRegistry: MeterRegistry) {
         val channelTag = channelNameProvider.getChannelName()
 
-        collector.recordCounts.forEach { (status, reading) ->
+        collector.recordStatuses.forEach { status ->
             Gauge
-                .builder(OutboxMetricNames.RECORDS, reading::value)
+                .builder(OutboxMetricNames.RECORDS) { collector.recordCount(status) }
                 .description("Count of outbox records by status")
                 .tag(OutboxMetricKeyNames.LowCardinality.RECORD_STATUS, status.name.lowercase())
                 .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
                 .register(meterRegistry)
         }
 
-        register(
-            registry = meterRegistry,
-            name = OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED,
-            description = "Number of partitions assigned to this instance",
-        ) {
-            collector.assignedPartitions.value()
-        }
-        register(
-            registry = meterRegistry,
-            name = OutboxMetricNames.INSTANCE_RECORDS_PENDING,
-            description = "Total pending records across all assigned partitions",
-        ) {
-            collector.pendingRecords.value()
-        }
-        register(
-            registry = meterRegistry,
-            name = OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE,
-            description = "Number of active instances in the outbox cluster",
-        ) {
-            collector.activeInstances.value()
-        }
-        register(
-            registry = meterRegistry,
-            name = OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED,
-            description = "Number of partitions currently not assigned to any instance",
-        ) {
-            collector.unassignedPartitions.value()
-        }
-        register(
-            registry = meterRegistry,
-            name = OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP,
-            description = "Unix timestamp in seconds of the last successful collection of all outbox gauges",
-        ) {
-            collector.lastSuccessTimestamp
-        }
-    }
-
-    private fun register(
-        registry: MeterRegistry,
-        name: String,
-        description: String,
-        value: () -> Double,
-    ) {
         Gauge
-            .builder(name, value)
-            .description(description)
-            .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelNameProvider.getChannelName())
-            .register(registry)
+            .builder(OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED, collector::assignedPartitions)
+            .description("Number of partitions assigned to this instance")
+            .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
+            .register(meterRegistry)
+        Gauge
+            .builder(OutboxMetricNames.INSTANCE_RECORDS_PENDING, collector::pendingRecords)
+            .description("Total pending records across all assigned partitions")
+            .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
+            .register(meterRegistry)
+        Gauge
+            .builder(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE, collector::activeInstances)
+            .description("Number of active instances in the outbox cluster")
+            .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
+            .register(meterRegistry)
+        Gauge
+            .builder(OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED, collector::unassignedPartitions)
+            .description("Number of partitions currently not assigned to any instance")
+            .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
+            .register(meterRegistry)
+        Gauge
+            .builder(OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP) { collector.lastSuccessTimestamp }
+            .description("Unix timestamp in seconds of the last successful collection of all outbox gauges")
+            .baseUnit("seconds")
+            .tag(OutboxMetricKeyNames.LowCardinality.CHANNEL, channelTag)
+            .register(meterRegistry)
+
+        collector.markBound()
     }
 }
