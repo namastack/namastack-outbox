@@ -1,5 +1,6 @@
 package io.namastack.outbox.handler.assembly
 
+import io.namastack.outbox.handler.OutboxConsumerGroup
 import io.namastack.outbox.handler.discovery.HandlerDeclarations
 import io.namastack.outbox.handler.discovery.HandlerDiscoveryValidator
 import io.namastack.outbox.handler.identity.OutboxHandlerMethodIdentityResolver
@@ -32,6 +33,7 @@ internal class HandlerRegistrationAssembler(
      * @param handlerSelector Selects primary handler methods after relationship validation
      * @return Complete registrations ready to be installed in the handler registry
      * @throws IllegalStateException if the declarations contain an ambiguous relationship
+     * @throws IllegalArgumentException if a selected handler declares an invalid consumer group
      */
     fun assemble(
         declarations: HandlerDeclarations,
@@ -63,6 +65,7 @@ internal class HandlerRegistrationAssembler(
                     primary = primary,
                     fallback = fallback,
                     explicitRetryPolicy = retryPolicyResolver.resolve(candidate),
+                    consumerGroup = OutboxConsumerGroup.validate(candidate.configuredConsumerGroup),
                 )
             }
     }

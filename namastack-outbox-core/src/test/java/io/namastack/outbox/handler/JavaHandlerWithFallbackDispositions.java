@@ -18,6 +18,16 @@ public class JavaHandlerWithFallbackDispositions
     }
 
     @Override
+    public @NonNull String getTypedHandlerConsumerGroup() {
+        return "billing";
+    }
+
+    @Override
+    public @NonNull String getGenericHandlerConsumerGroup() {
+        return "audit";
+    }
+
+    @Override
     public @NonNull OutboxFallbackDisposition getTypedFallbackDisposition() {
         return OutboxFallbackDisposition.FAIL;
     }

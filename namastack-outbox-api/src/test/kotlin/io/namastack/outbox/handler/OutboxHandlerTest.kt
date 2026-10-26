@@ -51,6 +51,7 @@ class OutboxHandlerTest {
             }
 
         assertThat(handler.getGenericHandlerIdentity()).isNull()
+        assertThat(handler.getGenericHandlerConsumerGroup()).isEqualTo(OutboxConsumerGroup.DEFAULT)
     }
 
     @Test
@@ -64,6 +65,7 @@ class OutboxHandlerTest {
             }
 
         assertThat(handler.getTypedHandlerIdentity()).isNull()
+        assertThat(handler.getTypedHandlerConsumerGroup()).isEqualTo(OutboxConsumerGroup.DEFAULT)
     }
 
     @Test
@@ -71,6 +73,7 @@ class OutboxHandlerTest {
         val handler = LegacyJavaTypedHandler()
 
         assertThat(handler.getTypedHandlerIdentity()).isNull()
+        assertThat(handler.getTypedHandlerConsumerGroup()).isEqualTo(OutboxConsumerGroup.DEFAULT)
     }
 
     private fun metadata() =

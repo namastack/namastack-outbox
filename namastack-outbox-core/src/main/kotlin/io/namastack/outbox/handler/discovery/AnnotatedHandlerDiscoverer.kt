@@ -14,7 +14,7 @@ internal object AnnotatedHandlerDiscoverer {
     /**
      * Discovers methods on a bean that carry [OutboxHandler].
      *
-     * Stable IDs and aliases declared by the annotation are copied to each unvalidated candidate.
+     * Stable IDs, aliases, and consumer groups are copied to each unvalidated candidate.
      *
      * @param bean Bean to inspect for annotated handler methods
      * @param beanName Spring name of the inspected bean
@@ -38,6 +38,7 @@ internal object AnnotatedHandlerDiscoverer {
                     source = HandlerSource.ANNOTATION,
                     configuredId = annotation.id.takeIf { it.isNotEmpty() },
                     configuredAliases = annotation.aliases.toSet(),
+                    configuredConsumerGroup = annotation.consumerGroup,
                     lambdaBeanNameId = null,
                     supportsPayload = { _, _ -> true },
                 )

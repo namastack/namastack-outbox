@@ -9,7 +9,7 @@ import org.springframework.util.ClassUtils
 /**
  * Discovers primary methods implemented through the public handler interfaces.
  *
- * Interface configuration, including stable IDs, aliases, and generic scheduling support, is
+ * Interface configuration, including stable IDs, aliases, consumer groups, and scheduling support, is
  * copied into the resulting candidates for later assembly.
  *
  * @author Roland Beisel
@@ -20,7 +20,7 @@ internal object InterfaceHandlerDiscoverer {
      * Discovers primary declarations implemented through the handler interfaces.
      *
      * The concrete implementation method and generic payload type are resolved against the bean's
-     * user class. Stable IDs, aliases, and scheduling support are retained on the candidates.
+     * user class. Stable IDs, aliases, consumer groups, and scheduling support are retained on the candidates.
      *
      * @param bean Bean to inspect for typed and generic handler interfaces
      * @param beanName Spring name of the inspected bean
@@ -48,6 +48,7 @@ internal object InterfaceHandlerDiscoverer {
                             ),
                         payloadType = payloadType,
                         source = HandlerSource.TYPED_INTERFACE,
+                        configuredConsumerGroup = bean.getTypedHandlerConsumerGroup(),
                         configuredId = identity?.id,
                         configuredAliases = identity?.aliases.orEmpty(),
                         lambdaBeanNameId = lambdaId,
@@ -70,6 +71,7 @@ internal object InterfaceHandlerDiscoverer {
                             ),
                         payloadType = Any::class.java,
                         source = HandlerSource.GENERIC_INTERFACE,
+                        configuredConsumerGroup = bean.getGenericHandlerConsumerGroup(),
                         configuredId = identity?.id,
                         configuredAliases = identity?.aliases.orEmpty(),
                         lambdaBeanNameId = lambdaId,
