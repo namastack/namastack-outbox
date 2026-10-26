@@ -2,12 +2,12 @@ package io.namastack.outbox.handler.discovery
 
 import io.namastack.outbox.annotation.OutboxFallbackHandler
 import io.namastack.outbox.handler.JavaHandlerWithFallbackDispositions
-import io.namastack.outbox.handler.OutboxConsumerGroup
 import io.namastack.outbox.handler.OutboxFailureContext
 import io.namastack.outbox.handler.OutboxFallbackDisposition
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxHandlerWithFallback
+import io.namastack.outbox.handler.OutboxProcessingGroup
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
 import io.namastack.outbox.handler.OutboxTypedHandlerWithFallback
@@ -41,7 +41,7 @@ class HandlerDiscoveryTest {
             assertThat(source).isEqualTo(HandlerSource.ANNOTATION)
             assertThat(configuredId).isEqualTo("orders-v2")
             assertThat(configuredAliases).containsExactly("orders-v1")
-            assertThat(configuredConsumerGroup).isEqualTo(OutboxConsumerGroup.DEFAULT)
+            assertThat(configuredProcessingGroup).isEqualTo(OutboxProcessingGroup.DEFAULT)
             assertThat(lambdaBeanNameId).isNull()
             assertThat(supportsPayload("payload", metadata)).isTrue()
         }
@@ -88,16 +88,16 @@ class HandlerDiscoveryTest {
         assertThat(candidate.source).isEqualTo(HandlerSource.GENERIC_INTERFACE)
         assertThat(candidate.configuredId).isEqualTo("generic-v2")
         assertThat(candidate.configuredAliases).containsExactly("generic-v1")
-        assertThat(candidate.configuredConsumerGroup).isEqualTo(OutboxConsumerGroup.DEFAULT)
+        assertThat(candidate.configuredProcessingGroup).isEqualTo(OutboxProcessingGroup.DEFAULT)
         assertThat(candidate.supportsPayload("accepted", metadata)).isTrue()
         assertThat(candidate.supportsPayload("rejected", metadata)).isFalse()
     }
 
     @Test
-    fun `discovers separate consumer groups on a Java bean implementing both interfaces`() {
+    fun `discovers separate processing groups on a Java bean implementing both interfaces`() {
         val candidates = InterfaceHandlerDiscoverer.discover(JavaHandlerWithFallbackDispositions(), "javaBean")
 
-        assertThat(candidates.associate { it.source to it.configuredConsumerGroup })
+        assertThat(candidates.associate { it.source to it.configuredProcessingGroup })
             .containsEntry(HandlerSource.TYPED_INTERFACE, "billing")
             .containsEntry(HandlerSource.GENERIC_INTERFACE, "audit")
     }
@@ -113,7 +113,7 @@ class HandlerDiscoveryTest {
 
         assertThat(candidates).singleElement().satisfies({ candidate ->
             assertThat(candidate.source).isEqualTo(HandlerSource.TYPED_INTERFACE)
-            assertThat(candidate.configuredConsumerGroup).isEqualTo(OutboxConsumerGroup.DEFAULT)
+            assertThat(candidate.configuredProcessingGroup).isEqualTo(OutboxProcessingGroup.DEFAULT)
             assertThat(candidate.supportsPayload("payload", metadata)).isTrue()
         })
     }

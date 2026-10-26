@@ -1,6 +1,6 @@
 package io.namastack.outbox.handler.assembly
 
-import io.namastack.outbox.handler.OutboxConsumerGroup
+import io.namastack.outbox.handler.OutboxProcessingGroup
 import io.namastack.outbox.handler.method.fallback.OutboxFallbackHandlerMethod
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.retry.OutboxRetryPolicy
@@ -12,7 +12,7 @@ import io.namastack.outbox.retry.OutboxRetryPolicy
  * @property primary primary method and its canonical routing identity
  * @property fallback optional fallback paired with [primary]
  * @property explicitRetryPolicy handler-specific policy, or `null` to use the registry default lazily
- * @property consumerGroup validated consumer group declared by this handler
+ * @property processingGroup validated processing group declared by this handler
  *
  * @author Roland Beisel
  * @since 1.9.0
@@ -22,5 +22,5 @@ internal data class HandlerRegistration(
     val primary: OutboxHandlerMethod,
     val fallback: OutboxFallbackHandlerMethod?,
     val explicitRetryPolicy: OutboxRetryPolicy?,
-    val consumerGroup: String = OutboxConsumerGroup.DEFAULT,
+    val processingGroup: String = OutboxProcessingGroup.DEFAULT,
 )

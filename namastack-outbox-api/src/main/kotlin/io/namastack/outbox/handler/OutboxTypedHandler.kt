@@ -50,15 +50,15 @@ interface OutboxTypedHandler<T> {
     fun getTypedHandlerIdentity(): OutboxHandlerIdentity? = null
 
     /**
-     * Returns the consumer group of this typed handler declaration.
+     * Returns the processing group of this typed handler declaration.
      *
-     * Names must follow the rules in [OutboxConsumerGroup]. This setting is independent of
+     * Names must follow the rules in [OutboxProcessingGroup]. This setting is independent of
      * the other handler declarations on the same bean.
      *
-     * @return The declared group, or [OutboxConsumerGroup.DEFAULT] when not overridden
+     * @return The declared group, or [OutboxProcessingGroup.DEFAULT] when not overridden
      * @since 1.12.0
      */
-    fun getTypedHandlerConsumerGroup(): String = OutboxConsumerGroup.DEFAULT
+    fun getTypedHandlerProcessingGroup(): String = OutboxProcessingGroup.DEFAULT
 
     /**
      * Handles an outbox record with payload and metadata.

@@ -1,11 +1,11 @@
-package io.namastack.outbox.consumer
+package io.namastack.outbox.processing
 
-import io.namastack.outbox.handler.OutboxConsumerGroup
+import io.namastack.outbox.handler.OutboxProcessingGroup
 
 /**
- * Encodes a consumer group and business key in the existing record key column.
+ * Encodes a processing group and business key in the existing record key column.
  *
- * Non-default groups use `~ns.cg1~<group>:<business key>`. Group names cannot contain a colon,
+ * Non-default groups use `~ns.pg1~<group>:<business key>`. Group names cannot contain a colon,
  * so the first colon after the prefix separates the group from the verbatim business key.
  * Default-group keys are unencoded.
  *
@@ -17,7 +17,7 @@ import io.namastack.outbox.handler.OutboxConsumerGroup
  * @since 1.12.0
  */
 internal object OutboxRecordKey {
-    private const val PREFIX = "~ns.cg1~"
+    private const val PREFIX = "~ns.pg1~"
     private const val MAX_ENCODED_BYTES = 255
 
     /**
@@ -31,18 +31,18 @@ internal object OutboxRecordKey {
      * encoded key exceeds the byte limit
      */
     fun encode(
-        consumerGroup: String,
+        processingGroup: String,
         businessKey: String,
     ): String {
-        OutboxConsumerGroup.validate(consumerGroup)
+        OutboxProcessingGroup.validate(processingGroup)
 
-        require(!businessKey.startsWith(PREFIX)) { "Business key uses the reserved consumer-group prefix $PREFIX" }
+        require(!businessKey.startsWith(PREFIX)) { "Business key uses the reserved processing-group prefix $PREFIX" }
 
-        if (consumerGroup == OutboxConsumerGroup.DEFAULT) return businessKey
+        if (processingGroup == OutboxProcessingGroup.DEFAULT) return businessKey
 
-        val encoded = "$PREFIX$consumerGroup:$businessKey"
+        val encoded = "$PREFIX$processingGroup:$businessKey"
         require(encoded.toByteArray(Charsets.UTF_8).size <= MAX_ENCODED_BYTES) {
-            "Encoded consumer-group key exceeds the $MAX_ENCODED_BYTES-byte UTF-8 record_key limit"
+            "Encoded processing-group key exceeds the $MAX_ENCODED_BYTES-byte UTF-8 record_key limit"
         }
 
         return encoded
@@ -53,7 +53,7 @@ internal object OutboxRecordKey {
      * unchanged business keys in the default group, so legacy records can still be read.
      */
     fun decode(recordKey: String): DecodedKey {
-        val legacy = DecodedKey(OutboxConsumerGroup.DEFAULT, recordKey)
+        val legacy = DecodedKey(OutboxProcessingGroup.DEFAULT, recordKey)
         if (!recordKey.startsWith(PREFIX)) return legacy
 
         return try {
@@ -65,12 +65,12 @@ internal object OutboxRecordKey {
 
     private fun decodeGrouped(recordKey: String): DecodedKey {
         val separator = recordKey.indexOf(':', PREFIX.length)
-        require(separator > PREFIX.length) { "Missing consumer-group separator or name" }
+        require(separator > PREFIX.length) { "Missing processing-group separator or name" }
 
         val group = recordKey.substring(PREFIX.length, separator)
         val key = recordKey.substring(separator + 1)
-        require(group != OutboxConsumerGroup.DEFAULT && encode(group, key) == recordKey) {
-            "Non-canonical consumer-group record key"
+        require(group != OutboxProcessingGroup.DEFAULT && encode(group, key) == recordKey) {
+            "Non-canonical processing-group record key"
         }
 
         return DecodedKey(group, key)
@@ -78,7 +78,7 @@ internal object OutboxRecordKey {
 
     /** Group and original business key to expose to handlers and messaging integrations. */
     data class DecodedKey(
-        val consumerGroup: String,
+        val processingGroup: String,
         val businessKey: String,
     )
 }

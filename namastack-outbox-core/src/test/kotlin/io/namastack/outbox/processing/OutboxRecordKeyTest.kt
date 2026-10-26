@@ -1,6 +1,6 @@
-package io.namastack.outbox.consumer
+package io.namastack.outbox.processing
 
-import io.namastack.outbox.handler.OutboxConsumerGroup
+import io.namastack.outbox.handler.OutboxProcessingGroup
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import org.junit.jupiter.api.Test
@@ -12,20 +12,20 @@ class OutboxRecordKeyTest {
     @Test
     fun `uses the versioned format for a non-default group`() {
         assertThat(OutboxRecordKey.encode("billing", "order-42"))
-            .isEqualTo("~ns.cg1~billing:order-42")
+            .isEqualTo("~ns.pg1~billing:order-42")
 
-        assertDecoded("~ns.cg1~billing:order-42", "billing", "order-42")
+        assertDecoded("~ns.pg1~billing:order-42", "billing", "order-42")
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["", "order-42", "a:b::c", "订单-😀-ä", " leading and trailing ", "key/~ns.cg1~billing:x"])
+    @ValueSource(strings = ["", "order-42", "a:b::c", "订单-😀-ä", " leading and trailing ", "key/~ns.pg1~billing:x"])
     fun `retains default-group keys exactly`(key: String) {
-        assertThat(OutboxRecordKey.encode(OutboxConsumerGroup.DEFAULT, key)).isEqualTo(key)
-        assertDecoded(key, OutboxConsumerGroup.DEFAULT, key)
+        assertThat(OutboxRecordKey.encode(OutboxProcessingGroup.DEFAULT, key)).isEqualTo(key)
+        assertDecoded(key, OutboxProcessingGroup.DEFAULT, key)
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["", "order-42", "a:b::c", "订单-😀-ä", " leading and trailing ", "key/~ns.cg1~billing:x"])
+    @ValueSource(strings = ["", "order-42", "a:b::c", "订单-😀-ä", " leading and trailing ", "key/~ns.pg1~billing:x"])
     fun `round trips business keys without escaping or normalization`(key: String) {
         assertDecoded(OutboxRecordKey.encode("billing", key), "billing", key)
     }
@@ -36,7 +36,7 @@ class OutboxRecordKeyTest {
             listOf(
                 OutboxRecordKey.encode("billing", "order-42"),
                 OutboxRecordKey.encode("notifications", "order-42"),
-                OutboxRecordKey.encode(OutboxConsumerGroup.DEFAULT, "order-42"),
+                OutboxRecordKey.encode(OutboxProcessingGroup.DEFAULT, "order-42"),
                 OutboxRecordKey.encode("billing", "order-43"),
             )
 
@@ -55,13 +55,13 @@ class OutboxRecordKeyTest {
     fun `rejects invalid groups when encoding`(group: String) {
         assertThatIllegalArgumentException()
             .isThrownBy { OutboxRecordKey.encode(group, "order-42") }
-            .withMessageContaining("Consumer group")
+            .withMessageContaining("Processing group")
     }
 
     @ParameterizedTest
     @ValueSource(strings = ["default", "billing"])
     fun `rejects reserved business-key prefixes for all groups`(group: String) {
-        listOf("~ns.cg1~", "~ns.cg1~malformed", "~ns.cg1~billing:order-42").forEach { key ->
+        listOf("~ns.pg1~", "~ns.pg1~malformed", "~ns.pg1~billing:order-42").forEach { key ->
             assertThatIllegalArgumentException()
                 .isThrownBy { OutboxRecordKey.encode(group, key) }
                 .withMessageContaining("reserved")
@@ -102,49 +102,49 @@ class OutboxRecordKeyTest {
     fun `does not impose a new length limit on default-group keys`() {
         val key = "ä".repeat(300)
 
-        assertThat(OutboxRecordKey.encode(OutboxConsumerGroup.DEFAULT, key)).isEqualTo(key)
-        assertDecoded(key, OutboxConsumerGroup.DEFAULT, key)
+        assertThat(OutboxRecordKey.encode(OutboxProcessingGroup.DEFAULT, key)).isEqualTo(key)
+        assertDecoded(key, OutboxProcessingGroup.DEFAULT, key)
     }
 
     @ParameterizedTest
     @ValueSource(
         strings = [
-            "~ns.cg1~",
-            "~ns.cg1~:key",
-            "~ns.cg1~billing",
-            "~ns.cg1~billing!key",
-            "~ns.cg1~Billing:key",
-            "~ns.cg1~bülling:key",
-            "~ns.cg1~ billing:key",
-            "~ns.cg1~billing :key",
-            "~ns.cg1~-billing:key",
-            "~ns.cg1~default:key",
-            "~ns.cg1~billing:~ns.cg1~billing:key",
-            "~ns.cg2~billing:key",
+            "~ns.pg1~",
+            "~ns.pg1~:key",
+            "~ns.pg1~billing",
+            "~ns.pg1~billing!key",
+            "~ns.pg1~Billing:key",
+            "~ns.pg1~bülling:key",
+            "~ns.pg1~ billing:key",
+            "~ns.pg1~billing :key",
+            "~ns.pg1~-billing:key",
+            "~ns.pg1~default:key",
+            "~ns.pg1~billing:~ns.pg1~billing:key",
+            "~ns.pg2~billing:key",
         ],
     )
     fun `preserves malformed non-canonical and unknown-version legacy keys`(key: String) {
-        assertDecoded(key, OutboxConsumerGroup.DEFAULT, key)
+        assertDecoded(key, OutboxProcessingGroup.DEFAULT, key)
     }
 
     @Test
     fun `preserves encoded-looking legacy keys with an invalid group length`() {
-        val key = "~ns.cg1~" + "a".repeat(65) + ":order-42"
+        val key = "~ns.pg1~" + "a".repeat(65) + ":order-42"
 
-        assertDecoded(key, OutboxConsumerGroup.DEFAULT, key)
+        assertDecoded(key, OutboxProcessingGroup.DEFAULT, key)
     }
 
     @Test
     fun `preserves oversized encoded-looking legacy keys`() {
-        val key = "~ns.cg1~billing:" + "a".repeat(240)
+        val key = "~ns.pg1~billing:" + "a".repeat(240)
 
-        assertDecoded(key, OutboxConsumerGroup.DEFAULT, key)
+        assertDecoded(key, OutboxProcessingGroup.DEFAULT, key)
     }
 
     @Test
     fun `interprets a legacy key matching the encoded format as a grouped key`() {
         // Accepted ambiguity: the persisted string alone cannot identify its origin.
-        assertDecoded("~ns.cg1~billing:legacy-order", "billing", "legacy-order")
+        assertDecoded("~ns.pg1~billing:legacy-order", "billing", "legacy-order")
     }
 
     private fun assertDecoded(
@@ -154,7 +154,7 @@ class OutboxRecordKeyTest {
     ) {
         val decoded = OutboxRecordKey.decode(storedKey)
 
-        assertThat(decoded.consumerGroup).isEqualTo(group)
+        assertThat(decoded.processingGroup).isEqualTo(group)
         assertThat(decoded.businessKey).isEqualTo(businessKey)
     }
 }

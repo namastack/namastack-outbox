@@ -1,6 +1,6 @@
 package io.namastack.outbox.annotation
 
-import io.namastack.outbox.handler.OutboxConsumerGroup
+import io.namastack.outbox.handler.OutboxProcessingGroup
 
 /**
  * Marks a method as an outbox record handler.
@@ -66,7 +66,7 @@ import io.namastack.outbox.handler.OutboxConsumerGroup
  *
  * @property id optional canonical ID; empty retains the generated ID
  * @property aliases lookup-only IDs for persisted records
- * @property consumerGroup consumer group of this handler declaration; defaults to [OutboxConsumerGroup.DEFAULT]
+ * @property processingGroup processing group of this handler declaration; defaults to [OutboxProcessingGroup.DEFAULT]
  * @author Roland Beisel
  * @since 0.4.0
  */
@@ -75,5 +75,5 @@ import io.namastack.outbox.handler.OutboxConsumerGroup
 annotation class OutboxHandler(
     val id: String = "",
     val aliases: Array<String> = [],
-    val consumerGroup: String = OutboxConsumerGroup.DEFAULT,
+    val processingGroup: String = OutboxProcessingGroup.DEFAULT,
 )
