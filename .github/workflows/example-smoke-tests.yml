@@ -61,6 +61,7 @@ jobs:
           - namastack-outbox-example-mariadb
           - namastack-outbox-example-metrics
           - namastack-outbox-example-modulith
+          - namastack-outbox-example-modulith-delivery
           - namastack-outbox-example-mongodb
           - namastack-outbox-example-multicaster
           - namastack-outbox-example-mysql

@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: namastack-outbox-example-modulith-delivery
+  datasource:
+    url: jdbc:h2:file:./data/modulith-delivery;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    hikari:
+      # Each transactional handler briefly needs a second connection for its idempotency lease.
+      maximum-pool-size: 20
+  sql:
+    init:
+      mode: always
+
+namastack:
+  outbox:
+    multicaster:
+      enabled: true
+      publish-after-save: false
+    processing-groups:
+      enabled: true
+    processing:
+      executor-core-pool-size: 4
+      executor-max-pool-size: 8
+      executor-concurrency-limit: 8
+      stop-on-first-failure: true
+      delete-completed-records: false
+    polling:
+      fixed:
+        interval: 500ms
+
+idempotency:
+  store-type: jdbc
+  default-ttl: P7D
+  completion-failure-policy: propagate
+  jdbc:
+    # The demo uses file-backed H2, which the library does not classify as embedded.
+    initialize-schema: always
+
+logging:
+  level:
+    root: warn
+    io.namastack.example.delivery: info
