@@ -19,9 +19,12 @@ import org.springframework.stereotype.Component
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.transaction.support.TransactionTemplate
 import java.util.UUID
+import java.util.concurrent.BrokenBarrierException
 import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 @DirtiesContext
 @TestInstance(PER_CLASS)
@@ -63,7 +66,16 @@ abstract class AbstractJdbcConcurrentSchedulingTest {
                     }
                 }
 
-            results.forEach { it.get(60, TimeUnit.SECONDS) }
+            val failures =
+                results.mapNotNull { result ->
+                    runCatching { result.get(60, TimeUnit.SECONDS) }
+                        .exceptionOrNull()
+                        ?.let { (it as? ExecutionException)?.cause ?: it }
+                }
+
+            // a failed transaction breaks the barrier for the others, so report the root failure first
+            assertThat(failures.filterNot { it is BrokenBarrierException || it is TimeoutException }).isEmpty()
+            assertThat(failures).isEmpty()
         } finally {
             executor.shutdownNow()
         }
