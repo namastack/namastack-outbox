@@ -268,6 +268,32 @@ internal open class JdbcOutboxRecordRepository(
         }
 
     /**
+     * Creates a new outbox record.
+     *
+     * @param record The outbox record to create
+     * @return The created outbox record
+     */
+    override fun <T> create(record: OutboxRecord<T>): OutboxRecord<T> =
+        transactionTemplate.execute {
+            val entity = entityMapper.map(record)
+            insert(entity)
+            record
+        }
+
+    /**
+     * Updates an existing outbox record. Does nothing if the record no longer exists.
+     *
+     * @param record The outbox record to update
+     * @return True if the record was updated, false if it no longer exists
+     */
+    override fun <T> update(record: OutboxRecord<T>): Boolean =
+        transactionTemplate.execute {
+            val entity = entityMapper.map(record)
+            val updatedRows = tryUpdate(entity)
+            updatedRows == 1
+        }
+
+    /**
      * Finds all pending outbox records ordered by creation time.
      */
     override fun findPendingRecords(): List<OutboxRecord<*>> = findRecordsByStatus(OutboxRecordStatus.NEW)

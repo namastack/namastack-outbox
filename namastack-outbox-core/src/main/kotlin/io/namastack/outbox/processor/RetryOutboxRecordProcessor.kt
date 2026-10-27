@@ -40,7 +40,7 @@ class RetryOutboxRecordProcessor(
         if (shouldRetry(record, retryPolicy)) {
             val delay = retryPolicy.nextDelay(record.failureCount)
             record.scheduleNextRetry(delay, clock)
-            recordRepository.save(record)
+            recordRepository.update(record)
 
             log.debug("Scheduled retry #{} for record {} in {}", record.failureCount, record.id, delay)
 

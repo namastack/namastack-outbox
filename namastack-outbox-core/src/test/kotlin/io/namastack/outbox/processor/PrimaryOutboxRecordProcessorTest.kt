@@ -55,7 +55,7 @@ class PrimaryOutboxRecordProcessorTest {
         processor = createProcessor()
 
         justRun { handlerInvoker.dispatch(any()) }
-        every { recordRepository.save(any() as OutboxRecord<*>) } returns record
+        every { recordRepository.update(any() as OutboxRecord<*>) } returns true
 
         val result = processor.handle(record)
 
@@ -64,7 +64,7 @@ class PrimaryOutboxRecordProcessorTest {
         assertThat(record.completedAt).isEqualTo(Instant.now(clock))
 
         verify { handlerInvoker.dispatch(record) }
-        verify { recordRepository.save(record) }
+        verify { recordRepository.update(record) }
         verify(exactly = 0) { recordRepository.deleteById(any()) }
         verify(exactly = 0) { nextProcessor.handle(any()) }
     }
@@ -84,7 +84,7 @@ class PrimaryOutboxRecordProcessorTest {
 
         verify { handlerInvoker.dispatch(record) }
         verify { recordRepository.deleteById(record.id) }
-        verify(exactly = 0) { recordRepository.save(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { recordRepository.update(any() as OutboxRecord<*>) }
         verify(exactly = 0) { nextProcessor.handle(any()) }
     }
 
@@ -105,7 +105,7 @@ class PrimaryOutboxRecordProcessorTest {
 
         verify { handlerInvoker.dispatch(record) }
         verify { nextProcessor.handle(record) }
-        verify(exactly = 0) { recordRepository.save(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { recordRepository.update(any() as OutboxRecord<*>) }
         verify(exactly = 0) { recordRepository.deleteById(any()) }
     }
 
@@ -186,7 +186,7 @@ class PrimaryOutboxRecordProcessorTest {
         properties.processing.deleteCompletedRecords = false
         processor = createProcessor()
         justRun { handlerInvoker.dispatch(record) }
-        every { recordRepository.save(record) } returns record
+        every { recordRepository.update(record) } returns true
 
         val result = processor.handle(record)
 
@@ -195,7 +195,7 @@ class PrimaryOutboxRecordProcessorTest {
         assertThat(record.failureCount).isZero()
         verify(exactly = 0) { handlerInvoker.ensureHandlerAvailable(any()) }
         verify { handlerInvoker.dispatch(record) }
-        verify { recordRepository.save(record) }
+        verify { recordRepository.update(record) }
         verify(exactly = 0) { nextProcessor.handle(any()) }
     }
 

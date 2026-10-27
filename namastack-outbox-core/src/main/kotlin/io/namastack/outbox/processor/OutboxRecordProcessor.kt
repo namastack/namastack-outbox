@@ -65,7 +65,7 @@ abstract class OutboxRecordProcessor(
         } else {
             log.trace("Marking record {} as COMPLETED", record.id)
             record.markCompleted(clock)
-            repository.save(record)
+            repository.update(record)
         }
     }
 }

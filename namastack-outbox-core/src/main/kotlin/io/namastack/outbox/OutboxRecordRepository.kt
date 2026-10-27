@@ -21,6 +21,24 @@ interface OutboxRecordRepository {
     fun <T> save(record: OutboxRecord<T>): OutboxRecord<T>
 
     /**
+     * Creates a new outbox record.
+     *
+     * @param record The new outbox record
+     * @return The created outbox record
+     * @since 1.12.0
+     */
+    fun <T> create(record: OutboxRecord<T>): OutboxRecord<T>
+
+    /**
+     * Updates an existing outbox record. If the record no longer exists, nothing is written.
+     *
+     * @param record The outbox record to update
+     * @return `true` if the record was updated, `false` if it no longer exists
+     * @since 1.12.0
+     */
+    fun <T> update(record: OutboxRecord<T>): Boolean
+
+    /**
      * Finds all pending outbox records that are ready for processing.
      * Implementations **must** return records sorted by creation time ascending, then by record ID
      * ascending to resolve equal timestamps. IDs define a stable tie-breaker, not creation order.

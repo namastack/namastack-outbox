@@ -17,6 +17,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.jdbc.autoconfigure.JdbcClientAutoConfiguration
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.transaction.support.TransactionTemplate
@@ -216,6 +217,59 @@ class JdbcOutboxRecordRepositoryTest {
             val persistedUpdatedRecord = jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey).first()
 
             assertThat(persistedUpdatedRecord.failureCount).isEqualTo(updatedRecord.failureCount)
+        }
+    }
+
+    @Nested
+    @DisplayName("create()")
+    inner class CreateTests {
+        @Test
+        fun `creates an entity`() {
+            val record = newRecord()
+
+            jdbcOutboxRecordRepository.create(record)
+
+            val persistedRecord = jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
+
+            assertThat(persistedRecord.id).isEqualTo(record.id)
+            assertThat(persistedRecord.payload).isEqualTo(record.payload)
+            assertThat(persistedRecord.status).isEqualTo(NEW)
+            assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
+        }
+
+        @Test
+        fun `fails to create an entity with an existing id`() {
+            val record = newRecord()
+            jdbcOutboxRecordRepository.create(record)
+
+            assertThatThrownBy { jdbcOutboxRecordRepository.create(record) }
+                .isInstanceOf(DataIntegrityViolationException::class.java)
+        }
+    }
+
+    @Nested
+    @DisplayName("update()")
+    inner class UpdateTests {
+        @Test
+        fun `updates an existing entity`() {
+            val record = newRecord()
+            jdbcOutboxRecordRepository.create(record)
+
+            assertThat(jdbcOutboxRecordRepository.update(failedOnce(record))).isTrue()
+
+            val persistedRecord = jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
+
+            assertThat(persistedRecord.failureCount).isEqualTo(1)
+            assertThat(persistedRecord.failureReason).isEqualTo("boom")
+        }
+
+        @Test
+        fun `does not insert when updating a missing entity`() {
+            val record = newRecord()
+
+            assertThat(jdbcOutboxRecordRepository.update(record)).isFalse()
+
+            assertThat(jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
         }
     }
 
@@ -1047,6 +1101,31 @@ class JdbcOutboxRecordRepositoryTest {
                 .isInstanceOf(IllegalArgumentException::class.java)
         }
     }
+
+    private fun newRecord(): OutboxRecord<String> =
+        OutboxRecord
+            .Builder<String>()
+            .key(UUID.randomUUID().toString())
+            .payload("payload")
+            .handlerId("handlerId")
+            .build(clock)
+
+    private fun failedOnce(record: OutboxRecord<String>): OutboxRecord<String> =
+        OutboxRecord.restore(
+            id = record.id,
+            recordKey = record.key,
+            payload = record.payload,
+            context = record.context,
+            partition = record.partition,
+            createdAt = record.createdAt,
+            status = record.status,
+            completedAt = record.completedAt,
+            failureCount = 1,
+            failureReason = "boom",
+            nextRetryAt = record.nextRetryAt,
+            handlerId = record.handlerId,
+            failureException = null,
+        )
 
     private fun createFailedRecords(count: Int = 3) {
         val now = Instant.now(clock)
