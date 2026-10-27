@@ -23,6 +23,8 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
 
@@ -108,6 +110,36 @@ abstract class AbstractJdbcSchemaInitializationTest {
         }
     }
 
+    @Test
+    fun `concurrent scheduling in open transactions does not deadlock`() {
+        val keys = List(CONCURRENT_TRANSACTIONS) { UUID.randomUUID().toString() }
+        val start = CyclicBarrier(CONCURRENT_TRANSACTIONS)
+        val scheduled = CyclicBarrier(CONCURRENT_TRANSACTIONS)
+        val executor = Executors.newFixedThreadPool(CONCURRENT_TRANSACTIONS)
+
+        try {
+            val results =
+                keys.map { key ->
+                    executor.submit {
+                        transactionTemplate.executeWithoutResult {
+                            start.await(10, TimeUnit.SECONDS)
+                            outbox.schedule("hello", key)
+                            // keep all transactions open until every record is written
+                            scheduled.await(10, TimeUnit.SECONDS)
+                        }
+                    }
+                }
+
+            results.forEach { it.get(60, TimeUnit.SECONDS) }
+        } finally {
+            executor.shutdownNow()
+        }
+
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted {
+            assertThat(outboxRecordRepository.findCompletedRecords().map { it.key }).containsAll(keys)
+        }
+    }
+
     private fun tableExists(tableName: String): Boolean {
         dataSource.connection.use { connection ->
             val meta = connection.metaData
@@ -129,6 +161,7 @@ abstract class AbstractJdbcSchemaInitializationTest {
 
     companion object {
         private const val AGE_QUERY_PARTITION = 42
+        private const val CONCURRENT_TRANSACTIONS = 8
     }
 
     @Component

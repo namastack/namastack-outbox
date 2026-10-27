@@ -39,6 +39,31 @@ internal open class MongoOutboxRecordRepository(
     }
 
     /**
+     * Creates a new outbox record.
+     *
+     * @param record The outbox record to create
+     * @return The created outbox record
+     */
+    override fun <T> create(record: OutboxRecord<T>): OutboxRecord<T> {
+        val entity = entityMapper.map(record)
+        mongoTemplate.insert(entity, collectionNameResolver.outboxRecords)
+        return record
+    }
+
+    /**
+     * Updates an existing outbox record. Does nothing if the record no longer exists.
+     *
+     * @param record The outbox record to update
+     * @return True if the record was updated, false if it no longer exists
+     */
+    override fun <T> update(record: OutboxRecord<T>): Boolean {
+        val entity = entityMapper.map(record)
+        val query = Query(Criteria.where("_id").`is`(entity.id))
+        val result = mongoTemplate.replace(query, entity, collectionNameResolver.outboxRecords)
+        return result.matchedCount == 1L
+    }
+
+    /**
      * Finds all pending outbox records ordered by creation time.
      *
      * @return list of records with NEW status

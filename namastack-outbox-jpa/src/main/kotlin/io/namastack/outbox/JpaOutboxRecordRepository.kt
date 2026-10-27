@@ -215,6 +215,18 @@ internal open class JpaOutboxRecordRepository(
     """
 
     /**
+     * Query to update an existing record by id.
+     */
+    private val updateByIdQuery = """
+        update OutboxRecordEntity o
+        set o.status = :status, o.recordKey = :recordKey, o.recordType = :recordType, o.payload = :payload,
+            o.context = :context, o.partitionNo = :partitionNo, o.createdAt = :createdAt,
+            o.completedAt = :completedAt, o.failureCount = :failureCount, o.failureReason = :failureReason,
+            o.nextRetryAt = :nextRetryAt, o.handlerId = :handlerId
+        where o.id = :id
+    """
+
+    /**
      * Saves an outbox record to the database.
      *
      * If a record with the same ID already exists, it is updated (merged).
@@ -233,6 +245,48 @@ internal open class JpaOutboxRecordRepository(
                 entityManager.persist(entity)
             }
             record
+        }
+
+    /**
+     * Creates a new outbox record.
+     *
+     * @param record The outbox record to create
+     * @return The created outbox record
+     */
+    override fun <T> create(record: OutboxRecord<T>): OutboxRecord<T> =
+        transactionTemplate.execute {
+            val entity = entityMapper.map(record)
+            entityManager.persist(entity)
+            record
+        }
+
+    /**
+     * Updates an existing outbox record. Does nothing if the record no longer exists.
+     *
+     * @param record The outbox record to update
+     * @return True if the record was updated, false if it no longer exists
+     */
+    override fun <T> update(record: OutboxRecord<T>): Boolean =
+        transactionTemplate.execute {
+            val entity = entityMapper.map(record)
+            val updatedRows =
+                entityManager
+                    .createQuery(updateByIdQuery)
+                    .setParameter("status", entity.status)
+                    .setParameter("recordKey", entity.recordKey)
+                    .setParameter("recordType", entity.recordType)
+                    .setParameter("payload", entity.payload)
+                    .setParameter("context", entity.context)
+                    .setParameter("partitionNo", entity.partitionNo)
+                    .setParameter("createdAt", entity.createdAt)
+                    .setParameter("completedAt", entity.completedAt)
+                    .setParameter("failureCount", entity.failureCount)
+                    .setParameter("failureReason", entity.failureReason)
+                    .setParameter("nextRetryAt", entity.nextRetryAt)
+                    .setParameter("handlerId", entity.handlerId)
+                    .setParameter("id", entity.id)
+                    .executeUpdate()
+            updatedRows == 1
         }
 
     /**

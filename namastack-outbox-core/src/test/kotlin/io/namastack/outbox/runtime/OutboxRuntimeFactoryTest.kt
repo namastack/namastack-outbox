@@ -52,8 +52,8 @@ class OutboxRuntimeFactoryTest {
 
         ordersRuntime.outbox.schedule(RuntimePayload("created"), "order-1")
 
-        verify(exactly = 1) { orders.recordRepository.save(any<OutboxRecord<Any>>()) }
-        verify(exactly = 0) { payments.recordRepository.save(any<OutboxRecord<Any>>()) }
+        verify(exactly = 1) { orders.recordRepository.create(any<OutboxRecord<Any>>()) }
+        verify(exactly = 0) { payments.recordRepository.create(any<OutboxRecord<Any>>()) }
         verify(exactly = 0) { orders.instanceRepository.save(any()) }
     }
 

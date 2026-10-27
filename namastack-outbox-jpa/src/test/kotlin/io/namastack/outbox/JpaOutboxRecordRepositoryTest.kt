@@ -213,6 +213,92 @@ class JpaOutboxRecordRepositoryTest {
     }
 
     @Nested
+    @DisplayName("create() and update()")
+    inner class CreateAndUpdateTests {
+        @Test
+        fun `creates an entity`() {
+            val record = newRecord()
+
+            jpaOutboxRecordRepository.create(record)
+            flushAndClear()
+
+            val persistedRecord = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
+
+            assertThat(persistedRecord.id).isEqualTo(record.id)
+            assertThat(persistedRecord.payload).isEqualTo(record.payload)
+            assertThat(persistedRecord.status).isEqualTo(NEW)
+            assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
+        }
+
+        @Test
+        fun `fails to create an entity with an existing id`() {
+            val record = newRecord()
+            jpaOutboxRecordRepository.create(record)
+            flushAndClear()
+
+            assertThatThrownBy {
+                jpaOutboxRecordRepository.create(record)
+                entityManager.flush()
+            }.isInstanceOf(RuntimeException::class.java)
+        }
+
+        @Test
+        fun `updates an existing entity`() {
+            val record = newRecord()
+            jpaOutboxRecordRepository.create(record)
+            flushAndClear()
+
+            assertThat(jpaOutboxRecordRepository.update(failedOnce(record))).isTrue()
+            entityManager.clear()
+
+            val persistedRecord = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
+
+            assertThat(persistedRecord.failureCount).isEqualTo(1)
+            assertThat(persistedRecord.failureReason).isEqualTo("boom")
+        }
+
+        @Test
+        fun `does not insert when updating a missing entity`() {
+            val record = newRecord()
+
+            assertThat(jpaOutboxRecordRepository.update(record)).isFalse()
+            flushAndClear()
+
+            assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
+        }
+
+        private fun flushAndClear() {
+            entityManager.flush()
+            entityManager.clear()
+        }
+
+        private fun newRecord(): OutboxRecord<String> =
+            OutboxRecord
+                .Builder<String>()
+                .key(UUID.randomUUID().toString())
+                .payload("payload")
+                .handlerId("handlerId")
+                .build(clock)
+
+        private fun failedOnce(record: OutboxRecord<String>): OutboxRecord<String> =
+            OutboxRecord.restore(
+                id = record.id,
+                recordKey = record.key,
+                payload = record.payload,
+                context = record.context,
+                partition = record.partition,
+                createdAt = record.createdAt,
+                status = record.status,
+                completedAt = record.completedAt,
+                failureCount = 1,
+                failureReason = "boom",
+                nextRetryAt = record.nextRetryAt,
+                handlerId = record.handlerId,
+                failureException = null,
+            )
+    }
+
+    @Nested
     @DisplayName("findPendingRecords()")
     inner class FindPendingRecordsTests {
         @Test
