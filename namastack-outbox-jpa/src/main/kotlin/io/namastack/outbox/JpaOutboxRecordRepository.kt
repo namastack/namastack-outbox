@@ -215,18 +215,6 @@ internal open class JpaOutboxRecordRepository(
     """
 
     /**
-     * Query to update an existing record by id.
-     */
-    private val updateByIdQuery = """
-        update OutboxRecordEntity o
-        set o.status = :status, o.recordKey = :recordKey, o.recordType = :recordType, o.payload = :payload,
-            o.context = :context, o.partitionNo = :partitionNo, o.createdAt = :createdAt,
-            o.completedAt = :completedAt, o.failureCount = :failureCount, o.failureReason = :failureReason,
-            o.nextRetryAt = :nextRetryAt, o.handlerId = :handlerId
-        where o.id = :id
-    """
-
-    /**
      * Saves an outbox record to the database.
      *
      * If a record with the same ID already exists, it is updated (merged).
@@ -269,24 +257,14 @@ internal open class JpaOutboxRecordRepository(
     override fun <T> update(record: OutboxRecord<T>): Boolean =
         transactionTemplate.execute {
             val entity = entityMapper.map(record)
-            val updatedRows =
-                entityManager
-                    .createQuery(updateByIdQuery)
-                    .setParameter("status", entity.status)
-                    .setParameter("recordKey", entity.recordKey)
-                    .setParameter("recordType", entity.recordType)
-                    .setParameter("payload", entity.payload)
-                    .setParameter("context", entity.context)
-                    .setParameter("partitionNo", entity.partitionNo)
-                    .setParameter("createdAt", entity.createdAt)
-                    .setParameter("completedAt", entity.completedAt)
-                    .setParameter("failureCount", entity.failureCount)
-                    .setParameter("failureReason", entity.failureReason)
-                    .setParameter("nextRetryAt", entity.nextRetryAt)
-                    .setParameter("handlerId", entity.handlerId)
-                    .setParameter("id", entity.id)
-                    .executeUpdate()
-            updatedRows == 1
+            val existing = entityManager.find(OutboxRecordEntity::class.java, entity.id)
+
+            if (existing == null) {
+                false
+            } else {
+                entityManager.merge(entity)
+                true
+            }
         }
 
     /**

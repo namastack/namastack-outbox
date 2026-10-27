@@ -253,12 +253,26 @@ class JpaOutboxRecordRepositoryTest {
             flushAndClear()
 
             assertThat(jpaOutboxRecordRepository.update(failedOnce(record))).isTrue()
-            entityManager.clear()
+            flushAndClear()
 
             val persistedRecord = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
 
             assertThat(persistedRecord.failureCount).isEqualTo(1)
             assertThat(persistedRecord.failureReason).isEqualTo("boom")
+        }
+
+        @Test
+        fun `updates an entity already loaded in the same transaction`() {
+            val record = newRecord()
+            jpaOutboxRecordRepository.create(record)
+            flushAndClear()
+            jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
+
+            assertThat(jpaOutboxRecordRepository.update(failedOnce(record))).isTrue()
+
+            val reloadedRecord = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
+            assertThat(reloadedRecord.failureCount).isEqualTo(1)
+            assertThat(reloadedRecord.failureReason).isEqualTo("boom")
         }
 
         @Test
