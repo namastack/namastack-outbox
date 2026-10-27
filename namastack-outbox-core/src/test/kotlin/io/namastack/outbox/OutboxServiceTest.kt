@@ -48,7 +48,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, key, context)
 
@@ -69,7 +69,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler1, handler2)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
+            every { outboxRecordRepository.create(capture(recordSlots)) } answers { recordSlots.last() }
 
             outboxService.schedule(payload, key, context)
 
@@ -98,7 +98,7 @@ class OutboxServiceTest {
                 }
                 handlers
             }
-            every { outboxRecordRepository.save(capture(records)) } answers {
+            every { outboxRecordRepository.create(capture(records)) } answers {
                 currentTime = currentTime.plusMillis(1)
                 records.last()
             }
@@ -121,7 +121,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, key, context)
 
@@ -140,7 +140,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(typedHandler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns listOf(genericHandler)
-            every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
+            every { outboxRecordRepository.create(capture(recordSlots)) } answers { recordSlots.last() }
 
             outboxService.schedule(payload, key, context)
 
@@ -159,7 +159,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler, handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
+            every { outboxRecordRepository.create(capture(recordSlots)) } answers { recordSlots.last() }
 
             outboxService.schedule(payload, key, context)
 
@@ -177,7 +177,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, key, context)
 
@@ -197,11 +197,11 @@ class OutboxServiceTest {
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns
                 listOf(handler1, handler2, handler3)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(any() as OutboxRecord<Any>) } returns mockk()
+            every { outboxRecordRepository.create(any() as OutboxRecord<Any>) } returns mockk()
 
             outboxService.schedule(payload, key, context)
 
-            verify(exactly = 3) { outboxRecordRepository.save(any() as OutboxRecord<Any>) }
+            verify(exactly = 3) { outboxRecordRepository.create(any() as OutboxRecord<Any>) }
         }
 
         @Test
@@ -216,7 +216,7 @@ class OutboxServiceTest {
 
             outboxService.schedule(payload, key, context)
 
-            verify(exactly = 0) { outboxRecordRepository.save(any() as OutboxRecord<Any>) }
+            verify(exactly = 0) { outboxRecordRepository.create(any() as OutboxRecord<Any>) }
         }
 
         @Test
@@ -230,7 +230,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns emptyList()
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns listOf(genericHandler)
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, key, context)
 
@@ -248,7 +248,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, key, context)
 
@@ -268,7 +268,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload)
 
@@ -288,7 +288,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, context)
 
@@ -308,7 +308,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(any(), any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
+            every { outboxRecordRepository.create(capture(recordSlots)) } answers { recordSlots.last() }
 
             outboxService.schedule(payload1)
             outboxService.schedule(payload2)
@@ -326,12 +326,12 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload)
 
             verify { handlerRegistry.getHandlersForPayloadType(TestPayload::class) }
-            verify { outboxRecordRepository.save(any() as OutboxRecord<Any>) }
+            verify { outboxRecordRepository.create(any() as OutboxRecord<Any>) }
         }
 
         @Test
@@ -345,7 +345,7 @@ class OutboxServiceTest {
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns
                 listOf(handler1, handler2)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
+            every { outboxRecordRepository.create(capture(recordSlots)) } answers { recordSlots.last() }
 
             outboxService.schedule(payload)
 
@@ -362,7 +362,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload)
 
@@ -380,7 +380,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload)
 
@@ -397,7 +397,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(typedHandler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns listOf(genericHandler)
-            every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
+            every { outboxRecordRepository.create(capture(recordSlots)) } answers { recordSlots.last() }
 
             outboxService.schedule(payload)
 
@@ -418,7 +418,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload)
 
@@ -435,7 +435,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, key)
 
@@ -453,7 +453,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns emptyMap()
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, key, context)
 
@@ -473,7 +473,7 @@ class OutboxServiceTest {
             every { contextCollector.collectContext() } returns globalContext
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, key)
 
@@ -496,7 +496,7 @@ class OutboxServiceTest {
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns
                 emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, key, additionalContext)
 
@@ -520,7 +520,7 @@ class OutboxServiceTest {
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns listOf(handler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns
                 emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, key, additionalContext)
 
@@ -545,7 +545,7 @@ class OutboxServiceTest {
             every { handlerRegistry.getHandlersForPayloadType(TestPayload::class) } returns emptyList()
             every { handlerRegistry.getHandlersForPayloadType(BaseEvent::class) } returns listOf(baseEventHandler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, key)
 
@@ -564,7 +564,7 @@ class OutboxServiceTest {
             every { handlerRegistry.getHandlersForPayloadType(BaseEvent::class) } returns emptyList()
             every { handlerRegistry.getHandlersForPayloadType(DomainEvent::class) } returns listOf(domainEventHandler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlot)) } answers { recordSlot.captured }
+            every { outboxRecordRepository.create(capture(recordSlot)) } answers { recordSlot.captured }
 
             outboxService.schedule(payload, key)
 
@@ -585,7 +585,7 @@ class OutboxServiceTest {
             every { handlerRegistry.getHandlersForPayloadType(BaseEvent::class) } returns listOf(baseEventHandler)
             every { handlerRegistry.getHandlersForPayloadType(DomainEvent::class) } returns listOf(domainEventHandler)
             every { handlerRegistry.getGenericHandlers(payload, any()) } returns emptyList()
-            every { outboxRecordRepository.save(capture(recordSlots)) } answers { recordSlots.last() }
+            every { outboxRecordRepository.create(capture(recordSlots)) } answers { recordSlots.last() }
 
             outboxService.schedule(payload, key)
 
