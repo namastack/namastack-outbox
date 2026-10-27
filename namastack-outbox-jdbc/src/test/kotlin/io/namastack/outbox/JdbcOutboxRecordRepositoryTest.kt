@@ -221,8 +221,8 @@ class JdbcOutboxRecordRepositoryTest {
     }
 
     @Nested
-    @DisplayName("create() and update()")
-    inner class CreateAndUpdateTests {
+    @DisplayName("create()")
+    inner class CreateTests {
         @Test
         fun `creates an entity`() {
             val record = newRecord()
@@ -245,7 +245,11 @@ class JdbcOutboxRecordRepositoryTest {
             assertThatThrownBy { jdbcOutboxRecordRepository.create(record) }
                 .isInstanceOf(DataIntegrityViolationException::class.java)
         }
+    }
 
+    @Nested
+    @DisplayName("update()")
+    inner class UpdateTests {
         @Test
         fun `updates an existing entity`() {
             val record = newRecord()
@@ -267,31 +271,6 @@ class JdbcOutboxRecordRepositoryTest {
 
             assertThat(jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
         }
-
-        private fun newRecord(): OutboxRecord<String> =
-            OutboxRecord
-                .Builder<String>()
-                .key(UUID.randomUUID().toString())
-                .payload("payload")
-                .handlerId("handlerId")
-                .build(clock)
-
-        private fun failedOnce(record: OutboxRecord<String>): OutboxRecord<String> =
-            OutboxRecord.restore(
-                id = record.id,
-                recordKey = record.key,
-                payload = record.payload,
-                context = record.context,
-                partition = record.partition,
-                createdAt = record.createdAt,
-                status = record.status,
-                completedAt = record.completedAt,
-                failureCount = 1,
-                failureReason = "boom",
-                nextRetryAt = record.nextRetryAt,
-                handlerId = record.handlerId,
-                failureException = null,
-            )
     }
 
     @Nested
@@ -1122,6 +1101,31 @@ class JdbcOutboxRecordRepositoryTest {
                 .isInstanceOf(IllegalArgumentException::class.java)
         }
     }
+
+    private fun newRecord(): OutboxRecord<String> =
+        OutboxRecord
+            .Builder<String>()
+            .key(UUID.randomUUID().toString())
+            .payload("payload")
+            .handlerId("handlerId")
+            .build(clock)
+
+    private fun failedOnce(record: OutboxRecord<String>): OutboxRecord<String> =
+        OutboxRecord.restore(
+            id = record.id,
+            recordKey = record.key,
+            payload = record.payload,
+            context = record.context,
+            partition = record.partition,
+            createdAt = record.createdAt,
+            status = record.status,
+            completedAt = record.completedAt,
+            failureCount = 1,
+            failureReason = "boom",
+            nextRetryAt = record.nextRetryAt,
+            handlerId = record.handlerId,
+            failureException = null,
+        )
 
     private fun createFailedRecords(count: Int = 3) {
         val now = Instant.now(clock)
