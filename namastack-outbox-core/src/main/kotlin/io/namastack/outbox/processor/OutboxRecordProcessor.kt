@@ -52,6 +52,8 @@ abstract class OutboxRecordProcessor(
     /**
      * Completes record after successful processing.
      * Deletes if configured, otherwise marks as COMPLETED.
+     * Restores the in-memory state if saving completion fails, then propagates the persistence error.
+     * A later polling cycle reloads the database state before deciding whether to redeliver.
      */
     protected fun completeRecord(
         record: OutboxRecord<*>,
@@ -64,8 +66,16 @@ abstract class OutboxRecordProcessor(
             repository.deleteById(record.id)
         } else {
             log.trace("Marking record {} as COMPLETED", record.id)
-            record.markCompleted(clock)
-            repository.save(record)
+            val previousStatus = record.status
+            val previousCompletedAt = record.completedAt
+            try {
+                record.markCompleted(clock)
+                repository.save(record)
+            } catch (ex: Exception) {
+                record.status = previousStatus
+                record.completedAt = previousCompletedAt
+                throw ex
+            }
         }
     }
 }

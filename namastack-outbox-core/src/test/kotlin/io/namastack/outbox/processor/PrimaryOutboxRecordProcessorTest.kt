@@ -89,6 +89,40 @@ class PrimaryOutboxRecordProcessorTest {
     }
 
     @Test
+    fun `completion save failure leaves the record pending without invoking handler failure processing`() {
+        val record = createRecord()
+        val failure = IllegalStateException("Completion commit failed")
+        justRun { handlerInvoker.dispatch(record) }
+        every { recordRepository.save(record) } throws failure
+        every { nextProcessor.handle(record) } returns OutboxRecordProcessingOutcome.RETRY_SCHEDULED
+
+        assertThatThrownBy { processor.handle(record) }.isSameAs(failure)
+
+        assertThat(record.status).isEqualTo(OutboxRecordStatus.NEW)
+        assertThat(record.completedAt).isNull()
+        assertThat(record.failureCount).isZero()
+        assertThat(record.failureException).isNull()
+        verify(exactly = 0) { nextProcessor.handle(any()) }
+    }
+
+    @Test
+    fun `completion delete failure does not invoke handler failure processing`() {
+        properties.processing.deleteCompletedRecords = true
+        processor = createProcessor()
+        val record = createRecord()
+        val failure = IllegalStateException("Completion delete failed")
+        justRun { handlerInvoker.dispatch(record) }
+        every { recordRepository.deleteById(record.id) } throws failure
+        every { nextProcessor.handle(record) } returns OutboxRecordProcessingOutcome.RETRY_SCHEDULED
+
+        assertThatThrownBy { processor.handle(record) }.isSameAs(failure)
+
+        assertThat(record.status).isEqualTo(OutboxRecordStatus.NEW)
+        assertThat(record.failureCount).isZero()
+        verify(exactly = 0) { nextProcessor.handle(any()) }
+    }
+
+    @Test
     fun `handle updates failure metadata before delegating to the next processor when dispatch throws`() {
         val record = createRecord()
         val exception = RuntimeException("Handler failed")
