@@ -21,14 +21,17 @@ complete behavior and the required deployment sequence.
 
 ## Processing Groups
 
-Each delivery runs through this chain independently. With grouped scheduling enabled, strict
-failure blocking applies to `(processing group, business key)` within the outbox. A retry or
-permanent failure blocks other handlers sharing that boundary. A successful fallback with
-`COMPLETE` releases it; disposition `FAIL` keeps it blocked.
+:::info Available since 1.12.0
+Processing groups are available since version 1.12.0.
+:::
 
-Groups share worker and database capacity. The scheduler waits for its current batch before
-polling again, so a slow handler can delay new work in other groups. See
-[Processing Groups](processing-groups.md) for configuration and ordering limits.
+Each delivery runs through this chain independently. With grouped scheduling enabled, failure
+blocking applies to `(processing group, business key)`: a pending retry or permanent failure
+blocks the deliveries of all handlers in the same group for that key. A successful fallback
+with disposition `COMPLETE` unblocks it; disposition `FAIL` keeps it blocked.
+
+All groups share worker and database capacity. See [Processing Groups](processing-groups.md)
+for configuration and ordering details.
 
 ## Chain Architecture
 

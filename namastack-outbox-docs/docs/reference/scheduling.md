@@ -89,11 +89,14 @@ public class OrderService {
 
 ### Processing Groups
 
-Keep passing the original business key to `schedule()`. When
-[Processing Groups](processing-groups.md) are enabled, scheduling creates one delivery record per
-matching handler using that handler's group. Records from the same call share the original key,
-payload, context, and creation timestamp. Auto-generated business keys are also shared across
-that call's deliveries.
+:::info Available since 1.12.0
+Processing groups are available since version 1.12.0.
+:::
+
+`schedule()` always takes the business key. When [Processing Groups](processing-groups.md) are
+enabled, one delivery record is created per matching handler in that handler's group. Records
+from the same call share the business key (including an auto-generated one), payload, context,
+and creation timestamp.
 
 ### Record Lifecycle
 

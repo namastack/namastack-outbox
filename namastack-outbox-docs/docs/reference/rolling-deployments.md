@@ -133,23 +133,6 @@ if (features.newOrderExportEnabled) {
 The feature flag controls record creation. The payload class and handler must be present regardless
 of the flag value so that every instance can process records created elsewhere.
 
-## Enabling Processing Groups
-
-Processing groups are opt-in from 1.12.0. First upgrade every worker that shares the outbox,
-keeping `namastack.outbox.processing-groups.enabled=false`. Verify deployment completion before
-any producer writes grouped keys; worker capabilities are not detected automatically.
-
-An old worker may find the handler successfully but pass its encoded key through as the business
-key. The missing-handler safeguard does not detect this case.
-
-Before enabling non-default groups, pause affected producers and drain their old deliveries.
-Apply the same procedure for later group changes or when turning grouped writes off. Existing
-records retain their original stored group; aliases do not migrate them. Readers on supporting
-versions continue decoding grouped records with the flag disabled, so disabling the flag alone
-does not make a downgrade to an older library safe.
-
-See [Rollout and Group Changes](processing-groups.md#rollout-and-group-changes) for the full procedure.
-
 ## Changing a Handler ID
 
 Handler IDs are persisted with records. Use aliases so that every version deployed during the

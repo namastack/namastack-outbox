@@ -47,17 +47,17 @@ sequenceDiagram
 
 ## Record Ordering
 
-Records for the same stored key are processed sequentially in ascending `createdAt`, then `id`
-order. With the default strict failure handling, a failed predecessor or a pending retry blocks
-later records for that key. Equal timestamps are resolved by record ID, including the separate
-handler records created for one event.
+Records with the same key are processed sequentially, ordered by `createdAt` and then by `id`.
+Records with different keys are processed in parallel, so there is no global ordering bottleneck.
+With the default strict failure handling, a failed record or a pending retry blocks later
+records with the same key.
 
-This does not establish producer commit order or business-event causality. Concurrent transactions
-can make an earlier timestamp visible after another record has already been processed.
+The order follows record timestamps, not transaction commit order: a concurrent transaction can
+commit a record with an earlier timestamp after a later one has already been processed.
 
-[Processing Groups](processing-groups.md), available from 1.12.0, optionally make the ordering
-boundary `(processing group, business key)`. Handlers in the same group share the boundary;
-different groups or business keys can run in parallel using shared resources.
+With [Processing Groups](processing-groups.md), the ordering boundary is
+`(processing group, business key)`. Handlers in the same group share the boundary; different
+groups process the same business key independently.
 
 ### Controlling Failure Behavior
 

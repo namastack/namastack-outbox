@@ -126,11 +126,6 @@ namastack:
       default-topic-arn: arn:aws:sns:us-east-1:000000000000:outbox-events   # Default SNS topic ARN (default: arn:aws:sns:us-east-1:000000000000:outbox-events)
 ```
 
-`processing-groups.enabled` controls new writes. Existing grouped records are decoded even when
-it is `false`. Upgrade all workers before enabling it, and drain affected deliveries before changing
-a handler's effective group. See [Processing Groups](processing-groups.md) for declarations, key
-limits, and the rollout procedure.
-
 :::info RabbitMQ publisher confirms
 Rabbit outbox publishing requires Spring AMQP correlated publisher confirms:
 

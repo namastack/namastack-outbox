@@ -6,7 +6,7 @@ import io.namastack.outbox.processing.OutboxRecordKey
  * Signals that an outbox record references a handler that is unavailable on this instance.
  *
  * @param recordId ID of the affected outbox record
- * @param recordKey Stored key of the affected outbox record, including an encoded processing group
+ * @param recordKey Stored key of the affected outbox record; may encode a processing group
  * @param handlerId ID of the unavailable handler
  * @author Roland Beisel
  * @since 1.10.0
