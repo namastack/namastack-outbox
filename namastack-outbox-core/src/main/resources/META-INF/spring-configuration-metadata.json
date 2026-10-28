@@ -6,6 +6,12 @@
       "description": "Outbox configuration properties"
     },
     {
+      "name": "namastack.outbox.processing-groups",
+      "type": "io.namastack.outbox.processing.OutboxProcessingGroupSettings",
+      "sourceType": "io.namastack.outbox.OutboxProperties",
+      "description": "Opt-in processing group scheduling configuration"
+    },
+    {
       "name": "namastack.outbox.polling",
       "type": "io.namastack.outbox.OutboxProperties$Polling",
       "sourceType": "io.namastack.outbox.OutboxProperties",
@@ -80,6 +86,13 @@
       "sourceType": "io.namastack.outbox.OutboxProperties",
       "defaultValue": "single",
       "description": "Runtime implementation used to assemble the outbox. Options: 'single', 'channels'."
+    },
+    {
+      "name": "namastack.outbox.processing-groups.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "io.namastack.outbox.processing.OutboxProcessingGroupSettings",
+      "defaultValue": false,
+      "description": "Enable processing groups for newly scheduled records. Upgrade all workers before enabling. Non-default groups change the stored record_key format."
     },
     {
       "name": "namastack.outbox.poll-interval",

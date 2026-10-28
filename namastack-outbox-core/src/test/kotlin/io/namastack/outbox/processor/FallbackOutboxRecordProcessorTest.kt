@@ -135,6 +135,9 @@ class FallbackOutboxRecordProcessorTest {
         every { recordRepository.update(any() as OutboxRecord<*>) } throws repositoryException
 
         assertThatThrownBy { processor.handle(record) }.isSameAs(repositoryException)
+        assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
+        assertThat(record.completedAt).isNull()
+        assertThat(record.failureCount).isEqualTo(4)
         assertThat(record.failureException).hasMessage("Handler failed")
         assertThat(record.failureReason).isEqualTo("Existing failure")
 

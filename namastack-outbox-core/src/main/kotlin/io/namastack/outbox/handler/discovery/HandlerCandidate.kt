@@ -16,6 +16,7 @@ import java.lang.reflect.Method
  * @property source declaration mechanism used to find the method
  * @property configuredId explicitly configured stable ID, if any
  * @property configuredAliases explicitly configured legacy routing aliases
+ * @property configuredProcessingGroup processing group declared by the annotation or interface
  * @property lambdaBeanNameId stable bean-name identity for lambda handlers, if applicable
  * @property supportsPayload predicate evaluated for each payload before scheduling a generic handler
  *
@@ -30,6 +31,7 @@ internal data class HandlerCandidate(
     val source: HandlerSource,
     val configuredId: String?,
     val configuredAliases: Set<String>,
+    val configuredProcessingGroup: String,
     val lambdaBeanNameId: String?,
     val supportsPayload: (Any, OutboxRecordMetadata) -> Boolean,
 )

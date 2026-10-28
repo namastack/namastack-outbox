@@ -50,6 +50,17 @@ interface OutboxTypedHandler<T> {
     fun getTypedHandlerIdentity(): OutboxHandlerIdentity? = null
 
     /**
+     * Returns the processing group of this typed handler declaration.
+     *
+     * Names must follow the rules in [OutboxProcessingGroup]. This setting is independent of
+     * the other handler declarations on the same bean.
+     *
+     * @return The declared group, or [OutboxProcessingGroup.DEFAULT] when not overridden
+     * @since 1.12.0
+     */
+    fun getTypedHandlerProcessingGroup(): String = OutboxProcessingGroup.DEFAULT
+
+    /**
      * Handles an outbox record with payload and metadata.
      *
      * @param payload The record payload of type [T]

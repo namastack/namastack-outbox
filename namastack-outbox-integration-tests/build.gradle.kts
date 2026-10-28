@@ -10,6 +10,8 @@ description = "namastack-outbox-integration-tests"
 dependencies {
     testImplementation(project(":namastack-outbox-starter-jpa"))
     testImplementation(project(":namastack-outbox-jdbc")) // DDL scripts on classpath for schema validation tests
+    testImplementation(project(":namastack-outbox-kafka"))
+    testImplementation(libs.spring.kafka)
 
     implementation(platform(libs.spring.boot.bom))
     testImplementation(libs.jackson.module.kotlin)

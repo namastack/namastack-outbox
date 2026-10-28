@@ -27,14 +27,20 @@ before any delivery attempt begins.
 
 ### Ordering Per Key
 
-Records with the same key are always processed in the order they were inserted. If two records
-share the same key, the second will never be processed before the first has completed
-successfully.
+For each stored key, the scheduler processes available records sequentially by ascending
+`createdAt`, then `id`. With `stop-on-first-failure=true` (the default), a failed record or a
+pending retry prevents subsequent records for that key from advancing. A successful fallback
+with disposition `COMPLETE` also completes the predecessor.
 
-This is enforced via partition-based processing: each key is consistently assigned to a single
-processing partition, and partitions are processed sequentially within a single instance. Across
-multiple application instances, the same partition — and therefore the same key — is only
-processed by one instance at a time.
+With [Processing Groups](processing-groups.md) enabled, this boundary is `(processing group,
+business key)` within one source outbox. All matching handlers still receive a delivery;
+handlers sharing that boundary are serialized together. Different keys within a partition can
+run concurrently, and different groups share worker and database capacity.
+
+Timestamp and UUID ordering is not insertion order, transaction commit order, or business-event
+causality. Records from one scheduling call share a timestamp. A concurrent producer can commit
+an earlier timestamp after another record has already been processed. Disabling
+`stop-on-first-failure` allows later records to advance despite failed or not-yet-due predecessors.
 
 ### Failure Recovery
 
@@ -48,9 +54,10 @@ processed again.
 
 ### Horizontal Scalability
 
-Multiple application instances can process outbox records concurrently without coordination
-overhead or duplicate processing. The library uses database-level locking to distribute
-partitions across instances. Adding more instances linearly increases throughput.
+Multiple application instances share work through database-backed partition coordination.
+Ownership determines which instance processes a key during normal operation. Failures and
+ownership changes still require at-least-once delivery semantics; duplicate processing remains
+possible. Throughput depends on available workers, independent keys, and database capacity.
 
 ### Transactional Consistency
 
@@ -68,14 +75,15 @@ reference.
 ### Automatic Rebalancing
 
 When instances join or leave the cluster, partitions are automatically redistributed. No manual
-rebalancing step or coordination is required. Rebalancing is triggered on the next polling cycle
-and completes without downtime.
+rebalancing step is required. Coordination runs at the configured rebalance interval. Recovery
+from an unresponsive instance also depends on heartbeat expiration and stale-instance cleanup.
 
-### Linear Throughput Scaling
+### Throughput Limits
 
-Throughput scales proportionally with the number of application instances, up to the limit of
-database I/O capacity. Adding a second instance roughly doubles throughput; adding a third
-roughly triples it, and so on.
+Additional workers can increase throughput when independent keys are available. Scaling is
+limited by database capacity, executor capacity, partition distribution, and slow handlers.
+Processing groups separate ordering boundaries but do not reserve resources or guarantee linear
+throughput growth.
 
 ---
 
@@ -100,8 +108,9 @@ There is no guaranteed ordering across records with different keys. Two records 
 keys may be processed in any order relative to each other, even if one was inserted before the
 other.
 
-If global ordering matters for your use case, you must either use a single key for all records
-(which eliminates horizontal parallelism) or handle ordering at the consumer side.
+Using one group and one key serializes available deliveries, but still does not establish
+producer commit order or business-event causality. Different processing groups have no ordering
+relationship even when their business keys are identical.
 
 ### Real-Time Processing
 

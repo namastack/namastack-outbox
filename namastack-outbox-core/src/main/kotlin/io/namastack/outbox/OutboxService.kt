@@ -1,11 +1,14 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.context.OutboxContextCollector
+import io.namastack.outbox.handler.OutboxProcessingGroup
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
 import io.namastack.outbox.instrumentation.OutboxInstrumentation
 import io.namastack.outbox.instrumentation.OutboxScheduleInvocation
+import io.namastack.outbox.processing.OutboxProcessingGroupSettings
+import io.namastack.outbox.processing.OutboxRecordKey
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 import java.time.Instant
@@ -20,7 +23,7 @@ import kotlin.reflect.KClass
  * - Type hierarchy matching (handlers for superclasses also apply)
  * - Interface implementation matching (handlers for implemented interfaces)
  * - Generic fallback handlers (process any payload type)
- * - Independent retry logic per handler (if handler A fails, handler B still processes)
+ * - Per-handler retry state, with strict failure blocking shared by each processing key
  *
  * ## Handler Discovery Algorithm
  *
@@ -64,6 +67,7 @@ import kotlin.reflect.KClass
  * @param clock Clock for timestamp generation
  * @param instrumentationSupplier Supplies instrumentation applied around each scheduling operation
  * @param channelNameProviderSupplier Supplies the provider for the logical outbox channel name
+ * @param processingGroups Opt-in processing group scheduling
  *
  * @author Roland Beisel
  * @since 0.4.0
@@ -76,6 +80,7 @@ class OutboxService(
     private val clock: Clock,
     instrumentationSupplier: () -> OutboxInstrumentation = { OutboxInstrumentation.NOOP },
     channelNameProviderSupplier: () -> OutboxChannelNameProvider = { OutboxChannelNameProvider.DEFAULT },
+    private val processingGroups: OutboxProcessingGroupSettings = OutboxProcessingGroupSettings(),
 ) : Outbox {
     private val instrumentation: OutboxInstrumentation by lazy(instrumentationSupplier)
     private val channelNameProvider: OutboxChannelNameProvider by lazy(channelNameProviderSupplier)
@@ -107,7 +112,7 @@ class OutboxService(
      *
      * Multiple records are created because:
      * - Each handler may have different retry/timeout requirements
-     * - If one handler fails, others still process (decoupling)
+     * - Different processing keys can progress independently when a handler fails
      * - Allows per-handler monitoring and metrics
      *
      * ## Transaction Context
@@ -446,7 +451,7 @@ class OutboxService(
      * Executes the canonical scheduling operation within the configured instrumentation.
      *
      * @param payload Domain object to schedule.
-     * @param key Effective key persisted with each outbox record.
+     * @param key Business key, encoded with the resolved group when processing groups are enabled.
      * @param additionalContext Event-specific context merged with global context.
      * @param instrumentationKey Logical key exposed to instrumentation.
      */
@@ -477,13 +482,16 @@ class OutboxService(
                 // Discover all applicable handlers for this payload type
                 val handlerIds = collectHandlers(payload, key, context, createdAt).map { it.id }.toSet()
 
+                // Validate every storage key before persisting any part of this fan-out.
+                val recordKeys = handlerIds.associateWith { handlerId -> storageKey(handlerId, key) }
+
                 // Create separate record for each handler
                 // Each record has independent retry/processing state
                 handlerIds.forEach { handlerId ->
                     val outboxRecord =
                         OutboxRecord
                             .Builder<Any>()
-                            .key(key)
+                            .key(recordKeys.getValue(handlerId))
                             .payload(payload)
                             .context(context)
                             .handlerId(handlerId)
@@ -494,6 +502,40 @@ class OutboxService(
             },
         )
     }
+
+    /**
+     * Resolves the key persisted for one handler's delivery.
+     *
+     * When processing groups are disabled, returns the business key unchanged. When enabled,
+     * uses the handler's registered group, falling back to the default group if no registration
+     * exists. The codec validates the key and encodes non-default groups; default-group keys
+     * remain unencoded.
+     *
+     * @param handlerId Canonical ID of the handler selected for scheduling
+     * @param businessKey Original key supplied by the caller or generated for this event
+     * @return Storage key used for partition assignment and key-based processing
+     * @throws IllegalArgumentException when enabled and the group is invalid, the business key
+     * uses the reserved prefix, or the encoded key exceeds the storage limit
+     */
+    private fun storageKey(
+        handlerId: String,
+        businessKey: String,
+    ): String {
+        if (!processingGroups.enabled) return businessKey
+
+        return OutboxRecordKey.encode(processingGroup(handlerId), businessKey)
+    }
+
+    /**
+     * Resolves the effective group for scheduling and generic handler selection.
+     * Disabled processing groups and unregistered handlers use the default group.
+     */
+    private fun processingGroup(handlerId: String): String =
+        if (processingGroups.enabled) {
+            handlerRegistry.getRegistrationById(handlerId)?.processingGroup ?: OutboxProcessingGroup.DEFAULT
+        } else {
+            OutboxProcessingGroup.DEFAULT
+        }
 
     /**
      * Discovers all handlers applicable to a given payload.
@@ -576,6 +618,7 @@ class OutboxService(
                     handlerId = handler.id,
                     createdAt = createdAt,
                     context = context,
+                    processingGroup = processingGroup(handler.id),
                 )
             }
 

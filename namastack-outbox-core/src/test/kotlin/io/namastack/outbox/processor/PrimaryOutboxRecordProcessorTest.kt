@@ -16,6 +16,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -85,6 +87,38 @@ class PrimaryOutboxRecordProcessorTest {
         verify { handlerInvoker.dispatch(record) }
         verify { recordRepository.deleteById(record.id) }
         verify(exactly = 0) { recordRepository.update(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { nextProcessor.handle(any()) }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `completion persistence errors propagate without consuming retries or invoking downstream processors`(
+        deleteCompletedRecords: Boolean,
+    ) {
+        val record = createRecord()
+        val previousFailure = IllegalStateException("Previous delivery failed")
+        record.incrementFailureCount()
+        record.updateFailureException(previousFailure)
+        val retryAt = record.nextRetryAt
+        val persistenceFailure = IllegalStateException("Completion write failed")
+        properties.processing.deleteCompletedRecords = deleteCompletedRecords
+        processor = createProcessor()
+        justRun { handlerInvoker.dispatch(record) }
+        if (deleteCompletedRecords) {
+            every { recordRepository.deleteById(record.id) } throws persistenceFailure
+        } else {
+            every { recordRepository.update(record) } throws persistenceFailure
+        }
+
+        assertThatThrownBy { processor.handle(record) }.isSameAs(persistenceFailure)
+
+        assertThat(record.status).isEqualTo(OutboxRecordStatus.NEW)
+        assertThat(record.completedAt).isNull()
+        assertThat(record.failureCount).isEqualTo(1)
+        assertThat(record.failureException).isSameAs(previousFailure)
+        assertThat(record.failureReason).isEqualTo("Previous delivery failed")
+        assertThat(record.nextRetryAt).isEqualTo(retryAt)
+        verify(exactly = 1) { handlerInvoker.dispatch(record) }
         verify(exactly = 0) { nextProcessor.handle(any()) }
     }
 

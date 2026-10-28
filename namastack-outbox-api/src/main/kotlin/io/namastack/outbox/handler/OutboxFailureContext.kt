@@ -39,6 +39,7 @@ import java.time.Instant
  * @property retriesExhausted True if retry limit was reached
  * @property nonRetryableException True if failure was due to non-retryable exception
  * @property context Custom context from the original record (tracing, tenancy, correlation)
+ * @property processingGroup Group sharing the ordering boundary for this business key
  *
  * @author Roland Beisel
  * @since 1.0.0
@@ -53,4 +54,5 @@ data class OutboxFailureContext(
     val retriesExhausted: Boolean,
     val nonRetryableException: Boolean,
     val context: Map<String, String>,
+    val processingGroup: String = OutboxProcessingGroup.DEFAULT,
 )

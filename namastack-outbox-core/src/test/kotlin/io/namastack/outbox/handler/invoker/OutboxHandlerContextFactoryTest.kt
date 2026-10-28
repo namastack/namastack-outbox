@@ -5,6 +5,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordStatus
+import io.namastack.outbox.processing.OutboxRecordKey
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 import org.assertj.core.api.Assertions.assertThat
@@ -23,6 +24,7 @@ class OutboxHandlerContextFactoryTest {
 
         assertThat(metadata.recordId).isEqualTo(record.id)
         assertThat(metadata.key).isEqualTo("record-key")
+        assertThat(metadata.processingGroup).isEqualTo("default")
         assertThat(metadata.handlerId).isEqualTo("handler-id")
         assertThat(metadata.createdAt).isEqualTo(createdAt)
         assertThat(metadata.context).containsEntry("tenant", "north")
@@ -82,6 +84,7 @@ class OutboxHandlerContextFactoryTest {
 
         assertThat(context.recordId).isEqualTo("record-id")
         assertThat(context.recordKey).isEqualTo("record-key")
+        assertThat(context.processingGroup).isEqualTo("default")
         assertThat(context.handlerId).isEqualTo("handler-id")
         assertThat(context.retriesExhausted).isTrue()
         assertThat(context.nonRetryableException).isTrue()
@@ -90,10 +93,37 @@ class OutboxHandlerContextFactoryTest {
         verify { retryPolicies.getByHandlerId("handler-id") }
     }
 
-    private fun record(failureCount: Int): OutboxRecord<String> =
+    @Test
+    fun `primary and fallback contexts decode the persisted group without changing the stored key`() {
+        val storedKey = OutboxRecordKey.encode("billing", "order:42")
+        val record = record(failureCount = 2, key = storedKey)
+        val retryPolicies = mockk<OutboxRetryPolicyRegistry>()
+        every { retryPolicies.getByHandlerId("handler-id") } returns OutboxRetryPolicy.builder().build()
+
+        val metadata = OutboxHandlerContextFactory.metadata(record)
+        val context = OutboxHandlerContextFactory.failure(record, failure, retryPolicies)
+
+        assertThat(metadata.recordId).isEqualTo(record.id)
+        assertThat(context.recordId).isEqualTo(metadata.recordId)
+        assertThat(metadata.key).isEqualTo("order:42")
+        assertThat(metadata.processingGroup).isEqualTo("billing")
+        assertThat(metadata.failureCount).isEqualTo(2)
+        assertThat(metadata.isRetry).isTrue()
+        assertThat(context.recordKey).isEqualTo(metadata.key)
+        assertThat(context.processingGroup).isEqualTo(metadata.processingGroup)
+        assertThat(context.failureCount).isEqualTo(metadata.failureCount)
+        assertThat(context.context).isEqualTo(record.context)
+        assertThat(metadata.context).isEqualTo(record.context)
+        assertThat(record.key).isEqualTo(storedKey)
+    }
+
+    private fun record(
+        failureCount: Int,
+        key: String = "record-key",
+    ): OutboxRecord<String> =
         OutboxRecord.restore(
             id = "record-id",
-            recordKey = "record-key",
+            recordKey = key,
             payload = "payload",
             context = mapOf("tenant" to "north"),
             createdAt = createdAt,

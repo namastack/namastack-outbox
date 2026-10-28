@@ -5,6 +5,8 @@ import io.namastack.outbox.partition.PartitionHasher
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -15,6 +17,39 @@ import java.time.temporal.ChronoUnit.MINUTES
 class OutboxRecordTest {
     private val clock = Clock.fixed(Instant.parse("2025-09-25T10:00:00Z"), ZoneOffset.UTC)
     private val now = Instant.now(clock)
+
+    @ParameterizedTest
+    @CsvSource(
+        value = [
+            "order:42|order:42|default",
+            "~ns.pg1~billing:order:42|order:42|billing",
+            "~ns.pg1~billing:订单:42|订单:42|billing",
+            "~ns.pg1~Billing:order:42|~ns.pg1~Billing:order:42|default",
+            "~ns.pg2~billing:order:42|~ns.pg2~billing:order:42|default",
+        ],
+        delimiter = '|',
+    )
+    fun `new and restored records expose business identity while preserving storage identity`(
+        storedKey: String,
+        businessKey: String,
+        processingGroup: String,
+    ) {
+        val newRecord =
+            OutboxRecord
+                .Builder<String>()
+                .key(storedKey)
+                .payload("payload")
+                .handlerId("handler")
+                .build(clock)
+        val restoredRecord = outboxRecord(recordKey = storedKey, partition = newRecord.partition)
+
+        listOf(newRecord, restoredRecord).forEach { record ->
+            assertThat(record.key).isEqualTo(storedKey)
+            assertThat(record.businessKey).isEqualTo(businessKey)
+            assertThat(record.processingGroup).isEqualTo(processingGroup)
+            assertThat(record.partition).isEqualTo(PartitionHasher.getPartitionForRecordKey(storedKey))
+        }
+    }
 
     @Nested
     inner class MarkCompletedTests {

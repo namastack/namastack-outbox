@@ -9,10 +9,37 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import tools.jackson.module.kotlin.jsonMapper
 import tools.jackson.module.kotlin.kotlinModule
+import java.time.Clock
 import java.time.Instant
 import java.time.temporal.ChronoUnit.MINUTES
 
 class JdbcOutboxRecordEntityMapperTest {
+    @Test
+    fun `grouped keys survive persistence mapping without replacing storage identity`() {
+        val storedKey = "~ns.pg1~billing:order:42"
+        val payloadSerializer = mockk<OutboxPayloadSerializer>()
+        every { payloadSerializer.serialize("payload") } returns "serialized-payload"
+        every { payloadSerializer.deserialize("serialized-payload", String::class.java) } returns "payload"
+        val recordMapper = JdbcOutboxRecordEntityMapper(payloadSerializer)
+        val record =
+            OutboxRecord
+                .Builder<String>()
+                .key(storedKey)
+                .payload("payload")
+                .handlerId("handler-id")
+                .build(Clock.systemUTC())
+
+        val entity = recordMapper.map(record)
+        val restored = recordMapper.map(entity)
+
+        assertThat(entity.recordKey).isEqualTo(storedKey)
+        assertThat(restored.key).isEqualTo(storedKey)
+        assertThat(restored.businessKey).isEqualTo("order:42")
+        assertThat(restored.processingGroup).isEqualTo("billing")
+        assertThat(restored.partition).isEqualTo(record.partition)
+        assertThat(restored.payload).isEqualTo("payload")
+    }
+
     private val innerJsonMapper = jsonMapper { addModule(kotlinModule()) }
     private val serializer = JacksonOutboxPayloadSerializer(innerJsonMapper)
     private val mapper = JdbcOutboxRecordEntityMapper(serializer)
@@ -133,7 +160,7 @@ class JdbcOutboxRecordEntityMapperTest {
                 JdbcOutboxRecordEntity(
                     id = "record-id",
                     status = OutboxRecordStatus.NEW,
-                    recordKey = "record-key",
+                    recordKey = "~ns.pg1~billing:order:42",
                     recordType = "example.MissingPayload",
                     payload = "{}",
                     context = null,
@@ -149,7 +176,9 @@ class JdbcOutboxRecordEntityMapperTest {
             val exception = assertThrows<OutboxPayloadTypeNotFoundException> { mapper.map(entity) }
 
             assertThat(exception.recordId).isEqualTo("record-id")
-            assertThat(exception.recordKey).isEqualTo("record-key")
+            assertThat(exception.recordKey).isEqualTo("~ns.pg1~billing:order:42")
+            assertThat(exception.businessKey).isEqualTo("order:42")
+            assertThat(exception.processingGroup).isEqualTo("billing")
             assertThat(exception.payloadType).isEqualTo("example.MissingPayload")
             assertThat(exception.handlerId).isEqualTo("handler-id")
             assertThat(exception.cause).isInstanceOf(ClassNotFoundException::class.java)

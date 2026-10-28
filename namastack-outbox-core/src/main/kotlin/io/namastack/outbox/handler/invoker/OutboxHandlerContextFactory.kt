@@ -10,6 +10,8 @@ import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
  * Builds public handler context values from stored outbox records.
  *
  * The factory keeps record-to-context mapping consistent between primary and fallback invocation.
+ * The stored key determines the group, independently of current handler declarations and whether
+ * scheduling new grouped records is enabled.
  *
  * @author Roland Beisel
  * @since 1.9.0
@@ -24,11 +26,12 @@ internal object OutboxHandlerContextFactory {
     fun metadata(record: OutboxRecord<*>): OutboxRecordMetadata =
         OutboxRecordMetadata(
             recordId = record.id,
-            key = record.key,
+            key = record.businessKey,
             handlerId = record.handlerId,
             createdAt = record.createdAt,
             context = record.context,
             failureCount = record.failureCount,
+            processingGroup = record.processingGroup,
         )
 
     /**
@@ -53,7 +56,7 @@ internal object OutboxHandlerContextFactory {
 
         return OutboxFailureContext(
             recordId = record.id,
-            recordKey = record.key,
+            recordKey = record.businessKey,
             createdAt = record.createdAt,
             handlerId = record.handlerId,
             failureCount = record.failureCount,
@@ -61,6 +64,7 @@ internal object OutboxHandlerContextFactory {
             retriesExhausted = record.retriesExhausted(policy.maxRetries()),
             nonRetryableException = !policy.shouldRetry(exception),
             context = record.context,
+            processingGroup = record.processingGroup,
         )
     }
 }

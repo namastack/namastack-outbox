@@ -47,16 +47,17 @@ sequenceDiagram
 
 ## Record Ordering
 
-:::note Guaranteed Processing Order
-Records with the same key are **always processed in creation order**, ensuring business logic consistency and preventing race conditions.
-:::
+Records for the same stored key are processed sequentially in ascending `createdAt`, then `id`
+order. With the default strict failure handling, a failed predecessor or a pending retry blocks
+later records for that key. Equal timestamps are resolved by record ID, including the separate
+handler records created for one event.
 
-**Key Benefits:**
+This does not establish producer commit order or business-event causality. Concurrent transactions
+can make an earlier timestamp visible after another record has already been processed.
 
-- **Aggregate Consistency**: Records with the same key maintain order
-- **Business Logic Safety**: Dependent records process in correct sequence
-- **Parallel Processing**: Different keys process independently
-- **Scalable Design**: No global ordering bottlenecks
+[Processing Groups](processing-groups.md), available from 1.12.0, optionally make the ordering
+boundary `(processing group, business key)`. Handlers in the same group share the boundary;
+different groups or business keys can run in parallel using shared resources.
 
 ### Controlling Failure Behavior
 

@@ -12,6 +12,14 @@ sidebar_position: 4.5
 Namastack Outbox provides first-class support for sending outbox events to Kafka, RabbitMQ, and 
 AWS SNS. These modules offer ready-to-use handlers, flexible routing, and simple configuration.
 
+## Processing Groups and Message Keys
+
+With [Processing Groups](processing-groups.md), handler metadata contains the original business
+key and a separate `processingGroup`. Default routing continues to use the business key for the
+Kafka key, RabbitMQ routing key, and SNS message group ID. The encoded storage key is not sent
+as that key. Custom routing callbacks can read `processingGroup`, for example to add a header;
+no group header is added automatically.
+
 ## Quickstart: Adding Kafka, RabbitMQ, or SNS Support
 
 To use the Kafka, RabbitMQ, or SNS modules, simply add the corresponding dependency to your project:
