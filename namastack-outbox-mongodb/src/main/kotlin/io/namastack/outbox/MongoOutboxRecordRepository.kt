@@ -11,7 +11,7 @@ import java.time.Clock
 import java.time.Instant
 
 /**
- * MongoDB implementation of the OutboxRecordRepository and OutboxRecordStatusRepository interfaces.
+ * MongoDB implementation of [OutboxRecordRepository].
  *
  * @author Stellar Hold
  * @since 1.5.0
@@ -21,8 +21,7 @@ internal open class MongoOutboxRecordRepository(
     private val entityMapper: MongoOutboxRecordEntityMapper,
     private val clock: Clock,
     private val collectionNameResolver: MongoCollectionNameResolver,
-) : OutboxRecordRepository,
-    OutboxRecordStatusRepository {
+) : OutboxRecordRepository {
     /**
      * Saves an outbox record. Inserts or updates the record document.
      *

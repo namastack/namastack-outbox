@@ -13,21 +13,21 @@ import org.junit.jupiter.api.Test
 
 @DisplayName("OutboxMetricsMeterBinder")
 class OutboxRecordMetricsMeterBinderTest {
-    private val outboxRecordStatusRepository = mockk<OutboxRecordStatusRepository>()
+    private val outboxRecordRepository = mockk<OutboxRecordRepository>()
     private val meterRegistry = SimpleMeterRegistry()
 
     private lateinit var meterBinder: OutboxRecordMetricsMeterBinder
 
     @BeforeEach
     fun setUp() {
-        meterBinder = OutboxRecordMetricsMeterBinder(outboxRecordStatusRepository)
+        meterBinder = OutboxRecordMetricsMeterBinder(outboxRecordRepository)
     }
 
     @Test
     fun `registers gauges for all record statuses`() {
-        every { outboxRecordStatusRepository.countByStatus(NEW) } returns 15L
-        every { outboxRecordStatusRepository.countByStatus(FAILED) } returns 3L
-        every { outboxRecordStatusRepository.countByStatus(COMPLETED) } returns 42L
+        every { outboxRecordRepository.countByStatus(NEW) } returns 15L
+        every { outboxRecordRepository.countByStatus(FAILED) } returns 3L
+        every { outboxRecordRepository.countByStatus(COMPLETED) } returns 42L
 
         meterBinder.bindTo(meterRegistry)
 
@@ -56,9 +56,9 @@ class OutboxRecordMetricsMeterBinderTest {
 
     @Test
     fun `handles zero counts correctly`() {
-        every { outboxRecordStatusRepository.countByStatus(NEW) } returns 0L
-        every { outboxRecordStatusRepository.countByStatus(FAILED) } returns 0L
-        every { outboxRecordStatusRepository.countByStatus(COMPLETED) } returns 0L
+        every { outboxRecordRepository.countByStatus(NEW) } returns 0L
+        every { outboxRecordRepository.countByStatus(FAILED) } returns 0L
+        every { outboxRecordRepository.countByStatus(COMPLETED) } returns 0L
 
         meterBinder.bindTo(meterRegistry)
 
@@ -87,9 +87,9 @@ class OutboxRecordMetricsMeterBinderTest {
 
     @Test
     fun `handles large counts correctly`() {
-        every { outboxRecordStatusRepository.countByStatus(NEW) } returns 1000000L
-        every { outboxRecordStatusRepository.countByStatus(FAILED) } returns 500000L
-        every { outboxRecordStatusRepository.countByStatus(COMPLETED) } returns 2000000L
+        every { outboxRecordRepository.countByStatus(NEW) } returns 1000000L
+        every { outboxRecordRepository.countByStatus(FAILED) } returns 500000L
+        every { outboxRecordRepository.countByStatus(COMPLETED) } returns 2000000L
 
         meterBinder.bindTo(meterRegistry)
 
@@ -120,7 +120,7 @@ class OutboxRecordMetricsMeterBinderTest {
 
     @Test
     fun `gauge descriptions and tags are set correctly`() {
-        every { outboxRecordStatusRepository.countByStatus(any()) } returns 5L
+        every { outboxRecordRepository.countByStatus(any()) } returns 5L
 
         meterBinder.bindTo(meterRegistry)
 
@@ -139,9 +139,9 @@ class OutboxRecordMetricsMeterBinderTest {
 
     @Test
     fun `gauge values update dynamically`() {
-        every { outboxRecordStatusRepository.countByStatus(NEW) } returns 10L
-        every { outboxRecordStatusRepository.countByStatus(FAILED) } returns 2L
-        every { outboxRecordStatusRepository.countByStatus(COMPLETED) } returns 8L
+        every { outboxRecordRepository.countByStatus(NEW) } returns 10L
+        every { outboxRecordRepository.countByStatus(FAILED) } returns 2L
+        every { outboxRecordRepository.countByStatus(COMPLETED) } returns 8L
 
         meterBinder.bindTo(meterRegistry)
 
@@ -153,7 +153,7 @@ class OutboxRecordMetricsMeterBinderTest {
                 .value(),
         ).isEqualTo(10.0)
 
-        every { outboxRecordStatusRepository.countByStatus(NEW) } returns 15L
+        every { outboxRecordRepository.countByStatus(NEW) } returns 15L
 
         assertThat(
             meterRegistry
@@ -166,7 +166,7 @@ class OutboxRecordMetricsMeterBinderTest {
 
     @Test
     fun `registers exactly three gauges for three statuses`() {
-        every { outboxRecordStatusRepository.countByStatus(any()) } returns 1L
+        every { outboxRecordRepository.countByStatus(any()) } returns 1L
 
         meterBinder.bindTo(meterRegistry)
 

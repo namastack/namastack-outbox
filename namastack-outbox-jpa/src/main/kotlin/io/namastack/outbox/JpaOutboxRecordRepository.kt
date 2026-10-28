@@ -6,7 +6,7 @@ import java.time.Clock
 import java.time.Instant
 
 /**
- * JPA implementation of the OutboxRecordRepository and OutboxRecordStatusRepository interfaces.
+ * JPA implementation of [OutboxRecordRepository].
  *
  * This implementation uses JPA/Hibernate to persist and query outbox records
  * from a relational database.
@@ -24,8 +24,7 @@ internal open class JpaOutboxRecordRepository(
     private val transactionTemplate: TransactionTemplate,
     private val entityMapper: OutboxRecordEntityMapper,
     private val clock: Clock,
-) : OutboxRecordRepository,
-    OutboxRecordStatusRepository {
+) : OutboxRecordRepository {
     /**
      * Query to select outbox records by status ordered by creation time.
      */

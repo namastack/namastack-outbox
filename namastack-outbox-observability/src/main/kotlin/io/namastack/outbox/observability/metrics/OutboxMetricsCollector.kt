@@ -3,7 +3,6 @@ package io.namastack.outbox.observability.metrics
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.OutboxRecordStatus.NEW
-import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionCoordinator
 import org.slf4j.LoggerFactory
@@ -23,8 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * with the outbox runtime, so resource contention can affect processing.
  * Each metric is updated independently, retaining fresh readings when another query fails.
  *
- * @param recordRepository Repository for pending record counts and ages
- * @param recordStatusRepository Optional repository for record counts by status
+ * @param recordRepository Repository for record counts by status, pending record counts and ages
  * @param partitionCoordinator Coordinator for partition assignments and cluster state
  * @param instanceRegistry Registry for active instance counts
  * @param properties Background collection interval and maximum reading age
@@ -37,7 +35,6 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 internal class OutboxMetricsCollector(
     private val recordRepository: OutboxRecordRepository,
-    private val recordStatusRepository: OutboxRecordStatusRepository?,
     private val partitionCoordinator: PartitionCoordinator,
     private val instanceRegistry: OutboxInstanceRegistry,
     private val properties: OutboxMetricsProperties,
@@ -52,7 +49,8 @@ internal class OutboxMetricsCollector(
     private val log = LoggerFactory.getLogger(OutboxMetricsCollector::class.java)
     private val collecting = AtomicBoolean(false)
 
-    private val recordCounts: Map<OutboxRecordStatus, OutboxMetricValue> = createRecordCounts()
+    private val recordCounts: Map<OutboxRecordStatus, OutboxMetricValue> =
+        OutboxRecordStatus.entries.associateWith { OutboxMetricValue(properties.maxAge, clock) }
     private val assignedPartitions = OutboxMetricValue(properties.maxAge, clock)
     private val pendingRecords = OutboxMetricValue(properties.maxAge, clock)
     private val oldestRecordAge = OutboxMetricValue(properties.maxAge, clock)
@@ -64,7 +62,6 @@ internal class OutboxMetricsCollector(
     var lastSuccessTimestamp: Double = Double.NaN
         private set
 
-    /** Status gauges are available only when the optional status repository is present. */
     val recordStatuses: Set<OutboxRecordStatus> get() = recordCounts.keys
 
     fun recordCount(status: OutboxRecordStatus): Double = recordCounts.getValue(status).value()
@@ -144,18 +141,11 @@ internal class OutboxMetricsCollector(
         }
     }
 
-    private fun createRecordCounts(): Map<OutboxRecordStatus, OutboxMetricValue> {
-        if (recordStatusRepository == null) return emptyMap()
-
-        return OutboxRecordStatus.entries.associateWith { OutboxMetricValue(properties.maxAge, clock) }
-    }
-
     private fun collectRecordCounts(): Boolean {
-        val repository = recordStatusRepository ?: return true
         var successful = true
 
         recordCounts.forEach { (status, metric) ->
-            val collected = collectMetric(metric) { repository.countByStatus(status).toDouble() }
+            val collected = collectMetric(metric) { recordRepository.countByStatus(status).toDouble() }
             if (!collected) successful = false
         }
 

@@ -9,7 +9,6 @@ import io.mockk.verify
 import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus.NEW
-import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.observability.MicrometerOutboxInstrumentation
 import io.namastack.outbox.observability.OutboxMetricNames
@@ -46,15 +45,6 @@ class OutboxInstanceMetricsAutoConfigurationTest {
     inner class BeanCreation {
         @Test
         fun `creates meter binder when required beans exist`() {
-            contextRunner
-                .withUserConfiguration(RequiredBeansConfig::class.java, StatusRepositoryConfig::class.java)
-                .run { context ->
-                    assertThat(context).hasSingleBean(OutboxInstanceMetricsMeterBinder::class.java)
-                }
-        }
-
-        @Test
-        fun `creates meter binder when status repository is missing`() {
             contextRunner
                 .withUserConfiguration(RequiredBeansConfig::class.java)
                 .run { context ->
@@ -149,7 +139,7 @@ class OutboxInstanceMetricsAutoConfigurationTest {
             .withConfiguration(AutoConfigurations.of(OutboxObservabilityAutoConfiguration::class.java))
             .withBean(ObservationRegistry::class.java, { ObservationRegistry.create() })
             .withBean(OutboxMetricsCollector.SCHEDULER_NAME, TaskScheduler::class.java, { scheduler })
-            .withUserConfiguration(RequiredBeansConfig::class.java, StatusRepositoryConfig::class.java)
+            .withUserConfiguration(RequiredBeansConfig::class.java)
             .run { context ->
                 assertThat(context).hasNotFailed()
                 assertThat(context).doesNotHaveBean(MeterRegistry::class.java)
@@ -193,7 +183,7 @@ class OutboxInstanceMetricsAutoConfigurationTest {
         val release = CountDownLatch(1)
         val closer = Executors.newSingleThreadExecutor()
         val registry = SimpleMeterRegistry()
-        val repository = mockk<OutboxRecordStatusRepository>()
+        val repository = mockk<OutboxRecordRepository>()
         every { repository.countByStatus(any()) } answers {
             entered.countDown()
             var released = false
@@ -210,8 +200,8 @@ class OutboxInstanceMetricsAutoConfigurationTest {
 
         try {
             contextRunner
-                .withUserConfiguration(RequiredBeansConfig::class.java)
-                .withBean(OutboxRecordStatusRepository::class.java, { repository })
+                .withUserConfiguration(MissingRecordRepositoryConfig::class.java)
+                .withBean(OutboxRecordRepository::class.java, { repository })
                 .run { context ->
                     assertThat(context).hasNotFailed()
                     context.getBean(OutboxInstanceMetricsMeterBinder::class.java).bindTo(registry)
@@ -301,12 +291,6 @@ class OutboxInstanceMetricsAutoConfigurationTest {
 
         @Bean
         fun outboxInstanceRegistry(): OutboxInstanceRegistry = mockk(relaxed = true)
-    }
-
-    @Configuration
-    class StatusRepositoryConfig {
-        @Bean
-        fun outboxRecordStatusRepository(): OutboxRecordStatusRepository = mockk()
     }
 
     @Configuration

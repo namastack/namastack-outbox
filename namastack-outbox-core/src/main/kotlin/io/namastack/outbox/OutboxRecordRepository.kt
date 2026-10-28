@@ -136,6 +136,14 @@ interface OutboxRecordRepository {
     ): List<String>
 
     /**
+     * Counts all outbox records with the specified status.
+     *
+     * @param status The status to count records for
+     * @return The number of records with the given status
+     */
+    fun countByStatus(status: OutboxRecordStatus): Long
+
+    /**
      * Counts records in a specific partition by status.
      *
      * @param partition The partition number
