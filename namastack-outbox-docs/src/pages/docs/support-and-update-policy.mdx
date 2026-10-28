@@ -1,0 +1,130 @@
+---
+title: Support and Update Policy
+description: How Namastack Outbox handles releases, compatibility, maintenance, and application upgrades.
+---
+
+# Support and Update Policy
+
+We make every effort to preserve backward compatibility and keep upgrades straightforward.
+Existing applications matter: avoiding unnecessary changes to your code, configuration, and
+deployment is a priority when we develop Namastack Outbox.
+
+We use `MAJOR.MINOR.PATCH` version numbers as a guide to the scope of a release. We aim for compatible
+updates, but cannot guarantee strict Semantic Versioning for every change. Occasionally, a minor
+release may require a targeted adjustment to application code or deployment. When a compatibility
+change is necessary, we aim to keep its impact small, explain the reason, and provide migration guidance.
+
+This policy describes the maintenance and compatibility approach for the open-source Namastack
+Outbox project. It is independent of the documentation version selected on this site.
+
+## Release Types
+
+| Release                                 | What to expect                                                                                                                                                                                 |
+|-----------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Patch**, such as `1.12.0` to `1.12.1` | Bug fixes, security fixes, and maintenance. We aim to preserve existing APIs and configuration. A correction can still change observable behavior; any required migration is documented.       |
+| **Minor**, such as `1.11.0` to `1.12.0` | New features and improvements, with compatibility as the goal. Occasional targeted changes to APIs, configuration, dependency requirements, or persistence may require a documented migration. |
+| **Major**, such as `1.x` to `2.x`       | Substantial changes to the architecture, programming model, or supported platform. Expect a broader migration.                                                                                 |
+| **Snapshot or prerelease**              | Builds for evaluation and feedback. APIs and behavior can change before the stable release; snapshots can be replaced without changing their version number.                                   |
+
+We consider the scope of a change and its impact on existing applications when choosing a version
+number. Read the release notes before upgrading, and use stable releases for production.
+
+## Compatibility Priorities
+
+### Application Source Code
+
+Our priority is to preserve ordinary application usage in both Java and Kotlin: scheduling records,
+declaring handlers, reading handler metadata, and configuring documented features. We aim to keep
+existing code working and to keep necessary adjustments small. We review changes with that goal
+in mind, while recognizing that complete compatibility across every public declaration is not
+always practical.
+
+For example, adding a property to a Kotlin data class can preserve access to its existing properties
+while changing its constructor and generated `copy()` signatures. Applications that construct these
+objects directly, including test fixtures and Java callers, may need to pass an additional argument.
+We consider compatibility overloads where useful, but may choose a small, documented source change
+over retaining every previous constructor or generated method signature.
+
+Changes to documented extension interfaces can also require updates to custom implementations.
+New enum constants can require an additional branch in exhaustive Kotlin `when` expressions or
+Java switch expressions. These changes are considered when preparing migration notes.
+
+### Compiled Code
+
+Source compatibility is our primary focus. Binary compatibility between minor releases cannot be
+guaranteed: a previously compiled application or extension may fail when a changed constructor or
+method is invoked, even if its source code can be rebuilt successfully against the new version.
+
+Rebuild and test applications and custom extensions against the version you intend to deploy.
+This also catches compatibility problems that replacing library JARs alone would not reveal.
+
+### Infrastructure and Internal APIs
+
+Our compatibility efforts focus on the documented producer APIs, handler contracts, configuration
+properties, and extension points. Some infrastructure classes are public so that library modules
+can work together, rather than for direct application use. Runtime assembly, auto-configuration,
+persistence internals, and implementation constructors may evolve more frequently.
+
+Using documented integration points helps keep upgrades predictable. If you depend directly on
+infrastructure APIs, review their changes when upgrading. Necessary changes to documented extension
+points receive migration guidance, including when they occur in a minor release.
+
+### Database and Persisted Records
+
+Source compatibility, schema compatibility, and compatibility with pending records are separate
+concerns. An application can compile successfully while still requiring a database or rollout migration.
+
+We aim to preserve existing records and provide safe migration paths when persistence changes are
+needed. Schema changes, new stored representations, and changes affecting delivery or ordering
+are described in the release notes and relevant reference documentation. Review those instructions
+for schema requirements and compatibility between workers during a rolling deployment.
+
+Follow the documented rollout sequence before enabling features that write data older workers
+cannot interpret. A rollback can require additional steps once new records have been persisted.
+See [Rolling Deployments](/docs/reference/rolling-deployments/) for the deployment approach.
+
+## Deprecation and Migration Guidance
+
+Where practical, we deprecate an API or configuration option before removing it, giving applications
+a path to migrate. The timing depends on the impact and maintenance cost of the change; we do not
+define a fixed minimum deprecation period.
+
+For compatibility changes, release notes describe who is affected and what action is needed.
+Larger migrations are documented in the reference documentation. Consult the
+[GitHub releases](https://github.com/namastack/namastack-outbox/releases) for each release between
+your current and target versions.
+
+## Maintenance and Support
+
+Maintenance focuses on the current development branch and the latest stable release line.
+Backports to older release lines are considered case by case, based on severity, impact, and
+maintenance effort. An older version remaining available in Maven repositories or in the
+documentation does not mean it is actively maintained.
+
+As a community-maintained project, releases and support depend on maintainer availability.
+We do our best to respond to reports and address problems, but cannot guarantee response times,
+resolution dates, or a fixed support duration. We do not currently offer designated long-term-support
+releases. Security fixes follow the same approach to maintenance and backports.
+
+Use [GitHub Issues](https://github.com/namastack/namastack-outbox/issues) for reproducible bugs
+and upgrade regressions, and
+[GitHub Discussions](https://github.com/namastack/namastack-outbox/discussions) for usage questions.
+For security concerns, use the project's
+[security reporting information](https://github.com/namastack/namastack-outbox/security).
+Any separately agreed commercial support terms are outside this policy.
+
+## Recommended Upgrade Procedure
+
+1. Read the release notes for every intervening release, including compatibility changes,
+dependency requirements, and schema migrations.
+2. Align Namastack Outbox modules using the BOM for your target release. Check separately versioned
+integrations and extensions for compatibility with that release.
+3. Rebuild the application and custom extensions, then run application and integration tests against
+the target version. Adjust direct constructor calls and custom implementations where required.
+4. Test with representative pending records, including retries and failed deliveries. Plan any
+schema migration and the documented rollout sequence for workers sharing an outbox.
+5. Deploy with new stored formats or opt-in features disabled until every worker can read them.
+Enable them according to the feature's migration instructions, and monitor processing afterward.
+
+Report unexpected upgrade problems with the old and new versions, affected persistence module,
+and a minimal reproduction. Compatibility feedback helps us improve both migrations and the policy.

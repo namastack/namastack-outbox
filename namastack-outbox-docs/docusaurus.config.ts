@@ -176,6 +176,7 @@ const config: Config = {
           position: 'left',
           items: [
             {label: 'Contributing', to: '/docs/contributing/'},
+            {label: 'Support and Update Policy', to: '/docs/support-and-update-policy/'},
             {label: 'GitHub Discussions', href: 'https://github.com/namastack/namastack-outbox/discussions'},
             {label: 'GitHub Issues', href: 'https://github.com/namastack/namastack-outbox/issues'},
             {label: 'Discord', href: 'https://discord.gg/XNHP5Yhxy7'},
@@ -231,6 +232,10 @@ const config: Config = {
         {
           title: 'Community & Support',
           items: [
+            {
+              label: 'Support and Update Policy',
+              to: '/docs/support-and-update-policy/',
+            },
             {
               label: 'Contributing',
               to: '/docs/contributing/',

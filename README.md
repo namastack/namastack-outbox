@@ -29,24 +29,27 @@
     <a href="https://github.com/namastack/namastack-outbox/discussions">Community</a>
   </p>
 
-  <a href="https://github.com/namastack/namastack-outbox/releases/latest"><img src="https://img.shields.io/github/v/release/namastack/namastack-outbox?style=flat-square" alt="Release"></a>
-  <a href="https://github.com/namastack/namastack-outbox/actions/workflows/gradle-test.yml"><img src="https://img.shields.io/github/actions/workflow/status/namastack/namastack-outbox/gradle-test.yml?branch=main&amp;style=flat-square&amp;label=build" alt="Build"></a>
-  <a href="https://codecov.io/github/namastack/namastack-outbox"><img src="https://img.shields.io/codecov/c/github/namastack/namastack-outbox?style=flat-square" alt="Coverage"></a>
-  <a href="https://github.com/namastack/namastack-outbox/stargazers"><img src="https://img.shields.io/github/stars/namastack/namastack-outbox?style=flat-square" alt="GitHub Stars"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/namastack/namastack-outbox?style=flat-square" alt="License"></a>
+<a href="https://github.com/namastack/namastack-outbox/releases/latest"><img src="https://img.shields.io/github/v/release/namastack/namastack-outbox?style=flat-square" alt="Release"></a>
+<a href="https://github.com/namastack/namastack-outbox/actions/workflows/gradle-test.yml"><img src="https://img.shields.io/github/actions/workflow/status/namastack/namastack-outbox/gradle-test.yml?branch=main&amp;style=flat-square&amp;label=build" alt="Build"></a>
+<a href="https://codecov.io/github/namastack/namastack-outbox"><img src="https://img.shields.io/codecov/c/github/namastack/namastack-outbox?style=flat-square" alt="Coverage"></a>
+<a href="https://github.com/namastack/namastack-outbox/stargazers"><img src="https://img.shields.io/github/stars/namastack/namastack-outbox?style=flat-square" alt="GitHub Stars"></a>
+<a href="LICENSE"><img src="https://img.shields.io/github/license/namastack/namastack-outbox?style=flat-square" alt="License"></a>
 </div>
 
 ---
 
-Namastack Outbox is an open-source **transactional outbox implementation for Spring Boot**, built for reliable event-driven applications with Java and Kotlin.
+Namastack Outbox is an open-source **transactional outbox implementation for Spring Boot**, built for reliable
+event-driven applications with Java and Kotlin.
 
-It persists events atomically with your business data and processes them asynchronously with built-in support for retries, ordering, horizontal scaling and observability — without requiring additional infrastructure.
+It persists events atomically with your business data and processes them asynchronously with built-in support for
+retries, ordering, horizontal scaling and observability — without requiring additional infrastructure.
 
 **[Explore the documentation →](https://www.namastack.io/docs/)**
 
 ## Why Namastack Outbox?
 
-Reliable event publishing becomes surprisingly difficult once failures, retries, concurrency and multiple application instances enter the picture.
+Reliable event publishing becomes surprisingly difficult once failures, retries, concurrency and multiple application
+instances enter the picture.
 
 Namastack Outbox handles these concerns as part of your Spring Boot application.
 
@@ -64,7 +67,8 @@ Namastack Outbox handles these concerns as part of your Spring Boot application.
 
 ## How It Works
 
-Business data and its outbox record commit together. Namastack delivers the record asynchronously with ordering and retries.
+Business data and its outbox record commit together. Namastack delivers the record asynchronously with ordering and
+retries.
 
 <div align="center">
   <picture>
@@ -97,11 +101,22 @@ Everything you need to get started, configure and operate Namastack Outbox is av
 
 ---
 
+## Releases and Compatibility
+
+We make every effort to preserve backward compatibility and keep upgrades straightforward. While we cannot
+guarantee strict Semantic Versioning for every change, we aim to keep necessary adjustments small and explain them clearly.
+
+Read the **[Support and Update Policy](https://www.namastack.io/docs/support-and-update-policy/)** for compatibility
+expectations, maintenance support and upgrade guidance.
+
+---
+
 ## Community
 
 Namastack Outbox is open source and contributions of all sizes are welcome.
 
-* [GitHub Discussions](https://github.com/namastack/namastack-outbox/discussions) — questions, ideas and general discussion
+* [GitHub Discussions](https://github.com/namastack/namastack-outbox/discussions) — questions, ideas and general
+  discussion
 * [GitHub Issues](https://github.com/namastack/namastack-outbox/issues) — bugs and feature requests
 * [Discord](https://discord.gg/XNHP5Yhxy7) — chat with the community
 * [Contributing Guide](CONTRIBUTING.md) — contribute to the project
@@ -121,7 +136,8 @@ Thanks to everyone who has contributed to Namastack Outbox.
 
 Namastack Outbox is independently developed and maintained as open-source software.
 
-If Namastack Outbox helps you or your team, sponsoring the project helps support its continued development, maintenance and documentation.
+If Namastack Outbox helps you or your team, sponsoring the project helps support its continued development, maintenance
+and documentation.
 
 [![Sponsor Namastack](https://img.shields.io/badge/Sponsor-Namastack-ea4aaa?style=for-the-badge\&logo=github)](https://github.com/sponsors/namastack)
 
