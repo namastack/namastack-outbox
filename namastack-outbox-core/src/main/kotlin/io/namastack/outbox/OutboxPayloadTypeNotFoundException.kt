@@ -6,7 +6,7 @@ import io.namastack.outbox.processing.OutboxRecordKey
  * Indicates that an outbox record cannot be materialized because its payload type is unavailable.
  *
  * @param recordId ID of the affected outbox record
- * @param recordKey Stored key of the affected outbox record, including an encoded processing group
+ * @param recordKey Stored key of the affected outbox record; may encode a processing group
  * @param payloadType Fully qualified name of the unavailable payload type
  * @param handlerId ID of the handler referenced by the affected record
  * @param cause Class-loading failure that prevented materialization

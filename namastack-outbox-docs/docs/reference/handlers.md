@@ -112,9 +112,10 @@ public class UniversalHandler implements OutboxHandler {
 Scheduling selects matching typed handlers and generic handlers whose `supports()` predicate
 accepts the payload. Each selected handler receives a separate persisted record.
 
-Selection order is not delivery order. Records for one stored key are processed by `createdAt`
-and then `id`; different keys can run in parallel. With [Processing Groups](processing-groups.md),
-handlers can share or separate their ordering boundaries even for the same business key.
+The records are delivered in record order, not in handler selection order: records with the
+same key are processed by `createdAt` and then `id`, and different keys run in parallel. With
+[Processing Groups](processing-groups.md), handlers can share or separate their ordering
+boundaries for the same business key.
 
 ---
 
@@ -326,19 +327,23 @@ removal, and rollback procedures.
 
 ## Processing Groups
 
-Since 1.12.0, handlers can declare a group with `@OutboxHandler(processingGroup = "billing")`,
+:::info Available since 1.12.0
+Processing groups are available since version 1.12.0.
+:::
+
+Handlers declare a group with `@OutboxHandler(processingGroup = "billing")`,
 `getTypedHandlerProcessingGroup()`, or `getGenericHandlerProcessingGroup()`. The default is
-`"default"`. Grouped scheduling requires the explicit `namastack.outbox.processing-groups.enabled`
-opt-in. See [Processing Groups](processing-groups.md) for examples and migration behavior.
+`"default"`. Declared groups are applied when `namastack.outbox.processing-groups.enabled=true`.
+See [Processing Groups](processing-groups.md) for examples and rollout.
 
 ## OutboxRecordMetadata
 
 Handlers that accept `OutboxRecordMetadata` receive processing metadata for the current
 handler invocation:
 
-- `key` - Original business key, without the storage encoding
+- `key` - Business key
 - `recordId` - Nullable persisted record ID, populated during processing and stable across retries
-- `processingGroup` - Persisted group for this delivery (`default` for plain keys; since 1.12.0)
+- `processingGroup` - Processing group of this delivery (since 1.12.0)
 - `handlerId` - Handler assigned to the record
 - `createdAt` - Time when the outbox record was created
 - `context` - Propagated context such as trace IDs or tenant IDs
@@ -569,8 +574,8 @@ The `OutboxFailureContext` provides comprehensive failure information:
 interface OutboxFailureContext {
     val handlerId: String              // Handler that failed
     val recordId: String               // Unique identifier of the record
-    val recordKey: String              // Original business key
-    val processingGroup: String        // Persisted processing group (since 1.12.0)
+    val recordKey: String              // Business key
+    val processingGroup: String        // Processing group (since 1.12.0)
     val createdAt: Instant             // When record was created
     val failureCount: Int              // Number of failed attempts
     val lastFailure: Throwable?        // Last exception thrown
@@ -587,8 +592,8 @@ interface OutboxFailureContext {
 public interface OutboxFailureContext {
     String getHandlerId();             // Handler that failed
     String getRecordId();              // Unique identifier of the record
-    String getRecordKey();             // Original business key
-    String getProcessingGroup();       // Persisted processing group (since 1.12.0)
+    String getRecordKey();             // Business key
+    String getProcessingGroup();       // Processing group (since 1.12.0)
     Instant getCreatedAt();            // When record was created
     int getFailureCount();             // Number of failed attempts
     Throwable getLastFailure();        // Last exception thrown

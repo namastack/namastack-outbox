@@ -11,9 +11,12 @@ import TabItem from '@theme/TabItem';
 
 # Processing Groups
 
-Processing groups are available from **1.12.0** and are **disabled by default**.
-They let handlers share one outbox while choosing which handlers must process a business key
-sequentially. Each matching handler still receives its own delivery record.
+:::info Available since 1.12.0
+Processing groups are available since version 1.12.0.
+:::
+
+Processing groups let handlers share one outbox while choosing which handlers must process a
+business key sequentially. Each matching handler receives its own delivery record.
 
 The ordering boundary is **(processing group, business key) within one source outbox**.
 Handlers in the same group share that boundary. Different groups can process the same business
@@ -31,12 +34,15 @@ namastack:
       enabled: true
 ```
 
-This setting controls **newly scheduled records**. With the default `false`, every handler uses
-the `default` group for new deliveries, even if it declares another group. The supplied business
-key is stored unchanged. With `true`, each selected handler's declared group is used.
+Grouped scheduling is **disabled by default**. The setting applies when records are scheduled:
 
-Readers always decode existing grouped records, including when this setting is `false`.
-Upgrade every worker before enabling grouped scheduling; see [Rollout and Group Changes](#rollout-and-group-changes).
+- `false`: every delivery is scheduled in the `default` group, regardless of the handler's
+  declared group. The business key is stored as supplied.
+- `true`: every delivery is scheduled in the declared group of its handler.
+
+Records already stored in a group are always processed in that group, regardless of this
+setting. All workers sharing the outbox must support processing groups before the setting is
+enabled; see [Rollout and Group Changes](#rollout-and-group-changes).
 
 ## Assign Groups to Handlers
 
@@ -70,11 +76,11 @@ class OrderHandlers(
 
 For `outbox.schedule(OrderCreated("42"), "order:42")`, inside the producer transaction:
 
-| Handler | Group | Business key | Shared ordering boundary |
-|---|---|---|---|
-| `orders.invoice` | `billing` | `order:42` | With `orders.ledger` |
-| `orders.ledger` | `billing` | `order:42` | With `orders.invoice` |
-| `orders.notify` | `notifications` | `order:42` | Independent of billing |
+| Handler          | Group           | Business key | Shared ordering boundary |
+|------------------|-----------------|--------------|--------------------------|
+| `orders.invoice` | `billing`       | `order:42`   | With `orders.ledger`     |
+| `orders.ledger`  | `billing`       | `order:42`   | With `orders.invoice`    |
+| `orders.notify`  | `notifications` | `order:42`   | Independent of billing   |
 
 ```mermaid
 flowchart LR
@@ -158,17 +164,18 @@ for overriding individual handlers' groups.
 
 ## Metadata and Messaging Keys
 
-Primary handlers receive the original business key in `OutboxRecordMetadata.key` and the group
-in `processingGroup`. Fallbacks receive the same values through `OutboxFailureContext.recordKey`
-and `processingGroup`. The group is read from the stored record, not the current handler declaration.
-It is not added to the custom `context` map.
+Primary handlers receive the business key in `OutboxRecordMetadata.key` and the group in
+`OutboxRecordMetadata.processingGroup`. Fallbacks receive the same values through
+`OutboxFailureContext.recordKey` and `OutboxFailureContext.processingGroup`. The group is read
+from the stored record, not from the current handler declaration. It is not part of the custom
+`context` map.
 
-During scheduling, a generic handler's `supports()` receives the original key and its effective
-group: `default` while the opt-in is disabled, otherwise its declared group.
+During scheduling, a generic handler's `supports()` receives the business key and the group the
+delivery would be scheduled in: `default` when grouped scheduling is disabled, otherwise the
+handler's declared group.
 
-Kafka, RabbitMQ, and SNS routing use the business key from metadata by default. The storage
-encoding does not become the Kafka key, RabbitMQ routing key, or SNS message group ID.
-Routing callbacks can explicitly include the group in a header:
+Kafka, RabbitMQ, and SNS routing use the business key from metadata as the Kafka key, RabbitMQ
+routing key, and SNS message group ID. Routing callbacks can include the group in a header:
 
 ```kotlin
 kafkaOutboxRouting {
@@ -179,8 +186,8 @@ kafkaOutboxRouting {
 }
 ```
 
-No processing-group header is added automatically. An SNS message group ID and a Namastack
-processing group serve separate purposes.
+The processing group is not added to messages unless a routing callback adds it. An SNS message
+group ID and a processing group are unrelated concepts.
 
 ## Ordering, Retries, and Resources
 
@@ -192,118 +199,86 @@ the same group.
 
 A successful fallback with disposition `COMPLETE` releases that boundary. A throwing fallback
 or disposition `FAIL` leaves the record failed and the boundary blocked. With
-`stop-on-first-failure=false`, the scheduler can continue past failed or not-yet-due deliveries;
-strict successful-completion ordering is then disabled.
+`stop-on-first-failure=false`, the scheduler moves past failed or not-yet-due deliveries, so
+later deliveries can complete before earlier ones.
 
-This serializes available records; it does not establish business-event or transaction commit
-order. Multiple handler records from one event share a timestamp. UUIDs break ties without
-expressing causality. A concurrent producer can commit an earlier timestamp after another
-record has already been processed. There is no ordering across different groups or keys.
+Ordering serializes the available records; it does not reflect business-event or transaction
+commit order. Handler records created by one scheduling call share a timestamp, and their IDs
+break the tie without expressing causality. A concurrent producer can commit an earlier
+timestamp after another record has already been processed. Different groups and different keys
+have no ordering relationship.
 
-Group independence does not reserve threads, database connections, or partitions. Groups use
-the existing executor and database resources. A scheduler waits for every key task in its
-current batch before polling again, so a slow handler can delay work outside that batch.
-Different keys in the same partition can still be processed in parallel.
+Groups share the scheduler's executor, database connections, and partitions; no resources are
+reserved per group. A scheduler waits for every key task in its current batch before polling
+again, so a slow handler can delay work outside that batch. Different keys in the same
+partition are processed in parallel.
 
 Group identity, retry state, and record ordering survive restarts and partition reassignment.
-Delivery remains at least once: a crash after a side effect but before completion can cause
-redelivery. Processing groups add no inbox or deduplication mechanism.
+Delivery is at least once: a crash after a side effect but before completion can cause
+redelivery. Processing groups provide no inbox or deduplication mechanism.
 
 ## Storage and Operational Queries
 
-Groups use the existing record-key field; **no schema migration or new group-specific index is
-required**. JDBC, JPA, and MongoDB keep their existing repository contracts.
+The group is stored as part of the record key; there is no separate group column or index.
+This works the same way for JDBC, JPA, and MongoDB.
 
-| Group | Business key | Stored key |
-|---|---|---|
-| `default` | `order:42` | `order:42` |
-| `billing` | `order:42` | `~ns.pg1~billing:order:42` |
+| Group     | Business key | Stored key                 |
+|-----------|--------------|----------------------------|
+| `default` | `order:42`   | `order:42`                 |
+| `billing` | `order:42`   | `~ns.pg1~billing:order:42` |
 
 The prefix identifies the encoding version. Group names cannot contain `:`, so the first colon
-after the prefix separates the group from the unchanged business key. Business keys may contain
-colons and Unicode. With grouped scheduling enabled, new business keys cannot start with the
-reserved prefix `~ns.pg1~`, including for default-group deliveries.
+after the prefix separates the group from the business key. Business keys may contain colons
+and Unicode. With grouped scheduling enabled, business keys must not start with the reserved
+prefix `~ns.pg1~`, including for default-group deliveries.
 
-Non-default encoded keys must fit within **255 UTF-8 bytes**, including the prefix and group.
-The codec adds no new length limit to default-group keys; existing database limits still apply.
-All selected keys are validated before the first delivery record is saved.
+Keys of non-default groups must fit within **255 UTF-8 bytes**, including the prefix and group.
+Default-group keys are stored unchanged and are limited only by the database column. All keys of
+one scheduling call are validated before the first delivery record is saved.
 
-`OutboxRecord.key`, repository operations, partition hashing, and raw database queries use the
-stored key. Update custom monitoring or queries that assume the column always contains the
-business key. Actuator's existing deletion operation also takes the stored key; it has no
-separate processing-group parameter. The codec is an internal implementation detail.
+`OutboxRecord.key`, repository operations, partition hashing, raw database queries, and the
+actuator deletion operation use the stored key. `OutboxRecord.businessKey` and
+`OutboxRecord.processingGroup` expose the decoded values. Handler metadata, fallback contexts,
+and processing observations use the decoded values: the `outbox.record.key` attribute contains
+the business key and `outbox.processing.group` the group. The scheduling observation records the
+explicit key or `auto-generated` and covers all deliveries of the call, which can span several
+groups. Compatibility exceptions report `businessKey`, `processingGroup`, and `storageKey`.
 
-`OutboxRecord.businessKey` and `OutboxRecord.processingGroup` expose the decoded values,
-computed once when the record is constructed or restored. Handler metadata, fallback contexts
-and processing observations use these values. The `outbox.record.key` trace attribute contains
-the business key; `outbox.processing.group` identifies the persisted group separately. Scheduling
-observations keep their existing explicit-key or `auto-generated` convention and cover the entire
-fan-out, which can include multiple groups. Diagnostics distinguish `businessKey`, `processingGroup`
-and `storageKey`.
+Malformed, non-canonical, and unknown-version encodings are read as plain keys in the default
+group. A key that exactly matches a valid encoding is always decoded as a grouped key, even when
+grouped scheduling is disabled.
 
-The design and accepted compatibility tradeoffs are recorded in
+The design and its tradeoffs are recorded in
 [ADR-0004](https://github.com/namastack/namastack-outbox/blob/main/docs/adr/0004-processing-groups-without-schema-migration.md).
-
-Malformed, non-canonical, and unknown-version encodings are read as unchanged default-group keys.
-An old freely chosen key that exactly matches a valid encoding is indistinguishable from a grouped
-key and will be decoded, even with the opt-in disabled. This collision is an accepted compatibility
-limitation of reusing the column.
 
 ## Rollout and Group Changes
 
 1. Deploy version 1.12.0 or newer to **all workers sharing the outbox**, leaving grouped scheduling disabled.
 2. Verify the rollout through your deployment tooling. Namastack does not detect worker capabilities.
-3. Pause affected producers and drain their old deliveries before moving a handler to a non-default
-   group. Include delayed retries and resolve permanently failed records that still block a key.
+3. Pause affected producers and drain their pending deliveries before moving a handler to a
+   non-default group. Include delayed retries and resolve permanently failed records that block a key.
 4. Enable grouped scheduling consistently on producers and resume production.
 
-The default group retains the old plain keys. Changing a handler's group affects new deliveries
-only; open records retain their stored group. Old and new group assignments can therefore run
-independently for the same business key. Handler aliases preserve routing IDs but do not migrate
-records between groups.
+A handler's group applies to deliveries scheduled from then on; stored records keep the group
+they were scheduled in. If a handler's group changes while records are pending, records in the
+previous and the new group can be processed independently for the same business key. Handler
+aliases map handler IDs, not groups, and do not move records between groups.
 
-Apply the same pause-and-drain procedure when changing groups later or disabling grouped writes
-for handlers that previously used non-default groups. Turning the flag off does not make existing
-encoded records readable by older library versions. Keep compatible workers until those records
-have drained before downgrading.
+Apply the same pause-and-drain procedure when changing a handler's group or disabling grouped
+scheduling. Library versions before 1.12.0 cannot read grouped records, whatever the setting;
+keep workers on 1.12.0 or newer until all grouped records have drained.
 
-The missing-payload/handler safeguards described in [Rolling Deployments](rolling-deployments.md)
-do not protect against an old worker that understands the handler but treats an encoded key as a
-plain business key.
-
-### Metadata Construction and Copying
-
-Existing handlers can continue reading metadata through the same getters. Manually constructing
-or copying `OutboxRecordMetadata` and `OutboxFailureContext` has an intentional API change:
-both types use their current data-class constructor and generated `copy` method, without legacy
-compatibility overloads. Previously compiled construction and copy calls must be rebuilt.
-
-Java constructor and `copy` calls must supply all current fields, including `processingGroup`.
-`OutboxRecordMetadata` has seven constructor arguments; `OutboxFailureContext` has ten. For
-default-group test fixtures, use `OutboxProcessingGroup.DEFAULT`:
-
-```java
-var metadata = new OutboxRecordMetadata(
-    key, handlerId, createdAt, context, failureCount, recordId,
-    OutboxProcessingGroup.DEFAULT
-);
-```
-
-When copying an existing object from Java, pass its current processing group to retain the
-persisted assignment. Older five- and six-argument metadata constructors and explicit `copy`
-overloads are not retained.
-
-Ordinary Kotlin constructor calls can omit optional fields, and named `copy` calls retain
-unchanged fields, including the record ID and processing group. Code relying on inferred
-constructor or `copy` function-reference signatures may need explicit types or a lambda.
+The missing-payload and missing-handler safeguards described in
+[Rolling Deployments](rolling-deployments.md) do not apply here: a worker before 1.12.0 finds the
+handler and passes the stored key to it as the business key.
 
 ## Transaction Boundaries
 
-Processing groups do not change the transaction model. Schedule the business change and all
-matching delivery records in the same producer transaction. Handler invocation continues through
-the registered Spring proxy, preserving transaction and other advisors.
+The business change and all matching delivery records are written in the same producer
+transaction. Handlers are invoked through their Spring proxy, so `@Transactional` and other
+advisors apply.
 
-A handler may use `@Transactional` to commit its own business updates and a follow-up event together
-when both use the same database and transaction manager. Namastack does not currently wrap that
-handler transaction and completion of the original delivery in one shared processing transaction.
-The original delivery can therefore be retried after the handler's transaction has committed.
+A handler may use `@Transactional` to commit its own business updates and a follow-up event
+together when both use the same database and transaction manager. Completion of the delivery is
+committed separately from that handler transaction, so the delivery can be retried after the
+handler's transaction has committed.

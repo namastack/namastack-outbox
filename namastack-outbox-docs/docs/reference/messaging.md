@@ -14,11 +14,14 @@ AWS SNS. These modules offer ready-to-use handlers, flexible routing, and simple
 
 ## Processing Groups and Message Keys
 
-With [Processing Groups](processing-groups.md), handler metadata contains the original business
-key and a separate `processingGroup`. Default routing continues to use the business key for the
-Kafka key, RabbitMQ routing key, and SNS message group ID. The encoded storage key is not sent
-as that key. Custom routing callbacks can read `processingGroup`, for example to add a header;
-no group header is added automatically.
+:::info Available since 1.12.0
+Processing groups are available since version 1.12.0.
+:::
+
+Default routing uses the business key from handler metadata as the Kafka key, RabbitMQ routing
+key, and SNS message group ID. The [processing group](processing-groups.md) is available as
+`metadata.processingGroup` and is not added to messages unless a routing callback adds it, for
+example as a header.
 
 ## Quickstart: Adding Kafka, RabbitMQ, or SNS Support
 

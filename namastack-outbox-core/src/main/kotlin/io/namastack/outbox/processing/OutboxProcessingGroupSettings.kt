@@ -3,9 +3,9 @@ package io.namastack.outbox.processing
 /**
  * Producer settings for processing groups in one outbox.
  *
- * Enable grouped writes only after all workers reading this outbox support the storage format.
- * This flag does not detect worker capabilities. Drain affected deliveries before changing a
- * handler's group; changing these settings does not move existing records to another group.
+ * Enable only after all workers reading this outbox support processing groups; worker
+ * capabilities are not detected. Stored records keep their group, so drain affected deliveries
+ * before changing a handler's group or this setting.
  *
  * @property enabled Whether newly scheduled records use processing groups; disabled by default
  *

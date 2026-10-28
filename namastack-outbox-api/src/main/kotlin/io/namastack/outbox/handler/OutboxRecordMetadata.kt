@@ -30,7 +30,7 @@ import java.time.Instant
  * @property context Custom context map for cross-cutting concerns (tracing, tenancy, correlation)
  * @property failureCount Number of failed processing attempts before the current handler invocation
  * @property recordId Persisted record identifier; `null` before record creation during scheduling
- * @property processingGroup Group sharing the ordering boundary for this business key
+ * @property processingGroup Processing group of this delivery; with [key] it defines the ordering boundary (since 1.12.0)
  * @property attempt One-based attempt number for the current handler invocation
  * @property isRetry True when the current handler invocation is a retry
  *

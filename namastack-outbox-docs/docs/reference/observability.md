@@ -286,8 +286,8 @@ dimensions unless you fully control their cardinality.
 | Key                            | Used by                                          | Description                                                                     |
 |--------------------------------|--------------------------------------------------|---------------------------------------------------------------------------------|
 | `outbox.record.id`             | `outbox.record.attempt`, `outbox.record.process` | Unique outbox record id                                                         |
-| `outbox.record.key`            | `outbox.record.attempt`, `outbox.record.process` | Original business key, without the processing-group storage encoding            |
-| `outbox.processing.group`      | `outbox.record.attempt`, `outbox.record.process` | Persisted processing group; together with the business key defines ordering     |
+| `outbox.record.key`            | `outbox.record.attempt`, `outbox.record.process` | Business key                                                                    |
+| `outbox.processing.group`      | `outbox.record.attempt`, `outbox.record.process` | Persisted processing group                                                      |
 | `outbox.delivery.attempt`      | `outbox.record.attempt`, `outbox.record.process` | Current delivery attempt (`failureCount + 1`)                                   |
 | `outbox.schedule.record.key`   | `outbox.record.schedule`                         | Explicit schedule key, or `auto-generated` for overloads without a key argument |
 | `outbox.schedule.payload.type` | `outbox.record.schedule`                         | Simple class name of the scheduled payload                                      |
