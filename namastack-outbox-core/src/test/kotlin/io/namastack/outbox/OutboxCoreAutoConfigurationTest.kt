@@ -103,7 +103,7 @@ class OutboxCoreAutoConfigurationTest {
                     verify(exactly = 1) {
                         context
                             .getBean<OutboxRecordRepository>()
-                            .save(match<OutboxRecord<Any>> { it.key == "order-42" })
+                            .create(match<OutboxRecord<Any>> { it.key == "order-42" })
                     }
                 }
         }
@@ -124,7 +124,7 @@ class OutboxCoreAutoConfigurationTest {
                     verify(exactly = 1) {
                         context
                             .getBean<OutboxRecordRepository>()
-                            .save(match<OutboxRecord<Any>> { it.key == "~ns.pg1~billing:order-42" })
+                            .create(match<OutboxRecord<Any>> { it.key == "~ns.pg1~billing:order-42" })
                     }
                 }
         }

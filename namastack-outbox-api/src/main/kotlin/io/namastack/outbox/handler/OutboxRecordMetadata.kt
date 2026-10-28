@@ -46,35 +46,6 @@ data class OutboxRecordMetadata(
     val recordId: String? = null,
     val processingGroup: String = OutboxProcessingGroup.DEFAULT,
 ) {
-    /**
-     * Creates metadata without a persisted record identifier for existing callers and test fixtures.
-     *
-     * Leaves [recordId] `null`, as during handler selection before a record is created.
-     * Preserves the original constructor and its Kotlin default-argument signature.
-     */
-    constructor(
-        key: String,
-        handlerId: String,
-        createdAt: Instant,
-        context: Map<String, String>,
-        failureCount: Int = 0,
-    ) : this(key, handlerId, createdAt, context, failureCount, null)
-
-    /**
-     * Copies metadata while retaining its record identifier and processing group.
-     *
-     * Preserves the original `copy` and Kotlin default-argument signatures for existing callers.
-     * Use the generated overload with a `recordId` argument to change the identifier explicitly.
-     */
-    fun copy(
-        key: String = this.key,
-        handlerId: String = this.handlerId,
-        createdAt: Instant = this.createdAt,
-        context: Map<String, String> = this.context,
-        failureCount: Int = this.failureCount,
-    ): OutboxRecordMetadata =
-        OutboxRecordMetadata(key, handlerId, createdAt, context, failureCount, recordId, processingGroup)
-
     val attempt: Int
         get() = failureCount + 1
 

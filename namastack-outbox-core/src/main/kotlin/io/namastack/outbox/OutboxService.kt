@@ -497,7 +497,7 @@ class OutboxService(
                             .handlerId(handlerId)
                             .build(schedulingClock)
 
-                    outboxRecordRepository.save(outboxRecord)
+                    outboxRecordRepository.create(outboxRecord)
                 }
             },
         )

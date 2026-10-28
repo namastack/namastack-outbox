@@ -211,7 +211,7 @@ class ProcessingGroupSchedulingTest {
                 .create(OutboxRetryPolicy.builder().build(), "default")
         handlers.forEachIndexed { index, handler -> infrastructure.register(handler, "handler-$index") }
         val repository = mockk<OutboxRecordRepository>()
-        every { repository.save(capture(records)) } answers { records.last() }
+        every { repository.create(capture(records)) } answers { records.last() }
         val contextProvider =
             object : OutboxContextProvider {
                 override fun provide() = mapOf("source" to "provider")

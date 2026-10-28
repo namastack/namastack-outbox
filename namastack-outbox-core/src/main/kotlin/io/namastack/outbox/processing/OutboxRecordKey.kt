@@ -69,8 +69,14 @@ internal object OutboxRecordKey {
 
         val group = recordKey.substring(PREFIX.length, separator)
         val key = recordKey.substring(separator + 1)
-        require(group != OutboxProcessingGroup.DEFAULT && encode(group, key) == recordKey) {
+
+        OutboxProcessingGroup.validate(group)
+
+        require(group != OutboxProcessingGroup.DEFAULT && !key.startsWith(PREFIX)) {
             "Non-canonical processing-group record key"
+        }
+        require(recordKey.toByteArray(Charsets.UTF_8).size <= MAX_ENCODED_BYTES) {
+            "Processing-group record key exceeds the storage limit"
         }
 
         return DecodedKey(group, key)

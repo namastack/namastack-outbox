@@ -3,7 +3,6 @@ package io.namastack.outbox.handler.invoker
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.handler.OutboxFailureContext
 import io.namastack.outbox.handler.OutboxRecordMetadata
-import io.namastack.outbox.processing.OutboxRecordKey
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
 
@@ -24,19 +23,16 @@ internal object OutboxHandlerContextFactory {
      * @param record Stored record being dispatched
      * @return Public metadata projected from the record
      */
-    fun metadata(record: OutboxRecord<*>): OutboxRecordMetadata {
-        val key = OutboxRecordKey.decode(record.key)
-
-        return OutboxRecordMetadata(
+    fun metadata(record: OutboxRecord<*>): OutboxRecordMetadata =
+        OutboxRecordMetadata(
             recordId = record.id,
-            key = key.businessKey,
+            key = record.businessKey,
             handlerId = record.handlerId,
             createdAt = record.createdAt,
             context = record.context,
             failureCount = record.failureCount,
-            processingGroup = key.processingGroup,
+            processingGroup = record.processingGroup,
         )
-    }
 
     /**
      * Creates the context supplied to a fallback handler invocation.
@@ -57,11 +53,10 @@ internal object OutboxHandlerContextFactory {
         explicitRetryPolicy: OutboxRetryPolicy? = null,
     ): OutboxFailureContext {
         val policy = explicitRetryPolicy ?: retryPolicies.getByHandlerId(record.handlerId)
-        val key = OutboxRecordKey.decode(record.key)
 
         return OutboxFailureContext(
             recordId = record.id,
-            recordKey = key.businessKey,
+            recordKey = record.businessKey,
             createdAt = record.createdAt,
             handlerId = record.handlerId,
             failureCount = record.failureCount,
@@ -69,7 +64,7 @@ internal object OutboxHandlerContextFactory {
             retriesExhausted = record.retriesExhausted(policy.maxRetries()),
             nonRetryableException = !policy.shouldRetry(exception),
             context = record.context,
-            processingGroup = key.processingGroup,
+            processingGroup = record.processingGroup,
         )
     }
 }

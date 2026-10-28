@@ -148,6 +148,13 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
         DELIVERY_ATTEMPT {
             override fun asString(): String = OutboxMetricKeyNames.HighCardinality.DELIVERY_ATTEMPT
         },
+
+        /**
+         * Persisted processing group sharing the business key's ordering boundary.
+         */
+        PROCESSING_GROUP {
+            override fun asString(): String = OutboxMetricKeyNames.HighCardinality.PROCESSING_GROUP
+        },
     }
 
     /**
@@ -207,6 +214,7 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
             KeyValues.of(
                 HighCardinalityKeyNames.RECORD_ID.withValue(context.getRecordId()),
                 HighCardinalityKeyNames.RECORD_KEY.withValue(context.getRecordKey()),
+                HighCardinalityKeyNames.PROCESSING_GROUP.withValue(context.getProcessingGroup()),
                 HighCardinalityKeyNames.DELIVERY_ATTEMPT.withValue(context.getDeliveryAttempt().toString()),
             )
     }
@@ -236,6 +244,7 @@ enum class OutboxObservationDocumentation : ObservationDocumentation {
             KeyValues.of(
                 HighCardinalityKeyNames.RECORD_ID.withValue(context.getRecordId()),
                 HighCardinalityKeyNames.RECORD_KEY.withValue(context.getRecordKey()),
+                HighCardinalityKeyNames.PROCESSING_GROUP.withValue(context.getProcessingGroup()),
                 HighCardinalityKeyNames.DELIVERY_ATTEMPT.withValue(context.getDeliveryAttempt().toString()),
             )
     }

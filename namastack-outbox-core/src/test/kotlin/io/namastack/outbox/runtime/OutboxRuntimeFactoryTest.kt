@@ -53,8 +53,8 @@ class OutboxRuntimeFactoryTest {
 
         ordersRuntime.outbox.schedule(RuntimePayload("created"), "order-1")
 
-        verify(exactly = 1) { orders.recordRepository.save(any<OutboxRecord<Any>>()) }
-        verify(exactly = 0) { payments.recordRepository.save(any<OutboxRecord<Any>>()) }
+        verify(exactly = 1) { orders.recordRepository.create(any<OutboxRecord<Any>>()) }
+        verify(exactly = 0) { payments.recordRepository.create(any<OutboxRecord<Any>>()) }
         verify(exactly = 0) { orders.instanceRepository.save(any()) }
     }
 
@@ -83,10 +83,10 @@ class OutboxRuntimeFactoryTest {
         paymentsRuntime.outbox.schedule(RuntimePayload("created"), "order-1")
 
         verify(exactly = 1) {
-            orders.recordRepository.save(match<OutboxRecord<Any>> { it.key == "~ns.pg1~billing:order-1" })
+            orders.recordRepository.create(match<OutboxRecord<Any>> { it.key == "~ns.pg1~billing:order-1" })
         }
         verify(exactly = 1) {
-            payments.recordRepository.save(match<OutboxRecord<Any>> { it.key == "order-1" })
+            payments.recordRepository.create(match<OutboxRecord<Any>> { it.key == "order-1" })
         }
     }
 

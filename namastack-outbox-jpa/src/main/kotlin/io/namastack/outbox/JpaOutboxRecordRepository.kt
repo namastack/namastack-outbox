@@ -236,6 +236,38 @@ internal open class JpaOutboxRecordRepository(
         }
 
     /**
+     * Creates a new outbox record.
+     *
+     * @param record The outbox record to create
+     * @return The created outbox record
+     */
+    override fun <T> create(record: OutboxRecord<T>): OutboxRecord<T> =
+        transactionTemplate.execute {
+            val entity = entityMapper.map(record)
+            entityManager.persist(entity)
+            record
+        }
+
+    /**
+     * Updates an existing outbox record. Does nothing if the record no longer exists.
+     *
+     * @param record The outbox record to update
+     * @return True if the record was updated, false if it no longer exists
+     */
+    override fun <T> update(record: OutboxRecord<T>): Boolean =
+        transactionTemplate.execute {
+            val entity = entityMapper.map(record)
+            val existing = entityManager.find(OutboxRecordEntity::class.java, entity.id)
+
+            if (existing == null) {
+                false
+            } else {
+                entityManager.merge(entity)
+                true
+            }
+        }
+
+    /**
      * Finds all pending outbox records that are ready for processing.
      *
      * @return List of pending outbox records ordered by creation time

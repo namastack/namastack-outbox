@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.dropCollection
 import org.springframework.data.mongodb.core.query.Criteria
@@ -321,6 +322,59 @@ class MongoOutboxRecordRepositoryTest {
 
             assertThat(persistedUpdatedRecord.failureCount).isEqualTo(updatedRecord.failureCount)
             assertThat(persistedUpdatedRecord.failureReason).isEqualTo("some failure")
+        }
+    }
+
+    @Nested
+    @DisplayName("create()")
+    inner class CreateTests {
+        @Test
+        fun `creates an entity`() {
+            val record = newRecord()
+
+            repository.create(record)
+
+            val persistedRecord = repository.findIncompleteRecordsByRecordKey(record.key).single()
+
+            assertThat(persistedRecord.id).isEqualTo(record.id)
+            assertThat(persistedRecord.payload).isEqualTo(record.payload)
+            assertThat(persistedRecord.status).isEqualTo(NEW)
+            assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
+        }
+
+        @Test
+        fun `fails to create an entity with an existing id`() {
+            val record = newRecord()
+            repository.create(record)
+
+            assertThatThrownBy { repository.create(record) }
+                .isInstanceOf(DataIntegrityViolationException::class.java)
+        }
+    }
+
+    @Nested
+    @DisplayName("update()")
+    inner class UpdateTests {
+        @Test
+        fun `updates an existing entity`() {
+            val record = newRecord()
+            repository.create(record)
+
+            assertThat(repository.update(failedOnce(record))).isTrue()
+
+            val persistedRecord = repository.findIncompleteRecordsByRecordKey(record.key).single()
+
+            assertThat(persistedRecord.failureCount).isEqualTo(1)
+            assertThat(persistedRecord.failureReason).isEqualTo("boom")
+        }
+
+        @Test
+        fun `does not insert when updating a missing entity`() {
+            val record = newRecord()
+
+            assertThat(repository.update(record)).isFalse()
+
+            assertThat(repository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
         }
     }
 
@@ -1160,6 +1214,31 @@ class MongoOutboxRecordRepositoryTest {
                 .isInstanceOf(IllegalArgumentException::class.java)
         }
     }
+
+    private fun newRecord(): OutboxRecord<String> =
+        OutboxRecord
+            .Builder<String>()
+            .key(UUID.randomUUID().toString())
+            .payload("payload")
+            .handlerId("handlerId")
+            .build(clock)
+
+    private fun failedOnce(record: OutboxRecord<String>): OutboxRecord<String> =
+        OutboxRecord.restore(
+            id = record.id,
+            recordKey = record.key,
+            payload = record.payload,
+            context = record.context,
+            partition = record.partition,
+            createdAt = record.createdAt,
+            status = record.status,
+            completedAt = record.completedAt,
+            failureCount = 1,
+            failureReason = "boom",
+            nextRetryAt = record.nextRetryAt,
+            handlerId = record.handlerId,
+            failureException = null,
+        )
 
     private fun createFailedRecords(count: Int = 3) {
         val now = Instant.now(clock)

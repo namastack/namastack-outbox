@@ -217,10 +217,12 @@ class OutboxProcessingScheduler(
         log.warn(
             "Payload type {} is unavailable on this scheduler instance; pausing polling until {} and leaving " +
                 "the record pending without consuming a delivery retry " +
-                "(recordId={}, recordKey={}, handlerId={})",
+                "(recordId={}, businessKey={}, processingGroup={}, storageKey={}, handlerId={})",
             ex.payloadType,
             cooldownUntil,
             ex.recordId,
+            ex.businessKey,
+            ex.processingGroup,
             ex.recordKey,
             ex.handlerId,
             ex,
@@ -231,10 +233,13 @@ class OutboxProcessingScheduler(
         val cooldownUntil = activateCompatibilityCooldown()
         log.warn(
             "Handler {} is unavailable on this scheduler instance; pausing polling until {} and leaving the " +
-                "record pending without consuming a delivery retry (recordId={}, recordKey={})",
+                "record pending without consuming a delivery retry " +
+                "(recordId={}, businessKey={}, processingGroup={}, storageKey={})",
             ex.handlerId,
             cooldownUntil,
             ex.recordId,
+            ex.businessKey,
+            ex.processingGroup,
             ex.recordKey,
             ex,
         )

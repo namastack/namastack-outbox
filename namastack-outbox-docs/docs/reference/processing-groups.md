@@ -233,6 +233,17 @@ stored key. Update custom monitoring or queries that assume the column always co
 business key. Actuator's existing deletion operation also takes the stored key; it has no
 separate processing-group parameter. The codec is an internal implementation detail.
 
+`OutboxRecord.businessKey` and `OutboxRecord.processingGroup` expose the decoded values,
+computed once when the record is constructed or restored. Handler metadata, fallback contexts
+and processing observations use these values. The `outbox.record.key` trace attribute contains
+the business key; `outbox.processing.group` identifies the persisted group separately. Scheduling
+observations keep their existing explicit-key or `auto-generated` convention and cover the entire
+fan-out, which can include multiple groups. Diagnostics distinguish `businessKey`, `processingGroup`
+and `storageKey`.
+
+The design and accepted compatibility tradeoffs are recorded in
+[ADR-0004](https://github.com/namastack/namastack-outbox/blob/main/docs/adr/0004-processing-groups-without-schema-migration.md).
+
 Malformed, non-canonical, and unknown-version encodings are read as unchanged default-group keys.
 An old freely chosen key that exactly matches a valid encoding is indistinguishable from a grouped
 key and will be decoded, even with the opt-in disabled. This collision is an accepted compatibility
@@ -260,9 +271,31 @@ The missing-payload/handler safeguards described in [Rolling Deployments](rollin
 do not protect against an old worker that understands the handler but treats an encoded key as a
 plain business key.
 
-The new metadata properties preserve existing getters. Adding fields to `OutboxRecordMetadata`
-and `OutboxFailureContext` changes constructor and generated `copy` signatures; code that constructs
-or copies these values must be recompiled and Java constructor calls must supply the new field.
+### Metadata Construction and Copying
+
+Existing handlers can continue reading metadata through the same getters. Manually constructing
+or copying `OutboxRecordMetadata` and `OutboxFailureContext` has an intentional API change:
+both types use their current data-class constructor and generated `copy` method, without legacy
+compatibility overloads. Previously compiled construction and copy calls must be rebuilt.
+
+Java constructor and `copy` calls must supply all current fields, including `processingGroup`.
+`OutboxRecordMetadata` has seven constructor arguments; `OutboxFailureContext` has ten. For
+default-group test fixtures, use `OutboxProcessingGroup.DEFAULT`:
+
+```java
+var metadata = new OutboxRecordMetadata(
+    key, handlerId, createdAt, context, failureCount, recordId,
+    OutboxProcessingGroup.DEFAULT
+);
+```
+
+When copying an existing object from Java, pass its current processing group to retain the
+persisted assignment. Older five- and six-argument metadata constructors and explicit `copy`
+overloads are not retained.
+
+Ordinary Kotlin constructor calls can omit optional fields, and named `copy` calls retain
+unchanged fields, including the record ID and processing group. Code relying on inferred
+constructor or `copy` function-reference signatures may need explicit types or a lambda.
 
 ## Transaction Boundaries
 

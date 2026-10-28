@@ -28,11 +28,13 @@ class PermanentFailureOutboxRecordProcessor(
      */
     override fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome {
         record.markFailed()
-        recordRepository.save(record)
+        recordRepository.update(record)
 
         log.warn(
-            "Record {} for key {} marked as FAILED permanently after {} failures",
+            "Record {} (businessKey={}, processingGroup={}, storageKey={}) marked as FAILED permanently after {} failures",
             record.id,
+            record.businessKey,
+            record.processingGroup,
             record.key,
             record.failureCount,
         )

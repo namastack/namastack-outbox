@@ -12,7 +12,8 @@ import java.time.Clock
  * Primary processor that dispatches records to their handlers.
  *
  * On success: marks record as COMPLETED or deletes it.
- * On failure: increments failure count, stores exception, passes to next processor in chain.
+ * On handler failure: increments failure count, stores exception, passes to next processor in chain.
+ * Completion persistence failures propagate without entering handler retry or fallback processing.
  *
  * @param handlerInvoker Invoker for handlers
  * @param recordRepository Repository for persisting record state
@@ -33,8 +34,9 @@ class PrimaryOutboxRecordProcessor(
     /**
      * Processes record by dispatching to its handler.
      *
-     * @return [OutboxRecordProcessingOutcome.COMPLETED] if the handler succeeds, otherwise the
+     * @return [OutboxRecordProcessingOutcome.COMPLETED] if the handler and completion succeed, otherwise the
      * outcome returned by the downstream chain.
+     * @throws Exception if persisting completion fails; handler retry state remains unchanged
      */
     override fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome {
         if (record.payload != null) {
@@ -44,17 +46,23 @@ class PrimaryOutboxRecordProcessor(
         try {
             log.trace("Dispatching record {} to handler {}", record.id, record.handlerId)
             handlerInvoker.dispatch(record)
-
-            completeRecord(record, recordRepository, settings, clock)
-
-            return OutboxRecordProcessingOutcome.COMPLETED
         } catch (ex: Exception) {
-            log.debug("Handler failed for record {} (key: {}): {}", record.id, record.key, ex.message)
+            log.debug(
+                "Handler failed for record {} (businessKey={}, processingGroup={}, storageKey={}): {}",
+                record.id,
+                record.businessKey,
+                record.processingGroup,
+                record.key,
+                ex.message,
+            )
 
             record.incrementFailureCount()
             record.updateFailureException(ex)
 
             return handleNext(record)
         }
+
+        completeRecord(record, recordRepository, settings, clock)
+        return OutboxRecordProcessingOutcome.COMPLETED
     }
 }
