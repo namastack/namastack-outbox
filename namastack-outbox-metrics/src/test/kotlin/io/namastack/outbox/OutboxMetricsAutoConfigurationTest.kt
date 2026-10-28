@@ -33,18 +33,6 @@ class OutboxMetricsAutoConfigurationTest {
         }
 
         @Test
-        fun `throws when OutboxRecordStatusRepository is missing`() {
-            contextRunner()
-                .withUserConfiguration(ConfigMissingStatusRepo::class.java)
-                .run { context ->
-                    assertThat(context.startupFailure)
-                        .isInstanceOf(BeanCreationException::class.java)
-                    assertThat(context.startupFailure!!)
-                        .hasMessageContaining("OutboxRecordStatusRepository bean is missing")
-                }
-        }
-
-        @Test
         fun `throws when OutboxRecordRepository is missing`() {
             contextRunner()
                 .withUserConfiguration(ConfigMissingRecordRepo::class.java)
@@ -84,25 +72,6 @@ class OutboxMetricsAutoConfigurationTest {
     @Configuration
     class ConfigWithAllBeans {
         @Bean
-        fun outboxRecordStatusRepository() = mockk<OutboxRecordStatusRepository>()
-
-        @Bean
-        fun outboxRecordRepository() = mockk<OutboxRecordRepository>()
-
-        @Bean
-        fun partitionCoordinator() = mockk<io.namastack.outbox.partition.PartitionCoordinator>(relaxed = true)
-
-        @Bean
-        fun outboxInstanceRegistry(): OutboxInstanceRegistry {
-            val mock = mockk<OutboxInstanceRegistry>(relaxed = true)
-            io.mockk.every { mock.getCurrentInstanceId() } returns "test-instance"
-            return mock
-        }
-    }
-
-    @Configuration
-    class ConfigMissingStatusRepo {
-        @Bean
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>()
 
         @Bean
@@ -119,9 +88,6 @@ class OutboxMetricsAutoConfigurationTest {
     @Configuration
     class ConfigMissingRecordRepo {
         @Bean
-        fun outboxRecordStatusRepository() = mockk<OutboxRecordStatusRepository>()
-
-        @Bean
         fun partitionCoordinator() = mockk<io.namastack.outbox.partition.PartitionCoordinator>(relaxed = true)
 
         @Bean
@@ -134,9 +100,6 @@ class OutboxMetricsAutoConfigurationTest {
 
     @Configuration
     class ConfigMissingCoordinator {
-        @Bean
-        fun outboxRecordStatusRepository() = mockk<OutboxRecordStatusRepository>()
-
         @Bean
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>()
 
@@ -151,9 +114,6 @@ class OutboxMetricsAutoConfigurationTest {
     @Configuration
     class ConfigMissingRegistry {
         @Bean
-        fun outboxRecordStatusRepository() = mockk<OutboxRecordStatusRepository>()
-
-        @Bean
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>()
 
         @Bean
@@ -162,9 +122,6 @@ class OutboxMetricsAutoConfigurationTest {
 
     @Configuration
     class ConfigMissingMetricsProvider {
-        @Bean
-        fun outboxRecordStatusRepository() = mockk<OutboxRecordStatusRepository>()
-
         @Bean
         fun outboxRecordRepository() = mockk<OutboxRecordRepository>()
 

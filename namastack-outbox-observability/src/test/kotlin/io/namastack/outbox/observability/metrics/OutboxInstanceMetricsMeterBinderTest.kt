@@ -15,7 +15,6 @@ import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
-import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.observability.OutboxMetricKeyNames
 import io.namastack.outbox.observability.OutboxMetricNames
@@ -39,7 +38,6 @@ import java.util.concurrent.atomic.AtomicReference
 
 class OutboxInstanceMetricsMeterBinderTest {
     private val recordRepository = mockk<OutboxRecordRepository>()
-    private val statusRepository = mockk<OutboxRecordStatusRepository>()
     private val coordinator = mockk<PartitionCoordinator>(relaxed = true)
     private val instanceRegistry = mockk<OutboxInstanceRegistry>()
     private val now = AtomicReference(Instant.parse("2026-10-22T12:00:00Z"))
@@ -50,19 +48,16 @@ class OutboxInstanceMetricsMeterBinderTest {
     private val binder = OutboxInstanceMetricsMeterBinder(collector) { "orders" }
     private val registry = SimpleMeterRegistry()
 
-    private fun createCollector(
-        statuses: OutboxRecordStatusRepository? = statusRepository,
-        stopOnFirstFailure: Boolean = true,
-    ) = OutboxMetricsCollector(
-        recordRepository,
-        statuses,
-        coordinator,
-        instanceRegistry,
-        properties,
-        clock,
-        taskScheduler,
-        stopOnFirstFailure,
-    )
+    private fun createCollector(stopOnFirstFailure: Boolean = true) =
+        OutboxMetricsCollector(
+            recordRepository,
+            coordinator,
+            instanceRegistry,
+            properties,
+            clock,
+            taskScheduler,
+            stopOnFirstFailure,
+        )
 
     @AfterEach
     fun tearDown() {
@@ -73,9 +68,9 @@ class OutboxInstanceMetricsMeterBinderTest {
 
     @BeforeEach
     fun setUp() {
-        every { statusRepository.countByStatus(NEW) } returns 15
-        every { statusRepository.countByStatus(FAILED) } returns 3
-        every { statusRepository.countByStatus(COMPLETED) } returns 42
+        every { recordRepository.countByStatus(NEW) } returns 15
+        every { recordRepository.countByStatus(FAILED) } returns 3
+        every { recordRepository.countByStatus(COMPLETED) } returns 42
         every { coordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
         every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } returns null
         every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } returns null
@@ -88,7 +83,7 @@ class OutboxInstanceMetricsMeterBinderTest {
     @Test
     fun `binding and reading uninitialized gauges never queries infrastructure`() {
         registry.meters.filterIsInstance<Gauge>().forEach { assertThat(it.value()).isNaN() }
-        verify { listOf(recordRepository, statusRepository, coordinator, instanceRegistry) wasNot Called }
+        verify { listOf(recordRepository, coordinator, instanceRegistry) wasNot Called }
     }
 
     @Test
@@ -127,7 +122,7 @@ class OutboxInstanceMetricsMeterBinderTest {
                 other.meters.filterIsInstance<Gauge>().forEach { it.value() }
             }
         }
-        OutboxRecordStatus.entries.forEach { verify(exactly = 1) { statusRepository.countByStatus(it) } }
+        OutboxRecordStatus.entries.forEach { verify(exactly = 1) { recordRepository.countByStatus(it) } }
         verify(exactly = 1) { coordinator.getAssignedPartitionNumbers() }
         verify(exactly = 1) { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2), NEW) }
         verify(exactly = 1) { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), NEW, now.get(), true) }
@@ -156,7 +151,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         collector.refresh()
         val lastSuccess = value(OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP)
         now.set(now.get().plusSeconds(15))
-        every { statusRepository.countByStatus(FAILED) } throws IllegalStateException("database unavailable")
+        every { recordRepository.countByStatus(FAILED) } throws IllegalStateException("database unavailable")
         every { recordRepository.countRecordsByPartitions(any(), any()) } throws IllegalStateException("count failed")
         every { instanceRegistry.getActiveInstanceCount() } throws IllegalStateException("instance count failed")
         collector.refresh()
@@ -167,7 +162,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         assertThat(value(OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED)).isEqualTo(5.0)
         assertThat(value(OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP)).isEqualTo(lastSuccess)
 
-        every { statusRepository.countByStatus(FAILED) } returns 0
+        every { recordRepository.countByStatus(FAILED) } returns 0
         every { recordRepository.countRecordsByPartitions(any(), any()) } returns 0
         every { instanceRegistry.getActiveInstanceCount() } returns 1
         collector.refresh()
@@ -190,7 +185,11 @@ class OutboxInstanceMetricsMeterBinderTest {
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isNaN()
         assertThat(value(OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED)).isNaN()
         assertThat(value(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE)).isEqualTo(2.0)
-        verify { recordRepository wasNot Called }
+        verify(exactly = 0) {
+            recordRepository.countRecordsByPartitions(any(), any())
+            recordRepository.findOldestCreatedAtByPartitions(any(), any())
+            recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any(), any())
+        }
     }
 
     @Test
@@ -210,17 +209,6 @@ class OutboxInstanceMetricsMeterBinderTest {
     }
 
     @Test
-    fun `omits status gauges when optional status repository is absent`() {
-        SimpleMeterRegistry().useRegistry { other ->
-            val withoutStatuses = createCollector(null)
-            OutboxInstanceMetricsMeterBinder(withoutStatuses, OutboxChannelNameProvider.DEFAULT).bindTo(other)
-            withoutStatuses.refresh()
-            assertThat(other.find(OutboxMetricNames.RECORDS).gauges()).isEmpty()
-            assertThat(other.get(OutboxMetricNames.INSTANCE_RECORDS_PENDING).gauge().value()).isEqualTo(10.0)
-        }
-    }
-
-    @Test
     fun `prometheus scrape remains available while database collection is blocked`() {
         val entered = CountDownLatch(1)
         val release = CountDownLatch(1)
@@ -229,7 +217,7 @@ class OutboxInstanceMetricsMeterBinderTest {
             binder.bindTo(prometheus)
             prometheus.counter("unrelated.requests").increment()
             collector.refresh()
-            every { statusRepository.countByStatus(NEW) } answers {
+            every { recordRepository.countByStatus(NEW) } answers {
                 entered.countDown()
                 check(release.await(10, TimeUnit.SECONDS))
                 20L
@@ -262,7 +250,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         val entered = CountDownLatch(1)
         val interrupted = CountDownLatch(1)
         val release = CountDownLatch(1)
-        every { statusRepository.countByStatus(NEW) } answers {
+        every { recordRepository.countByStatus(NEW) } answers {
             entered.countDown()
             try {
                 release.await()
@@ -282,7 +270,7 @@ class OutboxInstanceMetricsMeterBinderTest {
             assertTimeoutPreemptively(Duration.ofSeconds(2)) { collector.stop() }
             assertThat(interrupted.await(5, TimeUnit.SECONDS)).isTrue()
             assertThat(collector.isRunning).isFalse()
-            verify(exactly = 1) { statusRepository.countByStatus(NEW) }
+            verify(exactly = 1) { recordRepository.countByStatus(NEW) }
         } finally {
             release.countDown()
             collector.stop()
@@ -294,7 +282,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         val entered = CountDownLatch(1)
         val release = CountDownLatch(1)
         val worker = Executors.newSingleThreadExecutor()
-        every { statusRepository.countByStatus(NEW) } answers {
+        every { recordRepository.countByStatus(NEW) } answers {
             entered.countDown()
             check(release.await(10, TimeUnit.SECONDS))
             15L
@@ -304,7 +292,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         try {
             assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue()
             assertTimeoutPreemptively(Duration.ofSeconds(2)) { collector.refresh() }
-            verify(exactly = 1) { statusRepository.countByStatus(NEW) }
+            verify(exactly = 1) { recordRepository.countByStatus(NEW) }
         } finally {
             release.countDown()
             firstRefresh.get(5, TimeUnit.SECONDS)
@@ -313,25 +301,24 @@ class OutboxInstanceMetricsMeterBinderTest {
 
         collector.refresh()
         assertThat(recordGauge(NEW)).isEqualTo(15.0)
-        verify(exactly = 2) { statusRepository.countByStatus(NEW) }
+        verify(exactly = 2) { recordRepository.countByStatus(NEW) }
     }
 
     @Test
     fun `scheduled collection recovers automatically after a failed query`() {
         val attempts = AtomicInteger()
         val recovered = CountDownLatch(1)
-        every { statusRepository.countByStatus(NEW) } answers {
+        every { recordRepository.countByStatus(NEW) } answers {
             if (attempts.incrementAndGet() == 1) throw IllegalStateException("temporary database failure")
             20L
         }
-        every { statusRepository.countByStatus(FAILED) } answers {
+        every { recordRepository.countByStatus(FAILED) } answers {
             if (attempts.get() >= 2) recovered.countDown()
             3L
         }
         val scheduledCollector =
             OutboxMetricsCollector(
                 recordRepository,
-                statusRepository,
                 coordinator,
                 instanceRegistry,
                 OutboxMetricsProperties(refreshInterval = Duration.ofMillis(10)),

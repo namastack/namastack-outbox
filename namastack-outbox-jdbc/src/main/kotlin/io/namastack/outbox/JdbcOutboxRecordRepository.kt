@@ -6,7 +6,7 @@ import java.sql.Timestamp
 import java.time.Instant
 
 /**
- * JDBC implementation of the OutboxRecordRepository and OutboxRecordStatusRepository interfaces.
+ * JDBC implementation of [OutboxRecordRepository].
  *
  * This implementation uses Spring's JdbcClient to persist and query outbox records
  * from a relational database.
@@ -26,8 +26,7 @@ internal open class JdbcOutboxRecordRepository(
     private val entityMapper: JdbcOutboxRecordEntityMapper,
     private val clock: java.time.Clock,
     private val tableNameResolver: JdbcTableNameResolver,
-) : OutboxRecordRepository,
-    OutboxRecordStatusRepository {
+) : OutboxRecordRepository {
     private val tableName = tableNameResolver.outboxRecord
     private val rowMapper = JdbcOutboxRecordEntityRowMapper()
 
