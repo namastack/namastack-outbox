@@ -49,7 +49,7 @@ class PartitionCoordinator(
 
     private val log = LoggerFactory.getLogger(PartitionCoordinator::class.java)
     private val currentInstanceId by lazy { instanceRegistry.getCurrentInstanceId() }
-    private val assignmentLock = ReentrantLock()
+    private val assignmentLock = ReentrantLock(true)
     private val rebalanceLock = ReentrantLock()
     private val running = AtomicBoolean(false)
 

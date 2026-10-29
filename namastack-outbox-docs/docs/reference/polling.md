@@ -108,6 +108,34 @@ namastack:
         max-interval: 30s
 ```
 
+`min-interval` must be at least `1ms`, and `max-interval` must not be less than `min-interval`.
+The application fails to start otherwise.
+
+**Polling again right after a full batch:**
+
+With `min-interval: 1ms`, the next poll cycle starts almost immediately while batches are full,
+instead of waiting for a fixed interval:
+
+```yaml
+namastack:
+  outbox:
+    polling:
+      trigger: adaptive
+      adaptive:
+        min-interval: 1ms
+        max-interval: 8s
+```
+
+Keep the following in mind with this configuration:
+
+- After an idle period, the interval halves once per full batch, so it takes about 12 full
+  batches to go from `8s` down to `1ms`.
+- Under medium load (more than 25% but less than 100% of `batch-size`), the interval stays at
+  `1ms`, so the instance polls the database almost continuously.
+- When idle, the interval doubles back up to `max-interval`.
+- Each poll cycle still waits for all record keys of its batch to complete before the next
+  cycle starts.
+
 ---
 
 ## Choosing a Strategy
