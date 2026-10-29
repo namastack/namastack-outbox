@@ -2,7 +2,6 @@ package io.namastack.outbox
 
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
-import java.sql.Timestamp
 import java.time.Instant
 
 /**
@@ -316,10 +315,10 @@ internal open class JdbcOutboxRecordRepository(
                 jdbcClient
                     .sql(updateProcessingStateQuery)
                     .param("status", record.status.name)
-                    .param("completedAt", record.completedAt?.let { Timestamp.from(it) })
+                    .param("completedAt", record.completedAt?.toTimestamp())
                     .param("failureCount", record.failureCount)
                     .param("failureReason", record.failureReason)
-                    .param("nextRetryAt", Timestamp.from(record.nextRetryAt))
+                    .param("nextRetryAt", record.nextRetryAt.toTimestamp())
                     .param("id", record.id)
                     .update()
             updatedRows == 1
@@ -347,7 +346,7 @@ internal open class JdbcOutboxRecordRepository(
         return jdbcClient
             .sql(findByStatusAndCompletedBeforeQuery)
             .param("status", OutboxRecordStatus.COMPLETED.name)
-            .param("cutoff", Timestamp.from(completedBefore))
+            .param("cutoff", completedBefore.toTimestamp())
             .withMaxRows(limit)
             .query(rowMapper)
             .list()
@@ -372,7 +371,7 @@ internal open class JdbcOutboxRecordRepository(
         return jdbcClient
             .sql(findByStatusAndNextRetryBeforeQuery)
             .param("status", OutboxRecordStatus.FAILED.name)
-            .param("cutoff", Timestamp.from(lastRetryBefore))
+            .param("cutoff", lastRetryBefore.toTimestamp())
             .withMaxRows(limit)
             .query(rowMapper)
             .list()
@@ -417,7 +416,7 @@ internal open class JdbcOutboxRecordRepository(
             .withMaxRows(batchSize)
             .param("partitions", partitions.toList())
             .param("status", status.name)
-            .param("now", Timestamp.from(now))
+            .param("now", now.toTimestamp())
             .query(String::class.java)
             .list()
             .filterNotNull()
@@ -484,7 +483,7 @@ internal open class JdbcOutboxRecordRepository(
             .sql(oldestCreatedAtByPartitionsStatusQuery)
             .param("partitions", partitions)
             .param("status", status.name)
-            .query { rs, _ -> rs.getTimestamp(1)?.toInstant() }
+            .query { rs, _ -> rs.getInstantOrNull(1) }
             .list()
             .firstOrNull()
     }
@@ -511,8 +510,8 @@ internal open class JdbcOutboxRecordRepository(
             .sql(query)
             .param("partitions", partitions)
             .param("status", status.name)
-            .param("now", Timestamp.from(now))
-            .query { rs, _ -> rs.getTimestamp(1)?.toInstant() }
+            .param("now", now.toTimestamp())
+            .query { rs, _ -> rs.getInstantOrNull(1) }
             .list()
             .firstOrNull()
     }
@@ -585,7 +584,7 @@ internal open class JdbcOutboxRecordRepository(
                 jdbcClient
                     .sql(findIdsByStatusAndCompletedBeforeQuery)
                     .param("status", OutboxRecordStatus.COMPLETED.name)
-                    .param("cutoff", Timestamp.from(completedBefore))
+                    .param("cutoff", completedBefore.toTimestamp())
                     .withMaxRows(limit)
                     .query(String::class.java)
                     .list()
@@ -609,7 +608,7 @@ internal open class JdbcOutboxRecordRepository(
                 jdbcClient
                     .sql(findIdsByStatusAndNextRetryBeforeQuery)
                     .param("status", OutboxRecordStatus.FAILED.name)
-                    .param("cutoff", Timestamp.from(lastRetryBefore))
+                    .param("cutoff", lastRetryBefore.toTimestamp())
                     .withMaxRows(limit)
                     .query(String::class.java)
                     .list()
@@ -631,11 +630,11 @@ internal open class JdbcOutboxRecordRepository(
             .param("payload", entity.payload)
             .param("context", entity.context)
             .param("partitionNo", entity.partitionNo)
-            .param("createdAt", Timestamp.from(entity.createdAt))
-            .param("completedAt", entity.completedAt?.let { Timestamp.from(it) })
+            .param("createdAt", entity.createdAt.toTimestamp())
+            .param("completedAt", entity.completedAt?.toTimestamp())
             .param("failureCount", entity.failureCount)
             .param("failureReason", entity.failureReason)
-            .param("nextRetryAt", Timestamp.from(entity.nextRetryAt))
+            .param("nextRetryAt", entity.nextRetryAt.toTimestamp())
             .param("handlerId", entity.handlerId)
             .param("id", entity.id)
             .update()
@@ -653,11 +652,11 @@ internal open class JdbcOutboxRecordRepository(
             .param("payload", entity.payload)
             .param("context", entity.context)
             .param("partitionNo", entity.partitionNo)
-            .param("createdAt", Timestamp.from(entity.createdAt))
-            .param("completedAt", entity.completedAt?.let { Timestamp.from(it) })
+            .param("createdAt", entity.createdAt.toTimestamp())
+            .param("completedAt", entity.completedAt?.toTimestamp())
             .param("failureCount", entity.failureCount)
             .param("failureReason", entity.failureReason)
-            .param("nextRetryAt", Timestamp.from(entity.nextRetryAt))
+            .param("nextRetryAt", entity.nextRetryAt.toTimestamp())
             .param("handlerId", entity.handlerId)
             .update()
     }

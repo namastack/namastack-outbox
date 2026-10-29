@@ -7,7 +7,6 @@ import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
 import java.sql.ResultSet
-import java.sql.Timestamp
 import java.time.Instant
 
 /**
@@ -190,7 +189,7 @@ internal open class JdbcOutboxInstanceRepository(
 
         return jdbcClient
             .sql(findStaleHeartbeatQueryTemplate)
-            .param("cutoffTime", Timestamp.from(cutoffTime))
+            .param("cutoffTime", cutoffTime.toTimestamp())
             .param("statuses", activeStatuses)
             .query(rowMapper)
             .list()
@@ -209,8 +208,8 @@ internal open class JdbcOutboxInstanceRepository(
             val updated =
                 jdbcClient
                     .sql(updateHeartbeatQuery)
-                    .param("lastHeartbeat", Timestamp.from(timestamp))
-                    .param("updatedAt", Timestamp.from(timestamp))
+                    .param("lastHeartbeat", timestamp.toTimestamp())
+                    .param("updatedAt", timestamp.toTimestamp())
                     .param("instanceId", instanceId)
                     .update()
             updated > 0
@@ -229,7 +228,7 @@ internal open class JdbcOutboxInstanceRepository(
                 jdbcClient
                     .sql(updateStatusQuery)
                     .param("status", status.name)
-                    .param("updatedAt", Timestamp.from(timestamp))
+                    .param("updatedAt", timestamp.toTimestamp())
                     .param("instanceId", instanceId)
                     .update()
             updated > 0
@@ -267,10 +266,10 @@ internal open class JdbcOutboxInstanceRepository(
             .param("hostname", entity.hostname)
             .param("port", entity.port)
             .param("status", entity.status.name)
-            .param("startedAt", Timestamp.from(entity.startedAt))
-            .param("lastHeartbeat", Timestamp.from(entity.lastHeartbeat))
-            .param("createdAt", Timestamp.from(entity.createdAt))
-            .param("updatedAt", Timestamp.from(entity.updatedAt))
+            .param("startedAt", entity.startedAt.toTimestamp())
+            .param("lastHeartbeat", entity.lastHeartbeat.toTimestamp())
+            .param("createdAt", entity.createdAt.toTimestamp())
+            .param("updatedAt", entity.updatedAt.toTimestamp())
             .param("instanceId", entity.instanceId)
             .update()
 
@@ -284,10 +283,10 @@ internal open class JdbcOutboxInstanceRepository(
             .param("hostname", entity.hostname)
             .param("port", entity.port)
             .param("status", entity.status.name)
-            .param("startedAt", Timestamp.from(entity.startedAt))
-            .param("lastHeartbeat", Timestamp.from(entity.lastHeartbeat))
-            .param("createdAt", Timestamp.from(entity.createdAt))
-            .param("updatedAt", Timestamp.from(entity.updatedAt))
+            .param("startedAt", entity.startedAt.toTimestamp())
+            .param("lastHeartbeat", entity.lastHeartbeat.toTimestamp())
+            .param("createdAt", entity.createdAt.toTimestamp())
+            .param("updatedAt", entity.updatedAt.toTimestamp())
             .update()
     }
 
@@ -301,10 +300,10 @@ internal open class JdbcOutboxInstanceRepository(
                 hostname = rs.getString("hostname"),
                 port = rs.getInt("port"),
                 status = OutboxInstanceStatus.valueOf(rs.getString("status")),
-                startedAt = rs.getTimestamp("started_at").toInstant(),
-                lastHeartbeat = rs.getTimestamp("last_heartbeat").toInstant(),
-                createdAt = rs.getTimestamp("created_at").toInstant(),
-                updatedAt = rs.getTimestamp("updated_at").toInstant(),
+                startedAt = rs.getInstant("started_at"),
+                lastHeartbeat = rs.getInstant("last_heartbeat"),
+                createdAt = rs.getInstant("created_at"),
+                updatedAt = rs.getInstant("updated_at"),
             )
     }
 }
