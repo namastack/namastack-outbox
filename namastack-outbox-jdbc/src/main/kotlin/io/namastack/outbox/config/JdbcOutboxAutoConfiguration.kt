@@ -9,6 +9,7 @@ import io.namastack.outbox.JdbcTableNameResolver
 import io.namastack.outbox.OutboxPayloadSerializer
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
+import io.namastack.outbox.PostgresOutboxCompletionBatcher
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import org.springframework.beans.factory.BeanFactory
@@ -117,7 +118,37 @@ class JdbcOutboxAutoConfiguration {
             entityMapper = jdbcOutboxRecordEntityMapper,
             clock = clock,
             tableNameResolver = tableNameResolver,
+            completionBatcher =
+                beanFactory
+                    .getBeanProvider(
+                        PostgresOutboxCompletionBatcher::class.java,
+                    ).getIfAvailable(),
         )
+
+    /** Batches completion writes while retaining synchronous acknowledgement for each key. */
+    @Bean(destroyMethod = "close")
+    @ConditionalOnMissingBean(PostgresOutboxCompletionBatcher::class)
+    @ConditionalOnProperty(
+        prefix = "namastack.outbox.jdbc.completion-batching",
+        name = ["enabled"],
+        havingValue = "true",
+    )
+    internal fun outboxCompletionBatcher(
+        beanFactory: BeanFactory,
+        tableNameResolver: JdbcTableNameResolver,
+        properties: JdbcOutboxConfigurationProperties,
+    ): PostgresOutboxCompletionBatcher {
+        val jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient")
+        val version = jdbcClient.sql("SELECT version()").query(String::class.java).single()
+        require(version.startsWith("PostgreSQL")) { "Completion batching currently supports PostgreSQL only" }
+        return PostgresOutboxCompletionBatcher(
+            jdbcClient,
+            beanFactory.getBean("outboxTransactionTemplate", TransactionTemplate::class.java),
+            tableNameResolver.outboxRecord,
+            properties.completionBatching.maxBatchSize,
+            properties.completionBatching.maxWait,
+        )
+    }
 
     /**
      * Creates the entity mapper for outbox records.

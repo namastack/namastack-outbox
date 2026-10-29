@@ -16,9 +16,10 @@ import java.lang.reflect.Method
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.CountDownLatch
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -125,22 +126,29 @@ class OutboxProcessingScheduler(
      * If the scheduler is not idle, the cycle is skipped.
      */
     fun process() {
-        if (isCompatibilityCooldownActive()) return
-        if (!lifecycle.startProcessing()) return
+        if (isCompatibilityCooldownActive() || !lifecycle.startProcessing()) {
+            if (settings.polling.drainOnFullBatch) trigger.onTaskComplete(0)
+            return
+        }
 
+        val progress = if (settings.polling.drainOnFullBatch) BatchProgress() else null
         var processedCount = 0
 
         try {
-            processedCount = processAssignedPartitions()
+            processedCount = processAssignedPartitions(progress)
         } catch (ex: Exception) {
             log.error("Error during outbox processing", ex)
         } finally {
-            trigger.onTaskComplete(processedCount)
-            lifecycle.stopProcessing()
+            try {
+                val canDrain = progress == null || (progress.completed.get() && !progress.failed.get())
+                trigger.onTaskComplete(if (canDrain) processedCount else 0)
+            } finally {
+                lifecycle.stopProcessing()
+            }
         }
     }
 
-    private fun processAssignedPartitions(): Int =
+    private fun processAssignedPartitions(progress: BatchProgress?): Int =
         partitionCoordinator.withStableAssignments { partitions ->
             if (partitions.isEmpty()) return@withStableAssignments 0
 
@@ -150,7 +158,7 @@ class OutboxProcessingScheduler(
             if (recordKeys.isEmpty()) return@withStableAssignments 0
 
             log.debug("Found {} record keys to process", recordKeys.size)
-            processBatch(recordKeys)
+            processBatch(recordKeys, progress)
             log.debug("Finished processing {} record keys", recordKeys.size)
 
             recordKeys.size
@@ -164,50 +172,111 @@ class OutboxProcessingScheduler(
             ignoreRecordKeysWithPreviousFailure = settings.processing.stopOnFirstFailure,
         )
 
-    private fun processBatch(recordKeys: List<String>) {
-        val latch = CountDownLatch(recordKeys.size)
-
-        recordKeys.forEach { key ->
-            taskExecutor.execute {
-                try {
-                    processRecordKey(key)
-                } finally {
-                    latch.countDown()
+    private fun processBatch(
+        recordKeys: List<String>,
+        progress: BatchProgress?,
+    ) {
+        val completions = ArrayList<CompletableFuture<Unit>>(recordKeys.size)
+        try {
+            if (settings.polling.recordFetchBatchSize > 0) {
+                recordKeys.chunked(settings.polling.recordFetchBatchSize).forEach { keys ->
+                    val pages =
+                        recordRepository.findIncompleteRecordPages(
+                            keys.toSet(),
+                            settings.polling.maxRecordsPerKey,
+                        )
+                    keys.forEach { key -> submitKey(key, progress, completions, pages[key]) }
                 }
+            } else {
+                recordKeys.forEach { key -> submitKey(key, progress, completions, null) }
             }
+        } finally {
+            // Even on rejection or interruption, assignments stay stable until every submitted key finishes.
+            completions.forEach { it.join() }
         }
-
-        latch.await()
     }
 
-    private fun processRecordKey(recordKey: String) {
+    private fun submitKey(
+        key: String,
+        progress: BatchProgress?,
+        completions: MutableList<CompletableFuture<Unit>>,
+        page: OutboxRecordPage?,
+    ) {
+        val completion = CompletableFuture<Unit>()
+        completions.add(completion)
         try {
-            val records = recordRepository.findIncompleteRecordsByRecordKey(recordKey)
-            if (records.isEmpty()) return
+            taskExecutor.execute {
+                try {
+                    processRecordKey(key, progress, page)
+                } finally {
+                    completion.complete(Unit)
+                }
+            }
+        } catch (ex: Throwable) {
+            completion.complete(Unit)
+            throw ex
+        }
+    }
 
-            log.trace("Processing {} records for key {}", records.size, recordKey)
+    private fun processRecordKey(
+        recordKey: String,
+        progress: BatchProgress?,
+        page: OutboxRecordPage?,
+    ) {
+        try {
+            recordRepository.withRecordKeyProcessing(recordKey) {
+                val records = page ?: recordRepository.findIncompleteRecordsByRecordKey(recordKey)
+                if (records.isEmpty()) return@withRecordKeyProcessing
 
-            for (record in records) {
-                if (!processRecord(record)) break
+                log.trace("Processing {} records for key {}", records.size, recordKey)
+
+                for (index in records.indices) {
+                    if (page != null && page.nextRetryAt(index).isAfter(clock.instant())) {
+                        progress?.failed?.set(true)
+                        log.trace("Skipping record {} - not ready for retry", page.recordId(index))
+                        if (!continueOnFailure()) break
+                        continue
+                    }
+                    if (!processRecord(records[index], progress)) break
+                }
             }
         } catch (ex: OutboxPayloadTypeNotFoundException) {
+            progress?.failed?.set(true)
             handleUnavailablePayloadType(ex)
         } catch (ex: OutboxHandlerNotFoundException) {
+            progress?.failed?.set(true)
             handleUnavailableHandler(ex)
         } catch (ex: Exception) {
+            progress?.failed?.set(true)
             log.error("Error processing key {}", recordKey, ex)
         }
     }
 
-    private fun processRecord(record: OutboxRecord<*>): Boolean {
+    private fun processRecord(
+        record: OutboxRecord<*>,
+        progress: BatchProgress?,
+    ): Boolean {
         if (!record.canBeRetried(clock)) {
+            progress?.failed?.set(true)
             log.trace("Skipping record {} - not ready for retry", record.id)
             return continueOnFailure()
         }
 
         val outcome = recordProcessorChainInvoker.process(record)
+        if (progress != null) {
+            if (outcome == OutboxRecordProcessingOutcome.COMPLETED) {
+                if (!progress.completed.get()) progress.completed.set(true)
+            } else {
+                progress.failed.set(true)
+            }
+        }
 
         return outcome == OutboxRecordProcessingOutcome.COMPLETED || continueOnFailure()
+    }
+
+    private class BatchProgress {
+        val completed = AtomicBoolean(false)
+        val failed = AtomicBoolean(false)
     }
 
     private fun continueOnFailure(): Boolean = !settings.processing.stopOnFirstFailure

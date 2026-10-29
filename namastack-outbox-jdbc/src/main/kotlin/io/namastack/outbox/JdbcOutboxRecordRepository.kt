@@ -1,9 +1,11 @@
 package io.namastack.outbox
 
 import org.springframework.jdbc.core.simple.JdbcClient
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.sql.Timestamp
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicReferenceArray
 
 /**
  * JDBC implementation of the OutboxRecordRepository and OutboxRecordStatusRepository interfaces.
@@ -26,6 +28,7 @@ internal open class JdbcOutboxRecordRepository(
     private val entityMapper: JdbcOutboxRecordEntityMapper,
     private val clock: java.time.Clock,
     private val tableNameResolver: JdbcTableNameResolver,
+    private val completionBatcher: PostgresOutboxCompletionBatcher? = null,
 ) : OutboxRecordRepository,
     OutboxRecordStatusRepository {
     private val tableName = tableNameResolver.outboxRecord
@@ -40,6 +43,15 @@ internal open class JdbcOutboxRecordRepository(
         SET status = :status, record_key = :recordKey, record_type = :recordType, payload = :payload, context = :context,
             partition_no = :partitionNo, created_at = :createdAt, completed_at = :completedAt, failure_count = :failureCount,
             failure_reason = :failureReason, next_retry_at = :nextRetryAt, handler_id = :handlerId
+        WHERE id = :id
+        """.toSingleLine()
+
+    /** Completion never needs to serialize or rewrite the delivery payload and routing fields. */
+    private val updateCompletionQuery =
+        """
+        UPDATE $tableName
+        SET status = :status, completed_at = :completedAt, failure_count = :failureCount,
+            failure_reason = :failureReason, next_retry_at = :nextRetryAt
         WHERE id = :id
         """.toSingleLine()
 
@@ -293,6 +305,23 @@ internal open class JdbcOutboxRecordRepository(
             updatedRows == 1
         }
 
+    override fun updateCompletion(record: OutboxRecord<*>): Boolean {
+        if (completionBatcher != null && !TransactionSynchronizationManager.isActualTransactionActive()) {
+            return completionBatcher.complete(record)
+        }
+        return transactionTemplate.execute {
+            jdbcClient
+                .sql(updateCompletionQuery)
+                .param("id", record.id)
+                .param("status", record.status.name)
+                .param("completedAt", record.completedAt?.let(Timestamp::from))
+                .param("failureCount", record.failureCount)
+                .param("failureReason", record.failureReason)
+                .param("nextRetryAt", Timestamp.from(record.nextRetryAt))
+                .update() == 1
+        }
+    }
+
     /**
      * Finds all pending outbox records ordered by creation time.
      */
@@ -360,6 +389,53 @@ internal open class JdbcOutboxRecordRepository(
             .list()
             .filterNotNull()
             .map { entityMapper.map(it) }
+
+    override fun findIncompleteRecordPages(
+        recordKeys: Set<String>,
+        maxRecordsPerKey: Int,
+    ): Map<String, OutboxRecordPage> {
+        require(recordKeys.size <= 1000 && maxRecordsPerKey >= 0)
+        if (recordKeys.isEmpty()) return emptyMap()
+        val sql =
+            if (maxRecordsPerKey == 0) {
+                "SELECT * FROM $tableName WHERE record_key IN (:keys) AND status = 'NEW' ORDER BY record_key, created_at, id"
+            } else {
+                """
+            SELECT * FROM (
+                SELECT r.*, ROW_NUMBER() OVER (PARTITION BY record_key ORDER BY created_at, id) AS key_row
+                FROM $tableName r WHERE record_key IN (:keys) AND status = 'NEW'
+            ) bounded WHERE key_row <= :maxRecords ORDER BY record_key, created_at, id
+            """.toSingleLine()
+            }
+        val query = jdbcClient.sql(sql).param("keys", recordKeys.toList())
+        if (maxRecordsPerKey > 0) query.param("maxRecords", maxRecordsPerKey)
+        val grouped =
+            query
+                .query(rowMapper)
+                .list()
+                .filterNotNull()
+                .groupBy { it.recordKey }
+        return recordKeys.associateWith { key -> MappedRecordPage(grouped[key].orEmpty(), entityMapper) }
+    }
+
+    private class MappedRecordPage(
+        private val rows: List<JdbcOutboxRecordEntity>,
+        private val mapper: JdbcOutboxRecordEntityMapper,
+    ) : AbstractList<OutboxRecord<*>>(),
+        OutboxRecordPage {
+        private val decoded = AtomicReferenceArray<OutboxRecord<*>?>(rows.size)
+        override val size: Int get() = rows.size
+
+        override fun nextRetryAt(index: Int): Instant = rows[index].nextRetryAt
+
+        override fun recordId(index: Int): String = rows[index].id
+
+        override fun get(index: Int): OutboxRecord<*> {
+            decoded.get(index)?.let { return it }
+            val record = mapper.map(rows[index])
+            return if (decoded.compareAndSet(index, null, record)) record else checkNotNull(decoded.get(index))
+        }
+    }
 
     /**
      * Finds record keys in specified partitions that are ready for processing.

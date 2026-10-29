@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
+import java.time.Duration
 import javax.sql.DataSource
 
 /**
@@ -34,7 +35,38 @@ object JdbcOutboxPersistenceFactory {
         payloadSerializer: OutboxPayloadSerializer,
         clock: Clock,
         tableNameResolver: JdbcTableNameResolver = DefaultJdbcTableNameResolver(),
+    ): OutboxRuntimePersistence =
+        createRepositories(dataSource, transactionManager, payloadSerializer, clock, tableNameResolver, null)
+
+    /** Creates repositories borrowing the supplied caller-owned completion writer. */
+    fun create(
+        dataSource: DataSource,
+        transactionManager: PlatformTransactionManager,
+        payloadSerializer: OutboxPayloadSerializer,
+        clock: Clock,
+        tableNameResolver: JdbcTableNameResolver = DefaultJdbcTableNameResolver(),
+        completionBatcher: PostgresOutboxCompletionBatcher,
+    ): OutboxRuntimePersistence =
+        createRepositories(
+            dataSource,
+            transactionManager,
+            payloadSerializer,
+            clock,
+            tableNameResolver,
+            completionBatcher,
+        )
+
+    private fun createRepositories(
+        dataSource: DataSource,
+        transactionManager: PlatformTransactionManager,
+        payloadSerializer: OutboxPayloadSerializer,
+        clock: Clock,
+        tableNameResolver: JdbcTableNameResolver,
+        completionBatcher: PostgresOutboxCompletionBatcher?,
     ): OutboxRuntimePersistence {
+        require(completionBatcher == null || completionBatcher.tableName == tableNameResolver.outboxRecord) {
+            "Completion batcher and runtime must address the same outbox table"
+        }
         val jdbcClient = JdbcClient.create(dataSource)
         val transactionTemplate = TransactionTemplate(transactionManager)
 
@@ -46,6 +78,7 @@ object JdbcOutboxPersistenceFactory {
                     entityMapper = JdbcOutboxRecordEntityMapper(payloadSerializer),
                     clock = clock,
                     tableNameResolver = tableNameResolver,
+                    completionBatcher = completionBatcher,
                 ),
             instanceRepository =
                 JdbcOutboxInstanceRepository(
@@ -59,6 +92,31 @@ object JdbcOutboxPersistenceFactory {
                     transactionTemplate = transactionTemplate,
                     tableNameResolver = tableNameResolver,
                 ),
+        )
+    }
+
+    /**
+     * Creates a caller-owned PostgreSQL completion writer for programmatic runtimes.
+     * Pass it to [create] and close it after every runtime borrowing it has stopped.
+     */
+    fun completionBatcher(
+        dataSource: DataSource,
+        transactionManager: PlatformTransactionManager,
+        tableNameResolver: JdbcTableNameResolver = DefaultJdbcTableNameResolver(),
+        maxBatchSize: Int = 20,
+        maxWait: Duration = Duration.ofNanos(250_000),
+    ): PostgresOutboxCompletionBatcher {
+        dataSource.connection.use { connection ->
+            require(connection.metaData.databaseProductName == "PostgreSQL") {
+                "Completion batching currently supports PostgreSQL only"
+            }
+        }
+        return PostgresOutboxCompletionBatcher(
+            JdbcClient.create(dataSource),
+            TransactionTemplate(transactionManager),
+            tableNameResolver.outboxRecord,
+            maxBatchSize,
+            maxWait,
         )
     }
 }

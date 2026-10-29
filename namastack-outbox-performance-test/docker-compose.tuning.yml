@@ -1,0 +1,45 @@
+# Explicit opt-in for tuning comparisons; defaults reproduce the untuned server.
+services:
+  postgres:
+    command:
+      - postgres
+      - -c
+      - max_connections=${PERF_PG_MAX_CONNECTIONS:-250}
+      - -c
+      - shared_preload_libraries=${PERF_PG_SHARED_PRELOAD_LIBRARIES:-}
+      - -c
+      - max_wal_size=${PERF_PG_MAX_WAL_SIZE:-1GB}
+      - -c
+      - min_wal_size=${PERF_PG_MIN_WAL_SIZE:-80MB}
+      - -c
+      - wal_buffers=${PERF_PG_WAL_BUFFERS:--1}
+      - -c
+      - wal_compression=${PERF_PG_WAL_COMPRESSION:-off}
+      - -c
+      - shared_buffers=${PERF_PG_SHARED_BUFFERS:-128MB}
+      - -c
+      - work_mem=${PERF_PG_WORK_MEM:-4MB}
+      - -c
+      - effective_cache_size=${PERF_PG_EFFECTIVE_CACHE_SIZE:-4GB}
+      - -c
+      - checkpoint_timeout=${PERF_PG_CHECKPOINT_TIMEOUT:-5min}
+      - -c
+      - checkpoint_completion_target=${PERF_PG_CHECKPOINT_COMPLETION_TARGET:-0.9}
+      - -c
+      - jit=${PERF_PG_JIT:-on}
+      - -c
+      - autovacuum_naptime=${PERF_PG_AUTOVACUUM_NAPTIME:-60s}
+      - -c
+      - plan_cache_mode=${PERF_PG_PLAN_CACHE_MODE:-auto}
+      - -c
+      - track_wal_io_timing=${PERF_PG_TRACK_WAL_IO_TIMING:-off}
+      - -c
+      - track_io_timing=${PERF_PG_TRACK_IO_TIMING:-off}
+      - -c
+      - commit_delay=${PERF_PG_COMMIT_DELAY:-0}
+      - -c
+      - enable_hashjoin=${PERF_PG_ENABLE_HASHJOIN:-on}
+      - -c
+      - enable_mergejoin=${PERF_PG_ENABLE_MERGEJOIN:-on}
+      - -c
+      - client_connection_check_interval=${PERF_PG_CLIENT_CONNECTION_CHECK_INTERVAL:-0}

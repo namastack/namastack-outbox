@@ -2,6 +2,7 @@ package io.namastack.outbox.runtime
 
 import io.namastack.outbox.OutboxProperties
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import java.time.Duration
 
@@ -54,13 +55,32 @@ class OutboxRuntimeSettingsMappingTest {
     fun `maps property strategy names to runtime enums`() {
         val properties =
             OutboxProperties(
-                polling = OutboxProperties.Polling(trigger = "ADAPTIVE"),
+                polling =
+                    OutboxProperties.Polling(
+                        trigger = "ADAPTIVE",
+                        drainOnFullBatch = true,
+                        recordFetchBatchSize = 64,
+                        maxRecordsPerKey = 50,
+                    ),
                 retry = OutboxProperties.Retry(policy = "LINEAR"),
             )
 
         val settings = properties.toRuntimeSettings()
 
+        assertThat(settings.polling.drainOnFullBatch).isTrue()
+        assertThat(settings.polling.recordFetchBatchSize).isEqualTo(64)
+        assertThat(settings.polling.maxRecordsPerKey).isEqualTo(50)
         assertThat(settings.polling.trigger).isEqualTo(OutboxRuntimeSettings.Polling.Trigger.ADAPTIVE)
         assertThat(settings.retry.policy).isEqualTo(OutboxRuntimeSettings.Retry.Policy.LINEAR)
+    }
+
+    @Test
+    fun `rejects invalid bulk query bounds before starting`() {
+        assertThatThrownBy { OutboxRuntimeSettings.Polling(recordFetchBatchSize = 1001) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { OutboxRuntimeSettings.Polling(maxRecordsPerKey = 1) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { OutboxRuntimeSettings.Polling(recordFetchBatchSize = 64, maxRecordsPerKey = -1) }
+            .isInstanceOf(IllegalArgumentException::class.java)
     }
 }

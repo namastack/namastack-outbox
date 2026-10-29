@@ -1,14 +1,14 @@
 package io.namastack.performance.tooling.collector
 
+import io.namastack.performance.tooling.internal.secondsBetween
 import io.namastack.performance.tooling.report.BacklogSample
 import io.namastack.performance.tooling.report.LatencyStats
 import io.namastack.performance.tooling.report.PerformanceReportWriter
-import io.namastack.performance.tooling.store.PerformanceStore
 import io.namastack.performance.tooling.report.ReportContext
+import io.namastack.performance.tooling.report.SteadyStateStats
 import io.namastack.performance.tooling.run.RunInfo
 import io.namastack.performance.tooling.run.StatusCounts
-import io.namastack.performance.tooling.report.SteadyStateStats
-import io.namastack.performance.tooling.internal.secondsBetween
+import io.namastack.performance.tooling.store.PerformanceStore
 import java.time.Duration
 import java.time.Instant
 import kotlin.math.max
@@ -16,6 +16,7 @@ import kotlin.math.max
 internal class CollectorService(
     private val store: PerformanceStore,
     private val reports: PerformanceReportWriter,
+    private val lightweightSampling: Boolean = System.getenv("PERF_LIGHTWEIGHT_COLLECTOR") == "true",
 ) {
     fun collectDrain(context: ReportContext): String {
         val samples = mutableListOf<BacklogSample>()
@@ -36,6 +37,7 @@ internal class CollectorService(
     }
 
     fun collectSteadyState(context: ReportContext): String {
+        if (lightweightSampling) return collectSteadyStateLightweight(context)
         val samples = mutableListOf<BacklogSample>()
         var run = waitForRunningRun(context.runId, Instant.now().plus(Duration.ofMinutes(2)))
         check(run.mode == "steady-state")
@@ -43,19 +45,28 @@ internal class CollectorService(
         while (true) {
             run = loadRun(run.runId)
             if (run.status == "PRODUCED") break
-            samples += BacklogSample(Instant.now(), "PRODUCTION", store.statusCounts())
+            samples +=
+                BacklogSample(
+                    Instant.now(),
+                    "PRODUCTION",
+                    store.statusCounts().excludingCompleted(context.retainedCompletedRecords),
+                )
             check(Instant.now().isBefore(producerDeadline)) { "Timed out waiting for producer '${run.runId}'" }
             Thread.sleep(context.sampleInterval.toMillis())
         }
-        val productionEndCounts = store.statusCountsAt(run.producerCompletedAt!!)
+        val productionEndCounts =
+            store
+                .statusCountsAt(
+                    run.producerCompletedAt!!,
+                ).excludingCompleted(context.retainedCompletedRecords)
         samples += BacklogSample(run.producerCompletedAt, "PRODUCTION_END", productionEndCounts)
 
         val drainDeadline = Instant.now().plus(context.timeout)
-        var finalCounts = store.statusCounts()
+        var finalCounts = store.statusCounts().excludingCompleted(context.retainedCompletedRecords)
         while (!finalCounts.isTerminal(run.expectedRecords) && Instant.now().isBefore(drainDeadline)) {
             samples += BacklogSample(Instant.now(), "DRAIN", finalCounts)
             Thread.sleep(context.sampleInterval.toMillis())
-            finalCounts = store.statusCounts()
+            finalCounts = store.statusCounts().excludingCompleted(context.retainedCompletedRecords)
         }
         samples += BacklogSample(Instant.now(), "DRAIN_END", finalCounts)
         check(finalCounts.isTerminal(run.expectedRecords)) { "Timed out draining '${run.runId}'" }
@@ -63,8 +74,73 @@ internal class CollectorService(
         run = loadRun(run.runId)
         val ordered = samples.sortedBy { it.timestamp }
         val stats = steadyStateStats(run, productionEndCounts, ordered, store.latencyStats(run.runId))
-        reports.writeSteadyStateReport(context, run, finalCounts, ordered, stats, store.partitionStats(), store.environmentInfo())
+        reports.writeSteadyStateReport(
+            context,
+            run,
+            finalCounts,
+            ordered,
+            stats,
+            store.partitionStats(run.runId),
+            store.environmentInfo(),
+        )
         check(finalCounts.isValid(run.expectedRecords)) { "Performance run '${run.runId}' is invalid" }
+        return reports.steadyStateSummary(run, finalCounts, stats)
+    }
+
+    private fun collectSteadyStateLightweight(context: ReportContext): String {
+        var run = waitForRunningRun(context.runId, Instant.now().plus(Duration.ofMinutes(2)))
+        check(run.mode == "steady-state")
+        val deadline = Instant.now().plusMillis(run.producerDurationMs!!).plus(Duration.ofMinutes(2))
+        while (run.status != "PRODUCED") {
+            check(Instant.now().isBefore(deadline)) { "Timed out waiting for producer '${run.runId}'" }
+            Thread.sleep(minOf(context.sampleInterval.toMillis(), 1000))
+            run = loadRun(run.runId)
+        }
+        val drainDeadline = Instant.now().plus(context.timeout)
+        while (store.hasPendingRecords()) {
+            check(Instant.now().isBefore(drainDeadline)) { "Timed out draining '${run.runId}'" }
+            Thread.sleep(minOf(context.sampleInterval.toMillis(), 1000))
+        }
+        val finalCounts = store.statusCounts().excludingCompleted(context.retainedCompletedRecords)
+        check(finalCounts.isValid(run.expectedRecords)) { "Performance run '${run.runId}' is invalid" }
+        val reconstructed =
+            store.productionSamples(
+                run.runId,
+                run.producerStartedAt!!,
+                run.producerCompletedAt!!,
+                context.sampleInterval,
+            )
+        val timestampEndCounts = reconstructed.last().counts
+        // Cross-check reconstruction using the original exact timestamp query, after all delivery is finished.
+        val exactEnd =
+            store
+                .statusCountsAt(
+                    run.producerCompletedAt,
+                ).excludingCompleted(context.retainedCompletedRecords)
+        check(
+            timestampEndCounts.completedRecords == exactEnd.completedRecords &&
+                timestampEndCounts.newRecords == exactEnd.newRecords,
+        ) { "Reconstructed production counts differ from exact counts" }
+        val productionEndCounts =
+            if (System.getenv("PERF_DURABLE_STOP_COUNTS") == "true") {
+                checkNotNull(store.committedProductionEnd(run.runId)) { "Missing committed production-end snapshot" }
+            } else {
+                timestampEndCounts
+            }
+        val samples = reconstructed.dropLast(1) + reconstructed.last().copy(counts = productionEndCounts)
+        store.completeRun(run.runId, finalCounts)
+        run = loadRun(run.runId)
+        val stats = steadyStateStats(run, productionEndCounts, samples, store.latencyStats(run.runId))
+        val allSamples = samples + BacklogSample(Instant.now(), "DRAIN_END", finalCounts)
+        reports.writeSteadyStateReport(
+            context,
+            run,
+            finalCounts,
+            allSamples,
+            stats,
+            store.partitionStats(run.runId),
+            store.environmentInfo(),
+        )
         return reports.steadyStateSummary(run, finalCounts, stats)
     }
 
@@ -96,7 +172,13 @@ internal class CollectorService(
             samples
                 .filter { it.phase == "PRODUCTION" || it.phase == "PRODUCTION_END" }
                 .filter { !it.timestamp.isBefore(startedAt) && !it.timestamp.isAfter(completedAt) }
-        val stabilized = productionSamples.filter { !it.timestamp.isBefore(measurementStart) }.ifEmpty { productionSamples }
+        val stabilized =
+            productionSamples
+                .filter {
+                    !it.timestamp.isBefore(
+                        measurementStart,
+                    )
+                }.ifEmpty { productionSamples }
         val produced = run.producedRecords!!
         val actualRate = produced / duration
         val rateCompliant = actualRate >= run.producerTargetRate!! * run.minProducerRateRatio!!
@@ -104,13 +186,14 @@ internal class CollectorService(
         val backlogAtStop = produced - productionEnd.completedRecords - productionEnd.failedRecords
         val maximumBacklog = max(productionSamples.maxOfOrNull { it.counts.newRecords } ?: 0, backlogAtStop)
         val drainDuration = max(0.0, secondsBetween(completedAt, run.lastCompletedAt!!))
-        val sustainable = rateCompliant && backlogGrowth <= run.maxBacklogGrowthRate!! && backlogAtStop <= run.maxEndBacklog!!
+        val sustainable =
+            rateCompliant && backlogGrowth <= run.maxBacklogGrowthRate!! && backlogAtStop <= run.maxEndBacklog!!
         return SteadyStateStats(
             actualProducerDurationSeconds = duration,
             actualProducerRate = actualRate,
             producerRateCompliant = rateCompliant,
             processingRateDuringProduction = productionEnd.completedRecords / duration,
-            stabilizedProcessingRate = averageRate(stabilized) { it.counts.completedRecords },
+            stabilizedProcessingRate = averageSampleRate(stabilized) { it.counts.completedRecords },
             backlogGrowthRate = backlogGrowth,
             backlogAtProducerStop = backlogAtStop,
             maximumBacklog = maximumBacklog,
@@ -119,18 +202,6 @@ internal class CollectorService(
             latency = latency,
             productionSamples = productionSamples,
         )
-    }
-
-    private fun averageRate(
-        samples: List<BacklogSample>,
-        value: (BacklogSample) -> Long,
-    ): Double {
-        val rates =
-            samples.sortedBy { it.timestamp }.zipWithNext().mapNotNull { (before, after) ->
-                val seconds = secondsBetween(before.timestamp, after.timestamp)
-                if (seconds <= 0) null else (value(after) - value(before)) / seconds
-            }
-        return if (rates.isEmpty()) 0.0 else rates.average()
     }
 
     private fun linearRegressionSlope(points: List<Pair<Instant, Double>>): Double {

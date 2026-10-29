@@ -43,6 +43,13 @@ sequenceDiagram
     S->>O: Mark Complete
 ```
 
+For retained records, JDBC persists completion with a dedicated update of status, completion time
+and retry/failure metadata. It preserves the stored payload, context and routing fields without
+serializing them again. Treat payload and context as delivery data; handler mutations of those
+objects are not a persistence mechanism. Explicit repository `update` operations still write the
+full record. Custom repositories inherit `updateCompletion` through their existing `update`
+implementation unless they provide an optimized override.
+
 ---
 
 ## Record Ordering

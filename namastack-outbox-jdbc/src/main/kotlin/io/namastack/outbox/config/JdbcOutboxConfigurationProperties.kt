@@ -1,6 +1,7 @@
 package io.namastack.outbox.config
 
 import org.springframework.boot.context.properties.ConfigurationProperties
+import java.time.Duration
 
 /**
  * Configuration properties for the JDBC outbox module.
@@ -21,7 +22,15 @@ data class JdbcOutboxConfigurationProperties(
     var tablePrefix: String = "",
     var tableNames: TableNames = TableNames(),
     var schemaInitialization: SchemaInitialization = SchemaInitialization(),
+    var completionBatching: CompletionBatching = CompletionBatching(),
 ) {
+    /** PostgreSQL-only, opt-in batching of completion writes across independent keys. */
+    data class CompletionBatching(
+        var enabled: Boolean = false,
+        var maxBatchSize: Int = 20,
+        var maxWait: Duration = Duration.ofNanos(250_000),
+    )
+
     /**
      * Base table names for the outbox tables.
      *

@@ -1,5 +1,7 @@
 package io.namastack.outbox
 
+import io.mockk.mockk
+import io.mockk.verify
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
@@ -49,6 +51,9 @@ class JdbcOutboxRecordRepositoryTest {
 
     @Autowired
     private lateinit var jdbcClient: JdbcClient
+
+    @Autowired
+    private lateinit var tableNameResolver: JdbcTableNameResolver
 
     @Nested
     @DisplayName("Processing group storage keys")
@@ -243,6 +248,79 @@ class JdbcOutboxRecordRepositoryTest {
                     handlerId = "handler-$number",
                     failureException = null,
                 ),
+            )
+    }
+
+    @Nested
+    @DisplayName("updateCompletion()")
+    inner class UpdateCompletionTests {
+        @Test
+        fun `persists completion and fallback metadata without mapping or rewriting delivery fields`() {
+            val record = newRecord()
+            jdbcOutboxRecordRepository.create(record)
+            val before = deliveryFields(record.id)
+            val mapper = mockk<JdbcOutboxRecordEntityMapper>()
+            val repository =
+                JdbcOutboxRecordRepository(jdbcClient, transactionTemplate, mapper, clock, tableNameResolver)
+            val completion = completionOf(record)
+
+            assertThat(repository.updateCompletion(completion)).isTrue()
+
+            val persisted = jdbcOutboxRecordRepository.findCompletedRecords().single { it.id == record.id }
+            assertThat(persisted.completedAt).isEqualTo(completion.completedAt)
+            assertThat(persisted.failureCount).isEqualTo(3)
+            assertThat(persisted.failureReason).isEqualTo("fallback completed")
+            assertThat(persisted.nextRetryAt).isEqualTo(completion.nextRetryAt)
+            assertThat(deliveryFields(record.id)).isEqualTo(before)
+            verify(exactly = 0) { mapper.map(any<OutboxRecord<*>>()) }
+        }
+
+        @Test
+        fun `does not insert a missing completion`() {
+            val record = newRecord()
+            assertThat(jdbcOutboxRecordRepository.updateCompletion(completionOf(record))).isFalse()
+            assertThat(jdbcOutboxRecordRepository.findCompletedRecords().map { it.id }).doesNotContain(record.id)
+        }
+
+        @Test
+        fun `completion joins the existing transaction and rolls back with it`() {
+            val record = newRecord()
+            jdbcOutboxRecordRepository.create(record)
+            val nested = TransactionTemplate(transactionTemplate.transactionManager!!)
+            nested.propagationBehavior = org.springframework.transaction.TransactionDefinition.PROPAGATION_NESTED
+            nested.executeWithoutResult { transaction ->
+                assertThat(jdbcOutboxRecordRepository.updateCompletion(completionOf(record))).isTrue()
+                transaction.setRollbackOnly()
+            }
+            assertThat(jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).map { it.id })
+                .contains(record.id)
+            assertThat(jdbcOutboxRecordRepository.findCompletedRecords().map { it.id }).doesNotContain(record.id)
+        }
+
+        private fun deliveryFields(id: String): Map<String, Any?> =
+            jdbcClient
+                .sql(
+                    "SELECT record_key, record_type, payload, context, partition_no, created_at, handler_id " +
+                        "FROM outbox_record WHERE id = :id",
+                ).param("id", id)
+                .query()
+                .singleRow()
+
+        private fun completionOf(record: OutboxRecord<*>): OutboxRecord<Any> =
+            OutboxRecord.restore(
+                id = record.id,
+                recordKey = "different-key",
+                payload = Any(),
+                context = mapOf("different" to "context"),
+                partition = 255,
+                createdAt = retentionBase.minusSeconds(60),
+                status = COMPLETED,
+                completedAt = retentionBase,
+                failureCount = 3,
+                failureReason = "fallback completed",
+                nextRetryAt = retentionBase.plusSeconds(60),
+                handlerId = "different-handler",
+                failureException = null,
             )
     }
 

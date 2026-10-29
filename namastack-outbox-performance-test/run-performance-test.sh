@@ -2,7 +2,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ "${PERF_PG_STAT_STATEMENTS:-false}" == "true" ]]; then
+  export PERF_PG_SHARED_PRELOAD_LIBRARIES="${PERF_PG_SHARED_PRELOAD_LIBRARIES:-pg_stat_statements}"
+fi
 COMPOSE=(docker compose -f "$ROOT_DIR/docker-compose.yml")
+if [[ -n "${PERF_COMPOSE_OVERRIDE:-}" ]]; then
+  COMPOSE+=(-f "$PERF_COMPOSE_OVERRIDE")
+fi
 GRADLE=("$ROOT_DIR/../gradlew" -p "$ROOT_DIR")
 TOOL="$ROOT_DIR/tooling/build/install/tooling/bin/tooling"
 CONSUMER_JAR="$ROOT_DIR/consumer/build/libs/namastack-outbox-performance-test-consumer.jar"
@@ -17,6 +23,7 @@ INSTANCES=4
 RECORDS=1000000
 RECORDS_PER_KEY=1
 WARMUP_RECORDS=25000
+RETAINED_RECORDS=0
 BATCH_SIZE=1000
 POLL_INTERVAL="100ms"
 PRODUCER_RATE=3000
@@ -49,6 +56,7 @@ Options:
   --records=<count>            Backlog-drain record count (default: 1000000)
   --records-per-key=<count>    Events sharing one ordering key (default: 1)
   --warmup-records=<count>     Warm-up records, 0 disables warm-up (default: 25000)
+  --retained-records=<count>   Preload completed records for a short steady-state aged-table test (default: 0)
   --batch-size=<count>         Maximum keys per consumer polling cycle (default: 1000)
   --poll-interval=<duration>   Fixed consumer polling delay (default: 100ms)
   --producer-rate=<count>      Steady-state target records per second (default: 3000)
@@ -80,6 +88,7 @@ for argument in "$@"; do
     --records=*) RECORDS="${argument#*=}" ;;
     --records-per-key=*) RECORDS_PER_KEY="${argument#*=}" ;;
     --warmup-records=*) WARMUP_RECORDS="${argument#*=}" ;;
+    --retained-records=*) RETAINED_RECORDS="${argument#*=}" ;;
     --batch-size=*) BATCH_SIZE="${argument#*=}" ;;
     --poll-interval=*) POLL_INTERVAL="${argument#*=}" ;;
     --producer-rate=*) PRODUCER_RATE="${argument#*=}" ;;
@@ -108,12 +117,24 @@ fi
 if [[ -z "$PROFILE" ]]; then
   [[ "$MODE" == "steady-state" ]] && PROFILE="steady-state-payments" || PROFILE="independent-payments"
 fi
-if (( INSTANCES < 1 || RECORDS < 1 || RECORDS_PER_KEY < 1 || WARMUP_RECORDS < 0 || PRODUCER_RATE < 1 || PRODUCER_BATCH_SIZE < 1 || PRODUCER_WORKERS < 1 )); then
+if (( INSTANCES < 1 || RECORDS < 1 || RECORDS_PER_KEY < 1 || WARMUP_RECORDS < 0 || RETAINED_RECORDS < 0 || PRODUCER_RATE < 1 || PRODUCER_BATCH_SIZE < 1 || PRODUCER_WORKERS < 1 )); then
   echo "Numeric counts must be positive; warmup-records may be zero" >&2
+  exit 2
+fi
+if [[ "$MODE" != "steady-state" ]] && (( RETAINED_RECORDS > 0 )); then
+  echo "retained-records is only supported in steady-state mode" >&2
+  exit 2
+fi
+
+if [[ "$MODE" == "steady-state" && "${PERF_VERIFY_COMPLETION_ORDER:-false}" == "true" ]] &&
+  (( PRODUCER_WORKERS > 1 && PRODUCER_BATCH_SIZE % RECORDS_PER_KEY != 0 )); then
+  echo "Parallel ordering tests require producer-batch-size to be a multiple of records-per-key so a key cannot span producer transactions" >&2
   exit 2
 fi
 
 COLLECTOR_PID=""
+VERIFY_WAL_SLOT=""
+source "$ROOT_DIR/docker-jvm-runtime.sh"
 
 cleanup() {
   local exit_code=$?
@@ -131,6 +152,19 @@ cleanup() {
       kill -9 "$(cat "$pid_file")" 2>/dev/null || true
     done < <(find "$PID_DIR" -type f -name '*.pid' | sort)
     rm -f "$PID_DIR"/*.pid
+  fi
+  cleanup_java_runtime
+  if (( exit_code != 0 )) && [[ -n "${REPORT_DIR:-}" ]]; then
+    cp "$LOG_DIR"/*.log "$REPORT_DIR/logs/" 2>/dev/null || true
+    printf 'Runner exited with status %s. Failed runs do not establish healthy capacity; inspect the logs for the failure stage.\n' "$exit_code" > "$REPORT_DIR/failure.txt"
+    snapshot_postgres "$REPORT_DIR/postgres-failure.json" 2> "$REPORT_DIR/snapshot-error.log" || true
+  fi
+  if [[ -n "$VERIFY_WAL_SLOT" ]]; then
+    if ! "${COMPOSE[@]}" exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -U username -d outbox_performance_test \
+      -c "SELECT pg_drop_replication_slot('$VERIFY_WAL_SLOT')" > "$REPORT_DIR/verification-wal-cleanup.log" 2>&1; then
+      echo "Failed to release benchmark WAL reservation; see $REPORT_DIR/verification-wal-cleanup.log" >&2
+      if (( exit_code == 0 )); then exit_code=1; fi
+    fi
   fi
   if [[ "$KEEP_MONITORING" != "true" ]]; then
     "${COMPOSE[@]}" down >/dev/null 2>&1 || true
@@ -158,7 +192,7 @@ wait_for_http() {
 }
 
 tool() {
-  "$TOOL" "$@"
+  run_tool "$@"
 }
 
 generate_prometheus_targets() {
@@ -166,16 +200,56 @@ generate_prometheus_targets() {
     printf '[\n'
     for ((index = 1; index <= INSTANCES; index++)); do
       (( index == 1 )) || printf ',\n'
-      printf '  {"targets":["host.docker.internal:%s"],"labels":{"consumer":"consumer-%s"}}' "$((9100 + index))" "$index"
+      local target_host="host.docker.internal"
+      [[ -z "${PERF_JAVA_IMAGE:-}" ]] || target_host="$JAVA_CONTAINER_NAME"
+      printf '  {"targets":["%s:%s"],"labels":{"consumer":"consumer-%s"}}' "$target_host" "$((9100 + index))" "$index"
     done
     printf '\n]\n'
   } > "$TARGETS_FILE"
 }
 
 apply_schema_and_reset() {
+  local fillfactor="${PERF_PG_OUTBOX_FILLFACTOR:-100}"
+  if [[ ! "$fillfactor" =~ ^[0-9]+$ ]] || (( fillfactor < 50 || fillfactor > 100 )); then
+    echo "PERF_PG_OUTBOX_FILLFACTOR must be an integer from 50 to 100" >&2
+    exit 2
+  fi
+  # Discard the previous dataset before rebuilding any indexes missing from an opt-in profile.
+  "${COMPOSE[@]}" exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -U username -d outbox_performance_test <<'SQL'
+-- Clear only abandoned reservations owned by this dedicated benchmark.
+SELECT pg_drop_replication_slot(slot_name) FROM pg_replication_slots
+WHERE starts_with(slot_name, 'namastack_perf_order_') AND NOT active;
+SELECT 'TRUNCATE TABLE outbox_record' WHERE to_regclass('outbox_record') IS NOT NULL
+\gexec
+SQL
   "${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -f /sql/00_outbox_schema.sql
   "${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -f /sql/10_performance_schema.sql
   "${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -f /sql/20_reset.sql
+  "${COMPOSE[@]}" exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -v "fillfactor=$fillfactor" -U username -d outbox_performance_test <<'SQL'
+ALTER TABLE outbox_record SET (fillfactor = :fillfactor);
+SQL
+  if [[ "${PERF_PG_KEY_STATUS_INDEX:-false}" == "true" ]]; then
+    "${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -f /sql/28_key_status_index.sql
+  fi
+  if [[ "${PERF_PG_READY_ORDER_INDEX:-false}" == "true" ]]; then
+    "${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -f /sql/27_ready_order_index.sql
+  fi
+  if [[ "${PERF_PG_TUNE_AUTOVACUUM:-false}" == "true" ]]; then
+    "${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -f /sql/25_tuned_autovacuum.sql
+  fi
+  if [[ "${PERF_PG_STAT_STATEMENTS:-false}" == "true" ]]; then
+    "${COMPOSE[@]}" exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -c 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements'
+  fi
+}
+
+snapshot_postgres() {
+  "${COMPOSE[@]}" exec -T postgres psql -X -qAt -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -f /sql/40_snapshot.sql > "$1"
+}
+
+snapshot_statements() {
+  if [[ "${PERF_PG_STAT_STATEMENTS:-false}" == "true" ]]; then
+    "${COMPOSE[@]}" exec -T postgres psql -X -qAt -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -f /sql/45_statement_snapshot.sql > "$1"
+  fi
 }
 
 seed() {
@@ -196,7 +270,7 @@ start_consumers() {
     PERF_BATCH_SIZE="$BATCH_SIZE" \
     PERF_POLL_INTERVAL="$POLL_INTERVAL" \
     SERVER_PORT="$((9100 + index))" \
-      java -jar "$CONSUMER_JAR" > "$LOG_DIR/consumer-$index.log" 2>&1 &
+      run_java -jar "$CONSUMER_JAR" > "$LOG_DIR/consumer-$index.log" 2>&1 &
     echo "$!" > "$PID_DIR/consumer-$index.pid"
   done
   for ((index = 1; index <= INSTANCES; index++)); do
@@ -204,7 +278,8 @@ start_consumers() {
   done
 }
 
-mkdir -p "$LOG_DIR" "$PID_DIR" "$ROOT_DIR/reports" "$(dirname "$TARGETS_FILE")"
+REPORT_DIR="$ROOT_DIR/reports/$RUN_ID"
+mkdir -p "$LOG_DIR" "$PID_DIR" "$REPORT_DIR/logs" "$(dirname "$TARGETS_FILE")"
 rm -f "$PID_DIR"/*.pid "$LOG_DIR"/*.log
 generate_prometheus_targets
 
@@ -219,6 +294,7 @@ if [[ "$SKIP_BUILD" != "true" ]]; then
   "${GRADLE[@]}" :consumer:bootJar :tooling:installDist
 fi
 [[ -x "$TOOL" && -f "$CONSUMER_JAR" ]] || { echo "Missing build outputs; run without --skip-build=true" >&2; exit 1; }
+prepare_java_runtime
 
 echo "Starting $INSTANCES consumer instance(s)..."
 start_consumers
@@ -235,11 +311,67 @@ fi
 
 REPORT_DIR="$ROOT_DIR/reports/$RUN_ID"
 mkdir -p "$REPORT_DIR/logs"
+if (( RETAINED_RECORDS > 0 )); then
+  echo "Preloading $RETAINED_RECORDS completed records..."
+  "${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -v "retained_records=$RETAINED_RECORDS" -U username -d outbox_performance_test -f /sql/30_retained_records.sql
+  if [[ "${PERF_SETTLE_RETAINED_RECORDS:-false}" == "true" ]]; then
+    "${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -c 'VACUUM (ANALYZE) outbox_record' -c 'CHECKPOINT'
+  fi
+fi
+{
+  printf 'Command:'
+  printf ' %q' "$0" "$@"
+  printf '\nPERF_VIRTUAL_THREADS=%s\n' "${PERF_VIRTUAL_THREADS:-false}"
+  printf 'PERF_DRAIN_ON_FULL_BATCH=%s\n' "${PERF_DRAIN_ON_FULL_BATCH:-false}"
+  printf 'PERF_PG_STAT_STATEMENTS=%s\n' "${PERF_PG_STAT_STATEMENTS:-false}"
+  printf 'PERF_FULL_ROW_COMPLETION=%s\n' "${PERF_FULL_ROW_COMPLETION:-false}"
+  for tuning_name in PERF_TUNING_REPOSITORY PERF_SQL_LIMIT PERF_HEAD_LIMIT_KEYS PERF_TUPLE_PREDECESSOR PERF_PG_READY_ORDER_INDEX PERF_PG_KEY_STATUS_INDEX PERF_INLINE_STATUS PERF_BULK_FETCH_SIZE PERF_MAX_RECORDS_PER_KEY PERF_LAZY_DESERIALIZATION PERF_AUTOCOMMIT_COMPLETION PERF_TRANSACTION_PER_KEY PERF_LIGHTWEIGHT_COLLECTOR PERF_COMPLETION_BATCH_SIZE PERF_COMPLETION_BATCH_WAIT_US PERF_COMPLETION_ARRAY_PARAMETERS PERF_PG_OUTBOX_FILLFACTOR PERF_NATIVE_COMPLETION_BATCHING PERF_NATIVE_COMPLETION_BATCH_SIZE PERF_NATIVE_COMPLETION_BATCH_WAIT PERF_NATIVE_RECORD_FETCH_BATCH_SIZE PERF_NATIVE_MAX_RECORDS_PER_KEY PERF_DURABLE_STOP_COUNTS PERF_JAVA_TOOL_OPTIONS PERF_CONSUMER_JAVA_TOOL_OPTIONS; do
+    printf '%s=%s\n' "$tuning_name" "${!tuning_name:-unset}"
+  done
+  printf 'NAMASTACK_OUTBOX_PROCESSING_EXECUTOR_CONCURRENCY_LIMIT=%s\n' "${NAMASTACK_OUTBOX_PROCESSING_EXECUTOR_CONCURRENCY_LIMIT:--1}"
+  printf 'PERF_DB_POOL_SIZE=%s\n' "${PERF_DB_POOL_SIZE:-30}"
+  printf 'PERF_SETTLE_RETAINED_RECORDS=%s\n' "${PERF_SETTLE_RETAINED_RECORDS:-false}"
+  printf 'PERF_VERIFY_COMPLETION_ORDER=%s\n' "${PERF_VERIFY_COMPLETION_ORDER:-false}"
+  printf 'Query and index options are recorded above; effective indexes are in PostgreSQL snapshots.\n'
+  if [[ "$PERF_DB_URL" == *reWriteBatchedInserts=true* ]]; then
+    printf 'JDBC batch insert rewriting=true\n'
+  else
+    printf 'JDBC batch insert rewriting=false\n'
+  fi
+  printf 'PERF_EXECUTOR_CORE_POOL_SIZE=%s\n' "${PERF_EXECUTOR_CORE_POOL_SIZE:-16}"
+  printf 'PERF_EXECUTOR_MAX_POOL_SIZE=%s\n' "${PERF_EXECUTOR_MAX_POOL_SIZE:-32}"
+  java -version 2>&1
+  if [[ -n "$JAVA_CONTAINER_ID" ]]; then
+    printf 'Java runtime location=Docker network\n'
+    docker inspect --format 'Java runtime image={{.Config.Image}} image ID={{.Image}}' "$JAVA_CONTAINER_ID"
+    docker exec "$JAVA_CONTAINER_ID" java -version 2>&1
+  else
+    printf 'Java runtime location=host\n'
+  fi
+  "${COMPOSE[@]}" images
+  docker inspect --format 'PostgreSQL shared memory bytes: {{.HostConfig.ShmSize}}' "$("${COMPOSE[@]}" ps -q postgres)"
+  docker info --format 'Docker CPUs={{.NCPU}} memory bytes={{.MemTotal}}'
+  "${COMPOSE[@]}" exec -T postgres psql -X -qAt -U username -d outbox_performance_test -c "SELECT name || '=' || setting || COALESCE(' [' || unit || ']', '') FROM pg_settings WHERE name IN ('shared_buffers','effective_cache_size','work_mem','max_wal_size','min_wal_size','wal_buffers','wal_compression','checkpoint_timeout','checkpoint_completion_target','max_connections','jit','autovacuum_naptime','plan_cache_mode','enable_hashjoin','enable_mergejoin','fsync','synchronous_commit','full_page_writes','commit_delay','track_io_timing','track_wal_io_timing') ORDER BY name"
+} > "$REPORT_DIR/execution.txt"
+snapshot_postgres "$REPORT_DIR/postgres-before.json"
+if [[ "${PERF_PG_STAT_STATEMENTS:-false}" == "true" ]]; then
+  "${COMPOSE[@]}" exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -c 'SELECT pg_stat_statements_reset()' > "$REPORT_DIR/statement-reset.txt"
+fi
+# Preserve independent ordering evidence until verification finishes. This does not relax durability
+# or alter checkpoint thresholds; the physical slot only prevents recycling required WAL segments.
+if [[ "${PERF_VERIFY_COMPLETION_ORDER:-false}" == "true" && "${PERF_RETAIN_VERIFICATION_WAL:-true}" == "true" ]]; then
+  VERIFY_WAL_SLOT="namastack_perf_order_$$"
+  "${COMPOSE[@]}" exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -U username -d outbox_performance_test \
+    -c "SELECT pg_create_physical_replication_slot('$VERIFY_WAL_SLOT', true)"
+  printf 'Verification WAL slot=%s (released at cleanup)\n' "$VERIFY_WAL_SLOT" >> "$REPORT_DIR/execution.txt"
+fi
+MEASUREMENT_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 if [[ "$MODE" == "steady-state" ]]; then
   echo "Starting steady-state collector for $RUN_ID..."
   tool collect-steady-state \
     "--run-id=$RUN_ID" \
+    "--retained-completed-records=$RETAINED_RECORDS" \
     "--report-dir=$REPORT_DIR" \
     "--prometheus-url=http://localhost:$PROMETHEUS_PORT" \
     "--grafana-url=http://localhost:$GRAFANA_PORT/d/namastack-outbox-performance" \
@@ -267,6 +399,8 @@ if [[ "$MODE" == "steady-state" ]]; then
 
   echo "Producing exactly rate × duration records: $PRODUCER_RATE records/s for $PRODUCER_DURATION..."
   tool produce "${PRODUCER_ARGS[@]}"
+  snapshot_postgres "$REPORT_DIR/postgres-producer-stop.json"
+  snapshot_statements "$REPORT_DIR/statements-producer-stop.json"
 else
   echo "Preparing backlog-drain run $RUN_ID with $RECORDS records..."
   seed "$RUN_ID" "$RECORDS"
@@ -287,8 +421,22 @@ COLLECTOR_EXIT=$?
 set -e
 COLLECTOR_PID=""
 cp "$LOG_DIR"/*.log "$REPORT_DIR/logs/"
+snapshot_postgres "$REPORT_DIR/postgres-after.json"
+snapshot_statements "$REPORT_DIR/statements-after.json"
+docker logs --timestamps --since "$MEASUREMENT_STARTED_AT" "$("${COMPOSE[@]}" ps -q postgres)" > "$REPORT_DIR/postgres.log" 2>&1
 cat "$REPORT_DIR/collector.log"
 (( COLLECTOR_EXIT == 0 )) || { echo "Performance run failed; see $REPORT_DIR" >&2; exit "$COLLECTOR_EXIT"; }
+if grep -E '[[:space:]](WARN|ERROR)[[:space:]]' "$REPORT_DIR"/logs/*.log > "$REPORT_DIR/consumer-log-issues.log"; then
+  echo "Consumer warnings/errors detected; this run does not establish healthy capacity. See $REPORT_DIR/consumer-log-issues.log" >&2
+  exit 1
+fi
+if [[ "${PERF_VERIFY_COMPLETION_ORDER:-false}" == "true" ]]; then
+  if ! "${COMPOSE[@]}" exec -T postgres psql -X -qAt -v ON_ERROR_STOP=1 -v "run_id=$RUN_ID" -U username -d outbox_performance_test -f /sql/50_verify_completion_order.sql > "$REPORT_DIR/completion-order.json"; then
+    # Clock timestamps can move backwards; only independent durable commit evidence can rescue such a result.
+    python3 "$ROOT_DIR/scripts/verify-commit-order.py" "$("${COMPOSE[@]}" ps -q postgres)" "$RUN_ID" "$REPORT_DIR"
+  fi
+  cat "$REPORT_DIR/completion-order.json"
+fi
 
 echo
 echo "Grafana dashboard: http://localhost:$GRAFANA_PORT/d/namastack-outbox-performance"

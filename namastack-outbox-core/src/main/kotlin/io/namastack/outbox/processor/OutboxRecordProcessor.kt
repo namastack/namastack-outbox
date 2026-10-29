@@ -70,7 +70,7 @@ abstract class OutboxRecordProcessor(
             val previousCompletedAt = record.completedAt
             try {
                 record.markCompleted(clock)
-                repository.update(record)
+                repository.updateCompletion(record)
             } catch (exception: Exception) {
                 record.status = previousStatus
                 record.completedAt = previousCompletedAt

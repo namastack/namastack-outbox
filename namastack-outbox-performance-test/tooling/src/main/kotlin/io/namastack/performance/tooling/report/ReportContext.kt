@@ -10,4 +10,5 @@ internal data class ReportContext(
     val grafanaUrl: String,
     val timeout: Duration,
     val sampleInterval: Duration,
+    val retainedCompletedRecords: Long = 0,
 )

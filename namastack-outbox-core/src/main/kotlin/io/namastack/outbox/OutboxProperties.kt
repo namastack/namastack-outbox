@@ -62,6 +62,12 @@ data class OutboxProperties(
         var trigger: String = "fixed",
         var fixed: FixedPolling = FixedPolling(),
         var adaptive: AdaptivePolling = AdaptivePolling(),
+        /** Immediately schedule another cycle after a full batch that completed records without failures. */
+        var drainOnFullBatch: Boolean = false,
+        /** Keys fetched together; zero retains the original per-key loading path. */
+        var recordFetchBatchSize: Int = 0,
+        /** Records handled per key per cycle; zero is unlimited. Requires batched fetching. */
+        var maxRecordsPerKey: Int = 0,
     )
 
     /**

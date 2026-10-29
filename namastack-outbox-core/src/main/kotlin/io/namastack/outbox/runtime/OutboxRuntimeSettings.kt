@@ -39,7 +39,20 @@ data class OutboxRuntimeSettings(
         val trigger: Trigger = Trigger.FIXED,
         val fixed: FixedPolling = FixedPolling(),
         val adaptive: AdaptivePolling = AdaptivePolling(),
+        /** Immediately schedule another cycle after a full batch that completed records without failures. */
+        val drainOnFullBatch: Boolean = false,
+        /** Keys fetched together; zero retains per-key loading. */
+        val recordFetchBatchSize: Int = 0,
+        /** Per-key cycle bound; zero is unlimited. */
+        val maxRecordsPerKey: Int = 0,
     ) {
+        init {
+            require(recordFetchBatchSize in 0..1000 && maxRecordsPerKey >= 0)
+            require(maxRecordsPerKey == 0 || recordFetchBatchSize > 0) {
+                "max-records-per-key requires record-fetch-batch-size > 0"
+            }
+        }
+
         /** Available polling trigger strategies. */
         enum class Trigger {
             /** Polls at a constant interval. */

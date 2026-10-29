@@ -646,6 +646,25 @@ class OutboxCoreAutoConfigurationTest {
         }
 
         @Test
+        fun `binds drain on full batch and wires the polling trigger`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues("namastack.outbox.polling.drain-on-full-batch=true")
+                .run { context ->
+                    assertThat(context).hasNotFailed()
+                    assertThat(context.getBean<OutboxProperties>().polling.drainOnFullBatch).isTrue()
+                    val trigger = context.getBean<OutboxPollingTrigger>()
+                    val completion = Instant.parse("2026-01-01T12:00:00Z")
+                    val triggerContext = mockk<TriggerContext>()
+                    every { triggerContext.lastCompletion() } returns completion
+                    trigger.onTaskComplete(10)
+                    assertThat(trigger.nextExecution(triggerContext)).isEqualTo(completion)
+                    trigger.onTaskComplete(0)
+                    assertThat(trigger.nextExecution(triggerContext)).isEqualTo(completion.plusSeconds(2))
+                }
+        }
+
+        @Test
         fun `creates fixed trigger with deprecated property`() {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)

@@ -20,6 +20,9 @@ namastack:
     polling:
       trigger: fixed                           # Polling strategy: fixed|adaptive (default: fixed)
       batch-size: 10                           # Record keys per poll cycle (default: 10)
+      drain-on-full-batch: false                # Skip the delay after a full, productive batch (default: false)
+      record-fetch-batch-size: 0                 # Keys loaded together; 0 keeps per-key reads
+      max-records-per-key: 0                     # Ordered prefix per key per cycle; 0 is unlimited
       fixed:
         interval: 2s                           # interval between polling cycles (default: 2s)
       adaptive:
@@ -197,3 +200,80 @@ namastack:
   outbox:
     enabled: false
 ```
+
+## Draining full polling batches
+
+Set `namastack.outbox.polling.drain-on-full-batch: true` to schedule the next cycle immediately
+when the previous cycle loaded `batch-size` record keys, completed at least one record, and
+encountered no failures or records waiting for retry. This works with both fixed and adaptive polling.
+Partial or unproductive batches, failures, and compatibility cooldowns retain the polling delay.
+The default is `false`.
+
+Each cycle waits for all submitted key tasks, releases the assignment lock, and returns to the
+scheduler before another cycle begins. A fair assignment lock lets a queued rebalance run before
+the next batch acquires its assignments. Records for each key still run sequentially; this setting
+does not change retry ordering or partition ownership. A slow handler can still delay rebalancing
+until its current batch finishes.
+
+## Bulk record reads and PostgreSQL completion batching
+
+For an existing PostgreSQL schema, replace the old key index before enabling high-volume bulk
+reads. Run each statement separately, outside a transaction, and adapt the names for your schema
+or table prefix:
+
+```sql
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_outbox_record_key_status_created
+    ON outbox_record (record_key, status, created_at);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_outbox_record_incomplete_key_order
+    ON outbox_record (record_key, created_at, id)
+    WHERE completed_at IS NULL;
+DROP INDEX CONCURRENTLY IF EXISTS idx_outbox_record_record_key_created;
+DROP INDEX CONCURRENTLY IF EXISTS idx_outbox_record_status;
+DROP INDEX CONCURRENTLY IF EXISTS idx_outbox_record_record_key_completed_created;
+```
+
+Verify that both new indexes are valid before dropping any old indexes; `IF NOT EXISTS` does not
+repair a previously failed concurrent index build. Keep the existing `(status, next_retry_at)`
+and `(partition_no, status, next_retry_at)` indexes. The resulting record table has five indexes
+including its primary key. New PostgreSQL schema
+installations include the new index. It retains `record_key` as the leading column and adds
+`status` to match delivery lookups.
+
+For JDBC workloads, `namastack.outbox.polling.record-fetch-batch-size` can load several selected
+keys with one query. The default `0` keeps per-key loading. Values from `1` through `1000` enable
+bulk loading. Payloads are decoded by each key's worker only when that record is reached. Records
+still follow `(created_at, id)` order, and a future retry blocks its successors when
+`stop-on-first-failure` is enabled. Partition assignments remain held while fetched work finishes.
+A decoding failure is isolated to its key.
+
+`max-records-per-key` optionally bounds the ordered prefix processed in one cycle. It requires bulk
+loading and defaults to unlimited. This can bound work before rebalancing for a hot key, but its
+window query can cost more than an unlimited read; measure it with your key distribution.
+
+PostgreSQL JDBC users can also opt into completion batching:
+
+```yaml
+namastack:
+  outbox:
+    jdbc:
+      completion-batching:
+        enabled: true
+        max-batch-size: 20
+        max-wait: 250us
+```
+
+Independent keys share a metadata update and database commit. Each worker waits for the commit
+before processing its next record, and rebalancing waits for those acknowledgements. The batcher
+flushes a partial batch after `max-wait`; a full batch can flush earlier. It does not wait for a
+whole key's records or buffer all their completions. Maximum batch size is `512`.
+
+The option defaults to disabled and supports PostgreSQL only. An existing application transaction
+uses the normal completion path and its original transaction boundary. A failed shared transaction
+never acknowledges its writes; a record-specific integrity error is isolated with individual
+transactions after the batch rolls back. Handlers still need the library's usual idempotency for
+at-least-once delivery.
+
+Programmatic runtimes can create a writer with `JdbcOutboxPersistenceFactory.completionBatcher(...)`
+and pass it as `completionBatcher` to `JdbcOutboxPersistenceFactory.create(...)`. Stop all runtimes
+using that writer before closing it. The factory borrows the writer and does not close it or the
+datasource. Use one writer per datasource and table namespace.

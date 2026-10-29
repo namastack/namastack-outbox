@@ -27,22 +27,29 @@ internal object OutboxPollingTriggerFactory {
     fun create(
         settings: OutboxRuntimeSettings.Polling,
         clock: Clock,
-    ): OutboxPollingTrigger =
-        when (settings.trigger) {
-            OutboxRuntimeSettings.Polling.Trigger.FIXED -> {
-                FixedPollingTrigger(
-                    delay = settings.fixed.interval,
-                    clock = clock,
-                )
-            }
+    ): OutboxPollingTrigger {
+        val trigger =
+            when (settings.trigger) {
+                OutboxRuntimeSettings.Polling.Trigger.FIXED -> {
+                    FixedPollingTrigger(
+                        delay = settings.fixed.interval,
+                        clock = clock,
+                    )
+                }
 
-            OutboxRuntimeSettings.Polling.Trigger.ADAPTIVE -> {
-                AdaptivePollingTrigger(
-                    minDelay = settings.adaptive.minInterval,
-                    maxDelay = settings.adaptive.maxInterval,
-                    batchSize = settings.batchSize,
-                    clock = clock,
-                )
+                OutboxRuntimeSettings.Polling.Trigger.ADAPTIVE -> {
+                    AdaptivePollingTrigger(
+                        minDelay = settings.adaptive.minInterval,
+                        maxDelay = settings.adaptive.maxInterval,
+                        batchSize = settings.batchSize,
+                        clock = clock,
+                    )
+                }
             }
+        return if (settings.drainOnFullBatch) {
+            DrainOnFullBatchTrigger(trigger, settings.batchSize, clock)
+        } else {
+            trigger
         }
+    }
 }

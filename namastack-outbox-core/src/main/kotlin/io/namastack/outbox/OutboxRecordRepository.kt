@@ -39,6 +39,32 @@ interface OutboxRecordRepository {
     fun <T> update(record: OutboxRecord<T>): Boolean
 
     /**
+     * Persists processing metadata after [record] has been marked completed.
+     *
+     * Implementations may update only status, completion time and retry/failure metadata,
+     * without serializing or replacing the stored payload, context or routing fields.
+     * Handler mutations of payload or context must not rely on this operation being persisted.
+     * The default delegates to [update] for compatibility with custom repositories.
+     * Like [update], this must not insert a missing record.
+     *
+     * @return `true` if the record was updated, `false` if it no longer exists
+     * @since 1.12.0
+     */
+    fun updateCompletion(record: OutboxRecord<*>): Boolean = update(record)
+
+    /**
+     * Runs one key's processing synchronously. The default adds no transaction boundary.
+     * Decorators may group writes, but must finish their commit/rollback before returning so
+     * partition assignments cannot change while completion persistence is still in flight.
+     * Grouping writes can replay an already handled prefix after a rollback or crash;
+     * implementations must document that behavior and must not enable it implicitly.
+     */
+    fun <T> withRecordKeyProcessing(
+        recordKey: String,
+        action: () -> T,
+    ): T = action()
+
+    /**
      * Finds all pending outbox records that are ready for processing.
      * Implementations **must** return records sorted by creation time ascending, then by record ID
      * ascending to resolve equal timestamps. IDs define a stable tie-breaker, not creation order.
@@ -112,6 +138,23 @@ interface OutboxRecordRepository {
      * @return List of incomplete outbox records for the given record key
      */
     fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord<*>>
+
+    /**
+     * Loads one ordered page for every requested key, including empty pages for keys with no rows.
+     * Implementations can fetch several keys in one query and defer payload decoding until access.
+     * [maxRecordsPerKey] is zero for unlimited records. Each page uses the same ordering as
+     * [findIncompleteRecordsByRecordKey]. The default defers each existing per-key query until
+     * its worker accesses the page, preserving failure isolation for custom repositories.
+     */
+    fun findIncompleteRecordPages(
+        recordKeys: Set<String>,
+        maxRecordsPerKey: Int = 0,
+    ): Map<String, OutboxRecordPage> {
+        require(maxRecordsPerKey >= 0)
+        return recordKeys.associateWith { key ->
+            DeferredOutboxRecordPage({ findIncompleteRecordsByRecordKey(key) }, maxRecordsPerKey)
+        }
+    }
 
     /**
      * Finds record keys that have pending records in specific partitions.

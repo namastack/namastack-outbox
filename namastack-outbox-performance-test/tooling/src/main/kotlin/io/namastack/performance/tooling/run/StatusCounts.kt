@@ -11,9 +11,16 @@ internal data class StatusCounts(
 ) {
     fun totalRecords() = newRecords + completedRecords + failedRecords
 
+    fun excludingCompleted(retained: Long): StatusCounts {
+        require(retained >= 0 && completedRecords >= retained) { "Retained completed-record baseline is invalid" }
+        return copy(completedRecords = completedRecords - retained)
+    }
+
     fun isTerminal(expected: Long) = newRecords == 0L && completedRecords + failedRecords >= expected
 
-    fun isValid(expected: Long) = newRecords == 0L && completedRecords == expected && failedRecords == 0L && retryCount == 0L
+    fun isValid(expected: Long) =
+        newRecords == 0L && completedRecords == expected && failedRecords == 0L && retryCount == 0L
 
-    fun properties() = "newRecords=$newRecords\ncompletedRecords=$completedRecords\nfailedRecords=$failedRecords\nretryCount=$retryCount"
+    fun properties() =
+        "newRecords=$newRecords\ncompletedRecords=$completedRecords\nfailedRecords=$failedRecords\nretryCount=$retryCount"
 }

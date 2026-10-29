@@ -1,6 +1,8 @@
 services:
   postgres:
     image: postgres:17-alpine
+    # Concurrent parallel queries can exhaust Docker's default 64 MiB /dev/shm.
+    shm_size: 1gb
     command: ["postgres", "-c", "max_connections=250"]
     environment:
       POSTGRES_DB: outbox_performance_test

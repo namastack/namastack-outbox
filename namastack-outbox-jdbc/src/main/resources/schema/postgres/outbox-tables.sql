@@ -36,8 +36,9 @@ CREATE TABLE IF NOT EXISTS outbox_partition
     updated_at       TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_record_key_created
-    ON outbox_record (record_key, created_at);
+-- Matches key/status reads directly, avoiding a bitmap scan of the global status index.
+CREATE INDEX IF NOT EXISTS idx_outbox_record_key_status_created
+    ON outbox_record (record_key, status, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_outbox_record_partition_status_retry
     ON outbox_record (partition_no, status, next_retry_at);
@@ -45,11 +46,10 @@ CREATE INDEX IF NOT EXISTS idx_outbox_record_partition_status_retry
 CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry
     ON outbox_record (status, next_retry_at);
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status
-    ON outbox_record (status);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_record_key_completed_created
-    ON outbox_record (record_key, completed_at, created_at);
+-- Covers predecessor checks while retaining failed records and future retries as barriers.
+CREATE INDEX IF NOT EXISTS idx_outbox_record_incomplete_key_order
+    ON outbox_record (record_key, created_at, id)
+    WHERE completed_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_outbox_instance_status_heartbeat
     ON outbox_instance (status, last_heartbeat);

@@ -75,7 +75,7 @@ class FallbackOutboxRecordProcessorTest {
 
         verify { fallbackHandlerInvoker.dispatch(record) }
         verify { nextProcessor.handle(record) }
-        verify(exactly = 0) { recordRepository.update(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { recordRepository.updateCompletion(any()) }
         verify(exactly = 0) { recordRepository.deleteById(any()) }
     }
 
@@ -106,7 +106,7 @@ class FallbackOutboxRecordProcessorTest {
 
         every { fallbackHandlerRegistry.getByHandlerId(any()) } returns fallbackMethod()
         justRun { fallbackHandlerInvoker.dispatch(any()) }
-        every { recordRepository.update(any() as OutboxRecord<*>) } returns true
+        every { recordRepository.updateCompletion(any()) } returns true
 
         val result = processor.handle(record)
 
@@ -118,7 +118,7 @@ class FallbackOutboxRecordProcessorTest {
 
         verify { fallbackHandlerRegistry.getByHandlerId(record.handlerId) }
         verify { fallbackHandlerInvoker.dispatch(record) }
-        verify { recordRepository.update(record) }
+        verify { recordRepository.updateCompletion(record) }
         verify(exactly = 0) { recordRepository.deleteById(any()) }
         verify(exactly = 0) { nextProcessor.handle(any()) }
     }
@@ -132,7 +132,7 @@ class FallbackOutboxRecordProcessorTest {
 
         every { fallbackHandlerRegistry.getByHandlerId(any()) } returns fallbackMethod()
         justRun { fallbackHandlerInvoker.dispatch(any()) }
-        every { recordRepository.update(any() as OutboxRecord<*>) } throws repositoryException
+        every { recordRepository.updateCompletion(any()) } throws repositoryException
 
         assertThatThrownBy { processor.handle(record) }.isSameAs(repositoryException)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
@@ -163,7 +163,7 @@ class FallbackOutboxRecordProcessorTest {
         verify { fallbackHandlerRegistry.getByHandlerId(record.handlerId) }
         verify { fallbackHandlerInvoker.dispatch(record) }
         verify { recordRepository.deleteById(record.id) }
-        verify(exactly = 0) { recordRepository.update(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { recordRepository.updateCompletion(any()) }
         verify(exactly = 0) { nextProcessor.handle(any()) }
     }
 
@@ -186,7 +186,7 @@ class FallbackOutboxRecordProcessorTest {
         verify { fallbackHandlerRegistry.getByHandlerId(record.handlerId) }
         verify { nextProcessor.handle(record) }
         verify(exactly = 0) { fallbackHandlerInvoker.dispatch(any()) }
-        verify(exactly = 0) { recordRepository.update(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { recordRepository.updateCompletion(any()) }
         verify(exactly = 0) { recordRepository.deleteById(any()) }
     }
 
@@ -211,7 +211,7 @@ class FallbackOutboxRecordProcessorTest {
         verify { fallbackHandlerRegistry.getByHandlerId(record.handlerId) }
         verify { fallbackHandlerInvoker.dispatch(record) }
         verify { nextProcessor.handle(record) }
-        verify(exactly = 0) { recordRepository.update(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { recordRepository.updateCompletion(any()) }
         verify(exactly = 0) { recordRepository.deleteById(any()) }
     }
 
@@ -250,7 +250,7 @@ class FallbackOutboxRecordProcessorTest {
         assertThat(record.completedAt).isNull()
         verify { fallbackHandlerRegistry.getByHandlerId(record.handlerId) }
         verify(exactly = 0) { fallbackHandlerInvoker.dispatch(any()) }
-        verify(exactly = 0) { recordRepository.update(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { recordRepository.updateCompletion(any()) }
         verify(exactly = 0) { recordRepository.deleteById(any()) }
     }
 

@@ -45,7 +45,8 @@ ALTER TABLE performance_test_run
     ADD COLUMN IF NOT EXISTS measurement_warmup_ms       BIGINT,
     ADD COLUMN IF NOT EXISTS min_producer_rate_ratio     DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS max_backlog_growth_rate     DOUBLE PRECISION,
-    ADD COLUMN IF NOT EXISTS max_end_backlog             BIGINT;
+    ADD COLUMN IF NOT EXISTS max_end_backlog             BIGINT,
+    ADD COLUMN IF NOT EXISTS producer_stop_counts        JSONB;
 
 CREATE TABLE IF NOT EXISTS performance_seed_record
 (

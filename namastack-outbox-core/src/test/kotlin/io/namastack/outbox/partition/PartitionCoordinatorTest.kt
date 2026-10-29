@@ -12,12 +12,14 @@ import io.mockk.verify
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
 import java.time.Duration
@@ -27,6 +29,8 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit.SECONDS
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.locks.ReentrantLock
 
 @DisplayName("PartitionCoordinator")
 class PartitionCoordinatorTest {
@@ -71,6 +75,55 @@ class PartitionCoordinatorTest {
                 rebalanceInterval = REBALANCE_INTERVAL,
                 observationRegistry = { ObservationRegistry.NOOP },
             )
+    }
+
+    @Test
+    fun `queued rebalance runs between consecutive batches and refreshes assignments`() {
+        val firstBatchStarted = CountDownLatch(1)
+        val finishFirstBatch = CountDownLatch(1)
+        val rebalanceThread = AtomicReference<Thread>()
+        val assignments = AtomicReference(setOf(1))
+        val events = mutableListOf<String>()
+        every { partitionAssignmentCache.getAssignedPartitionNumbers(any()) } answers { assignments.get() }
+        every { partitionAssignmentCache.evictAll() } answers {
+            events.add("rebalance")
+            assignments.set(setOf(2))
+        }
+        val lockField = PartitionCoordinator::class.java.getDeclaredField("assignmentLock")
+        lockField.isAccessible = true
+        val assignmentLock = lockField.get(partitionCoordinator) as ReentrantLock
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val batches =
+                executor.submit {
+                    partitionCoordinator.withStableAssignments { partitions ->
+                        assertThat(partitions).containsExactly(1)
+                        firstBatchStarted.countDown()
+                        check(finishFirstBatch.await(5, SECONDS))
+                        events.add("first batch")
+                    }
+                    partitionCoordinator.withStableAssignments { partitions ->
+                        events.add("next batch")
+                        assertThat(partitions).containsExactly(2)
+                    }
+                }
+            assertThat(firstBatchStarted.await(2, SECONDS)).isTrue()
+            val rebalance =
+                executor.submit {
+                    rebalanceThread.set(Thread.currentThread())
+                    partitionCoordinator.rebalance()
+                }
+            await().atMost(2, SECONDS).until {
+                rebalanceThread.get()?.let { assignmentLock.hasQueuedThread(it) } == true
+            }
+            finishFirstBatch.countDown()
+            batches.get(2, SECONDS)
+            rebalance.get(2, SECONDS)
+            assertThat(events).containsExactly("first batch", "rebalance", "next batch")
+        } finally {
+            finishFirstBatch.countDown()
+            executor.shutdownNow()
+        }
     }
 
     @Nested
@@ -438,6 +491,20 @@ class PartitionCoordinatorTest {
 
             val messages = listAppender.list.map { it.formattedMessage }
             assertThat(messages).anyMatch { it.contains("Another instance initialized partitions, skipping bootstrap") }
+        }
+
+        @Test
+        fun `bootstrap optimistic race is benign and invalidates cached ownership`() {
+            every { partitionAssignmentRepository.findAll() } returns emptySet()
+            every { partitionAssignmentRepository.saveAll(any()) } throws
+                OptimisticLockingFailureException("Another instance created partition 0")
+
+            partitionCoordinator.rebalance()
+
+            verify(exactly = 1) { partitionAssignmentCache.evictAll() }
+            assertThat(listAppender.list).noneMatch { it.level == Level.ERROR }
+            assertThat(listAppender.list.map { it.formattedMessage })
+                .anyMatch { it.contains("Another instance initialized partitions, skipping bootstrap") }
         }
 
         @Test

@@ -57,7 +57,7 @@ class PrimaryOutboxRecordProcessorTest {
         processor = createProcessor()
 
         justRun { handlerInvoker.dispatch(any()) }
-        every { recordRepository.update(any() as OutboxRecord<*>) } returns true
+        every { recordRepository.updateCompletion(any()) } returns true
 
         val result = processor.handle(record)
 
@@ -66,7 +66,7 @@ class PrimaryOutboxRecordProcessorTest {
         assertThat(record.completedAt).isEqualTo(Instant.now(clock))
 
         verify { handlerInvoker.dispatch(record) }
-        verify { recordRepository.update(record) }
+        verify { recordRepository.updateCompletion(record) }
         verify(exactly = 0) { recordRepository.deleteById(any()) }
         verify(exactly = 0) { nextProcessor.handle(any()) }
     }
@@ -86,7 +86,7 @@ class PrimaryOutboxRecordProcessorTest {
 
         verify { handlerInvoker.dispatch(record) }
         verify { recordRepository.deleteById(record.id) }
-        verify(exactly = 0) { recordRepository.update(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { recordRepository.updateCompletion(any()) }
         verify(exactly = 0) { nextProcessor.handle(any()) }
     }
 
@@ -107,7 +107,7 @@ class PrimaryOutboxRecordProcessorTest {
         if (deleteCompletedRecords) {
             every { recordRepository.deleteById(record.id) } throws persistenceFailure
         } else {
-            every { recordRepository.update(record) } throws persistenceFailure
+            every { recordRepository.updateCompletion(record) } throws persistenceFailure
         }
 
         assertThatThrownBy { processor.handle(record) }.isSameAs(persistenceFailure)
@@ -139,7 +139,7 @@ class PrimaryOutboxRecordProcessorTest {
 
         verify { handlerInvoker.dispatch(record) }
         verify { nextProcessor.handle(record) }
-        verify(exactly = 0) { recordRepository.update(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { recordRepository.updateCompletion(any()) }
         verify(exactly = 0) { recordRepository.deleteById(any()) }
     }
 
@@ -220,7 +220,7 @@ class PrimaryOutboxRecordProcessorTest {
         properties.processing.deleteCompletedRecords = false
         processor = createProcessor()
         justRun { handlerInvoker.dispatch(record) }
-        every { recordRepository.update(record) } returns true
+        every { recordRepository.updateCompletion(record) } returns true
 
         val result = processor.handle(record)
 
@@ -229,7 +229,7 @@ class PrimaryOutboxRecordProcessorTest {
         assertThat(record.failureCount).isZero()
         verify(exactly = 0) { handlerInvoker.ensureHandlerAvailable(any()) }
         verify { handlerInvoker.dispatch(record) }
-        verify { recordRepository.update(record) }
+        verify { recordRepository.updateCompletion(record) }
         verify(exactly = 0) { nextProcessor.handle(any()) }
     }
 

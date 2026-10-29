@@ -4,6 +4,7 @@ import io.micrometer.observation.ObservationRegistry
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.mockk.verifyOrder
 import io.namastack.outbox.OutboxProcessingScheduler.SchedulerLifecycleStateMachine.LifecycleState
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.partition.PartitionCoordinator
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.core.task.SyncTaskExecutor
+import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
 import java.time.Duration
@@ -24,6 +26,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit.SECONDS
 import java.util.concurrent.atomic.AtomicBoolean
@@ -52,13 +55,17 @@ class OutboxProcessingSchedulerTest {
     fun setUp() {
         scheduler = createScheduler()
 
+        every { recordRepository.withRecordKeyProcessing<Unit>(any(), any()) } answers {
+            secondArg<() -> Unit>().invoke()
+        }
+
         every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
         every { partitionCoordinator.withStableAssignments<Int>(any()) } answers {
             firstArg<(Set<Int>) -> Int>().invoke(partitionCoordinator.getAssignedPartitionNumbers())
         }
     }
 
-    private fun createScheduler(): OutboxProcessingScheduler =
+    private fun createScheduler(taskExecutor: TaskExecutor = SyncTaskExecutor()): OutboxProcessingScheduler =
         OutboxProcessingScheduler(
             trigger = trigger,
             taskScheduler = taskScheduler,
@@ -66,7 +73,7 @@ class OutboxProcessingSchedulerTest {
             recordRepository = recordRepository,
             recordProcessorChainInvoker = recordProcessorChainInvoker,
             partitionCoordinator = partitionCoordinator,
-            taskExecutor = SyncTaskExecutor(),
+            taskExecutor = taskExecutor,
             settings = properties.toRuntimeSettings(),
             clock = clock,
         )
@@ -829,6 +836,281 @@ class OutboxProcessingSchedulerTest {
             verify(exactly = 1) { recordProcessorChainInvoker.process(record1) }
             verify(exactly = 1) { recordProcessorChainInvoker.process(record2) }
             verify(exactly = 1) { recordProcessorChainInvoker.process(record3) }
+        }
+    }
+
+    @Nested
+    inner class BulkLoadingTests {
+        private val key = "bulk-key"
+        private val record =
+            OutboxRecordTestFactory.outboxRecord(
+                recordKey = key,
+                nextRetryAt = fixedInstant.minusSeconds(1),
+            )
+
+        @BeforeEach
+        fun enableBulkLoading() {
+            properties.polling.recordFetchBatchSize = 1
+            properties.polling.drainOnFullBatch = true
+            properties.polling.batchSize = 1
+            properties.processing.stopOnFirstFailure = true
+            recreateStartedScheduler()
+            prepareFindRecordKeysInPartitions(listOf(key))
+            every { recordProcessorChainInvoker.process(any()) } returns OutboxRecordProcessingOutcome.COMPLETED
+        }
+
+        @Test
+        fun `future retry metadata blocks the key without decoding any payload`() {
+            val page = mockk<OutboxRecordPage>()
+            every { page.size } returns 2
+            every { page.isEmpty() } returns false
+            every { page.nextRetryAt(0) } returns fixedInstant.plusSeconds(10)
+            every { page.recordId(0) } returns "blocked"
+            every { recordRepository.findIncompleteRecordPages(setOf(key), 0) } returns mapOf(key to page)
+            scheduler.process()
+            verify(exactly = 0) { page.get(any()) }
+            verify(exactly = 0) { recordProcessorChainInvoker.process(any()) }
+            verify(exactly = 1) { trigger.onTaskComplete(0) }
+        }
+
+        @Test
+        fun `fetches and submits chunks in order and avoids the per-key query`() {
+            val next =
+                OutboxRecordTestFactory.outboxRecord(
+                    recordKey = "next",
+                    nextRetryAt = fixedInstant.minusSeconds(1),
+                )
+            prepareFindRecordKeysInPartitions(listOf(key, "next"))
+            every { recordRepository.findIncompleteRecordPages(setOf(key), 0) } returns
+                mapOf(key to DeferredOutboxRecordPage({ listOf(record) }, 0))
+            every { recordRepository.findIncompleteRecordPages(setOf("next"), 0) } returns
+                mapOf("next" to DeferredOutboxRecordPage({ listOf(next) }, 0))
+            scheduler.process()
+            verifyOrder {
+                recordRepository.findIncompleteRecordPages(setOf(key), 0)
+                recordProcessorChainInvoker.process(record)
+                recordRepository.findIncompleteRecordPages(setOf("next"), 0)
+                recordProcessorChainInvoker.process(next)
+            }
+            verify(exactly = 0) { recordRepository.findIncompleteRecordsByRecordKey(any()) }
+        }
+
+        @Test
+        fun `unavailable payload in one fetched page leaves other keys processable`() {
+            prepareFindRecordKeysInPartitions(listOf("bad", key))
+            every { recordRepository.findIncompleteRecordPages(setOf("bad"), 0) } returns
+                mapOf("bad" to DeferredOutboxRecordPage({ throw IllegalStateException("invalid payload") }, 0))
+            every { recordRepository.findIncompleteRecordPages(setOf(key), 0) } returns
+                mapOf(key to DeferredOutboxRecordPage({ listOf(record) }, 0))
+            scheduler.process()
+            verify(exactly = 1) { recordProcessorChainInvoker.process(record) }
+            verify(exactly = 1) { trigger.onTaskComplete(0) }
+        }
+    }
+
+    @Nested
+    inner class DrainOnFullBatchTests {
+        private val key = "drain-key"
+        private val record =
+            OutboxRecordTestFactory.outboxRecord(
+                recordKey = key,
+                nextRetryAt = fixedInstant.minusSeconds(1),
+            )
+
+        @BeforeEach
+        fun enableDraining() {
+            properties.polling.drainOnFullBatch = true
+            properties.polling.batchSize = 1
+            recreateStartedScheduler()
+            prepareFindRecordKeysInPartitions(listOf(key))
+            prepareFindIncompleteRecordsByRecordKey(key, listOf(record))
+            every { recordProcessorChainInvoker.process(record) } returns OutboxRecordProcessingOutcome.COMPLETED
+        }
+
+        @Test
+        fun `productive batch enables draining and empty batch clears it`() {
+            scheduler.process()
+            prepareFindRecordKeysInPartitions(emptyList())
+            scheduler.process()
+            verifyOrder {
+                trigger.onTaskComplete(1)
+                trigger.onTaskComplete(0)
+            }
+        }
+
+        @Test
+        fun `full batch with no incomplete records does not drain`() {
+            prepareFindIncompleteRecordsByRecordKey(key, emptyList())
+            scheduler.process()
+            verify(exactly = 1) { trigger.onTaskComplete(0) }
+        }
+
+        @Test
+        fun `full batch waiting for retry does not drain`() {
+            prepareFindIncompleteRecordsByRecordKey(
+                key,
+                listOf(
+                    OutboxRecordTestFactory.outboxRecord(recordKey = key, nextRetryAt = fixedInstant.plusSeconds(10)),
+                ),
+            )
+            scheduler.process()
+            verify(exactly = 1) { trigger.onTaskComplete(0) }
+            verify(exactly = 0) { recordProcessorChainInvoker.process(any()) }
+        }
+
+        @Test
+        fun `retry outcome prevents draining even when another record completes`() {
+            val successor =
+                OutboxRecordTestFactory.outboxRecord(
+                    recordKey = key,
+                    nextRetryAt = fixedInstant.minusSeconds(1),
+                )
+            prepareFindIncompleteRecordsByRecordKey(key, listOf(record, successor))
+            every { recordProcessorChainInvoker.process(successor) } returns
+                OutboxRecordProcessingOutcome.RETRY_SCHEDULED
+            scheduler.process()
+            verify(exactly = 1) { trigger.onTaskComplete(0) }
+        }
+
+        @Test
+        fun `worker exception prevents draining`() {
+            every { recordProcessorChainInvoker.process(record) } throws IllegalStateException("database unavailable")
+            scheduler.process()
+            verify(exactly = 1) { trigger.onTaskComplete(0) }
+        }
+
+        @Test
+        fun `cooldown resets draining and prevents another database query`() {
+            every { recordProcessorChainInvoker.process(record) } throws
+                OutboxHandlerNotFoundException(
+                    recordId = record.id,
+                    recordKey = record.key,
+                    handlerId = record.handlerId,
+                )
+            scheduler.process()
+            scheduler.process()
+            verify(exactly = 2) { trigger.onTaskComplete(0) }
+            verify(exactly = 1) { recordRepository.findIncompleteRecordsByRecordKey(key) }
+        }
+
+        @Test
+        fun `stopped scheduler clears draining without loading another batch`() {
+            scheduler.process()
+            scheduler.stop()
+            scheduler.process()
+            verifyOrder {
+                trigger.onTaskComplete(1)
+                trigger.onTaskComplete(0)
+            }
+            verify(exactly = 1) { recordRepository.findIncompleteRecordsByRecordKey(key) }
+        }
+
+        @Test
+        fun `strict ordering still stops a key at its first retry`() {
+            properties.processing.stopOnFirstFailure = true
+            recreateStartedScheduler()
+            val successor =
+                OutboxRecordTestFactory.outboxRecord(
+                    recordKey = key,
+                    nextRetryAt = fixedInstant.minusSeconds(1),
+                )
+            prepareFindIncompleteRecordsByRecordKey(key, listOf(record, successor))
+            every { recordProcessorChainInvoker.process(record) } returns OutboxRecordProcessingOutcome.RETRY_SCHEDULED
+            scheduler.process()
+            verify(exactly = 0) { recordProcessorChainInvoker.process(successor) }
+            verify(exactly = 1) { trigger.onTaskComplete(0) }
+        }
+
+        @Test
+        fun `interruption does not release assignments before submitted keys finish`() {
+            val workerStarted = CountDownLatch(1)
+            val finishWorker = CountDownLatch(1)
+            val assignmentsReleased = CountDownLatch(1)
+            val processingThread = AtomicReference<Thread>()
+            val interruptPreserved = AtomicBoolean()
+            val worker = Executors.newSingleThreadExecutor()
+            val processing = Executors.newSingleThreadExecutor()
+            every { recordProcessorChainInvoker.process(record) } answers {
+                workerStarted.countDown()
+                check(finishWorker.await(5, SECONDS))
+                OutboxRecordProcessingOutcome.COMPLETED
+            }
+            every { partitionCoordinator.withStableAssignments<Int>(any()) } answers {
+                try {
+                    firstArg<(Set<Int>) -> Int>().invoke(setOf(1))
+                } finally {
+                    assignmentsReleased.countDown()
+                }
+            }
+            scheduler = createScheduler(TaskExecutor { worker.execute(it) })
+            scheduler.start()
+            try {
+                val future =
+                    processing.submit {
+                        processingThread.set(Thread.currentThread())
+                        scheduler.process()
+                        interruptPreserved.set(Thread.currentThread().isInterrupted)
+                    }
+                assertThat(workerStarted.await(2, SECONDS)).isTrue()
+                processingThread.get().interrupt()
+                assertThat(assignmentsReleased.count).isEqualTo(1)
+                finishWorker.countDown()
+                future.get(2, SECONDS)
+                assertThat(assignmentsReleased.count).isZero()
+                assertThat(interruptPreserved.get()).isTrue()
+            } finally {
+                finishWorker.countDown()
+                processing.shutdownNow()
+                worker.shutdownNow()
+            }
+        }
+
+        @Test
+        fun `rejected submission waits for already submitted keys before releasing assignments`() {
+            val workerStarted = CountDownLatch(1)
+            val finishWorker = CountDownLatch(1)
+            val submissionRejected = CountDownLatch(1)
+            val assignmentsReleased = CountDownLatch(1)
+            val worker = Executors.newSingleThreadExecutor()
+            val processing = Executors.newSingleThreadExecutor()
+            prepareFindRecordKeysInPartitions(listOf(key, "rejected-key"))
+            every { recordProcessorChainInvoker.process(record) } answers {
+                workerStarted.countDown()
+                check(finishWorker.await(5, SECONDS))
+                OutboxRecordProcessingOutcome.COMPLETED
+            }
+            every { partitionCoordinator.withStableAssignments<Int>(any()) } answers {
+                try {
+                    firstArg<(Set<Int>) -> Int>().invoke(setOf(1))
+                } finally {
+                    assignmentsReleased.countDown()
+                }
+            }
+            scheduler =
+                createScheduler(
+                    TaskExecutor { task ->
+                        if (workerStarted.count == 0L) {
+                            submissionRejected.countDown()
+                            throw RejectedExecutionException("full")
+                        }
+                        worker.execute(task)
+                        check(workerStarted.await(5, SECONDS))
+                    },
+                )
+            scheduler.start()
+            try {
+                val future = processing.submit { scheduler.process() }
+                assertThat(submissionRejected.await(2, SECONDS)).isTrue()
+                assertThat(assignmentsReleased.count).isEqualTo(1)
+                finishWorker.countDown()
+                future.get(2, SECONDS)
+                assertThat(assignmentsReleased.count).isZero()
+                verify(exactly = 1) { trigger.onTaskComplete(0) }
+            } finally {
+                finishWorker.countDown()
+                processing.shutdownNow()
+                worker.shutdownNow()
+            }
         }
     }
 

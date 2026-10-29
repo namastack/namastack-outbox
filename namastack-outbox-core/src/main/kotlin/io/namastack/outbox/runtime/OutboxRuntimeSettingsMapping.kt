@@ -10,6 +10,9 @@ internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
             OutboxRuntimeSettings.Polling(
                 batchSize = batchSize ?: polling.batchSize,
                 trigger = polling.trigger.toPollingTrigger(),
+                drainOnFullBatch = polling.drainOnFullBatch,
+                recordFetchBatchSize = polling.recordFetchBatchSize,
+                maxRecordsPerKey = polling.maxRecordsPerKey,
                 fixed =
                     OutboxRuntimeSettings.FixedPolling(
                         interval = pollInterval ?: polling.fixed.interval,

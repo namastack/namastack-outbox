@@ -32,10 +32,17 @@ management:
 namastack:
   outbox:
     jdbc:
+      completion-batching:
+        enabled: ${PERF_NATIVE_COMPLETION_BATCHING:false}
+        max-batch-size: ${PERF_NATIVE_COMPLETION_BATCH_SIZE:20}
+        max-wait: ${PERF_NATIVE_COMPLETION_BATCH_WAIT:250us}
       schema-initialization:
         enabled: false
     polling:
       batch-size: ${PERF_BATCH_SIZE:1000}
+      drain-on-full-batch: ${PERF_DRAIN_ON_FULL_BATCH:false}
+      record-fetch-batch-size: ${PERF_NATIVE_RECORD_FETCH_BATCH_SIZE:0}
+      max-records-per-key: ${PERF_NATIVE_MAX_RECORDS_PER_KEY:0}
       trigger: fixed
       fixed:
         interval: ${PERF_POLL_INTERVAL:100ms}
@@ -44,6 +51,10 @@ namastack:
       stop-on-first-failure: true
       executor-core-pool-size: ${PERF_EXECUTOR_CORE_POOL_SIZE:16}
       executor-max-pool-size: ${PERF_EXECUTOR_MAX_POOL_SIZE:32}
+    observability:
+      metrics:
+        # The collector measures database state; retain event timers without duplicate state queries.
+        enabled: false
     instance:
       heartbeat-interval: 1s
       stale-instance-timeout: 10s
@@ -55,4 +66,8 @@ logging:
   level:
     root: WARN
     io.namastack.outbox: WARN
+
+performance:
+  tuning-repository: ${PERF_TUNING_REPOSITORY:false}
+  full-row-completion: ${PERF_FULL_ROW_COMPLETION:false}
 

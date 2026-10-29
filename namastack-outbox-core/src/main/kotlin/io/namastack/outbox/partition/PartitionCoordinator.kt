@@ -8,6 +8,7 @@ import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.support.ScheduledMethodRunnable
 import java.lang.reflect.Method
@@ -49,7 +50,9 @@ class PartitionCoordinator(
 
     private val log = LoggerFactory.getLogger(PartitionCoordinator::class.java)
     private val currentInstanceId by lazy { instanceRegistry.getCurrentInstanceId() }
-    private val assignmentLock = ReentrantLock()
+
+    // Give a queued rebalance its turn before processing can acquire the next batch.
+    private val assignmentLock = ReentrantLock(true)
     private val rebalanceLock = ReentrantLock()
     private val running = AtomicBoolean(false)
 
@@ -187,6 +190,11 @@ class PartitionCoordinator(
                 "Another instance initialized partitions, skipping bootstrap for {}",
                 currentInstanceId,
             )
+            return
+        } catch (_: OptimisticLockingFailureException) {
+            // JDBC's update-first insert path can observe the winner after its empty-table read.
+            // Its transaction has rolled back; refresh ownership on the next rebalance.
+            log.debug("Another instance initialized partitions, skipping bootstrap")
             return
         } catch (e: Exception) {
             log.error("Failed to bootstrap partitions for instance {}: {}", currentInstanceId, e.message, e)
