@@ -128,6 +128,26 @@ interface OutboxRecordRepository {
     fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord<*>>
 
     /**
+     * Loads the same records as [findIncompleteRecordsByRecordKey] for several selected keys.
+     *
+     * Returns one page for every requested key, including an empty page when no records remain.
+     * Each page retains ascending creation-time and record-ID order. Future retries must remain
+     * in the page so the worker can stop or continue according to its failure-handling settings.
+     *
+     * The default defers each existing per-key query until its page is accessed by a worker.
+     * This preserves custom repositories' loading behavior and isolates query or decoding failures
+     * to their key.
+     *
+     * @param recordKeys Selected storage keys, at most 1000 per call
+     * @return An ordered record page for every requested key
+     * @since 1.12.0
+     */
+    fun findIncompleteRecordPages(recordKeys: Set<String>): Map<String, OutboxRecordPage> =
+        recordKeys.associateWith { key ->
+            DeferredOutboxRecordPage { findIncompleteRecordsByRecordKey(key) }
+        }
+
+    /**
      * Finds record keys that have pending records in specific partitions.
      *
      * The query logic depends on the ignoreRecordKeysWithPreviousFailure flag:

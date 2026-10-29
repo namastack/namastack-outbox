@@ -52,6 +52,8 @@ class OutboxProcessingSchedulerTest {
     fun setUp() {
         scheduler = createScheduler()
 
+        every { recordRepository.findIncompleteRecordPages(any()) } answers { callOriginal() }
+
         every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
         every { partitionCoordinator.withStableAssignments<Int>(any()) } answers {
             firstArg<(Set<Int>) -> Int>().invoke(partitionCoordinator.getAssignedPartitionNumbers())

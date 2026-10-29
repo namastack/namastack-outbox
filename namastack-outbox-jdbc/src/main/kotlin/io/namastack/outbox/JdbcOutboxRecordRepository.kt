@@ -84,6 +84,14 @@ internal open class JdbcOutboxRecordRepository(
         ORDER BY created_at, id
         """.toSingleLine()
 
+    /** Bulk equivalent of the per-key NEW-record read, including retries that are not yet due. */
+    private val findByKeysAndStatusQuery =
+        """
+        SELECT * FROM $tableName
+        WHERE record_key IN (:recordKeys) AND status = :status
+        ORDER BY record_key, created_at, id
+        """.toSingleLine()
+
     /**
      * Query to select outbox records by status completed before a cutoff, oldest first.
      */
@@ -391,6 +399,34 @@ internal open class JdbcOutboxRecordRepository(
             .list()
             .filterNotNull()
             .map { entityMapper.map(it) }
+
+    /**
+     * Loads raw NEW records for selected storage keys with one query against the resolved table.
+     *
+     * Payload and context decoding is deferred until a worker accesses an eligible element.
+     * The same predicate is used for strict and non-strict processing; retry eligibility and
+     * failure handling remain the worker's responsibility. Missing keys receive empty pages.
+     *
+     * @param recordKeys Selected storage keys, at most 1000 per call
+     * @return An ordered, lazily decoded page for every requested key
+     * @throws IllegalArgumentException if more than 1000 keys are requested
+     */
+    override fun findIncompleteRecordPages(recordKeys: Set<String>): Map<String, OutboxRecordPage> {
+        require(recordKeys.size <= 1000) { "A record fetch can contain at most 1000 keys" }
+        if (recordKeys.isEmpty()) return emptyMap()
+
+        val grouped =
+            jdbcClient
+                .sql(findByKeysAndStatusQuery)
+                .param("recordKeys", recordKeys)
+                .param("status", OutboxRecordStatus.NEW.name)
+                .query(rowMapper)
+                .list()
+                .filterNotNull()
+                .groupBy { it.recordKey }
+
+        return recordKeys.associateWith { key -> JdbcOutboxRecordPage(grouped[key].orEmpty(), entityMapper) }
+    }
 
     /**
      * Finds record keys in specified partitions that are ready for processing.

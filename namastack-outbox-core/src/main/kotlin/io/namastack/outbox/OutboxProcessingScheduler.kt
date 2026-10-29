@@ -16,7 +16,7 @@ import java.lang.reflect.Method
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.CountDownLatch
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -63,6 +63,9 @@ class OutboxProcessingScheduler(
         private val COMPATIBILITY_COOLDOWN: Duration = Duration.ofSeconds(30)
         private val SCHEDULE_METHOD_NAME: String = (OutboxProcessingScheduler::process).name
         private val SCHEDULE_METHOD: Method = OutboxProcessingScheduler::class.java.getMethod(SCHEDULE_METHOD_NAME)
+
+        // Keep IN lists within the limit supported by all JDBC databases, including Oracle.
+        private const val MAX_RECORD_KEYS_PER_FETCH = 1000
     }
 
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
@@ -165,30 +168,56 @@ class OutboxProcessingScheduler(
         )
 
     private fun processBatch(recordKeys: List<String>) {
-        val latch = CountDownLatch(recordKeys.size)
-
-        recordKeys.forEach { key ->
-            taskExecutor.execute {
-                try {
-                    processRecordKey(key)
-                } finally {
-                    latch.countDown()
-                }
+        val completions = ArrayList<CompletableFuture<Unit>>(recordKeys.size)
+        try {
+            recordKeys.chunked(MAX_RECORD_KEYS_PER_FETCH).forEach { keys ->
+                val pages = recordRepository.findIncompleteRecordPages(keys.toSet())
+                keys.forEach { key -> submitRecordKeyForProcessing(key, pages.getValue(key), completions) }
             }
+        } finally {
+            // A failed fetch, rejected submission, or interrupt must not release active workers' assignments.
+            completions.forEach { it.join() }
         }
-
-        latch.await()
     }
 
-    private fun processRecordKey(recordKey: String) {
+    private fun submitRecordKeyForProcessing(
+        recordKey: String,
+        page: OutboxRecordPage,
+        completions: MutableList<CompletableFuture<Unit>>,
+    ) {
+        val completion = CompletableFuture<Unit>()
+        completions.add(completion)
+
         try {
-            val records = recordRepository.findIncompleteRecordsByRecordKey(recordKey)
-            if (records.isEmpty()) return
+            taskExecutor.execute {
+                try {
+                    processRecordKey(recordKey, page)
+                } finally {
+                    completion.complete(Unit)
+                }
+            }
+        } catch (failure: Throwable) {
+            completion.complete(Unit)
+            throw failure
+        }
+    }
 
-            log.trace("Processing {} records for key {}", records.size, recordKey)
+    private fun processRecordKey(
+        recordKey: String,
+        page: OutboxRecordPage,
+    ) {
+        try {
+            if (page.isEmpty()) return
 
-            for (record in records) {
-                if (!processRecord(record)) break
+            log.trace("Processing {} records for key {}", page.size, recordKey)
+
+            for (index in page.indices) {
+                if (!page.isRetryDue(index, clock)) {
+                    log.trace("Skipping record {} - not ready for retry", page.recordId(index))
+                    if (!continueOnFailure()) break
+                    continue
+                }
+                if (!processRecord(page[index])) break
             }
         } catch (ex: OutboxPayloadTypeNotFoundException) {
             handleUnavailablePayloadType(ex)
