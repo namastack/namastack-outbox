@@ -7,7 +7,6 @@ import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
 import java.sql.ResultSet
-import java.sql.Timestamp
 
 /**
  * JDBC repository implementation for managing partition assignments.
@@ -143,7 +142,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
             .sql(updatePartitionQuery)
             .param("instanceId", entity.instanceId)
             .param("version", newVersion)
-            .param("updatedAt", Timestamp.from(entity.updatedAt))
+            .param("updatedAt", entity.updatedAt.toTimestamp())
             .param("partitionNumber", entity.partitionNumber)
             .param("originalVersion", originalVersion ?: 0)
             .update()
@@ -181,7 +180,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
             .param("partitionNumber", entity.partitionNumber)
             .param("instanceId", entity.instanceId)
             .param("version", 0) // Initial version is 0
-            .param("updatedAt", Timestamp.from(entity.updatedAt))
+            .param("updatedAt", entity.updatedAt.toTimestamp())
             .update()
     }
 
@@ -194,7 +193,7 @@ internal open class JdbcOutboxPartitionAssignmentRepository(
                 partitionNumber = rs.getInt("partition_number"),
                 instanceId = rs.getString("instance_id"),
                 version = rs.getLong("version"),
-                updatedAt = rs.getTimestamp("updated_at").toInstant(),
+                updatedAt = rs.getInstant("updated_at"),
             )
     }
 }

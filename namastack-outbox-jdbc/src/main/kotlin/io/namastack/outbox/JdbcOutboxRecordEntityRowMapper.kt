@@ -21,11 +21,11 @@ class JdbcOutboxRecordEntityRowMapper : RowMapper<JdbcOutboxRecordEntity> {
             payload = rs.getString("payload"),
             context = rs.getString("context"),
             partitionNo = rs.getInt("partition_no"),
-            createdAt = rs.getTimestamp("created_at").toInstant(),
-            completedAt = rs.getTimestamp("completed_at")?.toInstant(),
+            createdAt = rs.getInstant("created_at"),
+            completedAt = rs.getInstantOrNull("completed_at"),
             failureCount = rs.getInt("failure_count"),
             failureReason = rs.getString("failure_reason"),
-            nextRetryAt = rs.getTimestamp("next_retry_at").toInstant(),
+            nextRetryAt = rs.getInstant("next_retry_at"),
             handlerId = rs.getString("handler_id"),
         )
 }
