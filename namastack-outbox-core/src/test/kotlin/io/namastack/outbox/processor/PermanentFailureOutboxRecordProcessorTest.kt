@@ -34,14 +34,14 @@ class PermanentFailureOutboxRecordProcessorTest {
                 failureException = RuntimeException("Final error"),
             )
 
-        every { recordRepository.update(any() as OutboxRecord<*>) } returns true
+        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
 
         val result = processor.handle(record)
 
         assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.FAILED)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
 
-        verify { recordRepository.update(record) }
+        verify { recordRepository.updateProcessingState(record) }
     }
 
     @Test
@@ -54,14 +54,14 @@ class PermanentFailureOutboxRecordProcessorTest {
             )
         val processorWithoutNext = PermanentFailureOutboxRecordProcessor(recordRepository)
 
-        every { recordRepository.update(any() as OutboxRecord<*>) } returns true
+        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
 
         val result = processorWithoutNext.handle(record)
 
         assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.FAILED)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
 
-        verify { recordRepository.update(record) }
+        verify { recordRepository.updateProcessingState(record) }
     }
 
     @Test
@@ -73,14 +73,14 @@ class PermanentFailureOutboxRecordProcessorTest {
                 failureException = RuntimeException("Many failures"),
             )
 
-        every { recordRepository.update(any() as OutboxRecord<*>) } returns true
+        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
 
         processor.handle(record)
 
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
         assertThat(record.failureCount).isEqualTo(100)
 
-        verify { recordRepository.update(record) }
+        verify { recordRepository.updateProcessingState(record) }
     }
 
     @Test
@@ -93,13 +93,13 @@ class PermanentFailureOutboxRecordProcessorTest {
                 status = OutboxRecordStatus.FAILED,
             )
 
-        every { recordRepository.update(any() as OutboxRecord<*>) } returns true
+        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
 
         processor.handle(record)
 
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
 
-        verify { recordRepository.update(record) }
+        verify { recordRepository.updateProcessingState(record) }
     }
 
     @Test
@@ -112,13 +112,13 @@ class PermanentFailureOutboxRecordProcessorTest {
                 failureException = exception,
             )
 
-        every { recordRepository.update(any() as OutboxRecord<*>) } returns true
+        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
 
         processor.handle(record)
 
         assertThat(record.failureException).isEqualTo(exception)
 
-        verify { recordRepository.update(record) }
+        verify { recordRepository.updateProcessingState(record) }
     }
 
     @Test
@@ -131,13 +131,13 @@ class PermanentFailureOutboxRecordProcessorTest {
                 failureException = RuntimeException("Error"),
             )
 
-        every { recordRepository.update(any() as OutboxRecord<*>) } returns true
+        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
 
         processor.handle(record)
 
         assertThat(record.key).isEqualTo("important-key")
         assertThat(record.handlerId).isEqualTo("criticalHandler")
 
-        verify { recordRepository.update(record) }
+        verify { recordRepository.updateProcessingState(record) }
     }
 }

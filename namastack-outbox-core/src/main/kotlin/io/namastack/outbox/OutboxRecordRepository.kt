@@ -39,6 +39,20 @@ interface OutboxRecordRepository {
     fun <T> update(record: OutboxRecord<T>): Boolean
 
     /**
+     * Persists the processing state of an existing record: status, completedAt, failureCount,
+     * failureReason and nextRetryAt. Payload, context, record key, type, handler, partition and
+     * creation time are not written, so changes to the in-memory payload or context are not stored.
+     * If the record no longer exists, nothing is written.
+     *
+     * Implementations **must** write only these fields and must not serialize the payload or context.
+     *
+     * @param record The outbox record whose processing state changed
+     * @return `true` if the record was updated, `false` if it no longer exists
+     * @since 1.12.0
+     */
+    fun <T> updateProcessingState(record: OutboxRecord<T>): Boolean
+
+    /**
      * Finds all pending outbox records that are ready for processing.
      * Implementations **must** return records sorted by creation time ascending, then by record ID
      * ascending to resolve equal timestamps. IDs define a stable tie-breaker, not creation order.

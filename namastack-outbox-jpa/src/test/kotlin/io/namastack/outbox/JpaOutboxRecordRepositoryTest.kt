@@ -22,6 +22,7 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.time.temporal.ChronoUnit.MILLIS
 import java.time.temporal.ChronoUnit.MINUTES
 import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
@@ -376,6 +377,128 @@ class JpaOutboxRecordRepositoryTest {
 
             assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
         }
+    }
+
+    @Nested
+    @DisplayName("updateProcessingState()")
+    inner class UpdateProcessingStateTests {
+        @Test
+        fun `persists processing state without payload and context`() {
+            val record = newRecordWithContext()
+            jpaOutboxRecordRepository.create(record)
+            val completedAt = Instant.now(clock).truncatedTo(MILLIS)
+            val nextRetryAt = record.nextRetryAt.plus(1, MINUTES)
+
+            val updated =
+                jpaOutboxRecordRepository.updateProcessingState(
+                    processingState(
+                        record = record,
+                        payload = "changed",
+                        context = mapOf("changed" to "true"),
+                        status = COMPLETED,
+                        completedAt = completedAt,
+                        failureCount = 2,
+                        failureReason = "boom",
+                        nextRetryAt = nextRetryAt,
+                    ),
+                )
+
+            assertThat(updated).isTrue()
+            entityManager.clear()
+            val persistedRecord = jpaOutboxRecordRepository.findCompletedRecords().single { it.id == record.id }
+            assertThat(persistedRecord.status).isEqualTo(COMPLETED)
+            assertThat(persistedRecord.completedAt).isCloseTo(completedAt, within(1, MILLIS))
+            assertThat(persistedRecord.failureCount).isEqualTo(2)
+            assertThat(persistedRecord.failureReason).isEqualTo("boom")
+            assertThat(persistedRecord.nextRetryAt).isCloseTo(nextRetryAt, within(1, MILLIS))
+            assertThat(persistedRecord.payload).isEqualTo(record.payload)
+            assertThat(persistedRecord.context).isEqualTo(record.context)
+            assertThat(persistedRecord.key).isEqualTo(record.key)
+            assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
+            assertThat(persistedRecord.partition).isEqualTo(record.partition)
+            assertThat(persistedRecord.createdAt).isCloseTo(record.createdAt, within(1, MILLIS))
+        }
+
+        @Test
+        fun `clears completion time and failure reason`() {
+            val record = newRecord()
+            jpaOutboxRecordRepository.create(
+                processingState(
+                    record = record,
+                    payload = record.payload,
+                    completedAt = Instant.now(clock),
+                    failureReason = "boom",
+                ),
+            )
+
+            assertThat(jpaOutboxRecordRepository.updateProcessingState(record)).isTrue()
+
+            entityManager.clear()
+            val persistedRecord = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
+            assertThat(persistedRecord.completedAt).isNull()
+            assertThat(persistedRecord.failureReason).isNull()
+        }
+
+        @Test
+        fun `persists processing state of a record without loaded payload`() {
+            val record = newRecord()
+            jpaOutboxRecordRepository.create(record)
+
+            val updated =
+                jpaOutboxRecordRepository.updateProcessingState(
+                    processingState(record = record, payload = null, status = FAILED, failureCount = 1),
+                )
+
+            assertThat(updated).isTrue()
+            entityManager.clear()
+            val persistedRecord = jpaOutboxRecordRepository.findFailedRecords().single { it.id == record.id }
+            assertThat(persistedRecord.failureCount).isEqualTo(1)
+            assertThat(persistedRecord.payload).isEqualTo(record.payload)
+        }
+
+        @Test
+        fun `does not insert when updating the processing state of a missing entity`() {
+            val record = newRecord()
+
+            assertThat(jpaOutboxRecordRepository.updateProcessingState(record)).isFalse()
+
+            assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
+        }
+
+        private fun newRecordWithContext(): OutboxRecord<String> =
+            OutboxRecord
+                .Builder<String>()
+                .key(UUID.randomUUID().toString())
+                .payload("payload")
+                .context(mapOf("tenant" to "acme"))
+                .handlerId("handlerId")
+                .build(clock)
+
+        private fun <T> processingState(
+            record: OutboxRecord<String>,
+            payload: T,
+            context: Map<String, String> = record.context,
+            status: OutboxRecordStatus = record.status,
+            completedAt: Instant? = record.completedAt,
+            failureCount: Int = record.failureCount,
+            failureReason: String? = record.failureReason,
+            nextRetryAt: Instant = record.nextRetryAt,
+        ): OutboxRecord<T> =
+            OutboxRecord.restore(
+                id = record.id,
+                recordKey = record.key,
+                payload = payload,
+                context = context,
+                partition = record.partition,
+                createdAt = record.createdAt,
+                status = status,
+                completedAt = completedAt,
+                failureCount = failureCount,
+                failureReason = failureReason,
+                nextRetryAt = nextRetryAt,
+                handlerId = record.handlerId,
+                failureException = null,
+            )
     }
 
     @Nested

@@ -51,7 +51,7 @@ abstract class OutboxRecordProcessor(
 
     /**
      * Completes record after successful processing.
-     * Deletes if configured, otherwise marks as COMPLETED.
+     * Deletes if configured, otherwise marks as COMPLETED and persists only the processing state.
      * Restores the in-memory completion state if the update fails and propagates the error.
      * A later polling cycle reloads the authoritative database state before deciding on redelivery.
      */
@@ -70,7 +70,7 @@ abstract class OutboxRecordProcessor(
             val previousCompletedAt = record.completedAt
             try {
                 record.markCompleted(clock)
-                repository.update(record)
+                repository.updateProcessingState(record)
             } catch (exception: Exception) {
                 record.status = previousStatus
                 record.completedAt = previousCompletedAt

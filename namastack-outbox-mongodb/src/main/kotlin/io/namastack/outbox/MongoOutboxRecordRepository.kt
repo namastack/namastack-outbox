@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.core.aggregation.Aggregation
 import org.springframework.data.mongodb.core.aggregation.AggregationOperation
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
+import org.springframework.data.mongodb.core.query.Update
 import java.time.Clock
 import java.time.Instant
 
@@ -59,6 +60,26 @@ internal open class MongoOutboxRecordRepository(
         val entity = entityMapper.map(record)
         val query = Query(Criteria.where("_id").`is`(entity.id))
         val result = mongoTemplate.replace(query, entity, collectionNameResolver.outboxRecords)
+        return result.matchedCount == 1L
+    }
+
+    /**
+     * Updates only the processing state of an existing record. Does nothing if the record no longer exists.
+     * The payload and context are neither serialized nor written.
+     *
+     * @param record The outbox record whose processing state changed
+     * @return True if the record was updated, false if it no longer exists
+     */
+    override fun <T> updateProcessingState(record: OutboxRecord<T>): Boolean {
+        val query = Query(Criteria.where("_id").`is`(record.id))
+        val update =
+            Update()
+                .set("status", record.status)
+                .set("completedAt", record.completedAt)
+                .set("failureCount", record.failureCount)
+                .set("failureReason", record.failureReason)
+                .set("nextRetryAt", record.nextRetryAt)
+        val result = mongoTemplate.updateFirst(query, update, collectionNameResolver.outboxRecords)
         return result.matchedCount == 1L
     }
 
