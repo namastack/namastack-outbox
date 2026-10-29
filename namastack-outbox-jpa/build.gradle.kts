@@ -22,7 +22,10 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.h2)
     testImplementation(libs.jackson.module.kotlin)
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.postgresql)
     testRuntimeOnly(libs.junit.platform.launcher)
+    testRuntimeOnly(libs.postgresql)
 }
 
 allOpen {

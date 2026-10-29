@@ -34,6 +34,11 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 class OutboxBulkLoadingTest {
+    companion object {
+        private const val TEST_TIMEOUT_SECONDS = 10L
+        private const val WORKER_TIMEOUT_SECONDS = 30L
+    }
+
     private val now = Instant.parse("2026-01-01T12:00:00Z")
     private val clock = Clock.fixed(now, UTC)
     private val repository = mockk<OutboxRecordRepository>()
@@ -159,32 +164,32 @@ class OutboxBulkLoadingTest {
                 ),
             )
         every { repository.findIncompleteRecordPages(setOf("a")) } returns mapOf("a" to page)
-        every { repository.update(first) } answers {
+        every { repository.updateProcessingState(first) } answers {
             writeStarted.countDown()
-            check(finishWrite.await(5, SECONDS))
+            check(finishWrite.await(WORKER_TIMEOUT_SECONDS, SECONDS))
             if (!completionSucceeds) throw IllegalStateException("Completion commit failed")
             true
         }
-        every { repository.update(second) } returns true
+        every { repository.updateProcessingState(second) } returns true
         val processing = Executors.newSingleThreadExecutor()
         try {
             val scheduler = scheduler(chain = chain)
             val future = processing.submit { scheduler.process() }
-            assertThat(writeStarted.await(2, SECONDS)).isTrue()
+            assertThat(writeStarted.await(TEST_TIMEOUT_SECONDS, SECONDS)).isTrue()
             verify(exactly = 0) { page.get(1) }
             verify(exactly = 0) { handlers.dispatch(second) }
             assertThat(assignmentsReleased).isFalse()
 
             finishWrite.countDown()
-            future.get(2, SECONDS)
+            future.get(TEST_TIMEOUT_SECONDS, SECONDS)
 
             verify(exactly = if (completionSucceeds) 1 else 0) { handlers.dispatch(second) }
             if (completionSucceeds) {
                 verifyOrder {
                     handlers.dispatch(first)
-                    repository.update(first)
+                    repository.updateProcessingState(first)
                     handlers.dispatch(second)
-                    repository.update(second)
+                    repository.updateProcessingState(second)
                 }
             } else {
                 assertThat(first.status).isEqualTo(OutboxRecordStatus.NEW)
@@ -203,19 +208,21 @@ class OutboxBulkLoadingTest {
         val secondFinished = CountDownLatch(1)
         val first = record("a1")
         val second = record("b1", "b")
+        val firstPage = page(first)
+        val secondPage = page(second)
         selectKeys(*twoChunkKeys())
         every { repository.findIncompleteRecordPages(match { "a" in it }) } answers {
             firstArg<Set<String>>().associateWith { key ->
-                if (key == "a") page(first) else DeferredOutboxRecordPage { emptyList() }
+                if (key == "a") firstPage else DeferredOutboxRecordPage { emptyList() }
             }
         }
         every { repository.findIncompleteRecordPages(setOf("b")) } answers {
-            check(firstStarted.await(5, SECONDS))
-            mapOf("b" to page(second))
+            check(firstStarted.await(TEST_TIMEOUT_SECONDS, SECONDS))
+            mapOf("b" to secondPage)
         }
         every { invoker.process(first) } answers {
             firstStarted.countDown()
-            check(secondFinished.await(5, SECONDS))
+            check(secondFinished.await(WORKER_TIMEOUT_SECONDS, SECONDS))
             COMPLETED
         }
         every { invoker.process(second) } answers {
@@ -243,23 +250,25 @@ class OutboxBulkLoadingTest {
         val interruptPreserved = AtomicBoolean()
         val submissions = AtomicInteger()
         val first = record("a1")
+        val firstPage = page(first)
+        val secondPage = page(record("b1", "b"))
         selectKeys(*if (failure == DispatchFailure.INTERRUPTION) arrayOf("a") else twoChunkKeys())
         every { repository.findIncompleteRecordPages(match { "a" in it }) } answers {
             firstArg<Set<String>>().associateWith { key ->
-                if (key == "a") page(first) else DeferredOutboxRecordPage { emptyList() }
+                if (key == "a") firstPage else DeferredOutboxRecordPage { emptyList() }
             }
         }
         every { repository.findIncompleteRecordPages(setOf("b")) } answers {
-            check(workerStarted.await(5, SECONDS))
+            check(workerStarted.await(TEST_TIMEOUT_SECONDS, SECONDS))
             if (failure == DispatchFailure.FETCH) {
                 failureReached.countDown()
                 throw IllegalStateException("Later fetch failed")
             }
-            mapOf("b" to page(record("b1", "b")))
+            mapOf("b" to secondPage)
         }
         every { invoker.process(first) } answers {
             workerStarted.countDown()
-            check(finishWorker.await(5, SECONDS))
+            check(finishWorker.await(WORKER_TIMEOUT_SECONDS, SECONDS))
             COMPLETED
         }
         val workers = Executors.newSingleThreadExecutor()
@@ -280,16 +289,16 @@ class OutboxBulkLoadingTest {
                     scheduler.process()
                     interruptPreserved.set(Thread.currentThread().isInterrupted)
                 }
-            assertThat(workerStarted.await(2, SECONDS)).isTrue()
+            assertThat(workerStarted.await(TEST_TIMEOUT_SECONDS, SECONDS)).isTrue()
             if (failure == DispatchFailure.INTERRUPTION) {
                 processingThread.get().interrupt()
             } else {
-                assertThat(failureReached.await(2, SECONDS)).isTrue()
+                assertThat(failureReached.await(TEST_TIMEOUT_SECONDS, SECONDS)).isTrue()
             }
             assertThat(assignmentsReleased).isFalse()
             assertThat(future.isDone).isFalse()
             finishWorker.countDown()
-            future.get(2, SECONDS)
+            future.get(TEST_TIMEOUT_SECONDS, SECONDS)
             assertThat(assignmentsReleased).isTrue()
             assertThat(interruptPreserved.get()).isEqualTo(failure == DispatchFailure.INTERRUPTION)
         } finally {

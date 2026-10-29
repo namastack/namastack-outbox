@@ -12,6 +12,7 @@ import org.springframework.boot.jdbc.autoconfigure.JdbcClientAutoConfiguration
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest
 import org.springframework.jdbc.core.simple.JdbcClient
+import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.transaction.support.TransactionTemplate
 import tools.jackson.databind.json.JsonMapper
@@ -29,6 +30,7 @@ import javax.sql.DataSource
     OutboxJacksonAutoConfiguration::class,
 )
 @ContextConfiguration(classes = [JdbcOutboxRecordRepositoryTest.TestApplication::class])
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 abstract class AbstractJdbcBulkRecordLoadingTest {
     private val now = Instant.parse("2026-01-01T12:00:00Z")
     private val clock = Clock.fixed(now, UTC)

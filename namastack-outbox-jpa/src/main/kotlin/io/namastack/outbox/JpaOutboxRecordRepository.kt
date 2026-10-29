@@ -47,6 +47,22 @@ internal open class JpaOutboxRecordRepository(
     """
 
     /**
+     * Loads NEW-record snapshots without attaching the results to the persistence context.
+     * All constructor arguments are scalar fields, so workers need no entity manager to decode them.
+     */
+    private val findByRecordKeysAndStatusQuery = """
+        select new io.namastack.outbox.OutboxRecordEntity(
+            o.id, o.status, o.recordKey, o.recordType, o.payload, o.context,
+            o.partitionNo, o.createdAt, o.completedAt, o.failureCount,
+            o.failureReason, o.nextRetryAt, o.handlerId
+        )
+        from OutboxRecordEntity o
+        where o.recordKey in :recordKeys
+        and o.status = :status
+        order by o.recordKey asc, o.createdAt asc, o.id asc
+    """
+
+    /**
      * Query to select outbox records by status completed before a cutoff, oldest first.
      */
     private val findByStatusAndCompletedBeforeQuery = """
@@ -379,6 +395,33 @@ internal open class JpaOutboxRecordRepository(
             .setParameter("status", OutboxRecordStatus.NEW)
             .resultList
             .map { entityMapper.map(it) }
+
+    /**
+     * Loads NEW records for selected storage keys with one JPQL query.
+     *
+     * The query constructs snapshots that remain usable outside the originating persistence context.
+     * Payload and context decoding is deferred until a worker accesses a record. Future retries
+     * remain in each page, preserving the same loading predicate for strict and non-strict workers.
+     * Missing keys receive empty pages, and existing transaction and completion behavior is unchanged.
+     *
+     * @param recordKeys Selected storage keys, at most 1000 per call
+     * @return An ordered, lazily decoded page for every requested key
+     * @throws IllegalArgumentException if more than 1000 keys are requested
+     */
+    override fun findIncompleteRecordPages(recordKeys: Set<String>): Map<String, OutboxRecordPage> {
+        require(recordKeys.size <= 1000) { "A record fetch can contain at most 1000 keys" }
+        if (recordKeys.isEmpty()) return emptyMap()
+
+        val grouped =
+            entityManager
+                .createQuery(findByRecordKeysAndStatusQuery, OutboxRecordEntity::class.java)
+                .setParameter("recordKeys", recordKeys)
+                .setParameter("status", OutboxRecordStatus.NEW)
+                .resultList
+                .groupBy { it.recordKey }
+
+        return recordKeys.associateWith { key -> JpaOutboxRecordPage(grouped[key].orEmpty(), entityMapper) }
+    }
 
     /**
      * Finds record keys in the given partitions with pending records.
