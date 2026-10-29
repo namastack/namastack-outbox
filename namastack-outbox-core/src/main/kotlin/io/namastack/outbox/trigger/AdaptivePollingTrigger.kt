@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicLong
  * @param maxDelay The maximum duration to wait between polling cycles
  * @param batchSize The batch size used to determine workload thresholds
  * @param clock The clock used for time calculations, useful for testing
+ * @throws IllegalArgumentException if [minDelay] is less than 1 millisecond or [maxDelay] is less than [minDelay]
  *
  * @author Aleksander Zamojski
  * @since 1.1.0
@@ -34,6 +35,13 @@ class AdaptivePollingTrigger(
     private val batchSize: Int,
     private val clock: Clock,
 ) : OutboxPollingTrigger {
+    init {
+        require(minDelay.toMillis() >= 1) { "Adaptive polling min-interval must be at least 1ms, but was $minDelay" }
+        require(maxDelay >= minDelay) {
+            "Adaptive polling max-interval must not be less than min-interval, but was $maxDelay < $minDelay"
+        }
+    }
+
     /**
      * Multiplier used for exponential backoff when increasing or decreasing delay.
      */
