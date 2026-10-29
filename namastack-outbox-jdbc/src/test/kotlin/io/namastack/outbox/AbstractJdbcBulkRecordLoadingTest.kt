@@ -63,10 +63,10 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
         val pages = repository.findIncompleteRecordPages(setOf("b", "a", "missing"))
 
         assertThat(pages.keys).containsExactlyInAnyOrder("a", "b", "missing")
-        assertThat(pages.getValue("a").map { it.id }).containsExactly("a1", "a2", "a3")
-        assertThat(pages.getValue("b").map { it.id }).containsExactly("b1")
-        assertThat(pages.getValue("missing")).isEmpty()
-        assertThat(pages.getValue("a").map { it.id })
+        assertThat(pages.getValue("a").recordIds()).containsExactly("a1", "a2", "a3")
+        assertThat(pages.getValue("b").recordIds()).containsExactly("b1")
+        assertThat(pages.getValue("missing").isEmpty()).isTrue()
+        assertThat(pages.getValue("a").recordIds())
             .containsExactlyElementsOf(repository.findIncompleteRecordsByRecordKey("a").map { it.id })
     }
 
@@ -80,7 +80,7 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
 
         val page = repository.findIncompleteRecordPages(setOf("a")).getValue("a")
 
-        assertThat(page.map { it.id }).containsExactly("a1", "a2", "a3")
+        assertThat(page.recordIds()).containsExactly("a1", "a2", "a3")
         assertThat(page.nextRetryAt(1)).isEqualTo(now.plusSeconds(3600))
     }
 
@@ -91,7 +91,7 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
 
         val page = repository.findIncompleteRecordPages(setOf("a")).getValue("a")
 
-        assertThat(page).hasSize(1)
+        assertThat(page.size).isEqualTo(1)
         assertThat(page.recordId(0)).isEqualTo("a1")
         assertThat(page.nextRetryAt(0)).isEqualTo(now)
         assertThat(page.isRetryDue(0, Clock.fixed(now.minusNanos(1), UTC))).isFalse()
@@ -151,8 +151,8 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
             .param("now", java.sql.Timestamp.from(now))
             .update()
 
-        assertThat(oldPage.map { it.id }).containsExactly("a1")
-        assertThat(repository.findIncompleteRecordPages(setOf("a")).getValue("a").map { it.id })
+        assertThat(oldPage.recordIds()).containsExactly("a1")
+        assertThat(repository.findIncompleteRecordPages(setOf("a")).getValue("a").recordIds())
             .containsExactly("a2")
     }
 
@@ -162,6 +162,18 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
         assertThat(repository.findIncompleteRecordPages((1..1000).map { "missing-$it" }.toSet())).hasSize(1000)
         assertThatThrownBy { repository.findIncompleteRecordPages((1..1001).map { "missing-$it" }.toSet()) }
             .isInstanceOf(IllegalArgumentException::class.java)
+    }
+
+    @Test
+    fun `a selected key that disappears returns an empty page without another read`() {
+        create("remaining", "remaining")
+        create("disappeared", "disappeared")
+        val selected = repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, true).toSet()
+        repository.deleteById("disappeared")
+        val pages = repository.findIncompleteRecordPages(selected)
+
+        assertThat(pages.getValue("remaining").recordIds()).containsExactly("remaining")
+        assertThat(pages.getValue("disappeared").isEmpty()).isTrue()
     }
 
     private fun create(
@@ -212,4 +224,6 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
             deserializations = 0
         }
     }
+
+    private fun OutboxRecordPage.recordIds(): List<String> = (0 until size).map { recordId(it) }
 }

@@ -14,7 +14,16 @@ import java.time.Instant
  * @author Roland Beisel
  * @since 1.12.0
  */
-interface OutboxRecordPage : List<OutboxRecord<*>> {
+interface OutboxRecordPage {
+    /** Number of fetched records, available without decoding in optimized readers. */
+    val size: Int
+
+    /** Whether this page contains no records. */
+    fun isEmpty(): Boolean = size == 0
+
+    /** Decodes the record at [index], preserving its identity on repeated access. */
+    operator fun get(index: Int): OutboxRecord<*>
+
     /**
      * Returns the record ID at [index] without decoding payload or context in optimized readers.
      */
@@ -39,20 +48,4 @@ interface OutboxRecordPage : List<OutboxRecord<*>> {
         index: Int,
         clock: Clock,
     ): Boolean = !nextRetryAt(index).isAfter(Instant.now(clock))
-}
-
-/** Defers the existing per-key repository read until its worker first accesses the page. */
-internal class DeferredOutboxRecordPage(
-    loader: () -> List<OutboxRecord<*>>,
-) : AbstractList<OutboxRecord<*>>(),
-    OutboxRecordPage {
-    private val records by lazy(loader)
-
-    override val size: Int get() = records.size
-
-    override fun get(index: Int): OutboxRecord<*> = records[index]
-
-    override fun recordId(index: Int): String = records[index].id
-
-    override fun nextRetryAt(index: Int): Instant = records[index].nextRetryAt
 }

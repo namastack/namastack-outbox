@@ -82,7 +82,7 @@ class MongoBulkRecordLoadingIntegrationTest {
     }
 
     @Test
-    fun `one find returns exact key pages in creation time then id order`() {
+    fun `one bulk read preserves exact pages in creation time then id order`() {
         create("a3", "a", now.plusSeconds(1))
         create("b1", "b")
         create("a2", "a")
@@ -91,12 +91,14 @@ class MongoBulkRecordLoadingIntegrationTest {
         val pages = repository.findIncompleteRecordPages(setOf("b", "a", "missing"))
 
         assertThat(commands.finds.get()).isEqualTo(1)
+        assertThat(commands.reads.get()).isEqualTo(1)
         assertThat(pages.keys).containsExactlyInAnyOrder("a", "b", "missing")
-        assertThat(pages.getValue("a").map { it.id }).containsExactly("a1", "a2", "a3")
-        assertThat(pages.getValue("b").map { it.id }).containsExactly("b1")
-        assertThat(pages.getValue("missing")).isEmpty()
+        assertThat(pages.getValue("a").recordIds()).containsExactly("a1", "a2", "a3")
+        assertThat(pages.getValue("b").recordIds()).containsExactly("b1")
+        assertThat(pages.getValue("missing").isEmpty()).isTrue()
         assertThat(commands.finds.get()).isEqualTo(1)
-        assertThat(pages.getValue("a").map { it.id })
+        assertThat(commands.reads.get()).isEqualTo(1)
+        assertThat(pages.getValue("a").recordIds())
             .containsExactlyElementsOf(repository.findIncompleteRecordsByRecordKey("a").map { it.id })
     }
 
@@ -110,7 +112,7 @@ class MongoBulkRecordLoadingIntegrationTest {
 
         val page = repository.findIncompleteRecordPages(setOf("a")).getValue("a")
 
-        assertThat(page.map { it.id }).containsExactly("a1", "a2", "a3")
+        assertThat(page.recordIds()).containsExactly("a1", "a2", "a3")
         assertThat(page.nextRetryAt(1)).isEqualTo(now.plusSeconds(3600))
         assertThat(page.isRetryDue(1, clock)).isFalse()
     }
@@ -122,7 +124,7 @@ class MongoBulkRecordLoadingIntegrationTest {
 
         val page = repository.findIncompleteRecordPages(setOf("a")).getValue("a")
 
-        assertThat(page).hasSize(1)
+        assertThat(page.size).isEqualTo(1)
         assertThat(page.recordId(0)).isEqualTo("a1")
         assertThat(page.nextRetryAt(0)).isEqualTo(now)
         assertThat(page.isRetryDue(0, Clock.fixed(now.minusNanos(1), UTC))).isFalse()
@@ -182,7 +184,7 @@ class MongoBulkRecordLoadingIntegrationTest {
         val pages = repository.findIncompleteRecordPages(keys.toSet())
 
         keys.forEachIndexed { index, key ->
-            assertThat(pages.getValue(key).map { it.id }).containsExactly("record-$index")
+            assertThat(pages.getValue(key).recordIds()).containsExactly("record-$index")
         }
     }
 
@@ -196,10 +198,10 @@ class MongoBulkRecordLoadingIntegrationTest {
         val orderPages = orders.findIncompleteRecordPages(setOf("shared-key", "missing"))
         val billingPages = billing.findIncompleteRecordPages(setOf("shared-key", "missing"))
 
-        assertThat(orderPages.getValue("shared-key").map { it.id }).containsExactly("orders-record")
-        assertThat(billingPages.getValue("shared-key").map { it.id }).containsExactly("billing-record")
-        assertThat(orderPages.getValue("missing")).isEmpty()
-        assertThat(billingPages.getValue("missing")).isEmpty()
+        assertThat(orderPages.getValue("shared-key").recordIds()).containsExactly("orders-record")
+        assertThat(billingPages.getValue("shared-key").recordIds()).containsExactly("billing-record")
+        assertThat(orderPages.getValue("missing").isEmpty()).isTrue()
+        assertThat(billingPages.getValue("missing").isEmpty()).isTrue()
         assertThat(mongoTemplate.collectionExists(collectionName)).isFalse()
     }
 
@@ -212,7 +214,7 @@ class MongoBulkRecordLoadingIntegrationTest {
 
         assertThat(page.nextRetryAt(0)).isEqualTo(now)
         assertThat(page[0].status).isEqualTo(OutboxRecordStatus.NEW)
-        assertThat(repository.findIncompleteRecordPages(setOf("a")).getValue("a").map { it.id })
+        assertThat(repository.findIncompleteRecordPages(setOf("a")).getValue("a").recordIds())
             .containsExactly("a2")
     }
 
@@ -243,11 +245,11 @@ class MongoBulkRecordLoadingIntegrationTest {
         transactions.executeWithoutResult { transaction ->
             val page = repository.findIncompleteRecordPages(setOf("a")).getValue("a")
             assertThat(repository.updateProcessingState(completed(page[0]))).isTrue()
-            assertThat(repository.findIncompleteRecordPages(setOf("a")).getValue("a")).isEmpty()
+            assertThat(repository.findIncompleteRecordPages(setOf("a")).getValue("a").isEmpty()).isTrue()
             transaction.setRollbackOnly()
         }
 
-        assertThat(repository.findIncompleteRecordPages(setOf("a")).getValue("a").map { it.id }).containsExactly("a1")
+        assertThat(repository.findIncompleteRecordPages(setOf("a")).getValue("a").recordIds()).containsExactly("a1")
         assertThat(repository.findCompletedRecords()).isEmpty()
     }
 
@@ -326,6 +328,21 @@ class MongoBulkRecordLoadingIntegrationTest {
         assertThatThrownBy { repository.findIncompleteRecordPages((1..1001).map { "missing-$it" }.toSet()) }
             .isInstanceOf(IllegalArgumentException::class.java)
         assertThat(commands.finds.get()).isEqualTo(1)
+    }
+
+    @Test
+    fun `a selected key that disappears requires only the bulk read`() {
+        create("remaining", "remaining")
+        create("disappeared", "disappeared")
+        val selected = repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, true).toSet()
+        repository.deleteById("disappeared")
+        commands.reads.set(0)
+
+        val pages = repository.findIncompleteRecordPages(selected)
+
+        assertThat(pages.getValue("remaining").recordIds()).containsExactly("remaining")
+        assertThat(pages.getValue("disappeared").isEmpty()).isTrue()
+        assertThat(commands.reads.get()).isEqualTo(1)
     }
 
     private fun repository(prefix: String = "") =
@@ -468,7 +485,7 @@ class MongoBulkRecordLoadingIntegrationTest {
 
         override fun commandStarted(event: CommandStartedEvent) {
             if (event.commandName == "find") finds.incrementAndGet()
-            if (event.commandName in setOf("find", "getMore", "aggregate")) reads.incrementAndGet()
+            if (event.commandName in setOf("find", "getMore", "aggregate", "distinct")) reads.incrementAndGet()
         }
     }
 
@@ -477,4 +494,6 @@ class MongoBulkRecordLoadingIntegrationTest {
         @JvmStatic
         val mongodb = MongoDBContainer("mongo:9.0.4").withReplicaSet()
     }
+
+    private fun OutboxRecordPage.recordIds(): List<String> = (0 until size).map { recordId(it) }
 }

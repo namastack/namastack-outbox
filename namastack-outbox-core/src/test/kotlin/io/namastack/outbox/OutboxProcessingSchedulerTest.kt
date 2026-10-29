@@ -46,13 +46,19 @@ class OutboxProcessingSchedulerTest {
             processing.stopOnFirstFailure = false
         }
 
+    private val pagesByKey = mutableMapOf<String, OutboxRecordPage>()
+    private val emptyPage =
+        LazyOutboxRecordPage(emptyList<OutboxRecord<*>>(), OutboxRecord<*>::id, OutboxRecord<*>::nextRetryAt) { it }
+
     private lateinit var scheduler: OutboxProcessingScheduler
 
     @BeforeEach
     fun setUp() {
         scheduler = createScheduler()
 
-        every { recordRepository.findIncompleteRecordPages(any()) } answers { callOriginal() }
+        every { recordRepository.findIncompleteRecordPages(any()) } answers {
+            firstArg<Set<String>>().associateWith { pagesByKey[it] ?: emptyPage }
+        }
 
         every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
         every { partitionCoordinator.withStableAssignments<Int>(any()) } answers {
@@ -156,7 +162,7 @@ class OutboxProcessingSchedulerTest {
                     nextRetryAt = Instant.now(clock).minusSeconds(1),
                 )
             prepareFindRecordKeysInPartitions(listOf(recordKey))
-            prepareFindIncompleteRecordsByRecordKey(recordKey, listOf(record))
+            prepareRecordPage(recordKey, listOf(record))
 
             val allowProcessingToFinish = CountDownLatch(1)
             every { recordProcessorChainInvoker.process(record) } answers {
@@ -207,7 +213,7 @@ class OutboxProcessingSchedulerTest {
                     nextRetryAt = Instant.now(clock).minusSeconds(1),
                 )
             prepareFindRecordKeysInPartitions(listOf(recordKey))
-            prepareFindIncompleteRecordsByRecordKey(recordKey, listOf(record))
+            prepareRecordPage(recordKey, listOf(record))
 
             val allowProcessingToFinish = CountDownLatch(1)
             every { recordProcessorChainInvoker.process(record) } answers {
@@ -277,7 +283,7 @@ class OutboxProcessingSchedulerTest {
                     nextRetryAt = Instant.now(clock).minusSeconds(1),
                 )
             prepareFindRecordKeysInPartitions(listOf(recordKey))
-            prepareFindIncompleteRecordsByRecordKey(recordKey, listOf(record))
+            prepareRecordPage(recordKey, listOf(record))
 
             val allowProcessingToFinish = CountDownLatch(1)
             every { recordProcessorChainInvoker.process(record) } answers {
@@ -322,7 +328,7 @@ class OutboxProcessingSchedulerTest {
                     nextRetryAt = Instant.now(clock).minusSeconds(1),
                 )
             prepareFindRecordKeysInPartitions(listOf(recordKey))
-            prepareFindIncompleteRecordsByRecordKey(recordKey, listOf(record))
+            prepareRecordPage(recordKey, listOf(record))
 
             val allowProcessingToFinish = CountDownLatch(1)
             every { recordProcessorChainInvoker.process(record) } answers {
@@ -403,7 +409,7 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 0) { recordRepository.findIncompleteRecordsByRecordKey(any()) }
+            verify(exactly = 0) { recordRepository.findIncompleteRecordPages(any()) }
         }
 
         @Test
@@ -412,11 +418,11 @@ class OutboxProcessingSchedulerTest {
 
             prepareFindRecordKeysInPartitions(listOf(recordKey))
 
-            every { recordRepository.findIncompleteRecordsByRecordKey(any()) } returns emptyList()
+            prepareRecordPage(recordKey, emptyList())
 
             scheduler.process()
 
-            verify(exactly = 1) { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
+            verify(exactly = 1) { recordRepository.findIncompleteRecordPages(setOf(recordKey)) }
         }
 
         @Test
@@ -434,11 +440,11 @@ class OutboxProcessingSchedulerTest {
 
             prepareFindRecordKeysInPartitions(listOf(recordKey))
 
-            every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } throws RuntimeException("DB error")
+            every { recordRepository.findIncompleteRecordPages(setOf(recordKey)) } throws RuntimeException("DB error")
 
             scheduler.process()
 
-            verify { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
+            verify { recordRepository.findIncompleteRecordPages(setOf(recordKey)) }
         }
 
         @Test
@@ -454,20 +460,20 @@ class OutboxProcessingSchedulerTest {
                 )
 
             prepareFindRecordKeysInPartitions(listOf(recordKey))
-            every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } throws exception
+            prepareDecodingFailure(recordKey, exception)
 
             scheduler.process()
             scheduler.process()
 
             verify(exactly = 1) { partitionCoordinator.getAssignedPartitionNumbers() }
-            verify(exactly = 1) { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
+            verify(exactly = 1) { recordRepository.findIncompleteRecordPages(setOf(recordKey)) }
             verify(exactly = 1) { trigger.onTaskComplete(any()) }
 
             clock.advanceBy(Duration.ofSeconds(30))
             scheduler.process()
 
             verify(exactly = 2) { partitionCoordinator.getAssignedPartitionNumbers() }
-            verify(exactly = 2) { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
+            verify(exactly = 2) { recordRepository.findIncompleteRecordPages(setOf(recordKey)) }
             verify(exactly = 2) { trigger.onTaskComplete(any()) }
         }
 
@@ -492,11 +498,11 @@ class OutboxProcessingSchedulerTest {
                 )
 
             prepareFindRecordKeysInPartitions(listOf(incompatibleKey, compatibleKey))
-            prepareFindIncompleteRecordsByRecordKey(
+            prepareRecordPage(
                 incompatibleKey,
                 listOf(incompatibleRecord, incompatibleSuccessor),
             )
-            prepareFindIncompleteRecordsByRecordKey(compatibleKey, listOf(compatibleRecord))
+            prepareRecordPage(compatibleKey, listOf(compatibleRecord))
             every { recordProcessorChainInvoker.process(incompatibleRecord) } throws
                 OutboxHandlerNotFoundException(
                     recordId = incompatibleRecord.id,
@@ -520,13 +526,13 @@ class OutboxProcessingSchedulerTest {
             val recordKey = "record-key"
 
             prepareFindRecordKeysInPartitions(listOf(recordKey))
-            every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } throws RuntimeException("DB error")
+            every { recordRepository.findIncompleteRecordPages(setOf(recordKey)) } throws RuntimeException("DB error")
 
             scheduler.process()
             scheduler.process()
 
             verify(exactly = 2) { partitionCoordinator.getAssignedPartitionNumbers() }
-            verify(exactly = 2) { recordRepository.findIncompleteRecordsByRecordKey(recordKey) }
+            verify(exactly = 2) { recordRepository.findIncompleteRecordPages(setOf(recordKey)) }
         }
 
         @Test
@@ -592,7 +598,7 @@ class OutboxProcessingSchedulerTest {
             val key = "record-key"
 
             prepareFindRecordKeysInPartitions(listOf(key))
-            prepareFindIncompleteRecordsByRecordKey(
+            prepareRecordPage(
                 recordKey = key,
                 incompleteRecords = emptyList(),
             )
@@ -612,7 +618,7 @@ class OutboxProcessingSchedulerTest {
                 )
 
             prepareFindRecordKeysInPartitions(listOf(key))
-            prepareFindIncompleteRecordsByRecordKey(
+            prepareRecordPage(
                 recordKey = key,
                 incompleteRecords = listOf(record),
             )
@@ -632,7 +638,7 @@ class OutboxProcessingSchedulerTest {
                 )
 
             prepareFindRecordKeysInPartitions(listOf(key))
-            prepareFindIncompleteRecordsByRecordKey(
+            prepareRecordPage(
                 recordKey = key,
                 incompleteRecords = listOf(record),
             )
@@ -657,7 +663,7 @@ class OutboxProcessingSchedulerTest {
                 )
 
             prepareFindRecordKeysInPartitions(listOf(key))
-            prepareFindIncompleteRecordsByRecordKey(
+            prepareRecordPage(
                 recordKey = key,
                 incompleteRecords = listOf(record1, record2),
             )
@@ -688,7 +694,7 @@ class OutboxProcessingSchedulerTest {
                 )
 
             prepareFindRecordKeysInPartitions(listOf(key))
-            prepareFindIncompleteRecordsByRecordKey(
+            prepareRecordPage(
                 recordKey = key,
                 incompleteRecords = listOf(notReadyRecord, readyRecord),
             )
@@ -717,7 +723,7 @@ class OutboxProcessingSchedulerTest {
                 )
 
             prepareFindRecordKeysInPartitions(listOf(key))
-            prepareFindIncompleteRecordsByRecordKey(
+            prepareRecordPage(
                 recordKey = key,
                 incompleteRecords = listOf(notReadyRecord, readyRecord),
             )
@@ -748,7 +754,7 @@ class OutboxProcessingSchedulerTest {
                 )
 
             prepareFindRecordKeysInPartitions(listOf(key))
-            prepareFindIncompleteRecordsByRecordKey(
+            prepareRecordPage(
                 recordKey = key,
                 incompleteRecords = listOf(record1, record2),
             )
@@ -781,7 +787,7 @@ class OutboxProcessingSchedulerTest {
                 )
 
             prepareFindRecordKeysInPartitions(listOf(key))
-            prepareFindIncompleteRecordsByRecordKey(
+            prepareRecordPage(
                 recordKey = key,
                 incompleteRecords = listOf(record1, record2),
             )
@@ -819,7 +825,7 @@ class OutboxProcessingSchedulerTest {
                 )
 
             prepareFindRecordKeysInPartitions(listOf(key))
-            prepareFindIncompleteRecordsByRecordKey(
+            prepareRecordPage(
                 recordKey = key,
                 incompleteRecords = listOf(record1, record2, record3),
             )
@@ -845,11 +851,19 @@ class OutboxProcessingSchedulerTest {
         } returns recordKeys
     }
 
-    private fun prepareFindIncompleteRecordsByRecordKey(
+    private fun prepareRecordPage(
         recordKey: String,
         incompleteRecords: List<OutboxRecord<*>>,
     ) {
-        every { recordRepository.findIncompleteRecordsByRecordKey(recordKey) } returns incompleteRecords
+        pagesByKey[recordKey] =
+            LazyOutboxRecordPage(incompleteRecords, OutboxRecord<*>::id, OutboxRecord<*>::nextRetryAt) { it }
+    }
+
+    private fun prepareDecodingFailure(
+        recordKey: String,
+        failure: RuntimeException,
+    ) {
+        pagesByKey[recordKey] = LazyOutboxRecordPage(listOf(recordKey), { it }, { fixedInstant }) { throw failure }
     }
 
     private class MutableClock(

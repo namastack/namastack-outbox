@@ -45,6 +45,8 @@ class OutboxBulkLoadingTest {
     private val invoker = mockk<OutboxRecordProcessorChainInvoker>()
     private val coordinator = mockk<PartitionCoordinator>()
     private val assignmentsReleased = AtomicBoolean()
+    private val emptyPage =
+        LazyOutboxRecordPage(emptyList<OutboxRecord<*>>(), OutboxRecord<*>::id, OutboxRecord<*>::nextRetryAt) { it }
 
     @BeforeEach
     fun setUp() {
@@ -65,7 +67,7 @@ class OutboxBulkLoadingTest {
         val keys = (1..batchSize).map { "key-$it" }
         selectKeys(*keys.toTypedArray())
         every { repository.findIncompleteRecordPages(any()) } answers {
-            firstArg<Set<String>>().associateWith { DeferredOutboxRecordPage { emptyList() } }
+            firstArg<Set<String>>().associateWith { emptyPage }
         }
 
         scheduler(batchSize = batchSize).process()
@@ -203,6 +205,47 @@ class OutboxBulkLoadingTest {
     }
 
     @Test
+    fun `fatal task failure is captured while other workers retain assignment protection`() {
+        val failureReached = CountDownLatch(1)
+        val otherStarted = CountDownLatch(1)
+        val releaseOther = CountDownLatch(1)
+        val first = record("a1")
+        val second = record("b1", "b")
+        val firstPage = page(first)
+        val secondPage = page(second)
+        selectKeys("a", "b")
+        every { repository.findIncompleteRecordPages(setOf("a", "b")) } returns
+            mapOf("a" to firstPage, "b" to secondPage)
+        every { invoker.process(first) } answers {
+            failureReached.countDown()
+            throw AssertionError("fatal task failure")
+        }
+        every { invoker.process(second) } answers {
+            otherStarted.countDown()
+            check(releaseOther.await(WORKER_TIMEOUT_SECONDS, SECONDS))
+            COMPLETED
+        }
+        val workers = Executors.newFixedThreadPool(2)
+        val processing = Executors.newSingleThreadExecutor()
+        try {
+            val run =
+                processing.submit {
+                    scheduler(executor = TaskExecutor { workers.execute(it) }).process()
+                }
+            assertThat(failureReached.await(TEST_TIMEOUT_SECONDS, SECONDS)).isTrue()
+            assertThat(otherStarted.await(TEST_TIMEOUT_SECONDS, SECONDS)).isTrue()
+            assertThat(assignmentsReleased).isFalse()
+            releaseOther.countDown()
+            run.get(TEST_TIMEOUT_SECONDS, SECONDS)
+            assertThat(assignmentsReleased).isTrue()
+        } finally {
+            releaseOther.countDown()
+            processing.shutdownNow()
+            workers.shutdownNow()
+        }
+    }
+
+    @Test
     fun `workers run while later chunks are fetched and other keys finish while one is slow`() {
         val firstStarted = CountDownLatch(1)
         val secondFinished = CountDownLatch(1)
@@ -213,7 +256,7 @@ class OutboxBulkLoadingTest {
         selectKeys(*twoChunkKeys())
         every { repository.findIncompleteRecordPages(match { "a" in it }) } answers {
             firstArg<Set<String>>().associateWith { key ->
-                if (key == "a") firstPage else DeferredOutboxRecordPage { emptyList() }
+                if (key == "a") firstPage else emptyPage
             }
         }
         every { repository.findIncompleteRecordPages(setOf("b")) } answers {
@@ -255,7 +298,7 @@ class OutboxBulkLoadingTest {
         selectKeys(*if (failure == DispatchFailure.INTERRUPTION) arrayOf("a") else twoChunkKeys())
         every { repository.findIncompleteRecordPages(match { "a" in it }) } answers {
             firstArg<Set<String>>().associateWith { key ->
-                if (key == "a") firstPage else DeferredOutboxRecordPage { emptyList() }
+                if (key == "a") firstPage else emptyPage
             }
         }
         every { repository.findIncompleteRecordPages(setOf("b")) } answers {

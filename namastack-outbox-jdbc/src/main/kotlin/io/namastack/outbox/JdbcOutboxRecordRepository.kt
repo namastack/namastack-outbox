@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.OutboxRecordRepository.Companion.MAX_RECORD_KEYS_PER_FETCH
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
@@ -401,21 +402,26 @@ internal open class JdbcOutboxRecordRepository(
             .map { entityMapper.map(it) }
 
     /**
-     * Loads raw NEW records for selected storage keys with one query against the resolved table.
+     * Loads raw NEW records for selected storage keys from the resolved table.
      *
      * Payload and context decoding is deferred until a worker accesses an eligible element.
      * The same predicate is used for strict and non-strict processing; retry eligibility and
      * failure handling remain the worker's responsibility. Missing keys receive empty pages.
      *
-     * @param recordKeys Selected storage keys, at most 1000 per call
+     * Records are loaded in one bulk read and grouped by their exact record key.
+     *
+     * @param recordKeys Selected storage keys, at most [MAX_RECORD_KEYS_PER_FETCH] per call
      * @return An ordered, lazily decoded page for every requested key
-     * @throws IllegalArgumentException if more than 1000 keys are requested
+     * @throws IllegalArgumentException if the portable key limit is exceeded
      */
     override fun findIncompleteRecordPages(recordKeys: Set<String>): Map<String, OutboxRecordPage> {
-        require(recordKeys.size <= 1000) { "A record fetch can contain at most 1000 keys" }
+        require(recordKeys.size <= MAX_RECORD_KEYS_PER_FETCH) {
+            "A record fetch can contain at most $MAX_RECORD_KEYS_PER_FETCH keys"
+        }
+
         if (recordKeys.isEmpty()) return emptyMap()
 
-        val grouped =
+        val rowsByKey =
             jdbcClient
                 .sql(findByKeysAndStatusQuery)
                 .param("recordKeys", recordKeys)
@@ -425,7 +431,14 @@ internal open class JdbcOutboxRecordRepository(
                 .filterNotNull()
                 .groupBy { it.recordKey }
 
-        return recordKeys.associateWith { key -> JdbcOutboxRecordPage(grouped[key].orEmpty(), entityMapper) }
+        return recordKeys.associateWith { key ->
+            LazyOutboxRecordPage(
+                rows = rowsByKey[key].orEmpty(),
+                recordIdOf = JdbcOutboxRecordEntity::id,
+                nextRetryAtOf = JdbcOutboxRecordEntity::nextRetryAt,
+                decode = entityMapper::map,
+            )
+        }
     }
 
     /**

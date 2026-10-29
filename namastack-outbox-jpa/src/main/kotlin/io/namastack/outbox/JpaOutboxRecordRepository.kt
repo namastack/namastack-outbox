@@ -49,6 +49,8 @@ internal open class JpaOutboxRecordRepository(
     /**
      * Loads NEW-record snapshots without attaching the results to the persistence context.
      * All constructor arguments are scalar fields, so workers need no entity manager to decode them.
+     * This also isolates pages from already managed entities when a caller has an open transaction;
+     * a read-only hint on an entity query would not provide an independent snapshot.
      */
     private val findByRecordKeysAndStatusQuery = """
         select new io.namastack.outbox.OutboxRecordEntity(
@@ -397,22 +399,26 @@ internal open class JpaOutboxRecordRepository(
             .map { entityMapper.map(it) }
 
     /**
-     * Loads NEW records for selected storage keys with one JPQL query.
+     * Loads NEW records for selected storage keys using JPQL.
      *
      * The query constructs snapshots that remain usable outside the originating persistence context.
      * Payload and context decoding is deferred until a worker accesses a record. Future retries
      * remain in each page, and one loading predicate serves strict and non-strict processing.
      * Missing keys receive empty pages.
      *
-     * @param recordKeys Selected storage keys, at most 1000 per call
+     * Records are loaded in one bulk read and grouped by their exact record key.
+     *
+     * @param recordKeys Selected storage keys, at most [OutboxRecordRepository.MAX_RECORD_KEYS_PER_FETCH] per call
      * @return An ordered, lazily decoded page for every requested key
-     * @throws IllegalArgumentException if more than 1000 keys are requested
+     * @throws IllegalArgumentException if the portable key limit is exceeded
      */
     override fun findIncompleteRecordPages(recordKeys: Set<String>): Map<String, OutboxRecordPage> {
-        require(recordKeys.size <= 1000) { "A record fetch can contain at most 1000 keys" }
+        require(recordKeys.size <= OutboxRecordRepository.MAX_RECORD_KEYS_PER_FETCH) {
+            "A record fetch can contain at most ${OutboxRecordRepository.MAX_RECORD_KEYS_PER_FETCH} keys"
+        }
         if (recordKeys.isEmpty()) return emptyMap()
 
-        val grouped =
+        val rowsByKey =
             entityManager
                 .createQuery(findByRecordKeysAndStatusQuery, OutboxRecordEntity::class.java)
                 .setParameter("recordKeys", recordKeys)
@@ -420,7 +426,14 @@ internal open class JpaOutboxRecordRepository(
                 .resultList
                 .groupBy { it.recordKey }
 
-        return recordKeys.associateWith { key -> JpaOutboxRecordPage(grouped[key].orEmpty(), entityMapper) }
+        return recordKeys.associateWith { key ->
+            LazyOutboxRecordPage(
+                rows = rowsByKey[key].orEmpty(),
+                recordIdOf = OutboxRecordEntity::id,
+                nextRetryAtOf = OutboxRecordEntity::nextRetryAt,
+                decode = entityMapper::map,
+            )
+        }
     }
 
     /**

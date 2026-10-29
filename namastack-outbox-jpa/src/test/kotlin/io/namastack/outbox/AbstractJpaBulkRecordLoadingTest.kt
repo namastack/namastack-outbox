@@ -73,7 +73,7 @@ abstract class AbstractJpaBulkRecordLoadingTest {
     }
 
     @Test
-    fun `one query returns exact key pages in creation time then id order without managed entity loads`() {
+    fun `one bulk query preserves page ordering without managed entity loads`() {
         create("a3", "a", now.plusSeconds(1))
         create("b1", "b")
         create("a2", "a")
@@ -86,11 +86,11 @@ abstract class AbstractJpaBulkRecordLoadingTest {
         assertThat(statistics.prepareStatementCount).isEqualTo(1)
         assertThat(statistics.entityLoadCount).isZero()
         assertThat(pages.keys).containsExactlyInAnyOrder("a", "b", "missing")
-        assertThat(pages.getValue("a").map { it.id }).containsExactly("a1", "a2", "a3")
-        assertThat(pages.getValue("b").map { it.id }).containsExactly("b1")
-        assertThat(pages.getValue("missing")).isEmpty()
+        assertThat(pages.getValue("a").recordIds()).containsExactly("a1", "a2", "a3")
+        assertThat(pages.getValue("b").recordIds()).containsExactly("b1")
+        assertThat(pages.getValue("missing").isEmpty()).isTrue()
         assertThat(statistics.prepareStatementCount).isEqualTo(1)
-        assertThat(pages.getValue("a").map { it.id })
+        assertThat(pages.getValue("a").recordIds())
             .containsExactlyElementsOf(repository.findIncompleteRecordsByRecordKey("a").map { it.id })
     }
 
@@ -105,7 +105,7 @@ abstract class AbstractJpaBulkRecordLoadingTest {
 
         val page = repository.findIncompleteRecordPages(setOf("a")).getValue("a")
 
-        assertThat(page.map { it.id }).containsExactly("a1", "a2", "a3")
+        assertThat(page.recordIds()).containsExactly("a1", "a2", "a3")
         assertThat(page.nextRetryAt(1)).isEqualTo(now.plusSeconds(3600))
         assertThat(page.isRetryDue(1, clock)).isFalse()
     }
@@ -118,7 +118,7 @@ abstract class AbstractJpaBulkRecordLoadingTest {
 
         val page = repository.findIncompleteRecordPages(setOf("a")).getValue("a")
 
-        assertThat(page).hasSize(1)
+        assertThat(page.size).isEqualTo(1)
         assertThat(page.recordId(0)).isEqualTo("a1")
         assertThat(page.nextRetryAt(0)).isEqualTo(now)
         assertThat(page.isRetryDue(0, Clock.fixed(now.minusNanos(1), UTC))).isFalse()
@@ -191,7 +191,7 @@ abstract class AbstractJpaBulkRecordLoadingTest {
         val pages = repository.findIncompleteRecordPages(keys.toSet())
 
         keys.forEachIndexed { index, key ->
-            assertThat(pages.getValue(key).map { it.id }).containsExactly("record-$index")
+            assertThat(pages.getValue(key).recordIds()).containsExactly("record-$index")
         }
     }
 
@@ -210,7 +210,7 @@ abstract class AbstractJpaBulkRecordLoadingTest {
         assertThat(managed.status).isEqualTo(OutboxRecordStatus.COMPLETED)
         assertThat(page.nextRetryAt(0)).isEqualTo(now)
         assertThat(page[0].status).isEqualTo(OutboxRecordStatus.NEW)
-        assertThat(repository.findIncompleteRecordPages(setOf("a")).getValue("a").map { it.id })
+        assertThat(repository.findIncompleteRecordPages(setOf("a")).getValue("a").recordIds())
             .containsExactly("a2")
     }
 
@@ -274,6 +274,7 @@ abstract class AbstractJpaBulkRecordLoadingTest {
     @Test
     @Transactional(propagation = NOT_SUPPORTED)
     fun `a real completion persistence failure stops its key while another key completes in order`() {
+        var constraintAdded = false
         try {
             create("a1", "a", now.minusSeconds(2))
             create("a2", "a", now.minusSeconds(1))
@@ -286,6 +287,7 @@ abstract class AbstractJpaBulkRecordLoadingTest {
                             "CHECK (id <> 'a1' OR status <> 'COMPLETED')",
                     ).executeUpdate()
             }
+            constraintAdded = true
             val handled = Collections.synchronizedList(mutableListOf<String>())
 
             runProcessingCycle(strict = true) { record -> handled.add(record.id) }
@@ -297,11 +299,13 @@ abstract class AbstractJpaBulkRecordLoadingTest {
             assertThat(pending.map { it.id }).containsExactly("a1", "a2")
             assertThat(pending.first().failureCount).isZero()
         } finally {
-            transactions.executeWithoutResult {
-                entityManager
-                    .createNativeQuery(
-                        "ALTER TABLE outbox_record DROP CONSTRAINT IF EXISTS reject_bulk_completion",
-                    ).executeUpdate()
+            if (constraintAdded) {
+                transactions.executeWithoutResult {
+                    entityManager
+                        .createNativeQuery(
+                            "ALTER TABLE outbox_record DROP CONSTRAINT reject_bulk_completion",
+                        ).executeUpdate()
+                }
             }
             deleteAllRecords()
         }
@@ -385,6 +389,22 @@ abstract class AbstractJpaBulkRecordLoadingTest {
         entityManager.clear()
     }
 
+    @Test
+    fun `a selected key that disappears returns an empty page without another read`() {
+        create("remaining", "remaining")
+        create("disappeared", "disappeared")
+        flushAndClear()
+        val selected = repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, true).toSet()
+        repository.deleteById("disappeared")
+        flushAndClear()
+        statistics.clear()
+        val pages = repository.findIncompleteRecordPages(selected)
+
+        assertThat(pages.getValue("remaining").recordIds()).containsExactly("remaining")
+        assertThat(pages.getValue("disappeared").isEmpty()).isTrue()
+        assertThat(statistics.prepareStatementCount).isEqualTo(1)
+    }
+
     private fun create(
         id: String,
         key: String,
@@ -450,4 +470,6 @@ abstract class AbstractJpaBulkRecordLoadingTest {
             deserializations = 0
         }
     }
+
+    private fun OutboxRecordPage.recordIds(): List<String> = (0 until size).map { recordId(it) }
 }

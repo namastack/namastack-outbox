@@ -182,18 +182,22 @@ internal open class MongoOutboxRecordRepository(
     }
 
     /**
-     * Loads NEW records for selected storage keys with one bulk find operation.
+     * Loads NEW records for selected storage keys using bulk reads.
      *
      * The configured collection name is resolved before reading. Payload and context decoding
      * is deferred until a worker accesses a record. Future retries remain in each page, and one
      * loading predicate serves strict and non-strict processing. Missing keys receive empty pages.
      *
-     * @param recordKeys Selected storage keys, at most 1000 per call
+     * Records are loaded in one bulk read and grouped by their exact record key.
+     *
+     * @param recordKeys Selected storage keys, at most [OutboxRecordRepository.MAX_RECORD_KEYS_PER_FETCH] per call
      * @return An ordered, lazily decoded page for every requested key
-     * @throws IllegalArgumentException if more than 1000 keys are requested
+     * @throws IllegalArgumentException if the portable key limit is exceeded
      */
     override fun findIncompleteRecordPages(recordKeys: Set<String>): Map<String, OutboxRecordPage> {
-        require(recordKeys.size <= 1000) { "A record fetch can contain at most 1000 keys" }
+        require(recordKeys.size <= OutboxRecordRepository.MAX_RECORD_KEYS_PER_FETCH) {
+            "A record fetch can contain at most ${OutboxRecordRepository.MAX_RECORD_KEYS_PER_FETCH} keys"
+        }
         if (recordKeys.isEmpty()) return emptyMap()
 
         val query =
@@ -204,13 +208,19 @@ internal open class MongoOutboxRecordRepository(
                     .and("status")
                     .`is`(OutboxRecordStatus.NEW),
             ).with(Sort.by(Sort.Direction.ASC, "recordKey", "createdAt", "_id"))
-
-        val grouped =
+        val rowsByKey =
             mongoTemplate
                 .find(query, MongoOutboxRecordEntity::class.java, collectionNameResolver.outboxRecords)
                 .groupBy { it.recordKey }
 
-        return recordKeys.associateWith { key -> MongoOutboxRecordPage(grouped[key].orEmpty(), entityMapper) }
+        return recordKeys.associateWith { key ->
+            LazyOutboxRecordPage(
+                rows = rowsByKey[key].orEmpty(),
+                recordIdOf = MongoOutboxRecordEntity::id,
+                nextRetryAtOf = MongoOutboxRecordEntity::nextRetryAt,
+                decode = entityMapper::map,
+            )
+        }
     }
 
     /**
