@@ -401,8 +401,8 @@ internal open class JpaOutboxRecordRepository(
      *
      * The query constructs snapshots that remain usable outside the originating persistence context.
      * Payload and context decoding is deferred until a worker accesses a record. Future retries
-     * remain in each page, preserving the same loading predicate for strict and non-strict workers.
-     * Missing keys receive empty pages, and existing transaction and completion behavior is unchanged.
+     * remain in each page, and one loading predicate serves strict and non-strict processing.
+     * Missing keys receive empty pages.
      *
      * @param recordKeys Selected storage keys, at most 1000 per call
      * @return An ordered, lazily decoded page for every requested key

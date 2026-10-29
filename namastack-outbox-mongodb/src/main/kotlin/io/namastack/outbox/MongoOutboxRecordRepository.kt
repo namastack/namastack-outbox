@@ -185,9 +185,8 @@ internal open class MongoOutboxRecordRepository(
      * Loads NEW records for selected storage keys with one bulk find operation.
      *
      * The configured collection name is resolved before reading. Payload and context decoding
-     * is deferred until a worker accesses a record. Future retries remain in the ordered pages,
-     * preserving the same loading predicate for strict and non-strict processing. Missing keys
-     * receive empty pages, and existing transaction and completion behavior is unchanged.
+     * is deferred until a worker accesses a record. Future retries remain in each page, and one
+     * loading predicate serves strict and non-strict processing. Missing keys receive empty pages.
      *
      * @param recordKeys Selected storage keys, at most 1000 per call
      * @return An ordered, lazily decoded page for every requested key

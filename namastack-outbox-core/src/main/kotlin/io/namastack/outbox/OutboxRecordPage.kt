@@ -9,7 +9,7 @@ import java.time.Instant
  * Implementations may defer payload and context decoding until [get] is called. Metadata access
  * lets the worker check retry eligibility without resolving the payload type. Repeated access to
  * a decoded element must return the same record object so processing mutations remain visible.
- * Fetched rows and serialized data still occupy memory; a page does not limit rows or bytes.
+ * A page holds all fetched rows and their serialized data in memory; it does not limit rows or bytes.
  *
  * @author Roland Beisel
  * @since 1.12.0

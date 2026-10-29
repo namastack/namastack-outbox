@@ -134,9 +134,8 @@ interface OutboxRecordRepository {
      * Each page retains ascending creation-time and record-ID order. Future retries must remain
      * in the page so the worker can stop or continue according to its failure-handling settings.
      *
-     * The default defers each existing per-key query until its page is accessed by a worker.
-     * This preserves custom repositories' loading behavior and isolates query or decoding failures
-     * to their key.
+     * The default calls [findIncompleteRecordsByRecordKey] for each key when a worker first
+     * accesses its page, so query or decoding failures affect only that key.
      *
      * @param recordKeys Selected storage keys, at most 1000 per call
      * @return An ordered record page for every requested key
