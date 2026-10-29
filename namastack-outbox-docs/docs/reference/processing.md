@@ -73,6 +73,17 @@ flowchart LR
 
 4. **Permanent Failure Processor** - Marks the record as permanently `FAILED`. Final state - no further processing.
 
+### Persisted Processing State
+
+:::info Available since 1.12.0
+Payload and context are fixed after scheduling since version 1.12.0.
+:::
+
+Completion, retry scheduling and permanent failure store only the record's processing state: status,
+completion time, failure count and reason, and next retry time. The payload and context keep the values
+they had when the record was scheduled. Changes a handler or fallback handler makes to the payload or
+context objects are not persisted, and every retry receives the payload and context as they were scheduled.
+
 ---
 
 ## Processing Flow Examples

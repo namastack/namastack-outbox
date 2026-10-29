@@ -379,6 +379,125 @@ class MongoOutboxRecordRepositoryTest {
     }
 
     @Nested
+    @DisplayName("updateProcessingState()")
+    inner class UpdateProcessingStateTests {
+        @Test
+        fun `persists processing state without payload and context`() {
+            val record = newRecordWithContext()
+            repository.create(record)
+            val completedAt = Instant.now(clock).truncatedTo(MILLIS)
+            val nextRetryAt = record.nextRetryAt.plus(1, MINUTES)
+
+            val updated =
+                repository.updateProcessingState(
+                    processingState(
+                        record = record,
+                        payload = "changed",
+                        context = mapOf("changed" to "true"),
+                        status = COMPLETED,
+                        completedAt = completedAt,
+                        failureCount = 2,
+                        failureReason = "boom",
+                        nextRetryAt = nextRetryAt,
+                    ),
+                )
+
+            assertThat(updated).isTrue()
+            val persistedRecord = repository.findCompletedRecords().single { it.id == record.id }
+            assertThat(persistedRecord.status).isEqualTo(COMPLETED)
+            assertThat(persistedRecord.completedAt).isCloseTo(completedAt, within(1, MILLIS))
+            assertThat(persistedRecord.failureCount).isEqualTo(2)
+            assertThat(persistedRecord.failureReason).isEqualTo("boom")
+            assertThat(persistedRecord.nextRetryAt).isCloseTo(nextRetryAt, within(1, MILLIS))
+            assertThat(persistedRecord.payload).isEqualTo(record.payload)
+            assertThat(persistedRecord.context).isEqualTo(record.context)
+            assertThat(persistedRecord.key).isEqualTo(record.key)
+            assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
+            assertThat(persistedRecord.partition).isEqualTo(record.partition)
+            assertThat(persistedRecord.createdAt).isCloseTo(record.createdAt, within(1, MILLIS))
+        }
+
+        @Test
+        fun `clears completion time and failure reason`() {
+            val record = newRecord()
+            repository.create(
+                processingState(
+                    record = record,
+                    payload = record.payload,
+                    completedAt = Instant.now(clock),
+                    failureReason = "boom",
+                ),
+            )
+
+            assertThat(repository.updateProcessingState(record)).isTrue()
+
+            val persistedRecord = repository.findIncompleteRecordsByRecordKey(record.key).single()
+            assertThat(persistedRecord.completedAt).isNull()
+            assertThat(persistedRecord.failureReason).isNull()
+        }
+
+        @Test
+        fun `persists processing state of a record without loaded payload`() {
+            val record = newRecord()
+            repository.create(record)
+
+            val updated =
+                repository.updateProcessingState(
+                    processingState(record = record, payload = null, status = FAILED, failureCount = 1),
+                )
+
+            assertThat(updated).isTrue()
+            val persistedRecord = repository.findFailedRecords().single { it.id == record.id }
+            assertThat(persistedRecord.failureCount).isEqualTo(1)
+            assertThat(persistedRecord.payload).isEqualTo(record.payload)
+        }
+
+        @Test
+        fun `does not insert when updating the processing state of a missing entity`() {
+            val record = newRecord()
+
+            assertThat(repository.updateProcessingState(record)).isFalse()
+
+            assertThat(repository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
+        }
+
+        private fun newRecordWithContext(): OutboxRecord<String> =
+            OutboxRecord
+                .Builder<String>()
+                .key(UUID.randomUUID().toString())
+                .payload("payload")
+                .context(mapOf("tenant" to "acme"))
+                .handlerId("handlerId")
+                .build(clock)
+
+        private fun <T> processingState(
+            record: OutboxRecord<String>,
+            payload: T,
+            context: Map<String, String> = record.context,
+            status: OutboxRecordStatus = record.status,
+            completedAt: Instant? = record.completedAt,
+            failureCount: Int = record.failureCount,
+            failureReason: String? = record.failureReason,
+            nextRetryAt: Instant = record.nextRetryAt,
+        ): OutboxRecord<T> =
+            OutboxRecord.restore(
+                id = record.id,
+                recordKey = record.key,
+                payload = payload,
+                context = context,
+                partition = record.partition,
+                createdAt = record.createdAt,
+                status = status,
+                completedAt = completedAt,
+                failureCount = failureCount,
+                failureReason = failureReason,
+                nextRetryAt = nextRetryAt,
+                handlerId = record.handlerId,
+                failureException = null,
+            )
+    }
+
+    @Nested
     @DisplayName("findPendingRecords()")
     inner class FindPendingRecordsTests {
         @Test

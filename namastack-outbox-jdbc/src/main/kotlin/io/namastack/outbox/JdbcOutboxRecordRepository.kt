@@ -43,6 +43,17 @@ internal open class JdbcOutboxRecordRepository(
         """.toSingleLine()
 
     /**
+     * Query to update the processing state of an existing outbox record.
+     */
+    private val updateProcessingStateQuery =
+        """
+        UPDATE $tableName
+        SET status = :status, completed_at = :completedAt, failure_count = :failureCount,
+            failure_reason = :failureReason, next_retry_at = :nextRetryAt
+        WHERE id = :id
+        """.toSingleLine()
+
+    /**
      * Query to insert a new outbox record.
      */
     private val insertRecordQuery =
@@ -289,6 +300,28 @@ internal open class JdbcOutboxRecordRepository(
         transactionTemplate.execute {
             val entity = entityMapper.map(record)
             val updatedRows = tryUpdate(entity)
+            updatedRows == 1
+        }
+
+    /**
+     * Updates only the processing state of an existing record. Does nothing if the record no longer exists.
+     * The payload and context are neither serialized nor written.
+     *
+     * @param record The outbox record whose processing state changed
+     * @return True if the record was updated, false if it no longer exists
+     */
+    override fun <T> updateProcessingState(record: OutboxRecord<T>): Boolean =
+        transactionTemplate.execute {
+            val updatedRows =
+                jdbcClient
+                    .sql(updateProcessingStateQuery)
+                    .param("status", record.status.name)
+                    .param("completedAt", record.completedAt?.let { Timestamp.from(it) })
+                    .param("failureCount", record.failureCount)
+                    .param("failureReason", record.failureReason)
+                    .param("nextRetryAt", Timestamp.from(record.nextRetryAt))
+                    .param("id", record.id)
+                    .update()
             updatedRows == 1
         }
 

@@ -58,6 +58,19 @@ internal open class JpaOutboxRecordRepository(
     """
 
     /**
+     * Query to update the processing state of an existing outbox record.
+     */
+    private val updateProcessingStateQuery = """
+        update OutboxRecordEntity o
+        set o.status = :status,
+            o.completedAt = :completedAt,
+            o.failureCount = :failureCount,
+            o.failureReason = :failureReason,
+            o.nextRetryAt = :nextRetryAt
+        where o.id = :id
+    """
+
+    /**
      * Query to select outbox records by status with next retry time before a cutoff, oldest first.
      */
     private val findByStatusAndNextRetryBeforeQuery = """
@@ -264,6 +277,28 @@ internal open class JpaOutboxRecordRepository(
                 entityManager.merge(entity)
                 true
             }
+        }
+
+    /**
+     * Updates only the processing state of an existing record. Does nothing if the record no longer exists.
+     * The payload and context are neither serialized nor written.
+     *
+     * @param record The outbox record whose processing state changed
+     * @return True if the record was updated, false if it no longer exists
+     */
+    override fun <T> updateProcessingState(record: OutboxRecord<T>): Boolean =
+        transactionTemplate.execute {
+            val updatedRows =
+                entityManager
+                    .createQuery(updateProcessingStateQuery)
+                    .setParameter("status", record.status)
+                    .setParameter("completedAt", record.completedAt)
+                    .setParameter("failureCount", record.failureCount)
+                    .setParameter("failureReason", record.failureReason)
+                    .setParameter("nextRetryAt", record.nextRetryAt)
+                    .setParameter("id", record.id)
+                    .executeUpdate()
+            updatedRows == 1
         }
 
     /**
