@@ -3,25 +3,18 @@ package io.namastack.outbox
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
-import java.time.Clock
-import java.time.Instant
-import java.time.ZoneOffset.UTC
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit.SECONDS
 import java.util.concurrent.atomic.AtomicInteger
 
 class LazyOutboxRecordPageTest {
-    private val now = Instant.parse("2026-01-01T12:00:00Z")
-
     @Test
-    fun `metadata and object inspection never decode records`() {
+    fun `page size and object inspection never decode records`() {
         val decoded = AtomicInteger()
         val page =
             LazyOutboxRecordPage(
                 rows = listOf("future"),
-                recordIdOf = { it },
-                nextRetryAtOf = { now.plusSeconds(60) },
                 decode = {
                     decoded.incrementAndGet()
                     error("unavailable payload")
@@ -29,8 +22,6 @@ class LazyOutboxRecordPageTest {
             )
         assertThat(page.size).isEqualTo(1)
         assertThat(page.isEmpty()).isFalse()
-        assertThat(page.recordId(0)).isEqualTo("future")
-        assertThat(page.isRetryDue(0, Clock.fixed(now, UTC))).isFalse()
         assertThat(page.toString()).contains("LazyOutboxRecordPage")
         assertThat(page).isEqualTo(page)
         page.hashCode()
@@ -44,7 +35,7 @@ class LazyOutboxRecordPageTest {
         val decoded = AtomicInteger()
         val record = OutboxRecordTestFactory.outboxRecord(recordKey = "key")
         val page =
-            LazyOutboxRecordPage(listOf(record), OutboxRecord<*>::id, OutboxRecord<*>::nextRetryAt) {
+            LazyOutboxRecordPage(listOf(record)) {
                 decoded.incrementAndGet()
                 it
             }
@@ -60,7 +51,7 @@ class LazyOutboxRecordPageTest {
         val barrier = CyclicBarrier(2)
         val decoded = AtomicInteger()
         val page =
-            LazyOutboxRecordPage(listOf("row"), { it }, { now }) {
+            LazyOutboxRecordPage(listOf("row")) {
                 decoded.incrementAndGet()
                 barrier.await(5, SECONDS)
                 OutboxRecordTestFactory.outboxRecord(recordKey = "key")
@@ -79,24 +70,22 @@ class LazyOutboxRecordPageTest {
     }
 
     @Test
-    fun `failed decoding leaves the valid prefix and later metadata readable`() {
+    fun `failed decoding leaves other records independently readable`() {
         val page =
-            LazyOutboxRecordPage(listOf("good", "bad", "future"), { it }, { now }) {
+            LazyOutboxRecordPage(listOf("good", "bad", "later")) {
                 check(it != "bad") { "malformed payload" }
                 OutboxRecordTestFactory.outboxRecord(recordKey = it)
             }
         val first = page[0]
         assertThatThrownBy { page[1] }.isInstanceOf(IllegalStateException::class.java)
         assertThat(page[0]).isSameAs(first)
-        assertThat(page.recordId(2)).isEqualTo("future")
+        assertThat(page[2].key).isEqualTo("later")
     }
 
     @Test
     fun `empty page and invalid indexes never call the decoder`() {
-        val page = LazyOutboxRecordPage(emptyList<String>(), { it }, { now }) { error("must not decode") }
+        val page = LazyOutboxRecordPage(emptyList<String>()) { error("must not decode") }
         assertThat(page.isEmpty()).isTrue()
         assertThatThrownBy { page[0] }.isInstanceOf(IndexOutOfBoundsException::class.java)
-        assertThatThrownBy { page.recordId(0) }.isInstanceOf(IndexOutOfBoundsException::class.java)
-        assertThatThrownBy { page.nextRetryAt(0) }.isInstanceOf(IndexOutOfBoundsException::class.java)
     }
 }

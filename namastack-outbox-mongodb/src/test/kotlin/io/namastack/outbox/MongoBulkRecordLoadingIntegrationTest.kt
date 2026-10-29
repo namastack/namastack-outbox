@@ -113,26 +113,23 @@ class MongoBulkRecordLoadingIntegrationTest {
         val page = repository.findIncompleteRecordPages(setOf("a")).getValue("a")
 
         assertThat(page.recordIds()).containsExactly("a1", "a2", "a3")
-        assertThat(page.nextRetryAt(1)).isEqualTo(now.plusSeconds(3600))
-        assertThat(page.isRetryDue(1, clock)).isFalse()
+        assertThat(page[1].nextRetryAt).isEqualTo(now.plusSeconds(3600))
     }
 
     @Test
-    fun `metadata access does not decode and cached records retain mutations`() {
+    fun `bulk loading defers decoding and cached records retain mutations`() {
         create("a1", "a")
         serializer.reset()
 
         val page = repository.findIncompleteRecordPages(setOf("a")).getValue("a")
 
         assertThat(page.size).isEqualTo(1)
-        assertThat(page.recordId(0)).isEqualTo("a1")
-        assertThat(page.nextRetryAt(0)).isEqualTo(now)
-        assertThat(page.isRetryDue(0, Clock.fixed(now.minusNanos(1), UTC))).isFalse()
-        assertThat(page.isRetryDue(0, clock)).isTrue()
         assertThat(serializer.deserializations).isZero()
         assertThat(serializer.serializations).isZero()
 
         val record = page[0]
+        assertThat(record.id).isEqualTo("a1")
+        assertThat(record.nextRetryAt).isEqualTo(now)
         assertThat(record.payload).isEqualTo("payload-a1")
         assertThat(record.context).containsEntry("trace", "original")
         assertThat(serializer.deserializations).isEqualTo(2)
@@ -143,7 +140,7 @@ class MongoBulkRecordLoadingIntegrationTest {
     }
 
     @Test
-    fun `future unavailable payload types leave metadata and other keys readable`() {
+    fun `unavailable payload types do not prevent loading pages or reading another key`() {
         create("bad", "a", retry = now.plusSeconds(60))
         create("good", "b")
         mongoTemplate.updateFirst(byId("bad"), Update().set("recordType", "missing.Payload"), collectionName)
@@ -151,8 +148,7 @@ class MongoBulkRecordLoadingIntegrationTest {
 
         val pages = repository.findIncompleteRecordPages(setOf("a", "b"))
 
-        assertThat(pages.getValue("a").recordId(0)).isEqualTo("bad")
-        assertThat(pages.getValue("a").isRetryDue(0, clock)).isFalse()
+        assertThat(pages.getValue("a").size).isEqualTo(1)
         assertThat(serializer.deserializations).isZero()
         assertThat(pages.getValue("b")[0].id).isEqualTo("good")
         assertThatThrownBy { pages.getValue("a")[0] }
@@ -212,7 +208,7 @@ class MongoBulkRecordLoadingIntegrationTest {
         repository.updateProcessingState(completed(first))
         create("a2", "a", now.plusSeconds(1))
 
-        assertThat(page.nextRetryAt(0)).isEqualTo(now)
+        assertThat(page[0].nextRetryAt).isEqualTo(now)
         assertThat(page[0].status).isEqualTo(OutboxRecordStatus.NEW)
         assertThat(repository.findIncompleteRecordPages(setOf("a")).getValue("a").recordIds())
             .containsExactly("a2")
@@ -316,7 +312,9 @@ class MongoBulkRecordLoadingIntegrationTest {
         assertThat(handled).containsExactlyInAnyOrder("a1", "b1")
         assertThat(repository.findCompletedRecords().map { it.id }).containsExactlyInAnyOrder("a1", "b1")
         val page = repository.findIncompleteRecordPages(setOf("a")).getValue("a")
-        assertThat((0 until page.size).map { page.recordId(it) }).containsExactly("a2", "a3")
+        assertThat(page.size).isEqualTo(2)
+        assertThatThrownBy { page[0] }.isInstanceOf(Exception::class.java)
+        assertThat(page[1].id).isEqualTo("a3")
     }
 
     @Test
@@ -495,5 +493,5 @@ class MongoBulkRecordLoadingIntegrationTest {
         val mongodb = MongoDBContainer("mongo:9.0.4").withReplicaSet()
     }
 
-    private fun OutboxRecordPage.recordIds(): List<String> = (0 until size).map { recordId(it) }
+    private fun OutboxRecordPage.recordIds(): List<String> = (0 until size).map { get(it).id }
 }

@@ -426,14 +426,7 @@ internal open class JpaOutboxRecordRepository(
                 .resultList
                 .groupBy { it.recordKey }
 
-        return recordKeys.associateWith { key ->
-            LazyOutboxRecordPage(
-                rows = rowsByKey[key].orEmpty(),
-                recordIdOf = OutboxRecordEntity::id,
-                nextRetryAtOf = OutboxRecordEntity::nextRetryAt,
-                decode = entityMapper::map,
-            )
-        }
+        return recordKeys.associateWith { key -> LazyOutboxRecordPage(rowsByKey[key].orEmpty(), entityMapper::map) }
     }
 
     /**

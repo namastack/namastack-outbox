@@ -48,7 +48,7 @@ class OutboxProcessingSchedulerTest {
 
     private val pagesByKey = mutableMapOf<String, OutboxRecordPage>()
     private val emptyPage =
-        LazyOutboxRecordPage(emptyList<OutboxRecord<*>>(), OutboxRecord<*>::id, OutboxRecord<*>::nextRetryAt) { it }
+        LazyOutboxRecordPage(emptyList<OutboxRecord<*>>()) { it }
 
     private lateinit var scheduler: OutboxProcessingScheduler
 
@@ -856,14 +856,14 @@ class OutboxProcessingSchedulerTest {
         incompleteRecords: List<OutboxRecord<*>>,
     ) {
         pagesByKey[recordKey] =
-            LazyOutboxRecordPage(incompleteRecords, OutboxRecord<*>::id, OutboxRecord<*>::nextRetryAt) { it }
+            LazyOutboxRecordPage(incompleteRecords) { it }
     }
 
     private fun prepareDecodingFailure(
         recordKey: String,
         failure: RuntimeException,
     ) {
-        pagesByKey[recordKey] = LazyOutboxRecordPage(listOf(recordKey), { it }, { fixedInstant }) { throw failure }
+        pagesByKey[recordKey] = LazyOutboxRecordPage(listOf(recordKey)) { throw failure }
     }
 
     private class MutableClock(

@@ -213,14 +213,7 @@ internal open class MongoOutboxRecordRepository(
                 .find(query, MongoOutboxRecordEntity::class.java, collectionNameResolver.outboxRecords)
                 .groupBy { it.recordKey }
 
-        return recordKeys.associateWith { key ->
-            LazyOutboxRecordPage(
-                rows = rowsByKey[key].orEmpty(),
-                recordIdOf = MongoOutboxRecordEntity::id,
-                nextRetryAtOf = MongoOutboxRecordEntity::nextRetryAt,
-                decode = entityMapper::map,
-            )
-        }
+        return recordKeys.associateWith { key -> LazyOutboxRecordPage(rowsByKey[key].orEmpty(), entityMapper::map) }
     }
 
     /**

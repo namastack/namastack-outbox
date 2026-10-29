@@ -203,11 +203,6 @@ class OutboxProcessingScheduler(
             log.trace("Processing {} records for key {}", page.size, recordKey)
 
             for (index in 0 until page.size) {
-                if (!page.isRetryDue(index, clock)) {
-                    log.trace("Skipping record {} - not ready for retry", page.recordId(index))
-                    if (!continueOnFailure()) break
-                    continue
-                }
                 if (!processRecord(page[index])) break
             }
         } catch (ex: OutboxPayloadTypeNotFoundException) {

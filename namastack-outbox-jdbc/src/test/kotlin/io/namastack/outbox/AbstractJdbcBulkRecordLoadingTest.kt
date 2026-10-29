@@ -81,26 +81,23 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
         val page = repository.findIncompleteRecordPages(setOf("a")).getValue("a")
 
         assertThat(page.recordIds()).containsExactly("a1", "a2", "a3")
-        assertThat(page.nextRetryAt(1)).isEqualTo(now.plusSeconds(3600))
+        assertThat(page[1].nextRetryAt).isEqualTo(now.plusSeconds(3600))
     }
 
     @Test
-    fun `metadata access does not decode payload or context and decoded objects retain mutations`() {
+    fun `bulk loading defers decoding and cached records retain mutations`() {
         create("a1", "a")
         serializer.reset()
 
         val page = repository.findIncompleteRecordPages(setOf("a")).getValue("a")
 
         assertThat(page.size).isEqualTo(1)
-        assertThat(page.recordId(0)).isEqualTo("a1")
-        assertThat(page.nextRetryAt(0)).isEqualTo(now)
-        assertThat(page.isRetryDue(0, Clock.fixed(now.minusNanos(1), UTC))).isFalse()
-        assertThat(page.isRetryDue(0, clock)).isTrue()
-        assertThat(page.isRetryDue(0, Clock.fixed(now.plusNanos(1), UTC))).isTrue()
         assertThat(serializer.deserializations).isZero()
         assertThat(serializer.serializations).isZero()
 
         val record = page[0]
+        assertThat(record.id).isEqualTo("a1")
+        assertThat(record.nextRetryAt).isEqualTo(now)
         assertThat(record.payload).isEqualTo("payload-a1")
         assertThat(record.context).containsEntry("trace", "original")
         assertThat(serializer.deserializations).isEqualTo(2)
@@ -111,7 +108,7 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
     }
 
     @Test
-    fun `unavailable future payload types do not prevent metadata access or reading another key`() {
+    fun `unavailable payload types do not prevent loading pages or reading another key`() {
         create("bad", "a", retry = now.plusSeconds(60))
         create("good", "b")
         jdbc.sql("UPDATE outbox_record SET record_type = 'missing.Payload' WHERE id = 'bad'").update()
@@ -119,9 +116,7 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
 
         val pages = repository.findIncompleteRecordPages(setOf("a", "b"))
 
-        assertThat(pages.getValue("a").recordId(0)).isEqualTo("bad")
-        assertThat(pages.getValue("a").nextRetryAt(0)).isEqualTo(now.plusSeconds(60))
-        assertThat(pages.getValue("a").isRetryDue(0, clock)).isFalse()
+        assertThat(pages.getValue("a").size).isEqualTo(1)
         assertThat(serializer.deserializations).isZero()
         assertThat(pages.getValue("b")[0].id).isEqualTo("good")
         assertThatThrownBy { pages.getValue("a")[0] }
@@ -137,7 +132,7 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
         val page = repository.findIncompleteRecordPages(setOf("a")).getValue("a")
 
         assertThat(page[0].payload).isEqualTo("payload-a1")
-        assertThat(page.recordId(1)).isEqualTo("a2")
+        assertThat(page.size).isEqualTo(2)
         assertThatThrownBy { page[1] }.isInstanceOf(Exception::class.java)
     }
 
@@ -225,5 +220,5 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
         }
     }
 
-    private fun OutboxRecordPage.recordIds(): List<String> = (0 until size).map { recordId(it) }
+    private fun OutboxRecordPage.recordIds(): List<String> = (0 until size).map { get(it).id }
 }

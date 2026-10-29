@@ -431,14 +431,7 @@ internal open class JdbcOutboxRecordRepository(
                 .filterNotNull()
                 .groupBy { it.recordKey }
 
-        return recordKeys.associateWith { key ->
-            LazyOutboxRecordPage(
-                rows = rowsByKey[key].orEmpty(),
-                recordIdOf = JdbcOutboxRecordEntity::id,
-                nextRetryAtOf = JdbcOutboxRecordEntity::nextRetryAt,
-                decode = entityMapper::map,
-            )
-        }
+        return recordKeys.associateWith { key -> LazyOutboxRecordPage(rowsByKey[key].orEmpty(), entityMapper::map) }
     }
 
     /**

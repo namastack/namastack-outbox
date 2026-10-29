@@ -46,7 +46,7 @@ class OutboxBulkLoadingTest {
     private val coordinator = mockk<PartitionCoordinator>()
     private val assignmentsReleased = AtomicBoolean()
     private val emptyPage =
-        LazyOutboxRecordPage(emptyList<OutboxRecord<*>>(), OutboxRecord<*>::id, OutboxRecord<*>::nextRetryAt) { it }
+        LazyOutboxRecordPage(emptyList<OutboxRecord<*>>()) { it }
 
     @BeforeEach
     fun setUp() {
@@ -82,17 +82,18 @@ class OutboxBulkLoadingTest {
 
     @ParameterizedTest
     @ValueSource(booleans = [true, false])
-    fun `future retry in the middle is checked before decoding`(strict: Boolean) {
+    fun `future retry in the middle stops strict processing and is skipped in non-strict processing`(strict: Boolean) {
         val first = record("a1")
         val third = record("a3")
-        val page = page(first, record("a2"), third)
-        every { page.nextRetryAt(1) } returns now.plusSeconds(60)
+        val future = record("a2").apply { nextRetryAt = now.plusSeconds(60) }
+        val page = page(first, future, third)
         every { repository.findIncompleteRecordPages(setOf("a")) } returns mapOf("a" to page)
 
         scheduler(strict = strict).process()
 
         verify(exactly = 1) { invoker.process(first) }
-        verify(exactly = 0) { page.get(1) }
+        verify(exactly = 1) { page.get(1) }
+        verify(exactly = 0) { invoker.process(future) }
         verify(exactly = if (strict) 0 else 1) { page.get(2) }
         verify(exactly = if (strict) 0 else 1) { invoker.process(third) }
     }
@@ -117,17 +118,19 @@ class OutboxBulkLoadingTest {
         verify(exactly = 0) { page.get(2) }
     }
 
-    @Test
-    fun `decoding failure leaves earlier work completed and other keys processable`() {
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `decoding failure on a future retry stops its key while other keys complete`(strict: Boolean) {
         val first = record("a1")
         val other = record("b1", "b")
-        val broken = page(first, record("a2"), record("a3"))
+        val future = record("a2").apply { nextRetryAt = now.plusSeconds(60) }
+        val broken = page(first, future, record("a3"))
         every { broken.get(1) } throws IllegalArgumentException("Malformed payload")
         selectKeys("a", "b")
         every { repository.findIncompleteRecordPages(setOf("a", "b")) } returns
             mapOf("a" to broken, "b" to page(other))
 
-        scheduler().process()
+        scheduler(strict = strict).process()
 
         verify(exactly = 1) { invoker.process(first) }
         verify(exactly = 1) { invoker.process(other) }
@@ -387,13 +390,10 @@ class OutboxBulkLoadingTest {
 
     private fun page(vararg records: OutboxRecord<*>): OutboxRecordPage =
         mockk {
-            every { isRetryDue(any(), any()) } answers { callOriginal() }
             every { size } returns records.size
             every { isEmpty() } returns records.isEmpty()
             records.forEachIndexed { index, record ->
                 every { get(index) } returns record
-                every { nextRetryAt(index) } returns record.nextRetryAt
-                every { recordId(index) } returns record.id
             }
         }
 
