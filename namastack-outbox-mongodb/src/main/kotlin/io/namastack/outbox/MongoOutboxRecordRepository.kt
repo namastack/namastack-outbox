@@ -182,6 +182,39 @@ internal open class MongoOutboxRecordRepository(
     }
 
     /**
+     * Loads NEW records for selected storage keys with one bulk find operation.
+     *
+     * The configured collection name is resolved before reading. Payload and context decoding
+     * is deferred until a worker accesses a record. Future retries remain in the ordered pages,
+     * preserving the same loading predicate for strict and non-strict processing. Missing keys
+     * receive empty pages, and existing transaction and completion behavior is unchanged.
+     *
+     * @param recordKeys Selected storage keys, at most 1000 per call
+     * @return An ordered, lazily decoded page for every requested key
+     * @throws IllegalArgumentException if more than 1000 keys are requested
+     */
+    override fun findIncompleteRecordPages(recordKeys: Set<String>): Map<String, OutboxRecordPage> {
+        require(recordKeys.size <= 1000) { "A record fetch can contain at most 1000 keys" }
+        if (recordKeys.isEmpty()) return emptyMap()
+
+        val query =
+            Query(
+                Criteria
+                    .where("recordKey")
+                    .`in`(recordKeys)
+                    .and("status")
+                    .`is`(OutboxRecordStatus.NEW),
+            ).with(Sort.by(Sort.Direction.ASC, "recordKey", "createdAt", "_id"))
+
+        val grouped =
+            mongoTemplate
+                .find(query, MongoOutboxRecordEntity::class.java, collectionNameResolver.outboxRecords)
+                .groupBy { it.recordKey }
+
+        return recordKeys.associateWith { key -> MongoOutboxRecordPage(grouped[key].orEmpty(), entityMapper) }
+    }
+
+    /**
      * Finds record keys in specified partitions that are ready for processing.
      *
      * When [ignoreRecordKeysWithPreviousFailure] is true, uses a strict FIFO aggregation
