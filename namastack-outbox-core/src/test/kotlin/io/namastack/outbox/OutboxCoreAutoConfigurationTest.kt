@@ -682,6 +682,21 @@ class OutboxCoreAutoConfigurationTest {
         }
 
         @Test
+        fun `fails when adaptive min interval is below one millisecond`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues(
+                    "namastack.outbox.polling.trigger=adaptive",
+                    "namastack.outbox.polling.adaptive.min-interval=500us",
+                ).run { context ->
+                    assertThat(context).hasFailed()
+                    assertThat(context.startupFailure)
+                        .rootCause()
+                        .hasMessageContaining("min-interval must be at least 1ms")
+                }
+        }
+
+        @Test
         fun `uses custom trigger when provided`() {
             contextRunner
                 .withUserConfiguration(ConfigWithCustomTrigger::class.java)

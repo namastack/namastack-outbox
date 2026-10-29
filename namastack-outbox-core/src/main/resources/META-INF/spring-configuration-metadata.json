@@ -153,7 +153,7 @@
       "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties$Polling$AdaptivePolling",
       "defaultValue": "1s",
-      "description": "Minimum interval between polling cycles for adaptive polling"
+      "description": "Minimum interval between polling cycles for adaptive polling. Must be at least 1ms"
     },
     {
       "name": "namastack.outbox.polling.adaptive.max-interval",
