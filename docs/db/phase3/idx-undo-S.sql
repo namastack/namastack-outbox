@@ -1,0 +1,1 @@
+ALTER TABLE outbox_record DROP INDEX idx_outbox_record_status_created, DROP INDEX idx_outbox_record_record_key_status_created, ADD INDEX idx_outbox_record_record_key_created (record_key, created_at);
