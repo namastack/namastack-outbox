@@ -12,6 +12,16 @@ import java.time.Instant
  * @since 0.1.0
  */
 interface OutboxRecordRepository {
+    companion object {
+        /**
+         * Maximum number of keys per [findIncompleteRecordPages] request. Bounds bulk reads and
+         * keeps SQL IN lists within the limit supported by all databases, including Oracle.
+         *
+         * @since 1.12.0
+         */
+        const val MAX_RECORD_KEYS_PER_FETCH = 1000
+    }
+
     /**
      * Saves an outbox record to the repository.
      *
@@ -126,6 +136,22 @@ interface OutboxRecordRepository {
      * @return List of incomplete outbox records for the given record key
      */
     fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord<*>>
+
+    /**
+     * Loads the same records as [findIncompleteRecordsByRecordKey] for several selected keys.
+     *
+     * Returns one page for every requested key, including an empty page when no records remain.
+     * Each page retains ascending creation-time and record-ID order. Future retries must remain
+     * in the page so the worker can stop or continue according to its failure-handling settings.
+     *
+     * Records are grouped using exact string equality. Applications must use a consistent
+     * representation for each record key.
+     *
+     * @param recordKeys Selected storage keys, at most [MAX_RECORD_KEYS_PER_FETCH] per call
+     * @return An ordered record page for every requested key
+     * @since 1.12.0
+     */
+    fun findIncompleteRecordPages(recordKeys: Set<String>): Map<String, OutboxRecordPage>
 
     /**
      * Finds record keys that have pending records in specific partitions.

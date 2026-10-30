@@ -77,6 +77,24 @@ class OutboxCoreAutoConfigurationTest {
                 ),
             )
 
+    @Test
+    fun `supports cycle batch sizes larger than the portable record fetch limit`() {
+        contextRunner
+            .withUserConfiguration(ConfigWithProcessingGroupHandler::class.java)
+            .withPropertyValues("namastack.outbox.polling.batch-size=2500")
+            .run { context ->
+                assertThat(context).hasNotFailed()
+                assertThat(context.getBean<OutboxProperties>().polling.batchSize).isEqualTo(2500)
+                val scheduler = context.getBean<OutboxProcessingScheduler>()
+                val settings =
+                    ReflectionTestUtils.getField(
+                        scheduler,
+                        "settings",
+                    ) as io.namastack.outbox.runtime.OutboxRuntimeSettings
+                assertThat(settings.polling.batchSize).isEqualTo(2500)
+            }
+    }
+
     @Nested
     @DisplayName("Processing Groups")
     inner class ProcessingGroups {
