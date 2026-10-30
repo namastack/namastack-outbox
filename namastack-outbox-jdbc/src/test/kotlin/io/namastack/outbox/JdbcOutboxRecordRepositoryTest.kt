@@ -802,7 +802,22 @@ class JdbcOutboxRecordRepositoryTest {
 
             val result = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
 
-            assertThat(result).contains(recordKey)
+            assertThat(result).containsExactly(recordKey)
+        }
+
+        @Test
+        fun `returns at most batch size record keys oldest first`() {
+            val now = Instant.now(clock)
+            val recordKeys = List(3) { UUID.randomUUID().toString() }
+
+            recordKeys.forEachIndexed { index, recordKey ->
+                createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3L - index, MINUTES).truncatedTo(MILLIS))
+            }
+
+            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 2, true))
+                .containsExactly(recordKeys[0], recordKeys[1])
+            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 2, false))
+                .containsExactly(recordKeys[0], recordKeys[1])
         }
 
         @Test
