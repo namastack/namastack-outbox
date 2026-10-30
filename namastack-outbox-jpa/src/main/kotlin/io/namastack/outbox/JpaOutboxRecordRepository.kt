@@ -106,9 +106,12 @@ internal open class JpaOutboxRecordRepository(
     /**
      * Query to select record keys with no previous open/failed event (older.completedAt is null).
      * Used when ignoreRecordKeysWithPreviousFailure is true.
+     *
+     * Only the oldest incomplete record of a key passes the not exists filter, so each key appears
+     * at most once and the oldest due records can be read in index order up to the row limit.
      */
     private val recordKeysQueryWithPreviousFailureFilter = """
-        select o.recordKey, min(o.createdAt) as minCreated
+        select o.recordKey
         from OutboxRecordEntity o
         where o.partitionNo in :partitions
         and o.status = :status
@@ -122,8 +125,7 @@ internal open class JpaOutboxRecordRepository(
                 or (older.createdAt = o.createdAt and older.id < o.id)
             )
         )
-        group by o.recordKey
-        order by minCreated asc
+        order by o.createdAt asc, o.id asc
     """
 
     /**

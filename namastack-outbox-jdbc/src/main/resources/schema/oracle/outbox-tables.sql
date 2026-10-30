@@ -25,7 +25,7 @@ BEGIN
         EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_key_cr ON outbox_record (record_key, created_at)';
         EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_p_s_r ON outbox_record (partition_no, status, next_retry_at)';
         EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_s_r ON outbox_record (status, next_retry_at)';
-        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_stat ON outbox_record (status)';
+        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_s_c ON outbox_record (status, created_at)';
         EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_k_c_c ON outbox_record (record_key, completed_at, created_at)';
     END IF;
 END;

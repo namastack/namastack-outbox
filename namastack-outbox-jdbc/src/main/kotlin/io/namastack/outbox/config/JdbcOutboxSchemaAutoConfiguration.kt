@@ -7,8 +7,6 @@ import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer
 import org.springframework.boot.sql.init.DatabaseInitializationMode
 import org.springframework.boot.sql.init.DatabaseInitializationSettings
 import org.springframework.context.annotation.Bean
-import org.springframework.jdbc.support.JdbcUtils
-import java.sql.DatabaseMetaData
 import javax.sql.DataSource
 
 /**
@@ -45,8 +43,7 @@ class JdbcOutboxSchemaAutoConfiguration {
     ): DataSourceScriptDatabaseInitializer {
         validateNoCustomTableNaming(properties)
 
-        val databaseName = detectDatabaseName(dataSource)
-        val databaseType = JdbcDatabaseType.from(databaseName)
+        val databaseType = JdbcDatabaseType.from(dataSource)
 
         val settings = DatabaseInitializationSettings()
         settings.schemaLocations = mutableListOf(databaseType.schemaLocation)
@@ -74,12 +71,4 @@ class JdbcOutboxSchemaAutoConfiguration {
             )
         }
     }
-
-    private fun detectDatabaseName(dataSource: DataSource): String =
-        try {
-            val metadata = JdbcUtils.extractDatabaseMetaData(dataSource, DatabaseMetaData::getDatabaseProductName)
-            JdbcUtils.commonDatabaseName(metadata) ?: throw RuntimeException("Could not detect database name")
-        } catch (e: Exception) {
-            throw RuntimeException("Could not detect database name", e)
-        }
 }

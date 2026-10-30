@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.JdbcDatabaseType
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
@@ -15,6 +16,7 @@ import java.time.Instant
  * @param entityMapper Mapper for converting between domain objects and entities
  * @param clock Clock for time-based operations
  * @param tableNameResolver Resolver for fully qualified table names
+ * @param databaseType Supplies the database type on first use, so construction opens no connection
  *
  * @author Roland Beisel
  * @since 1.0.0
@@ -25,9 +27,11 @@ internal open class JdbcOutboxRecordRepository(
     private val entityMapper: JdbcOutboxRecordEntityMapper,
     private val clock: java.time.Clock,
     private val tableNameResolver: JdbcTableNameResolver,
+    databaseType: () -> JdbcDatabaseType,
 ) : OutboxRecordRepository {
     private val tableName = tableNameResolver.outboxRecord
     private val rowMapper = JdbcOutboxRecordEntityRowMapper()
+    private val rowLimitClause by lazy { databaseType().rowLimitClause }
 
     /**
      * Query to update an existing outbox record.
@@ -127,8 +131,11 @@ internal open class JdbcOutboxRecordRepository(
     /**
      * Query to select record keys with no previous open/failed event (older.completedAt is null).
      * Used when ignoreRecordKeysWithPreviousFailure is true.
+     *
+     * Only the oldest incomplete record of a key passes the NOT EXISTS filter, so each key appears
+     * at most once and the oldest due records can be read in index order up to the row limit.
      */
-    private val recordKeysQueryWithPreviousFailureFilterTemplate =
+    private val recordKeysQueryWithPreviousFailureFilterTemplate by lazy {
         """
         SELECT o.record_key
         FROM $tableName o
@@ -144,15 +151,16 @@ internal open class JdbcOutboxRecordRepository(
                 OR (older.created_at = o.created_at AND older.id < o.id)
               )
           )
-        GROUP BY o.record_key
-        ORDER BY MIN(o.created_at) ASC
+        ORDER BY o.created_at ASC, o.id ASC
+        $rowLimitClause
         """.toSingleLine()
+    }
 
     /**
      * Query to select all record keys with pending records, regardless of previous failures.
      * Used when ignoreRecordKeysWithPreviousFailure is false.
      */
-    private val recordKeysQueryWithoutPreviousFailureFilterTemplate =
+    private val recordKeysQueryWithoutPreviousFailureFilterTemplate by lazy {
         """
         SELECT o.record_key
         FROM $tableName o
@@ -161,7 +169,9 @@ internal open class JdbcOutboxRecordRepository(
           AND o.next_retry_at <= :now
         GROUP BY o.record_key
         ORDER BY MIN(o.created_at) ASC
+        $rowLimitClause
         """.toSingleLine()
+    }
 
     /**
      * Query to count outbox records by status.
@@ -413,10 +423,10 @@ internal open class JdbcOutboxRecordRepository(
 
         return jdbcClient
             .sql(query)
-            .withMaxRows(batchSize)
             .param("partitions", partitions.toList())
             .param("status", status.name)
             .param("now", now.toTimestamp())
+            .param("limit", batchSize)
             .query(String::class.java)
             .list()
             .filterNotNull()
