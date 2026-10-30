@@ -101,6 +101,7 @@ class JdbcOutboxAutoConfiguration {
      * @param jdbcOutboxRecordEntityMapper Mapper for converting between domain objects and entities
      * @param clock Clock for time-based operations
      * @param tableNameResolver Resolver for fully qualified table names
+     * @param dataSource DataSource whose database type selects the row limit syntax
      * @return JDBC outbox record repository implementation
      */
     @Bean
@@ -110,6 +111,7 @@ class JdbcOutboxAutoConfiguration {
         jdbcOutboxRecordEntityMapper: JdbcOutboxRecordEntityMapper,
         clock: Clock,
         tableNameResolver: JdbcTableNameResolver,
+        dataSource: DataSource,
     ): OutboxRecordRepository =
         JdbcOutboxRecordRepository(
             jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient"),
@@ -117,6 +119,7 @@ class JdbcOutboxAutoConfiguration {
             entityMapper = jdbcOutboxRecordEntityMapper,
             clock = clock,
             tableNameResolver = tableNameResolver,
+            databaseType = { JdbcDatabaseType.from(dataSource) },
         )
 
     /**

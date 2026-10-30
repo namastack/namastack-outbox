@@ -28,7 +28,7 @@ import java.time.Instant
         Index(name = "idx_outbox_record_record_key_created", columnList = "recordKey, createdAt"),
         Index(name = "idx_outbox_record_partition_status_retry", columnList = "partitionNo, status, nextRetryAt"),
         Index(name = "idx_outbox_record_status_retry", columnList = "status, nextRetryAt"),
-        Index(name = "idx_outbox_record_status", columnList = "status"),
+        Index(name = "idx_outbox_record_status_created", columnList = "status, createdAt"),
         Index(name = "idx_outbox_record_key_completed_created", columnList = "recordKey, completedAt, createdAt"),
     ],
 )
