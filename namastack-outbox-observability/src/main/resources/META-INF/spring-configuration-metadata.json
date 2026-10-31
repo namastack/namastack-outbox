@@ -27,6 +27,13 @@
       "sourceType": "io.namastack.outbox.observability.metrics.OutboxMetricsProperties",
       "defaultValue": "60s",
       "description": "Maximum age of each collected gauge reading. Readings report NaN once they reach this age, including while collection is blocked. Must be at least refresh-interval."
+    },
+    {
+      "name": "namastack.outbox.observability.metrics.record-statuses",
+      "type": "java.util.Set<io.namastack.outbox.OutboxRecordStatus>",
+      "sourceType": "io.namastack.outbox.observability.metrics.OutboxMetricsProperties",
+      "defaultValue": ["new", "failed"],
+      "description": "Record statuses that get an outbox.records gauge. All configured statuses are counted with one grouped query per collection. Counting COMPLETED records grows with the retained history."
     }
   ]
 }

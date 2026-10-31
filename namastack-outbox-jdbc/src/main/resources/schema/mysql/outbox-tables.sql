@@ -14,11 +14,11 @@ CREATE TABLE IF NOT EXISTS outbox_record
     partition_no   INT                                                   NOT NULL,
     handler_id     VARCHAR(1000)                                         NOT NULL,
     PRIMARY KEY (id),
-    INDEX idx_outbox_record_record_key_created (record_key, created_at),
     INDEX idx_outbox_record_partition_status_retry (partition_no, status, next_retry_at),
     INDEX idx_outbox_record_status_retry (status, next_retry_at),
     INDEX idx_outbox_record_status (status),
-    INDEX idx_outbox_record_record_key_completed_created (record_key, completed_at, created_at)
+    INDEX idx_outbox_record_record_key_completed_created_id (record_key, completed_at, created_at, id),
+    INDEX idx_outbox_record_completed_created_id (completed_at, created_at, id, partition_no, status, next_retry_at, record_key)
 ) ENGINE = InnoDB;
 
 CREATE TABLE IF NOT EXISTS outbox_instance

@@ -85,6 +85,48 @@ spring:
 If the schema does not match the expected structure, Spring Boot will fail to start — which is
 the desired behavior for production deployments.
 
+### outbox_record Indexes
+
+The schema files create these indexes on `outbox_record` in addition to the primary key on `id`.
+They support the poller's queries, which read only incomplete records (`NEW` and `FAILED`, whose
+`completed_at` is `NULL`) in `(created_at, id)` order and stop after the batch size.
+
+| Index | Columns | Purpose |
+|-------|---------|---------|
+| `idx_outbox_record_partition_status_retry` | `(partition_no, status, next_retry_at)` | Pending record counts per partition |
+| `idx_outbox_record_status_retry` | `(status, next_retry_at)` | Overdue-age metric, `FAILED` retention |
+| `idx_outbox_record_status` | `(status)` | Record counts by status |
+| `idx_outbox_record_record_key_completed_created_id` | `(record_key, completed_at, created_at, id)` | Ordered records of one key; predecessor check |
+| incomplete-record index | per database, see below | Record keys ready for processing, oldest creation time |
+
+The incomplete-record index differs per database:
+
+| Database | Definition |
+|----------|------------|
+| PostgreSQL | `idx_outbox_record_created_id_incomplete (created_at, id) INCLUDE (partition_no, status, next_retry_at, record_key) WHERE completed_at IS NULL`, plus the extended statistics `outbox_record_status_completed_stx (mcv) ON status, completed_at` |
+| SQL Server | `idx_outbox_record_created_id_incomplete (created_at, id) INCLUDE (partition_no, status, next_retry_at, record_key, completed_at) WHERE completed_at IS NULL` |
+| MySQL, MariaDB, H2 | `idx_outbox_record_completed_created_id (completed_at, created_at, id, partition_no, status, next_retry_at, record_key)` |
+| Oracle | `idx_outbox_rec_status_created (status, created_at, id, partition_no, next_retry_at, record_key)` |
+
+Oracle index names are shortened: `idx_outbox_rec_p_s_r`, `idx_outbox_rec_s_r`, `idx_outbox_rec_stat`
+and `idx_outbox_rec_k_c_c_id`.
+
+The JDBC module chooses the SQL for each database from the product name reported by the JDBC driver.
+Other databases receive portable SQL without a SQL row limit; the row limit is then applied by the
+driver. Correct results do not depend on these indexes, but without them the poller's queries read
+all incomplete records on every poll.
+
+The poller's queries rely on `completed_at` being `NULL` exactly for `NEW` and `FAILED` records.
+The library maintains this; applications that write to `outbox_record` directly must keep it.
+
+SQL Server requires `QUOTED_IDENTIFIER ON` in sessions that write to a table with a filtered index.
+The Microsoft JDBC driver sets it by default.
+
+Automatic schema initialization creates each index as follows: on PostgreSQL and H2, every missing
+index is created, also when the table is already present. On SQL Server, the filtered index is created
+when it is missing and the other indexes together with the table. On MySQL, MariaDB and Oracle, all
+indexes are created together with the table.
+
 ---
 
 ## Migration Strategies
@@ -147,14 +189,17 @@ When using a custom collection prefix (e.g. `myapp_`), all collection names are 
 
 #### outbox_records Indexes
 
-| Index Name                         | Fields                                           | Purpose                                          |
-|------------------------------------|--------------------------------------------------|--------------------------------------------------|
-| `status_idx`                       | `{ status: 1 }`                                  | Filter records by status                         |
-| `record_key_created_idx`           | `{ recordKey: 1, createdAt: 1 }`                 | Ordered lookup by record key                     |
-| `partition_status_retry_idx`       | `{ partitionNo: 1, status: 1, nextRetryAt: 1 }`  | Partition-scoped polling query                   |
-| `status_retry_idx`                 | `{ status: 1, nextRetryAt: 1 }`                  | Global retry scheduling                          |
-| `record_key_completed_created_idx` | `{ recordKey: 1, completedAt: 1, createdAt: 1 }` | Completed record cleanup                         |
-| `fifo_pipeline_idx`                | `{ partitionNo: 1, recordKey: 1, createdAt: 1 }` | FIFO aggregation pipeline for ordered processing |
+| Index Name                   | Fields                                                                            | Partial filter        | Purpose                                              |
+|------------------------------|-----------------------------------------------------------------------------------|-----------------------|------------------------------------------------------|
+| `status_idx`                 | `{ status: 1 }`                                                                   |                       | Filter records by status                             |
+| `record_key_created_idx`     | `{ recordKey: 1, createdAt: 1 }`                                                  |                       | Ordered lookup by record key                         |
+| `partition_status_retry_idx` | `{ partitionNo: 1, status: 1, nextRetryAt: 1 }`                                   |                       | Partition-scoped counts and oldest due record        |
+| `status_retry_idx`           | `{ status: 1, nextRetryAt: 1 }`                                                   |                       | Global retry scheduling                              |
+| `incomplete_created_idx`     | `{ createdAt: 1, _id: 1, partitionNo: 1, status: 1, nextRetryAt: 1, recordKey: 1 }` | `{ completedAt: null }` | Record keys ready for processing, oldest creation time |
+| `incomplete_key_created_idx` | `{ recordKey: 1, createdAt: 1, _id: 1 }`                                          | `{ completedAt: null }` | Oldest incomplete record of a key, bulk record load  |
+
+Queries use the partial indexes only when they contain `completedAt: null`; the outbox queries do.
+Spring Data MongoDB creates the declared indexes and leaves other indexes on the collection in place.
 
 For time-based retention of completed records, an additional `{ status: 1, completedAt: 1 }` index is
 recommended but not created automatically. See [Record Retention](retention.md#indexes).

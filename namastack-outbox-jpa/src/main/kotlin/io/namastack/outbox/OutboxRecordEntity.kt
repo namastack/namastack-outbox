@@ -25,11 +25,14 @@ import java.time.Instant
 @Table(
     name = "outbox_record",
     indexes = [
-        Index(name = "idx_outbox_record_record_key_created", columnList = "recordKey, createdAt"),
         Index(name = "idx_outbox_record_partition_status_retry", columnList = "partitionNo, status, nextRetryAt"),
         Index(name = "idx_outbox_record_status_retry", columnList = "status, nextRetryAt"),
         Index(name = "idx_outbox_record_status", columnList = "status"),
-        Index(name = "idx_outbox_record_key_completed_created", columnList = "recordKey, completedAt, createdAt"),
+        Index(
+            name = "idx_outbox_record_record_key_completed_created_id",
+            columnList = "recordKey, completedAt, createdAt, id",
+        ),
+        Index(name = "idx_outbox_record_completed_created_id", columnList = "completedAt, createdAt, id"),
     ],
 )
 data class OutboxRecordEntity(

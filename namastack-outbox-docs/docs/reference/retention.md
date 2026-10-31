@@ -177,8 +177,15 @@ deleting its id is still deleted.
 
 ## Indexes
 
-`FAILED` retention uses the existing `(status, next_retry_at)` index. For large tables, `COMPLETED`
-retention benefits from an additional index, which is not created automatically:
+`FAILED` retention uses the `(status, next_retry_at)` index from the schema files, which also serves
+the overdue-age metric (see [outbox_record Indexes](database.md#outbox_record-indexes)). The retention
+queries read at most `limit` rows with a SQL row limit (`LIMIT`, `FETCH FIRST` or
+`OFFSET … FETCH NEXT`), ordered by `completed_at` or `next_retry_at`.
+
+On MySQL, MariaDB and H2, the `idx_outbox_record_completed_created_id` index begins with `completed_at`
+and also serves `COMPLETED` retention. On PostgreSQL, SQL Server and Oracle, and on MongoDB, large
+tables benefit from an additional index for `COMPLETED` retention, which is optional and not created
+automatically:
 
 <Tabs>
 <TabItem value="sql" label="Relational databases">

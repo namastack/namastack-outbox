@@ -17,12 +17,21 @@ CREATE TABLE outbox_record
     partition_no   INT           NOT NULL,
     handler_id     VARCHAR(1000) NOT NULL
         PRIMARY KEY (id),
-    INDEX idx_outbox_record_record_key_created (record_key, created_at),
     INDEX idx_outbox_record_partition_status_retry (partition_no, status, next_retry_at),
     INDEX idx_outbox_record_status_retry (status, next_retry_at),
     INDEX idx_outbox_record_status (status),
-    INDEX idx_outbox_record_record_key_completed_created (record_key, completed_at, created_at)
+    INDEX idx_outbox_record_record_key_completed_created_id (record_key, completed_at, created_at, id)
 );
+
+-- Filtered index: sessions that write outbox_record need QUOTED_IDENTIFIER ON (the JDBC default).
+IF NOT EXISTS(SELECT *
+              FROM sys.indexes
+              WHERE name = 'idx_outbox_record_created_id_incomplete'
+                AND object_id = OBJECT_ID('outbox_record'))
+CREATE INDEX idx_outbox_record_created_id_incomplete
+    ON outbox_record (created_at, id)
+    INCLUDE (partition_no, status, next_retry_at, record_key, completed_at)
+    WHERE completed_at IS NULL;
 
 IF NOT EXISTS(SELECT *
               FROM INFORMATION_SCHEMA.TABLES
