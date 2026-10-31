@@ -1,5 +1,6 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.JdbcDatabaseType
 import io.namastack.outbox.runtime.OutboxRuntimePersistence
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.PlatformTransactionManager
@@ -21,6 +22,8 @@ object JdbcOutboxPersistenceFactory {
     /**
      * Creates the three JDBC repository implementations required by one outbox runtime.
      *
+     * The database type is detected from the datasource metadata on the first record query.
+     *
      * @param dataSource Datasource used by all repositories
      * @param transactionManager Transaction manager used for repository transactions
      * @param payloadSerializer Serializer used for record payloads and context
@@ -34,6 +37,33 @@ object JdbcOutboxPersistenceFactory {
         payloadSerializer: OutboxPayloadSerializer,
         clock: Clock,
         tableNameResolver: JdbcTableNameResolver = DefaultJdbcTableNameResolver(),
+    ): OutboxRuntimePersistence =
+        create(dataSource, transactionManager, payloadSerializer, clock, tableNameResolver, databaseType = null)
+
+    /**
+     * Creates the three JDBC repository implementations required by one outbox runtime for a known
+     * database type.
+     *
+     * The database type selects the SQL dialect of the record queries. When it is `null`, the type is
+     * detected once from `DatabaseMetaData.getDatabaseProductName()` on the first record query, so
+     * construction still opens no connection. Unsupported products use portable SQL.
+     *
+     * @param dataSource Datasource used by all repositories
+     * @param transactionManager Transaction manager used for repository transactions
+     * @param payloadSerializer Serializer used for record payloads and context
+     * @param clock Clock used for time-based record operations
+     * @param tableNameResolver Resolver providing one complete physical table namespace
+     * @param databaseType Database type of [dataSource], or `null` to detect it on first use
+     * @return Runtime persistence containing the three JDBC repositories
+     * @since 1.12.0
+     */
+    fun create(
+        dataSource: DataSource,
+        transactionManager: PlatformTransactionManager,
+        payloadSerializer: OutboxPayloadSerializer,
+        clock: Clock,
+        tableNameResolver: JdbcTableNameResolver,
+        databaseType: JdbcDatabaseType?,
     ): OutboxRuntimePersistence {
         val jdbcClient = JdbcClient.create(dataSource)
         val transactionTemplate = TransactionTemplate(transactionManager)
@@ -46,6 +76,7 @@ object JdbcOutboxPersistenceFactory {
                     entityMapper = JdbcOutboxRecordEntityMapper(payloadSerializer),
                     clock = clock,
                     tableNameResolver = tableNameResolver,
+                    databaseTypeResolver = { databaseType ?: JdbcDatabaseType.detect(dataSource) },
                 ),
             instanceRepository =
                 JdbcOutboxInstanceRepository(

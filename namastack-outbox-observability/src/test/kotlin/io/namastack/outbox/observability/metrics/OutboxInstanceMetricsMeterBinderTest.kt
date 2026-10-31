@@ -71,6 +71,9 @@ class OutboxInstanceMetricsMeterBinderTest {
         every { recordRepository.countByStatus(NEW) } returns 15
         every { recordRepository.countByStatus(FAILED) } returns 3
         every { recordRepository.countByStatus(COMPLETED) } returns 42
+        every { recordRepository.countByStatuses(any()) } answers {
+            firstArg<Set<OutboxRecordStatus>>().associateWith { recordRepository.countByStatus(it) }
+        }
         every { coordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
         every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } returns null
         every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } returns null
@@ -89,9 +92,10 @@ class OutboxInstanceMetricsMeterBinderTest {
     @Test
     fun `publishes collected values with existing names and channel and status tags`() {
         collector.refresh()
-        mapOf(NEW to 15.0, FAILED to 3.0, COMPLETED to 42.0).forEach { (status, count) ->
+        mapOf(NEW to 15.0, FAILED to 3.0).forEach { (status, count) ->
             assertThat(recordGauge(status)).isEqualTo(count)
         }
+        assertThat(registry.find(OutboxMetricNames.RECORDS).gauges()).hasSize(2)
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isEqualTo(10.0)
         assertThat(value(OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED)).isEqualTo(2.0)
         assertThat(value(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE)).isEqualTo(2.0)
@@ -99,7 +103,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         assertThat(
             value(OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP),
         ).isEqualTo(now.get().epochSecond.toDouble())
-        assertThat(registry.meters).hasSize(10)
+        assertThat(registry.meters).hasSize(9)
         assertThat(registry.meters.map { it.id.name }).doesNotContain(
             "outbox.records.count",
             "outbox.instance.records.pending.max",
@@ -122,7 +126,8 @@ class OutboxInstanceMetricsMeterBinderTest {
                 other.meters.filterIsInstance<Gauge>().forEach { it.value() }
             }
         }
-        OutboxRecordStatus.entries.forEach { verify(exactly = 1) { recordRepository.countByStatus(it) } }
+        verify(exactly = 1) { recordRepository.countByStatuses(setOf(NEW, FAILED)) }
+        verify(exactly = 0) { recordRepository.countByStatus(COMPLETED) }
         verify(exactly = 1) { coordinator.getAssignedPartitionNumbers() }
         verify(exactly = 1) { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2), NEW) }
         verify(exactly = 1) { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), NEW, now.get(), true) }
@@ -156,7 +161,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         every { instanceRegistry.getActiveInstanceCount() } throws IllegalStateException("instance count failed")
         collector.refresh()
         assertThat(recordGauge(FAILED)).isNaN()
-        assertThat(recordGauge(NEW)).isEqualTo(15.0)
+        assertThat(recordGauge(NEW)).isNaN()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isNaN()
         assertThat(value(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE)).isNaN()
         assertThat(value(OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED)).isEqualTo(5.0)
@@ -334,6 +339,79 @@ class OutboxInstanceMetricsMeterBinderTest {
         } finally {
             scheduledCollector.stop()
         }
+    }
+
+    @Test
+    fun `record gauges cover new and failed by default without a completed gauge`() {
+        collector.refresh()
+
+        assertThat(collector.recordStatuses).containsExactly(NEW, FAILED)
+        assertThat(
+            registry
+                .find(OutboxMetricNames.RECORDS)
+                .tag(OutboxMetricKeyNames.LowCardinality.RECORD_STATUS, "completed")
+                .gauge(),
+        ).isNull()
+        verify(exactly = 0) { recordRepository.countByStatus(COMPLETED) }
+    }
+
+    @Test
+    fun `configured record statuses opt in to the completed gauge`() {
+        val completedCollector =
+            OutboxMetricsCollector(
+                recordRepository,
+                coordinator,
+                instanceRegistry,
+                OutboxMetricsProperties(recordStatuses = setOf(NEW, FAILED, COMPLETED)),
+                clock,
+                taskScheduler,
+            )
+        SimpleMeterRegistry().useRegistry { other ->
+            OutboxInstanceMetricsMeterBinder(completedCollector) { "orders" }.bindTo(other)
+            completedCollector.refresh()
+
+            assertThat(
+                other
+                    .get(OutboxMetricNames.RECORDS)
+                    .tag(OutboxMetricKeyNames.LowCardinality.RECORD_STATUS, "completed")
+                    .gauge()
+                    .value(),
+            ).isEqualTo(42.0)
+            assertThat(other.find(OutboxMetricNames.RECORDS).gauges()).hasSize(3)
+        }
+    }
+
+    @Test
+    fun `record counts are collected with one grouped query for the configured statuses`() {
+        every { recordRepository.countByStatuses(setOf(NEW, FAILED)) } returns mapOf(NEW to 7L, FAILED to 1L)
+
+        collector.refresh()
+
+        assertThat(recordGauge(NEW)).isEqualTo(7.0)
+        assertThat(recordGauge(FAILED)).isEqualTo(1.0)
+        verify(exactly = 1) { recordRepository.countByStatuses(setOf(NEW, FAILED)) }
+        verify(exactly = 0) { recordRepository.countByStatus(any()) }
+    }
+
+    @Test
+    fun `no record statuses register no record gauges and run no count query`() {
+        val emptyCollector =
+            OutboxMetricsCollector(
+                recordRepository,
+                coordinator,
+                instanceRegistry,
+                OutboxMetricsProperties(recordStatuses = emptySet()),
+                clock,
+                taskScheduler,
+            )
+        SimpleMeterRegistry().useRegistry { other ->
+            OutboxInstanceMetricsMeterBinder(emptyCollector) { "orders" }.bindTo(other)
+            emptyCollector.refresh()
+
+            assertThat(other.find(OutboxMetricNames.RECORDS).gauges()).isEmpty()
+            assertThat(emptyCollector.lastSuccessTimestamp).isEqualTo(now.get().epochSecond.toDouble())
+        }
+        verify(exactly = 0) { recordRepository.countByStatuses(any()) }
     }
 
     @Test

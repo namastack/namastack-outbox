@@ -228,6 +228,18 @@ class MongoOutboxRecordRepositoryTest {
             assertThat(oldestDueAt(false)).isEqualTo(retentionBase)
         }
 
+        @Test
+        fun `keys with equal head creation times are ordered by the head record id`() {
+            saveRecord(2, key = "key-a")
+            saveRecord(1, key = "key-z")
+            saveRecord(3, key = "key-m", createdAt = retentionBase.minusSeconds(1))
+
+            assertThat(repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true))
+                .containsExactly("key-m", "key-z", "key-a")
+            assertThat(repository.findRecordKeysInPartitions(setOf(1), NEW, 2, true))
+                .containsExactly("key-m", "key-z")
+        }
+
         private fun oldestDueAt(strict: Boolean): Instant? =
             repository.findOldestDueNextRetryAtByPartitions(setOf(1), NEW, Instant.now(clock), strict)
 
@@ -238,11 +250,12 @@ class MongoOutboxRecordRepositoryTest {
             status: OutboxRecordStatus = NEW,
             createdAt: Instant = retentionBase,
             nextRetryAt: Instant = createdAt,
+            key: String = recordKey,
         ): OutboxRecord<String> =
             repository.save(
                 OutboxRecord.restore(
                     id = "00000000-0000-4000-8000-${number.toString().padStart(12, '0')}",
-                    recordKey = recordKey,
+                    recordKey = key,
                     payload = "payload",
                     context = emptyMap(),
                     partition = 1,
@@ -1076,6 +1089,17 @@ class MongoOutboxRecordRepositoryTest {
             assertThat(repository.countByStatus(NEW)).isEqualTo(1)
             assertThat(repository.countByStatus(COMPLETED)).isEqualTo(2)
             assertThat(repository.countByStatus(FAILED)).isEqualTo(3)
+        }
+
+        @Test
+        fun `counts records grouped by status including statuses without records`() {
+            createNewRecords(1)
+            createFailedRecords(3)
+
+            assertThat(repository.countByStatuses(setOf(NEW, FAILED, COMPLETED)))
+                .containsExactlyInAnyOrderEntriesOf(mapOf(NEW to 1L, FAILED to 3L, COMPLETED to 0L))
+            assertThat(repository.countByStatuses(setOf(FAILED))).containsExactlyEntriesOf(mapOf(FAILED to 3L))
+            assertThat(repository.countByStatuses(emptySet())).isEmpty()
         }
     }
 

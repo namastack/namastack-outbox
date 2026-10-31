@@ -155,7 +155,7 @@ Micrometer converts dotted meter names to Prometheus naming conventions. For exa
 
 | Metric | Description | Tags |
 |--------|-------------|------|
-| `outbox.records` | Count of outbox records by status | `outbox.channel`, `outbox.record.status=new\|failed\|completed` |
+| `outbox.records` | Count of outbox records by status, for the statuses in `record-statuses` (default `new` and `failed`) | `outbox.channel`, `outbox.record.status=new\|failed\|completed` |
 | `outbox.instance.partitions.assigned` | Number of partitions assigned to this application instance | `outbox.channel` |
 | `outbox.instance.records.pending` | Total pending records across partitions assigned to this instance | `outbox.channel` |
 | `outbox.instance.records.oldest.age` | Age in seconds of the oldest pending record across partitions assigned to this instance | `outbox.channel` |
@@ -171,6 +171,14 @@ Use gauges for operational state:
 - per-instance pressure: `outbox.instance.records.pending`
 - delivery staleness: `outbox.instance.records.oldest.age` and `outbox.instance.records.overdue.age`
 - cluster health: `outbox.cluster.instances.active` and `outbox.cluster.partitions.unassigned`
+
+For completion throughput, use the `outbox.record.attempt` timer rather than a count of `COMPLETED`
+records. It counts each completed record once, including completions by a fallback handler, and
+needs no database query:
+
+```promql
+sum(rate(outbox_record_attempt_seconds_count{outbox_processing_outcome="completed"}[5m]))
+```
 
 The oldest age includes `NEW` records waiting for a future retry. The overdue age includes only
 `NEW` records due at collection time. When `stop-on-first-failure` is enabled, it excludes records
@@ -200,9 +208,15 @@ namastack:
         enabled: true
         refresh-interval: 15s
         max-age: 60s
+        record-statuses: new, failed  # statuses with an outbox.records gauge (since 1.12.0)
 ```
 
 `refresh-interval` must be at least 1ms. `max-age` must be at least `refresh-interval`.
+
+`record-statuses` selects the statuses that get an `outbox.records` gauge. All selected statuses
+are counted with one grouped query per collection. Add `completed` to publish the number of
+retained `COMPLETED` records; that count grows with the retained history, so its query becomes
+slower as the table grows. An empty list registers no `outbox.records` gauges.
 The maximum age applies independently to each reading, including while a collection is blocked.
 
 Before the first reading, after a failed query, or once a reading reaches `max-age`, the affected
@@ -236,10 +250,15 @@ unknown values on failure or expiry. Existing metric names and tags are unchange
 alerts and dashboards that relied on immediate updates or zero values during database outages.
 Observation-based timers are unchanged.
 
+`outbox.records` is published for `new` and `failed` by default. Dashboards that read the
+`completed` series either add `completed` to `record-statuses` or switch to the completion rate of
+`outbox.record.attempt`.
+
 The infrastructure class `OutboxInstanceMetricsMeterBinder` has a new constructor. Applications
 using Spring Boot auto-configuration require no wiring changes. Code that directly instantiated
 this implementation must be updated; its former constructor is not binary-compatible. The
-outbox API, repository SPI, and `OutboxInstrumentation` interface are unchanged.
+outbox API and `OutboxInstrumentation` interface are unchanged. The repository SPI gains
+`countByStatuses`, which has a default implementation.
 
 :::
 

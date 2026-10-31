@@ -58,13 +58,13 @@ db[recordsCollection].createIndex(
 );
 
 db[recordsCollection].createIndex(
-    { recordKey: 1, completedAt: 1, createdAt: 1 },
-    { name: "record_key_completed_created_idx" }
+    { createdAt: 1, _id: 1, partitionNo: 1, status: 1, nextRetryAt: 1, recordKey: 1 },
+    { name: "incomplete_created_idx", partialFilterExpression: { completedAt: null } }
 );
 
 db[recordsCollection].createIndex(
-    { partitionNo: 1, recordKey: 1, createdAt: 1 },
-    { name: "fifo_pipeline_idx" }
+    { recordKey: 1, createdAt: 1, _id: 1 },
+    { name: "incomplete_key_created_idx", partialFilterExpression: { completedAt: null } }
 );
 
 // -----------------------------------------------------------------------------

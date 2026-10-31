@@ -20,7 +20,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Uses a dedicated scheduler to keep collection off metric scrape threads and the processing and
  * heartbeat schedulers. Collection still shares database connections and partition-cache resources
  * with the outbox runtime, so resource contention can affect processing.
- * Each metric is updated independently, retaining fresh readings when another query fails.
+ * Each metric is updated independently, retaining fresh readings when another query fails. Record
+ * counts are collected only for the configured statuses, with one grouped query.
  *
  * @param recordRepository Repository for record counts by status, pending record counts and ages
  * @param partitionCoordinator Coordinator for partition assignments and cluster state
@@ -50,7 +51,9 @@ internal class OutboxMetricsCollector(
     private val collecting = AtomicBoolean(false)
 
     private val recordCounts: Map<OutboxRecordStatus, OutboxMetricValue> =
-        OutboxRecordStatus.entries.associateWith { OutboxMetricValue(properties.maxAge, clock) }
+        OutboxRecordStatus.entries
+            .filter { it in properties.recordStatuses }
+            .associateWith { OutboxMetricValue(properties.maxAge, clock) }
     private val assignedPartitions = OutboxMetricValue(properties.maxAge, clock)
     private val pendingRecords = OutboxMetricValue(properties.maxAge, clock)
     private val oldestRecordAge = OutboxMetricValue(properties.maxAge, clock)
@@ -142,14 +145,18 @@ internal class OutboxMetricsCollector(
     }
 
     private fun collectRecordCounts(): Boolean {
-        var successful = true
+        if (recordCounts.isEmpty()) return true
+        if (Thread.currentThread().isInterrupted) return false
 
-        recordCounts.forEach { (status, metric) ->
-            val collected = collectMetric(metric) { recordRepository.countByStatus(status).toDouble() }
-            if (!collected) successful = false
+        return try {
+            val counts = recordRepository.countByStatuses(recordCounts.keys)
+            recordCounts.forEach { (status, metric) -> metric.update((counts[status] ?: 0L).toDouble()) }
+            true
+        } catch (ex: Exception) {
+            recordCounts.values.forEach { it.invalidate() }
+            handleCollectionFailure(ex)
+            false
         }
-
-        return successful
     }
 
     private fun collectPartitionMetrics(): Boolean {

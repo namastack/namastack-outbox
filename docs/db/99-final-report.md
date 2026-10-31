@@ -205,6 +205,8 @@ Targets (section 6.1):
 2. **`findIncompleteRecordsByRecordKey` KDoc.** It says "all incomplete records", but the query returns only NEW. Fix either the doc or the query ([queries/findIncompleteRecordsByRecordKey.md](queries/findIncompleteRecordsByRecordKey.md)).
 3. **`countByStatus(COMPLETED)`.** It grows linearly with history (24–80 ms at 1M rows) and runs every 15 s from the observability collector for all three statuses. The deprecated metrics module
    calls it on every scrape, and also runs `countRecordsByPartition` 4 × owned partitions per scrape. Consider dropping or caching the COMPLETED gauge, or adding a grouped `countByStatuses` SPI ([H30](experiments/H30-countbystatus-status-index-guard.md), [H32](experiments/H32-partition-metrics-on-incomplete-partial-index.md)).
+   A new completion counter is not needed. The `outbox.record.attempt` observation (timer `outbox_record_attempt_seconds`, tag `outbox.processing.outcome`) already counts each completed record once, including fallback completions, at no DB cost:
+   `sum(rate(outbox_record_attempt_seconds_count{outbox_processing_outcome="completed"}[5m]))`. So the COMPLETED gauge can become opt-in or slower-refreshed, and the docs can point to this expression for throughput.
 4. **Not measured.**
    - I/O cost: all Postgres runs were on tmpfs, so cache misses were not measured.
    - Whether MySQL Connector/J `maxRows` maps to a real limit.

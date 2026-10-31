@@ -184,7 +184,7 @@ class OutboxInstanceMetricsAutoConfigurationTest {
         val closer = Executors.newSingleThreadExecutor()
         val registry = SimpleMeterRegistry()
         val repository = mockk<OutboxRecordRepository>()
-        every { repository.countByStatus(any()) } answers {
+        every { repository.countByStatuses(any()) } answers {
             entered.countDown()
             var released = false
             while (!released) {
@@ -195,7 +195,7 @@ class OutboxInstanceMetricsAutoConfigurationTest {
                     // Model a driver that does not cancel its database operation on interruption.
                 }
             }
-            0L
+            emptyMap()
         }
 
         try {
