@@ -1,0 +1,11 @@
+# Raw output of the DB exploration run. Summaries, scripts and SQL are committed.
+results/*/
+results/*.txt
+experiments/*/qdirs/
+phase3/*/plans/
+phase3/*/ref-*.json
+phase3/mongo/*.out
+phase3/jpa/generated-sql-*.txt
+phase3/sqlserver-recheck/
+90-cross-dialect/sqlserver-recheck.md
+__pycache__/
