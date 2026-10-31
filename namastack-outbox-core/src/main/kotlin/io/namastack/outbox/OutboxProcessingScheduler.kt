@@ -1,6 +1,7 @@
 package io.namastack.outbox
 
 import io.micrometer.observation.ObservationRegistry
+import io.namastack.outbox.OutboxRecordRepository.Companion.MAX_RECORD_KEYS_PER_FETCH
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.partition.PartitionCoordinator
@@ -10,13 +11,15 @@ import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
 import org.springframework.core.task.TaskExecutor
+import org.springframework.core.task.support.TaskExecutorAdapter
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.support.ScheduledMethodRunnable
 import java.lang.reflect.Method
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.CountDownLatch
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -66,6 +69,8 @@ class OutboxProcessingScheduler(
     }
 
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
+
+    private val asyncTaskExecutor = TaskExecutorAdapter(taskExecutor)
 
     private val lifecycle = SchedulerLifecycleStateMachine(settings.processing.shutdownTimeout)
 
@@ -165,30 +170,40 @@ class OutboxProcessingScheduler(
         )
 
     private fun processBatch(recordKeys: List<String>) {
-        val latch = CountDownLatch(recordKeys.size)
-
-        recordKeys.forEach { key ->
-            taskExecutor.execute {
-                try {
-                    processRecordKey(key)
-                } finally {
-                    latch.countDown()
+        val completions = ArrayList<CompletableFuture<*>>(recordKeys.size)
+        try {
+            recordKeys.chunked(MAX_RECORD_KEYS_PER_FETCH).forEach { keys ->
+                val pages = recordRepository.findIncompleteRecordPages(keys.toSet())
+                keys.forEach { key ->
+                    val page = pages.getValue(key)
+                    val completion =
+                        asyncTaskExecutor
+                            .submitCompletable { processRecordKey(key, page) }
+                            .exceptionally { failure ->
+                                val cause = (failure as? CompletionException)?.cause ?: failure
+                                log.error("Error processing key {}", key, cause)
+                                null
+                            }
+                    completions.add(completion)
                 }
             }
+        } finally {
+            // Failed fetches, rejected submissions and interrupts must not release active assignments.
+            CompletableFuture.allOf(*completions.toTypedArray()).join()
         }
-
-        latch.await()
     }
 
-    private fun processRecordKey(recordKey: String) {
+    private fun processRecordKey(
+        recordKey: String,
+        page: OutboxRecordPage,
+    ) {
         try {
-            val records = recordRepository.findIncompleteRecordsByRecordKey(recordKey)
-            if (records.isEmpty()) return
+            if (page.isEmpty()) return
 
-            log.trace("Processing {} records for key {}", records.size, recordKey)
+            log.trace("Processing {} records for key {}", page.size, recordKey)
 
-            for (record in records) {
-                if (!processRecord(record)) break
+            for (index in 0 until page.size) {
+                if (!processRecord(page[index])) break
             }
         } catch (ex: OutboxPayloadTypeNotFoundException) {
             handleUnavailablePayloadType(ex)
