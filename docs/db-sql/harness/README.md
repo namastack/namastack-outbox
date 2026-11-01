@@ -168,3 +168,8 @@ The default credentials are throw-away (`bench`).
 - `bin/matrix-sql.sh`: equivalence runs on S1 only unless `EQUIV_BIG=1` (it builds two extra 1M-row schemas next to the snapshot and run schema; MySQL S2 equivalence filled the disk: `The table 'outbox_record' is full`).
 - **`bin/bench` rebuilds** the installed distribution when a `sql/src/**/*.kt` file is newer than it (before, it only built when missing, so source changes were silently ignored). The MySQL matrix S1, S2 and S8-S2 ran with the binary built before the slow-query cap and `--groups` (all queries repeated with 1 warmup + 5 reps when > 2 s, S8-S2 with all groups).
 - **MariaDB connection:** `sessionVariables=time_zone='+00:00'` (was `%2B00:00`, which MariaDB Connector/J does not decode: `Unknown or incorrect time zone`).
+- **Orchestrator:** `CatalogExtractor` also reads variants with the `io.namastack.outbox.query` package
+  (`JdbcOutboxRecordQueriesFactory.create`, statements `findStrictRecordKeys`, `findNonStrictRecordKeys`, `findOldestStrictDueRetry`,
+  `findOldestDueRetry`), mode `query-package`. Older variants keep working. Verified: the refactored primary tree yields the same SQL as
+  `catalog/v1` for all 28 queries × 6 dialects. After editing the extractor, rebuild the runner (`./gradlew :repo:installDist`); `bin/repo-bench`
+  only builds it when missing.

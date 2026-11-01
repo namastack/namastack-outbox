@@ -1,8 +1,12 @@
-package io.namastack.outbox
+package io.namastack.outbox.query
 
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.namastack.outbox.DefaultJdbcTableNameResolver
+import io.namastack.outbox.JacksonOutboxPayloadSerializer
+import io.namastack.outbox.JdbcOutboxPersistenceFactory
+import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.config.JdbcDatabaseType
 import org.assertj.core.api.Assertions.assertThat
 import org.h2.jdbcx.JdbcDataSource
@@ -21,50 +25,51 @@ class JdbcOutboxRecordQueriesTest {
 
     @Test
     fun `selects the statements of each database type`() {
-        assertThat(JdbcOutboxRecordQueries.of(JdbcDatabaseType.PostgreSQL, table))
+        assertThat(JdbcOutboxRecordQueriesFactory.create(JdbcDatabaseType.PostgreSQL, table))
             .isInstanceOf(PostgresJdbcOutboxRecordQueries::class.java)
-        assertThat(JdbcOutboxRecordQueries.of(JdbcDatabaseType.MySQL, table))
+        assertThat(JdbcOutboxRecordQueriesFactory.create(JdbcDatabaseType.MySQL, table))
             .isInstanceOf(MySqlJdbcOutboxRecordQueries::class.java)
-        assertThat(JdbcOutboxRecordQueries.of(JdbcDatabaseType.MariaDB, table))
-            .isInstanceOf(MySqlJdbcOutboxRecordQueries::class.java)
-        assertThat(JdbcOutboxRecordQueries.of(JdbcDatabaseType.SQLServer, table))
+        assertThat(JdbcOutboxRecordQueriesFactory.create(JdbcDatabaseType.MariaDB, table))
+            .isInstanceOf(MariaDbJdbcOutboxRecordQueries::class.java)
+        assertThat(JdbcOutboxRecordQueriesFactory.create(JdbcDatabaseType.SQLServer, table))
             .isInstanceOf(SqlServerJdbcOutboxRecordQueries::class.java)
-        assertThat(JdbcOutboxRecordQueries.of(JdbcDatabaseType.Oracle, table))
+        assertThat(JdbcOutboxRecordQueriesFactory.create(JdbcDatabaseType.Oracle, table))
             .isInstanceOf(OracleJdbcOutboxRecordQueries::class.java)
-        assertThat(JdbcOutboxRecordQueries.of(JdbcDatabaseType.H2, table))
+        assertThat(JdbcOutboxRecordQueriesFactory.create(JdbcDatabaseType.H2, table))
             .isInstanceOf(H2JdbcOutboxRecordQueries::class.java)
-        assertThat(JdbcOutboxRecordQueries.of(null, table).javaClass).isEqualTo(JdbcOutboxRecordQueries::class.java)
+        assertThat(JdbcOutboxRecordQueriesFactory.create(null, table).javaClass)
+            .isEqualTo(DefaultJdbcOutboxRecordQueries::class.java)
     }
 
     @Test
     fun `portable statements contain no row limit clause`() {
-        val queries = JdbcOutboxRecordQueries.of(null, table)
+        val queries = JdbcOutboxRecordQueriesFactory.create(null, table)
 
         listOf(
-            queries.recordKeysWithPreviousFailureFilter,
-            queries.recordKeysWithoutPreviousFailureFilter,
-            queries.oldestDueNextRetryAtWithPreviousFailureFilter,
+            queries.findStrictRecordKeys,
+            queries.findNonStrictRecordKeys,
+            queries.findOldestStrictDueRetry,
             queries.oldestCreatedAtByPartitionsStatus,
             queries.findByStatusAndCompletedBefore,
             queries.findIdsByStatusAndNextRetryBefore,
         ).forEach { sql ->
             assertThat(sql).doesNotContain("LIMIT", "FETCH", ":limit").doesNotContain("GROUP BY")
         }
-        assertThat(queries.recordKeysWithPreviousFailureFilter).endsWith("ORDER BY o.created_at, o.id")
+        assertThat(queries.findStrictRecordKeys).endsWith("ORDER BY o.created_at, o.id")
     }
 
     @Test
     fun `postgres statements limit the head of key query and probe each key for the bulk load`() {
-        val queries = JdbcOutboxRecordQueries.of(JdbcDatabaseType.PostgreSQL, table)
+        val queries = JdbcOutboxRecordQueriesFactory.create(JdbcDatabaseType.PostgreSQL, table)
 
-        assertThat(queries.recordKeysWithPreviousFailureFilter)
+        assertThat(queries.findStrictRecordKeys)
             .contains("AND o.completed_at IS NULL", "earlier.completed_at IS NULL")
             .endsWith("ORDER BY o.created_at, o.id LIMIT :limit")
-        assertThat(queries.recordKeysWithoutPreviousFailureFilter)
+        assertThat(queries.findNonStrictRecordKeys)
             .contains("earlier.status = :status AND earlier.next_retry_at <= :now")
             .endsWith("LIMIT :limit")
         assertThat(
-            queries.oldestDueNextRetryAtWithPreviousFailureFilter,
+            queries.findOldestStrictDueRetry,
         ).endsWith("ORDER BY o.next_retry_at LIMIT :limit")
         assertThat(queries.findByKeysAndStatus).contains("CROSS JOIN LATERAL", "unnest(CAST(ARRAY[:recordKeys]")
         assertThat(queries.findIdsByStatusAndCompletedBefore).endsWith("ORDER BY completed_at LIMIT :limit")
@@ -76,20 +81,28 @@ class JdbcOutboxRecordQueriesTest {
 
     @Test
     fun `mysql statements use limit and the in list bulk record load`() {
-        val queries = JdbcOutboxRecordQueries.of(JdbcDatabaseType.MySQL, table)
+        val queries = JdbcOutboxRecordQueriesFactory.create(JdbcDatabaseType.MySQL, table)
 
         assertThat(queries.oldestCreatedAtByPartitionsStatus).endsWith("ORDER BY created_at LIMIT :limit")
         assertThat(queries.findByKeysAndStatus).contains("record_key IN (:recordKeys)", "completed_at IS NULL")
-        assertThat(queries.recordKeysWithPreviousFailureFilter).endsWith("LIMIT :limit")
+        assertThat(queries.findStrictRecordKeys).endsWith("LIMIT :limit")
+    }
+
+    @Test
+    fun `mariadb statements use limit and the in list bulk record load`() {
+        val queries = JdbcOutboxRecordQueriesFactory.create(JdbcDatabaseType.MariaDB, table)
+
+        assertThat(queries.findStrictRecordKeys).endsWith("ORDER BY o.created_at, o.id LIMIT :limit")
+        assertThat(queries.findByKeysAndStatus).contains("record_key IN (:recordKeys)", "completed_at IS NULL")
     }
 
     @Test
     fun `sql server statements use offset fetch`() {
-        val queries = JdbcOutboxRecordQueries.of(JdbcDatabaseType.SQLServer, table)
+        val queries = JdbcOutboxRecordQueriesFactory.create(JdbcDatabaseType.SQLServer, table)
 
-        assertThat(queries.recordKeysWithPreviousFailureFilter)
+        assertThat(queries.findStrictRecordKeys)
             .endsWith("ORDER BY o.created_at, o.id OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY")
-        assertThat(queries.recordKeysWithoutPreviousFailureFilter)
+        assertThat(queries.findNonStrictRecordKeys)
             .doesNotContain("GROUP BY")
             .contains("earlier.status = :status AND earlier.next_retry_at <= :now")
             .endsWith("ORDER BY o.created_at, o.id OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY")
@@ -99,16 +112,16 @@ class JdbcOutboxRecordQueriesTest {
 
     @Test
     fun `oracle statements order by utc instants and use a status based outer predicate`() {
-        val queries = JdbcOutboxRecordQueries.of(JdbcDatabaseType.Oracle, table)
+        val queries = JdbcOutboxRecordQueriesFactory.create(JdbcDatabaseType.Oracle, table)
 
-        listOf(queries.recordKeysWithPreviousFailureFilter, queries.recordKeysWithoutPreviousFailureFilter)
+        listOf(queries.findStrictRecordKeys, queries.findNonStrictRecordKeys)
             .forEach { sql ->
                 assertThat(sql)
                     .doesNotContain("o.completed_at IS NULL")
                     .contains("earlier.completed_at IS NULL")
                     .endsWith("ORDER BY SYS_EXTRACT_UTC(o.created_at), o.id FETCH FIRST :limit ROWS ONLY")
             }
-        assertThat(queries.oldestDueNextRetryAtWithPreviousFailureFilter)
+        assertThat(queries.findOldestStrictDueRetry)
             .startsWith("SELECT /*+ FIRST_ROWS(1) */ o.next_retry_at")
             .endsWith("ORDER BY SYS_EXTRACT_UTC(o.next_retry_at) FETCH FIRST :limit ROWS ONLY")
         assertThat(queries.findIdsByStatusAndNextRetryBefore).endsWith("FETCH FIRST :limit ROWS ONLY")
@@ -116,9 +129,9 @@ class JdbcOutboxRecordQueriesTest {
 
     @Test
     fun `statements use the resolved table name`() {
-        val queries = JdbcOutboxRecordQueries.of(JdbcDatabaseType.PostgreSQL, "\"schema\".\"records\"")
+        val queries = JdbcOutboxRecordQueriesFactory.create(JdbcDatabaseType.PostgreSQL, "\"schema\".\"records\"")
 
-        assertThat(queries.recordKeysWithPreviousFailureFilter)
+        assertThat(queries.findStrictRecordKeys)
             .contains("FROM \"schema\".\"records\" o", "FROM \"schema\".\"records\" earlier")
         assertThat(queries.findByKeysAndStatus).contains("FROM \"schema\".\"records\" r")
     }

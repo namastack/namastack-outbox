@@ -11,6 +11,7 @@ import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
+import io.namastack.outbox.query.JdbcOutboxRecordQueriesFactory
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -119,7 +120,12 @@ class JdbcOutboxAutoConfiguration {
             entityMapper = jdbcOutboxRecordEntityMapper,
             clock = clock,
             tableNameResolver = tableNameResolver,
-            databaseTypeResolver = { JdbcDatabaseType.detect(dataSource) },
+            queryProvider = {
+                JdbcOutboxRecordQueriesFactory.create(
+                    JdbcDatabaseType.detect(dataSource),
+                    tableNameResolver.outboxRecord,
+                )
+            },
         )
 
     /**

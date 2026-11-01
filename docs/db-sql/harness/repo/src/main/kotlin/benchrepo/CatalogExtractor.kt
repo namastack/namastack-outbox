@@ -13,6 +13,8 @@ import java.time.Clock
 /**
  * Extracts the SQL the JDBC repository really sends from the worktree's jars (by reflection):
  * - variants with `JdbcOutboxRecordQueries` read it through `JdbcOutboxRecordQueries.of(type, table)`;
+ * - variants with the `query` package read it through `JdbcOutboxRecordQueriesFactory.create(type, table)`
+ *   (statement names renamed, see [QUERY_PACKAGE_NAMES]);
  * - older variants read the private query fields of `JdbcOutboxRecordRepository`.
  */
 object CatalogExtractor {
@@ -57,15 +59,37 @@ object CatalogExtractor {
         Dialect.SQLSERVER to "SQLServer", Dialect.ORACLE to "Oracle", Dialect.H2 to "H2",
     )
 
+    /** Statement names of the `query` package that differ from the `JdbcOutboxRecordQueries.of` variant. */
+    private val QUERY_PACKAGE_NAMES = mapOf(
+        "recordKeysWithPreviousFailureFilter" to "findStrictRecordKeys",
+        "recordKeysWithoutPreviousFailureFilter" to "findNonStrictRecordKeys",
+        "oldestDueNextRetryAtWithPreviousFailureFilter" to "findOldestStrictDueRetry",
+        "oldestDueNextRetryAtWithoutPreviousFailureFilter" to "findOldestDueRetry",
+    )
+
     fun run(o: Opts) {
         val variant = o.get("variant"); val table = o.opt("table") ?: "outbox_record"
         val outRoot = File(o.opt("catalog") ?: "catalog", variant)
         val cl = Thread.currentThread().contextClassLoader
-        val queriesClass = try { cl.loadClass("io.namastack.outbox.JdbcOutboxRecordQueries") } catch (_: ClassNotFoundException) { null }
+        val factoryClass = try { cl.loadClass("io.namastack.outbox.query.JdbcOutboxRecordQueriesFactory") } catch (_: ClassNotFoundException) { null }
+        val queriesClass = if (factoryClass != null) null else try { cl.loadClass("io.namastack.outbox.JdbcOutboxRecordQueries") } catch (_: ClassNotFoundException) { null }
         for (d in Dialect.entries) {
             val dir = File(outRoot, d.id).also { it.deleteRecursively(); it.mkdirs() }
             val (source: (String?, String?) -> Pair<String, String>?, mode) =
-                if (queriesClass != null) {
+                if (factoryClass != null) {
+                    val factory = factoryClass.getField("INSTANCE").get(null)
+                    val create = factoryClass.methods.first { it.name == "create" }
+                    val typeCls = cl.loadClass("io.namastack.outbox.config.JdbcDatabaseType\$${V1_TYPES.getValue(d)}")
+                    val inst = create.invoke(factory, typeCls.getField("INSTANCE").get(null), table)
+                    val fn = { _: String?, n: String? ->
+                        n?.let { old ->
+                            val name = QUERY_PACKAGE_NAMES[old] ?: old
+                            val getter = inst.javaClass.methods.firstOrNull { it.name == "get" + name.replaceFirstChar { c -> c.uppercase() } }
+                            getter?.let { (it.invoke(inst) as String) to "${inst.javaClass.simpleName}.$name" }
+                        }
+                    }
+                    Pair(fn, "query-package")
+                } else if (queriesClass != null) {
                     val companion = queriesClass.getField("Companion").get(null)
                     val of = companion.javaClass.methods.first { it.name == "of" }
                     val typeCls = cl.loadClass("io.namastack.outbox.config.JdbcDatabaseType\$${V1_TYPES.getValue(d)}")
@@ -86,7 +110,7 @@ object CatalogExtractor {
                 }
             for (e in ENTRIES) {
                 val s = source(e.oldField, e.newField) ?: continue
-                val maxrows = if (queriesClass != null) e.maxNew else e.maxOld
+                val maxrows = if (queriesClass != null || factoryClass != null) e.maxNew else e.maxOld
                 val statusNote = if (e.id == "find_failed_all") "-- note: status FAILED bound by the harness\n" else ""
                 File(dir, "${e.id}.sql").writeText(
                     "-- id: ${e.id}\n-- group: ${e.group}\n-- kind: ${e.kind}\n-- maxrows: $maxrows\n-- source: ${s.second} ($mode, $variant)\n$statusNote${s.first}\n")

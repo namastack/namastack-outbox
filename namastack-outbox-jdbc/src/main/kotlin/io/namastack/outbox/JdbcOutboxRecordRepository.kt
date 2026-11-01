@@ -1,7 +1,7 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordRepository.Companion.MAX_RECORD_KEYS_PER_FETCH
-import io.namastack.outbox.config.JdbcDatabaseType
+import io.namastack.outbox.query.JdbcOutboxRecordQueries
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
@@ -10,16 +10,15 @@ import java.time.Instant
  * JDBC implementation of [OutboxRecordRepository].
  *
  * This implementation uses Spring's JdbcClient to persist and query outbox records
- * from a relational database. The SQL statements are chosen per database type by
- * [JdbcOutboxRecordQueries]. When no database type is given, it is detected once from the
- * datasource metadata on first use, so construction opens no connection.
+ * from a relational database. The SQL statements come from [JdbcOutboxRecordQueries], supplied by
+ * [queryProvider] on the first record query, so construction opens no connection.
  *
  * @param jdbcClient JDBC client for database operations
  * @param transactionTemplate Transaction template for programmatic transaction management
  * @param entityMapper Mapper for converting between domain objects and entities
  * @param clock Clock for time-based operations
  * @param tableNameResolver Resolver for fully qualified table names
- * @param databaseTypeResolver Resolves the database type on first use; `null` selects portable SQL
+ * @param queryProvider Supplies the statements on first use; a failed call is retried on the next query
  *
  * @author Roland Beisel
  * @since 1.0.0
@@ -30,15 +29,13 @@ internal open class JdbcOutboxRecordRepository(
     private val entityMapper: JdbcOutboxRecordEntityMapper,
     private val clock: java.time.Clock,
     private val tableNameResolver: JdbcTableNameResolver,
-    private val databaseTypeResolver: () -> JdbcDatabaseType?,
+    queryProvider: () -> JdbcOutboxRecordQueries,
 ) : OutboxRecordRepository {
     private val tableName = tableNameResolver.outboxRecord
     private val rowMapper = JdbcOutboxRecordEntityRowMapper()
 
-    /** Statements for the resolved database type. A failed detection is retried on the next call. */
-    private val queries: JdbcOutboxRecordQueries by lazy {
-        JdbcOutboxRecordQueries.of(databaseTypeResolver(), tableName)
-    }
+    /** Statements for the record table. A failed [queryProvider] call is retried on the next query. */
+    private val queries: JdbcOutboxRecordQueries by lazy(queryProvider)
 
     /**
      * Saves an outbox record.
@@ -226,9 +223,9 @@ internal open class JdbcOutboxRecordRepository(
 
         val query =
             if (ignoreRecordKeysWithPreviousFailure) {
-                queries.recordKeysWithPreviousFailureFilter
+                queries.findStrictRecordKeys
             } else {
-                queries.recordKeysWithoutPreviousFailureFilter
+                queries.findNonStrictRecordKeys
             }
 
         return jdbcClient
@@ -347,9 +344,9 @@ internal open class JdbcOutboxRecordRepository(
 
         val query =
             if (ignoreRecordKeysWithPreviousFailure) {
-                queries.oldestDueNextRetryAtWithPreviousFailureFilter
+                queries.findOldestStrictDueRetry
             } else {
-                queries.oldestDueNextRetryAtWithoutPreviousFailureFilter
+                queries.findOldestDueRetry
             }
 
         return jdbcClient

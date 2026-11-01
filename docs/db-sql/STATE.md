@@ -102,6 +102,12 @@ A difference counts only if it exceeds both the relative threshold of its group 
     write cost on P1 writes (insert/update latency, WAL volume, index size, HOT/bloat), should be dropped. Dropping indexes to make
     the normal processing faster is an explicit goal. Experiments must therefore report write cost (latency + WAL bytes per write +
     index sizes) whenever DDL changes, and P3 regressions are reported but do not block a recommendation.
+- 2026-11-01: JDBC query classes restructured in the primary tree (uncommitted, user request; structure aligned with
+  `origin/feature/150k-strict-throughput`, without its `predecessorSource` hook and its SQL Server override): package
+  `io.namastack.outbox.query` with interface `JdbcOutboxRecordQueries`, `DefaultJdbcOutboxRecordQueries`, `JdbcOutboxRecordQueriesFactory`
+  and one class per dialect (new `MariaDbJdbcOutboxRecordQueries`); the repository takes `queryProvider: () -> JdbcOutboxRecordQueries`;
+  statements renamed to `findStrictRecordKeys`, `findNonStrictRecordKeys`, `findOldestStrictDueRetry`, `findOldestDueRetry`.
+  SQL unchanged (catalog diff vs `catalog/v1`: identical); `:namastack-outbox-jdbc:test` 267 tests passed. The harness extractor supports it.
 
 ## Stopped run (cross-dialect main+v1)
 
