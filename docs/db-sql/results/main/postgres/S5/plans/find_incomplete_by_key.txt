@@ -1,0 +1,21 @@
+Sort  (cost=9441.79..9446.93 rows=2053 width=1090) (actual time=8.168..8.242 rows=1999.00 loops=1)
+  Sort Key: created_at, id
+  Sort Method: quicksort  Memory: 1722kB
+  Buffers: shared hit=2091
+  ->  Bitmap Heap Scan on outbox_record  (cost=2369.33..9328.84 rows=2053 width=1090) (actual time=6.427..7.217 rows=1999.00 loops=1)
+        Recheck Cond: (((record_key)::text = 'order-000000000000000000000000000016'::text) AND ((status)::text = 'NEW'::text))
+        Heap Blocks: exact=1876
+        Buffers: shared hit=2091
+        ->  BitmapAnd  (cost=2369.33..2369.33 rows=2053 width=0) (actual time=6.235..6.235 rows=0.00 loops=1)
+              Buffers: shared hit=215
+              ->  Bitmap Index Scan on idx_outbox_record_record_key_created  (cost=0.00..211.54 rows=5216 width=0) (actual time=0.709..0.709 rows=5006.00 loops=1)
+                    Index Cond: ((record_key)::text = 'order-000000000000000000000000000016'::text)
+                    Index Searches: 1
+                    Buffers: shared hit=44
+              ->  Bitmap Index Scan on idx_outbox_record_status  (cost=0.00..2156.51 rows=196812 width=0) (actual time=5.260..5.260 rows=199983.00 loops=1)
+                    Index Cond: ((status)::text = 'NEW'::text)
+                    Index Searches: 1
+                    Buffers: shared hit=171
+Settings: search_path = 'run'
+Planning Time: 0.073 ms
+Execution Time: 8.461 ms

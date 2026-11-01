@@ -1,0 +1,8 @@
+tag: p4-r500  pollers=4 producers=1 rate=500 seconds=60.4
+processed_per_s: 512.1   (total 30923)
+inserted_per_s: 496.5   (total 29983)
+errors: 0
+keys_query_ms: n=7692 p50=4.09 p95=10.96
+pages_query_ms: n=6494 p50=0.47 p95=1.31
+update_ms: n=30923 p50=1.69 p95=3.97
+insert_ms: n=29983 p50=1.56 p95=2.53

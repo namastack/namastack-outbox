@@ -1,0 +1,14 @@
+Limit  (cost=4.33..4.33 rows=1 width=45) (actual time=0.016..0.016 rows=0.00 loops=1)
+  Buffers: shared hit=2
+  ->  Sort  (cost=4.33..4.33 rows=1 width=45) (actual time=0.016..0.016 rows=0.00 loops=1)
+        Sort Key: completed_at
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=2
+        ->  Index Scan using idx_outbox_record_status on outbox_record  (cost=0.28..4.32 rows=1 width=45) (actual time=0.009..0.009 rows=0.00 loops=1)
+              Index Cond: ((status)::text = 'COMPLETED'::text)
+              Filter: (completed_at < '2025-12-25 12:00:00+00'::timestamp with time zone)
+              Index Searches: 1
+              Buffers: shared hit=2
+Settings: search_path = 'run'
+Planning Time: 0.060 ms
+Execution Time: 0.041 ms

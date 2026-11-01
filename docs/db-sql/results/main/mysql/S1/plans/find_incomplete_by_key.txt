@@ -1,0 +1,3 @@
+-> Filter: (outbox_record.`status` = 'NEW')  (cost=0.7 rows=2) (actual time=0.0229..0.024 rows=1 loops=1)
+    -> Index lookup on outbox_record using idx_outbox_record_record_key_created (record_key = 'order-000000000000000000000000000041')  (cost=0.7 rows=2) (actual time=0.0162..0.023 rows=2 loops=1)
+

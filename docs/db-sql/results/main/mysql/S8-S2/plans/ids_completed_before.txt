@@ -1,0 +1,4 @@
+-> Sort: outbox_record.completed_at  (cost=105076 rows=469782) (actual time=270406..270441 rows=770711 loops=1)
+    -> Filter: (outbox_record.completed_at < TIMESTAMP'2025-12-25 12:00:00')  (cost=105076 rows=469782) (actual time=6.31..269517 rows=770711 loops=1)
+        -> Index lookup on outbox_record using idx_outbox_record_status_retry (status = 'COMPLETED')  (cost=105076 rows=469782) (actual time=6.31..268991 rows=986000 loops=1)
+

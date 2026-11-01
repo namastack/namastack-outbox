@@ -1,0 +1,18 @@
+metric,value
+index_count_note,see sizes in env.txt
+insert_warmup.count,200
+insert_warmup.p50_ms,2.483
+insert_warmup.p95_ms,3.796
+insert_warmup.throughput_per_s,331.1
+insert_1thread.count,5000
+insert_1thread.p50_ms,2.274
+insert_1thread.p95_ms,3.263
+insert_1thread.throughput_per_s,350.0
+insert_4threads.count,5000
+insert_4threads.p50_ms,2.428
+insert_4threads.p95_ms,29.338
+insert_4threads.throughput_per_s,648.6
+upd_complete_committed.count,5000
+upd_complete_committed.p50_ms,2.388
+upd_complete_committed.p95_ms,3.469
+upd_complete_committed.throughput_per_s,280.6

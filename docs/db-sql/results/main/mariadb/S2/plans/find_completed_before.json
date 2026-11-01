@@ -1,0 +1,28 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "cost": 944.4823811,
+    "nested_loop": [
+      {
+        "read_sorted_file": {
+          "filesort": {
+            "sort_key": "outbox_record.completed_at",
+            "table": {
+              "table_name": "outbox_record",
+              "access_type": "ALL",
+              "possible_keys": [
+                "idx_outbox_record_status_retry",
+                "idx_outbox_record_status"
+              ],
+              "loops": 1,
+              "rows": 1034220,
+              "cost": 239.6405456,
+              "filtered": 100,
+              "attached_condition": "outbox_record.`status` = 'COMPLETED' and outbox_record.completed_at < TIMESTAMP/*WITH LOCAL TIME ZONE*/'2025-12-25 12:00:00.000000'"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

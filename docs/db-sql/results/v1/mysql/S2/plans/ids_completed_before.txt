@@ -1,0 +1,4 @@
+-> Limit: 1000 row(s)  (cost=102298 rows=1000) (actual time=0.0218..0.51 rows=1000 loops=1)
+    -> Filter: ((outbox_record.`status` = 'COMPLETED') and (outbox_record.completed_at < TIMESTAMP'2025-12-25 12:00:00'))  (cost=102298 rows=208105) (actual time=0.0214..0.476 rows=1000 loops=1)
+        -> Covering index range scan on outbox_record using idx_outbox_record_completed_created_id over (NULL < completed_at < '2025-12-25 12:00:00')  (cost=102298 rows=416210) (actual time=0.0198..0.252 rows=1000 loops=1)
+

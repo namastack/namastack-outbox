@@ -1,0 +1,15 @@
+# rows_by_status
+COMPLETED	986000
+FAILED	12800
+NEW	1200
+# table_rows,data_length,index_length
+943571	1361870848	500744192
+# index_sizes
+PRIMARY	1361870848
+idx_outbox_record_partition_status_retry	73334784
+idx_outbox_record_record_key_completed_created	139444224
+idx_outbox_record_record_key_created	130007040
+idx_outbox_record_status	78462976
+idx_outbox_record_status_retry	79495168
+# index_count (incl. primary)
+6

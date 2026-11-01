@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# SQL-level runner / data generator / equivalence checker (see README.md). Run from anywhere.
+H="$(cd "$(dirname "$0")/.." && pwd)"; cd "$H"
+if [ ! -x sql/build/install/bench/bin/bench ] || [ -n "$(find sql/src -newer sql/build/install/bench/bin/bench -name '*.kt' | head -1)" ]; then
+  ./gradlew --console=plain -q :sql:installDist
+fi
+exec sql/build/install/bench/bin/bench "$@"

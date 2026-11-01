@@ -1,0 +1,11 @@
+Sort  (cost=11.77..11.82 rows=20 width=1093) (actual time=0.040..0.041 rows=20.00 loops=1)
+  Sort Key: created_at, id
+  Sort Method: quicksort  Memory: 46kB
+  Buffers: shared hit=22
+  ->  Index Scan using idx_outbox_record_status on outbox_record  (cost=0.29..11.34 rows=20 width=1093) (actual time=0.013..0.022 rows=20.00 loops=1)
+        Index Cond: ((status)::text = 'FAILED'::text)
+        Index Searches: 1
+        Buffers: shared hit=22
+Settings: search_path = 'run'
+Planning Time: 0.058 ms
+Execution Time: 0.064 ms

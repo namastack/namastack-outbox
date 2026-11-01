@@ -1,0 +1,4 @@
+-> Sort row IDs: outbox_record.created_at, outbox_record.id  (cost=5.65 rows=6) (actual time=0.0526..0.0526 rows=1 loops=1)
+    -> Filter: (outbox_record.`status` = 'NEW')  (cost=5.65 rows=6) (actual time=0.0189..0.0426 rows=1 loops=1)
+        -> Index lookup on outbox_record using idx_outbox_record_record_key_completed_created_id (record_key = 'order-000000000000000000000000000893')  (cost=5.65 rows=6) (actual time=0.0183..0.0414 rows=6 loops=1)
+

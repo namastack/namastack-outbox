@@ -1,0 +1,11 @@
+Sort  (cost=45.52..45.98 rows=182 width=1093) (actual time=0.208..0.219 rows=180.00 loops=1)
+  Sort Key: created_at, id
+  Sort Method: quicksort  Memory: 182kB
+  Buffers: shared hit=27
+  ->  Index Scan using idx_outbox_record_status on outbox_record  (cost=0.29..38.69 rows=182 width=1093) (actual time=0.024..0.070 rows=180.00 loops=1)
+        Index Cond: ((status)::text = 'NEW'::text)
+        Index Searches: 1
+        Buffers: shared hit=27
+Settings: search_path = 'run'
+Planning Time: 0.064 ms
+Execution Time: 0.284 ms

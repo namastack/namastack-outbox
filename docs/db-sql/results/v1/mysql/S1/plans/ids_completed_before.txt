@@ -1,0 +1,5 @@
+-> Limit: 1000 row(s)  (cost=494 rows=1000) (actual time=26.2..26.3 rows=1000 loops=1)
+    -> Sort: outbox_record.completed_at, limit input to 1000 row(s) per chunk  (cost=494 rows=4936) (actual time=26.2..26.3 rows=1000 loops=1)
+        -> Filter: (outbox_record.completed_at < TIMESTAMP'2025-12-25 12:00:00')  (cost=494 rows=4936) (actual time=0.12..25 rows=7532 loops=1)
+            -> Index lookup on outbox_record using idx_outbox_record_status_retry (status = 'COMPLETED')  (cost=494 rows=4936) (actual time=0.119..24.3 rows=9800 loops=1)
+

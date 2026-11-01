@@ -1,0 +1,29 @@
+# Build output and caches of the harness (Gradle/Kotlin, H2 database files)
+harness/build/
+harness/*/build/
+harness/.gradle/
+harness/.kotlin/
+*.class
+*.hprof
+
+# Driver logs and console output of benchmark runs
+results/logs/
+*.log
+*.out
+
+# Redundant plan files: PostgreSQL JSON plans duplicate the .txt plans; repeat runs (-r2, used only for the
+# noise threshold) duplicate the plans of run 1. Their timings.csv and env.txt stay tracked.
+results/**/postgres/**/plans/*.json
+results/**/*-r2/plans/
+
+# Superseded equivalence reports (unordered parameter sampling)
+results/equiv/**/*-unordered-sample.md
+
+# Superseded first PostgreSQL matrix (no VACUUM in prepare); kept locally for reference only
+results/_unvacuumed/
+
+# Editor and OS files
+.idea/
+*.iml
+.DS_Store
+*.swp

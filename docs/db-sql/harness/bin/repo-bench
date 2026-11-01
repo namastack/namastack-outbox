@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Repository-level runner: calls the real JdbcOutboxRecordRepository / JpaOutboxRecordRepository of one variant.
+# usage: bin/repo-bench <variant> <command> [args]   (variant jars come from build/variants/<variant>.jars,
+#        written by bin/variant-build.sh; commands: bench --engine jdbc|jpa ..., extract-catalog, hashcheck)
+H="$(cd "$(dirname "$0")/.." && pwd)"; cd "$H"
+variant="$1"; shift
+[ -f "build/variants/$variant.jars" ] || { echo "run bin/variant-build.sh $variant <worktree> first"; exit 1; }
+[ -d repo/build/install/repo-bench/lib ] || ./gradlew --console=plain -q :repo:installDist
+cmd="$1"; shift
+exec "${HARNESS_JAVA:-java}" -Duser.timezone=UTC -Xmx2g -cp "$(cat build/variants/$variant.jars):repo/build/install/repo-bench/lib/*" \
+  benchrepo.MainKt "$cmd" --variant "$variant" "$@"

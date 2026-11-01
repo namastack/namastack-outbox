@@ -1,0 +1,2 @@
+-> Index range scan on outbox_record using idx_outbox_record_status_retry over (status = 'FAILED' AND next_retry_at < '2025-12-02 12:00:00'), with index condition: ((outbox_record.`status` = 'FAILED') and (outbox_record.next_retry_at < TIMESTAMP'2025-12-02 12:00:00'))  (cost=2.11 rows=1) (actual time=0.0097..0.0097 rows=0 loops=1)
+

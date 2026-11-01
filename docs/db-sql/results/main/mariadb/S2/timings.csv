@@ -1,0 +1,29 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_strict,10.184,10.809,9.766,10.914,10,20,
+keys_nonstrict,5.947,6.343,5.696,6.465,10,20,
+pages,0.822,1.010,0.716,1.140,10,20,
+insert,0.642,0.772,0.532,4.002,1,20,
+upd_complete,0.594,85.344,0.312,98.565,1,20,
+upd_retry,0.774,1.496,0.492,1.651,1,20,
+upd_fail,0.289,0.435,0.208,0.445,1,20,
+delete_by_id,0.824,1.146,0.575,1.505,1,20,
+count_new,0.450,0.712,0.402,0.768,1,20,
+count_failed,3.324,3.598,3.295,3.608,1,20,
+count_completed,288.676,966.696,169.986,1289.929,1,20,
+count_statuses,,,,,,0,n/a
+count_statuses_all,,,,,,0,n/a
+count_partitions,3.304,3.550,3.096,3.594,1,20,
+count_partition_single,0.179,0.220,0.118,0.233,1,20,
+oldest_created,3.832,4.121,3.056,4.195,1,20,
+oldest_due_strict,8.130,8.779,7.561,8.946,1,20,
+oldest_due_nonstrict,1.948,2.075,1.900,2.156,1,20,
+find_completed_before,30242.909,30242.909,30242.909,30242.909,1000,1,very slow (>30s): 1 execution
+find_failed_before,0.254,0.312,0.196,0.318,0,20,
+ids_completed_before,28847.787,29609.794,28241.171,29609.794,1000,5,slow(>2s): warmup 1, reps 5
+ids_failed_before,0.230,0.294,0.155,0.315,0,20,
+delete_by_ids,21.146,22.642,20.830,22.823,1000,20,
+delete_by_status_failed,3874.909,4542.092,3367.933,4542.092,12800,5,slow(>2s): warmup 1, reps 5
+delete_by_key_status,0.348,0.550,0.296,2.277,1,20,
+find_pending_all,,,,,,0,skipped (unbounded; S1/S3 only)
+find_failed_all,,,,,,0,skipped (unbounded; S1/S3 only)
+find_incomplete_by_key,0.178,0.256,0.159,0.294,1,20,

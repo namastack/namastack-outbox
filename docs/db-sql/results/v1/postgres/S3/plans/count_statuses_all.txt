@@ -1,0 +1,11 @@
+GroupAggregate  (cost=0.28..156.89 rows=2 width=12) (actual time=0.201..0.582 rows=2.00 loops=1)
+  Group Key: status
+  Buffers: shared hit=47
+  ->  Index Only Scan using idx_outbox_record_status on outbox_record  (cost=0.28..131.34 rows=5106 width=4) (actual time=0.026..0.278 rows=5000.00 loops=1)
+        Index Cond: (status = ANY ('{NEW,FAILED,COMPLETED}'::text[]))
+        Heap Fetches: 158
+        Index Searches: 1
+        Buffers: shared hit=47
+Settings: search_path = 'run'
+Planning Time: 0.046 ms
+Execution Time: 0.598 ms

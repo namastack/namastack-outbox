@@ -1,0 +1,8 @@
+-> Limit: 10 row(s)  (cost=341 rows=10) (actual time=1.36..1.48 rows=10 loops=1)
+    -> Nested loop antijoin  (cost=341 rows=233) (actual time=1.36..1.48 rows=10 loops=1)
+        -> Sort: o.created_at, o.id  (cost=310 rows=233) (actual time=1.34..1.34 rows=10 loops=1)
+            -> Filter: (o.completed_at is null)  (cost=310 rows=233) (actual time=0.407..1.27 rows=229 loops=1)
+                -> Index range scan (Multi-Range Read) on o using idx_outbox_record_partition_status_retry over (partition_no = 0 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00') OR (partition_no = 4 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00') OR (62 more), with index condition: ((o.`status` = 'NEW') and (o.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (o.next_retry_at <= TIMESTAMP'2026-01-01 12:00:00'))  (cost=310 rows=233) (actual time=0.407..1.26 rows=229 loops=1)
+        -> Filter: ((earlier.`status` = 'NEW') and (earlier.completed_at is null) and (earlier.next_retry_at <= '2026-01-01 12:00:00.000000') and (earlier.created_at <= o.created_at) and ((earlier.created_at < o.created_at) or ((earlier.created_at = o.created_at) and (earlier.id < o.id))))  (cost=0.989 rows=1) (actual time=0.0137..0.0137 rows=0 loops=10)
+            -> Index lookup on earlier using idx_outbox_record_record_key_completed_created_id (record_key = o.record_key, completed_at = NULL)  (cost=0.989 rows=1) (actual time=0.0121..0.0128 rows=1 loops=10)
+
