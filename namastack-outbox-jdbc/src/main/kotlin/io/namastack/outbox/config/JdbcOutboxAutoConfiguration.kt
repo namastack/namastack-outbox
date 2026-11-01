@@ -11,6 +11,7 @@ import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
+import io.namastack.outbox.query.JdbcOutboxRecordQueriesFactory
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -98,6 +99,7 @@ class JdbcOutboxAutoConfiguration {
      * Creates a JDBC-based outbox record repository.
      *
      * @param beanFactory Bean factory for retrieving outbox-specific beans
+     * @param dataSource Application datasource for database dialect detection
      * @param jdbcOutboxRecordEntityMapper Mapper for converting between domain objects and entities
      * @param clock Clock for time-based operations
      * @param tableNameResolver Resolver for fully qualified table names
@@ -107,17 +109,23 @@ class JdbcOutboxAutoConfiguration {
     @ConditionalOnMissingBean
     internal fun outboxRecordRepository(
         beanFactory: BeanFactory,
+        dataSource: DataSource,
         jdbcOutboxRecordEntityMapper: JdbcOutboxRecordEntityMapper,
         clock: Clock,
         tableNameResolver: JdbcTableNameResolver,
-    ): OutboxRecordRepository =
-        JdbcOutboxRecordRepository(
-            jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient"),
+    ): OutboxRecordRepository {
+        val jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient")
+        val queriesFactory = JdbcOutboxRecordQueriesFactory(tableNameResolver)
+        val databaseType = JdbcDatabaseType.detect(dataSource)
+
+        return JdbcOutboxRecordRepository(
+            jdbcClient = jdbcClient,
             transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
             entityMapper = jdbcOutboxRecordEntityMapper,
             clock = clock,
-            tableNameResolver = tableNameResolver,
+            queryProvider = { queriesFactory.create(databaseType) },
         )
+    }
 
     /**
      * Creates the entity mapper for outbox records.

@@ -11,14 +11,25 @@ sidebar_position: 12
 
 ## Supported Databases
 
-Namastack Outbox supports any JPA/JDBC-compatible relational database. The JDBC module includes
-automatic schema creation for the following databases:
+The JDBC module provides query dialects and automatic schema creation for the following databases:
 
 - ✅ H2 (development)
 - ✅ MySQL / MariaDB
 - ✅ PostgreSQL
 - ✅ SQL Server
 - ✅ Oracle
+
+The JDBC auto-configuration detects the database type from application datasource metadata during
+startup, including when automatic schema creation is disabled. The database must be reachable at
+that point. The databases listed above use tested, optimized dialects. Unrecognized products use
+best-effort portable queries with JDBC row limits when schema initialization is disabled. A JDBC
+driver alone does not guarantee compatible SQL or type mappings; verify an unlisted database with
+your schema and workload. Automatic schema creation still requires one of the listed databases.
+Missing or inaccessible metadata fails startup.
+
+The programmatic `JdbcOutboxPersistenceFactory` opens no connection during construction. It detects
+the dialect on the first record operation that needs SQL, or uses an explicitly supplied
+`JdbcDatabaseType`.
 
 ### MongoDB
 
@@ -49,6 +60,40 @@ namastack:
 
 When disabled, you are responsible for creating the schema using your preferred migration
 tooling before the application starts.
+
+### PostgreSQL Indexes and Upgrades
+
+The JDBC PostgreSQL schema uses the primary key plus five record indexes:
+
+| Index columns | Scope | Purpose |
+| --- | --- | --- |
+| `(record_key, created_at, id)`, including partition, status and retry time | Incomplete records | Strict head selection and ordered bulk loading |
+| `(status, next_retry_at)`, including partition and creation time | Incomplete records | Retry selection and pending/failed metadata |
+| `(status, partition_no)` | All records | Global and partition-scoped status counts |
+| `(record_key, status)` | All records | Key/status lookup and administrative deletion |
+| `(completed_at)` | Completed records | Ordered, bounded retention reads |
+
+The partial predicates are `completed_at IS NULL` for incomplete records and
+`completed_at IS NOT NULL` for completed records. Retry and pending-status queries include the
+incomplete predicate explicitly, so PostgreSQL can use those partial indexes with generic prepared
+plans too. Strict processing still checks the first incomplete record of each key before applying
+readiness filters; a failed or future-retry predecessor continues to block later records.
+
+Automatic initialization adds missing indexes using `CREATE INDEX IF NOT EXISTS`. It preserves
+existing indexes and records; it does not rename, rebuild, or drop indexes. Large index builds can
+take time and block writes, so use your migration tool and concurrent index creation when appropriate.
+
+An upgraded installation may therefore have more indexes than a fresh installation, with additional
+write and storage cost. After creating the new indexes and checking application-specific queries,
+review the older `idx_outbox_record_record_key_created`, `idx_outbox_record_partition_status_retry`,
+`idx_outbox_record_status_retry`, `idx_outbox_record_status`, and
+`idx_outbox_record_record_key_completed_created` indexes for removal through your migrations.
+These names assume the default table namespace. Do not expect fresh-schema benchmark throughput
+while retaining all older indexes. Other database schemas are unchanged.
+
+An index provides an access path, not constant-time counts or guaranteed index scans. PostgreSQL
+may correctly scan the table when an operation reads or deletes most records. Test custom reporting
+queries and retention jobs with your own data distribution.
 
 ### JPA Module — No Automatic Schema Creation
 

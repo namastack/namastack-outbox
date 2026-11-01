@@ -30,22 +30,9 @@ CREATE TABLE IF NOT EXISTS performance_test_run
     measurement_warmup_ms        BIGINT,
     min_producer_rate_ratio      DOUBLE PRECISION,
     max_backlog_growth_rate      DOUBLE PRECISION,
-    max_end_backlog              BIGINT
+    max_end_backlog              BIGINT,
+    producer_stop_counts         JSONB
 );
-
-ALTER TABLE performance_test_run
-    ADD COLUMN IF NOT EXISTS mode                        VARCHAR(50) NOT NULL DEFAULT 'backlog-drain',
-    ADD COLUMN IF NOT EXISTS producer_target_rate        BIGINT,
-    ADD COLUMN IF NOT EXISTS producer_duration_ms        BIGINT,
-    ADD COLUMN IF NOT EXISTS producer_batch_size         INTEGER,
-    ADD COLUMN IF NOT EXISTS producer_workers            INTEGER,
-    ADD COLUMN IF NOT EXISTS producer_started_at         TIMESTAMP WITH TIME ZONE,
-    ADD COLUMN IF NOT EXISTS producer_completed_at       TIMESTAMP WITH TIME ZONE,
-    ADD COLUMN IF NOT EXISTS produced_records            BIGINT,
-    ADD COLUMN IF NOT EXISTS measurement_warmup_ms       BIGINT,
-    ADD COLUMN IF NOT EXISTS min_producer_rate_ratio     DOUBLE PRECISION,
-    ADD COLUMN IF NOT EXISTS max_backlog_growth_rate     DOUBLE PRECISION,
-    ADD COLUMN IF NOT EXISTS max_end_backlog             BIGINT;
 
 CREATE TABLE IF NOT EXISTS performance_seed_record
 (

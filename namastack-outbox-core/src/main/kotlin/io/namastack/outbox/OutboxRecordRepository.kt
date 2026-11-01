@@ -164,7 +164,7 @@ interface OutboxRecordRepository {
      *
      * @param partitions List of partition numbers to search in
      * @param status The status to filter by
-     * @param batchSize Maximum number of record keys to return
+     * @param batchSize Maximum number of record keys to return; JDBC treats zero as unlimited
      * @param ignoreRecordKeysWithPreviousFailure Whether to exclude record keys with previous open/failed records
      * @return List of record keys with pending records in the specified partitions
      */

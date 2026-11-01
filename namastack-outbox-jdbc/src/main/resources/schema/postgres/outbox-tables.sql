@@ -36,20 +36,32 @@ CREATE TABLE IF NOT EXISTS outbox_partition
     updated_at       TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_record_key_created
-    ON outbox_record (record_key, created_at);
+-- Ordered processing and bulk loading use only the incomplete working set.
+CREATE INDEX IF NOT EXISTS idx_outbox_record_key_incomplete_ordered
+    ON outbox_record (record_key, created_at, id)
+    INCLUDE (partition_no, status, next_retry_at)
+    WHERE completed_at IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_partition_status_retry
-    ON outbox_record (partition_no, status, next_retry_at);
+-- Retry selection and pending-record metadata stay outside completed history.
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry_incomplete
+    ON outbox_record (status, next_retry_at)
+    INCLUDE (partition_no, created_at)
+    WHERE completed_at IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry
-    ON outbox_record (status, next_retry_at);
+-- Low-cardinality keys allow B-tree deduplication while covering exact status/partition counts.
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status_partition
+    ON outbox_record (status, partition_no);
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status
-    ON outbox_record (status);
+-- Key/status lookup supports administrative deletion without indexing per-record timestamps.
+CREATE INDEX IF NOT EXISTS idx_outbox_record_key_status
+    ON outbox_record (record_key, status);
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_record_key_completed_created
-    ON outbox_record (record_key, completed_at, created_at);
+-- Ordered retention reads stop after their batch rather than scanning/sorting completed history.
+CREATE INDEX IF NOT EXISTS idx_outbox_record_completed_retention
+    ON outbox_record (completed_at)
+    WHERE completed_at IS NOT NULL;
+
+-- Initialization only adds missing objects. Existing indexes are never dropped automatically.
 
 CREATE INDEX IF NOT EXISTS idx_outbox_instance_status_heartbeat
     ON outbox_instance (status, last_heartbeat);

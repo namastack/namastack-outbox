@@ -1,5 +1,9 @@
 package io.namastack.outbox.config
 
+import org.springframework.jdbc.support.JdbcUtils
+import java.sql.DatabaseMetaData
+import javax.sql.DataSource
+
 /**
  * Sealed class representing supported database types.
  *
@@ -97,6 +101,32 @@ sealed class JdbcDatabaseType(
          * @throws IllegalArgumentException if database type is not supported
          */
         fun from(databaseName: String): JdbcDatabaseType =
+            requireNotNull(resolve(databaseName)) { "Unsupported database type: $databaseName" }
+
+        /**
+         * Resolves the database type of a datasource from `DatabaseMetaData.getDatabaseProductName()`.
+         *
+         * Returns `null` for an unrecognized product so record queries can use portable SQL.
+         * Missing product names and metadata-access failures are reported instead of being hidden.
+         *
+         * @param dataSource Datasource to inspect
+         * @return Corresponding database type, or `null` for the generic query fallback
+         * @throws IllegalStateException if the metadata contains no database product name
+         * @throws org.springframework.jdbc.support.MetaDataAccessException if the metadata cannot be read
+         * @since 1.12.0
+         */
+        internal fun detect(dataSource: DataSource): JdbcDatabaseType? {
+            val productName =
+                JdbcUtils.extractDatabaseMetaData(dataSource, DatabaseMetaData::getDatabaseProductName)
+            val databaseName =
+                checkNotNull(JdbcUtils.commonDatabaseName(productName)?.takeIf { it.isNotBlank() }) {
+                    "Could not detect database type: JDBC metadata returned an empty database product name"
+                }
+
+            return resolve(databaseName)
+        }
+
+        private fun resolve(databaseName: String): JdbcDatabaseType? =
             when (databaseName.lowercase()) {
                 "postgresql" -> PostgreSQL
                 "mysql" -> MySQL
@@ -104,7 +134,7 @@ sealed class JdbcDatabaseType(
                 "mariadb" -> MariaDB
                 "microsoft sql server" -> SQLServer
                 "oracle" -> Oracle
-                else -> throw IllegalArgumentException("Unsupported database type: $databaseName")
+                else -> null
             }
     }
 }

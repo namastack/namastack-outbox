@@ -4,3 +4,4 @@ runtime/
 reports/
 monitoring/prometheus/targets/*.json
 
+**/__pycache__/

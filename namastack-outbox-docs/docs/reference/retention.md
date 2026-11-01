@@ -177,8 +177,12 @@ deleting its id is still deleted.
 
 ## Indexes
 
-`FAILED` retention uses the existing `(status, next_retry_at)` index. For large tables, `COMPLETED`
-retention benefits from an additional index, which is not created automatically:
+`FAILED` retention uses the existing `(status, next_retry_at)` index. The JDBC PostgreSQL schema
+also includes a partial B-tree on `completed_at WHERE completed_at IS NOT NULL` for ordered
+`COMPLETED` retention. No additional retention index is needed for that schema.
+
+For other relational schemas and MongoDB, large completed histories benefit from an additional
+index, which is not created automatically:
 
 <Tabs>
 <TabItem value="sql" label="Relational databases">

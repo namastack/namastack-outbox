@@ -10,7 +10,7 @@ class PaymentRequestedEventHandler : OutboxTypedHandler<PaymentRequestedEvent> {
         payload: PaymentRequestedEvent,
         metadata: OutboxRecordMetadata,
     ) {
-        // Intentionally empty: this benchmark isolates outbox processing overhead.
+        // Empty handler: this benchmark measures outbox overhead.
     }
 
     companion object {

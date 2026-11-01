@@ -1,6 +1,7 @@
 package io.namastack.performance.tooling.store
 
 import io.namastack.performance.tooling.record.PerformanceRecord
+import io.namastack.performance.tooling.report.BacklogSample
 import io.namastack.performance.tooling.report.EnvironmentInfo
 import io.namastack.performance.tooling.report.LatencyStats
 import io.namastack.performance.tooling.report.PartitionStats
@@ -42,6 +43,17 @@ internal interface PerformanceStore {
 
     fun statusCountsAt(timestamp: Instant): StatusCounts
 
+    fun committedProductionEnd(runId: String): StatusCounts?
+
+    fun hasPendingRecords(): Boolean
+
+    fun productionSamples(
+        runId: String,
+        start: Instant,
+        end: Instant,
+        interval: Duration,
+    ): List<BacklogSample>
+
     fun clusterStatus(): ClusterStatus
 
     fun resetOutbox()
@@ -53,7 +65,7 @@ internal interface PerformanceStore {
 
     fun latencyStats(runId: String): LatencyStats
 
-    fun partitionStats(): PartitionStats
+    fun partitionStats(runId: String? = null): PartitionStats
 
     fun environmentInfo(): EnvironmentInfo
 }
