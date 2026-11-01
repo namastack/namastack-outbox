@@ -4,6 +4,10 @@ Sources: `01-usage-map.md`, `01-usage-map-v1-delta.md`, `02-scenarios.md`, `STAT
 `outbox-wt-main` / `outbox-wt-v1` (DDL `schema/postgres/outbox-tables.sql`, `JdbcOutboxRecordQueries`). Query ids are those of `02-scenarios.md`.
 Base: `M` = main, `V` = v1. "DDL" = a `--ddl` file (full v1/main DDL minus the dropped indexes plus the new ones). "SQL" = `--queries <dir>/<id>.sql` override.
 
+> **Orchestrator note (user decision 2026-11-01, see STATE.md):** priorities are P1 hot path > P2 new metrics > P3 retention/admin.
+> Retention indexes (E06) are dropped from the plan: P3 queries need no index. Drop-index ablations (E05) and active-only partial
+> indexes that shrink write cost (E03) move up. Every DDL experiment reports WAL bytes per write.
+
 ## Observations that drive the list
 
 1. v1 `keys_strict` outer scan is `idx_outbox_record_created_id_incomplete` (created_at,id) walked in created_at order, filtering

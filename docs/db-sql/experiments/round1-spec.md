@@ -66,6 +66,15 @@ Verdict per brief: keep only if a plan or a timing changes above the noise thres
 (the object then only costs ANALYZE time and is a PostgreSQL-only DDL difference). The add-one counterpart (main + statistics) is
 round 2 (E2x) and is only needed if E14 shows an effect.
 
+## Query priorities (user decision, see STATE.md "User decisions")
+
+Rank every result by priority: **P1** hot path (`keys_*`, `pages`, `insert`, `upd_*`, `delete_by_id`, S10), **P2** new metrics
+(`count_statuses`, `count_partitions`, `oldest_*`), **P3** retention/cleanup/admin (no index needed, regressions reported only).
+Verdicts are decided by P1 first, then P2. For every DDL variant, report write cost: committed insert and `upd_complete` latency,
+**WAL bytes per write** (`pg_current_wal_lsn()` difference over the `writecost` run divided by the number of writes; add this to
+`writecost` if missing and document it in harness/README.md "Changes"), index count and sizes. An index that only helps P3 is a
+candidate for removal, not a win.
+
 ## Noise
 
 Use `docs/db-sql/STATE.md` thresholds: HOT/WRITE 30 %, MON/RET/ADMIN 20 %, and always > 0.15 ms absolute.
