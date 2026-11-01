@@ -1,104 +1,137 @@
-# Namastack Outbox Performance Test
+# Outbox performance test
 
-This standalone Gradle composite build measures Namastack Outbox throughput against PostgreSQL.
-The primary `steady-state` mode continuously inserts payment events and verifies whether consumers
-can keep up without a growing backlog. The `backlog-drain` mode measures recovery after downtime or
-a burst.
+Measures the JDBC consumer from **this checkout** against PostgreSQL. PostgreSQL, consumers,
+load generator, Prometheus, and Grafana run in Docker. No Maven Local publishing is needed.
 
-## Prerequisites
+## Run
 
-- Java 17
-- Docker with Docker Compose
-- `curl`
-
-## Primary Test
+Requires JDK 21+, Docker Compose v2, Python 3, and `curl`.
+For the 150k/s reference setup, give Docker **32 GB RAM**, roughly **18 CPU cores**, and at least
+**150 GB free disk** for a five-minute run. The database is dedicated to this benchmark and is reset
+on every run. Do not point this setup at an application database.
 
 ```bash
-./run-performance-test.sh \
-  --mode=steady-state \
-  --instances=4 \
-  --producer-rate=3000 \
-  --producer-duration=10m \
-  --producer-workers=4 \
-  --producer-batch-size=1 \
-  --records-per-key=1 \
-  --warmup-records=25000
+cd namastack-outbox-performance-test
+./run-performance-test.sh
 ```
 
-The producer plans exactly `producer-rate × producer-duration` records. Records are never silently
-dropped when the local producer cannot keep up. Instead, production takes longer and the report
-marks the producer result as `TARGET MISSED`.
-
-`--producer-batch-size=1` models one event per committed business transaction. Increase the value
-for import-style workloads. `--producer-workers` controls the number of parallel JDBC connections.
-
-## Event And Key Model
-
-Each generated record contains a small `PaymentRequestedEvent` payload with a payment ID, customer
-ID, amount, currency and creation timestamp. The default `--records-per-key=1` assigns one
-deterministic `payment:<id>` key per record. This is the baseline for maximum independent
-parallelism and is reproducible across runs.
-
-Use values such as `--records-per-key=10` or `--records-per-key=100` as separate scenarios to
-measure the effect of ordered processing for repeated keys. Random UUID keys are not needed for the
-baseline: deterministic keys are realistic enough for hashing while making test runs comparable.
-
-## Tooling Architecture
-
-The command-line tooling uses small packages with explicit responsibilities. The root package only
-contains the entry point and dependency wiring.
-
-```text
-command -> run.PerformanceTestService -> store.PerformanceStore <- jdbc
-collector ---------------------------> store.PerformanceStore <- jdbc
-collector -> report.PerformanceReportWriter <- report.MarkdownPerformanceReportWriter
-```
-
-- `command` parses command-line arguments, creates request objects and prints results.
-- `run` contains the performance-test lifecycle, requests, results and run state.
-- `record` creates deterministic outbox benchmark records.
-- `store` defines database access ports.
-- `collector` samples run state and coordinates report creation.
-- `jdbc` contains SQL, JDBC connections and PostgreSQL COPY implementations.
-- `report` contains measurement models and Markdown, JSON, CSV, Prometheus and SVG reporting.
-- `internal` contains small module-internal utility functions.
-
-## Results
-
-Steady-state reports separate three questions:
-
-- `Correctness result`: Were all records processed after the final drain without retries or errors?
-- `Producer rate result`: Did the local producer reach the requested write rate?
-- `Capacity assessment`: Did consumers keep up while the target rate was actually applied?
-
-The capacity assessment uses stabilized backlog growth after `--measurement-warmup=30s` and the
-remaining backlog at producer stop. Limits can be overridden with `--max-backlog-growth-rate` and
-`--max-end-backlog`.
-
-## Recovery Test
+The default is a one-minute screen at **150,000 records/s** with eight consumer JVMs. It builds the
+current library automatically. For a five-minute confirmation:
 
 ```bash
-./run-performance-test.sh \
-  --mode=backlog-drain \
-  --instances=4 \
-  --records=1000000 \
-  --records-per-key=1
+./run-performance-test.sh --producer-duration=5m
 ```
 
-## Reports And Monitoring
+For a smaller workload, change the rate and instance count:
 
-Each run creates a self-contained Markdown report:
-
-```text
-reports/<run-id>/
-├── report.md
-├── parameters.json
-├── samples.csv
-├── prometheus-queries.json
-├── collector.log
-├── graphs/
-└── logs/
+```bash
+./run-performance-test.sh --producer-rate=20000 --instances=4
 ```
 
-Use `--keep-monitoring=true` to leave PostgreSQL, Prometheus and Grafana running. Grafana is
-available at `http://localhost:3000/d/namastack-outbox-performance`.
+The database cache defaults still target a 32-GB Docker environment. On a smaller machine, override
+`PERF_PG_SHARED_BUFFERS` and `PERF_PG_EFFECTIVE_CACHE_SIZE`, lower the rate/instance count, and budget
+768 MB heap per consumer plus the producer and monitoring services. Throughput will differ.
+
+Use `--skip-build=true` only when no library or benchmark source changed. Run `./run-performance-test.sh --help`
+for all options. There are no extra wrapper scripts or tuning profiles.
+
+## What it measures
+
+1. Starts an isolated PostgreSQL database and monitoring services.
+2. Applies the **library's shipped PostgreSQL schema** and verifies every index definition.
+3. Starts eight Java 21 consumers using virtual threads, strict ordering, 2,000 keys per poll,
+   10-ms polling, 12 database connections per consumer, and completion batching (2,048 records,
+   1-ms collection window, one writer). PostgreSQL multi-row completion updates are enabled.
+4. Warms up with 250,000 records, then preloads four million completed records to represent history.
+5. Produces exactly rate × duration records. Each key has ten records, kept in the same producer
+   transaction. The empty payment handler measures outbox overhead, without external service latency.
+6. Captures committed counts at producer stop, drains the remainder, and checks completion order for
+   every record. A failed correctness check, missed producer rate, or unsustainable backlog fails the run.
+
+The load generator uses PostgreSQL binary COPY with 16 connections and 2,560 records per transaction.
+This prevents producer overhead from hiding consumer capacity. It does **not** measure one business
+transaction per record or the public scheduling API. Set `PERF_PRODUCER_COPY=false` to use JDBC batch
+inserts, or change `--producer-batch-size` and `--producer-workers` to model another workload.
+With parallel producers, batch size must be a multiple of records per key so a key cannot span transactions.
+
+Database-wide count scans run **after** production. During production the collector polls only the
+small run table; report curves are reconstructed afterward. The producer-stop result uses an MVCC
+snapshot of committed records, so it does not count an uncommitted completion as processed.
+Processing timers remain enabled; duplicate database-backed state gauges are disabled.
+
+## PostgreSQL tuning
+
+The defaults live in [`postgresql.conf`](postgresql.conf), [`docker-compose.yml`](docker-compose.yml),
+and [`sql/25_tuned_autovacuum.sql`](sql/25_tuned_autovacuum.sql). There are no alternative index layouts.
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| Shared buffers / estimated cache | 20 GB / 24 GB | Keep the active data and indexes in cache; sized for the reference machine |
+| WAL buffers | 64 MB | Reduce WAL-buffer flush pressure |
+| WAL compression | LZ4 | Reduce full-page WAL volume |
+| Maximum / minimum WAL size | 32 GB / 4 GB | Avoid repeated checkpoints under heavy writes; not a disk-space limit |
+| Connections | 250 | Cover consumer pools, producers, and monitoring |
+| Work memory / JIT | 16 MB / off | Keep short processing queries predictable |
+| Autovacuum wake interval | 10 s | Revisit frequently updated tables sooner |
+| Table vacuum / analyze thresholds | 2% / 1%, minimum 10,000 | Reclaim dead tuples and refresh statistics on the growing table |
+| Vacuum cost limit / delay | 2,000 / 1 ms | Give maintenance enough I/O budget for this write rate |
+| Background writer | 10 ms, 1,000 pages, multiplier 4 | Smooth dirty-buffer writes |
+| PostgreSQL shared memory | 1 GB | Support parallel post-run scans beyond Docker's default 64 MB |
+
+**Durability stays enabled:** `fsync`, `full_page_writes`, and `synchronous_commit` are all on.
+The schema has the primary key plus two partial processing indexes; completed history is excluded
+from the secondary indexes. The benchmark does not add or remove indexes beyond the checked-out schema.
+
+For ordering verification, a temporary physical replication slot retains WAL until the audit finishes.
+If the VM wall clock moves backward, the verifier checks the affected records' transaction commit
+positions rather than accepting misleading timestamps. The slot is released on exit. Retained WAL
+can exceed `max_wal_size`, which is why long runs need substantial free disk. This verifies persisted
+completion order; it does not prove exactly-once external handler effects.
+
+## Verified result
+
+Library commit `983c7d66`, strict mode, five minutes, on the 18-CPU/32-GB Docker setup:
+**149,894 processed records/s**. Of 45,000,000 produced records, 44,975,746 were committed as completed
+at producer stop and 24,254 remained. They drained in 0.18 s. The final audit checked every record:
+zero missing completions, ordering violations, retries, or failures; p99 processing latency was 448 ms.
+Run ID: `release-150k-verification-20261101`.
+
+The simplified default command was also verified end to end: **149,624 records/s** over one minute,
+all nine million records audited without violations, and capacity assessed as sustainable
+(`clean-default-150k-20261101`). Results depend on hardware and handler work.
+
+## Results and cleanup
+
+The console prints produced, completed, pending, elapsed production time, and average processing rate.
+Every run writes `reports/<run-id>/` with:
+
+- `report.md`: throughput, producer compliance, backlog, latency, and graphs.
+- `production-summary.json`: committed counts at producer stop.
+- `completion-order.json`: full ordering audit.
+- `execution.txt`, `indexes.json`, PostgreSQL snapshots, and logs: reproduction details.
+
+A completed final drain alone is not evidence of sustainable throughput. Check the rate **during
+production**, producer compliance, and backlog growth in the report.
+
+To retain the monitoring services after the run:
+
+```bash
+./run-performance-test.sh --keep-monitoring=true
+```
+
+Grafana: <http://localhost:53000/d/namastack-outbox-performance>.
+Consumers always stop on exit. The database volume is retained and reset at the next run.
+To stop monitoring and delete benchmark data:
+
+```bash
+docker compose -p namastack-outbox-performance-test down -v
+```
+
+Reports stay on disk and are ignored by Git. After an uncatchable kill, ensure no run is active before
+removing `runtime/run.lock`; the next run releases abandoned benchmark WAL slots.
+
+A backlog-drain scenario is also available:
+
+```bash
+./run-performance-test.sh --mode=backlog-drain --records=1000000
+```

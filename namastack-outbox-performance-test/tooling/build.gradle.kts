@@ -9,6 +9,11 @@ dependencies {
     implementation("io.namastack:namastack-outbox-core")
     implementation(libs.postgresql)
     implementation(libs.jackson.databind)
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.mockk)
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.postgresql)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 application {

@@ -13,4 +13,5 @@ internal fun CommandLineOptions.collectorContext() =
         grafanaUrl = string("grafana-url", "http://localhost:3000/d/namastack-outbox-performance"),
         timeout = duration("timeout", Duration.ofMinutes(30)),
         sampleInterval = duration("sample-interval", Duration.ofSeconds(5)),
+        retainedCompletedRecords = long("retained-completed-records", 0),
     )

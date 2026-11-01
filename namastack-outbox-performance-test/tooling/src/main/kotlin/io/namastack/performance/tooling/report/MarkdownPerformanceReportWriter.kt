@@ -1,17 +1,17 @@
 package io.namastack.performance.tooling.report
 
 import io.namastack.outbox.partition.PartitionHasher
+import io.namastack.performance.tooling.internal.format
+import io.namastack.performance.tooling.internal.jsonMapper
+import io.namastack.performance.tooling.internal.secondsBetween
 import io.namastack.performance.tooling.report.BacklogSample
 import io.namastack.performance.tooling.report.EnvironmentInfo
 import io.namastack.performance.tooling.report.PartitionStats
 import io.namastack.performance.tooling.report.PerformanceReportWriter
 import io.namastack.performance.tooling.report.ReportContext
+import io.namastack.performance.tooling.report.SteadyStateStats
 import io.namastack.performance.tooling.run.RunInfo
 import io.namastack.performance.tooling.run.StatusCounts
-import io.namastack.performance.tooling.report.SteadyStateStats
-import io.namastack.performance.tooling.internal.format
-import io.namastack.performance.tooling.internal.jsonMapper
-import io.namastack.performance.tooling.internal.secondsBetween
 import java.nio.file.Path
 import java.time.Instant
 import kotlin.io.path.createDirectories
@@ -88,29 +88,63 @@ internal object MarkdownPerformanceReportWriter : PerformanceReportWriter {
         )
         writeSamples(context.reportDir, samples)
         writeQueries(context)
-        writeParameters(context.reportDir, run, partitions, environment, mapOf("steadyState" to stats.toMap()))
-        context.reportDir.resolve("report.md").writeText(steadyStateMarkdown(run, counts, stats, context.grafanaUrl, partitions, environment))
+        writeParameters(
+            context.reportDir,
+            run,
+            partitions,
+            environment,
+            mapOf(
+                "steadyState" to stats.toMap(),
+                "retainedCompletedRecords" to context.retainedCompletedRecords,
+            ),
+        )
+        context.reportDir
+            .resolve(
+                "report.md",
+            ).writeText(
+                steadyStateMarkdown(
+                    run,
+                    counts,
+                    stats,
+                    context.grafanaUrl,
+                    partitions,
+                    environment,
+                    context.retainedCompletedRecords,
+                ),
+            )
     }
 
     override fun steadyStateSummary(
         run: RunInfo,
         counts: StatusCounts,
         stats: SteadyStateStats,
-    ) =
-        """
-        Run ID:                              ${run.runId}
-        Records planned / produced:          ${run.expectedRecords} / ${run.producedRecords}
-        Records completed / failed:          ${counts.completedRecords} / ${counts.failedRecords}
-        Target / actual producer rate:       ${run.producerTargetRate} / ${format(stats.actualProducerRate)} records/s
-        Processing rate during production:   ${format(stats.processingRateDuringProduction)} records/s
-        Stabilized backlog growth:           ${format(stats.backlogGrowthRate)} records/s
-        Backlog at producer stop:             ${stats.backlogAtProducerStop}
-        Drain duration:                       ${format(stats.drainDurationSeconds)} s
-        Processing latency p50 / p95 / p99:  ${format(stats.latency.p50Seconds)} / ${format(stats.latency.p95Seconds)} / ${format(stats.latency.p99Seconds)} s
-        Correctness result:                  ${if (counts.isValid(run.expectedRecords)) "VALID" else "INVALID"}
-        Producer rate result:                ${if (stats.producerRateCompliant) "TARGET MET" else "TARGET MISSED"}
-        Capacity assessment:                 ${if (stats.sustainable) "SUSTAINABLE" else "UNSUSTAINABLE"}
-        Report:                              report.md
+    ) = """
+                                Run ID:                              ${run.runId}
+                                Records planned / produced:          ${run.expectedRecords} / ${run.producedRecords}
+                                Records completed / failed:          ${counts.completedRecords} / ${counts.failedRecords}
+                                Target / actual producer rate:       ${run.producerTargetRate} / ${format(
+        stats.actualProducerRate,
+    )} records/s
+                                Processing rate during production:   ${format(
+        stats.processingRateDuringProduction,
+    )} records/s
+                                Stabilized backlog growth:           ${format(stats.backlogGrowthRate)} records/s
+                                Backlog at producer stop:             ${stats.backlogAtProducerStop}
+                                Drain duration:                       ${format(stats.drainDurationSeconds)} s
+                                Processing latency p50 / p95 / p99:  ${format(
+        stats.latency.p50Seconds,
+    )} / ${format(stats.latency.p95Seconds)} / ${format(stats.latency.p99Seconds)} s
+                                Correctness result:                  ${if (counts.isValid(
+            run.expectedRecords,
+        )
+    ) {
+        "VALID"
+    } else {
+        "INVALID"
+    }}
+                                Producer rate result:                ${if (stats.producerRateCompliant) "TARGET MET" else "TARGET MISSED"}
+                                Capacity assessment:                 ${if (stats.sustainable) "SUSTAINABLE" else "UNSUSTAINABLE"}
+                                Report:                              report.md
         """.trimIndent()
 
     override fun drainSummary(
@@ -126,7 +160,7 @@ internal object MarkdownPerformanceReportWriter : PerformanceReportWriter {
             Average throughput:  ${format(counts.completedRecords / duration)} records/s
             Result:              ${if (counts.isValid(run.expectedRecords)) "VALID" else "INVALID"}
             Report:              report.md
-        """.trimIndent()
+            """.trimIndent()
     }
 
     private fun loadPrometheusGraphs(
@@ -151,9 +185,30 @@ internal object MarkdownPerformanceReportWriter : PerformanceReportWriter {
         prometheus: PrometheusGraphs,
         suffix: String,
     ) {
-        SvgGraph.write(graphs.resolve("throughput-total.svg"), "Processed outbox records / second $suffix", prometheus.throughput)
-        SvgGraph.write(graphs.resolve("throughput-by-consumer.svg"), "Processed records / second by consumer $suffix", prometheus.throughputByConsumer)
-        SvgGraph.write(graphs.resolve("backlog.svg"), "Remaining outbox backlog", listOf(MetricSeries("new", samples.map { MetricPoint(it.timestamp, it.counts.newRecords.toDouble()) })))
+        SvgGraph.write(
+            graphs.resolve("throughput-total.svg"),
+            "Processed outbox records / second $suffix",
+            prometheus.throughput,
+        )
+        SvgGraph.write(
+            graphs.resolve("throughput-by-consumer.svg"),
+            "Processed records / second by consumer $suffix",
+            prometheus.throughputByConsumer,
+        )
+        SvgGraph.write(
+            graphs.resolve(
+                "backlog.svg",
+            ),
+            "Remaining outbox backlog",
+            listOf(
+                MetricSeries(
+                    "new",
+                    samples.map {
+                        MetricPoint(it.timestamp, it.counts.newRecords.toDouble())
+                    },
+                ),
+            ),
+        )
         SvgGraph.write(graphs.resolve("consumer-cpu.svg"), "Consumer process CPU usage $suffix", prometheus.cpu)
         SvgGraph.write(graphs.resolve("consumer-memory.svg"), "Consumer JVM heap bytes $suffix", prometheus.memory)
         SvgGraph.write(graphs.resolve("postgres.svg"), "PostgreSQL commits / second $suffix", prometheus.postgres)
@@ -167,7 +222,9 @@ internal object MarkdownPerformanceReportWriter : PerformanceReportWriter {
             buildString {
                 appendLine("timestamp,phase,new_records,completed_records,failed_records,retry_count,total_records")
                 samples.sortedBy { it.timestamp }.forEach {
-                    appendLine("${it.timestamp},${it.phase},${it.counts.newRecords},${it.counts.completedRecords},${it.counts.failedRecords},${it.counts.retryCount},${it.counts.totalRecords()}")
+                    appendLine(
+                        "${it.timestamp},${it.phase},${it.counts.newRecords},${it.counts.completedRecords},${it.counts.failedRecords},${it.counts.retryCount},${it.counts.totalRecords()}",
+                    )
                 }
             },
         )
@@ -197,7 +254,8 @@ internal object MarkdownPerformanceReportWriter : PerformanceReportWriter {
     ) {
         directory.resolve("parameters.json").writeText(
             jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(
-                run.toMap() + mapOf("partitions" to partitions.toMap(), "environment" to environment.toMap()) + additional,
+                run.toMap() + mapOf("partitions" to partitions.toMap(), "environment" to environment.toMap()) +
+                    additional,
             ) + "\n",
         )
     }
@@ -209,6 +267,7 @@ internal object MarkdownPerformanceReportWriter : PerformanceReportWriter {
         grafanaUrl: String,
         partitions: PartitionStats,
         environment: EnvironmentInfo,
+        retainedCompletedRecords: Long,
     ): String =
         """
         # Namastack Outbox Steady-State Performance Report
@@ -261,11 +320,14 @@ internal object MarkdownPerformanceReportWriter : PerformanceReportWriter {
         | Records per key | ${run.recordsPerKey} |
         | Distinct keys | ${run.distinctKeys} |
         | Warm-up records | ${run.warmupRecords} |
+        | Retained completed records at start (excluded from delivery counts) | $retainedCompletedRecords |
         | Stabilization window excluded | ${format(run.measurementWarmupMs!! / 1_000.0)} s |
         | Maximum accepted backlog growth | ${format(run.maxBacklogGrowthRate!!)} records/s |
         | Maximum accepted end backlog | ${run.maxEndBacklog} |
         | Partitions used | ${partitions.usedPartitions} / ${PartitionHasher.TOTAL_PARTITIONS} |
-        | Records per used partition min / avg / max | ${partitions.minRecords} / ${format(partitions.avgRecords)} / ${partitions.maxRecords} |
+        | Records per used partition min / avg / max | ${partitions.minRecords} / ${format(
+            partitions.avgRecords,
+        )} / ${partitions.maxRecords} |
 
         ## Environment
 
@@ -297,7 +359,9 @@ internal object MarkdownPerformanceReportWriter : PerformanceReportWriter {
         ## Notes
 
         - The producer schedules exactly `target rate × configured duration` records. When local inserts cannot keep up, production takes longer and the producer-rate result becomes `TARGET MISSED`; records are not silently dropped.
-        - Capacity is sustainable only when the producer target was met, stabilized backlog growth is at most ${format(run.maxBacklogGrowthRate)} records/s and end backlog is at most ${run.maxEndBacklog}.
+        - Capacity is sustainable only when the producer target was met, stabilized backlog growth is at most ${format(
+            run.maxBacklogGrowthRate,
+        )} records/s and end backlog is at most ${run.maxEndBacklog}.
         - Latency is measured from `created_at` to `completed_at`, including time spent in the outbox backlog.
         - The Grafana live dashboard is available at `$grafanaUrl`.
         """.trimIndent() + "\n"

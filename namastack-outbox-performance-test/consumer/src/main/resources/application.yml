@@ -6,12 +6,12 @@ spring:
     username: ${PERF_DB_USER:username}
     password: ${PERF_DB_PASSWORD:password}
     hikari:
-      maximum-pool-size: ${PERF_DB_POOL_SIZE:30}
+      maximum-pool-size: ${PERF_DB_POOL_SIZE:12}
       minimum-idle: ${PERF_DB_MIN_IDLE:5}
       connection-timeout: 30000
   threads:
     virtual:
-      enabled: ${PERF_VIRTUAL_THREADS:false}
+      enabled: ${PERF_VIRTUAL_THREADS:true}
 
 server:
   port: ${SERVER_PORT:9101}
@@ -32,18 +32,29 @@ management:
 namastack:
   outbox:
     jdbc:
+      completion-batching:
+        bulk-updates: ${PERF_BULK_COMPLETION_UPDATES:true}
+        enabled: ${PERF_COMPLETION_BATCHING:true}
+        max-batch-size: ${PERF_COMPLETION_BATCH_SIZE:2048}
+        max-wait: ${PERF_COMPLETION_BATCH_WAIT:1ms}
+        writer-count: ${PERF_COMPLETION_WRITERS:1}
       schema-initialization:
         enabled: false
     polling:
-      batch-size: ${PERF_BATCH_SIZE:1000}
+      batch-size: ${PERF_BATCH_SIZE:2000}
       trigger: fixed
       fixed:
-        interval: ${PERF_POLL_INTERVAL:100ms}
+        interval: ${PERF_POLL_INTERVAL:10ms}
     processing:
       delete-completed-records: false
-      stop-on-first-failure: true
+      stop-on-first-failure: ${PERF_STRICT_ORDERING:true}
+      executor-concurrency-limit: ${PERF_EXECUTOR_CONCURRENCY_LIMIT:2048}
       executor-core-pool-size: ${PERF_EXECUTOR_CORE_POOL_SIZE:16}
       executor-max-pool-size: ${PERF_EXECUTOR_MAX_POOL_SIZE:32}
+    observability:
+      metrics:
+        # The collector measures database state; retain event timers without duplicate state queries.
+        enabled: false
     instance:
       heartbeat-interval: 1s
       stale-instance-timeout: 10s
@@ -55,4 +66,3 @@ logging:
   level:
     root: WARN
     io.namastack.outbox: WARN
-

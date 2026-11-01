@@ -13,6 +13,7 @@ import java.time.Instant
 internal class PrometheusClient(
     private val baseUrl: String,
 ) {
+    private val queryBaseUrl = System.getenv("PERF_PROMETHEUS_QUERY_URL") ?: baseUrl
     private val http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()
 
     fun queryRange(
@@ -20,9 +21,22 @@ internal class PrometheusClient(
         start: Instant,
         end: Instant,
     ): List<MetricSeries> {
-        val uri = URI.create("$baseUrl/api/v1/query_range?query=${encode(query)}&start=${start.epochSecond}&end=${end.epochSecond}&step=1")
+        val uri =
+            URI.create(
+                "$queryBaseUrl/api/v1/query_range?query=${encode(
+                    query,
+                )}&start=${start.epochSecond}&end=${end.epochSecond}&step=1",
+            )
         return try {
-            val response = http.send(HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(10)).GET().build(), HttpResponse.BodyHandlers.ofString())
+            val response =
+                http.send(
+                    HttpRequest
+                        .newBuilder(uri)
+                        .timeout(Duration.ofSeconds(10))
+                        .GET()
+                        .build(),
+                    HttpResponse.BodyHandlers.ofString(),
+                )
             if (response.statusCode() !in 200..299) emptyList() else parseSeries(jsonMapper.readTree(response.body()))
         } catch (_: Exception) {
             emptyList()
@@ -32,7 +46,13 @@ internal class PrometheusClient(
     private fun parseSeries(root: JsonNode): List<MetricSeries> =
         root.path("data").path("result").mapIndexed { index, result ->
             val metric = result.path("metric")
-            val name = metric.path("consumer").asString().ifEmpty { metric.path("instance").asString() }.ifEmpty { "series-${index + 1}" }
+            val name =
+                metric
+                    .path("consumer")
+                    .asString()
+                    .ifEmpty {
+                        metric.path("instance").asString()
+                    }.ifEmpty { "series-${index + 1}" }
             val points =
                 result.path("values").mapNotNull {
                     val number = it.path(1).asString().toDoubleOrNull() ?: return@mapNotNull null

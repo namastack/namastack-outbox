@@ -2,74 +2,72 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE=(docker compose -f "$ROOT_DIR/docker-compose.yml")
+SCHEMA_FILE="$ROOT_DIR/../namastack-outbox-jdbc/src/main/resources/schema/postgres/outbox-tables.sql"
+COMPOSE=(docker compose -p namastack-outbox-performance-test -f "$ROOT_DIR/docker-compose.yml")
 GRADLE=("$ROOT_DIR/../gradlew" -p "$ROOT_DIR")
 TOOL="$ROOT_DIR/tooling/build/install/tooling/bin/tooling"
 CONSUMER_JAR="$ROOT_DIR/consumer/build/libs/namastack-outbox-performance-test-consumer.jar"
 TARGETS_FILE="$ROOT_DIR/monitoring/prometheus/targets/consumer-targets.json"
 RUNTIME_DIR="$ROOT_DIR/runtime"
 LOG_DIR="$RUNTIME_DIR/logs"
-PID_DIR="$RUNTIME_DIR/pids"
 
-MODE="steady-state"
-PROFILE=""
-INSTANCES=4
+MODE=steady-state
+PROFILE=jdbc-postgres
+INSTANCES=8
 RECORDS=1000000
-RECORDS_PER_KEY=1
-WARMUP_RECORDS=25000
-BATCH_SIZE=1000
-POLL_INTERVAL="100ms"
-PRODUCER_RATE=3000
-PRODUCER_DURATION="10m"
-PRODUCER_BATCH_SIZE=1
-PRODUCER_WORKERS=4
-MEASUREMENT_WARMUP="30s"
-MIN_PRODUCER_RATE_RATIO="0.99"
+RECORDS_PER_KEY=10
+WARMUP_RECORDS=250000
+RETAINED_RECORDS=4000000
+BATCH_SIZE=2000
+POLL_INTERVAL=10ms
+PRODUCER_RATE=150000
+PRODUCER_DURATION=1m
+PRODUCER_BATCH_SIZE=2560
+PRODUCER_WORKERS=16
+MEASUREMENT_WARMUP=10s
+MIN_PRODUCER_RATE_RATIO=0.99
 MAX_BACKLOG_GROWTH_RATE=""
 MAX_END_BACKLOG=""
-TRIGGER_TIMEOUT="15m"
-RUN_TIMEOUT="30m"
-SAMPLE_INTERVAL="5s"
+TRIGGER_TIMEOUT=15m
+RUN_TIMEOUT=15m
+SAMPLE_INTERVAL=10s
 KEEP_MONITORING=false
 SKIP_BUILD=false
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
-POSTGRES_PORT="${PERF_POSTGRES_PORT:-5432}"
-PROMETHEUS_PORT="${PERF_PROMETHEUS_PORT:-9090}"
-GRAFANA_PORT="${PERF_GRAFANA_PORT:-3000}"
-export PERF_DB_URL="${PERF_DB_URL:-jdbc:postgresql://localhost:$POSTGRES_PORT/outbox_performance_test}"
 
 usage() {
-  cat <<'EOF'
-Usage: ./run-performance-test.sh [options]
+  cat <<'HELP'
+Usage: ./run-performance-test.sh [--producer-rate=150000] [--producer-duration=1m]
+
+Everything runs in Docker. Artifacts are built from this checkout before each run.
+The dedicated benchmark database is reset. See README.md for resource requirements.
 
 Options:
-  --mode=<name>                steady-state or backlog-drain (default: steady-state)
-  --profile=<name>             Report profile name (default depends on mode)
-  --instances=<count>          Consumer process count (default: 4)
-  --records=<count>            Backlog-drain record count (default: 1000000)
-  --records-per-key=<count>    Events sharing one ordering key (default: 1)
-  --warmup-records=<count>     Warm-up records, 0 disables warm-up (default: 25000)
-  --batch-size=<count>         Maximum keys per consumer polling cycle (default: 1000)
-  --poll-interval=<duration>   Fixed consumer polling delay (default: 100ms)
-  --producer-rate=<count>      Steady-state target records per second (default: 3000)
-  --producer-duration=<time>   Steady-state configured production duration (default: 10m)
-  --producer-batch-size=<count>
-                               Records committed per producer transaction (default: 1)
-  --producer-workers=<count>   Parallel JDBC producer connections (default: 4)
-  --measurement-warmup=<time>  Initial stabilization window excluded from capacity evaluation (default: 30s)
-  --min-producer-rate-ratio=<ratio>
-                               Minimum accepted actual / target producer rate (default: 0.99)
-  --max-backlog-growth-rate=<count>
-                               Sustainable backlog-growth limit; default is 1% of producer rate
-  --max-end-backlog=<count>    Sustainable end-backlog limit; default is 2 seconds of producer load
-  --trigger-timeout=<duration> Backlog INSERT SELECT timeout (default: 15m)
-  --run-timeout=<duration>     Final drain timeout (default: 30m)
-  --sample-interval=<duration> PostgreSQL sampling interval (default: 5s)
-  --run-id=<id>                Explicit report run ID
-  --keep-monitoring=true       Leave Docker Compose services running after the test
-  --skip-build=true            Reuse existing binaries
-  --help                       Show this help
-EOF
+  --producer-rate=N          Target records/s (150000)
+  --producer-duration=TIME   Production duration (1m); use 5m for confirmation
+  --instances=N             Consumer JVMs (8)
+  --records-per-key=N        Records sharing one ordered key (10)
+  --producer-batch-size=N    Records per producer transaction (2560)
+  --producer-workers=N       Producer connections (16)
+  --batch-size=N             Keys per consumer poll (2000)
+  --poll-interval=TIME        Consumer polling delay (10ms)
+  --warmup-records=N          Warm-up records (250000); 0 skips warm-up
+  --retained-records=N        Completed history before production (4000000)
+  --measurement-warmup=TIME  Initial capacity stabilization window (10s)
+  --sample-interval=TIME      Report interval (10s)
+  --run-timeout=TIME          Final drain timeout (15m)
+  --mode=MODE                steady-state (default) or backlog-drain
+  --records=N                Backlog-drain record count (1000000)
+  --trigger-timeout=TIME      Backlog insertion timeout (15m)
+  --min-producer-rate-ratio=N Required actual / target producer rate (0.99)
+  --max-backlog-growth-rate=N Allowed backlog growth/s (1% of target by default)
+  --max-end-backlog=N         Allowed backlog at producer stop (2s of input by default)
+  --run-id=ID                Report directory name (generated by default)
+  --profile=LABEL            Report label (jdbc-postgres)
+  --skip-build=true          Reuse binaries; rebuild after changing library code
+  --keep-monitoring=true     Leave PostgreSQL, Prometheus and Grafana running
+  --help                     Show this help
+HELP
 }
 
 for argument in "$@"; do
@@ -80,6 +78,7 @@ for argument in "$@"; do
     --records=*) RECORDS="${argument#*=}" ;;
     --records-per-key=*) RECORDS_PER_KEY="${argument#*=}" ;;
     --warmup-records=*) WARMUP_RECORDS="${argument#*=}" ;;
+    --retained-records=*) RETAINED_RECORDS="${argument#*=}" ;;
     --batch-size=*) BATCH_SIZE="${argument#*=}" ;;
     --poll-interval=*) POLL_INTERVAL="${argument#*=}" ;;
     --producer-rate=*) PRODUCER_RATE="${argument#*=}" ;;
@@ -97,199 +96,233 @@ for argument in "$@"; do
     --keep-monitoring=*) KEEP_MONITORING="${argument#*=}" ;;
     --skip-build=*) SKIP_BUILD="${argument#*=}" ;;
     --help) usage; exit 0 ;;
-    *) echo "Unknown argument: $argument" >&2; usage >&2; exit 2 ;;
+    *) echo "Unknown argument: $argument" >&2; exit 2 ;;
   esac
 done
 
-if [[ "$MODE" != "steady-state" && "$MODE" != "backlog-drain" ]]; then
-  echo "mode must be steady-state or backlog-drain" >&2
+[[ "$MODE" == steady-state || "$MODE" == backlog-drain ]] || { echo 'Invalid mode' >&2; exit 2; }
+[[ "$RUN_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || { echo 'Invalid run-id' >&2; exit 2; }
+for name in INSTANCES RECORDS RECORDS_PER_KEY BATCH_SIZE PRODUCER_RATE PRODUCER_BATCH_SIZE PRODUCER_WORKERS WARMUP_RECORDS RETAINED_RECORDS; do
+  value="${!name}"
+  [[ "$value" =~ ^(0|[1-9][0-9]*)$ ]] || { echo "$name must be an integer" >&2; exit 2; }
+  if [[ "$name" != WARMUP_RECORDS && "$name" != RETAINED_RECORDS ]] && (( value < 1 )); then
+    echo "$name must be positive" >&2; exit 2
+  fi
+done
+for value in "$KEEP_MONITORING" "$SKIP_BUILD"; do
+  [[ "$value" == true || "$value" == false ]] || { echo 'Boolean options require true or false' >&2; exit 2; }
+done
+if [[ "$MODE" == steady-state ]] && (( PRODUCER_WORKERS > 1 && PRODUCER_BATCH_SIZE % RECORDS_PER_KEY != 0 )); then
+  echo 'producer-batch-size must be a multiple of records-per-key: one key must stay in one producer transaction' >&2
   exit 2
 fi
-if [[ -z "$PROFILE" ]]; then
-  [[ "$MODE" == "steady-state" ]] && PROFILE="steady-state-payments" || PROFILE="independent-payments"
-fi
-if (( INSTANCES < 1 || RECORDS < 1 || RECORDS_PER_KEY < 1 || WARMUP_RECORDS < 0 || PRODUCER_RATE < 1 || PRODUCER_BATCH_SIZE < 1 || PRODUCER_WORKERS < 1 )); then
-  echo "Numeric counts must be positive; warmup-records may be zero" >&2
+for command in java docker curl python3; do
+  command -v "$command" >/dev/null || { echo "Missing prerequisite: $command" >&2; exit 1; }
+done
+docker compose version >/dev/null
+memory_bytes="$(docker info --format '{{.MemTotal}}')"
+if [[ -z "${PERF_PG_SHARED_BUFFERS:-}" ]] && (( memory_bytes < 30 * 1024 * 1024 * 1024 )); then
+  echo 'Defaults require 32 GB Docker RAM. Set a smaller PERF_PG_SHARED_BUFFERS and reduce the workload; see README.md.' >&2
   exit 2
 fi
 
+export PERF_POSTGRES_PORT="${PERF_POSTGRES_PORT:-55432}"
+export PERF_PROMETHEUS_PORT="${PERF_PROMETHEUS_PORT:-59090}"
+export PERF_GRAFANA_PORT="${PERF_GRAFANA_PORT:-53000}"
+export PERF_POSTGRES_EXPORTER_PORT="${PERF_POSTGRES_EXPORTER_PORT:-59187}"
+export PERF_JAVA_IMAGE="${PERF_JAVA_IMAGE:-eclipse-temurin:21-jre@sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56}"
+export PERF_CONSUMER_JAVA_TOOL_OPTIONS="${PERF_CONSUMER_JAVA_TOOL_OPTIONS:--Xms128m -Xmx768m}"
+export PERF_TOOL_JAVA_TOOL_OPTIONS="${PERF_TOOL_JAVA_TOOL_OPTIONS:--Xms128m -Xmx768m}"
+export PERF_PRODUCER_COPY="${PERF_PRODUCER_COPY:-true}"
+export PERF_LIGHTWEIGHT_COLLECTOR=true
+export PERF_DURABLE_STOP_COUNTS=true
+# Java clients use the Compose network; this host URL is only report metadata.
+export PERF_DB_URL="jdbc:postgresql://localhost:$PERF_POSTGRES_PORT/outbox_performance_test?reWriteBatchedInserts=true"
+
+mkdir -p "$RUNTIME_DIR" "$ROOT_DIR/reports" "$(dirname "$TARGETS_FILE")"
+mkdir "$RUNTIME_DIR/run.lock" 2>/dev/null || { echo 'Another run holds runtime/run.lock' >&2; exit 1; }
 COLLECTOR_PID=""
+VERIFY_WAL_SLOT=""
+REPORT_DIR=""
+source "$ROOT_DIR/docker-jvm-runtime.sh"
+
+psql_benchmark() {
+  "${COMPOSE[@]}" exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -U username -d outbox_performance_test "$@"
+}
 
 cleanup() {
-  local exit_code=$?
+  local code=$?
   trap - EXIT INT TERM
-  if [[ -n "$COLLECTOR_PID" ]] && kill -0 "$COLLECTOR_PID" 2>/dev/null; then
+  if [[ -n "$COLLECTOR_PID" ]]; then
     kill "$COLLECTOR_PID" 2>/dev/null || true
     wait "$COLLECTOR_PID" 2>/dev/null || true
   fi
-  if [[ -d "$PID_DIR" ]]; then
-    while IFS= read -r pid_file; do
-      kill "$(cat "$pid_file")" 2>/dev/null || true
-    done < <(find "$PID_DIR" -type f -name '*.pid' | sort)
-    sleep 2
-    while IFS= read -r pid_file; do
-      kill -9 "$(cat "$pid_file")" 2>/dev/null || true
-    done < <(find "$PID_DIR" -type f -name '*.pid' | sort)
-    rm -f "$PID_DIR"/*.pid
+  if (( code != 0 )) && [[ -n "$REPORT_DIR" ]]; then
+    cp "$LOG_DIR"/*.log "$REPORT_DIR/logs/" 2>/dev/null || true
+    printf 'Run failed with exit code %s; inspect logs.\n' "$code" > "$REPORT_DIR/failure.txt"
   fi
-  if [[ "$KEEP_MONITORING" != "true" ]]; then
-    "${COMPOSE[@]}" down >/dev/null 2>&1 || true
+  cleanup_java_runtime
+  if [[ -n "$VERIFY_WAL_SLOT" ]]; then
+    if ! psql_benchmark -c "SELECT pg_drop_replication_slot('$VERIFY_WAL_SLOT')" > "$REPORT_DIR/verification-wal-cleanup.log" 2>&1; then
+      echo 'Could not release verification WAL; see verification-wal-cleanup.log' >&2
+      code=1
+    fi
   fi
-  exit "$exit_code"
+  if [[ "$KEEP_MONITORING" != true ]]; then
+    "${COMPOSE[@]}" down --timeout 30 >/dev/null 2>&1 || true
+  fi
+  rmdir "$RUNTIME_DIR/run.lock" 2>/dev/null || true
+  exit "$code"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-wait_for_postgres() {
-  local deadline=$((SECONDS + 120))
-  until "${COMPOSE[@]}" exec -T postgres pg_isready -U username -d outbox_performance_test >/dev/null 2>&1; do
-    (( SECONDS < deadline )) || { echo "Timed out waiting for PostgreSQL" >&2; exit 1; }
-    sleep 2
-  done
-}
+REPORT_DIR="$ROOT_DIR/reports/$RUN_ID"
+if [[ -e "$REPORT_DIR" ]]; then
+  REPORT_DIR=""
+  echo 'Report directory already exists; use a new run-id' >&2
+  exit 2
+fi
+mkdir "$REPORT_DIR"
+mkdir -p "$LOG_DIR" "$REPORT_DIR/logs"
+rm -f "$LOG_DIR"/*.log
+export PERF_REPORT_DIR="$REPORT_DIR"
 
 wait_for_http() {
-  local url=$1
-  local label=$2
   local deadline=$((SECONDS + 120))
-  until curl --fail --silent "$url" >/dev/null; do
-    (( SECONDS < deadline )) || { echo "Timed out waiting for $label at $url" >&2; exit 1; }
+  until curl --fail --silent "$1" >/dev/null; do
+    (( SECONDS < deadline )) || { echo "Timed out waiting for $1" >&2; exit 1; }
     sleep 1
   done
 }
 
-tool() {
-  "$TOOL" "$@"
-}
-
-generate_prometheus_targets() {
-  {
-    printf '[\n'
-    for ((index = 1; index <= INSTANCES; index++)); do
-      (( index == 1 )) || printf ',\n'
-      printf '  {"targets":["host.docker.internal:%s"],"labels":{"consumer":"consumer-%s"}}' "$((9100 + index))" "$index"
-    done
-    printf '\n]\n'
-  } > "$TARGETS_FILE"
-}
-
-apply_schema_and_reset() {
-  "${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -f /sql/00_outbox_schema.sql
-  "${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -f /sql/10_performance_schema.sql
-  "${COMPOSE[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U username -d outbox_performance_test -f /sql/20_reset.sql
-}
-
 seed() {
-  tool seed \
-    "--run-id=$1" \
-    "--profile=$PROFILE" \
-    "--records=$2" \
-    "--records-per-key=$RECORDS_PER_KEY" \
-    "--instances=$INSTANCES" \
-    "--batch-size=$BATCH_SIZE" \
-    "--poll-interval=$POLL_INTERVAL" \
-    "--warmup-records=$WARMUP_RECORDS"
+  run_tool seed "--run-id=$1" "--records=$2" "--profile=$PROFILE" \
+    "--records-per-key=$RECORDS_PER_KEY" "--instances=$INSTANCES" \
+    "--batch-size=$BATCH_SIZE" "--poll-interval=$POLL_INTERVAL" "--warmup-records=$WARMUP_RECORDS"
 }
 
-start_consumers() {
-  for ((index = 1; index <= INSTANCES; index++)); do
-    PERF_INSTANCE_ID="consumer-$index" \
-    PERF_BATCH_SIZE="$BATCH_SIZE" \
-    PERF_POLL_INTERVAL="$POLL_INTERVAL" \
-    SERVER_PORT="$((9100 + index))" \
-      java -jar "$CONSUMER_JAR" > "$LOG_DIR/consumer-$index.log" 2>&1 &
-    echo "$!" > "$PID_DIR/consumer-$index.pid"
-  done
-  for ((index = 1; index <= INSTANCES; index++)); do
-    wait_for_http "http://localhost:$((9100 + index))/actuator/health" "consumer-$index"
-  done
+snapshot_postgres() {
+  psql_benchmark -At -f /sql/40_snapshot.sql > "$1"
 }
 
-mkdir -p "$LOG_DIR" "$PID_DIR" "$ROOT_DIR/reports" "$(dirname "$TARGETS_FILE")"
-rm -f "$PID_DIR"/*.pid "$LOG_DIR"/*.log
-generate_prometheus_targets
-
-echo "Starting PostgreSQL, Prometheus, Grafana and postgres-exporter..."
-"${COMPOSE[@]}" up -d
-wait_for_postgres
-wait_for_http "http://localhost:$PROMETHEUS_PORT/-/healthy" "Prometheus"
-apply_schema_and_reset
-
-if [[ "$SKIP_BUILD" != "true" ]]; then
-  echo "Building consumer and tooling..."
+if [[ "$SKIP_BUILD" != true ]]; then
+  echo 'Building this checkout...'
   "${GRADLE[@]}" :consumer:bootJar :tooling:installDist
 fi
-[[ -x "$TOOL" && -f "$CONSUMER_JAR" ]] || { echo "Missing build outputs; run without --skip-build=true" >&2; exit 1; }
+[[ -x "$TOOL" && -f "$CONSUMER_JAR" ]] || { echo 'Missing binaries; run without --skip-build=true' >&2; exit 1; }
 
-echo "Starting $INSTANCES consumer instance(s)..."
-start_consumers
-tool await-cluster "--instances=$INSTANCES" "--timeout=2m"
+echo 'Starting benchmark services...'
+"${COMPOSE[@]}" up -d --wait
+wait_for_http "http://localhost:$PERF_PROMETHEUS_PORT/-/healthy"
+# Recreate only the five known benchmark tables, including all indexes, on every run.
+psql_benchmark -f /sql/20_reset.sql
+psql_benchmark < "$SCHEMA_FILE"
+psql_benchmark -f /sql/10_performance_schema.sql
+psql_benchmark -f /sql/25_tuned_autovacuum.sql
+POSTGRES_CONTAINER="$("${COMPOSE[@]}" ps -q postgres)"
+python3 "$ROOT_DIR/scripts/verify-main-indexes.py" "$POSTGRES_CONTAINER" "$SCHEMA_FILE" > "$REPORT_DIR/indexes.json"
+
+prepare_java_runtime
+python3 - "$TARGETS_FILE" "$JAVA_CONTAINER_NAME" "$INSTANCES" <<'PY'
+import json, sys
+from pathlib import Path
+Path(sys.argv[1]).write_text(json.dumps([
+    {'targets': [f'{sys.argv[2]}:{9100+i}'], 'labels': {'consumer': f'consumer-{i}'}}
+    for i in range(1, int(sys.argv[3])+1)
+]) + '\n')
+PY
+
+echo "Starting $INSTANCES consumers..."
+for ((index = 1; index <= INSTANCES; index++)); do
+  PERF_INSTANCE_ID="consumer-$index" PERF_BATCH_SIZE="$BATCH_SIZE" \
+    PERF_POLL_INTERVAL="$POLL_INTERVAL" SERVER_PORT="$((9100 + index))" \
+    run_java -jar "$CONSUMER_JAR" > "$LOG_DIR/consumer-$index.log" 2>&1 &
+done
+for ((index = 1; index <= INSTANCES; index++)); do
+  wait_for_http "http://localhost:$((9100 + index))/actuator/health"
+done
+run_tool await-cluster "--instances=$INSTANCES" --timeout=2m
 
 if (( WARMUP_RECORDS > 0 )); then
-  WARMUP_RUN_ID="$RUN_ID-warmup"
-  echo "Running warm-up with $WARMUP_RECORDS records..."
-  seed "$WARMUP_RUN_ID" "$WARMUP_RECORDS"
-  tool trigger "--run-id=$WARMUP_RUN_ID" "--timeout=$TRIGGER_TIMEOUT"
-  tool await "--expected=$WARMUP_RECORDS" "--timeout=$RUN_TIMEOUT"
-  tool reset-outbox
+  echo "Warming up with $WARMUP_RECORDS records..."
+  seed "$RUN_ID-warmup" "$WARMUP_RECORDS"
+  run_tool trigger "--run-id=$RUN_ID-warmup" "--timeout=$TRIGGER_TIMEOUT"
+  run_tool await "--expected=$WARMUP_RECORDS" "--timeout=$RUN_TIMEOUT"
+  run_tool reset-outbox
 fi
+if [[ "$MODE" == steady-state ]] && (( RETAINED_RECORDS > 0 )); then
+  echo "Preloading $RETAINED_RECORDS completed records..."
+  psql_benchmark -v "retained_records=$RETAINED_RECORDS" -f /sql/30_retained_records.sql
+  psql_benchmark -c 'VACUUM (ANALYZE) outbox_record' -c CHECKPOINT
+fi
+{
+  printf 'Command:'
+  printf ' %q' "$0" "$@"
+  printf '\n'
+  git -C "$ROOT_DIR/.." rev-parse HEAD
+  git -C "$ROOT_DIR/.." status --short
+  shasum -a 256 "$CONSUMER_JAR"
+  docker info --format 'Docker CPUs={{.NCPU}} memory bytes={{.MemTotal}}'
+  docker exec "$JAVA_CONTAINER_ID" java -version 2>&1
+  "${COMPOSE[@]}" images
+  psql_benchmark -At -c "SELECT name || '=' || setting || COALESCE(' [' || unit || ']', '') FROM pg_settings WHERE name IN ('shared_buffers','effective_cache_size','work_mem','max_connections','max_wal_size','min_wal_size','wal_buffers','wal_compression','jit','autovacuum_naptime','bgwriter_delay','bgwriter_lru_maxpages','bgwriter_lru_multiplier','fsync','synchronous_commit','full_page_writes') ORDER BY name"
+} > "$REPORT_DIR/execution.txt"
+snapshot_postgres "$REPORT_DIR/postgres-before.json"
 
-REPORT_DIR="$ROOT_DIR/reports/$RUN_ID"
-mkdir -p "$REPORT_DIR/logs"
-
-if [[ "$MODE" == "steady-state" ]]; then
-  echo "Starting steady-state collector for $RUN_ID..."
-  tool collect-steady-state \
-    "--run-id=$RUN_ID" \
-    "--report-dir=$REPORT_DIR" \
-    "--prometheus-url=http://localhost:$PROMETHEUS_PORT" \
-    "--grafana-url=http://localhost:$GRAFANA_PORT/d/namastack-outbox-performance" \
-    "--timeout=$RUN_TIMEOUT" \
-    "--sample-interval=$SAMPLE_INTERVAL" > "$REPORT_DIR/collector.log" 2>&1 &
-  COLLECTOR_PID=$!
-
-  PRODUCER_ARGS=(
-    "--run-id=$RUN_ID"
-    "--profile=$PROFILE"
-    "--producer-rate=$PRODUCER_RATE"
-    "--producer-duration=$PRODUCER_DURATION"
-    "--producer-batch-size=$PRODUCER_BATCH_SIZE"
-    "--producer-workers=$PRODUCER_WORKERS"
-    "--measurement-warmup=$MEASUREMENT_WARMUP"
-    "--min-producer-rate-ratio=$MIN_PRODUCER_RATE_RATIO"
-    "--records-per-key=$RECORDS_PER_KEY"
-    "--instances=$INSTANCES"
-    "--batch-size=$BATCH_SIZE"
-    "--poll-interval=$POLL_INTERVAL"
-    "--warmup-records=$WARMUP_RECORDS"
-  )
-  [[ -z "$MAX_BACKLOG_GROWTH_RATE" ]] || PRODUCER_ARGS+=("--max-backlog-growth-rate=$MAX_BACKLOG_GROWTH_RATE")
-  [[ -z "$MAX_END_BACKLOG" ]] || PRODUCER_ARGS+=("--max-end-backlog=$MAX_END_BACKLOG")
-
-  echo "Producing exactly rate × duration records: $PRODUCER_RATE records/s for $PRODUCER_DURATION..."
-  tool produce "${PRODUCER_ARGS[@]}"
-else
-  echo "Preparing backlog-drain run $RUN_ID with $RECORDS records..."
+# Retain independent commit evidence in case the VM's wall clock moves backwards.
+VERIFY_WAL_SLOT="namastack_perf_order_$$"
+psql_benchmark -c "SELECT pg_create_physical_replication_slot('$VERIFY_WAL_SLOT', true)" > "$REPORT_DIR/verification-wal.log"
+MEASUREMENT_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+COLLECT_COMMAND=collect-steady-state
+[[ "$MODE" == steady-state ]] || COLLECT_COMMAND=collect-drain
+if [[ "$MODE" == backlog-drain ]]; then
   seed "$RUN_ID" "$RECORDS"
-  tool collect-drain \
-    "--run-id=$RUN_ID" \
-    "--report-dir=$REPORT_DIR" \
-    "--prometheus-url=http://localhost:$PROMETHEUS_PORT" \
-    "--grafana-url=http://localhost:$GRAFANA_PORT/d/namastack-outbox-performance" \
-    "--timeout=$RUN_TIMEOUT" \
-    "--sample-interval=$SAMPLE_INTERVAL" > "$REPORT_DIR/collector.log" 2>&1 &
-  COLLECTOR_PID=$!
-  tool trigger "--run-id=$RUN_ID" "--timeout=$TRIGGER_TIMEOUT"
+fi
+run_tool "$COLLECT_COMMAND" "--run-id=$RUN_ID" "--report-dir=$REPORT_DIR" \
+  "--retained-completed-records=$([[ "$MODE" == steady-state ]] && echo "$RETAINED_RECORDS" || echo 0)" \
+  "--prometheus-url=http://localhost:$PERF_PROMETHEUS_PORT" \
+  "--grafana-url=http://localhost:$PERF_GRAFANA_PORT/d/namastack-outbox-performance" \
+  "--timeout=$RUN_TIMEOUT" "--sample-interval=$SAMPLE_INTERVAL" > "$REPORT_DIR/collector.log" 2>&1 &
+COLLECTOR_PID=$!
+
+if [[ "$MODE" == steady-state ]]; then
+  echo "Producing $PRODUCER_RATE records/s for $PRODUCER_DURATION..."
+  producer_args=("--run-id=$RUN_ID" "--profile=$PROFILE" "--producer-rate=$PRODUCER_RATE"
+    "--producer-duration=$PRODUCER_DURATION" "--producer-batch-size=$PRODUCER_BATCH_SIZE"
+    "--producer-workers=$PRODUCER_WORKERS" "--measurement-warmup=$MEASUREMENT_WARMUP"
+    "--min-producer-rate-ratio=$MIN_PRODUCER_RATE_RATIO" "--records-per-key=$RECORDS_PER_KEY"
+    "--instances=$INSTANCES" "--batch-size=$BATCH_SIZE" "--poll-interval=$POLL_INTERVAL"
+    "--warmup-records=$WARMUP_RECORDS")
+  [[ -z "$MAX_BACKLOG_GROWTH_RATE" ]] || producer_args+=("--max-backlog-growth-rate=$MAX_BACKLOG_GROWTH_RATE")
+  [[ -z "$MAX_END_BACKLOG" ]] || producer_args+=("--max-end-backlog=$MAX_END_BACKLOG")
+  run_tool produce "${producer_args[@]}"
+  snapshot_postgres "$REPORT_DIR/postgres-producer-stop.json"
+  psql_benchmark -At -v "run_id=$RUN_ID" <<'SQL' > "$REPORT_DIR/production-summary.json"
+SELECT json_build_object('runId',run_id,'produced',produced_records,
+    'seconds',EXTRACT(EPOCH FROM(producer_completed_at-producer_started_at)),
+    'counts',producer_stop_counts) FROM performance_test_run WHERE run_id=:'run_id';
+SQL
+  python3 "$ROOT_DIR/scripts/print-summary.py" "$REPORT_DIR/production-summary.json"
+else
+  run_tool trigger "--run-id=$RUN_ID" "--timeout=$TRIGGER_TIMEOUT"
 fi
 
-set +e
 wait "$COLLECTOR_PID"
-COLLECTOR_EXIT=$?
-set -e
 COLLECTOR_PID=""
 cp "$LOG_DIR"/*.log "$REPORT_DIR/logs/"
+snapshot_postgres "$REPORT_DIR/postgres-after.json"
+docker logs --timestamps --since "$MEASUREMENT_STARTED_AT" "$POSTGRES_CONTAINER" > "$REPORT_DIR/postgres.log" 2>&1
 cat "$REPORT_DIR/collector.log"
-(( COLLECTOR_EXIT == 0 )) || { echo "Performance run failed; see $REPORT_DIR" >&2; exit "$COLLECTOR_EXIT"; }
-
-echo
-echo "Grafana dashboard: http://localhost:$GRAFANA_PORT/d/namastack-outbox-performance"
+if grep -E '[[:space:]](WARN|ERROR)[[:space:]]' "$REPORT_DIR"/logs/*.log > "$REPORT_DIR/consumer-log-issues.log"; then
+  echo "Consumer warnings/errors detected; inspect $REPORT_DIR/consumer-log-issues.log" >&2
+  exit 1
+fi
+if ! psql_benchmark -At -v "run_id=$RUN_ID" -f /sql/50_verify_completion_order.sql > "$REPORT_DIR/completion-order.json"; then
+  python3 "$ROOT_DIR/scripts/verify-commit-order.py" "$POSTGRES_CONTAINER" "$RUN_ID" "$REPORT_DIR"
+fi
+cat "$REPORT_DIR/completion-order.json"
+python3 "$ROOT_DIR/scripts/print-summary.py" "$REPORT_DIR"
 echo "Report: $REPORT_DIR/report.md"
+echo "Grafana: http://localhost:$PERF_GRAFANA_PORT/d/namastack-outbox-performance (--keep-monitoring=true)"
