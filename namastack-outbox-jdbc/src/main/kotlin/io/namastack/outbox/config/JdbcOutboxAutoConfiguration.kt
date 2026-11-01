@@ -1,6 +1,7 @@
 package io.namastack.outbox.config
 
 import io.namastack.outbox.DefaultJdbcTableNameResolver
+import io.namastack.outbox.JdbcOutboxCompletionBatcher
 import io.namastack.outbox.JdbcOutboxInstanceRepository
 import io.namastack.outbox.JdbcOutboxPartitionAssignmentRepository
 import io.namastack.outbox.JdbcOutboxRecordEntityMapper
@@ -9,6 +10,7 @@ import io.namastack.outbox.JdbcTableNameResolver
 import io.namastack.outbox.OutboxPayloadSerializer
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
+import io.namastack.outbox.PostgresJdbcOutboxBulkCompletionUpdater
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import org.springframework.beans.factory.BeanFactory
@@ -23,7 +25,11 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.jdbc.autoconfigure.JdbcClientAutoConfiguration
 import org.springframework.boot.transaction.autoconfigure.TransactionAutoConfiguration
 import org.springframework.context.annotation.Bean
+import org.springframework.jdbc.core.JdbcOperations
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.simple.JdbcClient
+import org.springframework.jdbc.datasource.DelegatingDataSource
+import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
@@ -76,12 +82,67 @@ class JdbcOutboxAutoConfiguration {
      *
      * Users can override this by providing their own "outboxJdbcClient" bean.
      *
-     * @param dataSource DataSource to use
+     * @param beanFactory Bean factory for retrieving the matching outbox JDBC operations
      * @return JdbcClient for outbox operations
      */
     @Bean("outboxJdbcClient", autowireCandidate = false)
     @ConditionalOnMissingBean(name = ["outboxJdbcClient"])
-    internal fun outboxJdbcClient(dataSource: DataSource): JdbcClient = JdbcClient.create(dataSource)
+    internal fun outboxJdbcClient(beanFactory: BeanFactory): JdbcClient =
+        JdbcClient.create(beanFactory.getBean<JdbcOperations>("outboxJdbcOperations"))
+
+    /**
+     * Creates JDBC operations shared by the default client and completion writer.
+     * Custom outbox clients and operations must use the same datasource and transaction manager.
+     * Batching requires a fixed datasource; thread-local routing cannot follow queued requests.
+     */
+    @Bean("outboxJdbcOperations", autowireCandidate = false)
+    @ConditionalOnMissingBean(name = ["outboxJdbcOperations"])
+    internal fun outboxJdbcOperations(dataSource: DataSource): JdbcOperations = JdbcTemplate(dataSource)
+
+    /**
+     * Creates one lifecycle-managed completion writer for the resolved outbox namespace.
+     * Routing datasources retain synchronous writes because queued requests cannot inherit
+     * the caller's thread-local routing context, including through datasource proxies.
+     */
+    @Bean(destroyMethod = "close")
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(
+        prefix = "namastack.outbox.jdbc.completion-batching",
+        name = ["enabled"],
+        havingValue = "true",
+        matchIfMissing = true,
+    )
+    internal fun outboxCompletionBatcher(
+        beanFactory: BeanFactory,
+        properties: JdbcOutboxConfigurationProperties,
+        tableNameResolver: JdbcTableNameResolver,
+        dataSource: DataSource,
+    ): JdbcOutboxCompletionBatcher? {
+        val dataSources = generateSequence(dataSource) { (it as? DelegatingDataSource)?.targetDataSource }
+        if (dataSources.any { it is AbstractRoutingDataSource }) return null
+
+        return JdbcOutboxCompletionBatcher(
+            jdbc = beanFactory.getBean<JdbcOperations>("outboxJdbcOperations"),
+            transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
+            tableName = tableNameResolver.outboxRecord,
+            batchSize = properties.completionBatching.maxBatchSize,
+            maxWait = properties.completionBatching.maxWait,
+            queueCapacity = properties.completionBatching.queueCapacity,
+            writerCount = properties.completionBatching.writerCount,
+            bulkUpdateFactory = {
+                if (properties.completionBatching.bulkUpdates &&
+                    JdbcDatabaseType.detect(dataSource) == JdbcDatabaseType.PostgreSQL
+                ) {
+                    PostgresJdbcOutboxBulkCompletionUpdater(
+                        beanFactory.getBean<JdbcOperations>("outboxJdbcOperations"),
+                        tableNameResolver.outboxRecord,
+                    )
+                } else {
+                    null
+                }
+            },
+        )
+    }
 
     /**
      * Creates a transaction template for outbox operations.
@@ -101,6 +162,7 @@ class JdbcOutboxAutoConfiguration {
      * @param jdbcOutboxRecordEntityMapper Mapper for converting between domain objects and entities
      * @param clock Clock for time-based operations
      * @param tableNameResolver Resolver for fully qualified table names
+     * @param dataSource DataSource whose metadata selects the SQL dialect on the first record query
      * @return JDBC outbox record repository implementation
      */
     @Bean
@@ -110,6 +172,8 @@ class JdbcOutboxAutoConfiguration {
         jdbcOutboxRecordEntityMapper: JdbcOutboxRecordEntityMapper,
         clock: Clock,
         tableNameResolver: JdbcTableNameResolver,
+        completionBatcher: JdbcOutboxCompletionBatcher?,
+        dataSource: DataSource,
     ): OutboxRecordRepository =
         JdbcOutboxRecordRepository(
             jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient"),
@@ -117,6 +181,8 @@ class JdbcOutboxAutoConfiguration {
             entityMapper = jdbcOutboxRecordEntityMapper,
             clock = clock,
             tableNameResolver = tableNameResolver,
+            completionBatcher = completionBatcher,
+            databaseTypeResolver = { JdbcDatabaseType.detect(dataSource) },
         )
 
     /**

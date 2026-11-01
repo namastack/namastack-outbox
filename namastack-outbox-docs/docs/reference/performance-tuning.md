@@ -25,6 +25,127 @@ handler work, payload size, indexes, connection pool limits, and other applicati
 capacity significantly.
 :::
 
+## JDBC Processing Optimizations
+
+The JDBC implementation combines ordered key selection, lazy bulk record loading, and completion
+batching across independent keys. PostgreSQL additionally has queries matched to the shipped partial
+indexes and an opt-in multi-row completion update. These are library capabilities configured through
+ordinary application properties; no benchmark profile is required.
+
+Strict ordering remains enabled. A worker processes records of one key sequentially and waits for each
+completion commit. An earlier failed record or future retry blocks its successors in strict mode.
+Batching combines writes from different keys without letting a key advance before its own commit.
+Existing application transactions retain synchronous writes and their original rollback behavior.
+
+### Application Configuration
+
+For a JDBC/PostgreSQL application with many independent keys and fast handlers, the measured setup used
+these settings **per consumer instance**:
+
+```yaml
+spring:
+  threads:
+    virtual:
+      enabled: true                 # Java 21+
+  datasource:
+    hikari:
+      maximum-pool-size: 12
+      minimum-idle: 5
+
+namastack:
+  outbox:
+    polling:
+      trigger: fixed
+      batch-size: 2000               # Keys per cycle; bulk record reads are split at 1000 keys
+      fixed:
+        interval: 10ms
+    processing:
+      stop-on-first-failure: true
+      delete-completed-records: false
+      executor-concurrency-limit: 2048
+    jdbc:
+      completion-batching:
+        enabled: true
+        max-batch-size: 2048
+        max-wait: 1ms
+        queue-capacity: 4096
+        writer-count: 1
+        bulk-updates: true           # PostgreSQL; review statement-level triggers before enabling
+    observability:
+      metrics:
+        enabled: false               # Avoid periodic database-wide state counts in this workload
+```
+
+Completion batching defaults to the values above except `bulk-updates`, which defaults to `false`.
+Other tuning values are workload-specific, not new global defaults. In particular, a handler that
+calls an external service may need much less concurrency. More completion writers do not necessarily
+help: they add simultaneous transactions and connection demand. Start with one.
+
+Disabling `observability.metrics` disables database-backed state gauges; observation-based processing
+timers remain available. The deprecated `namastack-outbox-metrics` module has separate count gauges;
+remove that module when replacing database-wide counts with cheaper monitoring. Alternatively retain
+suitable count indexes and measure a longer refresh interval. Deleting completed records bypasses
+completion-update batching, so its throughput must be measured separately.
+
+Install the shipped PostgreSQL schema for new databases, or follow the
+[staged index migration](database.md#postgresql-processing-indexes) for existing installations. Query
+shape and index layout must be evaluated together. Removing indexes without the matching reader can
+make processing substantially slower. Keep cleanup capacity and completed-history retention in mind.
+
+### PostgreSQL Operations
+
+The measured PostgreSQL server had `fsync`, `full_page_writes`, and `synchronous_commit` enabled.
+The optimizations do not depend on relaxing commit durability. WAL, checkpoints, cache size, and
+vacuum capacity still need sizing for the actual write rate.
+
+The reference run used PostgreSQL 17.11 with `shared_buffers=20GB`, `effective_cache_size=24GB`,
+`work_mem=16MB`, `wal_buffers=64MB`, `wal_compression=lz4`, `max_wal_size=32GB`, `min_wal_size=4GB`,
+`checkpoint_timeout=5min`, `checkpoint_completion_target=0.9`, and `jit=off`. Background maintenance used
+`autovacuum_naptime=10s`, `bgwriter_delay=10ms`, `bgwriter_lru_maxpages=1000`, and
+`bgwriter_lru_multiplier=4`. These are reference settings for the measured environment, not library
+defaults. Budget memory across PostgreSQL, per-query work areas, and every application instance;
+`effective_cache_size` is a planner estimate, not an allocation. Reserve disk headroom for WAL and
+retained records, and configure sufficient container shared memory when using parallel queries.
+
+The frequently updated record table used the following maintenance settings:
+
+```sql
+ALTER TABLE outbox_record SET (
+    autovacuum_vacuum_scale_factor = 0.02,
+    autovacuum_vacuum_threshold = 10000,
+    autovacuum_analyze_scale_factor = 0.01,
+    autovacuum_analyze_threshold = 10000,
+    autovacuum_vacuum_cost_limit = 2000,
+    autovacuum_vacuum_cost_delay = 1
+);
+ANALYZE outbox_record;
+```
+
+Apply these through normal database migrations or administration after assessing storage capacity.
+They are not forced by schema initialization: vacuum I/O budgets and PostgreSQL memory settings are
+shared with other application tables. Watch dead tuples, vacuum progress, checkpoint frequency,
+WAL volume, connection waits, and the key-selection query plan during a sustained run.
+
+### Measured Reference Result
+
+On November 1, 2026, the experimental implementation processed **149,708 records/s** during a
+600.29-second production window: 90,000,000 inserted, 89,868,087 completed at producer stop, and
+131,913 pending. The final audit checked all 90,000,000 records with zero missing completions or
+ordering violations; no failed records, retries, or warning/error log lines were recorded.
+
+This run used eight consumer JVMs, Java 21 virtual threads, an 18-CPU/32-GB Docker environment,
+PostgreSQL 17.11, four million retained historical records, ten records per key, and an empty handler.
+Each consumer had a 768-MB maximum heap. A dedicated COPY-based producer supplied the input; COPY
+is a benchmark producer optimization and is not part of the library's transactional scheduling API.
+The release branch ports the library processing path and matching schema, not the benchmark producer.
+Applications must also be able to insert at the target rate. These numbers are a reference measurement
+of that implementation and environment, not a new measurement of every release configuration.
+
+## Earlier Baseline Measurements (June 2026)
+
+The remaining sections document the earlier implementation and its June 2026 tuning pass. Their lower
+rates and candidate settings are historical baseline results, not limits of the optimized JDBC path.
+
 :::warning Repeat candidate profiles
 The latest rerun did not reproduce every earlier observation. In particular, the previous best
 6-instance, 25ms, batch-800 profile failed in the fresh pass, while virtual threads and 100ms polling

@@ -1,5 +1,9 @@
 package io.namastack.outbox.config
 
+import org.springframework.jdbc.support.JdbcUtils
+import java.sql.DatabaseMetaData
+import javax.sql.DataSource
+
 /**
  * Sealed class representing supported database types.
  *
@@ -106,5 +110,23 @@ sealed class JdbcDatabaseType(
                 "oracle" -> Oracle
                 else -> throw IllegalArgumentException("Unsupported database type: $databaseName")
             }
+
+        /**
+         * Resolves the database type of a datasource from `DatabaseMetaData.getDatabaseProductName()`.
+         *
+         * Opens one connection. Returns `null` when the product is not one of the supported types.
+         *
+         * @param dataSource Datasource to inspect
+         * @return Corresponding JdbcDatabaseType, or `null` if the product is not supported
+         * @throws org.springframework.jdbc.support.MetaDataAccessException if the metadata cannot be read
+         * @since 1.12.0
+         */
+        internal fun detect(dataSource: DataSource): JdbcDatabaseType? {
+            val productName =
+                JdbcUtils.extractDatabaseMetaData(dataSource, DatabaseMetaData::getDatabaseProductName)
+            val databaseName = JdbcUtils.commonDatabaseName(productName) ?: return null
+
+            return runCatching { from(databaseName) }.getOrNull()
+        }
     }
 }

@@ -50,6 +50,51 @@ namastack:
 When disabled, you are responsible for creating the schema using your preferred migration
 tooling before the application starts.
 
+### PostgreSQL Processing Indexes
+
+The PostgreSQL schema shipped with the JDBC module uses three indexes on `outbox_record`:
+
+| Index | Purpose |
+| --- | --- |
+| Primary key on `id` | Record identity and completion updates |
+| `idx_outbox_record_key_incomplete_group` | Lookup of all incomplete records for one key |
+| `idx_outbox_record_created_id_incomplete` | Ordered scan of the incomplete processing working set |
+
+Both secondary indexes contain only rows where `completed_at IS NULL`. Completed history therefore
+does not enlarge the processing indexes. The key index uses `(record_key, (completed_at IS NULL) DESC)`;
+the ordered index uses `(created_at, id, partition_no, status, next_retry_at) INCLUDE (record_key)`.
+The schema also creates multicolumn MCV statistics on `(status, completed_at)` to help the planner
+estimate the incomplete working set. Keep auto-analyze enabled.
+
+The optimized JDBC reader preserves `(created_at, id)` ordering. Strict processing still checks every
+earlier incomplete record of the key, including failed records and records awaiting a future retry.
+Its PostgreSQL `WITH TIES` boundary retains **all** incomplete rows; it is not a one-record fetch limit.
+
+Fresh installations receive this layout through `schema/postgres/outbox-tables.sql`. Existing
+installations require a staged migration. Automatic initialization adds missing indexes but never
+removes old ones, so an upgrade alone does not reduce index maintenance to the measured layout.
+
+1. Run `schema/postgres/migrations/01_add_processing_indexes.sql` before upgrading the application.
+   It adds the new indexes concurrently, retains the old indexes, creates statistics, and runs `ANALYZE`.
+2. Upgrade **every** instance to the optimized JDBC reader. Keep old indexes during the mixed-version rollout.
+3. Review application-specific queries, then run `schema/postgres/migrations/02_drop_legacy_processing_indexes.sql`.
+   This removes the legacy record indexes and leaves the primary key plus the two partial indexes.
+
+These scripts are packaged in the JDBC JAR and available alongside the schema source. Run them outside
+transactions (`CREATE/DROP INDEX CONCURRENTLY` cannot run inside a transaction block). Configure Flyway
+or Liquibase accordingly. Adapt identifiers for custom schemas, prefixes, or table names. Check existing
+index definitions first: `IF NOT EXISTS` does not repair a differently defined index with the same name.
+After a failed concurrent build, inspect and repair invalid indexes before continuing.
+
+Removing status and partition indexes reduces insert/update work, but can make management counts,
+completed-history lookup, and cleanup slower on large tables. Retain or add indexes for those operations
+when needed; that is a workload tradeoff. The optimized queries also work with the legacy indexes retained.
+For JDBC deployments with database-backed state gauges, measure their refresh cost or disable those gauges
+as described in [Performance Tuning](performance-tuning.md#jdbc-processing-optimizations).
+
+The schema remains usable by JPA, but these reader and completion optimizations belong to the JDBC
+module. JPA and MongoDB persistence are unchanged.
+
 ### JPA Module — No Automatic Schema Creation
 
 The JPA module does **not** support automatic schema creation. Schema management is delegated

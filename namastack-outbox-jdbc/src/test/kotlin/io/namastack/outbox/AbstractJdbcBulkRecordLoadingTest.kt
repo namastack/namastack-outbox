@@ -85,6 +85,24 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
     }
 
     @Test
+    fun `completed history before and after pending records does not change page contents`() {
+        create("old-completed", "a", now.minusSeconds(100), status = OutboxRecordStatus.COMPLETED)
+        create("a1", "a", now.minusSeconds(50))
+        create("a2", "a", retry = now.plusSeconds(60))
+        create("new-completed", "a", now.plusSeconds(100), status = OutboxRecordStatus.COMPLETED)
+        create("only-completed", "b", status = OutboxRecordStatus.COMPLETED)
+
+        val pages = repository.findIncompleteRecordPages(setOf("a", "b"))
+
+        assertThat(pages.getValue("a").recordIds()).containsExactly("a1", "a2")
+        assertThat(pages.getValue("b").isEmpty()).isTrue()
+        listOf(true, false).forEach { strict ->
+            assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, strict))
+                .containsExactly("a")
+        }
+    }
+
+    @Test
     fun `bulk loading defers decoding and cached records retain mutations`() {
         create("a1", "a")
         serializer.reset()
@@ -171,12 +189,145 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
         assertThat(pages.getValue("disappeared").isEmpty()).isTrue()
     }
 
+    @Test
+    fun `key query retains already due records with future creation timestamps`() {
+        create("future-created", "future", now.plusSeconds(3600), retry = now)
+
+        listOf(true, false).forEach { strict ->
+            assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, strict))
+                .containsExactly("future")
+        }
+    }
+
+    @Test
+    fun `key query checks predecessors outside the requested partitions`() {
+        create("earlier", "same", now.minusSeconds(1), status = OutboxRecordStatus.FAILED)
+        create("later", "same")
+        jdbc.sql("UPDATE outbox_record SET partition_no = 2 WHERE id = 'earlier'").update()
+
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, true)).isEmpty()
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, false))
+            .containsExactly("same")
+
+        jdbc.sql("UPDATE outbox_record SET status = 'NEW' WHERE id = 'earlier'").update()
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, true)).isEmpty()
+    }
+
+    @Test
+    fun `key query returns a key once when due records have equal creation times`() {
+        create("a2", "a")
+        create("a1", "a")
+        create("b1", "b", now.plusSeconds(1))
+
+        listOf(true, false).forEach { strict ->
+            assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, strict))
+                .containsExactly("a", "b")
+        }
+    }
+
+    @Test
+    fun `key query returns keys whose first incomplete record is due in creation time then id order`() {
+        seedHeadOfKeyScenario()
+
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, true))
+            .containsExactly("tie-z", "tie-a", "a", "d")
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 3, true))
+            .containsExactly("tie-z", "tie-a", "a")
+    }
+
+    @Test
+    fun `key query without the previous failure filter orders keys by their first due record`() {
+        seedHeadOfKeyScenario()
+
+        // SQL Server keeps the grouped form for this query, which leaves the order of equal creation times open.
+        val keys = repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, false)
+        assertThat(keys.take(2)).containsExactlyInAnyOrder("tie-z", "tie-a")
+        assertThat(keys.drop(2)).containsExactly("a", "d", "b", "c")
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 5, false).drop(2))
+            .containsExactly("a", "d", "b")
+    }
+
+    @Test
+    fun `key and age queries return nothing for partitions without records`() {
+        seedHeadOfKeyScenario()
+
+        listOf(true, false).forEach { filter ->
+            assertThat(repository.findRecordKeysInPartitions(setOf(2, 3), OutboxRecordStatus.NEW, 10, filter)).isEmpty()
+            assertThat(
+                repository.findOldestDueNextRetryAtByPartitions(setOf(2, 3), OutboxRecordStatus.NEW, now, filter),
+            ).isNull()
+        }
+        assertThat(repository.findOldestCreatedAtByPartitions(setOf(2, 3), OutboxRecordStatus.NEW)).isNull()
+    }
+
+    @Test
+    fun `oldest due record skips blocked records only with the previous failure filter`() {
+        seedHeadOfKeyScenario()
+
+        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.NEW, now, true))
+            .isEqualTo(now.minusSeconds(15))
+        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.NEW, now, false))
+            .isEqualTo(now.minusSeconds(50))
+        assertThat(
+            repository.findOldestDueNextRetryAtByPartitions(
+                setOf(1),
+                OutboxRecordStatus.NEW,
+                now.minusSeconds(60),
+                true,
+            ),
+        ).isNull()
+    }
+
+    @Test
+    fun `oldest created time considers incomplete records with the status`() {
+        seedHeadOfKeyScenario()
+
+        assertThat(repository.findOldestCreatedAtByPartitions(setOf(1), OutboxRecordStatus.NEW))
+            .isEqualTo(now.minusSeconds(30))
+    }
+
+    @Test
+    fun `cleanup reads and deletes at most the limit oldest first`() {
+        create("c3", "a", status = OutboxRecordStatus.COMPLETED, completed = now.minusSeconds(10))
+        create("c1", "b", status = OutboxRecordStatus.COMPLETED, completed = now.minusSeconds(30))
+        create("c2", "c", status = OutboxRecordStatus.COMPLETED, completed = now.minusSeconds(20))
+        create("f2", "d", retry = now.minusSeconds(20), status = OutboxRecordStatus.FAILED)
+        create("f1", "e", retry = now.minusSeconds(30), status = OutboxRecordStatus.FAILED)
+
+        assertThat(repository.findCompletedRecords(now, 2).map { it.id }).containsExactly("c1", "c2")
+        assertThat(repository.findFailedRecords(now, 1).map { it.id }).containsExactly("f1")
+        assertThat(repository.deleteCompletedRecords(now, 2)).isEqualTo(2)
+        assertThat(repository.findCompletedRecords().map { it.id }).containsExactly("c3")
+        assertThat(repository.deleteFailedRecords(now, 1)).isEqualTo(1)
+        assertThat(repository.findFailedRecords().map { it.id }).containsExactly("f2")
+    }
+
+    /**
+     * Seeds partition 1 with:
+     * - `tie-z` and `tie-a`: equal creation time, ordered by id (`t-1` before `t-2`)
+     * - `a`: due head; `d`: due head after a completed record
+     * - `b`: failed head blocking a record due since `now - 50s`
+     * - `c`: head not yet due blocking a later due record
+     */
+    private fun seedHeadOfKeyScenario() {
+        create("t-2", "tie-a", now.minusSeconds(15), retry = now.minusSeconds(15))
+        create("t-1", "tie-z", now.minusSeconds(15), retry = now.minusSeconds(15))
+        create("a1", "a", now.minusSeconds(10), retry = now.minusSeconds(10))
+        create("d1", "d", now.minusSeconds(40), status = OutboxRecordStatus.COMPLETED)
+        create("d2", "d", now.minusSeconds(8), retry = now.minusSeconds(8))
+        create("b1", "b", now.minusSeconds(20), retry = now.minusSeconds(20), status = OutboxRecordStatus.FAILED)
+        create("b2", "b", now.minusSeconds(5), retry = now.minusSeconds(50))
+        create("c1", "c", now.minusSeconds(30), retry = now.plusSeconds(3600))
+        create("c2", "c", now.minusSeconds(1), retry = now.minusSeconds(1))
+    }
+
     private fun create(
         id: String,
         key: String,
         created: Instant = now,
         retry: Instant = now,
         status: OutboxRecordStatus = OutboxRecordStatus.NEW,
+        completed: Instant = now,
     ): OutboxRecord<String> =
         repository.create(
             OutboxRecord.restore(
@@ -187,7 +338,7 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
                 partition = 1,
                 createdAt = created,
                 status = status,
-                completedAt = if (status == OutboxRecordStatus.COMPLETED) now else null,
+                completedAt = if (status == OutboxRecordStatus.COMPLETED) completed else null,
                 failureCount = 0,
                 failureException = null,
                 failureReason = null,

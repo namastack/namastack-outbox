@@ -1,6 +1,7 @@
 package io.namastack.outbox.config
 
 import org.springframework.boot.context.properties.ConfigurationProperties
+import java.time.Duration
 
 /**
  * Configuration properties for the JDBC outbox module.
@@ -11,6 +12,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  *                       Defaults to empty string (no prefix).
  * @property tableNames Base table names to use for the outbox tables. Defaults preserve the built-in names.
  * @property schemaInitialization Configuration for automatic schema initialization.
+ * @property completionBatching Batching of committed completion updates across independent keys.
  *
  * @author Roland Beisel
  * @since 1.0.0
@@ -21,7 +23,32 @@ data class JdbcOutboxConfigurationProperties(
     var tablePrefix: String = "",
     var tableNames: TableNames = TableNames(),
     var schemaInitialization: SchemaInitialization = SchemaInitialization(),
+    var completionBatching: CompletionBatching = CompletionBatching(),
 ) {
+    /**
+     * Groups completion updates in a background transaction. Each caller waits for the commit
+     * before processing its next record. Existing application transactions are never detached.
+     *
+     * The collection window starts with the first queued completion; it does not include database
+     * execution or commit time. The writer flushes sooner when [maxBatchSize] is reached.
+     *
+     * @property enabled Whether to batch completion updates. Enabled by default for fixed datasources.
+     * @property maxBatchSize Maximum number of independent completions per transaction.
+     * @property maxWait Maximum collection window after receiving the first completion.
+     * @property queueCapacity Maximum number of waiting completions. A full queue rejects new requests.
+     * @property writerCount Maximum concurrent completion transactions, each borrowing one database connection.
+     * @property bulkUpdates Opt-in multi-row updates on PostgreSQL, with portable JDBC fallback.
+     *                       Statement-level triggers run once per batch rather than once per record.
+     */
+    data class CompletionBatching(
+        var enabled: Boolean = true,
+        var maxBatchSize: Int = 2048,
+        var maxWait: Duration = Duration.ofMillis(1),
+        var queueCapacity: Int = 4096,
+        var writerCount: Int = 1,
+        var bulkUpdates: Boolean = false,
+    )
+
     /**
      * Base table names for the outbox tables.
      *

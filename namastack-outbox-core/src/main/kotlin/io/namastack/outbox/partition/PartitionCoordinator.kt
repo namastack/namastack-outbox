@@ -8,6 +8,7 @@ import io.namastack.outbox.partition.PartitionHasher.TOTAL_PARTITIONS
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.support.ScheduledMethodRunnable
 import java.lang.reflect.Method
@@ -185,6 +186,12 @@ class PartitionCoordinator(
         } catch (_: DataIntegrityViolationException) {
             log.debug(
                 "Another instance initialized partitions, skipping bootstrap for {}",
+                currentInstanceId,
+            )
+            return
+        } catch (_: OptimisticLockingFailureException) {
+            log.debug(
+                "Another instance updated partition assignments during bootstrap, skipping bootstrap for {}",
                 currentInstanceId,
             )
             return

@@ -68,6 +68,13 @@ namastack:
         partition: "outbox_partition"          # Base name for the partitions table (default: outbox_partition)
       schema-initialization:
         enabled: true                          # Auto-create tables on startup (default: true)
+      completion-batching:
+        enabled: true                          # Batch committed JDBC completions (default: true)
+        max-batch-size: 2048                    # Completions per transaction (default: 2048)
+        max-wait: 1ms                           # Collection window, excluding database time (default: 1ms)
+        queue-capacity: 4096                    # Waiting completions per instance (default: 4096)
+        writer-count: 1                         # Concurrent completion transactions (default: 1)
+        bulk-updates: false                     # Opt-in PostgreSQL multi-row UPDATE (default: false)
 
     mongodb:
       collection-prefix: ""                    # Prefix for collection names (default: empty)
@@ -150,6 +157,39 @@ See [RabbitMQ Integration](messaging.md#rabbitmq-integration) for the full relia
 :::
 
 ---
+
+## JDBC Completion Batching
+
+Completion batching combines successful processing-state updates from independent record keys in one
+transaction. Each worker waits for the transaction to commit before advancing to the next record of
+its key. The payload and context are not serialized or rewritten. Failed processing-state updates
+and writes inside an application transaction remain synchronous; application rollback still owns
+those writes. `delete-completed-records=true` uses deletion and does not benefit from this update batcher.
+
+`max-wait` starts when a writer receives the first completion. It bounds collection time, not queue
+waiting, database execution, or commit duration. A full batch flushes immediately. Each writer uses
+one database connection; size the pool for processing, polling, heartbeats, and application traffic
+too. Queue overflow fails the completion write and prevents advancing that key; it does not discard
+an accepted completion or report success. At-least-once processing means the handler can run again.
+Shutdown drains accepted requests before closing the writer.
+
+Batching is enabled by default for a fixed datasource. Routing datasources, including Spring
+`DelegatingDataSource` proxies around them, retain synchronous writes so the caller's tenant context
+is preserved. Disable batching explicitly for custom routing wrappers or connection initialization
+that depends on thread-local context. Custom `outboxJdbcClient`, `outboxJdbcOperations`, and
+`outboxTransactionTemplate` beans must address the same datasource and transaction manager.
+
+`bulk-updates=true` selects PostgreSQL's multi-row update implementation. Other JDBC databases retain
+portable statement batching. This is opt-in because PostgreSQL statement-level triggers run once per
+multi-row statement instead of once per record. Row-level triggers still run for each updated row.
+Use ordinary batching when statement-level trigger behavior must remain unchanged.
+
+Drivers that do not return exact JDBC batch update counts fall back to individual statements in a
+shared transaction after the first inexact batch has rolled back. Commit failures propagate without
+replaying a transaction whose outcome may be unknown.
+
+See [Performance Tuning](performance-tuning.md#jdbc-processing-optimizations) for normal application
+settings, and [Database Support](database.md#postgresql-processing-indexes) for PostgreSQL migrations.
 
 ## Disabling Outbox
 
