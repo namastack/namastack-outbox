@@ -222,6 +222,25 @@ Measure each as its own variant with `writecost`, S9 `churn`, S10, and the read 
 
 ---
 
+## E40: UUIDv7 record ids (user idea, P1 write path)
+
+- **Hypothesis:** `id` is a random UUIDv4 string (`OutboxRecord.kt:241`, `UUID.randomUUID()`), so every insert lands on a random PK
+  leaf page: page splits (~50 % fill), poor cache locality, and on PostgreSQL a full-page image in WAL for most touched pages after
+  each checkpoint. UUIDv7 (48-bit ms timestamp first; its canonical string sorts by time) appends to the right edge. Expect lower insert
+  latency/WAL, smaller PK, faster `updateProcessingState`/`delete_by_id` lookups (recent rows' PK pages stay hot). On clustered-PK
+  engines (InnoDB, SQL Server `PRIMARY KEY` = clustered by default) the whole row is placed by `id`, so the effect should be much larger
+  than on PostgreSQL (heap + separate PK index). Generated record keys (`OutboxService`, `OutboxEventResolver`, no user key) are also v4;
+  v7 there makes the record-key index inserts sequential as well (partition hashing is unaffected).
+- **Harness:** add `--id-version 4|7` to `gen` (snapshot ids follow `created_at`) and to `writecost`/`concurrency`/`churn` inserts.
+- **Measure (PostgreSQL in phase 5, MySQL/MariaDB/SQL Server in phase 6 — the decisive dialects):** `writecost` (latency 1 and 4
+  threads, WAL bytes per insert incl. a checkpoint inside the window), PK and record-key index size and leaf density after S9 churn,
+  S10 throughput, `upd_*`/`delete_by_id` latency. Reads (P1/P2) should be unaffected; check `pages`/`keys_*` stay equal.
+- **Correctness:** `id` is only the tie-breaker of `(created_at, id)`; the contract ("IDs define a stable tie-breaker, not creation
+  order") still holds. Mixed v4 (old rows) and v7 (new rows) need no migration. Java has no built-in v7 generator: ~20 lines in core
+  (`SecureRandom` + epoch ms, optional monotonic counter within a ms), no new dependency.
+- **Risks:** the id reveals the creation ms (already stored in `created_at`); right-edge insert contention at very high concurrency
+  (SQL Server `OPTIMIZE_FOR_SEQUENTIAL_KEY = ON` mitigates); clock steps backwards only affect locality, not correctness.
+
 ## Lower priority
 
 ### E09: literal-status partial queue index (v1 base)

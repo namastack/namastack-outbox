@@ -51,6 +51,7 @@ A difference counts only if it exceeds both the relative threshold of its group 
 | E02a/b/c | v1 queue index → status-leading: a non-partial, b partial `completed_at IS NULL`, c b added alongside | v1 | planned R1 | | `experiments/E02-status-created-v1.md` |
 | E11–E14 | leave-one-out DDL: −V1-1a, −V1-1b, −V1-2, −V1-3 | v1 | planned R1 | | `experiments/E1x-v1-ablation-leave-one-out.md` |
 | E1P | v1 pages: base `IN (...)` query instead of the PG `unnest` + `LATERAL` override (user idea) — is the override necessary? | v1 | planned R1 | | `experiments/E1P-pages-default-pg.md` |
+| E40 | UUIDv7 instead of v4 for record `id` (`OutboxRecord.kt:241`) and for generated record keys (`OutboxService`, `OutboxEventResolver`) (user idea): time-ordered PK inserts append to the right edge → fewer page splits / full-page writes (WAL), smaller and cache-friendlier PK; big expected effect on clustered PKs (MySQL/MariaDB InnoDB, SQL Server) | main, v1 | planned R2 (needs harness `--id-version 7` for gen + inserts) | | `experiments/E40-uuid-v7.md` |
 | E1Q | leave-one-out query items −V1-4..V1-9 (main SQL per query id, one run) | v1 | planned R1 | | same |
 
 ## Decisions
