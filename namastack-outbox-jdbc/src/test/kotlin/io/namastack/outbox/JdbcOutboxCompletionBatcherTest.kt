@@ -3,6 +3,7 @@ package io.namastack.outbox
 import io.mockk.every
 import io.mockk.spyk
 import io.mockk.verify
+import io.namastack.outbox.query.H2JdbcOutboxRecordQueries
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
@@ -84,8 +85,7 @@ class JdbcOutboxCompletionBatcherTest {
             transactions,
             JdbcOutboxRecordEntityMapper(JacksonOutboxPayloadSerializer(JsonMapper.builder().build())),
             clock,
-            DefaultJdbcTableNameResolver(),
-            databaseTypeResolver = { io.namastack.outbox.config.JdbcDatabaseType.H2 },
+            queryProvider = { H2JdbcOutboxRecordQueries("outbox_record") },
             completionBatcher = writer,
         )
 

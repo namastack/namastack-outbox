@@ -13,6 +13,7 @@ import io.namastack.outbox.OutboxService
 import io.namastack.outbox.PostgresJdbcOutboxBulkCompletionUpdater
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
+import io.namastack.outbox.query.JdbcOutboxRecordQueriesFactory
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -174,16 +175,22 @@ class JdbcOutboxAutoConfiguration {
         tableNameResolver: JdbcTableNameResolver,
         completionBatcher: JdbcOutboxCompletionBatcher?,
         dataSource: DataSource,
-    ): OutboxRecordRepository =
-        JdbcOutboxRecordRepository(
+    ): OutboxRecordRepository {
+        val recordTableName = tableNameResolver.outboxRecord
+        return JdbcOutboxRecordRepository(
             jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient"),
             transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
             entityMapper = jdbcOutboxRecordEntityMapper,
             clock = clock,
-            tableNameResolver = tableNameResolver,
             completionBatcher = completionBatcher,
-            databaseTypeResolver = { JdbcDatabaseType.detect(dataSource) },
+            queryProvider = {
+                JdbcOutboxRecordQueriesFactory.create(
+                    JdbcDatabaseType.detect(dataSource),
+                    recordTableName,
+                )
+            },
         )
+    }
 
     /**
      * Creates the entity mapper for outbox records.
