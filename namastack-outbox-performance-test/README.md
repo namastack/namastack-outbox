@@ -1,5 +1,7 @@
 # Outbox performance test
 
+**Experimental branch:** this setup and its library optimizations are being evaluated together.
+
 Measures the JDBC consumer from **this checkout** against PostgreSQL. PostgreSQL, consumers,
 load generator, Prometheus, and Grafana run in Docker. No Maven Local publishing is needed.
 
@@ -64,19 +66,19 @@ Processing timers remain enabled; duplicate database-backed state gauges are dis
 The defaults live in [`postgresql.conf`](postgresql.conf), [`docker-compose.yml`](docker-compose.yml),
 and [`sql/25_tuned_autovacuum.sql`](sql/25_tuned_autovacuum.sql). There are no alternative index layouts.
 
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| Shared buffers / estimated cache | 20 GB / 24 GB | Keep the active data and indexes in cache; sized for the reference machine |
-| WAL buffers | 64 MB | Reduce WAL-buffer flush pressure |
-| WAL compression | LZ4 | Reduce full-page WAL volume |
-| Maximum / minimum WAL size | 32 GB / 4 GB | Avoid repeated checkpoints under heavy writes; not a disk-space limit |
-| Connections | 250 | Cover consumer pools, producers, and monitoring |
-| Work memory / JIT | 16 MB / off | Keep short processing queries predictable |
-| Autovacuum wake interval | 10 s | Revisit frequently updated tables sooner |
-| Table vacuum / analyze thresholds | 2% / 1%, minimum 10,000 | Reclaim dead tuples and refresh statistics on the growing table |
-| Vacuum cost limit / delay | 2,000 / 1 ms | Give maintenance enough I/O budget for this write rate |
-| Background writer | 10 ms, 1,000 pages, multiplier 4 | Smooth dirty-buffer writes |
-| PostgreSQL shared memory | 1 GB | Support parallel post-run scans beyond Docker's default 64 MB |
+| Setting                           | Default                          | Purpose                                                                    |
+|-----------------------------------|----------------------------------|----------------------------------------------------------------------------|
+| Shared buffers / estimated cache  | 20 GB / 24 GB                    | Keep the active data and indexes in cache; sized for the reference machine |
+| WAL buffers                       | 64 MB                            | Reduce WAL-buffer flush pressure                                           |
+| WAL compression                   | LZ4                              | Reduce full-page WAL volume                                                |
+| Maximum / minimum WAL size        | 32 GB / 4 GB                     | Avoid repeated checkpoints under heavy writes; not a disk-space limit      |
+| Connections                       | 250                              | Cover consumer pools, producers, and monitoring                            |
+| Work memory / JIT                 | 16 MB / off                      | Keep short processing queries predictable                                  |
+| Autovacuum wake interval          | 10 s                             | Revisit frequently updated tables sooner                                   |
+| Table vacuum / analyze thresholds | 2% / 1%, minimum 10,000          | Reclaim dead tuples and refresh statistics on the growing table            |
+| Vacuum cost limit / delay         | 2,000 / 1 ms                     | Give maintenance enough I/O budget for this write rate                     |
+| Background writer                 | 10 ms, 1,000 pages, multiplier 4 | Smooth dirty-buffer writes                                                 |
+| PostgreSQL shared memory          | 1 GB                             | Support parallel post-run scans beyond Docker's default 64 MB              |
 
 **Durability stays enabled:** `fsync`, `full_page_writes`, and `synchronous_commit` are all on.
 The schema has the primary key plus two partial processing indexes; completed history is excluded
@@ -90,11 +92,12 @@ completion order; it does not prove exactly-once external handler effects.
 
 ## Verified result
 
-Library commit `983c7d66`, strict mode, five minutes, on the 18-CPU/32-GB Docker setup:
-**149,894 processed records/s**. Of 45,000,000 produced records, 44,975,746 were committed as completed
-at producer stop and 24,254 remained. They drained in 0.18 s. The final audit checked every record:
-zero missing completions, ordering violations, retries, or failures; p99 processing latency was 448 ms.
-Run ID: `release-150k-verification-20261101`.
+Library commit `5e3edced`, after the query-dialect refactor, strict mode, five minutes, on the
+18-CPU/32-GB Docker setup:
+**149,694 processed records/s**. Of 45,000,000 produced records, 44,916,923 were committed as completed
+at producer stop and 83,077 remained. They drained in 0.63 s. The final audit checked every record:
+zero missing completions, ordering violations, retries, or failures; p99 processing latency was 548 ms.
+Run ID: `verify-150k-query-architecture-20261101`. Producer target met; capacity assessed as sustainable.
 
 The simplified default command was also verified end to end: **149,624 records/s** over one minute,
 all nine million records audited without violations, and capacity assessed as sustainable
