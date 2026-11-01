@@ -52,6 +52,7 @@ A difference counts only if it exceeds both the relative threshold of its group 
 | E11–E14 | leave-one-out DDL: −V1-1a, −V1-1b, −V1-2, −V1-3 | v1 | planned R1 | | `experiments/E1x-v1-ablation-leave-one-out.md` |
 | E1P | v1 pages: base `IN (...)` query instead of the PG `unnest` + `LATERAL` override (user idea) — is the override necessary? | v1 | planned R1 | | `experiments/E1P-pages-default-pg.md` |
 | E40 | UUIDv7 instead of v4 for record `id` (`OutboxRecord.kt:241`) and for generated record keys (`OutboxService`, `OutboxEventResolver`) (user idea): time-ordered PK inserts append to the right edge → fewer page splits / full-page writes (WAL), smaller and cache-friendlier PK; big expected effect on clustered PKs (MySQL/MariaDB InnoDB, SQL Server) | main, v1 | planned R2 (needs harness `--id-version 7` for gen + inserts) | | `experiments/E40-uuid-v7.md` |
+| E1M | `findOldestDueRetry`: MIN vs ORDER BY + LIMIT; switch to ORDER BY only if performance is identical (user preference) | v1 | planned R1 | | `experiments/E1x-v1-ablation-leave-one-out.md` |
 | E1Q | leave-one-out query items −V1-4..V1-9 (main SQL per query id, one run) | v1 | planned R1 | | same |
 
 ## Decisions
@@ -108,6 +109,12 @@ A difference counts only if it exceeds both the relative threshold of its group 
   and one class per dialect (new `MariaDbJdbcOutboxRecordQueries`); the repository takes `queryProvider: () -> JdbcOutboxRecordQueries`;
   statements renamed to `findStrictRecordKeys`, `findNonStrictRecordKeys`, `findOldestStrictDueRetry`, `findOldestDueRetry`.
   SQL unchanged (catalog diff vs `catalog/v1`: identical); `:namastack-outbox-jdbc:test` 267 tests passed. The harness extractor supports it.
+- 2026-11-01: **Preference (user): select rows with `ORDER BY` + row limit instead of `MIN` / `GROUP BY` for consistency, when the
+  performance is the same** (aggregates stay for counts, e.g. `countByStatuses`). Remaining case: `findOldestDueRetry` (non-strict oldest
+  due, still `MIN` in the code). Decided by experiment `E1M`: if `ORDER BY o.next_retry_at` + limit is within the noise threshold of `MIN`
+  (and no plan regresses) in every scenario, switch JDBC (portable/limit dialects; Oracle `/*+ FIRST_ROWS(1) */ … ORDER BY
+  SYS_EXTRACT_UTC(o.next_retry_at) FETCH FIRST :limit ROWS ONLY`) and JPA (`order by o.nextRetryAt` + `setMaxResults(1)`); otherwise keep
+  `MIN`. Re-check on the other dialects in phase 6 before the final switch.
 
 ## Stopped run (cross-dialect main+v1)
 
