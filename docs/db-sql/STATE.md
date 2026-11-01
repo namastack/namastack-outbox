@@ -82,6 +82,10 @@ A difference counts only if it exceeds both the relative threshold of its group 
 
 - none (all agents, driver scripts, JVMs and containers stopped; volumes removed by `bin/cleanup.sh`)
 
+## User decisions
+
+- 2026-11-01: SQL Server `recordKeysWithoutPreviousFailureFilter` override removed (uses the base NOT EXISTS + `ORDER BY o.created_at, o.id OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY` form). Changed in the primary tree (`JdbcOutboxRecordQueries.kt` + `JdbcOutboxRecordQueriesTest`, uncommitted) and in `harness/catalog/v1/sqlserver/keys_nonstrict.sql`. The `../outbox-wt-v1` worktree (e0b09b4) still has the override: do not re-run `extract-catalog.sh v1` without re-applying this. SQL Server not measured yet, so no existing result is affected. To verify: equivalence + timing of `keys_nonstrict` on SQL Server S2/S4/S7 (GROUP BY form vs base form).
+
 ## Stopped run (cross-dialect main+v1)
 
 - Stopped by the user while MariaDB S2 `prepare` for v1 was running (MariaDB `prepare` of S2 took ~35 min; MySQL main retention queries ~285 s per execution).

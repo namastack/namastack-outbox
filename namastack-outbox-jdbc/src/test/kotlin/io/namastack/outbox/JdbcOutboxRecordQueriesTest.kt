@@ -84,14 +84,15 @@ class JdbcOutboxRecordQueriesTest {
     }
 
     @Test
-    fun `sql server statements keep the grouped key query without the previous failure filter`() {
+    fun `sql server statements use offset fetch`() {
         val queries = JdbcOutboxRecordQueries.of(JdbcDatabaseType.SQLServer, table)
 
         assertThat(queries.recordKeysWithPreviousFailureFilter)
             .endsWith("ORDER BY o.created_at, o.id OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY")
         assertThat(queries.recordKeysWithoutPreviousFailureFilter)
-            .contains("GROUP BY o.record_key")
-            .endsWith("ORDER BY MIN(o.created_at) ASC")
+            .doesNotContain("GROUP BY")
+            .contains("earlier.status = :status AND earlier.next_retry_at <= :now")
+            .endsWith("ORDER BY o.created_at, o.id OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY")
         assertThat(queries.findByStatusAndCompletedBefore)
             .endsWith("ORDER BY completed_at OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY")
     }

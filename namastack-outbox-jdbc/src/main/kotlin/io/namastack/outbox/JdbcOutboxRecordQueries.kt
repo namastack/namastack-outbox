@@ -390,26 +390,14 @@ internal class MySqlJdbcOutboxRecordQueries(
 ) : JdbcOutboxRecordQueries(tableName, { "LIMIT :$it" })
 
 /**
- * SQL Server statements: `OFFSET 0 ROWS FETCH NEXT ... ROWS ONLY`. The record-key query without the
- * previous-failure filter keeps the grouped form, which the SQL Server planner handles better.
+ * SQL Server statements: the standard statements with `OFFSET 0 ROWS FETCH NEXT ... ROWS ONLY`.
  *
  * @author Aleksander Zamojski
  * @since 1.12.0
  */
 internal class SqlServerJdbcOutboxRecordQueries(
     tableName: String,
-) : JdbcOutboxRecordQueries(tableName, { "OFFSET 0 ROWS FETCH NEXT :$it ROWS ONLY" }) {
-    override val recordKeysWithoutPreviousFailureFilter: String =
-        """
-        SELECT o.record_key
-        FROM $tableName o
-        WHERE o.partition_no IN (:partitions)
-          AND o.status = :status
-          AND o.next_retry_at <= :now
-        GROUP BY o.record_key
-        ORDER BY MIN(o.created_at) ASC
-        """.toSingleLine()
-}
+) : JdbcOutboxRecordQueries(tableName, { "OFFSET 0 ROWS FETCH NEXT :$it ROWS ONLY" })
 
 /**
  * Oracle statements: `FETCH FIRST ... ROWS ONLY`, ordering by `SYS_EXTRACT_UTC` so that the order of
