@@ -50,6 +50,7 @@ A difference counts only if it exceeds both the relative threshold of its group 
 | E01a/b/c | `(status, created_at, id)` [INCLUDE] on main; a = index only, b = + v1 SQL for keys/oldest, c = b without INCLUDE | main | planned R1 | | `experiments/E01-status-created-main.md` |
 | E02a/b/c | v1 queue index → status-leading: a non-partial, b partial `completed_at IS NULL`, c b added alongside | v1 | planned R1 | | `experiments/E02-status-created-v1.md` |
 | E11–E14 | leave-one-out DDL: −V1-1a, −V1-1b, −V1-2, −V1-3 | v1 | planned R1 | | `experiments/E1x-v1-ablation-leave-one-out.md` |
+| E1P | v1 pages: base `IN (...)` query instead of the PG `unnest` + `LATERAL` override (user idea) — is the override necessary? | v1 | planned R1 | | `experiments/E1P-pages-default-pg.md` |
 | E1Q | leave-one-out query items −V1-4..V1-9 (main SQL per query id, one run) | v1 | planned R1 | | same |
 
 ## Decisions

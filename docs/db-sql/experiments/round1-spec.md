@@ -25,6 +25,7 @@ v1 = `/home/zamo/git/outbox-wt-v1/.../schema/postgres/outbox-tables.sql`. Put ev
 | `E13` | ablation −V1-2 | v1 | v1 − `idx_outbox_record_created_id_incomplete` | v1 catalog |
 | `E14` | ablation −V1-3 | v1 | v1 − `CREATE STATISTICS outbox_record_status_completed_stx` | v1 catalog |
 | `E1Q` | ablation −V1-4..V1-9 (query items, one run) | v1 | v1 | v1 catalog, overridden by **main** catalog files for `keys_strict` (−V1-4), `keys_nonstrict` (−V1-5), `oldest_created` (−V1-6), `oldest_due_strict` (−V1-7), `pages` (−V1-8), `find_completed_before`, `find_failed_before`, `ids_completed_before`, `ids_failed_before` (−V1-9) |
+| `E1P` | PG pages override needed? (user idea, 2026-11-01) | v1 | v1 | v1 catalog, overridden by `experiments/E1P-pages-default-pg/queries/pages.sql` = the base-class `findByKeysAndStatus` (`record_key IN (:recordKeys) AND status = :status AND completed_at IS NULL ORDER BY record_key, completed_at, created_at, id`) instead of the PostgreSQL `unnest` + `CROSS JOIN LATERAL` form |
 
 `E1Q` reverts several items in one run because each item touches a disjoint set of query ids; report each item from its own query ids.
 Make sure the override files keep the main `maxrows` header (main limits with `setMaxRows`, no `:limit`).
@@ -39,6 +40,31 @@ Additionally on S2 (fresh prepare each): `writecost` for `main`, `v1`, `E01a`, `
 (pollers 1, rate 0, 60 s; pollers 4, rate 0, 60 s) for `v1`, `E02b`, `E13`.
 
 Equivalence (`bin/bench equiv`) against the base on S2 and S5 (and S7 for E02*): E01a/b/c vs main, E02a/b/c and E11–E14, E1Q vs v1.
+
+### E1P scenarios (pages only; `--only pages,keys_strict`)
+
+Only `v1` and `E1P` are needed, back to back on each snapshot: S2, S2 `--batch 100 --label S2-b100`, S4, S4 `--batch 100`,
+S4 `--batch 1000 --label S4-b1000` (1000 = `MAX_RECORD_KEYS_PER_FETCH`, one bulk load at its maximum key count), S5 (2 000 rows per key:
+large pages), S7, S8-S2. Equivalence E1P vs v1 on S2, S4 `--batch 100`, S5 (rows and order per key must be identical).
+Check in the plans whether PostgreSQL 18 serves the `IN` list with an ordered index scan on
+`(record_key, completed_at, created_at, id)` (no Sort node), or sorts. Also note that the `IN` list is expanded to one placeholder
+per key, so each key count is a different statement for the driver's statement cache (the `ARRAY` form is one statement).
+Report: `experiments/E1P-pages-default-pg.md`, verdict whether the PostgreSQL override is necessary.
+
+### E14 details (extended statistics on PostgreSQL)
+
+Extended statistics change only planner estimates, so timings alone can hide the effect. For `v1` and `E14` additionally:
+- Compare **estimated vs actual rows** (from the `.json` plans) for every node filtering on both `status` and `completed_at`:
+  `keys_strict`, `keys_nonstrict`, `oldest_created`, `oldest_due_strict`, `pages`, `count_statuses`. Report the misestimate factor
+  with and without the statistics object, and whether the **plan shape** changes (join method, index choice, Sort, row goal).
+- Scenarios: all round-1 scenarios plus **S9** (after churn; statistics come only from autoanalyze there) and S10 concurrency
+  (pollers 4, rate 0) for `v1` vs `E14`.
+- Generic plans: run `keys_strict` and `pages` once more with `SET plan_cache_mode = force_generic_plan` for both variants
+  (estimates for `$1` parameters do not use the MCV list the same way); report the plan and timing.
+- Cost: duration of `ANALYZE outbox_record` with and without the statistics object (S2).
+Verdict per brief: keep only if a plan or a timing changes above the noise threshold in some scenario; otherwise `no difference`
+(the object then only costs ANALYZE time and is a PostgreSQL-only DDL difference). The add-one counterpart (main + statistics) is
+round 2 (E2x) and is only needed if E14 shows an effect.
 
 ## Noise
 
