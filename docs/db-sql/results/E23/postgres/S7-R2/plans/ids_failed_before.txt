@@ -1,0 +1,15 @@
+Sort  (cost=173944.35..174653.56 rows=283685 width=45) (actual time=274.021..296.878 rows=262617.00 loops=1)
+  Sort Key: next_retry_at
+  Sort Method: external merge  Disk: 14928kB
+  Buffers: shared hit=16290 read=108233, temp read=1866 written=1871
+  ->  Seq Scan on outbox_record  (cost=0.00..139522.10 rows=283685 width=45) (actual time=3.769..213.790 rows=262617.00 loops=1)
+        Filter: ((next_retry_at < '2025-12-02 12:00:00+00'::timestamp with time zone) AND ((status)::text = 'FAILED'::text))
+        Rows Removed by Filter: 737383
+        Buffers: shared hit=16290 read=108233
+Settings: search_path = 'run'
+Planning Time: 0.070 ms
+JIT:
+  Functions: 4
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 0.339 ms (Deform 0.229 ms), Inlining 0.000 ms, Optimization 0.146 ms, Emission 3.232 ms, Total 3.716 ms
+Execution Time: 308.982 ms

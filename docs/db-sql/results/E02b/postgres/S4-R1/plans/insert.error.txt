@@ -1,0 +1,2 @@
+org.postgresql.util.PSQLException: ERROR: duplicate key value violates unique constraint "outbox_record_pkey"
+  Detail: Key (id)=(e6ff287a-6c2c-35fb-ba0b-aed18d969b91) already exists.

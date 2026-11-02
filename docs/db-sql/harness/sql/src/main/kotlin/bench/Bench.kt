@@ -25,6 +25,8 @@ class Opts(args: List<String>) {
 class Common(o: Opts) {
     val dialect = Dialect.of(o.get("dialect"))
     val variant = o.get("variant")
+    /** Base catalog directory (`catalog/<catalogVariant>/<dialect>`); defaults to the variant name. Experiments: `--variant E01a --catalog-variant main --queries <overrides>`. */
+    val catalogVariant = o.opt("catalog-variant") ?: variant
     val worktree = File(o.get("worktree", "")).takeIf { o.opt("worktree") != null }
     val ddl: File? = o.opt("ddl")?.let { File(it) }
     val queries: File? = o.opt("queries")?.let { File(it) }
@@ -73,16 +75,27 @@ object Bench {
         }
     }
 
+    /** PostgreSQL: (custom_plans, generic_plans) of the session's server-prepared statement for this query, or null (not server-prepared / PG < 14). */
+    fun planCounts(c: Connection, q: CatalogQuery, p: Map<String, Any?>): Pair<Long, Long>? = try {
+        val (sql, _) = NamedSql.expand(q.sql, p)
+        var n = 0; val want = sql.map { if (it == '?') "$" + (++n) else it.toString() }.joinToString("").replace(Regex("\\s+"), " ").trim()
+        var res: Pair<Long, Long>? = null
+        c.createStatement().use { st -> st.executeQuery("SELECT statement, custom_plans, generic_plans FROM pg_prepared_statements").use { rs ->
+            while (rs.next()) if (rs.getString(1).replace(Regex("\\s+"), " ").trim() == want) { val cur = res ?: (0L to 0L); res = (cur.first + rs.getLong(2)) to (cur.second + rs.getLong(3)) } } }
+        res
+    } catch (e: Exception) { null }
+
     fun maxRowsFor(q: CatalogQuery, ctx: Ctx): Int = when (q.maxRows) { "none" -> 0; else -> ctx.limitFor(q) }
 
     /** Time one query: warmup + reps, writes inside a rolled-back transaction (timer stops before rollback). */
-    fun timeQuery(c: Connection, q: CatalogQuery, ctx: Ctx, warmup: Int, reps: Int): Triple<List<Double>, Int, String> {
+    fun timeQuery(c: Connection, q: CatalogQuery, ctx: Ctx, warmup: Int, reps: Int, afterWarmup: (() -> Unit)? = null): Triple<List<Double>, Int, String> {
         val times = mutableListOf<Double>(); var rows = 0; var note = ""
         var w = warmup; var r = reps
         val write = q.kind != "read"
         val total = { w + r }
         var i = 0
         while (i < total()) {
+            if (i == w && afterWarmup != null) afterWarmup()
             val p = ctx.paramsFor(q, i)
             val mr = maxRowsFor(q, ctx)
             if (write) c.autoCommit = false else c.autoCommit = true
@@ -112,6 +125,19 @@ object Bench {
                             NamedSql.bind(ps, values)
                             ps.executeQuery().use { rs -> val sb = StringBuilder(); while (rs.next()) sb.appendLine(rs.getString(1)); File(dir, "${q.id}.$ext").writeText(sb.toString()) }
                         }
+                    }
+                    if (Dialect.pgSessionSql.isNotEmpty() && !write) { // generic plan with actual rows: PREPARE + EXPLAIN ANALYZE EXECUTE -> plans/<id>.generic.json|txt
+                        var n = 0; val gsql = sql.map { if (it == '?') "$" + (++n) else it.toString() }.joinToString("")
+                        val lits = values.joinToString(", ") { NamedSql.literalize(d, "?", listOf(it)) }
+                        try {
+                            c.createStatement().use { st ->
+                                st.execute("PREPARE gp_plan AS $gsql")
+                                try {
+                                    for ((ext, fmt) in listOf("json" to "FORMAT JSON", "txt" to "FORMAT TEXT"))
+                                        st.executeQuery("EXPLAIN (ANALYZE, BUFFERS, SETTINGS, $fmt) EXECUTE gp_plan($lits)").use { rs -> val sb = StringBuilder(); while (rs.next()) sb.appendLine(rs.getString(1)); File(dir, "${q.id}.generic.$ext").writeText(sb.toString()) }
+                                } finally { st.execute("DEALLOCATE gp_plan") }
+                            }
+                        } catch (e: Exception) { File(dir, "${q.id}.generic.error.txt").writeText(e.toString()) }
                     }
                 }
                 Dialect.MYSQL -> {
@@ -186,7 +212,7 @@ object Bench {
     }
 
     fun run(cm: Common, o: Opts) {
-        val cat = Catalog.load(cm.catalogRoot, cm.variant, cm.dialect, cm.queries)
+        val cat = Catalog.load(cm.catalogRoot, cm.catalogVariant, cm.dialect, cm.queries)
         val only = o.opt("only")?.split(",")?.toSet()
         val groups = o.opt("groups")?.split(",")?.toSet()
         val dir = cm.outDir
@@ -196,6 +222,8 @@ object Bench {
             val ctx = Ctx(cm.dialect, c, cm.scenario, cm.batch, cm.owned, cm.warmup + cm.reps + 5)
             val adminOnly = cm.scenario.uppercase() in setOf("S1", "S3")
             val csv = StringBuilder("query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note\n")
+            // PostgreSQL: which plan type the timed reps used (pg_prepared_statements counters) -> plancache.csv
+            val pcsv = StringBuilder("query_id,custom_timed,generic_timed,custom_total,generic_total\n")
             for (id in Catalog.ORDER) {
                 if (only != null && id !in only) continue
                 val q = cat[id]
@@ -206,7 +234,11 @@ object Bench {
                 }
                 try {
                     if (id == "pages") ctx.pageKeys = strictKeys(c, cat, ctx)
-                    val (times, rows, note) = timeQuery(c, q, ctx, cm.warmup, cm.reps)
+                    val pg = cm.dialect == Dialect.POSTGRES
+                    var pre: Pair<Long, Long>? = null
+                    val (times, rows, note) = timeQuery(c, q, ctx, cm.warmup, cm.reps, if (pg) ({ pre = planCounts(c, q, ctx.paramsFor(q, 0)) }) else null)
+                    if (pg) { val post = planCounts(c, q, ctx.paramsFor(q, 0)); val a = pre ?: (0L to 0L)
+                        pcsv.appendLine(if (post == null) "$id,,,,"  else "$id,${post.first - a.first},${post.second - a.second},${post.first},${post.second}") }
                     val s = times.sorted()
                     csv.appendLine("$id,%.3f,%.3f,%.3f,%.3f,$rows,${times.size},$note".format(percentile(s, 0.5), percentile(s, 0.95), s.first(), s.last()))
                     println("%-24s median %9.3f ms  p95 %9.3f  rows %d %s".format(id, percentile(s, 0.5), percentile(s, 0.95), rows, note))
@@ -219,6 +251,7 @@ object Bench {
                 }
             }
             File(dir, "timings.csv").writeText(csv.toString())
+            if (cm.dialect == Dialect.POSTGRES) File(dir, "plancache.csv").writeText(pcsv.toString())
             Env.write(cm, o, c, File(dir, "env.txt"))
         }
     }
@@ -268,6 +301,7 @@ object Env {
             c.createStatement().use { st -> st.executeQuery("SELECT name, setting, unit FROM pg_settings WHERE name IN ('shared_buffers','work_mem','effective_cache_size','max_parallel_workers_per_gather','random_page_cost','jit','autovacuum')").use { rs ->
                 sb.appendLine("key_settings:"); while (rs.next()) sb.appendLine("  ${rs.getString(1)} = ${rs.getString(2)} ${rs.getString(3) ?: ""}") } }
         } catch (_: Exception) {}
+        if (d == Dialect.POSTGRES && Dialect.pgSessionSql.isNotEmpty()) sb.appendLine("session_init: ${Dialect.pgSessionSql.joinToString("; ")}")
         sb.appendLine("--- sizes ---"); sb.append(d.sizeReport(c))
         f.writeText(sb.toString())
     }

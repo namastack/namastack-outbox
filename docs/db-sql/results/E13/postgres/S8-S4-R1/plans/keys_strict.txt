@@ -1,0 +1,36 @@
+Limit  (cost=147115.25..147128.71 rows=10 width=82) (actual time=230.793..242.234 rows=10.00 loops=1)
+  Buffers: shared hit=736 read=112368, temp read=1335 written=2928
+  ->  Nested Loop Anti Join  (cost=147115.25..444511.75 rows=221057 width=82) (actual time=225.232..236.672 rows=10.00 loops=1)
+        Buffers: shared hit=736 read=112368, temp read=1335 written=2928
+        ->  Gather Merge  (cost=147114.70..176165.52 rows=249435 width=82) (actual time=225.151..236.497 rows=10.00 loops=1)
+              Workers Planned: 2
+              Workers Launched: 2
+              Buffers: shared hit=719 read=112344, temp read=1335 written=2928
+              ->  Sort  (cost=146114.68..146374.50 rows=103931 width=82) (actual time=211.099..211.137 rows=393.33 loops=3)
+                    Sort Key: o.created_at, o.id
+                    Sort Method: external merge  Disk: 9096kB
+                    Buffers: shared hit=719 read=112344, temp read=1335 written=2928
+                    Worker 0:  Sort Method: external merge  Disk: 7168kB
+                    Worker 1:  Sort Method: external merge  Disk: 7104kB
+                    ->  Parallel Index Scan using idx_outbox_record_status on outbox_record o  (cost=0.59..132480.99 rows=103931 width=82) (actual time=4.039..187.515 rows=83605.00 loops=3)
+                          Index Cond: ((status)::text = 'NEW'::text)
+                          Filter: ((completed_at IS NULL) AND (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                          Rows Removed by Filter: 249728
+                          Index Searches: 1
+                          Buffers: shared hit=693 read=112338
+        ->  Index Only Scan using idx_outbox_record_record_key_completed_created_id on outbox_record earlier  (cost=0.55..1.07 rows=1 width=82) (actual time=0.014..0.014 rows=0.00 loops=10)
+              Index Cond: ((record_key = (o.record_key)::text) AND (completed_at IS NULL) AND (created_at <= o.created_at))
+              Filter: ((created_at < o.created_at) OR ((created_at = o.created_at) AND ((id)::text < (o.id)::text)))
+              Rows Removed by Filter: 1
+              Heap Fetches: 0
+              Index Searches: 10
+              Buffers: shared hit=17 read=24
+Settings: search_path = 'run'
+Planning:
+  Buffers: shared hit=13 read=7
+Planning Time: 0.402 ms
+JIT:
+  Functions: 24
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 2.003 ms (Deform 0.767 ms), Inlining 0.000 ms, Optimization 0.818 ms, Emission 16.607 ms, Total 19.427 ms
+Execution Time: 244.061 ms

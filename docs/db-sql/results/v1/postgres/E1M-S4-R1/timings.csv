@@ -1,0 +1,2 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+oldest_due_nonstrict,0.632,1.014,0.577,1.527,1,20,

@@ -1,0 +1,19 @@
+Delete on outbox_record  (cost=2365.33..8786.36 rows=0 width=0) (actual time=7.103..7.104 rows=0.00 loops=1)
+  Buffers: shared hit=2118
+  ->  Bitmap Heap Scan on outbox_record  (cost=2365.33..8786.36 rows=1878 width=6) (actual time=7.102..7.103 rows=0.00 loops=1)
+        Recheck Cond: (((record_key)::text = 'order-000000000000000000000000000000'::text) AND ((status)::text = 'NEW'::text))
+        Heap Blocks: exact=1904
+        Buffers: shared hit=2118
+        ->  BitmapAnd  (cost=2365.33..2365.33 rows=1878 width=0) (actual time=6.311..6.312 rows=0.00 loops=1)
+              Buffers: shared hit=214
+              ->  Bitmap Index Scan on idx_outbox_record_record_key_created  (cost=0.00..191.94 rows=4735 width=0) (actual time=0.713..0.714 rows=5000.00 loops=1)
+                    Index Cond: ((record_key)::text = 'order-000000000000000000000000000000'::text)
+                    Index Searches: 1
+                    Buffers: shared hit=43
+              ->  Bitmap Index Scan on idx_outbox_record_status  (cost=0.00..2172.21 rows=198371 width=0) (actual time=5.316..5.316 rows=199983.00 loops=1)
+                    Index Cond: ((status)::text = 'NEW'::text)
+                    Index Searches: 1
+                    Buffers: shared hit=171
+Settings: search_path = 'run'
+Planning Time: 0.046 ms
+Execution Time: 7.170 ms

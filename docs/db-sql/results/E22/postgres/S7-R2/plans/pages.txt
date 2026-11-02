@@ -1,0 +1,21 @@
+Sort  (cost=161.79..161.79 rows=1 width=1091) (actual time=0.824..0.825 rows=10.00 loops=1)
+  Sort Key: record_key, created_at, id
+  Sort Method: quicksort  Memory: 33kB
+  Buffers: shared hit=51
+  ->  Bitmap Heap Scan on outbox_record  (cost=157.76..161.78 rows=1 width=1091) (actual time=0.810..0.813 rows=10.00 loops=1)
+        Recheck Cond: (((record_key)::text = ANY ('{order-000000000000000000000000005601,order-000000000000000000000000006621,order-000000000000000000000000006562,order-000000000000000000000000002522,order-000000000000000000000000000101,order-000000000000000000000000006924,order-000000000000000000000000006570,order-000000000000000000000000005052,order-000000000000000000000000006065,order-000000000000000000000000001623}'::text[])) AND ((status)::text = 'NEW'::text))
+        Heap Blocks: exact=10
+        Buffers: shared hit=51
+        ->  BitmapAnd  (cost=157.73..157.73 rows=1 width=0) (actual time=0.805..0.805 rows=0.00 loops=1)
+              Buffers: shared hit=41
+              ->  Bitmap Index Scan on idx_outbox_record_record_key_created  (cost=0.00..44.55 rows=45 width=0) (actual time=0.041..0.041 rows=25.00 loops=1)
+                    Index Cond: ((record_key)::text = ANY ('{order-000000000000000000000000005601,order-000000000000000000000000006621,order-000000000000000000000000006562,order-000000000000000000000000002522,order-000000000000000000000000000101,order-000000000000000000000000006924,order-000000000000000000000000006570,order-000000000000000000000000005052,order-000000000000000000000000006065,order-000000000000000000000000001623}'::text[]))
+                    Index Searches: 10
+                    Buffers: shared hit=30
+              ->  Bitmap Index Scan on idx_outbox_record_status  (cost=0.00..112.93 rows=10201 width=0) (actual time=0.744..0.744 rows=10000.00 loops=1)
+                    Index Cond: ((status)::text = 'NEW'::text)
+                    Index Searches: 1
+                    Buffers: shared hit=11
+Settings: search_path = 'run'
+Planning Time: 0.061 ms
+Execution Time: 0.866 ms

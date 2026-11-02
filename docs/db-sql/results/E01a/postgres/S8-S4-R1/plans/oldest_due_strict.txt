@@ -1,0 +1,36 @@
+Finalize Aggregate  (cost=340043.21..340043.22 rows=1 width=8) (actual time=445.504..461.042 rows=1.00 loops=1)
+  Buffers: shared hit=562 read=243533, temp read=15882 written=15948
+  ->  Gather  (cost=340043.00..340043.21 rows=2 width=8) (actual time=441.459..461.023 rows=3.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=562 read=243533, temp read=15882 written=15948
+        ->  Partial Aggregate  (cost=339043.00..339043.01 rows=1 width=8) (actual time=428.841..428.843 rows=1.00 loops=3)
+              Buffers: shared hit=562 read=243533, temp read=15882 written=15948
+              ->  Parallel Hash Right Anti Join  (cost=88690.83..338872.40 rows=68237 width=8) (actual time=381.931..425.940 rows=83605.00 loops=3)
+                    Hash Cond: ((older.record_key)::text = (o.record_key)::text)
+                    Join Filter: ((older.created_at < o.created_at) OR ((older.created_at = o.created_at) AND ((older.id)::text < (o.id)::text)))
+                    Rows Removed by Join Filter: 83605
+                    Buffers: shared hit=562 read=243533, temp read=15882 written=15948
+                    ->  Parallel Seq Scan on outbox_record older  (cost=0.00..235056.74 rows=418387 width=82) (actual time=1.263..161.945 rows=333333.33 loops=3)
+                          Filter: (completed_at IS NULL)
+                          Rows Removed by Filter: 333333
+                          Buffers: shared hit=165 read=226559
+                    ->  Parallel Hash  (cost=85857.83..85857.83 rows=104320 width=90) (actual time=127.694..127.694 rows=83605.00 loops=3)
+                          Buckets: 65536  Batches: 8  Memory Usage: 4512kB
+                          Buffers: shared hit=397 read=16974, temp written=3080
+                          ->  Parallel Index Only Scan using idx_outbox_record_status_created_id on outbox_record o  (cost=0.71..85857.83 rows=104320 width=90) (actual time=8.522..107.087 rows=83605.00 loops=3)
+                                Index Cond: (status = 'NEW'::text)
+                                Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                                Rows Removed by Filter: 249728
+                                Heap Fetches: 240
+                                Index Searches: 1
+                                Buffers: shared hit=397 read=16974
+Settings: search_path = 'run'
+Planning:
+  Buffers: shared hit=19 read=1
+Planning Time: 0.396 ms
+JIT:
+  Functions: 53
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 3.296 ms (Deform 0.973 ms), Inlining 0.000 ms, Optimization 1.034 ms, Emission 24.515 ms, Total 28.845 ms
+Execution Time: 462.030 ms

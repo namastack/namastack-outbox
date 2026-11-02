@@ -1,0 +1,21 @@
+Gather Merge  (cost=277988.85..317190.77 rows=336594 width=1091) (actual time=417.030..710.603 rows=569144.00 loops=1)
+  Workers Planned: 2
+  Workers Launched: 2
+  Buffers: shared hit=10445 read=114156, temp read=122829 written=122956
+  ->  Sort  (cost=276988.82..277339.44 rows=140248 width=1091) (actual time=393.475..452.773 rows=189714.67 loops=3)
+        Sort Key: completed_at
+        Sort Method: external merge  Disk: 172824kB
+        Buffers: shared hit=10445 read=114156, temp read=122829 written=122956
+        Worker 0:  Sort Method: external merge  Disk: 159824kB
+        Worker 1:  Sort Method: external merge  Disk: 158768kB
+        ->  Parallel Seq Scan on outbox_record  (cost=0.00..130774.29 rows=140248 width=1091) (actual time=3.611..95.916 rows=189714.67 loops=3)
+              Filter: ((completed_at < '2025-12-25 12:00:00+00'::timestamp with time zone) AND ((status)::text = 'COMPLETED'::text))
+              Rows Removed by Filter: 143619
+              Buffers: shared hit=10367 read=114156
+Settings: search_path = 'run'
+Planning Time: 0.080 ms
+JIT:
+  Functions: 6
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 1.015 ms (Deform 0.358 ms), Inlining 0.000 ms, Optimization 0.620 ms, Emission 9.923 ms, Total 11.558 ms
+Execution Time: 740.251 ms

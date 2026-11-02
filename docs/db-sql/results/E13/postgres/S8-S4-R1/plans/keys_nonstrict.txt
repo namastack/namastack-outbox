@@ -1,0 +1,35 @@
+Limit  (cost=147115.25..147157.88 rows=10 width=82) (actual time=232.547..244.311 rows=10.00 loops=1)
+  Buffers: shared hit=747 read=112367, temp read=1334 written=2927
+  ->  Nested Loop Anti Join  (cost=147115.25..1089414.93 rows=221061 width=82) (actual time=224.701..236.464 rows=10.00 loops=1)
+        Buffers: shared hit=747 read=112367, temp read=1334 written=2927
+        ->  Gather Merge  (cost=147114.70..176165.52 rows=249435 width=82) (actual time=224.620..236.279 rows=10.00 loops=1)
+              Workers Planned: 2
+              Workers Launched: 2
+              Buffers: shared hit=724 read=112340, temp read=1334 written=2927
+              ->  Sort  (cost=146114.68..146374.50 rows=103931 width=82) (actual time=210.768..210.802 rows=393.33 loops=3)
+                    Sort Key: o.created_at, o.id
+                    Sort Method: external merge  Disk: 9056kB
+                    Buffers: shared hit=724 read=112340, temp read=1334 written=2927
+                    Worker 0:  Sort Method: external merge  Disk: 7136kB
+                    Worker 1:  Sort Method: external merge  Disk: 7168kB
+                    ->  Parallel Index Scan using idx_outbox_record_status on outbox_record o  (cost=0.59..132480.99 rows=103931 width=82) (actual time=3.863..187.145 rows=83605.00 loops=3)
+                          Index Cond: ((status)::text = 'NEW'::text)
+                          Filter: ((completed_at IS NULL) AND (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                          Rows Removed by Filter: 249728
+                          Index Searches: 1
+                          Buffers: shared hit=698 read=112334
+        ->  Index Scan using idx_outbox_record_record_key_completed_created_id on outbox_record earlier  (cost=0.55..3.65 rows=1 width=82) (actual time=0.015..0.015 rows=0.00 loops=10)
+              Index Cond: (((record_key)::text = (o.record_key)::text) AND (completed_at IS NULL) AND (created_at <= o.created_at))
+              Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND ((status)::text = 'NEW'::text) AND ((created_at < o.created_at) OR ((created_at = o.created_at) AND ((id)::text < (o.id)::text))))
+              Rows Removed by Filter: 1
+              Index Searches: 10
+              Buffers: shared hit=23 read=27
+Settings: search_path = 'run'
+Planning:
+  Buffers: shared hit=13 read=7
+Planning Time: 0.386 ms
+JIT:
+  Functions: 26
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 2.439 ms (Deform 0.959 ms), Inlining 0.000 ms, Optimization 0.880 ms, Emission 18.314 ms, Total 21.633 ms
+Execution Time: 246.505 ms

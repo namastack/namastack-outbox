@@ -1,0 +1,34 @@
+Limit  (cost=258576.63..258577.96 rows=1 width=8) (actual time=242.058..249.940 rows=1.00 loops=1)
+  Buffers: shared hit=2753 read=224060, temp read=1369 written=3171
+  ->  Nested Loop Anti Join  (cost=258576.63..558296.00 rows=224439 width=8) (actual time=236.651..244.532 rows=1.00 loops=1)
+        Buffers: shared hit=2753 read=224060, temp read=1369 written=3171
+        ->  Gather Merge  (cost=258576.07..288001.91 rows=252655 width=90) (actual time=236.593..244.473 rows=1.00 loops=1)
+              Workers Planned: 2
+              Workers Launched: 2
+              Buffers: shared hit=2748 read=224060, temp read=1369 written=3171
+              ->  Sort  (cost=257576.05..257839.23 rows=105273 width=90) (actual time=222.387..222.416 rows=364.33 loops=3)
+                    Sort Key: o.next_retry_at
+                    Sort Method: external merge  Disk: 9192kB
+                    Buffers: shared hit=2748 read=224060, temp read=1369 written=3171
+                    Worker 0:  Sort Method: external merge  Disk: 8024kB
+                    Worker 1:  Sort Method: external merge  Disk: 8096kB
+                    ->  Parallel Seq Scan on outbox_record o  (cost=0.16..243393.79 rows=105273 width=90) (actual time=4.040..198.668 rows=83605.00 loops=3)
+                          Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND ((status)::text = 'NEW'::text) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                          Rows Removed by Filter: 583062
+                          Buffers: shared hit=2670 read=224060
+        ->  Index Only Scan using idx_outbox_record_record_key_completed_created_id on outbox_record earlier  (cost=0.55..1.06 rows=1 width=82) (actual time=0.032..0.032 rows=0.00 loops=1)
+              Index Cond: ((record_key = (o.record_key)::text) AND (completed_at IS NULL) AND (created_at <= o.created_at))
+              Filter: ((created_at < o.created_at) OR ((created_at = o.created_at) AND ((id)::text < (o.id)::text)))
+              Rows Removed by Filter: 1
+              Heap Fetches: 0
+              Index Searches: 1
+              Buffers: shared hit=5
+Settings: search_path = 'run'
+Planning:
+  Buffers: shared hit=22
+Planning Time: 0.328 ms
+JIT:
+  Functions: 18
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 1.793 ms (Deform 0.796 ms), Inlining 0.000 ms, Optimization 0.830 ms, Emission 15.699 ms, Total 18.321 ms
+Execution Time: 251.793 ms

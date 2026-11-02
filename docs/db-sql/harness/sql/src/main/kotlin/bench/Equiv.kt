@@ -10,6 +10,7 @@ object Equiv {
     private fun side(o: Opts, tag: String, schema: String): Side {
         val variant = o.get(tag)
         val args = mutableListOf("--dialect", o.get("dialect"), "--variant", variant, "--scenario", o.get("scenario", "S1"), "--schema", schema)
+        o.opt("catalog-variant-$tag")?.let { args += listOf("--catalog-variant", it) }
         o.opt("worktree-$tag")?.let { args += listOf("--worktree", it) }
         o.opt("ddl-$tag")?.let { args += listOf("--ddl", it) }
         o.opt("queries-$tag")?.let { args += listOf("--queries", it) }
@@ -19,7 +20,7 @@ object Equiv {
         val cm = Common(Opts(args))
         if (!o.has("no-prepare")) Bench.prepare(cm)
         val c = cm.dialect.connect(schema)
-        val cat = Catalog.load(cm.catalogRoot, cm.variant, cm.dialect, cm.queries)
+        val cat = Catalog.load(cm.catalogRoot, cm.catalogVariant, cm.dialect, cm.queries)
         return Side(variant, cm, c, cat, Ctx(cm.dialect, c, cm.scenario, cm.batch, cm.owned, 30))
     }
 

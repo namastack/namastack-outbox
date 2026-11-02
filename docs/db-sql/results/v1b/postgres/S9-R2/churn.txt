@@ -1,0 +1,42 @@
+== before ==
+# rows_by_status
+COMPLETED	986000
+FAILED	12800
+NEW	1200
+# table_size (heap+toast)
+907 MB	950591488
+# indexes_size_total
+277 MB	289931264
+# index_sizes (incl. pkey)
+idx_outbox_record_partition_status_retry	40312832	38 MB
+idx_outbox_record_record_key_completed_created_id	123559936	118 MB
+idx_outbox_record_status	7069696	6904 kB
+idx_outbox_record_status_created_id_incomplete	1982464	1936 kB
+idx_outbox_record_status_retry	40198144	38 MB
+outbox_record_pkey	76808192	73 MB
+# index_count (incl. pkey)
+6
+# pg_stat_user_tables
+1000131	0	2026-11-02 09:05:43.516683+00			1	0
+removed_by_retention: 500000
+churn_seconds: 407
+== after churn (no manual VACUUM/ANALYZE) ==
+# rows_by_status
+COMPLETED	829213
+FAILED	22827
+NEW	1200
+# table_size (heap+toast)
+1735 MB	1819729920
+# indexes_size_total
+543 MB	569516032
+# index_sizes (incl. pkey)
+idx_outbox_record_partition_status_retry	68517888	65 MB
+idx_outbox_record_record_key_completed_created_id	227000320	216 MB
+idx_outbox_record_status	12664832	12 MB
+idx_outbox_record_status_created_id_incomplete	82255872	78 MB
+idx_outbox_record_status_retry	54099968	52 MB
+outbox_record_pkey	124837888	119 MB
+# index_count (incl. pkey)
+6
+# pg_stat_user_tables
+854565	134305	2026-11-02 09:05:43.516683+00	2026-11-02 09:11:39.41457+00	2026-11-02 09:11:40.518733+00	1	3

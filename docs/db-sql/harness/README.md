@@ -173,3 +173,16 @@ The default credentials are throw-away (`bench`).
   `findOldestDueRetry`), mode `query-package`. Older variants keep working. Verified: the refactored primary tree yields the same SQL as
   `catalog/v1` for all 28 queries × 6 dialects. After editing the extractor, rebuild the runner (`./gradlew :repo:installDist`); `bin/repo-bench`
   only builds it when missing.
+- **Round 1 (PostgreSQL) additions:** `bin/round1-pg.sh` (driver for `experiments/round1-spec.md`; results under `<variant>/postgres/<label>-R1/`; resumable, `REDO=1`, `SCENARIOS=`),
+  override inputs under `experiments/<Exx>-<slug>/{ddl.sql,queries/}`. A `queries/` dir holds only the overridden files (the loader overlays them on the base catalog).
+  New option `--catalog-variant <name>` (also `--catalog-variant-a/-b` for `equiv`): base catalog directory when `--variant` is an experiment name.
+  `writecost` (PostgreSQL only; other dialects skip these lines): after a `CHECKPOINT` per phase it records the WAL volume (`pg_current_wal_lsn()` difference, includes full-page images
+  and any concurrent autovacuum) as `<phase>.wal_bytes_total` and `<phase>.wal_bytes_per_write` for `insert_1thread`, `insert_4threads`, `upd_complete_committed`, plus `index_count`,
+  `index_bytes_before.<index>` / `index_bytes_after.<index>`, `table_bytes_*`, `indexes_total_bytes_*` in `writecost.csv` (the `index_count_note` line is gone).
+  New `bin/bench analyze --n 5` (PostgreSQL): times `ANALYZE outbox_record`, writes `analyze.txt`. New global option `--pg-plan-cache-mode auto|force_generic_plan|force_custom_plan`
+  (PostgreSQL: `SET plan_cache_mode` on every connection, recorded as `session_init` in `env.txt`); with it set, `plan()` additionally writes `plans/<id>.generic.json|txt`
+  (`PREPARE` + `EXPLAIN (ANALYZE, BUFFERS) EXECUTE`, i.e. the generic plan with actual rows).
+- **Round 2 (PostgreSQL) additions:** `bin/round2-pg.sh` (driver for `experiments/round2-spec.md`; results under `<variant>/postgres/<label>-R2/`; resumable, `REDO=1`, `SCENARIOS=`; override inputs under `experiments/R2-<variant>/{ddl.sql,queries/}`).
+  `bench bench` on PostgreSQL now also writes `plancache.csv` (`query_id,custom_timed,generic_timed,custom_total,generic_total`): the `custom_plans`/`generic_plans` counters of the session's server-prepared statement in `pg_prepared_statements`
+  (matched by SQL text), as a delta over the timed reps (counter snapshot after the warmup) and in total. Empty = not server-prepared / text not found. Queries with identical SQL text share a statement, so totals include the other queries' executions; deltas are exact because queries run sequentially.
+  `--pg-plan-cache-mode` already accepted `force_custom_plan`; it applies to every connection and so to all queries of a run.

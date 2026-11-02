@@ -1,0 +1,14 @@
+Sort  (cost=69627.36..70332.39 rows=282015 width=45) (actual time=96.168..117.890 rows=262617.00 loops=1)
+  Sort Key: next_retry_at
+  Sort Method: external merge  Disk: 14928kB
+  Buffers: shared hit=6756, temp read=1866 written=1871
+  ->  Index Only Scan using idx_outbox_record_status_created_id on outbox_record  (cost=0.42..35420.87 rows=282015 width=45) (actual time=0.019..39.811 rows=262617.00 loops=1)
+        Index Cond: (status = 'FAILED'::text)
+        Filter: (next_retry_at < '2025-12-02 12:00:00+00'::timestamp with time zone)
+        Rows Removed by Filter: 127383
+        Heap Fetches: 181
+        Index Searches: 1
+        Buffers: shared hit=6756
+Settings: search_path = 'run'
+Planning Time: 0.071 ms
+Execution Time: 129.343 ms

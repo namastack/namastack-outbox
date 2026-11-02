@@ -1,0 +1,9 @@
+Limit  (cost=0.42..15159.69 rows=11114 width=1093) (actual time=0.023..0.023 rows=0.00 loops=1)
+  Buffers: shared hit=3
+  ->  Index Scan using idx_outbox_record_status_retry on outbox_record  (cost=0.42..151586.28 rows=111135 width=1093) (actual time=0.023..0.023 rows=0.00 loops=1)
+        Index Cond: (((status)::text = $1) AND (next_retry_at < $2))
+        Index Searches: 1
+        Buffers: shared hit=3
+Settings: search_path = 'run', plan_cache_mode = 'force_generic_plan'
+Planning Time: 0.007 ms
+Execution Time: 0.038 ms

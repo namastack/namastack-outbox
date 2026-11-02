@@ -1,0 +1,9 @@
+Delete on outbox_record  (cost=0.42..3769.40 rows=0 width=0) (actual time=3.271..3.271 rows=0.00 loops=1)
+  Buffers: shared hit=12221
+  ->  Index Scan using idx_outbox_record_status on outbox_record  (cost=0.42..3769.40 rows=12203 width=6) (actual time=3.271..3.271 rows=0.00 loops=1)
+        Index Cond: ((status)::text = 'FAILED'::text)
+        Index Searches: 1
+        Buffers: shared hit=12221
+Settings: search_path = 'run'
+Planning Time: 0.033 ms
+Execution Time: 3.286 ms

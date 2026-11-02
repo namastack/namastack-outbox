@@ -1,0 +1,19 @@
+Nested Loop  (cost=8.85..86.79 rows=20 width=1090) (actual time=0.035..0.076 rows=10.00 loops=1)
+  Buffers: shared hit=50
+  ->  Sort  (cost=0.27..0.29 rows=10 width=32) (actual time=0.016..0.016 rows=10.00 loops=1)
+        Sort Key: t.k
+        Sort Method: quicksort  Memory: 25kB
+        ->  Function Scan on unnest t  (cost=0.00..0.10 rows=10 width=32) (actual time=0.009..0.010 rows=10.00 loops=1)
+  ->  Incremental Sort  (cost=8.58..8.63 rows=2 width=1090) (actual time=0.005..0.005 rows=1.00 loops=10)
+        Sort Key: r.completed_at, r.created_at, r.id
+        Presorted Key: r.completed_at, r.created_at
+        Full-sort Groups: 10  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+        Buffers: shared hit=50
+        ->  Index Scan using idx_outbox_record_record_key_completed_created on outbox_record r  (cost=0.55..8.57 rows=1 width=1090) (actual time=0.005..0.005 rows=1.00 loops=10)
+              Index Cond: (((record_key)::text = (t.k)::text) AND (completed_at IS NULL))
+              Filter: ((status)::text = 'NEW'::text)
+              Index Searches: 10
+              Buffers: shared hit=50
+Settings: search_path = 'run'
+Planning Time: 0.090 ms
+Execution Time: 0.104 ms

@@ -1,0 +1,21 @@
+Sort  (cost=151.84..151.85 rows=1 width=1092) (actual time=0.866..0.867 rows=10.00 loops=1)
+  Sort Key: record_key, created_at, id
+  Sort Method: quicksort  Memory: 33kB
+  Buffers: shared hit=57
+  ->  Bitmap Heap Scan on outbox_record  (cost=147.82..151.83 rows=1 width=1092) (actual time=0.851..0.855 rows=10.00 loops=1)
+        Recheck Cond: (((record_key)::text = ANY ('{order-000000000000000000000000005601,order-000000000000000000000000006621,order-000000000000000000000000006562,order-000000000000000000000000002522,order-000000000000000000000000000101,order-000000000000000000000000006924,order-000000000000000000000000006570,order-000000000000000000000000005052,order-000000000000000000000000006065,order-000000000000000000000000001623}'::text[])) AND ((status)::text = 'NEW'::text))
+        Heap Blocks: exact=10
+        Buffers: shared hit=57
+        ->  BitmapAnd  (cost=147.79..147.79 rows=1 width=0) (actual time=0.846..0.846 rows=0.00 loops=1)
+              Buffers: shared hit=47
+              ->  Bitmap Index Scan on idx_outbox_record_record_key_completed_created_id  (cost=0.00..45.88 rows=46 width=0) (actual time=0.044..0.044 rows=25.00 loops=1)
+                    Index Cond: ((record_key)::text = ANY ('{order-000000000000000000000000005601,order-000000000000000000000000006621,order-000000000000000000000000006562,order-000000000000000000000000002522,order-000000000000000000000000000101,order-000000000000000000000000006924,order-000000000000000000000000006570,order-000000000000000000000000005052,order-000000000000000000000000006065,order-000000000000000000000000001623}'::text[]))
+                    Index Searches: 9
+                    Buffers: shared hit=36
+              ->  Bitmap Index Scan on idx_outbox_record_status  (cost=0.00..101.66 rows=9232 width=0) (actual time=0.782..0.782 rows=10000.00 loops=1)
+                    Index Cond: ((status)::text = 'NEW'::text)
+                    Index Searches: 1
+                    Buffers: shared hit=11
+Settings: search_path = 'run'
+Planning Time: 0.057 ms
+Execution Time: 0.913 ms

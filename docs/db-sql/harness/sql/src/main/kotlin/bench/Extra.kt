@@ -10,13 +10,32 @@ object WriteCost {
     fun run(cm: Common, o: Opts) {
         Nonce.value = System.nanoTime().toString()
         val n = o.int("n", 5000); val threads = o.int("threads", 4)
-        val cat = Catalog.load(cm.catalogRoot, cm.variant, cm.dialect, cm.queries)
+        val cat = Catalog.load(cm.catalogRoot, cm.catalogVariant, cm.dialect, cm.queries)
         val ins = cat.getValue("insert"); val upd = cat.getValue("upd_complete")
         val out = StringBuilder("metric,value\n")
         val dir = cm.outDir
         cm.dialect.connect(cm.schema).use { c0 ->
             val ctx = Ctx(cm.dialect, c0, cm.scenario, cm.batch, cm.owned, n + 10)
-            out.appendLine("index_count_note,see sizes in env.txt")
+            val pg = cm.dialect == Dialect.POSTGRES
+            fun scalar(sql: String): String = c0.createStatement().use { st -> st.executeQuery(sql).use { rs -> rs.next(); rs.getString(1) } }
+            fun idxReport(tag: String) {
+                if (!pg) return
+                c0.createStatement().use { st -> st.executeQuery("SELECT indexrelid::regclass::text, pg_relation_size(indexrelid) FROM pg_index WHERE indrelid='outbox_record'::regclass ORDER BY 1").use { rs ->
+                    var n = 0; while (rs.next()) { n++; out.appendLine("index_bytes_$tag.${rs.getString(1)},${rs.getLong(2)}") }; if (tag == "before") out.appendLine("index_count,$n") } }
+                out.appendLine("table_bytes_$tag,${scalar("SELECT pg_table_size('outbox_record')")}")
+                out.appendLine("indexes_total_bytes_$tag,${scalar("SELECT pg_indexes_size('outbox_record')")}")
+            }
+            idxReport("before")
+            // WAL bytes (PostgreSQL only): pg_current_wal_lsn() difference over each phase, after a CHECKPOINT so every phase starts with full-page-write state
+            fun <T> walPhase(label: String, writes: () -> Int): Int {
+                if (!pg) return writes()
+                try { c0.createStatement().use { it.execute("CHECKPOINT") } } catch (_: Exception) {}
+                val lsn0 = scalar("SELECT pg_current_wal_lsn()")
+                val w = writes()
+                val bytes = scalar("SELECT pg_wal_lsn_diff(pg_current_wal_lsn(), '$lsn0')").toDouble()
+                out.appendLine("$label.wal_bytes_total,%.0f".format(bytes)); out.appendLine("$label.wal_bytes_per_write,%.1f".format(bytes / w))
+                return w
+            }
             val before = cm.dialect.sizeReport(c0)
             fun stats(label: String, lat: List<Double>, wallMs: Double) {
                 val s = lat.sorted()
@@ -40,21 +59,42 @@ object WriteCost {
             }
             // warm up
             insertRun("insert_warmup", "order-wcw-", 1, 200)
-            insertRun("insert_1thread", "order-wc1-", 1, n)
-            insertRun("insert_${threads}threads", "order-wc4-", threads, n / threads)
+            walPhase<Unit>("insert_1thread") { insertRun("insert_1thread", "order-wc1-", 1, n); n }
+            walPhase<Unit>("insert_${threads}threads") { insertRun("insert_${threads}threads", "order-wc4-", threads, n / threads); n / threads * threads }
             // committed status updates (complete) on due records
             val ids = ctx.dueIds.take(n)
             val lats = mutableListOf<Double>(); c0.autoCommit = true
-            val t0 = System.nanoTime()
-            for ((i, id) in ids.withIndex()) {
-                val p = ctx.paramsFor(upd, i).toMutableMap(); p["id"] = id
-                val t = System.nanoTime(); Bench.exec(c0, upd, p, 0); lats += (System.nanoTime() - t) / 1e6
+            var t0 = System.nanoTime()
+            walPhase<Unit>("upd_complete_committed") {
+                t0 = System.nanoTime()
+                for ((i, id) in ids.withIndex()) {
+                    val p = ctx.paramsFor(upd, i).toMutableMap(); p["id"] = id
+                    val t = System.nanoTime(); Bench.exec(c0, upd, p, 0); lats += (System.nanoTime() - t) / 1e6
+                }
+                ids.size
             }
             stats("upd_complete_committed", lats, (System.nanoTime() - t0) / 1e6)
+            idxReport("after")
             File(dir, "writecost.csv").writeText(out.toString())
             File(dir, "sizes-before-write.txt").writeText(before)
             File(dir, "sizes-after-write.txt").writeText(cm.dialect.sizeReport(c0))
             println(out)
+        }
+    }
+}
+
+object Analyze {
+    /** `analyze --n 5`: times `ANALYZE outbox_record` n times (PostgreSQL), writes analyze.txt (E14: with/without extended statistics). */
+    fun run(cm: Common, o: Opts) {
+        require(cm.dialect == Dialect.POSTGRES) { "analyze: PostgreSQL only" }
+        val n = o.int("n", 5); val ms = mutableListOf<Double>()
+        cm.dialect.connect(cm.schema).use { c ->
+            c.autoCommit = true
+            repeat(n) { c.createStatement().use { st -> val t = System.nanoTime(); st.execute("ANALYZE outbox_record"); ms += (System.nanoTime() - t) / 1e6 } }
+            val stx = c.createStatement().use { st -> st.executeQuery("SELECT COUNT(*) FROM pg_statistic_ext WHERE stxrelid='outbox_record'::regclass").use { rs -> rs.next(); rs.getInt(1) } }
+            val s = ms.sorted()
+            val txt = "analyze_ms: " + ms.joinToString(" ") { "%.1f".format(it) } + "\nmedian_ms: %.1f\nextended_statistics_objects: $stx\n".format(Bench.percentile(s, .5))
+            File(cm.outDir, "analyze.txt").writeText(txt); println(txt)
         }
     }
 }
@@ -67,7 +107,7 @@ object Concurrency {
         Nonce.value = System.nanoTime().toString()
         val pollers = o.int("pollers", 1); val seconds = o.int("seconds", 60); val rate = o.int("rate", 500)
         val prodThreads = o.int("producers", if (rate == 0) 4 else 1); val idle = o.int("idle-ms", 100); val tag = o.opt("tag") ?: "p$pollers-r$rate"
-        val cat = Catalog.load(cm.catalogRoot, cm.variant, cm.dialect, cm.queries)
+        val cat = Catalog.load(cm.catalogRoot, cm.catalogVariant, cm.dialect, cm.queries)
         val keysQ = cat.getValue("keys_strict"); val pagesQ = cat.getValue("pages"); val updQ = cat.getValue("upd_complete"); val insQ = cat.getValue("insert")
         val stop = AtomicBoolean(false); val processed = AtomicLong(); val inserted = AtomicLong(); val errors = AtomicLong()
         val latKeys = Lat(); val latPages = Lat(); val latUpd = Lat(); val latIns = Lat()
@@ -136,7 +176,7 @@ object Churn {
     fun run(cm: Common, o: Opts) {
         Nonce.value = System.nanoTime().toString()
         val n = o.int("inserts", 500_000); val chunk = 1000
-        val cat = Catalog.load(cm.catalogRoot, cm.variant, cm.dialect, cm.queries)
+        val cat = Catalog.load(cm.catalogRoot, cm.catalogVariant, cm.dialect, cm.queries)
         val ins = cat.getValue("insert"); val upd = cat.getValue("upd_complete"); val del = cat.getValue("delete_by_id")
         val idsQ = cat.getValue("ids_completed_before"); val delIds = cat.getValue("delete_by_ids")
         val rep = StringBuilder()

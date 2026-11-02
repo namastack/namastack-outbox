@@ -1,0 +1,25 @@
+Aggregate  (cost=1712.64..1712.65 rows=1 width=8) (actual time=2.719..2.719 rows=1.00 loops=1)
+  Buffers: shared hit=443
+  ->  Hash Right Anti Join  (cost=394.44..1711.94 rows=282 width=8) (actual time=2.693..2.707 rows=221.00 loops=1)
+        Hash Cond: ((older.record_key)::text = (o.record_key)::text)
+        Join Filter: ((older.created_at < o.created_at) OR ((older.created_at = o.created_at) AND ((older.id)::text < (o.id)::text)))
+        Rows Removed by Join Filter: 229
+        Buffers: shared hit=443
+        ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record older  (cost=0.41..1181.80 rows=13569 width=82) (actual time=0.019..1.351 rows=14000.00 loops=1)
+              Heap Fetches: 206
+              Index Searches: 1
+              Buffers: shared hit=279
+        ->  Hash  (cost=390.40..390.40 rows=290 width=90) (actual time=0.377..0.377 rows=229.00 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 36kB
+              Buffers: shared hit=164
+              ->  Index Scan using idx_outbox_record_status on outbox_record o  (cost=0.58..390.40 rows=290 width=90) (actual time=0.024..0.330 rows=229.00 loops=1)
+                    Index Cond: ((status)::text = 'NEW'::text)
+                    Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                    Rows Removed by Filter: 971
+                    Index Searches: 1
+                    Buffers: shared hit=164
+Settings: search_path = 'run'
+Planning:
+  Buffers: shared hit=16
+Planning Time: 0.330 ms
+Execution Time: 2.767 ms

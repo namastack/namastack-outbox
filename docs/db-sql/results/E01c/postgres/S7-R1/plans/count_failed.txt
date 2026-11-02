@@ -1,0 +1,16 @@
+Finalize Aggregate  (cost=7268.09..7268.10 rows=1 width=8) (actual time=21.960..26.880 rows=1.00 loops=1)
+  Buffers: shared hit=394
+  ->  Gather  (cost=7267.88..7268.09 rows=2 width=8) (actual time=21.892..26.876 rows=3.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=394
+        ->  Partial Aggregate  (cost=6267.88..6267.89 rows=1 width=8) (actual time=10.827..10.828 rows=1.00 loops=3)
+              Buffers: shared hit=394
+              ->  Parallel Index Only Scan using idx_outbox_record_status on outbox_record  (cost=0.42..5865.24 rows=161055 width=0) (actual time=0.030..6.324 rows=130000.00 loops=3)
+                    Index Cond: (status = 'FAILED'::text)
+                    Heap Fetches: 181
+                    Index Searches: 1
+                    Buffers: shared hit=394
+Settings: search_path = 'run'
+Planning Time: 0.060 ms
+Execution Time: 26.914 ms

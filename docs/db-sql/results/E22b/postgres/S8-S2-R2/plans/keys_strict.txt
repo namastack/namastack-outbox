@@ -1,0 +1,34 @@
+Sort  (cost=1729.79..1730.50 rows=281 width=45) (actual time=3.026..3.034 rows=221.00 loops=1)
+  Sort Key: (min(o.created_at))
+  Sort Method: quicksort  Memory: 38kB
+  Buffers: shared hit=410
+  ->  GroupAggregate  (cost=1713.45..1718.37 rows=281 width=45) (actual time=2.924..2.983 rows=221.00 loops=1)
+        Group Key: o.record_key
+        Buffers: shared hit=410
+        ->  Sort  (cost=1713.45..1714.15 rows=281 width=45) (actual time=2.920..2.928 rows=221.00 loops=1)
+              Sort Key: o.record_key
+              Sort Method: quicksort  Memory: 38kB
+              Buffers: shared hit=410
+              ->  Hash Right Anti Join  (cost=394.42..1702.02 rows=281 width=45) (actual time=2.717..2.732 rows=221.00 loops=1)
+                    Hash Cond: ((older.record_key)::text = (o.record_key)::text)
+                    Join Filter: ((older.created_at < o.created_at) OR ((older.created_at = o.created_at) AND ((older.id)::text < (o.id)::text)))
+                    Rows Removed by Join Filter: 229
+                    Buffers: shared hit=410
+                    ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record older  (cost=0.41..1171.92 rows=13567 width=82) (actual time=0.015..1.341 rows=14000.00 loops=1)
+                          Heap Fetches: 0
+                          Index Searches: 1
+                          Buffers: shared hit=248
+                    ->  Hash  (cost=390.40..390.40 rows=289 width=82) (actual time=0.421..0.422 rows=229.00 loops=1)
+                          Buckets: 1024  Batches: 1  Memory Usage: 35kB
+                          Buffers: shared hit=162
+                          ->  Index Scan using idx_outbox_record_status on outbox_record o  (cost=0.58..390.40 rows=289 width=82) (actual time=0.023..0.373 rows=229.00 loops=1)
+                                Index Cond: ((status)::text = 'NEW'::text)
+                                Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                                Rows Removed by Filter: 971
+                                Index Searches: 1
+                                Buffers: shared hit=162
+Settings: search_path = 'run'
+Planning:
+  Buffers: shared hit=16
+Planning Time: 0.432 ms
+Execution Time: 3.126 ms

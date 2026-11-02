@@ -1,0 +1,43 @@
+Sort  (cost=448218.30..449913.93 rows=678253 width=45) (actual time=2149.559..2257.879 rows=1000000.00 loops=1)
+  Sort Key: (min(o.created_at))
+  Sort Method: external merge  Disk: 56792kB
+  Buffers: shared hit=1098 read=128219, temp read=46184 written=46369
+  ->  GroupAggregate  (cost=272490.00..361657.53 rows=678253 width=45) (actual time=1183.255..1813.465 rows=1000000.00 loops=1)
+        Group Key: o.record_key
+        Buffers: shared hit=1098 read=128219, temp read=31990 written=32154
+        ->  Gather Merge  (cost=272490.00..351483.73 rows=678253 width=45) (actual time=1183.229..1637.971 rows=1000000.00 loops=1)
+              Workers Planned: 2
+              Workers Launched: 2
+              Buffers: shared hit=1098 read=128219, temp read=31990 written=32154
+              ->  Sort  (cost=271489.97..272196.49 rows=282605 width=45) (actual time=1099.095..1269.549 rows=333333.33 loops=3)
+                    Sort Key: o.record_key
+                    Sort Method: external merge  Disk: 17736kB
+                    Buffers: shared hit=1098 read=128219, temp read=31990 written=32154
+                    Worker 0:  Sort Method: external merge  Disk: 17784kB
+                    Worker 1:  Sort Method: external merge  Disk: 21328kB
+                    ->  Parallel Hash Right Anti Join  (cost=143370.69..237208.31 rows=282605 width=45) (actual time=431.924..570.894 rows=333333.33 loops=3)
+                          Hash Cond: ((older.record_key)::text = (o.record_key)::text)
+                          Join Filter: ((older.created_at < o.created_at) OR ((older.created_at = o.created_at) AND ((older.id)::text < (o.id)::text)))
+                          Rows Removed by Join Filter: 333333
+                          Buffers: shared hit=1083 read=128218, temp read=24884 written=25028
+                          ->  Parallel Index Only Scan using idx_outbox_record_created_id_incomplete on outbox_record older  (cost=0.42..72924.24 rows=418173 width=82) (actual time=0.076..57.140 rows=333333.33 loops=3)
+                                Heap Fetches: 0
+                                Index Searches: 1
+                                Buffers: shared hit=378 read=15881
+                          ->  Parallel Hash  (cost=132426.61..132426.61 rows=418132 width=82) (actual time=281.354..281.355 rows=333333.33 loops=3)
+                                Buckets: 65536  Batches: 16  Memory Usage: 7968kB
+                                Buffers: shared hit=705 read=112337, temp written=12096
+                                ->  Parallel Index Scan using idx_outbox_record_status on outbox_record o  (cost=1.07..132426.61 rows=418132 width=82) (actual time=9.071..205.741 rows=333333.33 loops=3)
+                                      Index Cond: ((status)::text = 'NEW'::text)
+                                      Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = ANY ('{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255}'::integer[])))
+                                      Index Searches: 1
+                                      Buffers: shared hit=705 read=112337
+Settings: search_path = 'run'
+Planning:
+  Buffers: shared hit=12 read=8
+Planning Time: 0.582 ms
+JIT:
+  Functions: 48
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 3.658 ms (Deform 1.337 ms), Inlining 0.000 ms, Optimization 1.128 ms, Emission 26.088 ms, Total 30.875 ms
+Execution Time: 2305.203 ms

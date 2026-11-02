@@ -1,0 +1,31 @@
+Limit  (cost=835.54..835.57 rows=10 width=82) (actual time=0.731..0.732 rows=10.00 loops=1)
+  Buffers: shared hit=324
+  ->  Sort  (cost=835.54..836.29 rows=298 width=82) (actual time=0.730..0.731 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 27kB
+        Buffers: shared hit=324
+        ->  Hash Right Anti Join  (cost=413.91..829.10 rows=298 width=82) (actual time=0.676..0.692 rows=229.00 loops=1)
+              Hash Cond: ((earlier.record_key)::text = (o.record_key)::text)
+              Join Filter: ((earlier.created_at <= o.created_at) AND ((earlier.created_at < o.created_at) OR ((earlier.created_at = o.created_at) AND ((earlier.id)::text < (o.id)::text))))
+              Rows Removed by Join Filter: 229
+              Buffers: shared hit=324
+              ->  Index Scan using idx_outbox_record_status on outbox_record earlier  (cost=0.42..403.60 rows=1198 width=82) (actual time=0.012..0.217 rows=1000.00 loops=1)
+                    Index Cond: ((status)::text = 'NEW'::text)
+                    Filter: ((completed_at IS NULL) AND (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone))
+                    Rows Removed by Filter: 200
+                    Index Searches: 1
+                    Buffers: shared hit=162
+              ->  Hash  (cost=409.76..409.76 rows=298 width=82) (actual time=0.356..0.356 rows=229.00 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 35kB
+                    Buffers: shared hit=162
+                    ->  Index Scan using idx_outbox_record_status on outbox_record o  (cost=0.58..409.76 rows=298 width=82) (actual time=0.017..0.306 rows=229.00 loops=1)
+                          Index Cond: ((status)::text = 'NEW'::text)
+                          Filter: ((completed_at IS NULL) AND (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                          Rows Removed by Filter: 971
+                          Index Searches: 1
+                          Buffers: shared hit=162
+Settings: search_path = 'run'
+Planning:
+  Buffers: shared hit=20
+Planning Time: 0.271 ms
+Execution Time: 0.772 ms

@@ -1,0 +1,13 @@
+Delete on outbox_record  (cost=0.00..139523.40 rows=0 width=0) (actual time=140.070..140.071 rows=0.00 loops=1)
+  Buffers: shared hit=16290 read=108233
+  ->  Seq Scan on outbox_record  (cost=0.00..139523.40 rows=1 width=6) (actual time=140.069..140.070 rows=0.00 loops=1)
+        Filter: (((record_key)::text = 'order-000000000000000000000000000000'::text) AND ((status)::text = 'NEW'::text))
+        Rows Removed by Filter: 999999
+        Buffers: shared hit=16290 read=108233
+Settings: search_path = 'run'
+Planning Time: 0.045 ms
+JIT:
+  Functions: 3
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 0.184 ms (Deform 0.067 ms), Inlining 0.000 ms, Optimization 0.090 ms, Emission 1.702 ms, Total 1.976 ms
+Execution Time: 140.330 ms

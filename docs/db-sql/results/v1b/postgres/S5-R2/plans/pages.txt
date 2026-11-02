@@ -1,0 +1,29 @@
+Gather Merge  (cost=30885.11..33213.98 rows=19996 width=1090) (actual time=37.071..51.785 rows=20000.00 loops=1)
+  Workers Planned: 2
+  Workers Launched: 2
+  Buffers: shared hit=14056, temp read=2070 written=2073
+  ->  Sort  (cost=29885.09..29905.92 rows=8332 width=1090) (actual time=29.443..31.922 rows=6666.67 loops=3)
+        Sort Key: record_key, completed_at, created_at, id
+        Sort Method: external merge  Disk: 7760kB
+        Buffers: shared hit=14056, temp read=2070 written=2073
+        Worker 0:  Sort Method: external merge  Disk: 4352kB
+        Worker 1:  Sort Method: external merge  Disk: 4448kB
+        ->  Parallel Bitmap Heap Scan on outbox_record  (cost=3611.15..25352.49 rows=8332 width=1090) (actual time=7.568..12.900 rows=6666.67 loops=3)
+              Recheck Cond: (((record_key)::text = ANY ('{order-000000000000000000000000000086,order-000000000000000000000000000098,order-000000000000000000000000000057,order-000000000000000000000000000045,order-000000000000000000000000000041,order-000000000000000000000000000090,order-000000000000000000000000000056,order-000000000000000000000000000069,order-000000000000000000000000000063,order-000000000000000000000000000074}'::text[])) AND (completed_at IS NULL) AND ((status)::text = 'NEW'::text))
+              Heap Blocks: exact=6366
+              Buffers: shared hit=14024
+              Worker 0:  Heap Blocks: exact=3507
+              Worker 1:  Heap Blocks: exact=3600
+              ->  BitmapAnd  (cost=3611.13..3611.13 rows=7958 width=0) (actual time=8.648..8.649 rows=0.00 loops=1)
+                    Buffers: shared hit=509
+                    ->  Bitmap Index Scan on idx_outbox_record_record_key_completed_created_id  (cost=0.00..1420.22 rows=19996 width=0) (actual time=2.807..2.807 rows=20000.00 loops=1)
+                          Index Cond: (((record_key)::text = ANY ('{order-000000000000000000000000000086,order-000000000000000000000000000098,order-000000000000000000000000000057,order-000000000000000000000000000045,order-000000000000000000000000000041,order-000000000000000000000000000090,order-000000000000000000000000000056,order-000000000000000000000000000069,order-000000000000000000000000000063,order-000000000000000000000000000074}'::text[])) AND (completed_at IS NULL))
+                          Index Searches: 10
+                          Buffers: shared hit=338
+                    ->  Bitmap Index Scan on idx_outbox_record_status  (cost=0.00..2180.65 rows=198964 width=0) (actual time=5.478..5.478 rows=199980.00 loops=1)
+                          Index Cond: ((status)::text = 'NEW'::text)
+                          Index Searches: 1
+                          Buffers: shared hit=171
+Settings: search_path = 'run'
+Planning Time: 0.136 ms
+Execution Time: 53.234 ms

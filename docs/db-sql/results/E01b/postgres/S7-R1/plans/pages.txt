@@ -1,0 +1,21 @@
+Sort  (cost=149.09..149.09 rows=1 width=1091) (actual time=0.855..0.855 rows=10.00 loops=1)
+  Sort Key: record_key, created_at, id
+  Sort Method: quicksort  Memory: 33kB
+  Buffers: shared hit=51
+  ->  Bitmap Heap Scan on outbox_record  (cost=145.06..149.08 rows=1 width=1091) (actual time=0.838..0.842 rows=10.00 loops=1)
+        Recheck Cond: (((record_key)::text = ANY ('{order-000000000000000000000000005601,order-000000000000000000000000006621,order-000000000000000000000000006562,order-000000000000000000000000002522,order-000000000000000000000000000101,order-000000000000000000000000006924,order-000000000000000000000000006570,order-000000000000000000000000005052,order-000000000000000000000000006065,order-000000000000000000000000001623}'::text[])) AND ((status)::text = 'NEW'::text))
+        Heap Blocks: exact=10
+        Buffers: shared hit=51
+        ->  BitmapAnd  (cost=145.03..145.03 rows=1 width=0) (actual time=0.833..0.833 rows=0.00 loops=1)
+              Buffers: shared hit=41
+              ->  Bitmap Index Scan on idx_outbox_record_record_key_created  (cost=0.00..44.62 rows=46 width=0) (actual time=0.053..0.053 rows=25.00 loops=1)
+                    Index Cond: ((record_key)::text = ANY ('{order-000000000000000000000000005601,order-000000000000000000000000006621,order-000000000000000000000000006562,order-000000000000000000000000002522,order-000000000000000000000000000101,order-000000000000000000000000006924,order-000000000000000000000000006570,order-000000000000000000000000005052,order-000000000000000000000000006065,order-000000000000000000000000001623}'::text[]))
+                    Index Searches: 10
+                    Buffers: shared hit=30
+              ->  Bitmap Index Scan on idx_outbox_record_status  (cost=0.00..100.16 rows=9031 width=0) (actual time=0.759..0.759 rows=10000.00 loops=1)
+                    Index Cond: ((status)::text = 'NEW'::text)
+                    Index Searches: 1
+                    Buffers: shared hit=11
+Settings: search_path = 'run'
+Planning Time: 0.069 ms
+Execution Time: 0.902 ms

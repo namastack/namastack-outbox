@@ -4,7 +4,7 @@ Maintained by the orchestrator. Update after every step.
 
 ## Current phase
 
-Phase 3+4 — other dialects main+v1 **stopped by the user** (2026-11-01, to be restarted later by the user). PostgreSQL main+v1 done (vacuumed rerun).
+Phase 5 round 2 (PostgreSQL) done 2026-11-02, reported to the user. **Stopped: round 3 starts only when the user restarts the run.** Phases 6 and 7 not started (user approved round 2 on 2026-11-02 and asked to keep running further idea rounds autonomously, reporting after each round) (2026-11-01). Phases 1–4 done for PostgreSQL; non-PG main+v1 deferred to phase 6.
 
 ## Environment
 
@@ -47,13 +47,25 @@ A difference counts only if it exceeds both the relative threshold of its group 
 
 | Id | Hypothesis | Base | Status | Verdict | Report |
 |---|---|---|---|---|---|
-| E01a/b/c | `(status, created_at, id)` [INCLUDE] on main; a = index only, b = + v1 SQL for keys/oldest, c = b without INCLUDE | main | planned R1 | | `experiments/E01-status-created-main.md` |
-| E02a/b/c | v1 queue index → status-leading: a non-partial, b partial `completed_at IS NULL`, c b added alongside | v1 | planned R1 | | `experiments/E02-status-created-v1.md` |
-| E11–E14 | leave-one-out DDL: −V1-1a, −V1-1b, −V1-2, −V1-3 | v1 | planned R1 | | `experiments/E1x-v1-ablation-leave-one-out.md` |
-| E1P | v1 pages: base `IN (...)` query instead of the PG `unnest` + `LATERAL` override (user idea) — is the override necessary? | v1 | planned R1 | | `experiments/E1P-pages-default-pg.md` |
+| E01a/b/c | `(status, created_at, id)` [INCLUDE] on main; a = index only, b = + v1 SQL for keys/oldest, c = b without INCLUDE | main | done R1 | mixed: index alone does not fix P1 `keys_strict` (S4 4.4 s→4.0 s); P2 `oldest_created` win; +143 MB, +4–7 % WAL; INCLUDE adds nothing | `experiments/E01-status-created-main.md` |
+| E02a/b/c | v1 queue index → status-leading: a non-partial, b partial `completed_at IS NULL`, c b added alongside | v1 | done R1 | **win E02b**: keys_* S2 −41 %, S8-S2 −57 %, S7 13.3→1.2 ms; no write cost (1.9 MB); a = same reads, 143 MB; c = no gain over b. To confirm: generic plan, S4 write cells | `experiments/E02-status-created-v1.md` |
+| E11 | −V1-1a (re-add `(record_key, created_at)`) | v1 | done R1 | V1-1a matters (space/WAL only): +67 MB, +2–4 % WAL, latency no difference → keep drop | `experiments/E1x-v1-ablation-leave-one-out.md` |
+| E12 | −V1-1b (no `id` in record-key index) | v1 | done R1 | no difference in time; index 77 vs 124 MB → revert candidate (write cost not measured) | same |
+| E13 | −V1-2 (no partial queue index) | v1 | done R1 | V1-2 matters: keys S4 1.25→808 ms, S10 p4 1110→659 rec/s; S7 faster without (13.3→8.7) | same |
+| E14 | −V1-3 (no extended statistics) | v1 | done R1 | V1-3 matters with custom plans: S2 est 11 vs 1000 actual, keys_* +101/+121 %, S10 p4 1110→770 rec/s; generic plan no difference; ANALYZE +8 % | same |
+| E1Q | −V1-4..V1-9 query items | v1 | done R1 | V1-4, V1-5 (regression S8-S2/S7), V1-6, V1-7, V1-8 (moderate), V1-9 (P3) matter; V1-10 no difference alone, V1-11 matters (per refresh S2 30→1.3 ms) | same |
+| E1M | `findOldestDueRetry` MIN vs ORDER BY+LIMIT | v1 | done R1 | **keep MIN**: ORDER BY +0.19–0.50 ms (+42–78 %) in all 7 labels, identical EXPLAIN plans (cause unverified) | same |
+| E1P | v1 pages: base `IN (...)` instead of PG `unnest`+`LATERAL` | v1 | done R1 | **no difference** (never worse; S4-b1000 −29 %, S5 −30 % via parallel plan); ordered index scan, no Sort → override not necessary; statement-cache churn not measured | `experiments/E1P-pages-default-pg.md` |
+| v1b | v1 + E02b index + E1P `pages` | v1 | done R2 | better reference for `keys_*` (S8-S2 keys_strict 1.08 vs 1.97 ms; S7 13.2→1.4 ms); write cost same as v1. **`pages` form unresolved, see below** | `experiments/R2-v1b.md` |
+| A1 | v1b − `idx_status` | v1b | done R2 | marginal: no P1 effect, P2 −0.5 ms loss, WAL gain within noise | `experiments/E05-drop-indexes.md` |
+| A2 | v1b − `idx_status_retry` | v1b | done R2 | keep: `oldest_due_strict` S8-S4 0.7→527 ms, no WAL saving (round 3 tests partial C instead) | same |
+| A5 | v1b − `idx_partition_status_retry` | v1b | done R2 | mixed: WAL −6.6 %, `count_partitions` S8-S4 16→209 ms | same |
+| A6 | v1b − all three + literals | v1b | done R2 | not adoptable: WAL −9 %, indexes −30 %, but `oldest_due_strict` seq scan (0.6→259–722 ms) | same |
+| K12 | record-key index without `id` | v1b | done R2 | space win 44 MiB, no P1/P2 loss (superseded if E04 adopted) | same |
+| E04 | partial record-key index | v1b | done R2 | **win**: P1 equal, indexes 277→160 MB, WAL `upd_complete` −7 %; P3 `delete_by_key_status` S4 0.12→413 ms (accepted by the user rule) | `experiments/E04-partial-record-key.md` |
+| MIN | PK + 2 partial indexes + literals | v1b | done R2 | mixed, not acceptable as measured: WAL −9/−16 %, 77 MB, but P2 loss (`oldest_due_strict` S8-S2 0.6→186 ms, `count_*`); literal on `count_statuses` silently loses COMPLETED | same |
+| E21–E28 | add-one on main | main | done R2 | V1-1a alone: space/WAL; V1-2 + V1-4/5 only together (S4 keys_strict main 4272, index only 4089, SQL only 807, both 1.25 ms); V1-3 alone no difference; V1-7 alone matters; V1-6 needs queue index; V1-8 only S7 | `experiments/E2x-v1-ablation-add-one.md` |
 | E40 | UUIDv7 instead of v4 for record `id` (`OutboxRecord.kt:241`) and for generated record keys (`OutboxService`, `OutboxEventResolver`) (user idea): time-ordered PK inserts append to the right edge → fewer page splits / full-page writes (WAL), smaller and cache-friendlier PK; big expected effect on clustered PKs (MySQL/MariaDB InnoDB, SQL Server) | main, v1 | planned R2 (needs harness `--id-version 7` for gen + inserts) | | `experiments/E40-uuid-v7.md` |
-| E1M | `findOldestDueRetry`: MIN vs ORDER BY + LIMIT; switch to ORDER BY only if performance is identical (user preference) | v1 | planned R1 | | `experiments/E1x-v1-ablation-leave-one-out.md` |
-| E1Q | leave-one-out query items −V1-4..V1-9 (main SQL per query id, one run) | v1 | planned R1 | | same |
 
 ## Decisions
 
@@ -83,9 +95,23 @@ A difference counts only if it exceeds both the relative threshold of its group 
 
 ## Running sub-agents
 
-- none (all agents, driver scripts, JVMs and containers stopped; volumes removed by `bin/cleanup.sh`)
+- none (round 2 driver finished 2026-11-02 17:27, 223 steps, 0 failures, no equivalence FAIL; Postgres container stopped).
+
+## Open findings after round 2
+
+- **E1P verdict not settled (orchestrator check 2026-11-02):** S10 `pages` p50 per run: `unnest` form (v1) 0.6–1.3 ms in 8 of 8 runs; `IN` form (v1b, A6, E04, MIN) 11–21 ms in 11 of 16 runs, 0.6–1.0 ms in the other 5 (`results/<v>/postgres/S10*-R2/concurrency-*.txt`). The isolated bench shows no such effect (20 custom plans, `plancache.csv`). Size matches the ~21 ms parallel Gather startup seen on generic `count_*` plans (`R2-plan-modes.md`); **hypothesis, not verified**: generic parallel plan in the long-running loop. Do not drop the `unnest` override until explained. Also affects U1 (`pages` without `ORDER BY`, same `IN` form). Round 3 must run `pages` in the S10 loop at the screen stage and compare `unnest` vs `IN` directly, capturing the plan used in the loop.
+- Plan modes (`R2-plan-modes.md`): ~22 ms `count_*` = generic parallel Gather (confirmed); the three `count_*` share one prepared statement and flip on a cost tie; E1M gap mostly planning time (partly inferred); S4 write cells NOT explained by plan mode (cause open). V1-3 probably matters in production (inferred). Round 1 cells cannot be checked (no `plancache.csv`). Harness changes for round 3 in section 7 of that report.
+- Most latency cells are single runs; repeats only S10 (spread up to ±46 %) and write cost of v1, v1b, MIN. S5/S6/S7 full ownership only.
 
 ## User decisions
+
+- 2026-11-02: **Do not start round 3 until the user restarts the run.** Finish round 2 (driver, reports, summary), then stop. No round 3 prep or harness changes before that.
+
+- 2026-11-02: **Staged runs approved** for round 3 and later: screen (P1/P2 on S8-S2, S8-S4, S8-S7 + write cost on S2) → confirm (survivors on all labels, partial ownership first, equivalence, S9, S10) → validate (top 2–3, at least twice, order swapped, restart, against v1b; only this gives a final win).
+
+- 2026-11-02: **Partial partition ownership is the default deployment** (library is for multi-instance use). Rank partial-ownership results (S8-*) first in verdicts; full ownership is a secondary case. Rounds from 3 on measure scenarios with partial ownership as primary.
+
+- 2026-11-02: run phase 5 rounds autonomously until the stop criterion; **do not start phases 6 and 7** without the user. Report after each round.
 
 - 2026-11-01: SQL Server `recordKeysWithoutPreviousFailureFilter` override removed (uses the base NOT EXISTS + `ORDER BY o.created_at, o.id OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY` form). Changed in the primary tree (`JdbcOutboxRecordQueries.kt` + `JdbcOutboxRecordQueriesTest`, uncommitted) and in `harness/catalog/v1/sqlserver/keys_nonstrict.sql`. The `../outbox-wt-v1` worktree (e0b09b4) still has the override: do not re-run `extract-catalog.sh v1` without re-applying this. SQL Server not measured yet, so no existing result is affected. To verify: equivalence + timing of `keys_nonstrict` on SQL Server S2/S4/S7 (GROUP BY form vs base form).
 
@@ -124,6 +150,9 @@ A difference counts only if it exceeds both the relative threshold of its group 
 - Phase 5 round 1 not started (spec ready: `experiments/round1-spec.md`).
 
 ## Next step
+
+**Round 2 done. Stop and wait for the user.** On restart: round 3 = user's P1/P2 index set and client-sorted `pages`, `experiments/round3-spec.md` (draft), staged (screen → confirm → validate), partial ownership first. Finalise the spec first: add the `pages` S10 check from "Open findings", the harness changes from `R2-plan-modes.md` section 7, `--pages-client-sort`, and treat `oldest_due_*` literal + C as the fix for MIN's P2 loss. Round 4 candidates: E40 UUIDv7, E07 autovacuum/fillfactor, E08 per-partition LATERAL. Previous text below is the round 1 plan.
+
 
 Decided with the user (2026-11-01): start **phase 5 round 1 on PostgreSQL** now; the remaining non-PostgreSQL main+v1 measurements
 (MySQL S4/S8-S4/S5/S7, MariaDB rest, SQL Server, Oracle, H2) move to phase 6 and are measured together with v2.

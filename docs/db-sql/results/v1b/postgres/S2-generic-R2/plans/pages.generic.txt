@@ -1,0 +1,8 @@
+Index Scan using idx_outbox_record_record_key_completed_created_id on outbox_record  (cost=0.55..49.61 rows=1 width=1092) (actual time=0.031..0.061 rows=10.00 loops=1)
+  Index Cond: (((record_key)::text = ANY ((ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10])::text[])) AND (completed_at IS NULL))
+  Filter: ((status)::text = $11)
+  Index Searches: 9
+  Buffers: shared hit=48
+Settings: search_path = 'run', plan_cache_mode = 'force_generic_plan'
+Planning Time: 0.006 ms
+Execution Time: 0.076 ms

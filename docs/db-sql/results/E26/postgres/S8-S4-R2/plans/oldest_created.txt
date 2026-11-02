@@ -1,0 +1,25 @@
+Limit  (cost=132150.98..132151.09 rows=1 width=8) (actual time=210.145..220.226 rows=1.00 loops=1)
+  Buffers: shared hit=703 read=112342
+  ->  Gather Merge  (cost=132150.98..146724.89 rows=125134 width=8) (actual time=206.251..216.332 rows=1.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=703 read=112342
+        ->  Sort  (cost=131150.95..131281.30 rows=52139 width=8) (actual time=192.139..192.140 rows=1.00 loops=3)
+              Sort Key: created_at
+              Sort Method: top-N heapsort  Memory: 25kB
+              Buffers: shared hit=703 read=112342
+              Worker 0:  Sort Method: top-N heapsort  Memory: 25kB
+              Worker 1:  Sort Method: top-N heapsort  Memory: 25kB
+              ->  Parallel Index Scan using idx_outbox_record_status on outbox_record  (cost=0.59..130890.26 rows=52139 width=8) (actual time=3.916..188.886 rows=83605.00 loops=3)
+                    Index Cond: ((status)::text = 'NEW'::text)
+                    Filter: ((completed_at IS NULL) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                    Rows Removed by Filter: 249728
+                    Index Searches: 1
+                    Buffers: shared hit=691 read=112338
+Settings: search_path = 'run'
+Planning Time: 0.179 ms
+JIT:
+  Functions: 19
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 1.681 ms (Deform 0.728 ms), Inlining 0.000 ms, Optimization 0.784 ms, Emission 14.588 ms, Total 17.052 ms
+Execution Time: 220.760 ms

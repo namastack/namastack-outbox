@@ -1,0 +1,17 @@
+Sort  (cost=406.55..407.27 rows=289 width=45) (actual time=0.452..0.459 rows=229.00 loops=1)
+  Sort Key: (min(created_at))
+  Sort Method: quicksort  Memory: 39kB
+  Buffers: shared hit=162
+  ->  HashAggregate  (cost=391.85..394.74 rows=289 width=45) (actual time=0.389..0.409 rows=229.00 loops=1)
+        Group Key: record_key
+        Batches: 1  Memory Usage: 72kB
+        Buffers: shared hit=162
+        ->  Index Scan using idx_outbox_record_status on outbox_record o  (cost=0.58..390.40 rows=289 width=45) (actual time=0.019..0.332 rows=229.00 loops=1)
+              Index Cond: ((status)::text = 'NEW'::text)
+              Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+              Rows Removed by Filter: 971
+              Index Searches: 1
+              Buffers: shared hit=162
+Settings: search_path = 'run'
+Planning Time: 0.106 ms
+Execution Time: 0.503 ms

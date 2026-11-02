@@ -1,0 +1,8 @@
+tag: p1-r0  pollers=1 producers=4 rate=unthrottled seconds=60.4
+processed_per_s: 287.9   (total 17390)
+inserted_per_s: 1690.9   (total 102123)
+errors: 0
+keys_query_ms: n=1739 p50=6.91 p95=14.29
+pages_query_ms: n=1739 p50=0.76 p95=1.50
+update_ms: n=17390 p50=1.85 p95=5.33
+insert_ms: n=102123 p50=1.81 p95=4.38

@@ -1,0 +1,17 @@
+Sort  (cost=177400.33..178626.63 rows=490520 width=45) (actual time=490.215..542.481 rows=616778.00 loops=1)
+  Sort Key: completed_at
+  Sort Method: external merge  Disk: 35064kB
+  Buffers: shared hit=1 read=93574, temp read=4383 written=4396
+  ->  Index Scan using idx_outbox_record_status on outbox_record  (cost=0.42..115944.50 rows=490520 width=45) (actual time=3.770..365.237 rows=616778.00 loops=1)
+        Index Cond: ((status)::text = 'COMPLETED'::text)
+        Filter: (completed_at < '2025-12-25 12:00:00+00'::timestamp with time zone)
+        Rows Removed by Filter: 183222
+        Index Searches: 1
+        Buffers: shared hit=1 read=93574
+Settings: search_path = 'run'
+Planning Time: 0.069 ms
+JIT:
+  Functions: 6
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 0.385 ms (Deform 0.202 ms), Inlining 0.000 ms, Optimization 0.150 ms, Emission 3.581 ms, Total 4.116 ms
+Execution Time: 569.464 ms

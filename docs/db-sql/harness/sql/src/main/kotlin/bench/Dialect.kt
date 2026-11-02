@@ -15,6 +15,8 @@ enum class Dialect(val id: String, val container: String?) {
 
     companion object {
         fun of(s: String) = entries.firstOrNull { it.id == s.lowercase() } ?: error("unknown dialect $s")
+        /** PostgreSQL statements run on every new connection (`--pg-plan-cache-mode`). */
+        var pgSessionSql: List<String> = emptyList()
         val h2Dir: File = File(System.getProperty("harness.h2dir") ?: "build/h2")
     }
 
@@ -38,6 +40,7 @@ enum class Dialect(val id: String, val container: String?) {
             }
         }
         if (this == ORACLE) c.createStatement().use { it.execute("ALTER SESSION SET TIME_ZONE = '+00:00'") }
+        if (this == POSTGRES) for (sql in pgSessionSql) c.createStatement().use { it.execute(sql) }
         return c
     }
 

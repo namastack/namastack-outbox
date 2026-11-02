@@ -1,0 +1,18 @@
+Gather Merge  (cost=34355.58..36618.93 rows=19859 width=1090) (actual time=84.162..98.410 rows=20000.00 loops=1)
+  Workers Planned: 1
+  Workers Launched: 1
+  Buffers: shared hit=160 read=22442, temp read=2069 written=2072
+  ->  Sort  (cost=33355.57..33384.78 rows=11682 width=1090) (actual time=78.707..82.378 rows=10000.00 loops=2)
+        Sort Key: record_key, created_at, id
+        Sort Method: external merge  Disk: 8904kB
+        Buffers: shared hit=160 read=22442, temp read=2069 written=2072
+        Worker 0:  Sort Method: external merge  Disk: 7648kB
+        ->  Parallel Index Scan using idx_outbox_record_status on outbox_record  (cost=0.45..26973.34 rows=11682 width=1090) (actual time=0.034..54.061 rows=10000.00 loops=2)
+              Index Cond: ((status)::text = 'NEW'::text)
+              Filter: ((record_key)::text = ANY ('{order-000000000000000000000000000086,order-000000000000000000000000000098,order-000000000000000000000000000057,order-000000000000000000000000000045,order-000000000000000000000000000041,order-000000000000000000000000000090,order-000000000000000000000000000056,order-000000000000000000000000000069,order-000000000000000000000000000063,order-000000000000000000000000000074}'::text[]))
+              Rows Removed by Filter: 89990
+              Index Searches: 1
+              Buffers: shared hit=150 read=22436
+Settings: search_path = 'run'
+Planning Time: 0.133 ms
+Execution Time: 99.899 ms

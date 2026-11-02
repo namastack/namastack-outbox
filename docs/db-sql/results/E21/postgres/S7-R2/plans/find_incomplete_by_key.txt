@@ -1,0 +1,13 @@
+Sort  (cost=24.45..24.46 rows=1 width=1091) (actual time=0.025..0.025 rows=1.00 loops=1)
+  Sort Key: created_at, id
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=6
+  ->  Index Scan using idx_outbox_record_record_key_completed_created on outbox_record  (cost=0.55..24.44 rows=1 width=1091) (actual time=0.012..0.013 rows=1.00 loops=1)
+        Index Cond: ((record_key)::text = 'order-000000000000000000000000000000'::text)
+        Filter: ((status)::text = 'NEW'::text)
+        Rows Removed by Filter: 1
+        Index Searches: 1
+        Buffers: shared hit=6
+Settings: search_path = 'run'
+Planning Time: 0.041 ms
+Execution Time: 0.041 ms

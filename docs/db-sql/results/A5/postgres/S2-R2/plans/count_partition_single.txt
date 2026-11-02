@@ -1,0 +1,11 @@
+Aggregate  (cost=303.49..303.50 rows=1 width=8) (actual time=0.207..0.208 rows=1.00 loops=1)
+  Buffers: shared hit=164
+  ->  Index Scan using idx_outbox_record_status on outbox_record  (cost=0.42..303.48 rows=3 width=0) (actual time=0.097..0.206 rows=3.00 loops=1)
+        Index Cond: ((status)::text = 'NEW'::text)
+        Filter: (partition_no = 187)
+        Rows Removed by Filter: 1197
+        Index Searches: 1
+        Buffers: shared hit=164
+Settings: search_path = 'run'
+Planning Time: 0.032 ms
+Execution Time: 0.222 ms
