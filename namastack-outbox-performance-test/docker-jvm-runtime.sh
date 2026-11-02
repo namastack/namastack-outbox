@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Sourced by the runner. All benchmark JVMs share PostgreSQL's Docker network.
+# Sourced by the runners. All benchmark JVMs share the selected database's Docker network.
 JAVA_CONTAINER_ID=""
 JAVA_CONTAINER_NAME="namastack-perf-jvms-$$"
 
 prepare_java_runtime() {
   local network env_name env_value
   local args=()
-  network="$(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}' "$("${COMPOSE[@]}" ps -q postgres)")"
+  network="$(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}' "$("${COMPOSE[@]}" ps -q "${PERF_DATABASE_SERVICE:-postgres}")")"
   while IFS='=' read -r env_name env_value; do
     case "$env_name" in
       PERF_DB_URL) ;;
@@ -21,7 +21,7 @@ prepare_java_runtime() {
     --mount "type=bind,source=$ROOT_DIR/reports,target=$ROOT_DIR/reports" \
     --mount "type=bind,source=$RUNTIME_DIR,target=$RUNTIME_DIR" \
     --workdir "$ROOT_DIR" "${args[@]}" \
-    --env 'PERF_DB_URL=jdbc:postgresql://postgres:5432/outbox_performance_test?reWriteBatchedInserts=true' \
+    --env "PERF_DB_URL=${PERF_INTERNAL_DB_URL:-jdbc:postgresql://postgres:5432/outbox_performance_test?reWriteBatchedInserts=true}" \
     --env 'PERF_PROMETHEUS_QUERY_URL=http://prometheus:9090' \
     --env "PERF_GIT_COMMIT=$(git -C "$ROOT_DIR/.." rev-parse HEAD)" \
     --env "PERF_GIT_DIRTY=$([[ -n "$(git -C "$ROOT_DIR/.." status --porcelain)" ]] && echo true || echo false)" \

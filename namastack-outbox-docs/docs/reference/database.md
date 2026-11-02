@@ -89,11 +89,59 @@ review the older `idx_outbox_record_record_key_created`, `idx_outbox_record_part
 `idx_outbox_record_status_retry`, `idx_outbox_record_status`, and
 `idx_outbox_record_record_key_completed_created` indexes for removal through your migrations.
 These names assume the default table namespace. Do not expect fresh-schema benchmark throughput
-while retaining all older indexes. Other database schemas are unchanged.
+while retaining all older indexes.
 
 An index provides an access path, not constant-time counts or guaranteed index scans. PostgreSQL
 may correctly scan the table when an operation reads or deletes most records. Test custom reporting
 queries and retention jobs with your own data distribution.
+
+### Processing Indexes in Other JDBC Databases
+
+The shipped schemas also add processing indexes for MySQL, MariaDB, SQL Server, Oracle and H2.
+Automatic initialization adds missing indexes to existing default tables and preserves all existing
+indexes and records. Existing columns and stored records are unchanged. With manually managed or custom
+schemas, apply the matching index definitions through your migration tool before comparing performance.
+Index creation needs the appropriate DDL privileges and can block writes while an index is built.
+
+| Database | Added index | Scope |
+| --- | --- | --- |
+| MySQL / MariaDB | `(completed_at, partition_no, status, next_retry_at, record_key, created_at)` | Full index; pending reads use its `completed_at IS NULL` range |
+| SQL Server | `(partition_no, status, next_retry_at)` including key, creation and completion time | Filtered to incomplete records |
+| SQL Server | `(record_key, created_at, id)` including status and completion time | Filtered to incomplete records |
+| SQL Server | `(completed_at)` including ID and status | Filtered to completed records for bounded retention |
+| Oracle | `(completed_at, partition_no, status, next_retry_at, record_key, created_at)` | Full index; pending candidate range |
+| Oracle | `(record_key, completed_at, created_at, id)` | Full index; ordered head probes and bulk loading |
+| H2 | `(completed_at, record_key, created_at, id)` | Full index; ordered pending reads and retention |
+
+MySQL, MariaDB, SQL Server and Oracle first collect possible keys and then inspect each key's first
+incomplete record. The first lookup sees failed records, future retries and predecessors in other
+partitions. Strict eligibility and the key limit apply afterwards. Non-strict selection instead probes
+the first due record with the requested status. Completed history does not block a key in either mode.
+
+SQL Server bulk loading uses a value-table semi-join, preserving database key comparison and Unicode
+semantics. H2 binds the requested keys as an array-backed table and also selects IDs before loading
+payloads. These are transport/query changes; the existing
+1,000-key bulk-load bound and the creation-time/ID order within each key are unchanged. Future retries
+remain in bulk pages for the processing worker to evaluate.
+
+These full indexes cost writes and storage for completed rows too. The library does not remove
+older indexes automatically. Benchmark with the exact indexes present in your installation, including
+indexes required by application-specific reporting and cleanup.
+
+### Timestamp Precision and SQL Server IDs
+
+Fresh MySQL and MariaDB tables use `TIMESTAMP(6)` for record creation, completion and retry times.
+This preserves subsecond creation order and retry barriers. The previous `TIMESTAMP` definition
+stored whole seconds, allowing distinct creation times to become ties. Existing tables are not
+altered automatically. Upgrade these three columns through your migration tool if they still have
+zero fractional precision; lost precision in existing records cannot be recovered.
+
+Fresh SQL Server tables use `NVARCHAR(255)` for record IDs, matching the JDBC driver's default
+Unicode string parameters. Comparing a Unicode parameter with a legacy `VARCHAR` ID can force
+an index conversion and expensive scans, particularly for completion writes. Existing `VARCHAR`
+ID columns remain supported and are not changed on startup. A production migration must account
+for the primary key and dependent indexes. Keep Unicode parameter binding enabled when payloads
+or manually managed key columns contain Unicode data.
 
 ### JPA Module — No Automatic Schema Creation
 
@@ -166,8 +214,9 @@ compete for the same partition. It is not an error — the second instance will 
 poll cycle.
 
 **Oracle: `ORA-00955: name is already used by an existing object`**
-Automatic schema initialization tried to create tables that already exist. Disable automatic
-initialization and manage the schema manually.
+An object with a requested table or index name already exists. Initialization retries concurrent
+creation. A persistent failure requires resolving the naming conflict or applying the schema through
+your migration tool.
 
 ---
 

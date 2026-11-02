@@ -12,6 +12,7 @@ internal class CommandLineApplication {
 
     private val commands =
         listOf(
+            JdbcBenchmarkCommand(),
             SeedCommand(),
             TriggerCommand(),
             ProduceCommand(),
@@ -26,6 +27,7 @@ internal class CommandLineApplication {
         """
         Usage: tooling <command> [--key=value]
 
+          jdbc-benchmark       Run portable JDBC read and processing benchmarks.
           seed                 Stage deterministic records efficiently with PostgreSQL COPY.
           trigger              Insert staged records into outbox_record for a backlog-drain run.
           produce              Continuously write an exact number of records at a target rate.

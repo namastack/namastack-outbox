@@ -1,0 +1,2213 @@
+{
+  "date": "2026-11-02",
+  "readBranch": "feature/jdbc-query-index-optimization",
+  "processingBranch": "feature/150k-strict-throughput (experimental working tree)",
+  "productionCommits": [
+    "898c062",
+    "b11da1e"
+  ],
+  "environment": {
+    "architecture": "aarch64",
+    "dockerCpus": 18,
+    "dockerMemoryBytes": 33596223488,
+    "sqlServer": "amd64 container under emulation",
+    "oracle": "Free edition, 2 CPU / 2 GB memory / 12 GB user-data limits"
+  },
+  "interpretation": {
+    "read": "Repeatedly loaded String records/s; eight readers, strict eligibility, one-minute confirmations.",
+    "processing": "Unique durable deletions in the separate experimental batching checkout; strict processing.",
+    "rates": "Conservative rates include count-query time. These are measured local workloads, not absolute engine maxima.",
+    "upgrade": "Fresh shipped schemas. Upgraded installations retain old indexes and column types until manually migrated."
+  },
+  "verification": {
+    "jdbcFeatureFullSuite": {
+      "tests": 396,
+      "failures": 0
+    },
+    "jdbcComparisonFullSuite": {
+      "tests": 474,
+      "failures": 0
+    },
+    "sqlServerFinalRetentionSchemaFollowUp": "passed",
+    "toolingTests": 14,
+    "pythonTests": 5,
+    "formatAndShellSyntax": "passed",
+    "comparisonQueryAndSchemaFiles": "10 query files and all 6 shipped schemas identical between checkouts",
+    "sharedWorktreeLock": "both checkouts refused a held lock before database initialization"
+  },
+  "readConfirmations": {
+    "postgres": {
+      "runId": "postgres-optimized-fresh-20261102",
+      "result": {
+        "database": "postgres",
+        "mode": "read",
+        "strict": true,
+        "decode": true,
+        "readers": 8,
+        "keysPerQuery": 2000,
+        "seconds": 60.072015902,
+        "iterations": 3337,
+        "selectedKeys": 6674000,
+        "loadedRecords": 65906570,
+        "selectedKeysPerSecond": 111099.98390744533,
+        "loadedRecordsPerSecond": 1097125.9913687324,
+        "selectionMedianMs": 19.644291,
+        "selectionP95Ms": 22.413875,
+        "loadingMedianMs": 108.460917,
+        "loadingP95Ms": 136.136417,
+        "correctness": "eligible keys and per-key creation/id order verified"
+      },
+      "database": {
+        "name": "postgres",
+        "product": "PostgreSQL",
+        "version": "17.11",
+        "driver": "PostgreSQL JDBC Driver",
+        "driverVersion": "42.7.14"
+      },
+      "fixture": {
+        "clock": "2026-11-02T00:33:35.657056342Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 256000,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      }
+    },
+    "mysql": {
+      "runId": "mysql-release-read-20261102",
+      "result": {
+        "database": "mysql",
+        "mode": "read",
+        "strict": true,
+        "decode": true,
+        "readers": 8,
+        "keysPerQuery": 2000,
+        "seconds": 60.333423402,
+        "iterations": 1027,
+        "selectedKeys": 2054000,
+        "loadedRecords": 20283523,
+        "selectedKeysPerSecond": 34044.14807219296,
+        "loadedRecordsPerSecond": 336190.487068029,
+        "selectionMedianMs": 136.983,
+        "selectionP95Ms": 169.531333,
+        "loadingMedianMs": 325.800916,
+        "loadingP95Ms": 358.917792,
+        "correctness": "eligible keys and per-key creation/id order verified"
+      },
+      "database": {
+        "name": "mysql",
+        "product": "MySQL",
+        "version": "9.2.0",
+        "driver": "MySQL Connector/J",
+        "driverVersion": "mysql-connector-j-9.7.0 (Revision: 0aade1f13bcc98faf7dda5c02e782481eb291f62)"
+      },
+      "fixture": {
+        "clock": "2026-11-02T02:02:32.504002382Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 256000,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "execution": [
+        "cdecf56034cb26c967e2fd27311415fe4c979ab1",
+        "Docker CPUs=18 memory=33596223488",
+        "Database image=mysql:9.2 id=sha256:0596fa224cdf3b3355ce3ddbfd7ce77be27ec9e51841dfc5d2e1c8b81eea69d2",
+        "1968299eddff070d7535072c58ad59c4beb593ceeeb3877c04ba4a770bd8f0ab namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "dbd9c9e4911d3342541c8644d96ccb88e20b5c397473a7858174c886b0958aff namastack-outbox-performance-test-consumer.jar",
+        "b546fe44fd94c8104f1d5f7620e01fc597621ef173285129404f2fb7d8b71cac consumer-1.11.0-SNAPSHOT-plain.jar"
+      ]
+    },
+    "sqlserver": {
+      "runId": "sqlserver-final-read-20261102",
+      "result": {
+        "database": "sqlserver",
+        "mode": "read",
+        "strict": true,
+        "decode": true,
+        "readers": 8,
+        "keysPerQuery": 2000,
+        "seconds": 60.662312653,
+        "iterations": 589,
+        "selectedKeys": 1178000,
+        "loadedRecords": 11632982,
+        "selectedKeysPerSecond": 19418.976106934544,
+        "loadedRecordsPerSecond": 191766.2135062815,
+        "selectionMedianMs": 84.806501,
+        "selectionP95Ms": 206.729041,
+        "loadingMedianMs": 710.207209,
+        "loadingP95Ms": 830.552167,
+        "correctness": "eligible keys and per-key creation/id order verified"
+      },
+      "database": {
+        "name": "sqlserver",
+        "product": "Microsoft SQL Server",
+        "version": "16.00.4265",
+        "driver": "Microsoft JDBC Driver 13.4 for SQL Server",
+        "driverVersion": "13.4.0.0"
+      },
+      "fixture": {
+        "clock": "2026-11-02T01:50:56.445381463Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 256000,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "execution": [
+        "cdecf56034cb26c967e2fd27311415fe4c979ab1",
+        "Docker CPUs=18 memory=33596223488",
+        "Database image=mcr.microsoft.com/mssql/server:2022-latest id=sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+        "a0a7cf6358b535d297b1eede78f66158f5f0cee1c8823ec53d4bc06eaaa30399 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "b604aed2ee535314ad7ded12403dbf1758d43d211ca4901b04a68dc1893345b5 namastack-outbox-performance-test-consumer.jar",
+        "b546fe44fd94c8104f1d5f7620e01fc597621ef173285129404f2fb7d8b71cac consumer-1.11.0-SNAPSHOT-plain.jar"
+      ]
+    },
+    "oracle": {
+      "runId": "oracle-final-read-20261102",
+      "result": {
+        "database": "oracle",
+        "mode": "read",
+        "strict": true,
+        "decode": true,
+        "readers": 8,
+        "keysPerQuery": 2000,
+        "seconds": 60.230632028,
+        "iterations": 674,
+        "selectedKeys": 1348000,
+        "loadedRecords": 13311668,
+        "selectedKeysPerSecond": 22380.638466044024,
+        "loadedRecordsPerSecond": 221011.59413056922,
+        "selectionMedianMs": 127.235542,
+        "selectionP95Ms": 843.890708,
+        "loadingMedianMs": 223.774083,
+        "loadingP95Ms": 972.167626,
+        "correctness": "eligible keys and per-key creation/id order verified"
+      },
+      "database": {
+        "name": "oracle",
+        "product": "Oracle",
+        "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+        "driver": "Oracle JDBC driver",
+        "driverVersion": "23.26.3.0.0"
+      },
+      "fixture": {
+        "clock": "2026-11-02T01:52:26.511796171Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 256000,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "execution": [
+        "cdecf56034cb26c967e2fd27311415fe4c979ab1",
+        "Docker CPUs=18 memory=33596223488",
+        "Database image=gvenzl/oracle-free:23-slim-faststart id=sha256:f5ff19033860d662c821cb04eb10483fa94f14f78eae252d054291ea07028093",
+        "a0a7cf6358b535d297b1eede78f66158f5f0cee1c8823ec53d4bc06eaaa30399 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "b604aed2ee535314ad7ded12403dbf1758d43d211ca4901b04a68dc1893345b5 namastack-outbox-performance-test-consumer.jar",
+        "b546fe44fd94c8104f1d5f7620e01fc597621ef173285129404f2fb7d8b71cac consumer-1.11.0-SNAPSHOT-plain.jar"
+      ]
+    },
+    "mariadb": {
+      "runId": "mariadb-release-read-20261102",
+      "result": {
+        "database": "mariadb",
+        "mode": "read",
+        "strict": true,
+        "decode": true,
+        "readers": 8,
+        "keysPerQuery": 2000,
+        "seconds": 60.146540569,
+        "iterations": 1073,
+        "selectedKeys": 2146000,
+        "loadedRecords": 21191999,
+        "selectedKeysPerSecond": 35679.525034995364,
+        "loadedRecordsPerSecond": 352339.4496095512,
+        "selectionMedianMs": 32.578083,
+        "selectionP95Ms": 35.649001,
+        "loadingMedianMs": 413.039792,
+        "loadingP95Ms": 435.015125,
+        "correctness": "eligible keys and per-key creation/id order verified"
+      },
+      "database": {
+        "name": "mariadb",
+        "product": "MariaDB",
+        "version": "11.5.2-MariaDB-ubu2404",
+        "driver": "MariaDB Connector/J",
+        "driverVersion": "3.5.10"
+      },
+      "fixture": {
+        "clock": "2026-11-02T02:04:01.665063215Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 256000,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "execution": [
+        "cdecf56034cb26c967e2fd27311415fe4c979ab1",
+        "Docker CPUs=18 memory=33596223488",
+        "Database image=mariadb:11.5.2 id=sha256:2d50fe0f77dac919396091e527e5e148a9de690e58f32875f113bef6506a17f5",
+        "1968299eddff070d7535072c58ad59c4beb593ceeeb3877c04ba4a770bd8f0ab namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "dbd9c9e4911d3342541c8644d96ccb88e20b5c397473a7858174c886b0958aff namastack-outbox-performance-test-consumer.jar",
+        "b546fe44fd94c8104f1d5f7620e01fc597621ef173285129404f2fb7d8b71cac consumer-1.11.0-SNAPSHOT-plain.jar"
+      ]
+    },
+    "h2": {
+      "runId": "h2-simple-metadata-20261102",
+      "result": {
+        "database": "h2",
+        "mode": "read",
+        "strict": true,
+        "decode": true,
+        "readers": 8,
+        "keysPerQuery": 2000,
+        "seconds": 60.398013111,
+        "iterations": 1244,
+        "selectedKeys": 2488000,
+        "loadedRecords": 24568461,
+        "selectedKeysPerSecond": 41193.40805843285,
+        "loadedRecordsPerSecond": 406775.9804424008,
+        "selectionMedianMs": 2.614125,
+        "selectionP95Ms": 6.37975,
+        "loadingMedianMs": 285.798042,
+        "loadingP95Ms": 621.040251,
+        "correctness": "eligible keys and per-key creation/id order verified"
+      },
+      "database": {
+        "name": "h2",
+        "product": "H2",
+        "version": "2.4.240 (2025-09-22)",
+        "driver": "H2 JDBC Driver",
+        "driverVersion": "2.4.240 (2025-09-22)"
+      },
+      "fixture": {
+        "clock": "2026-11-02T02:05:58.901776131Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 256000,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "h2",
+        "mode": "read",
+        "duration": "1m",
+        "rate": "20000",
+        "instances": "0",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "false",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "cdecf56034cb26c967e2fd27311415fe4c979ab1",
+        "Docker CPUs=18 memory=33596223488",
+        "Database image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "a2cbe9f4f3881cd6acc24af33f093478872a1edf2afd0f522450d7593de7cc92 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "d00573df9aba13d4f5f69768b85ee0e2e38e0c65404d5c2f09f07a368bb42c72 namastack-outbox-performance-test-consumer.jar",
+        "b546fe44fd94c8104f1d5f7620e01fc597621ef173285129404f2fb7d8b71cac consumer-1.11.0-SNAPSHOT-plain.jar"
+      ]
+    }
+  },
+  "mainWithoutBatchingControl": {
+    "runId": "main-release-20k-1m-20261102",
+    "result": {
+      "database": "postgres",
+      "mode": "processing",
+      "deleteCompleted": false,
+      "targetRecordsPerSecond": 20000,
+      "requestedSeconds": 60.0,
+      "producerSeconds": 59.957367861,
+      "measurementSeconds": 60.225406153,
+      "producedRecords": 1200000,
+      "actualProducerRate": 20014.220817397734,
+      "producerTargetMet": true,
+      "capacityScreenPassed": true,
+      "processedAtStopSnapshot": 1200000,
+      "pendingAtStopSnapshot": 0,
+      "failedAtStopSnapshot": 0,
+      "remainingAtStopSnapshot": 1200000,
+      "snapshotMilliseconds": 225.392708,
+      "processedPerSecondConservative": 19925.145825525073,
+      "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+      "completionEvidence": "Persisted COMPLETED status"
+    },
+    "database": {
+      "name": "postgres",
+      "product": "PostgreSQL",
+      "version": "17.11",
+      "driver": "PostgreSQL JDBC Driver",
+      "driverVersion": "42.7.14"
+    },
+    "fixture": {
+      "clock": "2026-11-02T03:16:07.314994801Z",
+      "historyRecords": 4000000,
+      "fixtureRecords": 0,
+      "recordsPerKey": 10,
+      "runId": "jdbc-read"
+    },
+    "parameters": {
+      "database": "postgres",
+      "mode": "processing",
+      "duration": "1m",
+      "rate": "20000",
+      "instances": "8",
+      "readers": "8",
+      "history": "4000000",
+      "records": "256000",
+      "batchSize": "2000",
+      "strict": "true",
+      "delete": "false",
+      "decode": "true",
+      "environmentOverrides": {
+        "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+        "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+      },
+      "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+    },
+    "execution": [
+      "b11da1eb94b80e7ebfc49297b5b184f423b36594",
+      "Docker CPUs=18 memory=33596223488",
+      "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+      "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+      "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+      "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+      "Database image=postgres:17.11-alpine id=sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b",
+      "3443daa8c031391383aa62eda55c1dc655950d9f37dbd5cbfdbd55ba059b86e1 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+      "0801219b80918689151d002916cc218122de8d50cc295d790ec602b2bac0c60f namastack-outbox-performance-test-consumer.jar",
+      "b546fe44fd94c8104f1d5f7620e01fc597621ef173285129404f2fb7d8b71cac consumer-1.11.0-SNAPSHOT-plain.jar"
+    ],
+    "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, cpus=18, maxHeap=805306368"
+  },
+  "bestPassedProcessingConfirmations": {
+    "postgres": {
+      "runId": "postgres-release-200k-5m-20261102",
+      "result": {
+        "database": "postgres",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 200000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 300.007069595,
+        "producedRecords": 60000000,
+        "actualProducerRate": 199995.28704772887,
+        "producerTargetMet": true,
+        "capacityScreenPassed": true,
+        "processedAtStopSnapshot": 59978628,
+        "pendingAtStopSnapshot": 21372,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 21372,
+        "snapshotMilliseconds": 305.31275,
+        "processedPerSecondConservative": 199720.79566524876,
+        "countBoundary": "Snapshot after producer commits; elapsed time includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "postgres",
+        "product": "PostgreSQL",
+        "version": "17.11",
+        "driver": "PostgreSQL JDBC Driver",
+        "driverVersion": "42.7.14"
+      },
+      "fixture": {
+        "clock": "2026-11-02T02:11:08.300173802Z",
+        "historyRecords": 4000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "postgres",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "200000",
+        "instances": "8",
+        "readers": "8",
+        "history": "4000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "Database image=postgres:17.11-alpine id=sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b",
+        "d8b411f50aadac36a0e35eea7aee4ff5ad8092eb1a438367cc63d0582fd177a3 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "4aeb1efd96b21b7d5ddb6b9802c4047a373b91b7a5fcc24ab746f4659fc64724 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    "h2": {
+      "runId": "h2-confirmed-15000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "h2",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 15000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 299.953061678,
+        "measurementSeconds": 300.01852872,
+        "producedRecords": 4500000,
+        "actualProducerRate": 15002.347283358475,
+        "producerTargetMet": true,
+        "capacityScreenPassed": true,
+        "processedAtStopSnapshot": 4494255,
+        "pendingAtStopSnapshot": 5745,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 5745,
+        "snapshotMilliseconds": 18.34175,
+        "processedPerSecondConservative": 14979.924803892292,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "h2",
+        "product": "H2",
+        "version": "2.4.240 (2025-09-22)",
+        "driver": "H2 JDBC Driver",
+        "driverVersion": "2.4.240 (2025-09-22)"
+      },
+      "fixture": {
+        "clock": "2026-11-02T04:34:36.155339467Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "h2",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "15000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    "mariadb": {
+      "runId": "mariadb-confirmed-40000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "mariadb",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 40000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 300.019342261,
+        "measurementSeconds": 300.381897303,
+        "producedRecords": 12000000,
+        "actualProducerRate": 39997.42119813286,
+        "producerTargetMet": true,
+        "capacityScreenPassed": true,
+        "processedAtStopSnapshot": 11935569,
+        "pendingAtStopSnapshot": 64431,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 64431,
+        "snapshotMilliseconds": 362.536542,
+        "processedPerSecondConservative": 39734.648150119385,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "mariadb",
+        "product": "MariaDB",
+        "version": "11.5.2-MariaDB-ubu2404",
+        "driver": "MariaDB Connector/J",
+        "driverVersion": "3.5.10"
+      },
+      "fixture": {
+        "clock": "2026-11-02T04:46:11.941428386Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "mariadb",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "40000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mariadb:11.5.2 id=sha256:2d50fe0f77dac919396091e527e5e148a9de690e58f32875f113bef6506a17f5",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    "mysql": {
+      "runId": "mysql-confirmed-20000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "mysql",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 20000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 299.996444887,
+        "measurementSeconds": 300.008443429,
+        "producedRecords": 6000000,
+        "actualProducerRate": 20000.237010341996,
+        "producerTargetMet": true,
+        "capacityScreenPassed": true,
+        "processedAtStopSnapshot": 5998818,
+        "pendingAtStopSnapshot": 1182,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 1182,
+        "snapshotMilliseconds": 8.3245,
+        "processedPerSecondConservative": 19995.497231462687,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "mysql",
+        "product": "MySQL",
+        "version": "9.2.0",
+        "driver": "MySQL Connector/J",
+        "driverVersion": "mysql-connector-j-9.7.0 (Revision: 0aade1f13bcc98faf7dda5c02e782481eb291f62)"
+      },
+      "fixture": {
+        "clock": "2026-11-02T04:40:30.155866881Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "mysql",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "20000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mysql:9.2 id=sha256:0596fa224cdf3b3355ce3ddbfd7ce77be27ec9e51841dfc5d2e1c8b81eea69d2",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    "oracle": {
+      "runId": "oracle-confirmed-8000-2i-5ms-5m-20261102",
+      "result": {
+        "database": "oracle",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 8000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 299.895781092,
+        "measurementSeconds": 300.032172717,
+        "producedRecords": 2400000,
+        "actualProducerRate": 8002.780136689366,
+        "producerTargetMet": true,
+        "capacityScreenPassed": true,
+        "processedAtStopSnapshot": 2397314,
+        "pendingAtStopSnapshot": 2686,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 2686,
+        "snapshotMilliseconds": 30.822291,
+        "processedPerSecondConservative": 7990.189779618147,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "oracle",
+        "product": "Oracle",
+        "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+        "driver": "Oracle JDBC driver",
+        "driverVersion": "23.26.3.0.0"
+      },
+      "fixture": {
+        "clock": "2026-11-02T04:16:30.044695547Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "oracle",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "8000",
+        "instances": "2",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "5ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=gvenzl/oracle-free:23-slim-faststart id=sha256:f5ff19033860d662c821cb04eb10483fa94f14f78eae252d054291ea07028093",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.005S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    "sqlserver": {
+      "runId": "sqlserver-confirmed-17000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "sqlserver",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 17000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 300.003566304,
+        "measurementSeconds": 301.493271888,
+        "producedRecords": 5100000,
+        "actualProducerRate": 16999.79791184236,
+        "producerTargetMet": true,
+        "capacityScreenPassed": true,
+        "processedAtStopSnapshot": 5095163,
+        "pendingAtStopSnapshot": 4837,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 4837,
+        "snapshotMilliseconds": 1489.698209,
+        "processedPerSecondConservative": 16899.756893721904,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "sqlserver",
+        "product": "Microsoft SQL Server",
+        "version": "16.00.4265",
+        "driver": "Microsoft JDBC Driver 13.4 for SQL Server",
+        "driverVersion": "13.4.0.0"
+      },
+      "fixture": {
+        "clock": "2026-11-02T04:10:42.978970303Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "sqlserver",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "17000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mcr.microsoft.com/mssql/server:2022-latest id=sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    }
+  },
+  "allProcessingConfirmations": [
+    {
+      "runId": "postgres-release-200k-5m-20261102",
+      "result": {
+        "database": "postgres",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 200000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 300.007069595,
+        "producedRecords": 60000000,
+        "actualProducerRate": 199995.28704772887,
+        "producerTargetMet": true,
+        "capacityScreenPassed": true,
+        "processedAtStopSnapshot": 59978628,
+        "pendingAtStopSnapshot": 21372,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 21372,
+        "snapshotMilliseconds": 305.31275,
+        "processedPerSecondConservative": 199720.79566524876,
+        "countBoundary": "Snapshot after producer commits; elapsed time includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "postgres",
+        "product": "PostgreSQL",
+        "version": "17.11",
+        "driver": "PostgreSQL JDBC Driver",
+        "driverVersion": "42.7.14"
+      },
+      "fixture": {
+        "clock": "2026-11-02T02:11:08.300173802Z",
+        "historyRecords": 4000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "postgres",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "200000",
+        "instances": "8",
+        "readers": "8",
+        "history": "4000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "Database image=postgres:17.11-alpine id=sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b",
+        "d8b411f50aadac36a0e35eea7aee4ff5ad8092eb1a438367cc63d0582fd177a3 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "4aeb1efd96b21b7d5ddb6b9802c4047a373b91b7a5fcc24ab746f4659fc64724 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "h2-confirmed-15000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "h2",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 15000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 299.953061678,
+        "measurementSeconds": 300.01852872,
+        "producedRecords": 4500000,
+        "actualProducerRate": 15002.347283358475,
+        "producerTargetMet": true,
+        "capacityScreenPassed": true,
+        "processedAtStopSnapshot": 4494255,
+        "pendingAtStopSnapshot": 5745,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 5745,
+        "snapshotMilliseconds": 18.34175,
+        "processedPerSecondConservative": 14979.924803892292,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "h2",
+        "product": "H2",
+        "version": "2.4.240 (2025-09-22)",
+        "driver": "H2 JDBC Driver",
+        "driverVersion": "2.4.240 (2025-09-22)"
+      },
+      "fixture": {
+        "clock": "2026-11-02T04:34:36.155339467Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "h2",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "15000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "mariadb-confirmed-40000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "mariadb",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 40000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 300.019342261,
+        "measurementSeconds": 300.381897303,
+        "producedRecords": 12000000,
+        "actualProducerRate": 39997.42119813286,
+        "producerTargetMet": true,
+        "capacityScreenPassed": true,
+        "processedAtStopSnapshot": 11935569,
+        "pendingAtStopSnapshot": 64431,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 64431,
+        "snapshotMilliseconds": 362.536542,
+        "processedPerSecondConservative": 39734.648150119385,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "mariadb",
+        "product": "MariaDB",
+        "version": "11.5.2-MariaDB-ubu2404",
+        "driver": "MariaDB Connector/J",
+        "driverVersion": "3.5.10"
+      },
+      "fixture": {
+        "clock": "2026-11-02T04:46:11.941428386Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "mariadb",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "40000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mariadb:11.5.2 id=sha256:2d50fe0f77dac919396091e527e5e148a9de690e58f32875f113bef6506a17f5",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "mariadb-confirmed-50000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "mariadb",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 50000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 300.244649052,
+        "measurementSeconds": 304.460581596,
+        "producedRecords": 14942000,
+        "actualProducerRate": 49766.08258358058,
+        "producerTargetMet": true,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 12586832,
+        "pendingAtStopSnapshot": 2355168,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 2355168,
+        "snapshotMilliseconds": 4215.929002,
+        "processedPerSecondConservative": 41341.417447273794,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "mariadb",
+        "product": "MariaDB",
+        "version": "11.5.2-MariaDB-ubu2404",
+        "driver": "MariaDB Connector/J",
+        "driverVersion": "3.5.10"
+      },
+      "fixture": {
+        "clock": "2026-11-02T04:29:01.201358048Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "mariadb",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "50000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mariadb:11.5.2 id=sha256:2d50fe0f77dac919396091e527e5e148a9de690e58f32875f113bef6506a17f5",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "mariadb-confirmed-60000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "mariadb",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 60000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 300.089350219,
+        "measurementSeconds": 311.029414432,
+        "producedRecords": 17859000,
+        "actualProducerRate": 59512.27521725384,
+        "producerTargetMet": true,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 9498050,
+        "pendingAtStopSnapshot": 8360950,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 8360950,
+        "snapshotMilliseconds": 10940.054921,
+        "processedPerSecondConservative": 30537.465459160125,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "mariadb",
+        "product": "MariaDB",
+        "version": "11.5.2-MariaDB-ubu2404",
+        "driver": "MariaDB Connector/J",
+        "driverVersion": "3.5.10"
+      },
+      "fixture": {
+        "clock": "2026-11-02T04:23:15.878074430Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "mariadb",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "60000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mariadb:11.5.2 id=sha256:2d50fe0f77dac919396091e527e5e148a9de690e58f32875f113bef6506a17f5",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "mysql-confirmed-20000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "mysql",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 20000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 299.996444887,
+        "measurementSeconds": 300.008443429,
+        "producedRecords": 6000000,
+        "actualProducerRate": 20000.237010341996,
+        "producerTargetMet": true,
+        "capacityScreenPassed": true,
+        "processedAtStopSnapshot": 5998818,
+        "pendingAtStopSnapshot": 1182,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 1182,
+        "snapshotMilliseconds": 8.3245,
+        "processedPerSecondConservative": 19995.497231462687,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "mysql",
+        "product": "MySQL",
+        "version": "9.2.0",
+        "driver": "MySQL Connector/J",
+        "driverVersion": "mysql-connector-j-9.7.0 (Revision: 0aade1f13bcc98faf7dda5c02e782481eb291f62)"
+      },
+      "fixture": {
+        "clock": "2026-11-02T04:40:30.155866881Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "mysql",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "20000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mysql:9.2 id=sha256:0596fa224cdf3b3355ce3ddbfd7ce77be27ec9e51841dfc5d2e1c8b81eea69d2",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "mysql-confirmed-25000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "mysql",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 25000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 300.041595803,
+        "measurementSeconds": 303.729592679,
+        "producedRecords": 7500000,
+        "actualProducerRate": 24996.534163630822,
+        "producerTargetMet": true,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 7174322,
+        "pendingAtStopSnapshot": 325678,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 325678,
+        "snapshotMilliseconds": 3687.980626,
+        "processedPerSecondConservative": 23620.754029003234,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "mysql",
+        "product": "MySQL",
+        "version": "9.2.0",
+        "driver": "MySQL Connector/J",
+        "driverVersion": "mysql-connector-j-9.7.0 (Revision: 0aade1f13bcc98faf7dda5c02e782481eb291f62)"
+      },
+      "fixture": {
+        "clock": "2026-11-02T04:05:00.768448381Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "mysql",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "25000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mysql:9.2 id=sha256:0596fa224cdf3b3355ce3ddbfd7ce77be27ec9e51841dfc5d2e1c8b81eea69d2",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "mysql-confirmed-30000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "mysql",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 30000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 300.051023844,
+        "measurementSeconds": 301.894187845,
+        "producedRecords": 9000000,
+        "actualProducerRate": 29994.898483263314,
+        "producerTargetMet": true,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 5912700,
+        "pendingAtStopSnapshot": 3087300,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 3087300,
+        "snapshotMilliseconds": 1843.156085,
+        "processedPerSecondConservative": 19585.33896331826,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "mysql",
+        "product": "MySQL",
+        "version": "9.2.0",
+        "driver": "MySQL Connector/J",
+        "driverVersion": "mysql-connector-j-9.7.0 (Revision: 0aade1f13bcc98faf7dda5c02e782481eb291f62)"
+      },
+      "fixture": {
+        "clock": "2026-11-02T03:59:11.973341261Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "mysql",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "30000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mysql:9.2 id=sha256:0596fa224cdf3b3355ce3ddbfd7ce77be27ec9e51841dfc5d2e1c8b81eea69d2",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "mysql-confirmed-35000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "mysql",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 35000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 300.041222011,
+        "measurementSeconds": 305.386343096,
+        "producedRecords": 10500000,
+        "actualProducerRate": 34995.19142611362,
+        "producerTargetMet": true,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 5773721,
+        "pendingAtStopSnapshot": 4726279,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 4726279,
+        "snapshotMilliseconds": 5345.11096,
+        "processedPerSecondConservative": 18906.28422170469,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "mysql",
+        "product": "MySQL",
+        "version": "9.2.0",
+        "driver": "MySQL Connector/J",
+        "driverVersion": "mysql-connector-j-9.7.0 (Revision: 0aade1f13bcc98faf7dda5c02e782481eb291f62)"
+      },
+      "fixture": {
+        "clock": "2026-11-02T03:25:01.209892298Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "mysql",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "35000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mysql:9.2 id=sha256:0596fa224cdf3b3355ce3ddbfd7ce77be27ec9e51841dfc5d2e1c8b81eea69d2",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "mysql-confirmed-40000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "mysql",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 40000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 300.089007011,
+        "measurementSeconds": 308.909063224,
+        "producedRecords": 12000000,
+        "actualProducerRate": 39988.135918488115,
+        "producerTargetMet": true,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 5414286,
+        "pendingAtStopSnapshot": 6585714,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 6585714,
+        "snapshotMilliseconds": 8820.047754,
+        "processedPerSecondConservative": 17527.11928712148,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "mysql",
+        "product": "MySQL",
+        "version": "9.2.0",
+        "driver": "MySQL Connector/J",
+        "driverVersion": "mysql-connector-j-9.7.0 (Revision: 0aade1f13bcc98faf7dda5c02e782481eb291f62)"
+      },
+      "fixture": {
+        "clock": "2026-11-02T03:19:04.582263550Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "mysql",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "40000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mysql:9.2 id=sha256:0596fa224cdf3b3355ce3ddbfd7ce77be27ec9e51841dfc5d2e1c8b81eea69d2",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "oracle-confirmed-8000-2i-5ms-5m-20261102",
+      "result": {
+        "database": "oracle",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 8000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 299.895781092,
+        "measurementSeconds": 300.032172717,
+        "producedRecords": 2400000,
+        "actualProducerRate": 8002.780136689366,
+        "producerTargetMet": true,
+        "capacityScreenPassed": true,
+        "processedAtStopSnapshot": 2397314,
+        "pendingAtStopSnapshot": 2686,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 2686,
+        "snapshotMilliseconds": 30.822291,
+        "processedPerSecondConservative": 7990.189779618147,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "oracle",
+        "product": "Oracle",
+        "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+        "driver": "Oracle JDBC driver",
+        "driverVersion": "23.26.3.0.0"
+      },
+      "fixture": {
+        "clock": "2026-11-02T04:16:30.044695547Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "oracle",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "8000",
+        "instances": "2",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "5ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=gvenzl/oracle-free:23-slim-faststart id=sha256:f5ff19033860d662c821cb04eb10483fa94f14f78eae252d054291ea07028093",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.005S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "sqlserver-confirmed-17000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "sqlserver",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 17000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 300.003566304,
+        "measurementSeconds": 301.493271888,
+        "producedRecords": 5100000,
+        "actualProducerRate": 16999.79791184236,
+        "producerTargetMet": true,
+        "capacityScreenPassed": true,
+        "processedAtStopSnapshot": 5095163,
+        "pendingAtStopSnapshot": 4837,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 4837,
+        "snapshotMilliseconds": 1489.698209,
+        "processedPerSecondConservative": 16899.756893721904,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "sqlserver",
+        "product": "Microsoft SQL Server",
+        "version": "16.00.4265",
+        "driver": "Microsoft JDBC Driver 13.4 for SQL Server",
+        "driverVersion": "13.4.0.0"
+      },
+      "fixture": {
+        "clock": "2026-11-02T04:10:42.978970303Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "sqlserver",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "17000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mcr.microsoft.com/mssql/server:2022-latest id=sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "sqlserver-confirmed-20000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "sqlserver",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 20000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 300.69855247,
+        "measurementSeconds": 304.479114639,
+        "producedRecords": 5573000,
+        "actualProducerRate": 18533.51123316766,
+        "producerTargetMet": false,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 5496400,
+        "pendingAtStopSnapshot": 76600,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 76600,
+        "snapshotMilliseconds": 3780.556294,
+        "processedPerSecondConservative": 18051.81286905903,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "sqlserver",
+        "product": "Microsoft SQL Server",
+        "version": "16.00.4265",
+        "driver": "Microsoft JDBC Driver 13.4 for SQL Server",
+        "driverVersion": "13.4.0.0"
+      },
+      "fixture": {
+        "clock": "2026-11-02T03:36:48.207497750Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "sqlserver",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "20000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mcr.microsoft.com/mssql/server:2022-latest id=sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "sqlserver-confirmed-25000-8i-1ms-5m-20261102",
+      "result": {
+        "database": "sqlserver",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 25000,
+        "requestedSeconds": 300.0,
+        "producerSeconds": 301.490531053,
+        "measurementSeconds": 307.947329848,
+        "producedRecords": 5670000,
+        "actualProducerRate": 18806.56079047223,
+        "producerTargetMet": false,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 5590835,
+        "pendingAtStopSnapshot": 79165,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 79165,
+        "snapshotMilliseconds": 6456.794753,
+        "processedPerSecondConservative": 18155.166348607683,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "sqlserver",
+        "product": "Microsoft SQL Server",
+        "version": "16.00.4265",
+        "driver": "Microsoft JDBC Driver 13.4 for SQL Server",
+        "driverVersion": "13.4.0.0"
+      },
+      "fixture": {
+        "clock": "2026-11-02T03:30:48.315236125Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "sqlserver",
+        "mode": "processing",
+        "duration": "5m",
+        "rate": "25000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mcr.microsoft.com/mssql/server:2022-latest id=sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    }
+  ],
+  "selectedUpperScreens": [
+    {
+      "runId": "mysql-upper-50000-8i-1ms-20261102",
+      "result": {
+        "database": "mysql",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 50000,
+        "requestedSeconds": 30.0,
+        "producerSeconds": 30.053284347,
+        "measurementSeconds": 32.074800265,
+        "producedRecords": 1500000,
+        "actualProducerRate": 49911.35020987262,
+        "producerTargetMet": true,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 1365829,
+        "pendingAtStopSnapshot": 134171,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 134171,
+        "snapshotMilliseconds": 2021.509918,
+        "processedPerSecondConservative": 42582.619025390835,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "mysql",
+        "product": "MySQL",
+        "version": "9.2.0",
+        "driver": "MySQL Connector/J",
+        "driverVersion": "mysql-connector-j-9.7.0 (Revision: 0aade1f13bcc98faf7dda5c02e782481eb291f62)"
+      },
+      "fixture": {
+        "clock": "2026-11-02T03:01:20.292892335Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "mysql",
+        "mode": "processing",
+        "duration": "30s",
+        "rate": "50000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mysql:9.2 id=sha256:0596fa224cdf3b3355ce3ddbfd7ce77be27ec9e51841dfc5d2e1c8b81eea69d2",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "mariadb-upper-60000-8i-1ms-20261102",
+      "result": {
+        "database": "mariadb",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 60000,
+        "requestedSeconds": 30.0,
+        "producerSeconds": 30.026970139,
+        "measurementSeconds": 30.339731847,
+        "producedRecords": 1800000,
+        "actualProducerRate": 59946.108171003965,
+        "producerTargetMet": true,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 1757395,
+        "pendingAtStopSnapshot": 42605,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 42605,
+        "snapshotMilliseconds": 312.758125,
+        "processedPerSecondConservative": 57923.88043712297,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "mariadb",
+        "product": "MariaDB",
+        "version": "11.5.2-MariaDB-ubu2404",
+        "driver": "MariaDB Connector/J",
+        "driverVersion": "3.5.10"
+      },
+      "fixture": {
+        "clock": "2026-11-02T03:03:33.432943216Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "mariadb",
+        "mode": "processing",
+        "duration": "30s",
+        "rate": "60000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=mariadb:11.5.2 id=sha256:2d50fe0f77dac919396091e527e5e148a9de690e58f32875f113bef6506a17f5",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "sqlserver-nvarchar-150000-20261102",
+      "result": {
+        "database": "sqlserver",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 150000,
+        "requestedSeconds": 20.0,
+        "producerSeconds": 20.520023593,
+        "producedRecords": 653000,
+        "actualProducerRate": 31822.575497562197,
+        "producerTargetMet": false,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 612330,
+        "pendingAtStopSnapshot": 40670,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 40670,
+        "snapshotMilliseconds": 387.563958,
+        "processedPerSecondConservative": 29287.45300209658,
+        "countBoundary": "Snapshot after producer commits; elapsed time includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "sqlserver",
+        "product": "Microsoft SQL Server",
+        "version": "16.00.4265",
+        "driver": "Microsoft JDBC Driver 13.4 for SQL Server",
+        "driverVersion": "13.4.0.0"
+      },
+      "fixture": {
+        "clock": "2026-11-02T01:47:59.636649881Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "Database image=mcr.microsoft.com/mssql/server:2022-latest id=sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+        "58677460dccb8d5353dc57e286faa36781a3ba82fa2a98d783aa09ecde5c178e namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "54c92d4d2a34778a90ca645a5986c94ec933cdbcc326d1d171f9ed839d654be5 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "sqlserver-nvarchar-200000-20261102",
+      "result": {
+        "database": "sqlserver",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 200000,
+        "requestedSeconds": 20.0,
+        "producerSeconds": 20.544023759,
+        "producedRecords": 656000,
+        "actualProducerRate": 31931.4272459706,
+        "producerTargetMet": false,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 614266,
+        "pendingAtStopSnapshot": 41734,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 41734,
+        "snapshotMilliseconds": 353.644833,
+        "processedPerSecondConservative": 29393.99585959585,
+        "countBoundary": "Snapshot after producer commits; elapsed time includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "sqlserver",
+        "product": "Microsoft SQL Server",
+        "version": "16.00.4265",
+        "driver": "Microsoft JDBC Driver 13.4 for SQL Server",
+        "driverVersion": "13.4.0.0"
+      },
+      "fixture": {
+        "clock": "2026-11-02T01:49:06.604375884Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "Database image=mcr.microsoft.com/mssql/server:2022-latest id=sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+        "58677460dccb8d5353dc57e286faa36781a3ba82fa2a98d783aa09ecde5c178e namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "54c92d4d2a34778a90ca645a5986c94ec933cdbcc326d1d171f9ed839d654be5 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "sqlserver-capacity-30000-8i-20261102",
+      "result": {
+        "database": "sqlserver",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 30000,
+        "requestedSeconds": 30.0,
+        "producerSeconds": 30.467701181,
+        "producedRecords": 900000,
+        "actualProducerRate": 29539.47836935102,
+        "producerTargetMet": false,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 762020,
+        "pendingAtStopSnapshot": 137980,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 137980,
+        "snapshotMilliseconds": 706.738583,
+        "processedPerSecondConservative": 24443.742808109844,
+        "countBoundary": "Snapshot after producer commits; elapsed time includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "sqlserver",
+        "product": "Microsoft SQL Server",
+        "version": "16.00.4265",
+        "driver": "Microsoft JDBC Driver 13.4 for SQL Server",
+        "driverVersion": "13.4.0.0"
+      },
+      "fixture": {
+        "clock": "2026-11-02T02:23:52.825777753Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "sqlserver",
+        "mode": "processing",
+        "duration": "30s",
+        "rate": "30000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "Database image=mcr.microsoft.com/mssql/server:2022-latest id=sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+        "d8b411f50aadac36a0e35eea7aee4ff5ad8092eb1a438367cc63d0582fd177a3 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "4aeb1efd96b21b7d5ddb6b9802c4047a373b91b7a5fcc24ab746f4659fc64724 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "oracle-upper-12000-2i-5ms-20261102",
+      "result": {
+        "database": "oracle",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 12000,
+        "requestedSeconds": 30.0,
+        "producerSeconds": 30.985180806,
+        "measurementSeconds": 31.821360681,
+        "producedRecords": 258000,
+        "actualProducerRate": 8326.561062055853,
+        "producerTargetMet": false,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 90916,
+        "pendingAtStopSnapshot": 167084,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 167084,
+        "snapshotMilliseconds": 836.176917,
+        "processedPerSecondConservative": 2857.0745579174563,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "oracle",
+        "product": "Oracle",
+        "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+        "driver": "Oracle JDBC driver",
+        "driverVersion": "23.26.3.0.0"
+      },
+      "fixture": {
+        "clock": "2026-11-02T03:04:33.228388632Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "oracle",
+        "mode": "processing",
+        "duration": "30s",
+        "rate": "12000",
+        "instances": "2",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "5ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=gvenzl/oracle-free:23-slim-faststart id=sha256:f5ff19033860d662c821cb04eb10483fa94f14f78eae252d054291ea07028093",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.005S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    },
+    {
+      "runId": "h2-upper-18000-8i-1ms-20261102",
+      "result": {
+        "database": "h2",
+        "mode": "processing",
+        "deleteCompleted": true,
+        "targetRecordsPerSecond": 18000,
+        "requestedSeconds": 30.0,
+        "producerSeconds": 30.210665555,
+        "measurementSeconds": 30.263319639,
+        "producedRecords": 540000,
+        "actualProducerRate": 17874.482077096367,
+        "producerTargetMet": true,
+        "capacityScreenPassed": false,
+        "processedAtStopSnapshot": 478902,
+        "pendingAtStopSnapshot": 61098,
+        "failedAtStopSnapshot": 0,
+        "remainingAtStopSnapshot": 61098,
+        "snapshotMilliseconds": 52.651459,
+        "processedPerSecondConservative": 15824.503250556967,
+        "countBoundary": "Snapshot after the requested duration and producer commits; elapsed includes the read-committed count query",
+        "completionEvidence": "Committed input minus physically remaining run rows"
+      },
+      "database": {
+        "name": "h2",
+        "product": "H2",
+        "version": "2.4.240 (2025-09-22)",
+        "driver": "H2 JDBC Driver",
+        "driverVersion": "2.4.240 (2025-09-22)"
+      },
+      "fixture": {
+        "clock": "2026-11-02T03:09:43.259060387Z",
+        "historyRecords": 1000000,
+        "fixtureRecords": 0,
+        "recordsPerKey": 10,
+        "runId": "jdbc-read"
+      },
+      "parameters": {
+        "database": "h2",
+        "mode": "processing",
+        "duration": "30s",
+        "rate": "18000",
+        "instances": "8",
+        "readers": "8",
+        "history": "1000000",
+        "records": "256000",
+        "batchSize": "2000",
+        "strict": "true",
+        "delete": "true",
+        "decode": "true",
+        "environmentOverrides": {
+          "PERF_COMPLETION_BATCH_WAIT": "1ms",
+          "PERF_TOOL_JAVA_TOOL_OPTIONS": "-Xms256m -Xmx2g",
+          "PERF_CONSUMER_JAVA_TOOL_OPTIONS": "-Xms128m -Xmx768m"
+        },
+        "consumerDefaults": "consumer/src/main/resources/application.yml in the recorded checkout"
+      },
+      "execution": [
+        "6a6a2ca0d8d41f9abe1e567c1e595b15ad74791c",
+        "Docker CPUs=18 memory=33596223488",
+        "JVM image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "openjdk version \"21.0.12.1\" 2026-08-18 LTS",
+        "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)",
+        "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "Database image=eclipse-temurin:21-jre id=sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "68c337dc323f680830f1b42f085265c2702f9e9b2f395051694e102b2ab444d7 namastack-outbox-jdbc-1.11.0-SNAPSHOT.jar",
+        "ef46357e1a2662b8f7ff02f72f432ba916a61e696a0ff069f260afd24da64832 namastack-outbox-performance-test-consumer.jar"
+      ],
+      "effectiveConsumerSettings": "Verified performance settings: instance=consumer-1, concurrency=2048, keysPerPoll=2000, strict=true, pool=12, completionBatching=CompletionBatching(enabled=true, maxBatchSize=2048, maxWait=PT0.001S, queueCapacity=4096, writerCount=1, bulkUpdates=true), cpus=18, maxHeap=805306368"
+    }
+  ]
+}

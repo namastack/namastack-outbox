@@ -259,7 +259,7 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
     fun `key query without the previous failure filter orders keys by their first due record`() {
         seedHeadOfKeyScenario()
 
-        // SQL Server keeps the grouped form for this query, which leaves the order of equal creation times open.
+        // The portable grouped fallback leaves the order of equal creation times open.
         val keys = repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, false)
         assertThat(keys.take(2)).containsExactlyInAnyOrder("tie-z", "tie-a")
         assertThat(keys.drop(2)).containsExactly("a", "d", "b", "c")
