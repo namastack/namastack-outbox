@@ -53,7 +53,7 @@ class JdbcOutboxSchemaAutoConfiguration {
         settings.separator = databaseType.statementSeparator
         settings.mode = DatabaseInitializationMode.ALWAYS
 
-        return DataSourceScriptDatabaseInitializer(dataSource, settings)
+        return JdbcOutboxSchemaInitializer(dataSource, settings, databaseType)
     }
 
     private fun validateNoCustomTableNaming(properties: JdbcOutboxConfigurationProperties) {

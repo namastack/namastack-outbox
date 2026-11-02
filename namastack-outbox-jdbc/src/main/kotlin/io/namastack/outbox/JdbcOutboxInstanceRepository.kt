@@ -3,11 +3,15 @@ package io.namastack.outbox
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.instance.OutboxInstanceStatus
+import org.springframework.dao.PessimisticLockingFailureException
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.simple.JdbcClient
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.sql.ResultSet
 import java.time.Instant
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.LockSupport
 
 /**
  * JDBC repository implementation for managing outbox instance entities.
@@ -129,17 +133,28 @@ internal open class JdbcOutboxInstanceRepository(
         """.toSingleLine()
 
     /**
-     * Saves an instance. Updates existing instance or inserts new one.
+     * Saves an instance, updating an existing entry or inserting a new one.
+     *
+     * Concurrent registration can deadlock on an empty index range during update-then-insert.
+     * Independent metadata transactions retry after rollback. Calls inside an existing transaction
+     * retain the caller's failure and rollback behavior.
      */
-    override fun save(instance: OutboxInstance): OutboxInstance =
-        transactionTemplate.execute {
-            val entity = JdbcOutboxInstanceEntityMapper.map(instance)
-            val updated = tryUpdate(entity)
-            if (updated == 0) {
-                insert(entity)
+    override fun save(instance: OutboxInstance): OutboxInstance {
+        val entity = JdbcOutboxInstanceEntityMapper.map(instance)
+        val attempts = if (TransactionSynchronizationManager.isActualTransactionActive()) 1 else 5
+        repeat(attempts) { attempt ->
+            try {
+                return transactionTemplate.execute {
+                    if (tryUpdate(entity) == 0) insert(entity)
+                    instance
+                }
+            } catch (failure: PessimisticLockingFailureException) {
+                if (attempt == attempts - 1) throw failure
+                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos((attempt + 1).toLong()))
             }
-            instance
         }
+        error("Unreachable instance-registration retry state")
+    }
 
     /**
      * Finds instance by ID.
