@@ -6,11 +6,11 @@ CREATE TABLE IF NOT EXISTS outbox_record
     record_type    VARCHAR(255)                                          NOT NULL,
     payload        LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     context        LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL NULL,
-    created_at     TIMESTAMP                                             NOT NULL,
-    completed_at   TIMESTAMP     DEFAULT NULL                            NULL,
+    created_at     TIMESTAMP(6)                                             NOT NULL,
+    completed_at   TIMESTAMP(6)     DEFAULT NULL                            NULL,
     failure_count  INT                                                   NOT NULL,
     failure_reason VARCHAR(1000) DEFAULT NULL                            NULL,
-    next_retry_at  TIMESTAMP                                             NOT NULL,
+    next_retry_at  TIMESTAMP(6)                                             NOT NULL,
     partition_no   INT                                                   NOT NULL,
     handler_id     VARCHAR(1000)                                         NOT NULL,
     PRIMARY KEY (id),
@@ -46,3 +46,7 @@ CREATE TABLE IF NOT EXISTS outbox_partition
 ) ENGINE = InnoDB;
 
 
+
+-- Keep candidate scans in the incomplete range without fetching full records.
+CREATE INDEX IF NOT EXISTS idx_outbox_record_completed_partition
+    ON outbox_record (completed_at, partition_no, status, next_retry_at, record_key, created_at);

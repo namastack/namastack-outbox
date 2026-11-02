@@ -62,3 +62,8 @@ CREATE INDEX IF NOT EXISTS idx_outbox_instance_status
 
 CREATE INDEX IF NOT EXISTS idx_outbox_partition_instance_id
     ON outbox_partition (instance_id);
+
+-- A NULL completed_at range excludes completed history during ordered bulk loading.
+-- H2 has no partial indexes; completed records remain indexed for retention queries.
+CREATE INDEX IF NOT EXISTS idx_outbox_record_completed_key_ordered
+    ON outbox_record (completed_at, record_key, created_at, id);

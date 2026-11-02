@@ -139,8 +139,8 @@ internal abstract class DefaultJdbcOutboxRecordQueries(
      * creation time and id. A key has at most one such head record, so no grouping is needed.
      *
      * Any earlier incomplete record of the key (`NEW` or `FAILED`, due or not) blocks a record.
-     * `o.completed_at IS NULL` lets the incomplete-record index serve the outer scan in
-     * `(created_at, id)` order, so the row limit stops it early. `earlier.created_at <= o.created_at`
+     * `o.completed_at IS NULL` exposes the incomplete-record range. Where an index also provides
+     * `(created_at, id)` order, the row limit can stop that scan early. `earlier.created_at <= o.created_at`
      * turns the predecessor check into an index range on the record-key index.
      */
     override val findStrictRecordKeys: String =
@@ -235,6 +235,22 @@ internal abstract class DefaultJdbcOutboxRecordQueries(
         ORDER BY MIN(o.created_at) ASC
         """.toSingleLine()
 
+    // Completed records are outside incomplete indexes. Keep their grouped selection semantics,
+    // while applying each dialect's normal SQL bound after grouping and ordering.
+    override fun findStrictRecordKeys(status: OutboxRecordStatus): String =
+        if (status == OutboxRecordStatus.COMPLETED) {
+            "$findStrictRecordKeysWithoutLimit ${limitClause("limit")}".toSingleLine()
+        } else {
+            findStrictRecordKeys
+        }
+
+    override fun findNonStrictRecordKeys(status: OutboxRecordStatus): String =
+        if (status == OutboxRecordStatus.COMPLETED) {
+            "$findNonStrictRecordKeysWithoutLimit ${limitClause("limit")}".toSingleLine()
+        } else {
+            findNonStrictRecordKeys
+        }
+
     /** Counts records by status. */
     override val countByStatus: String =
         """
@@ -288,7 +304,7 @@ internal abstract class DefaultJdbcOutboxRecordQueries(
      * Ordering by retry time allows an index on `(status, next_retry_at)` to stop at the first
      * eligible record. The chosen execution plan depends on the database and its statistics.
      */
-    override val findOldestStrictDueRetry: String =
+    private val oldestStrictDueRetryQuery: String =
         """
         SELECT o.next_retry_at
         FROM $tableName o
@@ -309,6 +325,11 @@ internal abstract class DefaultJdbcOutboxRecordQueries(
         ORDER BY o.next_retry_at
         ${limitClause("limit")}
         """.toSingleLine()
+
+    override val findOldestStrictDueRetry: String = oldestStrictDueRetryQuery
+
+    override fun findOldestStrictDueRetry(status: OutboxRecordStatus): String =
+        if (status == OutboxRecordStatus.COMPLETED) oldestStrictDueRetryQuery else findOldestStrictDueRetry
 
     /** Selects the earliest next retry time of due records. */
     private val findOldestDueRetryQuery: String =

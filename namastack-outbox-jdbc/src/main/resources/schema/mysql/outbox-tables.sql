@@ -6,11 +6,11 @@ CREATE TABLE IF NOT EXISTS outbox_record
     record_type    VARCHAR(255)                                          NOT NULL,
     payload        LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     context        LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
-    created_at     TIMESTAMP                                             NOT NULL,
-    completed_at   TIMESTAMP                                             NULL,
+    created_at     TIMESTAMP(6)                                             NOT NULL,
+    completed_at   TIMESTAMP(6)                                             NULL,
     failure_count  INT                                                   NOT NULL,
     failure_reason VARCHAR(1000)                                         NULL,
-    next_retry_at  TIMESTAMP                                             NOT NULL,
+    next_retry_at  TIMESTAMP(6)                                             NOT NULL,
     partition_no   INT                                                   NOT NULL,
     handler_id     VARCHAR(1000)                                         NOT NULL,
     PRIMARY KEY (id),
@@ -44,3 +44,17 @@ CREATE TABLE IF NOT EXISTS outbox_partition
     updated_at       TIMESTAMP NOT NULL,
     INDEX idx_outbox_partition_instance_id (instance_id)
 ) ENGINE = InnoDB;
+
+-- Additive initialization also upgrades an existing default table. Existing indexes are retained.
+-- MySQL does not support CREATE INDEX IF NOT EXISTS.
+SET @outbox_index_sql = IF(
+    EXISTS(SELECT 1 FROM information_schema.statistics
+           WHERE table_schema = DATABASE() AND table_name = 'outbox_record'
+             AND index_name = 'idx_outbox_record_completed_partition'),
+    'SELECT 1',
+    'CREATE INDEX idx_outbox_record_completed_partition ON outbox_record
+        (completed_at, partition_no, status, next_retry_at, record_key, created_at)'
+);
+PREPARE outbox_index_statement FROM @outbox_index_sql;
+EXECUTE outbox_index_statement;
+DEALLOCATE PREPARE outbox_index_statement;

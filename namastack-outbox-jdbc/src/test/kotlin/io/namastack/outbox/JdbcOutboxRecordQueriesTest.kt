@@ -84,33 +84,52 @@ class JdbcOutboxRecordQueriesTest {
     }
 
     @Test
-    fun `sql server statements keep the grouped key query without the previous failure filter`() {
+    fun `sql server probes global heads and loads value-table keys without casting them`() {
         val queries = queriesFactory.create(JdbcDatabaseType.SQLServer)
 
         assertThat(queries.findStrictRecordKeys)
-            .endsWith("ORDER BY o.created_at, o.id OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY")
+            .contains("CROSS APPLY", "SELECT TOP (1)", "first_record.completed_at IS NULL")
+            .doesNotContain("first_record.status = :status")
+            .endsWith("ORDER BY head.created_at, head.id OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY")
         assertThat(queries.findNonStrictRecordKeys)
-            .contains("GROUP BY o.record_key")
-            .endsWith("ORDER BY MIN(o.created_at) ASC OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY")
+            .contains("first_record.status = :status AND first_record.next_retry_at <= :now")
+        assertThat(queries.findByKeysAndStatus)
+            .contains(
+                "INNER HASH JOIN (VALUES :recordKeys) requested(record_key)",
+                "SELECT DISTINCT pending.id",
+                "INNER LOOP JOIN outbox_record record ON record.id = matching.id",
+            ).doesNotContain("CAST", "CONVERT")
+            .endsWith("ORDER BY record.record_key, record.created_at, record.id")
+        assertThat(queries.findByKeysAndStatus(1)).contains("record_key IN (:recordKeys)").doesNotContain("HASH JOIN")
+        assertThat(queries.findByKeysAndStatus(1000)).isEqualTo(queries.findByKeysAndStatus)
         assertThat(queries.findByStatusAndCompletedBefore)
             .endsWith("ORDER BY completed_at OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY")
     }
 
     @Test
-    fun `oracle statements order by utc instants and use a status based outer predicate`() {
+    fun `oracle probes global heads and orders timestamp instants in UTC`() {
         val queries = queriesFactory.create(JdbcDatabaseType.Oracle)
 
-        listOf(queries.findStrictRecordKeys, queries.findNonStrictRecordKeys)
-            .forEach { sql ->
-                assertThat(sql)
-                    .doesNotContain("o.completed_at IS NULL")
-                    .contains("earlier.completed_at IS NULL")
-                    .endsWith("ORDER BY SYS_EXTRACT_UTC(o.created_at), o.id FETCH FIRST :limit ROWS ONLY")
-            }
+        listOf(queries.findStrictRecordKeys, queries.findNonStrictRecordKeys).forEach { sql ->
+            assertThat(sql)
+                .contains("CROSS APPLY", "first_record.completed_at IS NULL", "FETCH FIRST 1 ROWS ONLY")
+                .endsWith("ORDER BY SYS_EXTRACT_UTC(head.created_at), head.id FETCH FIRST :limit ROWS ONLY")
+        }
+        assertThat(queries.findStrictRecordKeys).doesNotContain("first_record.status = :status")
+        assertThat(queries.findNonStrictRecordKeys)
+            .contains("first_record.status = :status AND first_record.next_retry_at <= :now")
         assertThat(queries.findOldestStrictDueRetry)
-            .startsWith("SELECT /*+ FIRST_ROWS(1) */ o.next_retry_at")
-            .endsWith("ORDER BY SYS_EXTRACT_UTC(o.next_retry_at) FETCH FIRST :limit ROWS ONLY")
+            .endsWith("ORDER BY SYS_EXTRACT_UTC(head.next_retry_at) FETCH FIRST :limit ROWS ONLY")
         assertThat(queries.findIdsByStatusAndNextRetryBefore).endsWith("FETCH FIRST :limit ROWS ONLY")
+    }
+
+    @Test
+    fun `h2 binds keys as one array without expanding its bulk-load statement`() {
+        val queries = queriesFactory.create(JdbcDatabaseType.H2)
+
+        assertThat(queries.findByKeysAndStatus).contains("TABLE(record_key VARCHAR = :recordKeys)")
+        assertThat(queries.recordKeysParameter(setOf("a", "b")) as Array<*>)
+            .containsExactly("a", "b")
     }
 
     @Test

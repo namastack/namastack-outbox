@@ -110,6 +110,19 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
     }
 
     @Test
+    fun `subsecond creation order and retry barriers survive persistence`() {
+        create("z-earlier", "subsecond", now.minusMillis(2), retry = now.plusMillis(250))
+        create("a-later", "subsecond", now.minusMillis(1), retry = now)
+
+        val page = repository.findIncompleteRecordPages(setOf("subsecond")).getValue("subsecond")
+        assertThat(page.recordIds()).containsExactly("z-earlier", "a-later")
+        assertThat(page[0].nextRetryAt).isEqualTo(now.plusMillis(250))
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, true)).isEmpty()
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, false))
+            .containsExactly("subsecond")
+    }
+
+    @Test
     fun `bulk loading defers decoding and cached records retain mutations`() {
         create("a1", "a")
         serializer.reset()
@@ -289,6 +302,31 @@ abstract class AbstractJdbcBulkRecordLoadingTest {
         assertThatThrownBy {
             repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, -1, true)
         }.isInstanceOf(IllegalArgumentException::class.java)
+    }
+
+    @Test
+    fun `completed key selection and strict retry age retain their status filtering contract`() {
+        create("a-old", "a", now.minusSeconds(20), retry = now.minusSeconds(8), status = OutboxRecordStatus.COMPLETED)
+        create("a-new", "a", now.minusSeconds(10), retry = now.minusSeconds(9), status = OutboxRecordStatus.COMPLETED)
+        create("b-blocker", "b", now.minusSeconds(30), retry = now.plusSeconds(60))
+        create(
+            "b-completed",
+            "b",
+            now.minusSeconds(5),
+            retry = now.minusSeconds(12),
+            status = OutboxRecordStatus.COMPLETED,
+        )
+
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.COMPLETED, 10, true))
+            .containsExactly("a")
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.COMPLETED, 10, false))
+            .containsExactly("a", "b")
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.COMPLETED, 1, false))
+            .containsExactly("a")
+        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.COMPLETED, now, true))
+            .isEqualTo(now.minusSeconds(9))
+        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.COMPLETED, now, false))
+            .isEqualTo(now.minusSeconds(12))
     }
 
     @Test

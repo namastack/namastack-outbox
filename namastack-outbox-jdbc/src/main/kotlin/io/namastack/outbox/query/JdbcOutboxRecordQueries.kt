@@ -34,6 +34,12 @@ internal interface JdbcOutboxRecordQueries {
     /** Loads incomplete records of a key and status in creation-time and id order. */
     val findByKeyAndStatus: String
 
+    /** Converts keys to the named-parameter representation expected by [findByKeysAndStatus]. */
+    fun recordKeysParameter(recordKeys: Set<String>): Any = recordKeys
+
+    /** Chooses bulk SQL for the key count; dialects may retain direct lookups for small batches. */
+    fun findByKeysAndStatus(keyCount: Int): String = findByKeysAndStatus
+
     /** Loads incomplete records for several keys; each key retains creation-time and id order. */
     val findByKeysAndStatus: String
 
@@ -52,8 +58,14 @@ internal interface JdbcOutboxRecordQueries {
     /** Selects due keys whose first incomplete record is ready; failed and future-retry predecessors block. */
     val findStrictRecordKeys: String
 
+    /** Selects strict keys for any status, including completed records outside the incomplete range. */
+    fun findStrictRecordKeys(status: OutboxRecordStatus): String = findStrictRecordKeys
+
     /** Selects keys with a due record, allowing failed records and future retries to be skipped. */
     val findNonStrictRecordKeys: String
+
+    /** Selects non-strict keys for any requested status. */
+    fun findNonStrictRecordKeys(status: OutboxRecordStatus): String = findNonStrictRecordKeys
 
     /** Selects strict keys without a row limit, preserving the legacy zero-batch behavior. */
     val findStrictRecordKeysWithoutLimit: String
@@ -75,6 +87,9 @@ internal interface JdbcOutboxRecordQueries {
 
     /** Finds the oldest due retry whose key has no earlier incomplete record. */
     val findOldestStrictDueRetry: String
+
+    /** Finds the oldest unblocked retry while retaining support for completed records. */
+    fun findOldestStrictDueRetry(status: OutboxRecordStatus): String = findOldestStrictDueRetry
 
     /** Finds the oldest due retry without a predecessor barrier. */
     fun findOldestDueRetry(status: OutboxRecordStatus): String

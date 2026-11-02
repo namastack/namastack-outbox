@@ -3,7 +3,7 @@ IF NOT EXISTS(SELECT *
               WHERE TABLE_NAME = 'outbox_record')
 CREATE TABLE outbox_record
 (
-    id             VARCHAR(255)  NOT NULL,
+    id             NVARCHAR(255) NOT NULL,
     status         VARCHAR(20)   NOT NULL,
     record_key     VARCHAR(255)  NOT NULL,
     record_type    VARCHAR(255)  NOT NULL,
@@ -55,3 +55,30 @@ CREATE TABLE outbox_partition
         PRIMARY KEY (partition_number),
     INDEX idx_outbox_partition_instance_id (instance_id)
 );
+
+-- Filtered candidates exclude completed history; completed_at is included so the NULL filter is covered.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE object_id = OBJECT_ID('outbox_record')
+                 AND name = 'idx_outbox_record_incomplete_partition')
+CREATE INDEX idx_outbox_record_incomplete_partition
+    ON outbox_record (partition_no, status, next_retry_at)
+    INCLUDE (record_key, created_at, completed_at)
+    WHERE completed_at IS NULL;
+
+-- Cover the bulk-load filter before looking up payloads for the requested keys.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE object_id = OBJECT_ID('outbox_record')
+                 AND name = 'idx_outbox_record_key_incomplete_ordered')
+CREATE INDEX idx_outbox_record_key_incomplete_ordered
+    ON outbox_record (record_key, created_at, id)
+    INCLUDE (status, completed_at)
+    WHERE completed_at IS NULL;
+
+-- Completed history has a separate access path for ordered, bounded retention reads.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE object_id = OBJECT_ID('outbox_record')
+                 AND name = 'idx_outbox_record_completed_at')
+CREATE INDEX idx_outbox_record_completed_at
+    ON outbox_record (completed_at)
+    INCLUDE (id, status)
+    WHERE completed_at IS NOT NULL;

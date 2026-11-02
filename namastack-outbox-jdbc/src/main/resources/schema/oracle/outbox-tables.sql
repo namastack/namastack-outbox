@@ -75,3 +75,29 @@ BEGIN
 END;
 /
 
+
+-- Additive processing indexes are also created when the tables already exist.
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT count(*) INTO v_count FROM user_indexes WHERE index_name = 'IDX_OUTBOX_REC_COMPLETED_PART';
+    IF v_count = 0 THEN
+        BEGIN
+            EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_completed_part ON outbox_record
+                (completed_at, partition_no, status, next_retry_at, record_key, created_at)';
+        EXCEPTION WHEN OTHERS THEN
+            -- ORA-01408 means an equivalent column list is already indexed under another name.
+            IF SQLCODE != -1408 THEN RAISE; END IF;
+        END;
+    END IF;
+    SELECT count(*) INTO v_count FROM user_indexes WHERE index_name = 'IDX_OUTBOX_REC_KEY_COMP_ORDER';
+    IF v_count = 0 THEN
+        BEGIN
+            EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_key_comp_order ON outbox_record
+                (record_key, completed_at, created_at, id)';
+        EXCEPTION WHEN OTHERS THEN
+            IF SQLCODE != -1408 THEN RAISE; END IF;
+        END;
+    END IF;
+END;
+/

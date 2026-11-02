@@ -4,6 +4,7 @@ import io.namastack.outbox.Outbox
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.config.JdbcDatabaseType
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.schema.AbstractJdbcSchemaInitializationTest.MyHandler
@@ -17,6 +18,9 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import org.springframework.core.io.ClassPathResource
+import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator
 import org.springframework.stereotype.Component
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.transaction.support.TransactionTemplate
@@ -107,6 +111,75 @@ abstract class AbstractJdbcSchemaInitializationTest {
             ).isNull()
         }
     }
+
+    @Test
+    fun `schema initialization adds missing processing indexes without dropping existing indexes or records`() {
+        val type = checkNotNull(JdbcDatabaseType.detect(dataSource))
+        val indexName =
+            when (type) {
+                JdbcDatabaseType.PostgreSQL -> "idx_outbox_record_key_incomplete_ordered"
+                JdbcDatabaseType.MySQL, JdbcDatabaseType.MariaDB -> "idx_outbox_record_completed_partition"
+                JdbcDatabaseType.SQLServer -> "idx_outbox_record_incomplete_partition"
+                JdbcDatabaseType.Oracle -> "idx_outbox_rec_completed_part"
+                JdbcDatabaseType.H2 -> "idx_outbox_record_completed_key_ordered"
+            }
+        val jdbc = JdbcTemplate(dataSource)
+        val dropSuffix =
+            if (type in
+                setOf(JdbcDatabaseType.MySQL, JdbcDatabaseType.MariaDB, JdbcDatabaseType.SQLServer)
+            ) {
+                " ON outbox_record"
+            } else {
+                ""
+            }
+        jdbc.execute("DROP INDEX $indexName$dropSuffix")
+        val previousIndexes = recordIndexes()
+        val id = UUID.randomUUID().toString()
+        val now = Instant.now().truncatedTo(SECONDS)
+        transactionTemplate.executeWithoutResult {
+            outboxRecordRepository.create(
+                OutboxRecord.restore(
+                    id = id,
+                    recordKey = id,
+                    payload = "unchanged",
+                    context = emptyMap(),
+                    partition = AGE_QUERY_PARTITION,
+                    createdAt = now,
+                    status = NEW,
+                    completedAt = null,
+                    failureCount = 0,
+                    failureReason = null,
+                    nextRetryAt = now.plusSeconds(86400),
+                    handlerId = "handlerId",
+                    failureException = null,
+                ),
+            )
+        }
+        try {
+            val before = jdbc.queryForMap("SELECT * FROM outbox_record WHERE id = ?", id)
+            repeat(2) {
+                ResourceDatabasePopulator()
+                    .apply {
+                        setSeparator(type.statementSeparator)
+                        addScript(ClassPathResource(type.schemaLocation.removePrefix("classpath:")))
+                    }.execute(dataSource)
+                assertThat(recordIndexes()).containsAll(previousIndexes).contains(indexName.lowercase())
+                assertThat(jdbc.queryForMap("SELECT * FROM outbox_record WHERE id = ?", id)).isEqualTo(before)
+            }
+        } finally {
+            outboxRecordRepository.deleteById(id)
+        }
+    }
+
+    private fun recordIndexes(): Set<String> =
+        dataSource.connection.use { connection ->
+            val tableName = if (connection.metaData.storesUpperCaseIdentifiers()) "OUTBOX_RECORD" else "outbox_record"
+            connection.metaData
+                .getIndexInfo(connection.catalog, connection.schema, tableName, false, false)
+                .use { result ->
+                    buildSet { while (result.next()) result.getString("INDEX_NAME")?.let { add(it.lowercase()) } }
+                }
+        }
 
     private fun tableExists(tableName: String): Boolean {
         dataSource.connection.use { connection ->

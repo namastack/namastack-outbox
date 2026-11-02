@@ -190,8 +190,8 @@ internal open class JdbcOutboxRecordRepository(
 
         val rowsByKey =
             jdbcClient
-                .sql(queries.findByKeysAndStatus)
-                .param("recordKeys", recordKeys)
+                .sql(queries.findByKeysAndStatus(recordKeys.size))
+                .param("recordKeys", queries.recordKeysParameter(recordKeys))
                 .param("status", OutboxRecordStatus.NEW.name)
                 .query(rowMapper)
                 .list()
@@ -222,8 +222,8 @@ internal open class JdbcOutboxRecordRepository(
             when {
                 batchSize == 0 && ignoreRecordKeysWithPreviousFailure -> queries.findStrictRecordKeysWithoutLimit
                 batchSize == 0 -> queries.findNonStrictRecordKeysWithoutLimit
-                ignoreRecordKeysWithPreviousFailure -> queries.findStrictRecordKeys
-                else -> queries.findNonStrictRecordKeys
+                ignoreRecordKeysWithPreviousFailure -> queries.findStrictRecordKeys(status)
+                else -> queries.findNonStrictRecordKeys(status)
             }
 
         return jdbcClient
@@ -317,7 +317,7 @@ internal open class JdbcOutboxRecordRepository(
 
         val query =
             if (ignoreRecordKeysWithPreviousFailure) {
-                queries.findOldestStrictDueRetry
+                queries.findOldestStrictDueRetry(status)
             } else {
                 queries.findOldestDueRetry(status)
             }
