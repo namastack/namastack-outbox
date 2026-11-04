@@ -65,9 +65,6 @@ internal interface JdbcOutboxRecordQueries {
     /** Counts records of a status. */
     val countByStatus: String
 
-    /** Counts records of one partition and a status. */
-    val countByPartitionStatus: String
-
     /**
      * Returns the statement that counts records grouped by status.
      *
@@ -75,6 +72,9 @@ internal interface JdbcOutboxRecordQueries {
      * @return A statement returning one status and count row per requested status that has records
      */
     fun countByStatuses(statuses: Set<OutboxRecordStatus>): String
+
+    /** Counts records of one partition and a status. */
+    val countByPartitionStatus: String
 
     /**
      * Returns the statement that counts the records of one status across several partitions.

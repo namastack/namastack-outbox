@@ -40,15 +40,6 @@ internal class PostgresJdbcOutboxRecordQueries(
         GROUP BY status
         """.toSingleLine()
 
-    private val countIncompleteByPartitionsStatus: String =
-        """
-        SELECT COUNT(*)
-        FROM $tableName
-        WHERE partition_no IN (:partitions)
-          AND status = :status
-          AND completed_at IS NULL
-        """.toSingleLine()
-
     /**
      * Counts `NEW` and `FAILED` through the partial indexes, which serve a statement only if it repeats their
      * `completed_at IS NULL` condition. That condition would make `COMPLETED` count as zero, so a request that
@@ -60,6 +51,15 @@ internal class PostgresJdbcOutboxRecordQueries(
         } else {
             super.countByStatuses(statuses)
         }
+
+    private val countIncompleteByPartitionsStatus: String =
+        """
+        SELECT COUNT(*)
+        FROM $tableName
+        WHERE partition_no IN (:partitions)
+          AND status = :status
+          AND completed_at IS NULL
+        """.toSingleLine()
 
     /**
      * Counts `NEW` or `FAILED` through the partial indexes, and `COMPLETED` with the default statement, for the

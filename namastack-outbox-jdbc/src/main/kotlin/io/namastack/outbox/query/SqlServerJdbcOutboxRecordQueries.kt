@@ -22,6 +22,14 @@ internal class SqlServerJdbcOutboxRecordQueries(
         GROUP BY status
         """.toSingleLine()
 
+    /**
+     * Counts `NEW` and `FAILED` through the filtered indexes, which serve a statement only if it repeats their
+     * `completed_at IS NULL` condition. That condition would make `COMPLETED` count as zero, so a request that
+     * includes `COMPLETED` uses the default statement, which reads the retained history.
+     */
+    override fun countByStatuses(statuses: Set<OutboxRecordStatus>): String =
+        if (OutboxRecordStatus.COMPLETED !in statuses) countIncompleteByStatuses else super.countByStatuses(statuses)
+
     private val countIncompleteByPartitionsStatus: String =
         """
         SELECT COUNT(*)
@@ -30,14 +38,6 @@ internal class SqlServerJdbcOutboxRecordQueries(
           AND status = :status
           AND completed_at IS NULL
         """.toSingleLine()
-
-    /**
-     * Counts `NEW` and `FAILED` through the filtered indexes, which serve a statement only if it repeats their
-     * `completed_at IS NULL` condition. That condition would make `COMPLETED` count as zero, so a request that
-     * includes `COMPLETED` uses the default statement, which reads the retained history.
-     */
-    override fun countByStatuses(statuses: Set<OutboxRecordStatus>): String =
-        if (OutboxRecordStatus.COMPLETED !in statuses) countIncompleteByStatuses else super.countByStatuses(statuses)
 
     /**
      * Counts `NEW` or `FAILED` through the filtered indexes, and `COMPLETED` with the default statement, for the

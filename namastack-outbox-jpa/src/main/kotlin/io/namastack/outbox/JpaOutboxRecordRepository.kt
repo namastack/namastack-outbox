@@ -26,6 +26,19 @@ internal open class JpaOutboxRecordRepository(
     private val clock: Clock,
 ) : OutboxRecordRepository {
     /**
+     * Query to update the processing state of an existing outbox record.
+     */
+    private val updateProcessingStateQuery = """
+        update OutboxRecordEntity o
+        set o.status = :status,
+            o.completedAt = :completedAt,
+            o.failureCount = :failureCount,
+            o.failureReason = :failureReason,
+            o.nextRetryAt = :nextRetryAt
+        where o.id = :id
+    """
+
+    /**
      * Query to select outbox records by status ordered by creation time.
      */
     private val findByStatusQuery = """
@@ -75,19 +88,6 @@ internal open class JpaOutboxRecordRepository(
         where o.status = :status
         and o.completedAt < :cutoff
         order by o.completedAt asc
-    """
-
-    /**
-     * Query to update the processing state of an existing outbox record.
-     */
-    private val updateProcessingStateQuery = """
-        update OutboxRecordEntity o
-        set o.status = :status,
-            o.completedAt = :completedAt,
-            o.failureCount = :failureCount,
-            o.failureReason = :failureReason,
-            o.nextRetryAt = :nextRetryAt
-        where o.id = :id
     """
 
     /**

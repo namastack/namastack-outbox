@@ -211,20 +211,22 @@ internal open class DefaultJdbcOutboxRecordQueries(
         WHERE status = :status
         """.toSingleLine()
 
-    override val countByPartitionStatus: String =
-        """
-        SELECT COUNT(*)
-        FROM $tableName
-        WHERE partition_no = :partitionNo
-          AND status = :status
-        """.toSingleLine()
-
     private val countByStatuses: String =
         """
         SELECT status, COUNT(*)
         FROM $tableName
         WHERE status IN (:statuses)
         GROUP BY status
+        """.toSingleLine()
+
+    override fun countByStatuses(statuses: Set<OutboxRecordStatus>): String = countByStatuses
+
+    override val countByPartitionStatus: String =
+        """
+        SELECT COUNT(*)
+        FROM $tableName
+        WHERE partition_no = :partitionNo
+          AND status = :status
         """.toSingleLine()
 
     private val countByPartitionsStatus: String =
@@ -234,8 +236,6 @@ internal open class DefaultJdbcOutboxRecordQueries(
         WHERE partition_no IN (:partitions)
           AND status = :status
         """.toSingleLine()
-
-    override fun countByStatuses(statuses: Set<OutboxRecordStatus>): String = countByStatuses
 
     override fun countByPartitionsStatus(status: OutboxRecordStatus): String = countByPartitionsStatus
 
