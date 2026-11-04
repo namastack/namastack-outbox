@@ -26,7 +26,8 @@ BEGIN
         EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_p_s_r ON outbox_record (partition_no, status, next_retry_at)';
         EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_s_r ON outbox_record (status, next_retry_at)';
         EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_s_c ON outbox_record (status, created_at)';
-        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_k_c_c ON outbox_record (record_key, completed_at, created_at)';
+        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_completed_part ON outbox_record (completed_at, partition_no, status, next_retry_at, record_key, created_at)';
+        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_key_comp_order ON outbox_record (record_key, completed_at, created_at, id)';
     END IF;
 END;
 /
@@ -51,7 +52,6 @@ BEGIN
             )';
         EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_inst_s_h ON outbox_instance (status, last_heartbeat)';
         EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_inst_l_h ON outbox_instance (last_heartbeat)';
-        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_inst_stat ON outbox_instance (status)';
     END IF;
 END;
 /
@@ -74,4 +74,3 @@ BEGIN
     END IF;
 END;
 /
-

@@ -57,8 +57,11 @@ CREATE INDEX IF NOT EXISTS idx_outbox_instance_status_heartbeat
 CREATE INDEX IF NOT EXISTS idx_outbox_instance_last_heartbeat
     ON outbox_instance (last_heartbeat);
 
-CREATE INDEX IF NOT EXISTS idx_outbox_instance_status
-    ON outbox_instance (status);
-
 CREATE INDEX IF NOT EXISTS idx_outbox_partition_instance_id
     ON outbox_partition (instance_id);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_completed_key_ordered
+    ON outbox_record (completed_at, record_key, created_at, id);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_record_partition_created
+    ON outbox_record (partition_no, status, created_at);

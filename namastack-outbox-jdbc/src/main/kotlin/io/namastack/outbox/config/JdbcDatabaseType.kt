@@ -16,10 +16,10 @@ import javax.sql.DataSource
  * - **H2**: In-memory/file-based database for testing and development
  * - **MariaDB**: MySQL-compatible open-source database
  * - **SQL Server**: Microsoft's enterprise relational database
+ * - **Oracle**: Oracle relational database
  *
  * @param schemaLocation Classpath location of the database-specific schema script
- * @param rowLimitClause Clause appended after ORDER BY to cap the result at the `:limit` parameter,
- * so the optimizer can stop after the first rows instead of sorting the whole result
+ * @param statementSeparator Separator used by the schema initialization script
  *
  * @author Roland Beisel, Khalid Alharisi
  * @since 1.0.0
@@ -27,7 +27,6 @@ import javax.sql.DataSource
 sealed class JdbcDatabaseType(
     val schemaLocation: String,
     val statementSeparator: String = ";",
-    val rowLimitClause: String = "FETCH FIRST :limit ROWS ONLY",
 ) {
     /**
      * PostgreSQL database type.
@@ -47,7 +46,6 @@ sealed class JdbcDatabaseType(
      */
     data object MySQL : JdbcDatabaseType(
         schemaLocation = "classpath:schema/mysql/outbox-tables.sql",
-        rowLimitClause = "LIMIT :limit",
     )
 
     /**
@@ -68,7 +66,6 @@ sealed class JdbcDatabaseType(
      */
     data object MariaDB : JdbcDatabaseType(
         schemaLocation = "classpath:schema/mariadb/outbox-tables.sql",
-        rowLimitClause = "LIMIT :limit",
     )
 
     /**
@@ -79,7 +76,6 @@ sealed class JdbcDatabaseType(
      */
     data object SQLServer : JdbcDatabaseType(
         schemaLocation = "classpath:schema/sqlserver/outbox-tables.sql",
-        rowLimitClause = "OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY",
     )
 
     /**

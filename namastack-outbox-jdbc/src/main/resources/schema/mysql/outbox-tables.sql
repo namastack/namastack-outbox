@@ -18,7 +18,10 @@ CREATE TABLE IF NOT EXISTS outbox_record
     INDEX idx_outbox_record_partition_status_retry (partition_no, status, next_retry_at),
     INDEX idx_outbox_record_status_retry (status, next_retry_at),
     INDEX idx_outbox_record_status_created (status, created_at),
-    INDEX idx_outbox_record_record_key_completed_created (record_key, completed_at, created_at)
+    INDEX idx_outbox_record_record_key_completed_created (record_key, completed_at, created_at),
+    INDEX idx_outbox_record_completed_partition (completed_at, partition_no, status, next_retry_at, record_key, created_at),
+    INDEX idx_outbox_record_partition_created (partition_no, status, created_at),
+    INDEX idx_outbox_record_partition_keys (completed_at, partition_no, record_key)
 ) ENGINE = InnoDB;
 
 CREATE TABLE IF NOT EXISTS outbox_instance
@@ -32,8 +35,7 @@ CREATE TABLE IF NOT EXISTS outbox_instance
     created_at     TIMESTAMP    NOT NULL,
     updated_at     TIMESTAMP    NOT NULL,
     INDEX idx_outbox_instance_status_heartbeat (status, last_heartbeat),
-    INDEX idx_outbox_instance_last_heartbeat (last_heartbeat),
-    INDEX idx_outbox_instance_status (status)
+    INDEX idx_outbox_instance_last_heartbeat (last_heartbeat)
 ) ENGINE = InnoDB;
 
 CREATE TABLE IF NOT EXISTS outbox_partition

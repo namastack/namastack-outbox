@@ -4,6 +4,7 @@ import io.namastack.outbox.Outbox
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.config.JdbcDatabaseType
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.schema.AbstractJdbcSchemaInitializationTest.MyHandler
@@ -17,6 +18,9 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import org.springframework.core.io.ClassPathResource
+import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator
 import org.springframework.stereotype.Component
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.transaction.support.TransactionTemplate
@@ -107,6 +111,132 @@ abstract class AbstractJdbcSchemaInitializationTest {
             ).isNull()
         }
     }
+
+    @Test
+    fun `schema initialization can be repeated without changing existing indexes or records`() {
+        val type = dataSource.connection.use { JdbcDatabaseType.from(it.metaData.databaseProductName) }
+        val jdbc = JdbcTemplate(dataSource)
+        val dropSuffix =
+            if (type in
+                setOf(JdbcDatabaseType.MySQL, JdbcDatabaseType.MariaDB, JdbcDatabaseType.SQLServer)
+            ) {
+                " ON outbox_record"
+            } else {
+                ""
+            }
+        // An upgraded installation may still have an index omitted from the fresh schema.
+        val legacyStatusIndex =
+            if (type == JdbcDatabaseType.Oracle) "idx_outbox_rec_stat" else "idx_outbox_record_status"
+        val addedLegacyStatusIndex = legacyStatusIndex !in recordIndexes()
+        if (addedLegacyStatusIndex) {
+            jdbc.execute("CREATE INDEX $legacyStatusIndex ON outbox_record (status)")
+        }
+        val previousIndexes = recordIndexes()
+        val id = UUID.randomUUID().toString()
+        val now = Instant.now().truncatedTo(SECONDS)
+        transactionTemplate.executeWithoutResult {
+            outboxRecordRepository.create(
+                OutboxRecord.restore(
+                    id = id,
+                    recordKey = id,
+                    payload = "unchanged",
+                    context = emptyMap(),
+                    partition = AGE_QUERY_PARTITION,
+                    createdAt = now,
+                    status = NEW,
+                    completedAt = null,
+                    failureCount = 0,
+                    failureReason = null,
+                    nextRetryAt = now.plusSeconds(86400),
+                    handlerId = "handlerId",
+                    failureException = null,
+                ),
+            )
+        }
+        try {
+            val before = jdbc.queryForMap("SELECT * FROM outbox_record WHERE id = ?", id)
+            repeat(2) {
+                ResourceDatabasePopulator()
+                    .apply {
+                        setSeparator(type.statementSeparator)
+                        addScript(ClassPathResource(type.schemaLocation.removePrefix("classpath:")))
+                    }.execute(dataSource)
+                assertThat(recordIndexes()).containsExactlyInAnyOrderElementsOf(previousIndexes)
+                assertThat(jdbc.queryForMap("SELECT * FROM outbox_record WHERE id = ?", id)).isEqualTo(before)
+            }
+        } finally {
+            outboxRecordRepository.deleteById(id)
+            if (addedLegacyStatusIndex) jdbc.execute("DROP INDEX $legacyStatusIndex$dropSuffix")
+        }
+    }
+
+    @Test
+    fun `fresh schema includes read indexes and omits redundant indexes`() {
+        val type = dataSource.connection.use { JdbcDatabaseType.from(it.metaData.databaseProductName) }
+        assertThat(recordIndexes()).containsAll(processingIndexNames(type))
+        ageIndexName(type)?.let { assertThat(recordIndexes()).contains(it) }
+        if (type !in setOf(JdbcDatabaseType.H2, JdbcDatabaseType.Oracle)) {
+            assertThat(recordIndexes()).doesNotContain("idx_outbox_record_status")
+        }
+        val instanceStatusIndex =
+            if (type == JdbcDatabaseType.Oracle) "idx_outbox_inst_stat" else "idx_outbox_instance_status"
+        assertThat(tableIndexes("outbox_instance")).doesNotContain(instanceStatusIndex)
+        if (type == JdbcDatabaseType.Oracle) {
+            assertThat(recordIndexes())
+                .contains("idx_outbox_rec_key_comp_order")
+                .doesNotContain("idx_outbox_rec_k_c_c")
+        }
+    }
+
+    private fun processingIndexNames(type: JdbcDatabaseType): Set<String> =
+        when (type) {
+            JdbcDatabaseType.PostgreSQL ->
+                setOf(
+                    "idx_outbox_record_key_incomplete_ordered",
+                    "idx_outbox_record_status_retry_incomplete",
+                    "idx_outbox_record_status_partition",
+                    "idx_outbox_record_key_status",
+                    "idx_outbox_record_completed_retention",
+                )
+
+            JdbcDatabaseType.MySQL ->
+                setOf("idx_outbox_record_completed_partition", "idx_outbox_record_partition_keys")
+
+            JdbcDatabaseType.MariaDB -> setOf("idx_outbox_record_completed_partition")
+
+            JdbcDatabaseType.SQLServer ->
+                setOf(
+                    "idx_outbox_record_incomplete_partition",
+                    "idx_outbox_record_key_incomplete_ordered",
+                    "idx_outbox_record_completed_at",
+                )
+
+            JdbcDatabaseType.Oracle -> setOf("idx_outbox_rec_completed_part", "idx_outbox_rec_key_comp_order")
+
+            JdbcDatabaseType.H2 -> setOf("idx_outbox_record_completed_key_ordered")
+        }
+
+    private fun ageIndexName(type: JdbcDatabaseType): String? =
+        when (type) {
+            JdbcDatabaseType.PostgreSQL, JdbcDatabaseType.SQLServer -> "idx_outbox_record_status_created"
+
+            JdbcDatabaseType.MySQL, JdbcDatabaseType.MariaDB, JdbcDatabaseType.H2 ->
+                "idx_outbox_record_partition_created"
+
+            JdbcDatabaseType.Oracle -> null
+        }
+
+    private fun recordIndexes(): Set<String> = tableIndexes("outbox_record")
+
+    private fun tableIndexes(table: String): Set<String> =
+        dataSource.connection.use { connection ->
+            val tableName = if (connection.metaData.storesUpperCaseIdentifiers()) table.uppercase() else table
+            connection.metaData
+                .getIndexInfo(connection.catalog, connection.schema, tableName, false, false)
+                .use { result ->
+                    buildSet { while (result.next()) result.getString("INDEX_NAME")?.let { add(it.lowercase()) } }
+                }
+        }
 
     private fun tableExists(tableName: String): Boolean {
         dataSource.connection.use { connection ->

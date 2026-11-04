@@ -20,8 +20,18 @@ CREATE TABLE outbox_record
     INDEX idx_outbox_record_record_key_created (record_key, created_at),
     INDEX idx_outbox_record_partition_status_retry (partition_no, status, next_retry_at),
     INDEX idx_outbox_record_status_retry (status, next_retry_at),
-    INDEX idx_outbox_record_status_created (status, created_at),
-    INDEX idx_outbox_record_record_key_completed_created (record_key, completed_at, created_at)
+    INDEX idx_outbox_record_record_key_completed_created (record_key, completed_at, created_at),
+    INDEX idx_outbox_record_incomplete_partition (partition_no, status, next_retry_at)
+        INCLUDE (record_key, created_at, completed_at)
+        WHERE completed_at IS NULL,
+    INDEX idx_outbox_record_key_incomplete_ordered (record_key, created_at, id)
+        INCLUDE (status, completed_at, partition_no, next_retry_at)
+        WHERE completed_at IS NULL,
+    INDEX idx_outbox_record_completed_at (completed_at)
+        INCLUDE (id, status)
+        WHERE completed_at IS NOT NULL,
+    INDEX idx_outbox_record_status_created (status, created_at)
+        INCLUDE (partition_no)
 );
 
 IF NOT EXISTS(SELECT *
@@ -39,8 +49,7 @@ CREATE TABLE outbox_instance
     updated_at     DATETIME2(6) NOT NULL
         PRIMARY KEY (instance_id),
     INDEX idx_outbox_instance_status_heartbeat (status, last_heartbeat),
-    INDEX idx_outbox_instance_last_heartbeat (last_heartbeat),
-    INDEX idx_outbox_instance_status (status)
+    INDEX idx_outbox_instance_last_heartbeat (last_heartbeat)
 );
 
 IF NOT EXISTS(SELECT *
