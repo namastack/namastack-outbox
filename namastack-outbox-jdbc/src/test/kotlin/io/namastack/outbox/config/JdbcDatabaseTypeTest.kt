@@ -1,9 +1,17 @@
 package io.namastack.outbox.config
 
+import io.mockk.every
+import io.mockk.mockk
 import org.assertj.core.api.Assertions
 import org.assertj.core.api.Assertions.assertThat
+import org.h2.jdbcx.JdbcDataSource
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
+import java.sql.Connection
+import java.sql.DatabaseMetaData
+import javax.sql.DataSource
 
 class JdbcDatabaseTypeTest {
     @Nested
@@ -109,6 +117,30 @@ class JdbcDatabaseTypeTest {
                 .assertThatThrownBy { JdbcDatabaseType.from("unsupported") }
                 .isInstanceOf(IllegalArgumentException::class.java)
                 .hasMessage("Unsupported database type: unsupported")
+        }
+    }
+
+    @Nested
+    inner class DetectTest {
+        @Test
+        fun `detects the database type from the datasource metadata`() {
+            val dataSource =
+                JdbcDataSource().apply {
+                    setURL("jdbc:h2:mem:jdbc-database-type;DB_CLOSE_DELAY=-1")
+                    user = "sa"
+                }
+
+            assertThat(JdbcDatabaseType.detect(dataSource)).isEqualTo(JdbcDatabaseType.H2)
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["SQLite", "Apache Derby"])
+        fun `unsupported products resolve to no database type`(productName: String) {
+            val metadata = mockk<DatabaseMetaData> { every { databaseProductName } returns productName }
+            val connection = mockk<Connection>(relaxed = true) { every { metaData } returns metadata }
+            val dataSource = mockk<DataSource> { every { getConnection() } returns connection }
+
+            assertThat(JdbcDatabaseType.detect(dataSource)).isNull()
         }
     }
 }
