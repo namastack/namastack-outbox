@@ -69,18 +69,18 @@ internal interface JdbcOutboxRecordQueries {
     val countByPartitionStatus: String
 
     /**
-     * Returns the statement counting records grouped by status for the given statuses.
+     * Returns the statement that counts records grouped by status.
      *
-     * @param statuses The statuses the statement will be bound to
-     * @return A statement that counts every requested status correctly, including `COMPLETED`
+     * @param statuses The statuses the statement will be bound to as `statuses`
+     * @return A statement returning one status and count row per requested status that has records
      */
     fun countByStatuses(statuses: Set<OutboxRecordStatus>): String
 
     /**
-     * Returns the statement counting records of several partitions and the given status.
+     * Returns the statement that counts the records of one status across several partitions.
      *
-     * @param status The status the statement will be bound to
-     * @return A statement that counts the status correctly, including `COMPLETED`
+     * @param status The status the statement will be bound to as `status`
+     * @return A statement returning one row with the count
      */
     fun countByPartitionsStatus(status: OutboxRecordStatus): String
 

@@ -41,10 +41,6 @@ internal class OracleJdbcOutboxRecordQueries(
         $rowLimitClause
         """.toSingleLine()
 
-    override val countIncompleteByStatuses: String = countAnyByStatuses
-
-    override val countIncompleteByPartitionsStatus: String = countAnyByPartitionsStatus
-
     override val oldestCreatedAtByPartitionsStatus: String =
         """
         SELECT created_at

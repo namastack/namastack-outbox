@@ -219,8 +219,7 @@ internal open class DefaultJdbcOutboxRecordQueries(
           AND status = :status
         """.toSingleLine()
 
-    /** Counts any statuses, including `COMPLETED`. Reads the retained history. */
-    protected open val countAnyByStatuses: String =
+    private val countByStatuses: String =
         """
         SELECT status, COUNT(*)
         FROM $tableName
@@ -228,18 +227,7 @@ internal open class DefaultJdbcOutboxRecordQueries(
         GROUP BY status
         """.toSingleLine()
 
-    /** Counts `NEW` and `FAILED` only: `COMPLETED` would silently count as zero. Served by the partial indexes. */
-    protected open val countIncompleteByStatuses: String =
-        """
-        SELECT status, COUNT(*)
-        FROM $tableName
-        WHERE status IN (:statuses)
-          AND completed_at IS NULL
-        GROUP BY status
-        """.toSingleLine()
-
-    /** Counts any status, including `COMPLETED`. Reads the retained history. */
-    protected open val countAnyByPartitionsStatus: String =
+    private val countByPartitionsStatus: String =
         """
         SELECT COUNT(*)
         FROM $tableName
@@ -247,21 +235,9 @@ internal open class DefaultJdbcOutboxRecordQueries(
           AND status = :status
         """.toSingleLine()
 
-    /** Counts `NEW` or `FAILED` only: `COMPLETED` would silently count as zero. Served by the partial indexes. */
-    protected open val countIncompleteByPartitionsStatus: String =
-        """
-        SELECT COUNT(*)
-        FROM $tableName
-        WHERE partition_no IN (:partitions)
-          AND status = :status
-          AND completed_at IS NULL
-        """.toSingleLine()
+    override fun countByStatuses(statuses: Set<OutboxRecordStatus>): String = countByStatuses
 
-    override fun countByStatuses(statuses: Set<OutboxRecordStatus>): String =
-        if (INCOMPLETE_STATUSES.containsAll(statuses)) countIncompleteByStatuses else countAnyByStatuses
-
-    override fun countByPartitionsStatus(status: OutboxRecordStatus): String =
-        if (status in INCOMPLETE_STATUSES) countIncompleteByPartitionsStatus else countAnyByPartitionsStatus
+    override fun countByPartitionsStatus(status: OutboxRecordStatus): String = countByPartitionsStatus
 
     override val oldestCreatedAtByPartitionsStatus: String =
         """
@@ -321,9 +297,4 @@ internal open class DefaultJdbcOutboxRecordQueries(
         DELETE FROM $tableName
         WHERE id IN (:ids)
         """.toSingleLine()
-
-    private companion object {
-        /** The statuses for which `completed_at IS NULL` holds, so the condition removes no rows. */
-        val INCOMPLETE_STATUSES = setOf(OutboxRecordStatus.NEW, OutboxRecordStatus.FAILED)
-    }
 }

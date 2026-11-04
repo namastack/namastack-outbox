@@ -86,18 +86,37 @@ class JdbcOutboxRecordQueriesTest {
     }
 
     @Test
-    fun `counts use the literal condition only when every status is incomplete`() {
-        literalDialects.map { JdbcOutboxRecordQueriesFactory.create(it, table) }.forEach { queries ->
-            listOf(setOf(NEW), setOf(FAILED), setOf(NEW, FAILED)).forEach { statuses ->
-                assertThat(queries.countByStatuses(statuses)).contains("completed_at IS NULL")
+    fun `partial index dialects count with the literal condition only when every status is incomplete`() {
+        listOf(JdbcDatabaseType.PostgreSQL, JdbcDatabaseType.SQLServer)
+            .map { JdbcOutboxRecordQueriesFactory.create(it, table) }
+            .forEach { queries ->
+                listOf(setOf(NEW), setOf(FAILED), setOf(NEW, FAILED)).forEach { statuses ->
+                    assertThat(queries.countByStatuses(statuses)).contains("completed_at IS NULL")
+                }
+                assertThat(queries.countByStatuses(setOf(COMPLETED))).doesNotContain("completed_at")
+                assertThat(queries.countByStatuses(setOf(NEW, COMPLETED))).doesNotContain("completed_at")
+                assertThat(queries.countByStatuses(OutboxRecordStatus.entries.toSet())).doesNotContain("completed_at")
+                assertThat(queries.countByPartitionsStatus(NEW)).contains("completed_at IS NULL")
+                assertThat(queries.countByPartitionsStatus(FAILED)).contains("completed_at IS NULL")
+                assertThat(queries.countByPartitionsStatus(COMPLETED)).doesNotContain("completed_at")
             }
-            listOf(setOf(COMPLETED), setOf(NEW, COMPLETED), OutboxRecordStatus.entries.toSet()).forEach { statuses ->
-                assertThat(queries.countByStatuses(statuses)).doesNotContain("completed_at")
+    }
+
+    @Test
+    fun `other dialects count without the literal condition for every status`() {
+        listOf(
+            null,
+            JdbcDatabaseType.MySQL,
+            JdbcDatabaseType.MariaDB,
+            JdbcDatabaseType.H2,
+            JdbcDatabaseType.Oracle,
+        ).map { JdbcOutboxRecordQueriesFactory.create(it, table) }
+            .forEach { queries ->
+                OutboxRecordStatus.entries.forEach { status ->
+                    assertThat(queries.countByStatuses(setOf(status))).doesNotContain("completed_at")
+                    assertThat(queries.countByPartitionsStatus(status)).doesNotContain("completed_at")
+                }
             }
-            assertThat(queries.countByPartitionsStatus(NEW)).contains("completed_at IS NULL")
-            assertThat(queries.countByPartitionsStatus(FAILED)).contains("completed_at IS NULL")
-            assertThat(queries.countByPartitionsStatus(COMPLETED)).doesNotContain("completed_at")
-        }
     }
 
     @Test

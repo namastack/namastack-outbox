@@ -186,23 +186,12 @@ internal open class JpaOutboxRecordRepository(
     """
 
     /**
-     * Query to count any statuses grouped by status, including `COMPLETED`. Reads the retained history.
+     * Query to count records grouped by status.
      */
-    private val countAnyByStatusesQuery = """
+    private val countByStatusesQuery = """
         select o.status, count(o)
         from OutboxRecordEntity o
         where o.status in :statuses
-        group by o.status
-    """
-
-    /**
-     * Query to count `NEW` and `FAILED` records grouped by status. `COMPLETED` would silently count as zero.
-     */
-    private val countIncompleteByStatusesQuery = """
-        select o.status, count(o)
-        from OutboxRecordEntity o
-        where o.status in :statuses
-        and o.completedAt is null
         group by o.status
     """
 
@@ -217,25 +206,13 @@ internal open class JpaOutboxRecordRepository(
     """
 
     /**
-     * Query to count any status across the specified partitions, including `COMPLETED`. Reads the retained history.
+     * Query to count records across the specified partitions by status.
      */
-    private val countAnyRecordsByPartitionsQuery = """
+    private val countRecordsByPartitionsQuery = """
         select count(o)
         from OutboxRecordEntity o
         where o.partitionNo in :partitions
         and o.status = :status
-    """
-
-    /**
-     * Query to count `NEW` or `FAILED` records across the specified partitions. `COMPLETED` would silently
-     * count as zero.
-     */
-    private val countIncompleteRecordsByPartitionsQuery = """
-        select count(o)
-        from OutboxRecordEntity o
-        where o.partitionNo in :partitions
-        and o.status = :status
-        and o.completedAt is null
     """
 
     /**
@@ -551,12 +528,9 @@ internal open class JpaOutboxRecordRepository(
     override fun countByStatuses(statuses: Set<OutboxRecordStatus>): Map<OutboxRecordStatus, Long> {
         if (statuses.isEmpty()) return emptyMap()
 
-        val query =
-            if (statuses.all { it in INCOMPLETE_STATUSES }) countIncompleteByStatusesQuery else countAnyByStatusesQuery
-
         val counts =
             entityManager
-                .createQuery(query, Array<Any>::class.java)
+                .createQuery(countByStatusesQuery, Array<Any>::class.java)
                 .setParameter("statuses", statuses)
                 .resultList
                 .associate { row -> row[0] as OutboxRecordStatus to (row[1] as Number).toLong() }
@@ -597,15 +571,8 @@ internal open class JpaOutboxRecordRepository(
     ): Long {
         if (partitions.isEmpty()) return 0L
 
-        val query =
-            if (status in INCOMPLETE_STATUSES) {
-                countIncompleteRecordsByPartitionsQuery
-            } else {
-                countAnyRecordsByPartitionsQuery
-            }
-
         return entityManager
-            .createQuery(query, Long::class.java)
+            .createQuery(countRecordsByPartitionsQuery, Long::class.java)
             .setParameter("partitions", partitions)
             .setParameter("status", status)
             .singleResult
@@ -781,9 +748,4 @@ internal open class JpaOutboxRecordRepository(
             .setParameter("status", status)
             .resultList
             .map { entityMapper.map(it) }
-
-    private companion object {
-        /** The statuses for which `completedAt is null` holds, so the condition removes no rows. */
-        val INCOMPLETE_STATUSES = setOf(OutboxRecordStatus.NEW, OutboxRecordStatus.FAILED)
-    }
 }
