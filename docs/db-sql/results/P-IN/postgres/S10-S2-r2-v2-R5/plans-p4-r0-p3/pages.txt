@@ -1,0 +1,8 @@
+Index Scan using idx_outbox_record_key_created_id_incomplete on outbox_record  (cost=0.41..52.08 rows=1 width=1088) (actual time=0.269..0.269 rows=0.00 loops=1)
+  Index Cond: ((record_key)::text = ANY ('{order-cc-32347-00000000000200019382,order-cc-69805-00000000000100019387,order-cc-13226-00000000000100019391,order-cc-41803-00000000000300019368,order-cc-32104-00000000000300019370,order-cc-66070-00000000000100019394,order-cc-76401-00000000000200019391,order-cc-75360-00000000000300019373,order-cc-67838-00000000000200019392,order-cc-69446-00000000000100019397}'::text[]))
+  Filter: ((status)::text = 'NEW'::text)
+  Index Searches: 10
+  Buffers: shared hit=30
+Settings: search_path = 'run'
+Planning Time: 0.554 ms
+Execution Time: 0.360 ms

@@ -1,0 +1,10 @@
+Aggregate  (cost=894.27..894.28 rows=1 width=8) (actual time=6.296..6.296 rows=1.00 loops=1)
+  Buffers: shared hit=191
+  ->  Index Only Scan using idx_outbox_record_status_partition_incomplete on outbox_record  (cost=0.42..740.54 rows=61491 width=0) (actual time=0.021..3.847 rows=62536.00 loops=1)
+        Index Cond: ((status = 'NEW'::text) AND (partition_no = ANY ('{0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240}'::integer[])))
+        Heap Fetches: 0
+        Index Searches: 16
+        Buffers: shared hit=191
+Settings: search_path = 'run'
+Planning Time: 0.067 ms
+Execution Time: 6.318 ms

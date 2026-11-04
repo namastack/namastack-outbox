@@ -41,8 +41,9 @@ object Catalog {
             val headers = lines.takeWhile { it.startsWith("--") }.mapNotNull { l ->
                 val m = Regex("^--\\s*([A-Za-z_.]+):\\s*(.*)$").find(l); m?.let { it.groupValues[1] to it.groupValues[2].trim() }
             }.toMap()
-            val sql = lines.dropWhile { it.startsWith("--") }.joinToString(" ").trim().removeSuffix(";")
             val id = f.nameWithoutExtension
+            // PostgreSQL: unique leading comment per statement, so statements with identical text (count_*) do not share a prepared statement / plan-cache counters
+            val sql = (if (dialect == Dialect.POSTGRES) "/* $id */ " else "") + lines.dropWhile { it.startsWith("--") }.joinToString(" ").trim().removeSuffix(";")
             out[id] = CatalogQuery(id, sql, headers + ("id" to id), f)
         }
         dir.listFiles { f -> f.extension == "sql" }!!.sortedBy { it.name }.forEach { read(it) }

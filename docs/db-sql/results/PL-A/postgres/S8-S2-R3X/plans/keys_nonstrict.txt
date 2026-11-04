@@ -1,0 +1,27 @@
+Limit  (cost=111.63..111.66 rows=10 width=82) (actual time=0.640..0.642 rows=10.00 loops=1)
+  Buffers: shared hit=366
+  ->  Sort  (cost=111.63..112.47 rows=334 width=82) (actual time=0.640..0.641 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 27kB
+        Buffers: shared hit=366
+        ->  Hash Right Anti Join  (cost=48.02..104.41 rows=334 width=82) (actual time=0.588..0.604 rows=229.00 loops=1)
+              Hash Cond: ((earlier.record_key)::text = (o.record_key)::text)
+              Join Filter: ((earlier.created_at <= o.created_at) AND ((earlier.created_at < o.created_at) OR ((earlier.created_at = o.created_at) AND ((earlier.id)::text < (o.id)::text))))
+              Rows Removed by Join Filter: 229
+              Buffers: shared hit=366
+              ->  Index Scan using idx_outbox_record_status_retry_incomplete on outbox_record earlier  (cost=0.29..43.30 rows=1332 width=82) (actual time=0.017..0.136 rows=1000.00 loops=1)
+                    Index Cond: (((status)::text = 'NEW'::text) AND (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone))
+                    Index Searches: 1
+                    Buffers: shared hit=183
+              ->  Hash  (cost=43.56..43.56 rows=334 width=82) (actual time=0.319..0.319 rows=229.00 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 35kB
+                    Buffers: shared hit=183
+                    ->  Index Scan using idx_outbox_record_status_retry_incomplete on outbox_record o  (cost=0.45..43.56 rows=334 width=82) (actual time=0.031..0.270 rows=229.00 loops=1)
+                          Index Cond: (((status)::text = 'NEW'::text) AND (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone))
+                          Filter: (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[]))
+                          Rows Removed by Filter: 771
+                          Index Searches: 1
+                          Buffers: shared hit=183
+Settings: search_path = 'run'
+Planning Time: 0.234 ms
+Execution Time: 0.685 ms

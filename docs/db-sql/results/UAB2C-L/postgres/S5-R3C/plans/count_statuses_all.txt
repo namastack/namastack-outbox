@@ -1,0 +1,25 @@
+Finalize GroupAggregate  (cost=61806.48..61807.36 rows=3 width=15) (actual time=67.702..74.944 rows=3.00 loops=1)
+  Group Key: status
+  Buffers: shared hit=16019 read=40895
+  ->  Gather Merge  (cost=61806.48..61807.30 rows=7 width=15) (actual time=67.697..74.938 rows=9.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=16019 read=40895
+        ->  Sort  (cost=60806.46..60806.47 rows=3 width=15) (actual time=56.255..56.255 rows=3.00 loops=3)
+              Sort Key: status
+              Sort Method: quicksort  Memory: 25kB
+              Buffers: shared hit=16019 read=40895
+              Worker 0:  Sort Method: quicksort  Memory: 25kB
+              Worker 1:  Sort Method: quicksort  Memory: 25kB
+              ->  Partial HashAggregate  (cost=60806.40..60806.43 rows=3 width=15) (actual time=56.220..56.221 rows=3.00 loops=3)
+                    Group Key: status
+                    Batches: 1  Memory Usage: 32kB
+                    Buffers: shared hit=16003 read=40895
+                    Worker 0:  Batches: 1  Memory Usage: 32kB
+                    Worker 1:  Batches: 1  Memory Usage: 32kB
+                    ->  Parallel Seq Scan on outbox_record  (cost=0.00..59764.16 rows=208448 width=7) (actual time=0.191..35.553 rows=166666.67 loops=3)
+                          Filter: ((status)::text = ANY ('{NEW,FAILED,COMPLETED}'::text[]))
+                          Buffers: shared hit=16003 read=40895
+Settings: search_path = 'run'
+Planning Time: 0.069 ms
+Execution Time: 74.982 ms

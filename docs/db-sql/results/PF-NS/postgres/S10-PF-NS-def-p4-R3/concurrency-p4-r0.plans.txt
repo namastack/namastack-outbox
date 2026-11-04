@@ -1,0 +1,62 @@
+pages statements >= 5 ms logged during the run: 3744
+final captures (one per poller, with actuals): 4
+
+== first 3 slow pages plans ==
+2026-11-02 18:20:29.330 UTC [727] LOG:  duration: 5.173 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 AND completed_at IS NULL
+	Query Parameters: $1 = 'order-cc-79645-00000000000100001338', $2 = 'order-cc-99633-00000000000200001343', $3 = 'order-cc-71633-00000000000100001341', $4 = 'order-cc-25349-00000000000000001344', $5 = 'order-cc-25808-00000000000200001346', $6 = 'order-cc-92845-00000000000300001346', $7 = 'order-cc-97903-00000000000300001347', $8 = 'order-cc-45265-00000000000100001345', $9 = 'order-cc-7129-00000000000300001350', $10 = 'order-cc-56317-00000000000100001348', $11 = 'NEW'
+	Index Scan using idx_outbox_record_status_created_id_incomplete on outbox_record  (cost=0.44..43.50 rows=1 width=1093)
+	  Index Cond: ((status)::text = 'NEW'::text)
+	  Filter: ((record_key)::text = ANY ('{order-cc-79645-00000000000100001338,order-cc-99633-00000000000200001343,order-cc-71633-00000000000100001341,order-cc-25349-00000000000000001344,order-cc-25808-00000000000200001346,order-cc-92845-00000000000300001346,order-cc-97903-00000000000300001347,order-cc-45265-00000000000100001345,order-cc-7129-00000000000300001350,order-cc-56317-00000000000100001348}'::text[]))
+
+2026-11-02 18:20:29.330 UTC [728] LOG:  duration: 6.395 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 AND completed_at IS NULL
+	Query Parameters: $1 = 'order-cc-42969-00000000000200001304', $2 = 'order-cc-86648-00000000000200001305', $3 = 'order-cc-85022-00000000000300001305', $4 = 'order-cc-2055-00000000000000001304', $5 = 'order-cc-99747-00000000000000001305', $6 = 'order-cc-74934-00000000000100001304', $7 = 'order-cc-53076-00000000000000001306', $8 = 'order-cc-20623-00000000000200001308', $9 = 'order-cc-44572-00000000000300001308', $10 = 'order-cc-47380-00000000000300001310', $11 = 'NEW'
+	Index Scan using idx_outbox_record_status_created_id_incomplete on outbox_record  (cost=0.44..43.50 rows=1 width=1093)
+	  Index Cond: ((status)::text = 'NEW'::text)
+	  Filter: ((record_key)::text = ANY ('{order-cc-42969-00000000000200001304,order-cc-86648-00000000000200001305,order-cc-85022-00000000000300001305,order-cc-2055-00000000000000001304,order-cc-99747-00000000000000001305,order-cc-74934-00000000000100001304,order-cc-53076-00000000000000001306,order-cc-20623-00000000000200001308,order-cc-44572-00000000000300001308,order-cc-47380-00000000000300001310}'::text[]))
+
+2026-11-02 18:20:29.330 UTC [729] LOG:  duration: 6.230 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 AND completed_at IS NULL
+	Query Parameters: $1 = 'order-cc-25247-00000000000100001300', $2 = 'order-cc-55181-00000000000100001301', $3 = 'order-cc-22512-00000000000300001304', $4 = 'order-cc-39624-00000000000000001303', $5 = 'order-cc-71707-00000000000100001302', $6 = 'order-cc-83821-00000000000300001307', $7 = 'order-cc-13989-00000000000100001305', $8 = 'order-cc-68522-00000000000000001308', $9 = 'order-cc-61939-00000000000100001308', $10 = 'order-cc-90032-00000000000100001309', $11 = 'NEW'
+	Index Scan using idx_outbox_record_status_created_id_incomplete on outbox_record  (cost=0.44..43.50 rows=1 width=1093)
+	  Index Cond: ((status)::text = 'NEW'::text)
+	  Filter: ((record_key)::text = ANY ('{order-cc-25247-00000000000100001300,order-cc-55181-00000000000100001301,order-cc-22512-00000000000300001304,order-cc-39624-00000000000000001303,order-cc-71707-00000000000100001302,order-cc-83821-00000000000300001307,order-cc-13989-00000000000100001305,order-cc-68522-00000000000000001308,order-cc-61939-00000000000100001308,order-cc-90032-00000000000100001309}'::text[]))
+
+== final captures ==
+2026-11-02 18:21:25.361 UTC [730] LOG:  duration: 0.462 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 AND completed_at IS NULL
+	Query Parameters: $1 = 'order-cc-96752-00000000000000015958', $2 = 'order-cc-61924-00000000000100015909', $3 = 'order-cc-11119-00000000000200015912', $4 = 'order-cc-17369-00000000000300015958', $5 = 'order-cc-19134-00000000000200015913', $6 = 'order-cc-48972-00000000000300015960', $7 = 'order-cc-21138-00000000000300015961', $8 = 'order-cc-6236-00000000000300015963', $9 = 'order-cc-6199-00000000000100015915', $10 = 'order-cc-75035-00000000000100015916', $11 = 'NEW'
+	Index Scan using idx_outbox_record_record_key_completed_created_id on outbox_record  (cost=0.55..49.64 rows=1 width=1093) (actual time=0.458..0.459 rows=0.00 loops=1)
+	  Index Cond: (((record_key)::text = ANY ((ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10])::text[])) AND (completed_at IS NULL))
+	  Filter: ((status)::text = ($11)::text)
+	  Index Searches: 10
+	  Buffers: shared hit=59
+
+2026-11-02 18:21:25.361 UTC [727] LOG:  duration: 0.521 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 AND completed_at IS NULL
+	Query Parameters: $1 = 'order-cc-43834-00000000000200015974', $2 = 'order-cc-57003-00000000000200015975', $3 = 'order-cc-68678-00000000000300016020', $4 = 'order-cc-26278-00000000000000016025', $5 = 'order-cc-71863-00000000000100015975', $6 = 'order-cc-33854-00000000000300016022', $7 = 'order-cc-92631-00000000000100015978', $8 = 'order-cc-34608-00000000000000016031', $9 = 'order-cc-94280-00000000000000016032', $10 = 'order-cc-49742-00000000000000016033', $11 = 'NEW'
+	Index Scan using idx_outbox_record_record_key_completed_created_id on outbox_record  (cost=0.55..49.64 rows=1 width=1093) (actual time=0.516..0.517 rows=0.00 loops=1)
+	  Index Cond: (((record_key)::text = ANY ((ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10])::text[])) AND (completed_at IS NULL))
+	  Filter: ((status)::text = ($11)::text)
+	  Index Searches: 10
+	  Buffers: shared hit=59
+
+2026-11-02 18:21:25.361 UTC [728] LOG:  duration: 0.521 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 AND completed_at IS NULL
+	Query Parameters: $1 = 'order-cc-17297-00000000000300015930', $2 = 'order-cc-15017-00000000000000015935', $3 = 'order-cc-82461-00000000000300015933', $4 = 'order-cc-42740-00000000000100015886', $5 = 'order-cc-10655-00000000000000015937', $6 = 'order-cc-79153-00000000000300015935', $7 = 'order-cc-51739-00000000000000015940', $8 = 'order-cc-13281-00000000000200015893', $9 = 'order-cc-57024-00000000000000015944', $10 = 'order-cc-7839-00000000000100015894', $11 = 'NEW'
+	Index Scan using idx_outbox_record_record_key_completed_created_id on outbox_record  (cost=0.55..49.64 rows=1 width=1093) (actual time=0.517..0.518 rows=0.00 loops=1)
+	  Index Cond: (((record_key)::text = ANY ((ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10])::text[])) AND (completed_at IS NULL))
+	  Filter: ((status)::text = ($11)::text)
+	  Index Searches: 10
+	  Buffers: shared hit=58
+
+2026-11-02 18:21:25.361 UTC [729] LOG:  duration: 0.396 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 AND completed_at IS NULL
+	Query Parameters: $1 = 'order-cc-31362-00000000000300015952', $2 = 'order-cc-29889-00000000000000015955', $3 = 'order-cc-4110-00000000000000015956', $4 = 'order-cc-38096-00000000000100015906', $5 = 'order-cc-99177-00000000000200015908', $6 = 'order-cc-83033-00000000000100015908', $7 = 'order-cc-36842-00000000000300015956', $8 = 'order-cc-94790-00000000000100015910', $9 = 'order-cc-48152-00000000000100015912', $10 = 'order-cc-16419-00000000000200015914', $11 = 'NEW'
+	Index Scan using idx_outbox_record_record_key_completed_created_id on outbox_record  (cost=0.55..49.64 rows=1 width=1093) (actual time=0.392..0.393 rows=0.00 loops=1)
+	  Index Cond: (((record_key)::text = ANY ((ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10])::text[])) AND (completed_at IS NULL))
+	  Filter: ((status)::text = ($11)::text)
+	  Index Searches: 10
+	  Buffers: shared hit=59
+

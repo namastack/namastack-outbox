@@ -1,0 +1,14 @@
+Limit  (cost=2886.45..2886.45 rows=1 width=8) (actual time=8.173..8.173 rows=1.00 loops=1)
+  Buffers: shared hit=1172
+  ->  Sort  (cost=2886.45..3041.06 rows=61847 width=8) (actual time=8.172..8.173 rows=1.00 loops=1)
+        Sort Key: created_at
+        Sort Method: top-N heapsort  Memory: 25kB
+        Buffers: shared hit=1172
+        ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record  (cost=0.42..2577.21 rows=61847 width=8) (actual time=0.020..6.214 rows=62536.00 loops=1)
+              Index Cond: ((partition_no = ANY ('{0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240}'::integer[])) AND (status = 'NEW'::text))
+              Heap Fetches: 0
+              Index Searches: 16
+              Buffers: shared hit=1172
+Settings: search_path = 'run'
+Planning Time: 0.066 ms
+Execution Time: 8.193 ms

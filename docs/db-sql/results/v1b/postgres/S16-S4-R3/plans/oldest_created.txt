@@ -1,0 +1,12 @@
+Limit  (cost=0.46..1.19 rows=1 width=8) (actual time=0.028..0.029 rows=1.00 loops=1)
+  Buffers: shared hit=4
+  ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record  (cost=0.46..45057.03 rows=62147 width=8) (actual time=0.028..0.028 rows=1.00 loops=1)
+        Index Cond: (status = 'NEW'::text)
+        Filter: (partition_no = ANY ('{0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240}'::integer[]))
+        Rows Removed by Filter: 27
+        Heap Fetches: 0
+        Index Searches: 1
+        Buffers: shared hit=4
+Settings: search_path = 'run'
+Planning Time: 0.093 ms
+Execution Time: 0.045 ms

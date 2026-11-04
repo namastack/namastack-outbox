@@ -1,0 +1,9 @@
+Delete on outbox_record  (cost=0.42..8.44 rows=0 width=0) (actual time=0.018..0.019 rows=0.00 loops=1)
+  Buffers: shared hit=4
+  ->  Index Scan using outbox_record_pkey on outbox_record  (cost=0.42..8.44 rows=1 width=6) (actual time=0.018..0.018 rows=0.00 loops=1)
+        Index Cond: ((id)::text = '00022804-c4ad-4ccf-bec4-aae1740c064f'::text)
+        Index Searches: 1
+        Buffers: shared hit=4
+Settings: search_path = 'run'
+Planning Time: 0.025 ms
+Execution Time: 0.031 ms

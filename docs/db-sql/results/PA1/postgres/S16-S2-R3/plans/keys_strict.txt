@@ -1,0 +1,24 @@
+Limit  (cost=316.43..316.46 rows=10 width=82) (actual time=0.640..0.642 rows=10.00 loops=1)
+  Buffers: shared hit=345
+  ->  Sort  (cost=316.43..316.61 rows=70 width=82) (actual time=0.640..0.640 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 26kB
+        Buffers: shared hit=345
+        ->  Nested Loop Anti Join  (cost=0.74..314.92 rows=70 width=82) (actual time=0.104..0.620 rows=52.00 loops=1)
+              Buffers: shared hit=345
+              ->  Index Scan using idx_outbox_record_status_retry_incomplete on outbox_record o  (cost=0.33..39.15 rows=71 width=82) (actual time=0.054..0.391 rows=53.00 loops=1)
+                    Index Cond: (((status)::text = 'NEW'::text) AND (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone))
+                    Filter: (partition_no = ANY ('{0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240}'::integer[]))
+                    Rows Removed by Filter: 947
+                    Index Searches: 1
+                    Buffers: shared hit=183
+              ->  Index Only Scan using idx_outbox_record_key_created_id_incomplete on outbox_record earlier  (cost=0.41..3.87 rows=1 width=82) (actual time=0.004..0.004 rows=0.02 loops=53)
+                    Index Cond: ((record_key = (o.record_key)::text) AND (created_at <= o.created_at))
+                    Filter: ((created_at < o.created_at) OR ((created_at = o.created_at) AND ((id)::text < (o.id)::text)))
+                    Rows Removed by Filter: 1
+                    Heap Fetches: 0
+                    Index Searches: 53
+                    Buffers: shared hit=162
+Settings: search_path = 'run'
+Planning Time: 0.345 ms
+Execution Time: 0.703 ms

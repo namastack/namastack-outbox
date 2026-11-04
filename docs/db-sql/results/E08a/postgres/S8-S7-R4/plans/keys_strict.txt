@@ -1,0 +1,29 @@
+Limit  (cost=3387.43..3387.45 rows=10 width=82) (actual time=2.402..2.403 rows=10.00 loops=1)
+  Buffers: shared hit=2496
+  ->  Sort  (cost=3387.43..3389.03 rows=640 width=82) (actual time=2.401..2.402 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 26kB
+        Buffers: shared hit=2496
+        ->  Nested Loop  (cost=0.85..3373.60 rows=640 width=82) (actual time=0.048..2.317 rows=640.00 loops=1)
+              Buffers: shared hit=2496
+              ->  Function Scan on unnest p  (cost=0.00..0.64 rows=64 width=4) (actual time=0.011..0.014 rows=64.00 loops=1)
+              ->  Limit  (cost=0.84..52.60 rows=10 width=82) (actual time=0.007..0.035 rows=10.00 loops=64)
+                    Buffers: shared hit=2496
+                    ->  Nested Loop Anti Join  (cost=0.84..192.35 rows=37 width=82) (actual time=0.007..0.034 rows=10.00 loops=64)
+                          Buffers: shared hit=2496
+                          ->  Index Only Scan using idx_outbox_record_part_status_created_id_incomplete on outbox_record o  (cost=0.42..4.81 rows=43 width=82) (actual time=0.004..0.006 rows=10.00 loops=64)
+                                Index Cond: ((partition_no = p.no) AND (status = 'NEW'::text))
+                                Filter: (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone)
+                                Heap Fetches: 0
+                                Index Searches: 64
+                                Buffers: shared hit=392
+                          ->  Index Only Scan using idx_outbox_record_key_created_id_incomplete on outbox_record earlier  (cost=0.42..4.45 rows=1 width=82) (actual time=0.003..0.003 rows=0.00 loops=640)
+                                Index Cond: ((record_key = (o.record_key)::text) AND (created_at <= o.created_at))
+                                Filter: ((created_at < o.created_at) OR ((created_at = o.created_at) AND ((id)::text < (o.id)::text)))
+                                Rows Removed by Filter: 1
+                                Heap Fetches: 0
+                                Index Searches: 640
+                                Buffers: shared hit=2104
+Settings: search_path = 'run'
+Planning Time: 0.253 ms
+Execution Time: 2.459 ms

@@ -31,8 +31,8 @@ case "$cmd" in
         postgres)  docker exec "$name" pg_isready -U bench -d bench >/dev/null 2>&1 && break ;;
         mysql)     docker exec "$name" mysqladmin ping -h 127.0.0.1 -pbench --silent >/dev/null 2>&1 && break ;;
         mariadb)   docker exec "$name" healthcheck.sh --connect --innodb_initialized >/dev/null 2>&1 && break ;;
-        sqlserver) docker logs "$name" 2>&1 | grep -q 'SQL Server is now ready for client connections' && break ;;
-        oracle)    docker logs "$name" 2>&1 | grep -q 'DATABASE IS READY TO USE' && break ;;
+        sqlserver) [ -n "$(docker logs "$name" 2>&1 | grep -m1 'SQL Server is now ready for client connections')" ] && break ;;
+        oracle)    [ -n "$(docker logs "$name" 2>&1 | grep -m1 'DATABASE IS READY TO USE')" ] && break ;;
       esac; sleep 2
     done
     sleep 5   # first start: images run a temporary init server before the real one

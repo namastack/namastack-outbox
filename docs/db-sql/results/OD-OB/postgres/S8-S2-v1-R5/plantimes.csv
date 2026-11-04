@@ -1,0 +1,3 @@
+query_id,planning_ms,execution_ms
+keys_strict,0.302,0.189
+oldest_due_nonstrict,0.134,0.057

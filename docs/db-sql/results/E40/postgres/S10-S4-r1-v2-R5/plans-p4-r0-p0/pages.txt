@@ -1,0 +1,14 @@
+Nested Loop  (cost=0.82..86.12 rows=10 width=1090) (actual time=0.504..0.507 rows=0.00 loops=1)
+  Buffers: shared hit=40
+  ->  Sort  (cost=0.27..0.29 rows=10 width=32) (actual time=0.122..0.128 rows=10.00 loops=1)
+        Sort Key: t.k
+        Sort Method: quicksort  Memory: 25kB
+        ->  Function Scan on unnest t  (cost=0.00..0.10 rows=10 width=32) (actual time=0.046..0.050 rows=10.00 loops=1)
+  ->  Index Scan using idx_outbox_record_key_created_id_incomplete on outbox_record r  (cost=0.55..8.57 rows=1 width=1090) (actual time=0.036..0.036 rows=0.00 loops=10)
+        Index Cond: ((record_key)::text = (t.k)::text)
+        Filter: ((status)::text = 'NEW'::text)
+        Index Searches: 10
+        Buffers: shared hit=40
+Settings: search_path = 'run'
+Planning Time: 0.618 ms
+Execution Time: 0.791 ms

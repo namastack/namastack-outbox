@@ -1,0 +1,24 @@
+Limit  (cost=1001.00..16946.86 rows=4130 width=82) (actual time=4.205..6.066 rows=10.00 loops=1)
+  Buffers: shared hit=160
+  ->  Gather Merge  (cost=1001.00..160478.88 rows=41305 width=82) (actual time=4.204..6.064 rows=10.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=160
+        ->  Nested Loop Anti Join  (cost=0.98..154711.24 rows=17210 width=82) (actual time=0.052..0.149 rows=10.00 loops=3)
+              Buffers: shared hit=160
+              ->  Parallel Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record o  (cost=0.42..57265.73 rows=17491 width=82) (actual time=0.028..0.064 rows=10.00 loops=3)
+                    Index Cond: (status = $65)
+                    Filter: ((next_retry_at <= $66) AND (partition_no = ANY (ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64])))
+                    Rows Removed by Filter: 30
+                    Heap Fetches: 0
+                    Index Searches: 1
+                    Buffers: shared hit=8
+              ->  Index Scan using idx_outbox_record_key_created_id_incomplete on outbox_record earlier  (cost=0.55..5.56 rows=1 width=82) (actual time=0.008..0.008 rows=0.00 loops=30)
+                    Index Cond: (((record_key)::text = (o.record_key)::text) AND (created_at <= o.created_at))
+                    Filter: ((next_retry_at <= $68) AND ((status)::text = $67) AND ((created_at < o.created_at) OR ((created_at = o.created_at) AND ((id)::text < (o.id)::text))))
+                    Rows Removed by Filter: 1
+                    Index Searches: 30
+                    Buffers: shared hit=152
+Settings: search_path = 'run', plan_cache_mode = 'force_generic_plan'
+Planning Time: 0.065 ms
+Execution Time: 6.138 ms

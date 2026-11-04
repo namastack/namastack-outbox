@@ -1,0 +1,30 @@
+Limit  (cost=11464.80..11464.82 rows=10 width=82) (actual time=15.710..15.712 rows=10.00 loops=1)
+  Buffers: shared hit=5535
+  ->  Sort  (cost=11464.80..11466.40 rows=640 width=82) (actual time=15.710..15.711 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 27kB
+        Buffers: shared hit=5535
+        ->  Nested Loop  (cost=0.98..11450.97 rows=640 width=82) (actual time=0.134..15.611 rows=640.00 loops=1)
+              Buffers: shared hit=5535
+              ->  Function Scan on unnest p  (cost=0.00..0.64 rows=64 width=4) (actual time=0.013..0.019 rows=64.00 loops=1)
+              ->  Limit  (cost=0.98..178.81 rows=10 width=82) (actual time=0.028..0.243 rows=10.00 loops=64)
+                    Buffers: shared hit=5535
+                    ->  Nested Loop Anti Join  (cost=0.98..61194.45 rows=3441 width=82) (actual time=0.028..0.242 rows=10.00 loops=64)
+                          Buffers: shared hit=5535
+                          ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record o  (cost=0.42..45231.79 rows=3899 width=82) (actual time=0.024..0.205 rows=10.00 loops=64)
+                                Index Cond: (status = 'NEW'::text)
+                                Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = p.no))
+                                Rows Removed by Filter: 2583
+                                Heap Fetches: 0
+                                Index Searches: 64
+                                Buffers: shared hit=2974
+                          ->  Index Only Scan using idx_outbox_record_key_created_id_incomplete on outbox_record earlier  (cost=0.55..4.08 rows=1 width=82) (actual time=0.003..0.003 rows=0.00 loops=640)
+                                Index Cond: ((record_key = (o.record_key)::text) AND (created_at <= o.created_at))
+                                Filter: ((created_at < o.created_at) OR ((created_at = o.created_at) AND ((id)::text < (o.id)::text)))
+                                Rows Removed by Filter: 1
+                                Heap Fetches: 0
+                                Index Searches: 640
+                                Buffers: shared hit=2561
+Settings: search_path = 'run'
+Planning Time: 0.305 ms
+Execution Time: 15.771 ms

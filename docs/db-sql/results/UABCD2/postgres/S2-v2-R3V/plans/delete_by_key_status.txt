@@ -1,0 +1,11 @@
+Delete on outbox_record  (cost=0.42..2435.71 rows=0 width=0) (actual time=0.291..0.292 rows=0.00 loops=1)
+  Buffers: shared hit=1183
+  ->  Index Scan using idx_outbox_record_status_partition on outbox_record  (cost=0.42..2435.71 rows=1 width=6) (actual time=0.291..0.291 rows=0.00 loops=1)
+        Index Cond: ((status)::text = 'NEW'::text)
+        Filter: ((record_key)::text = 'order-000000000000000000000000000000'::text)
+        Rows Removed by Filter: 1199
+        Index Searches: 1
+        Buffers: shared hit=1183
+Settings: search_path = 'run'
+Planning Time: 0.028 ms
+Execution Time: 0.304 ms

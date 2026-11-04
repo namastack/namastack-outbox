@@ -1,0 +1,19 @@
+Sort  (cost=208060.12..208060.12 rows=1 width=1061) (actual time=127.869..135.902 rows=1.00 loops=1)
+  Sort Key: created_at, id
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=16020 read=185715
+  ->  Gather  (cost=1000.00..208060.11 rows=1 width=1061) (actual time=84.104..135.887 rows=1.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=16020 read=185715
+        ->  Parallel Seq Scan on outbox_record  (cost=0.00..207060.01 rows=1 width=1061) (actual time=100.105..114.656 rows=0.33 loops=3)
+              Filter: (((record_key)::text = 'order-000000000000000000000000000000'::text) AND ((status)::text = 'NEW'::text))
+              Rows Removed by Filter: 284413
+              Buffers: shared hit=16020 read=185715
+Settings: search_path = 'run'
+Planning Time: 0.065 ms
+JIT:
+  Functions: 6
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 0.735 ms (Deform 0.199 ms), Inlining 0.000 ms, Optimization 0.491 ms, Emission 8.026 ms, Total 9.252 ms
+Execution Time: 136.111 ms

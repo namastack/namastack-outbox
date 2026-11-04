@@ -1,0 +1,6 @@
+-- id: count_partitions
+-- group: MON
+-- kind: read
+-- maxrows: none
+-- source: catalog v1 + literal completed_at IS NULL (round 3 UABC-L)
+SELECT COUNT(*) FROM outbox_record WHERE partition_no IN (:partitions) AND status = :status AND completed_at IS NULL

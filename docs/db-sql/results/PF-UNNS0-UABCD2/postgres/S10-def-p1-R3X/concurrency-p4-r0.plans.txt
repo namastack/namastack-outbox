@@ -1,0 +1,67 @@
+pages statements >= 5 ms logged during the run: 0
+final captures (one per poller, with actuals): 4
+
+== first 3 slow pages plans ==
+
+
+== final captures ==
+2026-11-02 21:47:57.339 UTC [146] LOG:  duration: 0.543 ms  plan:
+	Query Text: /* pages */ SELECT o.* FROM ( SELECT t.k FROM unnest(CAST(ARRAY[$1,$2,$3,$4,$5,$6,$7,$8,$9,$10] AS varchar[])) AS t(k) ORDER BY t.k ) k CROSS JOIN LATERAL ( SELECT r.* FROM outbox_record r WHERE r.record_key = k.k AND r.status = $11 AND r.completed_at IS NULL OFFSET 0 ) o
+	Query Parameters: $1 = 'order-cc-81123-00000000000000016894', $2 = 'order-cc-5723-00000000000300016893', $3 = 'order-cc-43726-00000000000200016944', $4 = 'order-cc-25543-00000000000200016945', $5 = 'order-cc-25557-00000000000100016849', $6 = 'order-cc-94971-00000000000300016898', $7 = 'order-cc-18836-00000000000000016900', $8 = 'order-cc-45056-00000000000300016899', $9 = 'order-cc-75249-00000000000000016902', $10 = 'order-cc-74429-00000000000100016852', $11 = 'NEW'
+	Nested Loop  (cost=0.68..84.72 rows=10 width=1093) (actual time=0.538..0.540 rows=0.00 loops=1)
+	  Buffers: shared hit=50
+	  ->  Sort  (cost=0.27..0.29 rows=10 width=32) (actual time=0.158..0.163 rows=10.00 loops=1)
+	        Sort Key: t.k
+	        Sort Method: quicksort  Memory: 25kB
+	        ->  Function Scan on unnest t  (cost=0.00..0.10 rows=10 width=32) (actual time=0.058..0.062 rows=10.00 loops=1)
+	  ->  Index Scan using idx_outbox_record_key_created_id_incomplete on outbox_record r  (cost=0.41..8.43 rows=1 width=1093) (actual time=0.036..0.036 rows=0.00 loops=10)
+	        Index Cond: ((record_key)::text = (t.k)::text)
+	        Filter: ((status)::text = ($11)::text)
+	        Index Searches: 10
+	        Buffers: shared hit=50
+
+2026-11-02 21:47:57.339 UTC [148] LOG:  duration: 0.599 ms  plan:
+	Query Text: /* pages */ SELECT o.* FROM ( SELECT t.k FROM unnest(CAST(ARRAY[$1,$2,$3,$4,$5,$6,$7,$8,$9,$10] AS varchar[])) AS t(k) ORDER BY t.k ) k CROSS JOIN LATERAL ( SELECT r.* FROM outbox_record r WHERE r.record_key = k.k AND r.status = $11 AND r.completed_at IS NULL OFFSET 0 ) o
+	Query Parameters: $1 = 'order-cc-46179-00000000000200017041', $2 = 'order-cc-6469-00000000000000016989', $3 = 'order-cc-89602-00000000000200017042', $4 = 'order-cc-84189-00000000000000016991', $5 = 'order-cc-12046-00000000000200017043', $6 = 'order-cc-57749-00000000000200017046', $7 = 'order-cc-23556-00000000000000016996', $8 = 'order-cc-24447-00000000000200017050', $9 = 'order-cc-53159-00000000000300016998', $10 = 'order-cc-74715-00000000000000016999', $11 = 'NEW'
+	Nested Loop  (cost=0.68..84.72 rows=10 width=1093) (actual time=0.594..0.597 rows=0.00 loops=1)
+	  Buffers: shared hit=50
+	  ->  Sort  (cost=0.27..0.29 rows=10 width=32) (actual time=0.151..0.157 rows=10.00 loops=1)
+	        Sort Key: t.k
+	        Sort Method: quicksort  Memory: 25kB
+	        ->  Function Scan on unnest t  (cost=0.00..0.10 rows=10 width=32) (actual time=0.055..0.059 rows=10.00 loops=1)
+	  ->  Index Scan using idx_outbox_record_key_created_id_incomplete on outbox_record r  (cost=0.41..8.43 rows=1 width=1093) (actual time=0.041..0.041 rows=0.00 loops=10)
+	        Index Cond: ((record_key)::text = (t.k)::text)
+	        Filter: ((status)::text = ($11)::text)
+	        Index Searches: 10
+	        Buffers: shared hit=50
+
+2026-11-02 21:47:57.339 UTC [147] LOG:  duration: 0.577 ms  plan:
+	Query Text: /* pages */ SELECT o.* FROM ( SELECT t.k FROM unnest(CAST(ARRAY[$1,$2,$3,$4,$5,$6,$7,$8,$9,$10] AS varchar[])) AS t(k) ORDER BY t.k ) k CROSS JOIN LATERAL ( SELECT r.* FROM outbox_record r WHERE r.record_key = k.k AND r.status = $11 AND r.completed_at IS NULL OFFSET 0 ) o
+	Query Parameters: $1 = 'order-cc-93114-00000000000300016934', $2 = 'order-cc-56679-00000000000200016986', $3 = 'order-cc-35114-00000000000000016939', $4 = 'order-cc-35496-00000000000100016893', $5 = 'order-cc-66793-00000000000200016992', $6 = 'order-cc-78804-00000000000100016894', $7 = 'order-cc-50216-00000000000200016994', $8 = 'order-cc-92382-00000000000300016943', $9 = 'order-cc-77585-00000000000200016996', $10 = 'order-cc-16037-00000000000100016897', $11 = 'NEW'
+	Nested Loop  (cost=0.68..84.72 rows=10 width=1093) (actual time=0.573..0.575 rows=0.00 loops=1)
+	  Buffers: shared hit=50
+	  ->  Sort  (cost=0.27..0.29 rows=10 width=32) (actual time=0.157..0.162 rows=10.00 loops=1)
+	        Sort Key: t.k
+	        Sort Method: quicksort  Memory: 25kB
+	        ->  Function Scan on unnest t  (cost=0.00..0.10 rows=10 width=32) (actual time=0.067..0.071 rows=10.00 loops=1)
+	  ->  Index Scan using idx_outbox_record_key_created_id_incomplete on outbox_record r  (cost=0.41..8.43 rows=1 width=1093) (actual time=0.039..0.039 rows=0.00 loops=10)
+	        Index Cond: ((record_key)::text = (t.k)::text)
+	        Filter: ((status)::text = ($11)::text)
+	        Index Searches: 10
+	        Buffers: shared hit=50
+
+2026-11-02 21:47:57.339 UTC [145] LOG:  duration: 0.576 ms  plan:
+	Query Text: /* pages */ SELECT o.* FROM ( SELECT t.k FROM unnest(CAST(ARRAY[$1,$2,$3,$4,$5,$6,$7,$8,$9,$10] AS varchar[])) AS t(k) ORDER BY t.k ) k CROSS JOIN LATERAL ( SELECT r.* FROM outbox_record r WHERE r.record_key = k.k AND r.status = $11 AND r.completed_at IS NULL OFFSET 0 ) o
+	Query Parameters: $1 = 'order-cc-36816-00000000000200016979', $2 = 'order-cc-45953-00000000000300016929', $3 = 'order-cc-43812-00000000000000016930', $4 = 'order-cc-85642-00000000000100016884', $5 = 'order-cc-84230-00000000000000016934', $6 = 'order-cc-5669-00000000000300016933', $7 = 'order-cc-48507-00000000000200016985', $8 = 'order-cc-33784-00000000000100016887', $9 = 'order-cc-36467-00000000000000016936', $10 = 'order-cc-2366-00000000000100016888', $11 = 'NEW'
+	Nested Loop  (cost=0.68..84.72 rows=10 width=1093) (actual time=0.570..0.573 rows=0.00 loops=1)
+	  Buffers: shared hit=50
+	  ->  Sort  (cost=0.27..0.29 rows=10 width=32) (actual time=0.175..0.180 rows=10.00 loops=1)
+	        Sort Key: t.k
+	        Sort Method: quicksort  Memory: 25kB
+	        ->  Function Scan on unnest t  (cost=0.00..0.10 rows=10 width=32) (actual time=0.067..0.071 rows=10.00 loops=1)
+	  ->  Index Scan using idx_outbox_record_key_created_id_incomplete on outbox_record r  (cost=0.41..8.43 rows=1 width=1093) (actual time=0.034..0.034 rows=0.00 loops=10)
+	        Index Cond: ((record_key)::text = (t.k)::text)
+	        Filter: ((status)::text = ($11)::text)
+	        Index Searches: 10
+	        Buffers: shared hit=50
+

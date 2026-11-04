@@ -1,0 +1,11 @@
+Aggregate  (cost=18887.76..18887.77 rows=1 width=8) (actual time=3.709..3.709 rows=1.00 loops=1)
+  Buffers: shared hit=6562
+  ->  Index Scan using idx_outbox_record_status on outbox_record  (cost=0.58..18882.20 rows=2222 width=0) (actual time=0.020..3.622 rows=2510.00 loops=1)
+        Index Cond: ((status)::text = 'NEW'::text)
+        Filter: (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[]))
+        Rows Removed by Filter: 7490
+        Index Searches: 1
+        Buffers: shared hit=6562
+Settings: search_path = 'run'
+Planning Time: 0.079 ms
+Execution Time: 3.734 ms

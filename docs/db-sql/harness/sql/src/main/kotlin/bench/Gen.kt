@@ -21,6 +21,10 @@ const val HOUR = 60 * MIN
 const val DAY = 24 * HOUR
 val T0: Instant = Instant.parse("2026-01-01T12:00:00Z")
 val T0_MICROS: Long = T0.epochSecond * SEC
+/** `HARNESS_ID_VERSION=7`: record ids are UUIDv7 (48-bit ms of created_at first, 12-bit counter, random tail); default random v4 (round 4 E40). */
+val ID_V7: Boolean = System.getenv("HARNESS_ID_VERSION") == "7"
+fun uuidV7(createdMicros: Long, counter: Long, rnd: Long): java.util.UUID =
+    java.util.UUID(((createdMicros / 1000) shl 16) or 0x7000L or (counter and 0xfffL), (rnd and 0x3fffffffffffffffL) or Long.MIN_VALUE)
 
 fun micros(i: Instant): Long = i.epochSecond * SEC + i.nano / 1000
 fun instantOfMicros(m: Long): Instant = Instant.ofEpochSecond(Math.floorDiv(m, SEC), Math.floorMod(m, SEC) * 1000)
@@ -207,9 +211,9 @@ class Realisation(val spec: ScenarioSpec, val seed: Long, private val truncateSe
     private fun row(ord: Int, k: Int, kind: Kind): Row {
         val r = Rng(seed, 5_000_000_000L + ord)
         val a = r.next(); val b = r.next()
-        val id = java.util.UUID(((a and -61441L) or 0x4000L), (b and 0x3fffffffffffffffL) or Long.MIN_VALUE).toString()
-        val key = Realisation.pad(k)
         val c = created[ord]
+        val id = (if (ID_V7) uuidV7(c, a, b) else java.util.UUID(((a and -61441L) or 0x4000L), (b and 0x3fffffffffffffffL) or Long.MIN_VALUE)).toString()
+        val key = Realisation.pad(k)
         val tr = { v: Long -> if (truncateSeconds) v - Math.floorMod(v, SEC) else v }
         var completed: Long? = null; var fc = 0; var reason: String? = null; var next = c; val status: String
         when (kind) {
@@ -245,7 +249,7 @@ object Loader {
         }
         // Remember which scenario the snapshot holds
         java.io.File("build/snap-${d.id}.txt").also { it.parentFile?.mkdirs() }
-            .writeText("scenario=${spec.id}\nseed=$seed\nrows=${spec.totalRows}\n")
+            .writeText("scenario=${spec.id}\nseed=$seed\nrows=${spec.totalRows}\n" + (if (ID_V7) "ids=uuidv7\n" else ""))
     }
 
     private fun q(s: String?): String = if (s == null) "" else "\"" + s.replace("\"", "\"\"") + "\""
@@ -289,11 +293,28 @@ object Loader {
 
     /** Build a run schema for a variant from the snapshot: DDL (tables), data copy, DDL (indexes), statistics. */
     fun prepare(d: Dialect, schema: String, ddlText: String) {
-        val stmts = d.splitDdl(ddlText)
+        val stmts0 = d.splitDdl(ddlText)
+        // MySQL/MariaDB declare the secondary indexes inline in CREATE TABLE: move them to one ALTER TABLE ... ADD INDEX after the load
+        // (index list identical; avoids maintaining 5 secondary indexes row by row during INSERT ... SELECT).
+        val inlineIdx = mutableListOf<String>()
+        val stmts = if (d == Dialect.MYSQL || d == Dialect.MARIADB) stmts0.map { st ->
+            if (!Regex("^CREATE\\s+TABLE\\s+IF\\s+NOT\\s+EXISTS\\s+outbox_record\\b", RegexOption.IGNORE_CASE).containsMatchIn(st)) st else {
+                val keep = mutableListOf<String>()
+                for (l in st.lines()) {
+                    val m = Regex("^\\s*((UNIQUE\\s+)?INDEX\\s+\\w+\\s*\\(.*\\))\\s*,?\\s*$", RegexOption.IGNORE_CASE).find(l)
+                    if (m != null) inlineIdx += m.groupValues[1] else keep += l
+                }
+                // the last remaining column/constraint line must not end with a comma
+                val iClose = keep.indexOfFirst { it.trim().startsWith(")") }
+                if (iClose > 0) keep[iClose - 1] = keep[iClose - 1].trimEnd().trimEnd(',')
+                keep.joinToString("\n")
+            }
+        } else stmts0
         val isIndex = { s: String -> Regex("^CREATE\\s+(UNIQUE\\s+)?INDEX|^CREATE\\s+STATISTICS", RegexOption.IGNORE_CASE).containsMatchIn(s) }
         val deferIndexes = d == Dialect.POSTGRES || d == Dialect.H2
         val first = if (deferIndexes) stmts.filter { !isIndex(it) } else stmts
-        val later = if (deferIndexes) stmts.filter { isIndex(it) } else emptyList()
+        val later = (if (deferIndexes) stmts.filter { isIndex(it) } else emptyList()) +
+            (if (inlineIdx.isNotEmpty()) listOf("ALTER TABLE outbox_record " + inlineIdx.joinToString(", ") { "ADD $it" }) else emptyList())
         d.resetSchema(schema)
         if (d == Dialect.ORACLE) d.admin().use { it.createStatement().execute("GRANT SELECT ON snap.rec TO $schema") }
         d.connect(schema).use { c ->

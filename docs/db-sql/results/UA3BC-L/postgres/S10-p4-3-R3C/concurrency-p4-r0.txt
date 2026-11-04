@@ -1,0 +1,19 @@
+tag: p4-r0  pollers=4 producers=4 rate=unthrottled seconds=60.4
+processed_per_s: 1206.2   (total 72900)
+inserted_per_s: 1575.6   (total 95228)
+errors: 0
+keys_query_ms: n=7290 p50=4.92 p95=6.46
+pages_query_ms: n=7290 p50=1.35 p95=1.65
+pages_db_only_ms: n=7290 p50=1.35 p95=1.65
+client_sort: false  session_init: []
+auto_explain: 0 pages plans >= 5 ms logged, 4 final captures (concurrency-p4-r0.plans.txt)
+poller 0: EXPLAIN ANALYZE (custom plan, last key set, 10 keys) planning 0.911 ms, execution 0.480 ms (plans-p4-r0-p0/pages.txt)
+poller 0: pages server-prepared statements=1 custom_plans=5 generic_plans=1823 (executions before the 5th use an unnamed statement and are not counted)
+poller 1: EXPLAIN ANALYZE (custom plan, last key set, 10 keys) planning 0.910 ms, execution 0.637 ms (plans-p4-r0-p1/pages.txt)
+poller 1: pages server-prepared statements=1 custom_plans=5 generic_plans=1812 (executions before the 5th use an unnamed statement and are not counted)
+poller 2: EXPLAIN ANALYZE (custom plan, last key set, 10 keys) planning 0.735 ms, execution 0.510 ms (plans-p4-r0-p2/pages.txt)
+poller 2: pages server-prepared statements=1 custom_plans=5 generic_plans=1802 (executions before the 5th use an unnamed statement and are not counted)
+poller 3: EXPLAIN ANALYZE (custom plan, last key set, 10 keys) planning 1.031 ms, execution 0.702 ms (plans-p4-r0-p3/pages.txt)
+poller 3: pages server-prepared statements=1 custom_plans=5 generic_plans=1817 (executions before the 5th use an unnamed statement and are not counted)
+update_ms: n=72900 p50=2.50 p95=5.48
+insert_ms: n=95228 p50=2.11 p95=5.16

@@ -1,0 +1,7 @@
+DELETE FROM "RUN"."OUTBOX_RECORD"
+    /* RUN.IDX_OUTBOX_RECORD_STATUS: STATUS = 'FAILED' */
+    /* scanCount: 12801 */
+WHERE "STATUS" = 'FAILED'
+/*
+reads: 46932
+*/

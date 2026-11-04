@@ -1,0 +1,15 @@
+Result  (cost=0.90..0.91 rows=1 width=8) (actual time=0.055..0.055 rows=1.00 loops=1)
+  Buffers: shared hit=4
+  InitPlan 1
+    ->  Limit  (cost=0.42..0.90 rows=1 width=8) (actual time=0.053..0.054 rows=1.00 loops=1)
+          Buffers: shared hit=4
+          ->  Index Only Scan using idx_outbox_record_status_retry_incomplete on outbox_record o  (cost=0.42..19843.52 rows=41348 width=8) (actual time=0.053..0.053 rows=1.00 loops=1)
+                Index Cond: ((status = $65) AND (next_retry_at <= $66))
+                Filter: (partition_no = ANY (ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64]))
+                Rows Removed by Filter: 6
+                Heap Fetches: 0
+                Index Searches: 1
+                Buffers: shared hit=4
+Settings: search_path = 'run', plan_cache_mode = 'force_generic_plan'
+Planning Time: 0.060 ms
+Execution Time: 0.075 ms

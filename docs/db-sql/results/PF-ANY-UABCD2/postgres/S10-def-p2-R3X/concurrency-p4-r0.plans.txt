@@ -1,0 +1,43 @@
+pages statements >= 5 ms logged during the run: 0
+final captures (one per poller, with actuals): 4
+
+== first 3 slow pages plans ==
+
+
+== final captures ==
+2026-11-02 21:59:19.757 UTC [265] LOG:  duration: 0.126 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key = ANY(CAST(ARRAY[$1,$2,$3,$4,$5,$6,$7,$8,$9,$10] AS varchar[])) AND status = $11 AND completed_at IS NULL
+	Query Parameters: $1 = 'order-cc-49693-00000000000100018848', $2 = 'order-cc-98893-00000000000300018826', $3 = 'order-cc-69315-00000000000000018805', $4 = 'order-cc-60478-00000000000200018806', $5 = 'order-cc-61175-00000000000000018806', $6 = 'order-cc-68701-00000000000100018850', $7 = 'order-cc-83256-00000000000300018829', $8 = 'order-cc-30679-00000000000000018809', $9 = 'order-cc-36719-00000000000200018810', $10 = 'order-cc-42457-00000000000000018810', $11 = 'NEW'
+	Index Scan using idx_outbox_record_key_created_id_incomplete on outbox_record  (cost=0.41..48.24 rows=1 width=1093) (actual time=0.125..0.125 rows=0.00 loops=1)
+	  Index Cond: ((record_key)::text = ANY ((ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10])::text[]))
+	  Filter: ((status)::text = ($11)::text)
+	  Index Searches: 10
+	  Buffers: shared hit=49
+
+2026-11-02 21:59:19.757 UTC [268] LOG:  duration: 0.164 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key = ANY(CAST(ARRAY[$1,$2,$3,$4,$5,$6,$7,$8,$9,$10] AS varchar[])) AND status = $11 AND completed_at IS NULL
+	Query Parameters: $1 = 'order-cc-40063-00000000000200018904', $2 = 'order-cc-38539-00000000000000018900', $3 = 'order-cc-5619-00000000000300018924', $4 = 'order-cc-53173-00000000000000018902', $5 = 'order-cc-8846-00000000000300018927', $6 = 'order-cc-39665-00000000000100018951', $7 = 'order-cc-87322-00000000000200018911', $8 = 'order-cc-4151-00000000000000018909', $9 = 'order-cc-46614-00000000000100018954', $10 = 'order-cc-14731-00000000000200018914', $11 = 'NEW'
+	Index Scan using idx_outbox_record_key_created_id_incomplete on outbox_record  (cost=0.41..48.24 rows=1 width=1093) (actual time=0.163..0.163 rows=0.00 loops=1)
+	  Index Cond: ((record_key)::text = ANY ((ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10])::text[]))
+	  Filter: ((status)::text = ($11)::text)
+	  Index Searches: 10
+	  Buffers: shared hit=50
+
+2026-11-02 21:59:19.757 UTC [267] LOG:  duration: 0.133 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key = ANY(CAST(ARRAY[$1,$2,$3,$4,$5,$6,$7,$8,$9,$10] AS varchar[])) AND status = $11 AND completed_at IS NULL
+	Query Parameters: $1 = 'order-cc-98440-00000000000100018849', $2 = 'order-cc-85802-00000000000300018828', $3 = 'order-cc-84094-00000000000000018807', $4 = 'order-cc-45540-00000000000300018830', $5 = 'order-cc-92612-00000000000000018808', $6 = 'order-cc-46863-00000000000200018809', $7 = 'order-cc-29498-00000000000300018832', $8 = 'order-cc-55157-00000000000100018854', $9 = 'order-cc-24253-00000000000200018812', $10 = 'order-cc-29285-00000000000000018812', $11 = 'NEW'
+	Index Scan using idx_outbox_record_key_created_id_incomplete on outbox_record  (cost=0.41..48.24 rows=1 width=1093) (actual time=0.132..0.132 rows=0.00 loops=1)
+	  Index Cond: ((record_key)::text = ANY ((ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10])::text[]))
+	  Filter: ((status)::text = ($11)::text)
+	  Index Searches: 10
+	  Buffers: shared hit=49
+
+2026-11-02 21:59:19.757 UTC [266] LOG:  duration: 0.152 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key = ANY(CAST(ARRAY[$1,$2,$3,$4,$5,$6,$7,$8,$9,$10] AS varchar[])) AND status = $11 AND completed_at IS NULL
+	Query Parameters: $1 = 'order-cc-36652-00000000000000018818', $2 = 'order-cc-47861-00000000000100018861', $3 = 'order-cc-80643-00000000000200018819', $4 = 'order-cc-40805-00000000000300018841', $5 = 'order-cc-74095-00000000000100018863', $6 = 'order-cc-1821-00000000000200018820', $7 = 'order-cc-53716-00000000000300018842', $8 = 'order-cc-48361-00000000000000018820', $9 = 'order-cc-48474-00000000000200018821', $10 = 'order-cc-16384-00000000000200018824', $11 = 'NEW'
+	Index Scan using idx_outbox_record_key_created_id_incomplete on outbox_record  (cost=0.41..48.24 rows=1 width=1093) (actual time=0.151..0.151 rows=0.00 loops=1)
+	  Index Cond: ((record_key)::text = ANY ((ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10])::text[]))
+	  Filter: ((status)::text = ($11)::text)
+	  Index Searches: 10
+	  Buffers: shared hit=50
+

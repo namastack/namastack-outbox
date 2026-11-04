@@ -1,0 +1,28 @@
+Limit  (cost=5551.49..5551.52 rows=10 width=82) (actual time=2.564..2.566 rows=10.00 loops=1)
+  Buffers: shared hit=2952
+  ->  Sort  (cost=5551.49..5553.09 rows=640 width=82) (actual time=2.564..2.565 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 26kB
+        Buffers: shared hit=2952
+        ->  Nested Loop  (cost=0.85..5537.66 rows=640 width=82) (actual time=0.047..2.470 rows=640.00 loops=1)
+              Buffers: shared hit=2952
+              ->  Function Scan on unnest p  (cost=0.00..0.64 rows=64 width=4) (actual time=0.011..0.015 rows=64.00 loops=1)
+              ->  Limit  (cost=0.84..86.42 rows=10 width=82) (actual time=0.007..0.037 rows=10.00 loops=64)
+                    Buffers: shared hit=2952
+                    ->  Nested Loop Anti Join  (cost=0.84..368.80 rows=43 width=82) (actual time=0.007..0.037 rows=10.00 loops=64)
+                          Buffers: shared hit=2952
+                          ->  Index Only Scan using idx_outbox_record_part_status_created_id_incomplete on outbox_record o  (cost=0.42..4.81 rows=43 width=82) (actual time=0.003..0.005 rows=10.00 loops=64)
+                                Index Cond: ((partition_no = p.no) AND (status = 'NEW'::text))
+                                Filter: (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone)
+                                Heap Fetches: 0
+                                Index Searches: 64
+                                Buffers: shared hit=392
+                          ->  Index Scan using idx_outbox_record_key_created_id_incomplete on outbox_record earlier  (cost=0.42..8.46 rows=1 width=82) (actual time=0.003..0.003 rows=0.00 loops=640)
+                                Index Cond: (((record_key)::text = (o.record_key)::text) AND (created_at <= o.created_at))
+                                Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND ((status)::text = 'NEW'::text) AND ((created_at < o.created_at) OR ((created_at = o.created_at) AND ((id)::text < (o.id)::text))))
+                                Rows Removed by Filter: 1
+                                Index Searches: 640
+                                Buffers: shared hit=2560
+Settings: search_path = 'run'
+Planning Time: 0.325 ms
+Execution Time: 2.634 ms

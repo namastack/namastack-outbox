@@ -1,0 +1,9 @@
+Update on outbox_record  (cost=0.42..8.44 rows=0 width=0) (actual time=0.030..0.030 rows=0.00 loops=1)
+  Buffers: shared hit=7
+  ->  Index Scan using outbox_record_pkey on outbox_record  (cost=0.42..8.44 rows=1 width=600) (actual time=0.019..0.019 rows=1.00 loops=1)
+        Index Cond: ((id)::text = '019b0684-fdc7-7193-8dc3-7ac467f825bb'::text)
+        Index Searches: 1
+        Buffers: shared hit=5
+Settings: search_path = 'run'
+Planning Time: 0.036 ms
+Execution Time: 0.046 ms

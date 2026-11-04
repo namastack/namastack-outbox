@@ -1,0 +1,13 @@
+Sort  (cost=43.46..43.46 rows=1 width=1093) (actual time=30.019..30.020 rows=0.00 loops=1)
+  Sort Key: record_key, completed_at, created_at, id
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=63256
+  ->  Index Scan using idx_outbox_record_status_created_id_incomplete on outbox_record  (cost=0.44..43.45 rows=1 width=1093) (actual time=30.007..30.007 rows=0.00 loops=1)
+        Index Cond: ((status)::text = 'NEW'::text)
+        Filter: ((record_key)::text = ANY ('{order-cc-83516-00000000000200013361,order-cc-80348-00000000000300013370,order-cc-41599-00000000000000013381,order-cc-52283-00000000000200013365,order-cc-33205-00000000000000013384,order-cc-53951-00000000000300013376,order-cc-32277-00000000000200013368,order-cc-87979-00000000000200013370,order-cc-83643-00000000000000013387,order-cc-81619-00000000000300013379}'::text[]))
+        Rows Removed by Filter: 62611
+        Index Searches: 1
+        Buffers: shared hit=63256
+Settings: search_path = 'run', max_parallel_workers_per_gather = '0'
+Planning Time: 0.137 ms
+Execution Time: 30.057 ms

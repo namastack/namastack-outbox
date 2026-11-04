@@ -1,0 +1,87 @@
+[
+  {
+    "Plan": {
+      "Node Type": "Sort",
+      "Parallel Aware": false,
+      "Async Capable": false,
+      "Startup Cost": 37.29,
+      "Total Cost": 37.30,
+      "Plan Rows": 1,
+      "Plan Width": 1093,
+      "Actual Startup Time": 27.122,
+      "Actual Total Time": 27.123,
+      "Actual Rows": 0.00,
+      "Actual Loops": 1,
+      "Disabled": false,
+      "Sort Key": ["record_key", "created_at", "id"],
+      "Sort Method": "quicksort",
+      "Sort Space Used": 25,
+      "Sort Space Type": "Memory",
+      "Shared Hit Blocks": 69542,
+      "Shared Read Blocks": 0,
+      "Shared Dirtied Blocks": 0,
+      "Shared Written Blocks": 0,
+      "Local Hit Blocks": 0,
+      "Local Read Blocks": 0,
+      "Local Dirtied Blocks": 0,
+      "Local Written Blocks": 0,
+      "Temp Read Blocks": 0,
+      "Temp Written Blocks": 0,
+      "Plans": [
+        {
+          "Node Type": "Index Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Scan Direction": "Forward",
+          "Index Name": "idx_outbox_record_status_retry_incomplete",
+          "Relation Name": "outbox_record",
+          "Alias": "outbox_record",
+          "Startup Cost": 0.45,
+          "Total Cost": 37.28,
+          "Plan Rows": 1,
+          "Plan Width": 1093,
+          "Actual Startup Time": 27.105,
+          "Actual Total Time": 27.105,
+          "Actual Rows": 0.00,
+          "Actual Loops": 1,
+          "Disabled": false,
+          "Index Cond": "((status)::text = 'NEW'::text)",
+          "Rows Removed by Index Recheck": 0,
+          "Filter": "((record_key)::text = ANY ('{order-cc-58212-00000000000300014739,order-cc-30571-00000000000300014740,order-cc-72299-00000000000000014789,order-cc-41792-00000000000000014791,order-cc-48443-00000000000000014792,order-cc-52412-00000000000300014745,order-cc-53848-00000000000000014793,order-cc-24602-00000000000200014783,order-cc-24661-00000000000300014747,order-cc-26978-00000000000000014795}'::text[]))",
+          "Rows Removed by Filter": 70105,
+          "Index Searches": 1,
+          "Shared Hit Blocks": 69542,
+          "Shared Read Blocks": 0,
+          "Shared Dirtied Blocks": 0,
+          "Shared Written Blocks": 0,
+          "Local Hit Blocks": 0,
+          "Local Read Blocks": 0,
+          "Local Dirtied Blocks": 0,
+          "Local Written Blocks": 0,
+          "Temp Read Blocks": 0,
+          "Temp Written Blocks": 0
+        }
+      ]
+    },
+    "Settings": {
+      "search_path": "run"
+    },
+    "Planning": {
+      "Shared Hit Blocks": 0,
+      "Shared Read Blocks": 0,
+      "Shared Dirtied Blocks": 0,
+      "Shared Written Blocks": 0,
+      "Local Hit Blocks": 0,
+      "Local Read Blocks": 0,
+      "Local Dirtied Blocks": 0,
+      "Local Written Blocks": 0,
+      "Temp Read Blocks": 0,
+      "Temp Written Blocks": 0
+    },
+    "Planning Time": 0.158,
+    "Triggers": [
+    ],
+    "Execution Time": 27.162
+  }
+]

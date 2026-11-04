@@ -110,7 +110,11 @@ object Concurrency {
         val cat = Catalog.load(cm.catalogRoot, cm.catalogVariant, cm.dialect, cm.queries)
         val keysQ = cat.getValue("keys_strict"); val pagesQ = cat.getValue("pages"); val updQ = cat.getValue("upd_complete"); val insQ = cat.getValue("insert")
         val stop = AtomicBoolean(false); val processed = AtomicLong(); val inserted = AtomicLong(); val errors = AtomicLong()
-        val latKeys = Lat(); val latPages = Lat(); val latUpd = Lat(); val latIns = Lat()
+        val latKeys = Lat(); val latPages = Lat(); val latPagesDb = Lat(); val latUpd = Lat(); val latIns = Lat()
+        val pg = cm.dialect == Dialect.POSTGRES
+        val capture = pg && o.has("capture-plans")   // auto_explain per poller session + final plan capture (stage 0 of round 3)
+        val pollerInfo = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val sinceInstant = java.time.Instant.now().toString()
         val start = System.nanoTime()
         fun virtualNow(): Long = T0_MICROS + (System.nanoTime() - start) / 1000
         val ctx0 = cm.dialect.connect(cm.schema).use { Ctx(cm.dialect, it, cm.scenario, cm.batch, cm.owned, 10) }
@@ -121,6 +125,9 @@ object Concurrency {
                 cm.dialect.connect(cm.schema).use { c ->
                     c.autoCommit = true
                     val ctx = Ctx(cm.dialect, c, cm.scenario, cm.batch, owned, 10)
+                    var lastPP: Map<String, Any?>? = null
+                    if (capture) c.createStatement().use { st ->   // slow statements (>= 5 ms) of this session are logged with their plan (no ANALYZE overhead)
+                        for (sql in listOf("LOAD 'auto_explain'", "SET auto_explain.log_min_duration = '5ms'", "SET auto_explain.log_analyze = off", "SET auto_explain.log_nested_statements = off")) st.execute(sql) }
                     while (!stop.get()) try {
                         val nowTs = tsOfMicros(virtualNow())
                         val pk = ctx.paramsFor(keysQ, 0).toMutableMap(); pk["now"] = nowTs; pk["partitions"] = owned
@@ -129,10 +136,13 @@ object Concurrency {
                         if (keys.isEmpty()) { Thread.sleep(idle.toLong()); continue }
                         val pp = ctx.paramsFor(pagesQ, 0).toMutableMap(); pp["recordKeys"] = keys
                         t = System.nanoTime(); val res = Bench.exec(c, pagesQ, pp, 0, collect = true)
-                        latPages.add((System.nanoTime() - t) / 1e6)
+                        latPagesDb.add((System.nanoTime() - t) / 1e6)
+                        // --pages-client-sort: group by key + sort by (created_at, id) in the JVM, inside the timed section; processing then sees per-key sorted rows
+                        val pageRows = if (R3.applies(pagesQ)) R3.sort(res) else res.data!!
+                        latPages.add((System.nanoTime() - t) / 1e6); lastPP = pp
                         val iId = res.cols.indexOf("id"); val iKey = res.cols.indexOf("record_key"); val iNext = res.cols.indexOf("next_retry_at")
                         val blocked = HashSet<String>()
-                        for (r in res.data!!) {
+                        for (r in pageRows) {
                             val key = r[iKey]!!; if (key in blocked) continue
                             // strict per-key ordering: only a due record may be processed, later records of the key wait
                             val due = r[iNext]!!.let { s -> java.sql.Timestamp.valueOf(s.substring(0, 19).replace('T', ' ')).time <= nowTs.time + 1000 }
@@ -141,6 +151,18 @@ object Concurrency {
                             t = System.nanoTime(); Bench.exec(c, updQ, up, 0); latUpd.add((System.nanoTime() - t) / 1e6); processed.incrementAndGet()
                         }
                     } catch (e: Exception) { errors.incrementAndGet(); if (errors.get() < 3) e.printStackTrace() }
+                    if (pg) try { // end of run: plan-cache counters of every `pages` statement of this session (text differs per IN-list length) and the plan that ran
+                        c.createStatement().use { st -> st.executeQuery("SELECT count(*), coalesce(sum(custom_plans),0), coalesce(sum(generic_plans),0) FROM pg_prepared_statements WHERE statement LIKE '/* pages */%'").use { rs ->
+                            rs.next(); pollerInfo += "poller $pi: pages server-prepared statements=${rs.getLong(1)} custom_plans=${rs.getLong(2)} generic_plans=${rs.getLong(3)} (executions before the 5th use an unnamed statement and are not counted)" } }
+                        val pp = lastPP
+                        if (capture && pp != null) {
+                            c.createStatement().use { st -> for (sql in listOf("SET auto_explain.log_min_duration = 0", "SET auto_explain.log_analyze = on", "SET auto_explain.log_buffers = on")) st.execute(sql) }
+                            Bench.exec(c, pagesQ, pp, 0, collect = true)   // same statement path as in the loop: logs the plan that runs now (custom or reused generic)
+                            c.createStatement().use { st -> st.execute("SET auto_explain.log_min_duration = -1") }
+                            val pd = File(cm.outDir, "plans-$tag-p$pi").also { it.mkdirs() }
+                            Bench.plan(cm.dialect, c, pagesQ, pp, 0, pd)?.let { pollerInfo += "poller $pi: EXPLAIN ANALYZE (custom plan, last key set, ${(pp["recordKeys"] as List<*>).size} keys) planning %.3f ms, execution %.3f ms (plans-$tag-p$pi/pages.txt)".format(it.first, it.second) }
+                        }
+                    } catch (e: Exception) { pollerInfo += "poller $pi: end-of-run capture failed: $e" }
                 }
             }
         }
@@ -159,12 +181,26 @@ object Concurrency {
         }
         Thread.sleep(seconds * 1000L); stop.set(true); workers.forEach { it.join() }
         val secs = (System.nanoTime() - start) / 1e9
+        if (capture) try { // auto_explain output of the run from the container log -> concurrency-<tag>.plans.txt
+            val pr = ProcessBuilder("docker", "logs", "--since", sinceInstant, cm.dialect.container!!).redirectErrorStream(true).start()
+            val log = pr.inputStream.bufferedReader().readText(); pr.waitFor()
+            val entries = mutableListOf<StringBuilder>(); val head = Regex("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d+ ")
+            for (l in log.lines()) if (head.containsMatchIn(l)) entries += StringBuilder(l) else entries.lastOrNull()?.append('\n')?.append(l)
+            val pagesPlans = entries.map { it.toString() }.filter { "plan:" in it && "/* pages */" in it }
+            val fin = pagesPlans.filter { "actual time=" in it }; val slow = pagesPlans.filter { "actual time=" !in it }
+            File(cm.outDir, "concurrency-$tag.plans.txt").writeText("pages statements >= 5 ms logged during the run: ${slow.size}\nfinal captures (one per poller, with actuals): ${fin.size}\n\n== first 3 slow pages plans ==\n" +
+                slow.take(3).joinToString("\n\n") + "\n\n== final captures ==\n" + fin.joinToString("\n\n") + "\n")
+            pollerInfo += "auto_explain: ${slow.size} pages plans >= 5 ms logged, ${fin.size} final captures (concurrency-$tag.plans.txt)"
+        } catch (e: Exception) { pollerInfo += "auto_explain log read failed: $e" }
         val txt = """tag: $tag  pollers=$pollers producers=$prodThreads rate=${if (rate == 0) "unthrottled" else rate} seconds=%.1f
 processed_per_s: %.1f   (total ${processed.get()})
 inserted_per_s: %.1f   (total ${inserted.get()})
 errors: ${errors.get()}
 keys_query_ms: ${latKeys.summary()}
 pages_query_ms: ${latPages.summary()}
+pages_db_only_ms: ${latPagesDb.summary()}
+client_sort: ${R3.pagesClientSort && R3.applies(pagesQ)}  session_init: ${Dialect.pgSessionSql}
+${pollerInfo.sorted().joinToString("\n")}
 update_ms: ${latUpd.summary()}
 insert_ms: ${latIns.summary()}
 """.format(secs, processed.get() / secs, inserted.get() / secs)

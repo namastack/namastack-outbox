@@ -1,0 +1,24 @@
+Gather Merge  (cost=44649.41..46785.99 rows=18345 width=1091) (actual time=29.293..42.659 rows=18000.00 loops=1)
+  Workers Planned: 2
+  Workers Launched: 2
+  Buffers: shared hit=12933, temp read=1865 written=1866
+  ->  Sort  (cost=43649.39..43668.50 rows=7644 width=1091) (actual time=22.355..24.216 rows=6000.00 loops=3)
+        Sort Key: record_key, created_at, id
+        Sort Method: external merge  Disk: 7024kB
+        Buffers: shared hit=12933, temp read=1865 written=1866
+        Worker 0:  Sort Method: external merge  Disk: 3952kB
+        Worker 1:  Sort Method: external merge  Disk: 3944kB
+        ->  Parallel Bitmap Heap Scan on outbox_record  (cost=1145.95..39495.35 rows=7644 width=1091) (actual time=1.583..7.037 rows=6000.00 loops=3)
+              Recheck Cond: (((record_key)::text = ANY ('{order-000000000000000000000000000057,order-000000000000000000000000000056,order-000000000000000000000000000066,order-000000000000000000000000000087,order-000000000000000000000000000085,order-000000000000000000000000000089,order-000000000000000000000000000097,order-000000000000000000000000000094,order-000000000000000000000000000081}'::text[])) AND (completed_at IS NULL))
+              Filter: ((status)::text = 'NEW'::text)
+              Heap Blocks: exact=5917
+              Buffers: shared hit=12901
+              Worker 0:  Heap Blocks: exact=3362
+              Worker 1:  Heap Blocks: exact=3304
+              ->  Bitmap Index Scan on idx_outbox_record_key_created_id_incomplete  (cost=0.00..1141.35 rows=18345 width=0) (actual time=2.673..2.673 rows=18000.00 loops=1)
+                    Index Cond: ((record_key)::text = ANY ('{order-000000000000000000000000000057,order-000000000000000000000000000056,order-000000000000000000000000000066,order-000000000000000000000000000087,order-000000000000000000000000000085,order-000000000000000000000000000089,order-000000000000000000000000000097,order-000000000000000000000000000094,order-000000000000000000000000000081}'::text[]))
+                    Index Searches: 8
+                    Buffers: shared hit=276
+Settings: search_path = 'run'
+Planning Time: 0.120 ms
+Execution Time: 43.990 ms

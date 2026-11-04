@@ -1,0 +1,2 @@
+query_id,db_only_median_ms,db_only_p95_ms,total_median_ms,total_p95_ms
+pages,1.084,1.294,1.099,1.306

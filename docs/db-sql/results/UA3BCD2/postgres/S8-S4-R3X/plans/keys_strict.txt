@@ -1,0 +1,20 @@
+Limit  (cost=1.14..31.06 rows=10 width=82) (actual time=0.046..0.095 rows=10.00 loops=1)
+  Buffers: shared hit=49
+  ->  Nested Loop Anti Join  (cost=1.14..663671.28 rows=221804 width=82) (actual time=0.045..0.094 rows=10.00 loops=1)
+        Buffers: shared hit=49
+        ->  Index Scan using idx_outbox_record_status_created_id_incomplete on outbox_record o  (cost=0.58..460640.04 rows=251437 width=82) (actual time=0.022..0.031 rows=10.00 loops=1)
+              Index Cond: ((status)::text = 'NEW'::text)
+              Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+              Rows Removed by Filter: 23
+              Index Searches: 1
+              Buffers: shared hit=8
+        ->  Index Only Scan using idx_outbox_record_key_created_id_incomplete on outbox_record earlier  (cost=0.55..0.80 rows=1 width=82) (actual time=0.006..0.006 rows=0.00 loops=10)
+              Index Cond: ((record_key = (o.record_key)::text) AND (created_at <= o.created_at))
+              Filter: ((created_at < o.created_at) OR ((created_at = o.created_at) AND ((id)::text < (o.id)::text)))
+              Rows Removed by Filter: 1
+              Heap Fetches: 0
+              Index Searches: 10
+              Buffers: shared hit=41
+Settings: search_path = 'run'
+Planning Time: 0.267 ms
+Execution Time: 0.138 ms

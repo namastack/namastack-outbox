@@ -1,0 +1,15 @@
+Result  (cost=0.83..0.84 rows=1 width=8) (actual time=0.031..0.031 rows=1.00 loops=1)
+  Buffers: shared hit=4
+  InitPlan 1
+    ->  Limit  (cost=0.46..0.83 rows=1 width=8) (actual time=0.030..0.030 rows=1.00 loops=1)
+          Buffers: shared hit=4
+          ->  Index Only Scan using idx_outbox_record_status_retry_incomplete on outbox_record o  (cost=0.46..22755.67 rows=63113 width=8) (actual time=0.029..0.029 rows=1.00 loops=1)
+                Index Cond: ((status = 'NEW'::text) AND (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone))
+                Filter: (partition_no = ANY ('{0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240}'::integer[]))
+                Rows Removed by Filter: 27
+                Heap Fetches: 0
+                Index Searches: 1
+                Buffers: shared hit=4
+Settings: search_path = 'run'
+Planning Time: 0.104 ms
+Execution Time: 0.047 ms

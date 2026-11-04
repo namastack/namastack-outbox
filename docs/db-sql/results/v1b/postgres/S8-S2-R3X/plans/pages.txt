@@ -1,0 +1,13 @@
+Sort  (cost=43.44..43.44 rows=1 width=1093) (actual time=0.267..0.267 rows=10.00 loops=1)
+  Sort Key: record_key, completed_at, created_at, id
+  Sort Method: quicksort  Memory: 33kB
+  Buffers: shared hit=205
+  ->  Index Scan using idx_outbox_record_status_created_id_incomplete on outbox_record  (cost=0.44..43.43 rows=1 width=1093) (actual time=0.017..0.250 rows=10.00 loops=1)
+        Index Cond: ((status)::text = 'NEW'::text)
+        Filter: ((record_key)::text = ANY ('{order-000000000000000000000000000289,order-000000000000000000000000000926,order-000000000000000000000000000277,order-000000000000000000000000000371,order-000000000000000000000000000513,order-000000000000000000000000000319,order-000000000000000000000000000751,order-000000000000000000000000000327,order-000000000000000000000000000085,order-000000000000000000000000000311}'::text[]))
+        Rows Removed by Filter: 1190
+        Index Searches: 1
+        Buffers: shared hit=205
+Settings: search_path = 'run'
+Planning Time: 0.071 ms
+Execution Time: 0.287 ms

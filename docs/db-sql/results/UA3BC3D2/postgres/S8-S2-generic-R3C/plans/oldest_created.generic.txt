@@ -1,0 +1,11 @@
+Limit  (cost=0.29..978.08 rows=121 width=8) (actual time=0.024..0.024 rows=1.00 loops=1)
+  Buffers: shared hit=9
+  ->  Index Scan using idx_outbox_record_status_created_id_incomplete on outbox_record  (cost=0.29..9786.35 rows=1211 width=8) (actual time=0.023..0.024 rows=1.00 loops=1)
+        Index Cond: ((status)::text = $65)
+        Filter: (partition_no = ANY (ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64]))
+        Rows Removed by Filter: 6
+        Index Searches: 1
+        Buffers: shared hit=9
+Settings: search_path = 'run', plan_cache_mode = 'force_generic_plan'
+Planning Time: 0.050 ms
+Execution Time: 0.041 ms

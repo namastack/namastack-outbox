@@ -1,0 +1,29 @@
+Limit  (cost=44737.61..44737.64 rows=10 width=82) (actual time=244.983..244.985 rows=10.00 loops=1)
+  Buffers: shared hit=18816
+  ->  Sort  (cost=44737.61..44874.99 rows=54949 width=82) (actual time=244.982..244.983 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 27kB
+        Buffers: shared hit=18816
+        ->  Hash Right Anti Join  (cost=3427.45..43550.18 rows=54949 width=82) (actual time=233.984..238.551 rows=62536.00 loops=1)
+              Hash Cond: ((earlier.record_key)::text = (o.record_key)::text)
+              Join Filter: ((earlier.created_at <= o.created_at) AND ((earlier.created_at < o.created_at) OR ((earlier.created_at = o.created_at) AND ((earlier.id)::text < (o.id)::text))))
+              Rows Removed by Join Filter: 62536
+              Buffers: shared hit=18816
+              ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record earlier  (cost=0.42..35480.49 rows=993022 width=82) (actual time=0.021..107.923 rows=1000000.00 loops=1)
+                    Index Cond: (status = 'NEW'::text)
+                    Filter: (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone)
+                    Heap Fetches: 0
+                    Index Searches: 1
+                    Buffers: shared hit=17644
+              ->  Hash  (cost=2654.01..2654.01 rows=61841 width=82) (actual time=19.099..19.100 rows=62536.00 loops=1)
+                    Buckets: 65536  Batches: 1  Memory Usage: 7658kB
+                    Buffers: shared hit=1172
+                    ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record o  (cost=0.42..2654.01 rows=61841 width=82) (actual time=0.024..7.996 rows=62536.00 loops=1)
+                          Index Cond: ((partition_no = ANY ('{0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240}'::integer[])) AND (status = 'NEW'::text))
+                          Filter: (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone)
+                          Heap Fetches: 0
+                          Index Searches: 16
+                          Buffers: shared hit=1172
+Settings: search_path = 'run'
+Planning Time: 0.245 ms
+Execution Time: 245.774 ms

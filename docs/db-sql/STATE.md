@@ -4,7 +4,7 @@ Maintained by the orchestrator. Update after every step.
 
 ## Current phase
 
-Phase 5 round 2 (PostgreSQL) done 2026-11-02, reported to the user. **Stopped: round 3 starts only when the user restarts the run.** Phases 6 and 7 not started (user approved round 2 on 2026-11-02 and asked to keep running further idea rounds autonomously, reporting after each round) (2026-11-01). Phases 1–4 done for PostgreSQL; non-PG main+v1 deferred to phase 6.
+Phase 5 (PostgreSQL) done: every query group has a justified recommendation. Recommended set `D3` = `UABC-L` + `(status, partition_no) WHERE completed_at IS NULL` (`experiments/R5-d2-literal.md`); `pages` stays `unnest` + `LATERAL` (`R5-pages-form.md`), `oldest_due_nonstrict` stays `MIN` (`R5-oldest-due.md`), UUIDv7 recommended on write cost, user to decide (`R5-uuidv7.md`; larger key in R5 is a harness load-order artefact, `R5-uuidv7-pkey.md`; `Loader.prepare` fix not applied). Accepted open cost: S8-S5 `keys_strict` ~165 ms. Next: finish phases 3/4.
 
 ## Environment
 
@@ -65,6 +65,8 @@ A difference counts only if it exceeds both the relative threshold of its group 
 | E04 | partial record-key index | v1b | done R2 | **win**: P1 equal, indexes 277→160 MB, WAL `upd_complete` −7 %; P3 `delete_by_key_status` S4 0.12→413 ms (accepted by the user rule) | `experiments/E04-partial-record-key.md` |
 | MIN | PK + 2 partial indexes + literals | v1b | done R2 | mixed, not acceptable as measured: WAL −9/−16 %, 77 MB, but P2 loss (`oldest_due_strict` S8-S2 0.6→186 ms, `count_*`); literal on `count_statuses` silently loses COMPLETED | same |
 | E21–E28 | add-one on main | main | done R2 | V1-1a alone: space/WAL; V1-2 + V1-4/5 only together (S4 keys_strict main 4272, index only 4089, SQL only 807, both 1.25 ms); V1-3 alone no difference; V1-7 alone matters; V1-6 needs queue index; V1-8 only S7 | `experiments/E2x-v1-ablation-add-one.md` |
+| R3 stage 0 | `pages` forms in the S10 loop | v1b | done R3 | **Keep `unnest`+`LATERAL`**: 8 of 8 passes fast; `IN`/`= ANY` flip to custom plans walking queue index A with a `record_key` filter (5–17 ms). Parallel hypothesis refuted. Removing `ORDER BY` does not help. E1P verdict withdrawn | `experiments/R3-stage0-pages-loop.md` |
+| R3 screen | user's index set A/B/C/D, `partition_no` in key | v1b | done R3 | `keys_*` need only A+B; C required for `oldest_due_*`; D2 > D1; B2, C2 no gain so far; `partition_no` in key rejected (PA1 692 ms, PC1 198 ms); survivors `UABCD2`, `UABC-L`, `UABC-L-NS`, `UAB2C-L`, `UABC2-L` | `experiments/R3-screen.md` |
 | E40 | UUIDv7 instead of v4 for record `id` (`OutboxRecord.kt:241`) and for generated record keys (`OutboxService`, `OutboxEventResolver`) (user idea): time-ordered PK inserts append to the right edge → fewer page splits / full-page writes (WAL), smaller and cache-friendlier PK; big expected effect on clustered PKs (MySQL/MariaDB InnoDB, SQL Server) | main, v1 | planned R2 (needs harness `--id-version 7` for gen + inserts) | | `experiments/E40-uuid-v7.md` |
 
 ## Decisions
@@ -95,26 +97,22 @@ A difference counts only if it exceeds both the relative threshold of its group 
 
 ## Running sub-agents
 
-- none (round 2 driver finished 2026-11-02 17:27, 223 steps, 0 failures, no equivalence FAIL; Postgres container stopped).
+- None. Phase 3/4 driver `harness/bin/finish-34.sh` stopped by the user 2026-11-04, to continue later. Resume with the same command (`main` only, resumable, log `results/logs/finish34.log`). Other dialects' bench volumes and images were removed for disk; the driver pulls what it needs.
 
 ## Open findings after round 2
 
-- **E1P verdict not settled (orchestrator check 2026-11-02):** S10 `pages` p50 per run: `unnest` form (v1) 0.6–1.3 ms in 8 of 8 runs; `IN` form (v1b, A6, E04, MIN) 11–21 ms in 11 of 16 runs, 0.6–1.0 ms in the other 5 (`results/<v>/postgres/S10*-R2/concurrency-*.txt`). The isolated bench shows no such effect (20 custom plans, `plancache.csv`). Size matches the ~21 ms parallel Gather startup seen on generic `count_*` plans (`R2-plan-modes.md`); **hypothesis, not verified**: generic parallel plan in the long-running loop. Do not drop the `unnest` override until explained. Also affects U1 (`pages` without `ORDER BY`, same `IN` form). Round 3 must run `pages` in the S10 loop at the screen stage and compare `unnest` vs `IN` directly, capturing the plan used in the loop.
+- `pages` loop question resolved in round 3 stage 0, see `R3-stage0-pages-loop.md`.
 - Plan modes (`R2-plan-modes.md`): ~22 ms `count_*` = generic parallel Gather (confirmed); the three `count_*` share one prepared statement and flip on a cost tie; E1M gap mostly planning time (partly inferred); S4 write cells NOT explained by plan mode (cause open). V1-3 probably matters in production (inferred). Round 1 cells cannot be checked (no `plancache.csv`). Harness changes for round 3 in section 7 of that report.
 - Most latency cells are single runs; repeats only S10 (spread up to ±46 %) and write cost of v1, v1b, MIN. S5/S6/S7 full ownership only.
 
 ## User decisions
 
-- 2026-11-02: **Do not start round 3 until the user restarts the run.** Finish round 2 (driver, reports, summary), then stop. No round 3 prep or harness changes before that.
-
-- 2026-11-02: **Staged runs approved** for round 3 and later: screen (P1/P2 on S8-S2, S8-S4, S8-S7 + write cost on S2) → confirm (survivors on all labels, partial ownership first, equivalence, S9, S10) → validate (top 2–3, at least twice, order swapped, restart, against v1b; only this gives a final win).
-
-- 2026-11-02: **Partial partition ownership is the default deployment** (library is for multi-instance use). Rank partial-ownership results (S8-*) first in verdicts; full ownership is a secondary case. Rounds from 3 on measure scenarios with partial ownership as primary.
-
-- 2026-11-02: run phase 5 rounds autonomously until the stop criterion; **do not start phases 6 and 7** without the user. Report after each round.
-
-- 2026-11-01: SQL Server `recordKeysWithoutPreviousFailureFilter` override removed (uses the base NOT EXISTS + `ORDER BY o.created_at, o.id OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY` form). Changed in the primary tree (`JdbcOutboxRecordQueries.kt` + `JdbcOutboxRecordQueriesTest`, uncommitted) and in `harness/catalog/v1/sqlserver/keys_nonstrict.sql`. The `../outbox-wt-v1` worktree (e0b09b4) still has the override: do not re-run `extract-catalog.sh v1` without re-applying this. SQL Server not measured yet, so no existing result is affected. To verify: equivalence + timing of `keys_nonstrict` on SQL Server S2/S4/S7 (GROUP BY form vs base form).
-
+- 2026-11-04: **Phases 3/4 finish with `main` only:** `v1` lost to the phase 5 sets on PostgreSQL, so it is no longer measured on the other dialects. Phase 6 compares `main` with the candidates directly and does its own equivalence. Finished `v1` cells are kept. `VARIANTS="main v1"` on `finish-34.sh` restores it.
+- 2026-11-03: **`K3` (capped `keys_strict` candidates) rejected, do not test it or a fallback form:** if the 1000 candidates share one key, the query returns one key instead of `:limit`.
+- 2026-11-02: **Run order, without waiting for the user:** screen extension (X0, X1) → print its summary → stage 2 confirm → stage 3 validate → round 4 → further rounds if the orchestrator finds ideas worth checking, up to the phase 5 stop criterion → finish phases 3/4 (see "Next step"). Report after each stage and round. **Do not start phases 6 and 7** without the user.
+- 2026-11-02: **Staged runs** for round 3 and later: screen (P1/P2 on S8-S2, S8-S4, S8-S7 + write cost on S2) → confirm (survivors on all labels, partial ownership first, equivalence, S9, S10) → validate (top 2–3, at least twice, order swapped, restart, against v1b; only this gives a final win).
+- 2026-11-02: **Partial partition ownership is the default deployment.** Rank partial-ownership results (S8-*, S16-*) first in verdicts; full ownership is a secondary case.
+- 2026-11-01: SQL Server `keys_nonstrict` uses the base NOT EXISTS + `ORDER BY o.created_at, o.id OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY` form (no override). `harness/catalog/v1/sqlserver/keys_nonstrict.sql` has it, but the `../outbox-wt-v1` worktree (e0b09b4) still has the override: do not re-run `extract-catalog.sh v1` without re-applying this. To verify: equivalence + timing on SQL Server S2/S4/S7.
 - 2026-11-01: **Query priorities for all experiments and recommendations** (user):
   1. **P1 — scheduling and execution** (the hot path): `keys_strict`, `keys_nonstrict`, `pages`, and the writes the processing loop
      does: `insert` (create, in the caller's business transaction), `upd_complete`/`upd_retry`/`upd_fail` (updateProcessingState),
@@ -129,36 +127,16 @@ A difference counts only if it exceeds both the relative threshold of its group 
     write cost on P1 writes (insert/update latency, WAL volume, index size, HOT/bloat), should be dropped. Dropping indexes to make
     the normal processing faster is an explicit goal. Experiments must therefore report write cost (latency + WAL bytes per write +
     index sizes) whenever DDL changes, and P3 regressions are reported but do not block a recommendation.
-- 2026-11-01: JDBC query classes restructured in the primary tree (uncommitted, user request; structure aligned with
-  `origin/feature/150k-strict-throughput`, without its `predecessorSource` hook and its SQL Server override): package
-  `io.namastack.outbox.query` with interface `JdbcOutboxRecordQueries`, `DefaultJdbcOutboxRecordQueries`, `JdbcOutboxRecordQueriesFactory`
-  and one class per dialect (new `MariaDbJdbcOutboxRecordQueries`); the repository takes `queryProvider: () -> JdbcOutboxRecordQueries`;
-  statements renamed to `findStrictRecordKeys`, `findNonStrictRecordKeys`, `findOldestStrictDueRetry`, `findOldestDueRetry`.
-  SQL unchanged (catalog diff vs `catalog/v1`: identical); `:namastack-outbox-jdbc:test` 267 tests passed. The harness extractor supports it.
-- 2026-11-01: **Preference (user): select rows with `ORDER BY` + row limit instead of `MIN` / `GROUP BY` for consistency, when the
-  performance is the same** (aggregates stay for counts, e.g. `countByStatuses`). Remaining case: `findOldestDueRetry` (non-strict oldest
-  due, still `MIN` in the code). Decided by experiment `E1M`: if `ORDER BY o.next_retry_at` + limit is within the noise threshold of `MIN`
-  (and no plan regresses) in every scenario, switch JDBC (portable/limit dialects; Oracle `/*+ FIRST_ROWS(1) */ … ORDER BY
-  SYS_EXTRACT_UTC(o.next_retry_at) FETCH FIRST :limit ROWS ONLY`) and JPA (`order by o.nextRetryAt` + `setMaxResults(1)`); otherwise keep
-  `MIN`. Re-check on the other dialects in phase 6 before the final switch.
+- 2026-11-01: **Preference: `ORDER BY` + row limit over `MIN` / `GROUP BY` when the performance is the same** (aggregates stay for counts). `findOldestDueRetry` stays `MIN` on PostgreSQL (E1M); re-check on the other dialects in phase 6.
 
 ## Stopped run (cross-dialect main+v1)
 
 - Stopped by the user while MariaDB S2 `prepare` for v1 was running (MariaDB `prepare` of S2 took ~35 min; MySQL main retention queries ~285 s per execution).
 - Completed, both variants: MySQL S1, S2, S8-S2; MariaDB S1, S2, S8-S2 (+ MariaDB main S2 writecost). Missing: MySQL S4, S8-S4, S5, S7, writecost, equivalence; MariaDB rest; SQL Server, Oracle, H2 entirely; per-dialect SUMMARY/compare files not written.
 - Harness changes made during that run (see `harness/README.md` "Changes"): >30 s slow-query cap (1 execution, non-executing plan), `--groups` option, driver `bin/matrix-sql.sh` (`SKIPGEN=1`, finished results skipped unless `REDO=1`).
-- Phase 5 round 1 not started (spec ready: `experiments/round1-spec.md`).
 
 ## Next step
 
-**Round 2 done. Stop and wait for the user.** On restart: round 3 = user's P1/P2 index set and client-sorted `pages`, `experiments/round3-spec.md` (draft), staged (screen → confirm → validate), partial ownership first. Finalise the spec first: add the `pages` S10 check from "Open findings", the harness changes from `R2-plan-modes.md` section 7, `--pages-client-sort`, and treat `oldest_due_*` literal + C as the fix for MIN's P2 loss. Round 4 candidates: E40 UUIDv7, E07 autovacuum/fillfactor, E08 per-partition LATERAL. Previous text below is the round 1 plan.
+Phase 5 done on PostgreSQL. Now: finish phases 3/4, then stop. Open for the user: UUIDv7 as a code change; whether COMPLETED in `record-statuses` is common (favours the full `(status, partition_no)` index).
 
-
-Decided with the user (2026-11-01): start **phase 5 round 1 on PostgreSQL** now; the remaining non-PostgreSQL main+v1 measurements
-(MySQL S4/S8-S4/S5/S7, MariaDB rest, SQL Server, Oracle, H2) move to phase 6 and are measured together with v2.
-Before phase 6: make MariaDB/MySQL `prepare` create secondary indexes after the load (S2 prepare took ~35 min), and validate SQL Server
-on S1 first (incl. the user's `keys_nonstrict` change, see "User decisions").
-
-Round 1 = `experiments/round1-spec.md` (E01a/b/c, E02a/b/c, E11–E14 incl. the extended E14 statistics checks, E1Q, E1P), one measuring
-sub-agent (model sonnet), PostgreSQL only, ordered parameter sampling (default), slow-query cap active. Then review the reports, update
-the ledger, and plan round 2 (E2x add-one for v1 items with an effect, then ideas from `experiments/ideas.md`, prioritised by the user's P1/P2/P3 rule: drop-index ablations E05 — which of `idx_status`, `idx_status_retry`, `idx_partition_status_retry`, the record-key index serve only P3 — and write-cost-reducing partial indexes E03 come first; retention indexes E06 are dropped).
+**Finishing phases 3/4 (after phase 5):** main + v1 on the remaining non-PostgreSQL cells, serially: MySQL S4, S8-S4, S5, S7, writecost, equivalence; MariaDB the same; SQL Server, Oracle, H2 entirely; JPA on PostgreSQL if not measured; per-dialect summaries; `03-baseline.md`, `04-v1.md`. Driver `bin/matrix-sql.sh`. First make MariaDB/MySQL `prepare` create secondary indexes after the load (S2 prepare took ~35 min), and validate SQL Server on S1 (incl. its `keys_nonstrict` form). Phase 6 then only adds v2 on the same seeded data.

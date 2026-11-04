@@ -1,0 +1,14 @@
+query_id,planning_ms,execution_ms
+keys_strict,0.375,0.121
+keys_nonstrict,0.272,0.100
+pages,0.069,0.062
+count_new,0.038,1.262
+count_failed,0.055,16.391
+count_completed,0.054,22.190
+count_statuses,0.068,27.795
+count_statuses_all,0.078,50.113
+count_partitions,0.130,0.720
+count_partition_single,0.044,0.047
+oldest_created,0.123,0.035
+oldest_due_strict,0.269,7.676
+oldest_due_nonstrict,0.328,0.517

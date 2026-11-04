@@ -1,0 +1,24 @@
+Gather Merge  (cost=47939.68..50343.43 rows=20639 width=1090) (actual time=31.337..46.178 rows=20000.00 loops=1)
+  Workers Planned: 2
+  Workers Launched: 2
+  Buffers: shared hit=13856, temp read=2070 written=2073
+  ->  Sort  (cost=46939.66..46961.16 rows=8600 width=1090) (actual time=23.880..26.295 rows=6666.67 loops=3)
+        Sort Key: record_key, created_at, id
+        Sort Method: external merge  Disk: 7760kB
+        Buffers: shared hit=13856, temp read=2070 written=2073
+        Worker 0:  Sort Method: external merge  Disk: 4416kB
+        Worker 1:  Sort Method: external merge  Disk: 4384kB
+        ->  Parallel Bitmap Heap Scan on outbox_record  (cost=1268.18..42261.64 rows=8600 width=1090) (actual time=1.682..7.182 rows=6666.67 loops=3)
+              Recheck Cond: (((record_key)::text = ANY ('{order-000000000000000000000000000086,order-000000000000000000000000000098,order-000000000000000000000000000057,order-000000000000000000000000000045,order-000000000000000000000000000041,order-000000000000000000000000000090,order-000000000000000000000000000056,order-000000000000000000000000000069,order-000000000000000000000000000063,order-000000000000000000000000000074}'::text[])) AND (completed_at IS NULL))
+              Filter: ((status)::text = 'NEW'::text)
+              Heap Blocks: exact=6317
+              Buffers: shared hit=13824
+              Worker 0:  Heap Blocks: exact=3590
+              Worker 1:  Heap Blocks: exact=3566
+              ->  Bitmap Index Scan on idx_outbox_record_key_created_id_incomplete  (cost=0.00..1263.00 rows=20645 width=0) (actual time=2.643..2.644 rows=20000.00 loops=1)
+                    Index Cond: ((record_key)::text = ANY ('{order-000000000000000000000000000086,order-000000000000000000000000000098,order-000000000000000000000000000057,order-000000000000000000000000000045,order-000000000000000000000000000041,order-000000000000000000000000000090,order-000000000000000000000000000056,order-000000000000000000000000000069,order-000000000000000000000000000063,order-000000000000000000000000000074}'::text[]))
+                    Index Searches: 9
+                    Buffers: shared hit=309
+Settings: search_path = 'run'
+Planning Time: 0.127 ms
+Execution Time: 47.610 ms

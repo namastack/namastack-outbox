@@ -1,0 +1,25 @@
+Limit  (cost=568.61..568.64 rows=10 width=82) (actual time=0.827..0.829 rows=10.00 loops=1)
+  Buffers: shared hit=1138
+  ->  Sort  (cost=568.61..568.81 rows=80 width=82) (actual time=0.826..0.828 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 27kB
+        Buffers: shared hit=1138
+        ->  Hash Right Anti Join  (cost=70.06..566.89 rows=80 width=82) (actual time=0.805..0.810 rows=53.00 loops=1)
+              Hash Cond: ((earlier.record_key)::text = (o.record_key)::text)
+              Join Filter: ((earlier.created_at <= o.created_at) AND ((earlier.created_at < o.created_at) OR ((earlier.created_at = o.created_at) AND ((earlier.id)::text < (o.id)::text))))
+              Rows Removed by Join Filter: 53
+              Buffers: shared hit=1138
+              ->  Index Scan using idx_outbox_record_status_retry_incomplete on outbox_record earlier  (cost=0.29..482.84 rows=1267 width=82) (actual time=0.014..0.627 rows=1000.00 loops=1)
+                    Index Cond: (((status)::text = 'NEW'::text) AND (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone))
+                    Index Searches: 1
+                    Buffers: shared hit=1053
+              ->  Hash  (cost=68.77..68.77 rows=80 width=82) (actual time=0.072..0.072 rows=53.00 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 15kB
+                    Buffers: shared hit=85
+                    ->  Index Scan using idx_outbox_record_status_retry_incomplete on outbox_record o  (cost=0.29..68.77 rows=80 width=82) (actual time=0.014..0.056 rows=53.00 loops=1)
+                          Index Cond: ((partition_no = ANY ('{0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240}'::integer[])) AND ((status)::text = 'NEW'::text) AND (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone))
+                          Index Searches: 16
+                          Buffers: shared hit=85
+Settings: search_path = 'run'
+Planning Time: 0.220 ms
+Execution Time: 0.873 ms

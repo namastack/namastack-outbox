@@ -1,0 +1,19 @@
+Finalize Aggregate  (cost=124294.24..124294.25 rows=1 width=8) (actual time=96.951..104.432 rows=1.00 loops=1)
+  Buffers: shared hit=16015 read=99988
+  ->  Gather  (cost=124294.03..124294.24 rows=2 width=8) (actual time=96.854..104.422 rows=3.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=16015 read=99988
+        ->  Partial Aggregate  (cost=123294.03..123294.04 rows=1 width=8) (actual time=83.896..83.897 rows=1.00 loops=3)
+              Buffers: shared hit=16015 read=99988
+              ->  Parallel Seq Scan on outbox_record  (cost=0.16..123293.70 rows=132 width=0) (actual time=46.377..83.860 rows=92.67 loops=3)
+                    Filter: (((status)::text = 'NEW'::text) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                    Rows Removed by Filter: 333241
+                    Buffers: shared hit=16015 read=99988
+Settings: search_path = 'run'
+Planning Time: 0.089 ms
+JIT:
+  Functions: 14
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 1.223 ms (Deform 0.393 ms), Inlining 0.000 ms, Optimization 0.688 ms, Emission 11.372 ms, Total 13.284 ms
+Execution Time: 104.845 ms

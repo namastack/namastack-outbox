@@ -1,0 +1,29 @@
+Limit  (cost=1696.29..1696.31 rows=10 width=82) (actual time=4.522..4.524 rows=10.00 loops=1)
+  Buffers: shared hit=2492
+  ->  Sort  (cost=1696.29..1702.90 rows=2644 width=82) (actual time=4.521..4.523 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 27kB
+        Buffers: shared hit=2492
+        ->  Hash Right Anti Join  (cost=340.84..1639.15 rows=2644 width=82) (actual time=4.092..4.253 rows=2510.00 loops=1)
+              Hash Cond: ((earlier.record_key)::text = (o.record_key)::text)
+              Join Filter: ((earlier.created_at <= o.created_at) AND ((earlier.created_at < o.created_at) OR ((earlier.created_at = o.created_at) AND ((earlier.id)::text < (o.id)::text))))
+              Rows Removed by Join Filter: 2510
+              Buffers: shared hit=2492
+              ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record earlier  (cost=0.42..1204.01 rows=10533 width=82) (actual time=0.031..2.036 rows=10000.00 loops=1)
+                    Index Cond: (status = 'NEW'::text)
+                    Filter: (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone)
+                    Heap Fetches: 0
+                    Index Searches: 257
+                    Buffers: shared hit=1988
+              ->  Hash  (cost=307.19..307.19 rows=2658 width=82) (actual time=0.981..0.982 rows=2510.00 loops=1)
+                    Buckets: 4096  Batches: 1  Memory Usage: 319kB
+                    Buffers: shared hit=504
+                    ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record o  (cost=0.42..307.19 rows=2658 width=82) (actual time=0.023..0.518 rows=2510.00 loops=1)
+                          Index Cond: ((partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])) AND (status = 'NEW'::text))
+                          Filter: (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone)
+                          Heap Fetches: 0
+                          Index Searches: 64
+                          Buffers: shared hit=504
+Settings: search_path = 'run'
+Planning Time: 0.254 ms
+Execution Time: 4.640 ms

@@ -1,0 +1,9 @@
+Index Scan using idx_outbox_record_status_created_id_incomplete on outbox_record  (cost=0.44..49.09 rows=1 width=1093) (actual time=15.777..15.777 rows=0.00 loops=1)
+  Index Cond: ((status)::text = 'NEW'::text)
+  Filter: ((record_key)::text = ANY ('{order-cc-40464-00000000000300017071,order-cc-50524-00000000000100017000,order-cc-72163-00000000000000017024,order-cc-97781-00000000000100017001,order-cc-29025-00000000000000017025,order-cc-84540-00000000000200017079,order-cc-48108-00000000000200017081,order-cc-6127-00000000000300017076,order-cc-92371-00000000000100017005,order-cc-48721-00000000000100017007}'::text[]))
+  Rows Removed by Filter: 26489
+  Index Searches: 1
+  Buffers: shared hit=26240
+Settings: search_path = 'run', max_parallel_workers_per_gather = '0'
+Planning Time: 0.122 ms
+Execution Time: 15.806 ms

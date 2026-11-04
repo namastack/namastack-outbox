@@ -1,0 +1,33 @@
+Limit  (cost=102496.37..102496.40 rows=10 width=82) (actual time=571.480..571.484 rows=10.00 loops=1)
+  Buffers: shared hit=22306, temp read=12027 written=12027
+  ->  Sort  (cost=102496.37..103041.22 rows=217938 width=82) (actual time=566.385..566.387 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 27kB
+        Buffers: shared hit=22306, temp read=12027 written=12027
+        ->  Hash Right Anti Join  (cost=16748.57..97786.81 rows=217938 width=82) (actual time=366.914..541.388 rows=250815.00 loops=1)
+              Hash Cond: ((earlier.record_key)::text = (o.record_key)::text)
+              Join Filter: ((earlier.created_at <= o.created_at) AND ((earlier.created_at < o.created_at) OR ((earlier.created_at = o.created_at) AND ((earlier.id)::text < (o.id)::text))))
+              Rows Removed by Join Filter: 250815
+              Buffers: shared hit=22306, temp read=12027 written=12027
+              ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record earlier  (cost=0.42..41576.77 rows=993493 width=82) (actual time=0.034..112.149 rows=1000000.00 loops=1)
+                    Index Cond: (status = 'NEW'::text)
+                    Filter: (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone)
+                    Heap Fetches: 0
+                    Index Searches: 1
+                    Buffers: shared hit=17644
+              ->  Hash  (cost=10267.07..10267.07 rows=247606 width=82) (actual time=75.251..75.252 rows=250815.00 loops=1)
+                    Buckets: 65536  Batches: 4  Memory Usage: 7653kB
+                    Buffers: shared hit=4662, temp written=2413
+                    ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record o  (cost=0.42..10267.07 rows=247606 width=82) (actual time=0.032..29.624 rows=250815.00 loops=1)
+                          Index Cond: ((status = 'NEW'::text) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                          Filter: (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone)
+                          Heap Fetches: 0
+                          Index Searches: 64
+                          Buffers: shared hit=4662
+Settings: search_path = 'run'
+Planning Time: 0.296 ms
+JIT:
+  Functions: 15
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 0.678 ms (Deform 0.137 ms), Inlining 0.000 ms, Optimization 0.181 ms, Emission 4.952 ms, Total 5.811 ms
+Execution Time: 572.976 ms

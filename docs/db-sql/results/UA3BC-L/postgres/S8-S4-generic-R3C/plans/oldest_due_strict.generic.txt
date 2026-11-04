@@ -1,0 +1,24 @@
+Limit  (cost=1001.00..28328.00 rows=3705 width=8) (actual time=16.535..21.346 rows=1.00 loops=1)
+  Buffers: shared hit=27
+  ->  Gather Merge  (cost=1001.00..274285.79 rows=37052 width=8) (actual time=16.534..21.343 rows=1.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=27
+        ->  Nested Loop Anti Join  (cost=0.98..269009.05 rows=15438 width=8) (actual time=0.067..0.068 rows=1.00 loops=3)
+              Buffers: shared hit=27
+              ->  Parallel Index Scan using idx_outbox_record_status_retry_incomplete on outbox_record o  (cost=0.42..235728.94 rows=17419 width=90) (actual time=0.038..0.038 rows=1.00 loops=3)
+                    Index Cond: (((status)::text = $65) AND (next_retry_at <= $66))
+                    Filter: (partition_no = ANY (ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64]))
+                    Rows Removed by Filter: 4
+                    Index Searches: 1
+                    Buffers: shared hit=10
+              ->  Index Only Scan using idx_outbox_record_key_created_id_incomplete on outbox_record earlier  (cost=0.55..1.90 rows=1 width=82) (actual time=0.028..0.028 rows=0.00 loops=3)
+                    Index Cond: ((record_key = (o.record_key)::text) AND (created_at <= o.created_at))
+                    Filter: ((created_at < o.created_at) OR ((created_at = o.created_at) AND ((id)::text < (o.id)::text)))
+                    Rows Removed by Filter: 1
+                    Heap Fetches: 0
+                    Index Searches: 3
+                    Buffers: shared hit=17
+Settings: search_path = 'run', plan_cache_mode = 'force_generic_plan'
+Planning Time: 0.102 ms
+Execution Time: 21.424 ms

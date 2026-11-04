@@ -84,7 +84,8 @@ class Ctx(
 
     fun insertParams(p: MutableMap<String, Any?>, seq: Int, createdMicros: Long = T0_MICROS, keyPrefix: String = "order-bench-") {
         val key = keyPrefix + seq.toString().padStart(20, '0')
-        p["id"] = UUID.nameUUIDFromBytes("ins-$nonce-$keyPrefix-$seq".toByteArray()).toString()
+        val v4 = UUID.nameUUIDFromBytes("ins-$nonce-$keyPrefix-$seq".toByteArray())
+        p["id"] = (if (ID_V7) uuidV7(createdMicros, seq.toLong(), v4.leastSignificantBits) else v4).toString()
         p["status"] = "NEW"; p["recordKey"] = key
         p["recordType"] = Realisation.TYPES[seq % 5]
         p["payload"] = """{"d":"${"x".repeat(490)}"}"""

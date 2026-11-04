@@ -1,0 +1,57 @@
+[
+  {
+    "Plan": {
+      "Node Type": "Index Scan",
+      "Parallel Aware": false,
+      "Async Capable": false,
+      "Scan Direction": "Forward",
+      "Index Name": "idx_outbox_record_record_key_completed_created_id",
+      "Relation Name": "outbox_record",
+      "Alias": "outbox_record",
+      "Startup Cost": 0.55,
+      "Total Cost": 49.64,
+      "Plan Rows": 1,
+      "Plan Width": 1093,
+      "Actual Startup Time": 0.191,
+      "Actual Total Time": 0.191,
+      "Actual Rows": 0.00,
+      "Actual Loops": 1,
+      "Disabled": false,
+      "Index Cond": "(((record_key)::text = ANY ('{order-cc-63347-00000000000300017331,order-cc-32246-00000000000300017335,order-cc-76618-00000000000200017232,order-cc-18441-00000000000100017264,order-cc-30919-00000000000100017265,order-cc-29469-00000000000200017239,order-cc-80928-00000000000000017267,order-cc-58381-00000000000000017268,order-cc-70594-00000000000200017241,order-cc-42707-00000000000100017272}'::text[])) AND (completed_at IS NULL))",
+      "Rows Removed by Index Recheck": 0,
+      "Filter": "((status)::text = 'NEW'::text)",
+      "Rows Removed by Filter": 0,
+      "Index Searches": 10,
+      "Shared Hit Blocks": 40,
+      "Shared Read Blocks": 0,
+      "Shared Dirtied Blocks": 0,
+      "Shared Written Blocks": 0,
+      "Local Hit Blocks": 0,
+      "Local Read Blocks": 0,
+      "Local Dirtied Blocks": 0,
+      "Local Written Blocks": 0,
+      "Temp Read Blocks": 0,
+      "Temp Written Blocks": 0
+    },
+    "Settings": {
+      "search_path": "run",
+      "max_parallel_workers_per_gather": "0"
+    },
+    "Planning": {
+      "Shared Hit Blocks": 0,
+      "Shared Read Blocks": 0,
+      "Shared Dirtied Blocks": 0,
+      "Shared Written Blocks": 0,
+      "Local Hit Blocks": 0,
+      "Local Read Blocks": 0,
+      "Local Dirtied Blocks": 0,
+      "Local Written Blocks": 0,
+      "Temp Read Blocks": 0,
+      "Temp Written Blocks": 0
+    },
+    "Planning Time": 0.369,
+    "Triggers": [
+    ],
+    "Execution Time": 0.271
+  }
+]

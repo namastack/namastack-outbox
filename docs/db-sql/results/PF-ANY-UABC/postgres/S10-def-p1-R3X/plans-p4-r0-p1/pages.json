@@ -1,0 +1,56 @@
+[
+  {
+    "Plan": {
+      "Node Type": "Index Scan",
+      "Parallel Aware": false,
+      "Async Capable": false,
+      "Scan Direction": "Forward",
+      "Index Name": "idx_outbox_record_status_retry_incomplete",
+      "Relation Name": "outbox_record",
+      "Alias": "outbox_record",
+      "Startup Cost": 0.45,
+      "Total Cost": 37.22,
+      "Plan Rows": 1,
+      "Plan Width": 1093,
+      "Actual Startup Time": 28.800,
+      "Actual Total Time": 28.801,
+      "Actual Rows": 0.00,
+      "Actual Loops": 1,
+      "Disabled": false,
+      "Index Cond": "((status)::text = 'NEW'::text)",
+      "Rows Removed by Index Recheck": 0,
+      "Filter": "((record_key)::text = ANY ('{order-cc-63709-00000000000100017052,order-cc-58920-00000000000300017042,order-cc-57833-00000000000200017036,order-cc-32213-00000000000000017069,order-cc-89582-00000000000300017045,order-cc-33663-00000000000000017071,order-cc-28493-00000000000300017046,order-cc-90397-00000000000200017040,order-cc-43352-00000000000100017060,order-cc-81207-00000000000300017050}'::text[]))",
+      "Rows Removed by Filter": 58232,
+      "Index Searches": 1,
+      "Shared Hit Blocks": 57730,
+      "Shared Read Blocks": 0,
+      "Shared Dirtied Blocks": 0,
+      "Shared Written Blocks": 0,
+      "Local Hit Blocks": 0,
+      "Local Read Blocks": 0,
+      "Local Dirtied Blocks": 0,
+      "Local Written Blocks": 0,
+      "Temp Read Blocks": 0,
+      "Temp Written Blocks": 0
+    },
+    "Settings": {
+      "search_path": "run"
+    },
+    "Planning": {
+      "Shared Hit Blocks": 0,
+      "Shared Read Blocks": 0,
+      "Shared Dirtied Blocks": 0,
+      "Shared Written Blocks": 0,
+      "Local Hit Blocks": 0,
+      "Local Read Blocks": 0,
+      "Local Dirtied Blocks": 0,
+      "Local Written Blocks": 0,
+      "Temp Read Blocks": 0,
+      "Temp Written Blocks": 0
+    },
+    "Planning Time": 0.119,
+    "Triggers": [
+    ],
+    "Execution Time": 28.831
+  }
+]

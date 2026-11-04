@@ -1,0 +1,9 @@
+Delete on outbox_record  (cost=0.42..45121.93 rows=0 width=0) (actual time=138.454..138.454 rows=0.00 loops=1)
+  Buffers: shared hit=1665 read=21181 written=15820
+  ->  Index Scan using idx_outbox_record_status_partition on outbox_record  (cost=0.42..45121.93 rows=22402 width=6) (actual time=138.453..138.453 rows=0.00 loops=1)
+        Index Cond: ((status)::text = 'FAILED'::text)
+        Index Searches: 1
+        Buffers: shared hit=1665 read=21181 written=15820
+Settings: search_path = 'run'
+Planning Time: 0.066 ms
+Execution Time: 138.486 ms

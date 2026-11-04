@@ -1,0 +1,22 @@
+Nested Loop  (cost=6986.60..63100.89 rows=17865 width=1091) (actual time=2.756..24.390 rows=18000.00 loops=1)
+  Buffers: shared hit=17285
+  ->  Sort  (cost=0.24..0.26 rows=9 width=32) (actual time=0.025..0.026 rows=9.00 loops=1)
+        Sort Key: t.k
+        Sort Method: quicksort  Memory: 25kB
+        ->  Function Scan on unnest t  (cost=0.00..0.09 rows=9 width=32) (actual time=0.007..0.008 rows=9.00 loops=1)
+  ->  Sort  (cost=6986.37..6991.33 rows=1985 width=1091) (actual time=2.329..2.388 rows=2000.00 loops=9)
+        Sort Key: r.created_at, r.id
+        Sort Method: quicksort  Memory: 1729kB
+        Buffers: shared hit=17285
+        ->  Bitmap Heap Scan on outbox_record r  (cost=127.80..6877.64 rows=1985 width=1091) (actual time=0.515..1.382 rows=2000.00 loops=9)
+              Recheck Cond: (((record_key)::text = (t.k)::text) AND (completed_at IS NULL))
+              Filter: ((status)::text = 'NEW'::text)
+              Heap Blocks: exact=17013
+              Buffers: shared hit=17285
+              ->  Bitmap Index Scan on idx_outbox_record_key_created_id_incomplete  (cost=0.00..127.31 rows=1985 width=0) (actual time=0.335..0.335 rows=2000.00 loops=9)
+                    Index Cond: ((record_key)::text = (t.k)::text)
+                    Index Searches: 9
+                    Buffers: shared hit=272
+Settings: search_path = 'run'
+Planning Time: 0.162 ms
+Execution Time: 24.971 ms

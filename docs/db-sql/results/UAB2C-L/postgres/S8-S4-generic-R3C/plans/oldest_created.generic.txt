@@ -1,0 +1,16 @@
+Limit  (cost=1000.45..8095.62 rows=12484 width=8) (actual time=16.530..21.471 rows=1.00 loops=1)
+  Buffers: shared hit=8
+  ->  Gather Merge  (cost=1000.45..71954.46 rows=124844 width=8) (actual time=16.523..21.462 rows=1.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=8
+        ->  Parallel Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record  (cost=0.42..56544.35 rows=52018 width=8) (actual time=0.038..0.038 rows=1.00 loops=3)
+              Index Cond: (status = $65)
+              Filter: (partition_no = ANY (ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64]))
+              Rows Removed by Filter: 4
+              Heap Fetches: 0
+              Index Searches: 1
+              Buffers: shared hit=8
+Settings: search_path = 'run', plan_cache_mode = 'force_generic_plan'
+Planning Time: 0.052 ms
+Execution Time: 21.513 ms

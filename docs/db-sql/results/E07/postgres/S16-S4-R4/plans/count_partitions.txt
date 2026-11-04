@@ -1,0 +1,18 @@
+Finalize Aggregate  (cost=17826.43..17826.44 rows=1 width=8) (actual time=41.131..47.183 rows=1.00 loops=1)
+  Buffers: shared hit=5312
+  ->  Gather  (cost=17826.21..17826.42 rows=2 width=8) (actual time=41.061..47.179 rows=3.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=5312
+        ->  Partial Aggregate  (cost=16826.21..16826.22 rows=1 width=8) (actual time=30.022..30.022 rows=1.00 loops=3)
+              Buffers: shared hit=5312
+              ->  Parallel Index Only Scan using idx_outbox_record_status_retry_incomplete on outbox_record  (cost=0.46..16761.36 rows=25941 width=0) (actual time=0.034..29.260 rows=20845.33 loops=3)
+                    Index Cond: (status = 'NEW'::text)
+                    Filter: (partition_no = ANY ('{0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240}'::integer[]))
+                    Rows Removed by Filter: 312488
+                    Heap Fetches: 0
+                    Index Searches: 1
+                    Buffers: shared hit=5312
+Settings: search_path = 'run'
+Planning Time: 0.083 ms
+Execution Time: 47.219 ms

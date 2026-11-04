@@ -1,6 +1,6 @@
 # E1P - is the PostgreSQL `findByKeysAndStatus` override necessary?
 
-> **Orchestrator note after round 2:** this verdict covers the isolated bench only. In the S10 processing loop the `IN` form has `pages` p50 of 11–21 ms in 11 of 16 runs, while the `unnest` form stays at 0.6–1.3 ms in 8 of 8 (`results/<variant>/postgres/S10*-R2/concurrency-*.txt`). The cause is not verified. Do not drop the override until this is explained; see `STATE.md` "Open findings after round 2".
+> **Withdrawn after round 3 stage 0:** this verdict covers the isolated bench only. In the processing loop the `IN` form can settle on custom plans that walk the queue index and filter on `record_key` (11–21 ms instead of about 1 ms). Keep the `unnest` override on PostgreSQL. See `R3-stage0-pages-loop.md`.
 
 ## Hypothesis, base, change
 

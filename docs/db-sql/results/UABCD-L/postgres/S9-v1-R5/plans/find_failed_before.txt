@@ -1,0 +1,15 @@
+Limit  (cost=44944.01..44944.01 rows=1 width=1066) (actual time=65.877..65.878 rows=0.00 loops=1)
+  Buffers: shared hit=1676 read=21169
+  ->  Sort  (cost=44944.01..44944.01 rows=1 width=1066) (actual time=65.876..65.877 rows=0.00 loops=1)
+        Sort Key: next_retry_at
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=1676 read=21169
+        ->  Index Scan using idx_outbox_record_status_partition on outbox_record  (cost=0.42..44944.00 rows=1 width=1066) (actual time=65.861..65.861 rows=0.00 loops=1)
+              Index Cond: ((status)::text = 'FAILED'::text)
+              Filter: (next_retry_at < '2025-12-02 12:00:00+00'::timestamp with time zone)
+              Rows Removed by Filter: 22827
+              Index Searches: 1
+              Buffers: shared hit=1676 read=21169
+Settings: search_path = 'run'
+Planning Time: 0.069 ms
+Execution Time: 65.913 ms

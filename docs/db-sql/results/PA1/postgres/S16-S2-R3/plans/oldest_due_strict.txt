@@ -1,0 +1,20 @@
+Limit  (cost=0.74..5.22 rows=1 width=8) (actual time=0.062..0.062 rows=1.00 loops=1)
+  Buffers: shared hit=17
+  ->  Nested Loop Anti Join  (cost=0.74..314.92 rows=70 width=8) (actual time=0.061..0.062 rows=1.00 loops=1)
+        Buffers: shared hit=17
+        ->  Index Scan using idx_outbox_record_status_retry_incomplete on outbox_record o  (cost=0.33..39.15 rows=71 width=90) (actual time=0.040..0.040 rows=1.00 loops=1)
+              Index Cond: (((status)::text = 'NEW'::text) AND (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone))
+              Filter: (partition_no = ANY ('{0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240}'::integer[]))
+              Rows Removed by Filter: 10
+              Index Searches: 1
+              Buffers: shared hit=13
+        ->  Index Only Scan using idx_outbox_record_key_created_id_incomplete on outbox_record earlier  (cost=0.41..3.87 rows=1 width=82) (actual time=0.020..0.020 rows=0.00 loops=1)
+              Index Cond: ((record_key = (o.record_key)::text) AND (created_at <= o.created_at))
+              Filter: ((created_at < o.created_at) OR ((created_at = o.created_at) AND ((id)::text < (o.id)::text)))
+              Rows Removed by Filter: 1
+              Heap Fetches: 0
+              Index Searches: 1
+              Buffers: shared hit=4
+Settings: search_path = 'run'
+Planning Time: 0.276 ms
+Execution Time: 0.099 ms

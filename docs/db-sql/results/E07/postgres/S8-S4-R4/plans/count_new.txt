@@ -1,0 +1,19 @@
+Finalize Aggregate  (cost=239194.46..239194.47 rows=1 width=8) (actual time=1865.514..1873.559 rows=1.00 loops=1)
+  Buffers: shared hit=7336 read=219376
+  ->  Gather  (cost=239194.24..239194.45 rows=2 width=8) (actual time=1865.305..1873.540 rows=3.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=7336 read=219376
+        ->  Partial Aggregate  (cost=238194.24..238194.25 rows=1 width=8) (actual time=1851.222..1851.223 rows=1.00 loops=3)
+              Buffers: shared hit=7336 read=219376
+              ->  Parallel Seq Scan on outbox_record  (cost=0.00..237129.69 rows=425820 width=0) (actual time=6.265..1823.721 rows=333333.33 loops=3)
+                    Filter: ((status)::text = 'NEW'::text)
+                    Rows Removed by Filter: 333333
+                    Buffers: shared hit=7336 read=219376
+Settings: search_path = 'run'
+Planning Time: 0.058 ms
+JIT:
+  Functions: 14
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 1.015 ms (Deform 0.146 ms), Inlining 0.000 ms, Optimization 0.580 ms, Emission 10.018 ms, Total 11.613 ms
+Execution Time: 1873.982 ms

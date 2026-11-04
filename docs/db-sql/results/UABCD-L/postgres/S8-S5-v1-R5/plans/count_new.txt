@@ -1,0 +1,10 @@
+Aggregate  (cost=4703.33..4703.34 rows=1 width=8) (actual time=16.118..16.118 rows=1.00 loops=1)
+  Buffers: shared hit=485
+  ->  Index Only Scan using idx_outbox_record_status_partition on outbox_record  (cost=0.42..4207.48 rows=198341 width=0) (actual time=0.013..9.657 rows=199980.00 loops=1)
+        Index Cond: (status = 'NEW'::text)
+        Heap Fetches: 215
+        Index Searches: 1
+        Buffers: shared hit=485
+Settings: search_path = 'run'
+Planning Time: 0.028 ms
+Execution Time: 16.131 ms

@@ -1,0 +1,32 @@
+Limit  (cost=5413.36..5456.70 rows=10 width=82) (actual time=4.322..6.253 rows=10.00 loops=1)
+  Buffers: shared hit=2256
+  ->  Nested Loop Anti Join  (cost=5413.36..15330.15 rows=2288 width=82) (actual time=4.321..6.251 rows=10.00 loops=1)
+        Buffers: shared hit=2256
+        ->  Gather Merge  (cost=5412.93..5717.92 rows=2676 width=82) (actual time=4.279..6.175 rows=10.00 loops=1)
+              Workers Planned: 1
+              Workers Launched: 1
+              Buffers: shared hit=2223
+              ->  Sort  (cost=4412.92..4416.86 rows=1574 width=82) (actual time=1.626..1.627 rows=5.00 loops=2)
+                    Sort Key: o.created_at, o.id
+                    Sort Method: quicksort  Memory: 351kB
+                    Buffers: shared hit=2223
+                    Worker 0:  Sort Method: quicksort  Memory: 25kB
+                    ->  Parallel Bitmap Heap Scan on outbox_record o  (cost=294.75..4329.34 rows=1574 width=82) (actual time=0.554..1.338 rows=1255.00 loops=2)
+                          Recheck Cond: (((status)::text = 'NEW'::text) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])) AND (completed_at IS NULL))
+                          Filter: (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone)
+                          Heap Blocks: exact=1942
+                          Buffers: shared hit=2207
+                          ->  Bitmap Index Scan on idx_outbox_record_status_created_id_incomplete  (cost=0.00..293.92 rows=1085 width=0) (actual time=0.799..0.799 rows=2510.00 loops=1)
+                                Index Cond: (((status)::text = 'NEW'::text) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                                Index Searches: 60
+                                Buffers: shared hit=244
+        ->  Index Only Scan using idx_outbox_record_key_created_id_incomplete on outbox_record earlier  (cost=0.42..3.67 rows=1 width=82) (actual time=0.007..0.007 rows=0.00 loops=10)
+              Index Cond: ((record_key = (o.record_key)::text) AND (created_at <= o.created_at))
+              Filter: ((created_at < o.created_at) OR ((created_at = o.created_at) AND ((id)::text < (o.id)::text)))
+              Rows Removed by Filter: 1
+              Heap Fetches: 0
+              Index Searches: 10
+              Buffers: shared hit=33
+Settings: search_path = 'run'
+Planning Time: 0.258 ms
+Execution Time: 6.366 ms

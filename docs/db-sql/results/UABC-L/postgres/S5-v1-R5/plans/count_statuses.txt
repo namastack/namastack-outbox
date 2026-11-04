@@ -1,0 +1,18 @@
+Finalize GroupAggregate  (cost=1000.44..3793.78 rows=2 width=15) (actual time=17.951..20.006 rows=2.00 loops=1)
+  Group Key: status
+  Buffers: shared hit=1123
+  ->  Gather Merge  (cost=1000.44..3793.74 rows=5 width=15) (actual time=17.923..20.001 rows=4.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=1123
+        ->  Partial GroupAggregate  (cost=0.42..2793.14 rows=2 width=15) (actual time=9.280..9.288 rows=1.33 loops=3)
+              Group Key: status
+              Buffers: shared hit=1123
+              ->  Parallel Index Only Scan using idx_outbox_record_status_retry_incomplete on outbox_record  (cost=0.42..2365.26 rows=85572 width=7) (actual time=0.028..5.403 rows=66666.67 loops=3)
+                    Index Cond: (status = ANY ('{NEW,FAILED}'::text[]))
+                    Heap Fetches: 225
+                    Index Searches: 1
+                    Buffers: shared hit=1123
+Settings: search_path = 'run'
+Planning Time: 0.080 ms
+Execution Time: 20.038 ms

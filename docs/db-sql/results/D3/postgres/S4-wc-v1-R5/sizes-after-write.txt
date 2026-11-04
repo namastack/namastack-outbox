@@ -1,0 +1,17 @@
+# rows_by_status
+COMPLETED	1005000
+NEW	1005200
+# table_size (heap+toast)
+1785 MB	1871560704
+# indexes_size_total
+438 MB	459030528
+# index_sizes (incl. pkey)
+idx_outbox_record_key_created_id_incomplete	115163136	110 MB
+idx_outbox_record_status_created_id_incomplete	141369344	135 MB
+idx_outbox_record_status_partition_incomplete	7094272	6928 kB
+idx_outbox_record_status_retry_incomplete	40976384	39 MB
+outbox_record_pkey	154427392	147 MB
+# index_count (incl. pkey)
+5
+# pg_stat_user_tables
+2010124	4803	2026-11-03 21:40:43.849308+00	2026-11-03 21:41:02.595628+00		1	1

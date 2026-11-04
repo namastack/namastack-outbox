@@ -1,0 +1,27 @@
+Limit  (cost=65.40..65.42 rows=10 width=82) (actual time=0.547..0.549 rows=10.00 loops=1)
+  Buffers: shared hit=366
+  ->  Sort  (cost=65.40..65.53 rows=52 width=82) (actual time=0.547..0.548 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 27kB
+        Buffers: shared hit=366
+        ->  Hash Right Anti Join  (cost=28.62..64.27 rows=52 width=82) (actual time=0.525..0.530 rows=53.00 loops=1)
+              Hash Cond: ((earlier.record_key)::text = (o.record_key)::text)
+              Join Filter: ((earlier.created_at <= o.created_at) AND ((earlier.created_at < o.created_at) OR ((earlier.created_at = o.created_at) AND ((earlier.id)::text < (o.id)::text))))
+              Rows Removed by Join Filter: 53
+              Buffers: shared hit=366
+              ->  Index Scan using idx_outbox_record_status_retry_incomplete on outbox_record earlier  (cost=0.29..27.59 rows=833 width=82) (actual time=0.017..0.142 rows=1000.00 loops=1)
+                    Index Cond: (((status)::text = 'NEW'::text) AND (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone))
+                    Index Searches: 1
+                    Buffers: shared hit=183
+              ->  Hash  (cost=27.68..27.68 rows=52 width=82) (actual time=0.284..0.285 rows=53.00 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 15kB
+                    Buffers: shared hit=183
+                    ->  Index Scan using idx_outbox_record_status_retry_incomplete on outbox_record o  (cost=0.33..27.68 rows=52 width=82) (actual time=0.032..0.268 rows=53.00 loops=1)
+                          Index Cond: (((status)::text = 'NEW'::text) AND (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone))
+                          Filter: (partition_no = ANY ('{0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240}'::integer[]))
+                          Rows Removed by Filter: 947
+                          Index Searches: 1
+                          Buffers: shared hit=183
+Settings: search_path = 'run'
+Planning Time: 0.224 ms
+Execution Time: 0.598 ms

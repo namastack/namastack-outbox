@@ -1,0 +1,21 @@
+Limit  (cost=229461.33..229461.33 rows=1 width=1064) (actual time=166.009..174.622 rows=0.00 loops=1)
+  Buffers: shared hit=15711 read=206359
+  ->  Sort  (cost=229461.33..229461.33 rows=1 width=1064) (actual time=163.414..172.026 rows=0.00 loops=1)
+        Sort Key: next_retry_at
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=15711 read=206359
+        ->  Gather  (cost=1000.00..229461.32 rows=1 width=1064) (actual time=163.404..172.015 rows=0.00 loops=1)
+              Workers Planned: 2
+              Workers Launched: 2
+              Buffers: shared hit=15711 read=206359
+              ->  Parallel Seq Scan on outbox_record  (cost=0.00..228461.22 rows=1 width=1064) (actual time=148.136..148.136 rows=0.00 loops=3)
+                    Filter: ((next_retry_at < '2025-12-02 12:00:00+00'::timestamp with time zone) AND ((status)::text = 'FAILED'::text))
+                    Rows Removed by Filter: 284413
+                    Buffers: shared hit=15711 read=206359
+Settings: search_path = 'run'
+Planning Time: 0.078 ms
+JIT:
+  Functions: 7
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 1.305 ms (Deform 0.523 ms), Inlining 0.000 ms, Optimization 0.704 ms, Emission 24.887 ms, Total 26.896 ms
+Execution Time: 175.002 ms

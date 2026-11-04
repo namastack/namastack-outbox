@@ -1,0 +1,32 @@
+Limit  (cost=126891.47..126891.50 rows=10 width=82) (actual time=947.336..947.337 rows=10.00 loops=1)
+  Buffers: shared hit=735228 read=15273, temp read=2921 written=2928
+  ->  Sort  (cost=126891.47..127436.31 rows=217934 width=82) (actual time=942.913..942.914 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 27kB
+        Buffers: shared hit=735228 read=15273, temp read=2921 written=2928
+        ->  Merge Anti Join  (cost=44301.25..122182.00 rows=217934 width=82) (actual time=412.556..915.029 rows=250815.00 loops=1)
+              Merge Cond: ((o.record_key)::text = (earlier.record_key)::text)
+              Join Filter: ((earlier.created_at <= o.created_at) AND ((earlier.created_at < o.created_at) OR ((earlier.created_at = o.created_at) AND ((earlier.id)::text < (o.id)::text))))
+              Rows Removed by Join Filter: 250815
+              Buffers: shared hit=735228 read=15273, temp read=2921 written=2928
+              ->  Sort  (cost=44300.70..44919.72 rows=247606 width=82) (actual time=412.495..538.939 rows=250815.00 loops=1)
+                    Sort Key: o.record_key
+                    Sort Method: external merge  Disk: 23368kB
+                    Buffers: shared hit=490 read=4172, temp read=2921 written=2928
+                    ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record o  (cost=0.42..10267.07 rows=247606 width=82) (actual time=0.038..38.622 rows=250815.00 loops=1)
+                          Index Cond: ((status = 'NEW'::text) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                          Filter: (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone)
+                          Heap Fetches: 0
+                          Index Searches: 64
+                          Buffers: shared hit=490 read=4172
+              ->  Index Only Scan using idx_outbox_record_key_created_id_incomplete on outbox_record earlier  (cost=0.55..70216.44 rows=993593 width=82) (actual time=0.032..171.769 rows=1000000.00 loops=1)
+                    Heap Fetches: 0
+                    Index Searches: 1
+                    Buffers: shared hit=734738 read=11101
+Settings: search_path = 'run'
+Planning Time: 0.287 ms
+JIT:
+  Functions: 11
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 0.536 ms (Deform 0.141 ms), Inlining 0.000 ms, Optimization 0.177 ms, Emission 4.268 ms, Total 4.981 ms
+Execution Time: 950.168 ms

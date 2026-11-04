@@ -1,0 +1,9 @@
+Index Scan using idx_outbox_record_status_retry_incomplete on outbox_record  (cost=0.31..41.52 rows=1 width=1092) (actual time=0.026..0.258 rows=10.00 loops=1)
+  Index Cond: ((status)::text = 'NEW'::text)
+  Filter: ((record_key)::text = ANY ('{order-000000000000000000000000000277,order-000000000000000000000000000513,order-000000000000000000000000000327,order-000000000000000000000000000311,order-000000000000000000000000000066,order-000000000000000000000000000239,order-000000000000000000000000000354,order-000000000000000000000000000913,order-000000000000000000000000000672,order-000000000000000000000000000388}'::text[]))
+  Rows Removed by Filter: 1190
+  Index Searches: 1
+  Buffers: shared hit=383
+Settings: search_path = 'run'
+Planning Time: 0.055 ms
+Execution Time: 0.272 ms

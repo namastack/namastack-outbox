@@ -1,0 +1,14 @@
+query_id,custom_timed,generic_timed,custom_total,generic_total
+keys_strict,0,20,0,21
+keys_nonstrict,0,20,0,21
+pages,0,20,0,21
+count_new,0,2,0,2
+count_failed,0,20,0,21
+count_completed,0,20,0,21
+count_statuses,0,20,0,21
+count_statuses_all,0,20,0,21
+count_partitions,0,20,0,21
+count_partition_single,0,20,0,21
+oldest_created,0,20,0,21
+oldest_due_strict,0,20,0,21
+oldest_due_nonstrict,0,20,0,21

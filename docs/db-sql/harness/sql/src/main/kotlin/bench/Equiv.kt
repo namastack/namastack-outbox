@@ -17,6 +17,7 @@ object Equiv {
         o.opt("owned")?.let { args += listOf("--owned", it) }
         o.opt("batch")?.let { args += listOf("--batch", it) }
         o.opt("catalog")?.let { args += listOf("--catalog", it) }
+        o.opt("results")?.let { args += listOf("--results", it) }
         val cm = Common(Opts(args))
         if (!o.has("no-prepare")) Bench.prepare(cm)
         val c = cm.dialect.connect(schema)
@@ -99,8 +100,10 @@ object Equiv {
                         }
                     }
                     id == "pages" -> {
-                        fun grp(r: Bench.ExecResult) = r.data!!.groupBy({ it[idx(r, "record_key")] }, { it[idx(r, "id")] })
-                        val gx = grp(x); val gy = grp(y)
+                        // --pages-client-sort: a side whose pages SQL has no ORDER BY is compared after the client sort (group by key, created_at, id)
+                        fun rowsOf(r: Bench.ExecResult, s: Side) = if (R3.applies(s.cat.getValue("pages"))) R3.sort(r) else r.data!!
+                        fun grp(r: Bench.ExecResult, s: Side) = rowsOf(r, s).groupBy({ it[idx(r, "record_key")] }, { it[idx(r, "id")] })
+                        val gx = grp(x, a); val gy = grp(y, b)
                         add(id, if (gx == gy) "PASS" else "FAIL", "${x.rows} vs ${y.rows} rows over ${gx.size} keys; per-key id order ${if (gx == gy) "equal" else "differs"}")
                     }
                     id.startsWith("find_") && id != "find_pending_all" && id != "find_failed_all" && id != "find_incomplete_by_key" || id.startsWith("ids_") -> {

@@ -1,0 +1,21 @@
+Limit  (cost=0.82..181.28 rows=39 width=82) (actual time=0.072..0.158 rows=10.00 loops=1)
+  Buffers: shared hit=40
+  ->  Nested Loop Anti Join  (cost=0.82..1823.89 rows=394 width=82) (actual time=0.071..0.156 rows=10.00 loops=1)
+        Buffers: shared hit=40
+        ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record o  (cost=0.41..797.61 rows=394 width=82) (actual time=0.049..0.094 rows=10.00 loops=1)
+              Index Cond: (status = $65)
+              Filter: ((next_retry_at <= $66) AND (partition_no = ANY (ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64])))
+              Rows Removed by Filter: 32
+              Heap Fetches: 0
+              Index Searches: 1
+              Buffers: shared hit=8
+        ->  Index Only Scan using idx_outbox_record_key_created_id_incomplete on outbox_record earlier  (cost=0.41..2.59 rows=1 width=82) (actual time=0.006..0.006 rows=0.00 loops=10)
+              Index Cond: ((record_key = (o.record_key)::text) AND (created_at <= o.created_at))
+              Filter: ((next_retry_at <= $68) AND ((status)::text = $67) AND ((created_at < o.created_at) OR ((created_at = o.created_at) AND ((id)::text < (o.id)::text))))
+              Rows Removed by Filter: 1
+              Heap Fetches: 0
+              Index Searches: 10
+              Buffers: shared hit=32
+Settings: search_path = 'run', plan_cache_mode = 'force_generic_plan'
+Planning Time: 0.069 ms
+Execution Time: 0.220 ms

@@ -1,0 +1,9 @@
+SELECT
+    COUNT(*)
+FROM "RUN"."OUTBOX_RECORD"
+    /* RUN.IDX_OUTBOX_RECORD_STATUS: STATUS = 'NEW' */
+    /* scanCount: 1201 */
+WHERE "STATUS" = 'NEW'
+/*
+reads: 30
+*/

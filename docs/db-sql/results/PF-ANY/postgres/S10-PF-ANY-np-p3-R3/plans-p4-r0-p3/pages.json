@@ -1,0 +1,57 @@
+[
+  {
+    "Plan": {
+      "Node Type": "Index Scan",
+      "Parallel Aware": false,
+      "Async Capable": false,
+      "Scan Direction": "Forward",
+      "Index Name": "idx_outbox_record_status_created_id_incomplete",
+      "Relation Name": "outbox_record",
+      "Alias": "outbox_record",
+      "Startup Cost": 0.45,
+      "Total Cost": 43.48,
+      "Plan Rows": 1,
+      "Plan Width": 1093,
+      "Actual Startup Time": 31.629,
+      "Actual Total Time": 31.629,
+      "Actual Rows": 0.00,
+      "Actual Loops": 1,
+      "Disabled": false,
+      "Index Cond": "((status)::text = 'NEW'::text)",
+      "Rows Removed by Index Recheck": 0,
+      "Filter": "((record_key)::text = ANY ('{order-cc-49316-00000000000100013536,order-cc-31593-00000000000300013524,order-cc-95991-00000000000100013537,order-cc-15473-00000000000300013526,order-cc-99963-00000000000000013518,order-cc-33351-00000000000200013517,order-cc-58579-00000000000300013529,order-cc-36742-00000000000200013519,order-cc-32325-00000000000300013531,order-cc-67671-00000000000000013526}'::text[]))",
+      "Rows Removed by Filter": 65784,
+      "Index Searches": 1,
+      "Shared Hit Blocks": 66378,
+      "Shared Read Blocks": 0,
+      "Shared Dirtied Blocks": 0,
+      "Shared Written Blocks": 0,
+      "Local Hit Blocks": 0,
+      "Local Read Blocks": 0,
+      "Local Dirtied Blocks": 0,
+      "Local Written Blocks": 0,
+      "Temp Read Blocks": 0,
+      "Temp Written Blocks": 0
+    },
+    "Settings": {
+      "search_path": "run",
+      "max_parallel_workers_per_gather": "0"
+    },
+    "Planning": {
+      "Shared Hit Blocks": 0,
+      "Shared Read Blocks": 0,
+      "Shared Dirtied Blocks": 0,
+      "Shared Written Blocks": 0,
+      "Local Hit Blocks": 0,
+      "Local Read Blocks": 0,
+      "Local Dirtied Blocks": 0,
+      "Local Written Blocks": 0,
+      "Temp Read Blocks": 0,
+      "Temp Written Blocks": 0
+    },
+    "Planning Time": 0.134,
+    "Triggers": [
+    ],
+    "Execution Time": 31.649
+  }
+]

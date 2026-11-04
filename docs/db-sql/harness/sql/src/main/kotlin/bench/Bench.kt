@@ -88,8 +88,12 @@ object Bench {
     fun maxRowsFor(q: CatalogQuery, ctx: Ctx): Int = when (q.maxRows) { "none" -> 0; else -> ctx.limitFor(q) }
 
     /** Time one query: warmup + reps, writes inside a rolled-back transaction (timer stops before rollback). */
+    /** DB-only times (execute + fetch, without the client sort) of the last `timeQuery` run when `R3.applies(q)`. */
+    @Volatile var dbOnly: List<Double> = emptyList()
+
     fun timeQuery(c: Connection, q: CatalogQuery, ctx: Ctx, warmup: Int, reps: Int, afterWarmup: (() -> Unit)? = null): Triple<List<Double>, Int, String> {
         val times = mutableListOf<Double>(); var rows = 0; var note = ""
+        val db = mutableListOf<Double>(); dbOnly = emptyList()
         var w = warmup; var r = reps
         val write = q.kind != "read"
         val total = { w + r }
@@ -100,33 +104,41 @@ object Bench {
             val mr = maxRowsFor(q, ctx)
             if (write) c.autoCommit = false else c.autoCommit = true
             val t = System.nanoTime()
-            val res = exec(c, q, p, mr)
+            var dbMs = 0.0
+            val res = if (R3.applies(q)) { // fetch, then group + sort in the JVM inside the timed section
+                val r0 = exec(c, q, p, mr, collect = true); dbMs = (System.nanoTime() - t) / 1e6; R3.sort(r0); r0
+            } else exec(c, q, p, mr)
             val ms = (System.nanoTime() - t) / 1e6
             if (write) c.rollback()
             rows = res.rows
             if (i == 0 && ms > 30000) { times += ms; return Triple(times, rows, "very slow (>30s): 1 execution") }
             if (i == 0 && ms > 2000 && w > 1) { w = 1; r = 5; note = "slow(>2s): warmup 1, reps 5" }
-            if (i >= w) times += ms
+            if (i >= w) { times += ms; if (R3.applies(q)) db += dbMs }
             i++
         }
+        dbOnly = db
         return Triple(times, rows, note)
     }
 
-    fun plan(d: Dialect, c: Connection, q: CatalogQuery, p: Map<String, Any?>, maxRows: Int, dir: File, plain: Boolean = false) {
+    /** Writes the plan files; PostgreSQL: returns (planning ms, execution ms) from the EXPLAIN ANALYZE JSON, else null. */
+    fun plan(d: Dialect, c: Connection, q: CatalogQuery, p: Map<String, Any?>, maxRows: Int, dir: File, plain: Boolean = false): Pair<Double, Double>? {
+        var times: Pair<Double, Double>? = null
         val (sql, values) = NamedSql.expand(q.sql, p)
         val write = q.kind != "read"
         try {
             c.autoCommit = !write
-            if (plain && d != Dialect.POSTGRES && d != Dialect.H2) { planPlain(d, c, NamedSql.literalize(d, sql, values), q, dir); return }
+            if (plain && d != Dialect.POSTGRES && d != Dialect.H2) { planPlain(d, c, NamedSql.literalize(d, sql, values), q, dir); return null }
             when (d) {
                 Dialect.POSTGRES -> {
                     for ((ext, fmt) in listOf("json" to "FORMAT JSON", "txt" to "FORMAT TEXT")) {
                         c.prepareStatement("EXPLAIN (ANALYZE, BUFFERS, SETTINGS, $fmt) $sql").use { ps ->
                             NamedSql.bind(ps, values)
-                            ps.executeQuery().use { rs -> val sb = StringBuilder(); while (rs.next()) sb.appendLine(rs.getString(1)); File(dir, "${q.id}.$ext").writeText(sb.toString()) }
+                            ps.executeQuery().use { rs -> val sb = StringBuilder(); while (rs.next()) sb.appendLine(rs.getString(1)); File(dir, "${q.id}.$ext").writeText(sb.toString())
+                                if (ext == "json") { val pl = Regex("\"Planning Time\": ([0-9.]+)").find(sb)?.groupValues?.get(1)?.toDouble(); val ex = Regex("\"Execution Time\": ([0-9.]+)").find(sb)?.groupValues?.get(1)?.toDouble()
+                                    if (pl != null && ex != null) times = pl to ex } }
                         }
                     }
-                    if (Dialect.pgSessionSql.isNotEmpty() && !write) { // generic plan with actual rows: PREPARE + EXPLAIN ANALYZE EXECUTE -> plans/<id>.generic.json|txt
+                    if (Dialect.pgSessionSql.any { it.contains("plan_cache_mode") } && !write) { // generic plan with actual rows: PREPARE + EXPLAIN ANALYZE EXECUTE -> plans/<id>.generic.json|txt
                         var n = 0; val gsql = sql.map { if (it == '?') "$" + (++n) else it.toString() }.joinToString("")
                         val lits = values.joinToString(", ") { NamedSql.literalize(d, "?", listOf(it)) }
                         try {
@@ -183,6 +195,7 @@ object Bench {
             if (write) try { c.rollback() } catch (_: Exception) {}
             c.autoCommit = true
         }
+        return times
     }
 
     /** Non-executing plan for very slow queries (first execution > 30 s). */
@@ -224,6 +237,10 @@ object Bench {
             val csv = StringBuilder("query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note\n")
             // PostgreSQL: which plan type the timed reps used (pg_prepared_statements counters) -> plancache.csv
             val pcsv = StringBuilder("query_id,custom_timed,generic_timed,custom_total,generic_total\n")
+            // PostgreSQL: planning vs execution time of the captured EXPLAIN ANALYZE (custom plan, first parameter set) -> plantimes.csv
+            val ptcsv = StringBuilder("query_id,planning_ms,execution_ms\n")
+            // --pages-client-sort: DB-only (execute + fetch) vs total (incl. group + sort) -> pages-clientsort.csv
+            val csortcsv = StringBuilder("query_id,db_only_median_ms,db_only_p95_ms,total_median_ms,total_p95_ms\n")
             for (id in Catalog.ORDER) {
                 if (only != null && id !in only) continue
                 val q = cat[id]
@@ -242,7 +259,8 @@ object Bench {
                     val s = times.sorted()
                     csv.appendLine("$id,%.3f,%.3f,%.3f,%.3f,$rows,${times.size},$note".format(percentile(s, 0.5), percentile(s, 0.95), s.first(), s.last()))
                     println("%-24s median %9.3f ms  p95 %9.3f  rows %d %s".format(id, percentile(s, 0.5), percentile(s, 0.95), rows, note))
-                    if (!skipPlans) plan(cm.dialect, c, q, ctx.paramsFor(q, 0), maxRowsFor(q, ctx), File(dir, "plans"), note.startsWith("very slow"))
+                    if (R3.applies(q) && dbOnly.isNotEmpty()) { val d = dbOnly.sorted(); csortcsv.appendLine("$id,%.3f,%.3f,%.3f,%.3f".format(percentile(d, .5), percentile(d, .95), percentile(s, .5), percentile(s, .95))) }
+                    if (!skipPlans) plan(cm.dialect, c, q, ctx.paramsFor(q, 0), maxRowsFor(q, ctx), File(dir, "plans"), note.startsWith("very slow"))?.let { ptcsv.appendLine("$id,%.3f,%.3f".format(it.first, it.second)) }
                 } catch (e: Exception) {
                     try { c.rollback() } catch (_: Exception) {}
                     c.autoCommit = true
@@ -251,7 +269,8 @@ object Bench {
                 }
             }
             File(dir, "timings.csv").writeText(csv.toString())
-            if (cm.dialect == Dialect.POSTGRES) File(dir, "plancache.csv").writeText(pcsv.toString())
+            if (cm.dialect == Dialect.POSTGRES) { File(dir, "plancache.csv").writeText(pcsv.toString()); File(dir, "plantimes.csv").writeText(ptcsv.toString()) }
+            if (R3.pagesClientSort) File(dir, "pages-clientsort.csv").writeText(csortcsv.toString())
             Env.write(cm, o, c, File(dir, "env.txt"))
         }
     }
@@ -304,5 +323,27 @@ object Env {
         if (d == Dialect.POSTGRES && Dialect.pgSessionSql.isNotEmpty()) sb.appendLine("session_init: ${Dialect.pgSessionSql.joinToString("; ")}")
         sb.appendLine("--- sizes ---"); sb.append(d.sizeReport(c))
         f.writeText(sb.toString())
+    }
+}
+
+/** Round 3 options: `--pages-client-sort` (see harness/README.md "Changes"). */
+object R3 {
+    @Volatile var pagesClientSort = false
+    /** Client sort applies only to a `pages` statement without ORDER BY; for the `unnest` + `LATERAL` form only the part after `LATERAL` counts (the `ORDER BY t.k` of the key list does not order the rows). */
+    fun applies(q: CatalogQuery): Boolean {
+        if (!pagesClientSort || q.id != "pages") return false
+        val i = q.sql.indexOf("LATERAL", ignoreCase = true)
+        return !(if (i >= 0) q.sql.substring(i) else q.sql).contains("ORDER BY", ignoreCase = true)
+    }
+
+    /** Group rows by `record_key` (order of first appearance) and sort each group by `created_at` (text, UTC, fraction trimmed: lexicographic = chronological), then `id` with String.compareTo. */
+    fun sort(res: Bench.ExecResult): List<List<String?>> {
+        val ik = res.cols.indexOf("record_key"); val ic = res.cols.indexOf("created_at"); val ii = res.cols.indexOf("id")
+        val groups = LinkedHashMap<String?, MutableList<List<String?>>>()
+        for (r in res.data!!) groups.getOrPut(r[ik]) { mutableListOf() }.add(r)
+        val cmp = Comparator<List<String?>> { a, b -> val c = a[ic]!!.compareTo(b[ic]!!); if (c != 0) c else a[ii]!!.compareTo(b[ii]!!) }
+        val out = ArrayList<List<String?>>(res.rows)
+        for (g in groups.values) { g.sortWith(cmp); out.addAll(g) }
+        return out
     }
 }

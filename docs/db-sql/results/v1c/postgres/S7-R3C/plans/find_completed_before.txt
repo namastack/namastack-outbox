@@ -1,0 +1,23 @@
+Limit  (cost=139496.99..139613.46 rows=1000 width=1092) (actual time=148.590..157.538 rows=1000.00 loops=1)
+  Buffers: shared hit=16092 read=108509
+  ->  Gather Merge  (cost=139496.99..178867.32 rows=338040 width=1092) (actual time=146.526..155.428 rows=1000.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=16092 read=108509
+        ->  Sort  (cost=138496.97..138849.09 rows=140850 width=1092) (actual time=131.143..131.177 rows=382.33 loops=3)
+              Sort Key: completed_at
+              Sort Method: top-N heapsort  Memory: 1184kB
+              Buffers: shared hit=16092 read=108509
+              Worker 0:  Sort Method: top-N heapsort  Memory: 1165kB
+              Worker 1:  Sort Method: top-N heapsort  Memory: 1140kB
+              ->  Parallel Seq Scan on outbox_record  (cost=0.00..130774.31 rows=140850 width=1092) (actual time=3.178..96.022 rows=189714.67 loops=3)
+                    Filter: ((completed_at < '2025-12-25 12:00:00+00'::timestamp with time zone) AND ((status)::text = 'COMPLETED'::text))
+                    Rows Removed by Filter: 143619
+                    Buffers: shared hit=16014 read=108509
+Settings: search_path = 'run'
+Planning Time: 0.095 ms
+JIT:
+  Functions: 7
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 1.118 ms (Deform 0.379 ms), Inlining 0.000 ms, Optimization 0.668 ms, Emission 10.305 ms, Total 12.091 ms
+Execution Time: 158.008 ms

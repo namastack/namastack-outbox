@@ -1,0 +1,5 @@
+INSERT INTO "RUN"."OUTBOX_RECORD"("ID", "STATUS", "RECORD_KEY", "RECORD_TYPE", "PAYLOAD", "CONTEXT", "PARTITION_NO", "CREATED_AT", "COMPLETED_AT", "FAILURE_COUNT", "FAILURE_REASON", "NEXT_RETRY_AT", "HANDLER_ID")
+VALUES ('e6ff287a-6c2c-35fb-ba0b-aed18d969b91', 'NEW', 'order-bench-00000000000000000026', 'io.namastack.outbox.bench.OrderShippedPayload', '{"d":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}', NULL, 202, TIMESTAMP WITH TIME ZONE '2026-01-01 12:00:00+00', NULL, 0, NULL, TIMESTAMP WITH TIME ZONE '2026-01-01 12:00:00+00', 'io.namastack.outbox.bench.handlers.BillingHandler#publishToBilling(io.namastack.outbox.bench.PaymentCapturedPayload)')
+/*
+reads: 3
+*/

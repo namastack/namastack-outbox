@@ -1,0 +1,13 @@
+tag: p1-r0  pollers=1 producers=4 rate=unthrottled seconds=60.4
+processed_per_s: 336.8   (total 20340)
+inserted_per_s: 1803.0   (total 108903)
+errors: 0
+keys_query_ms: n=2034 p50=4.71 p95=6.91
+pages_query_ms: n=2034 p50=1.07 p95=1.57
+pages_db_only_ms: n=2034 p50=1.06 p95=1.57
+client_sort: false  session_init: []
+auto_explain: 0 pages plans >= 5 ms logged, 1 final captures (concurrency-p1-r0.plans.txt)
+poller 0: EXPLAIN ANALYZE (custom plan, last key set, 10 keys) planning 0.266 ms, execution 0.159 ms (plans-p1-r0-p0/pages.txt)
+poller 0: pages server-prepared statements=1 custom_plans=5 generic_plans=2025 (executions before the 5th use an unnamed statement and are not counted)
+update_ms: n=20340 p50=1.91 p95=4.75
+insert_ms: n=108903 p50=1.75 p95=4.07

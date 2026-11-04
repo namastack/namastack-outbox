@@ -1,0 +1,40 @@
+Limit  (cost=1079.93..1079.96 rows=10 width=82) (actual time=18.166..18.168 rows=10.00 loops=1)
+  Buffers: shared hit=3472
+  ->  Sort  (cost=1079.93..1080.57 rows=256 width=82) (actual time=18.166..18.167 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 26kB
+        Buffers: shared hit=3472
+        ->  Nested Loop  (cost=16.73..1074.40 rows=256 width=82) (actual time=0.353..18.136 rows=229.00 loops=1)
+              Buffers: shared hit=3472
+              ->  Function Scan on unnest p  (cost=0.00..0.64 rows=64 width=4) (actual time=0.013..0.020 rows=64.00 loops=1)
+              ->  Limit  (cost=16.73..16.74 rows=4 width=82) (actual time=0.282..0.282 rows=3.58 loops=64)
+                    Buffers: shared hit=3472
+                    ->  Sort  (cost=16.73..16.74 rows=4 width=82) (actual time=0.282..0.282 rows=3.58 loops=64)
+                          Sort Key: o.created_at, o.id
+                          Sort Method: quicksort  Memory: 26kB
+                          Buffers: shared hit=3472
+                          ->  Hash Right Anti Join  (cost=5.16..16.69 rows=4 width=82) (actual time=0.274..0.276 rows=3.58 loops=64)
+                                Hash Cond: ((earlier.record_key)::text = (o.record_key)::text)
+                                Join Filter: ((earlier.created_at <= o.created_at) AND ((earlier.created_at < o.created_at) OR ((earlier.created_at = o.created_at) AND ((earlier.id)::text < (o.id)::text))))
+                                Rows Removed by Join Filter: 4
+                                Buffers: shared hit=3472
+                                ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record earlier  (cost=0.41..4.67 rows=966 width=82) (actual time=0.002..0.116 rows=1000.00 loops=60)
+                                      Index Cond: (status = 'NEW'::text)
+                                      Filter: (next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone)
+                                      Rows Removed by Filter: 200
+                                      Heap Fetches: 0
+                                      Index Searches: 60
+                                      Buffers: shared hit=1680
+                                ->  Hash  (cost=4.70..4.70 rows=4 width=82) (actual time=0.104..0.104 rows=3.58 loops=64)
+                                      Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                      Buffers: shared hit=1792
+                                      ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record o  (cost=0.41..4.70 rows=4 width=82) (actual time=0.029..0.098 rows=3.58 loops=64)
+                                            Index Cond: (status = 'NEW'::text)
+                                            Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = p.no))
+                                            Rows Removed by Filter: 1196
+                                            Heap Fetches: 0
+                                            Index Searches: 64
+                                            Buffers: shared hit=1792
+Settings: search_path = 'run'
+Planning Time: 0.265 ms
+Execution Time: 18.246 ms
