@@ -10,7 +10,7 @@ import javax.sql.DataSource
  * Runs the repository contract with the portable statements an unsupported database receives: no row-limit
  * clause, so `withMaxRows` alone must honour every limit.
  */
-class JdbcBulkRecordLoadingDefaultQueriesH2IntegrationTest : AbstractJdbcBulkRecordLoadingTest() {
+class JdbcOutboxRecordRepositoryDefaultQueriesH2IntegrationTest : AbstractJdbcOutboxRecordRepositoryIntegrationTest() {
     override fun createRepository(
         source: DataSource,
         transactions: TransactionTemplate,

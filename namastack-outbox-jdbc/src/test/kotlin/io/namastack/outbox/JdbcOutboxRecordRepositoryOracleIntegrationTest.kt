@@ -8,9 +8,9 @@ import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 
 @Testcontainers
-class JdbcBulkRecordLoadingOracleIntegrationTest : AbstractJdbcBulkRecordLoadingTest() {
+class JdbcOutboxRecordRepositoryOracleIntegrationTest : AbstractJdbcOutboxRecordRepositoryIntegrationTest() {
     companion object {
-        private val log = LoggerFactory.getLogger(JdbcBulkRecordLoadingOracleIntegrationTest::class.java)
+        private val log = LoggerFactory.getLogger(JdbcOutboxRecordRepositoryOracleIntegrationTest::class.java)
 
         @Container
         @JvmStatic

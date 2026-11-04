@@ -10,9 +10,9 @@ import org.testcontainers.mssqlserver.MSSQLServerContainer
 import java.time.Duration
 
 @Testcontainers
-class JdbcBulkRecordLoadingSqlServerIntegrationTest : AbstractJdbcBulkRecordLoadingTest() {
+class JdbcOutboxRecordRepositorySqlServerIntegrationTest : AbstractJdbcOutboxRecordRepositoryIntegrationTest() {
     companion object {
-        private val log = LoggerFactory.getLogger(JdbcBulkRecordLoadingSqlServerIntegrationTest::class.java)
+        private val log = LoggerFactory.getLogger(JdbcOutboxRecordRepositorySqlServerIntegrationTest::class.java)
 
         @Container
         @JvmStatic
