@@ -1,5 +1,9 @@
 package io.namastack.outbox.config
 
+import org.springframework.jdbc.support.JdbcUtils
+import java.sql.DatabaseMetaData
+import javax.sql.DataSource
+
 /**
  * Sealed class representing supported database types.
  *
@@ -14,6 +18,8 @@ package io.namastack.outbox.config
  * - **SQL Server**: Microsoft's enterprise relational database
  *
  * @param schemaLocation Classpath location of the database-specific schema script
+ * @param rowLimitClause Clause appended after ORDER BY to cap the result at the `:limit` parameter,
+ * so the optimizer can stop after the first rows instead of sorting the whole result
  *
  * @author Roland Beisel, Khalid Alharisi
  * @since 1.0.0
@@ -21,6 +27,7 @@ package io.namastack.outbox.config
 sealed class JdbcDatabaseType(
     val schemaLocation: String,
     val statementSeparator: String = ";",
+    val rowLimitClause: String = "FETCH FIRST :limit ROWS ONLY",
 ) {
     /**
      * PostgreSQL database type.
@@ -40,6 +47,7 @@ sealed class JdbcDatabaseType(
      */
     data object MySQL : JdbcDatabaseType(
         schemaLocation = "classpath:schema/mysql/outbox-tables.sql",
+        rowLimitClause = "LIMIT :limit",
     )
 
     /**
@@ -60,6 +68,7 @@ sealed class JdbcDatabaseType(
      */
     data object MariaDB : JdbcDatabaseType(
         schemaLocation = "classpath:schema/mariadb/outbox-tables.sql",
+        rowLimitClause = "LIMIT :limit",
     )
 
     /**
@@ -70,6 +79,7 @@ sealed class JdbcDatabaseType(
      */
     data object SQLServer : JdbcDatabaseType(
         schemaLocation = "classpath:schema/sqlserver/outbox-tables.sql",
+        rowLimitClause = "OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY",
     )
 
     /**
@@ -106,5 +116,25 @@ sealed class JdbcDatabaseType(
                 "oracle" -> Oracle
                 else -> throw IllegalArgumentException("Unsupported database type: $databaseName")
             }
+
+        /**
+         * Resolves the database type of a data source from its JDBC metadata.
+         *
+         * @param dataSource The data source to inspect
+         * @return Corresponding JdbcDatabaseType
+         * @throws RuntimeException if the database name cannot be detected
+         * @throws IllegalArgumentException if database type is not supported
+         */
+        fun from(dataSource: DataSource): JdbcDatabaseType {
+            val databaseName =
+                try {
+                    val metadata =
+                        JdbcUtils.extractDatabaseMetaData(dataSource, DatabaseMetaData::getDatabaseProductName)
+                    JdbcUtils.commonDatabaseName(metadata) ?: throw RuntimeException("Could not detect database name")
+                } catch (e: Exception) {
+                    throw RuntimeException("Could not detect database name", e)
+                }
+            return from(databaseName)
+        }
     }
 }
