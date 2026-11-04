@@ -178,7 +178,7 @@ deleting its id is still deleted.
 ## Indexes
 
 Retention queries read at most `limit` rows, using a SQL row limit on the supported databases. The
-[schema files](database.md#outbox_record-indexes) index the processing loop and metrics, not retention,
+[schema files](database.md#indexes) index the processing loop and metrics, not retention,
 so these queries can be slow on large tables. Run them outside busy periods, or add an index for
 `COMPLETED` retention, which is not created automatically:
 

@@ -33,7 +33,7 @@ indexes that have not been measured. Compare your own query latency before and a
     below the new queries run against the old indexes.
 - **Custom names:** if you use a table prefix or a custom schema, adapt the table names.
 - **Disk space:** the old and new indexes exist together during the migration.
-- **JPA with generated DDL:** see the [PostgreSQL with JPA warning](database.md#jpa-module--no-automatic-schema-creation).
+- **JPA with generated DDL:** use the shipped schema script on PostgreSQL. See [JPA Module](database.md#jpa-module--no-automatic-schema-creation).
 
 ## Migration Order
 

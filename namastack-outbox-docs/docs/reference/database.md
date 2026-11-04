@@ -85,74 +85,33 @@ spring:
 If the schema does not match the expected structure, Spring Boot will fail to start — which is
 the desired behavior for production deployments.
 
-:::warning PostgreSQL with JPA
-Use the shipped PostgreSQL schema script in production, not Hibernate-generated DDL. `@Index` cannot
-express a partial index, so generated DDL creates the full indexes of the MySQL, MariaDB and H2 column
-sets. These full indexes have not been measured on PostgreSQL, and full status-leading indexes can
-make the planner choose a `BitmapAnd` that slows bulk record loading on hot keys.
-:::
+---
 
-### outbox_record Indexes
+## Indexes
 
-The schema files create these indexes on `outbox_record` in addition to the primary key on `id`. They
-serve the processing loop and metrics collection, which read incomplete records. Retention and
-administration queries have no dedicated index and can be slow on large tables.
+The schema files create four secondary indexes on `outbox_record`. Their exact definitions differ per
+database; see the [schema files](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema).
 
-**PostgreSQL** uses partial indexes, plus the extended statistics
-`outbox_record_status_completed_stx (mcv) ON status, completed_at`. Every index has the predicate
-`WHERE completed_at IS NULL`:
+| Index on | Used for |
+|----------|----------|
+| status, creation time, id | Selecting the record keys to process |
+| record key, creation time, id | Loading the records of a key, and checking for earlier records of a key |
+| status, next retry time | The oldest due record metric |
+| status, partition | Record count metrics per partition |
 
-| Index | Key columns | Included columns |
-|-------|-------------|------------------|
-| `idx_outbox_record_status_created_id_incomplete` | `status, created_at, id` | `partition_no, next_retry_at, record_key` |
-| `idx_outbox_record_key_created_id_incomplete` | `record_key, created_at, id` | |
-| `idx_outbox_record_status_retry_incomplete` | `status, next_retry_at` | `partition_no` |
-| `idx_outbox_record_status_partition_incomplete` | `status, partition_no` | |
+Retention queries have no dedicated index and can be slow on large tables. See
+[Record Retention](retention.md#indexes).
 
-The record key index and the status indexes must keep the same predicate. A status index with a
-different predicate, or a full `(status, ...)` index, can make the planner use a `BitmapAnd` that
-doubled bulk record loading on hot keys in measurements.
+On PostgreSQL, H2 and SQL Server, automatic schema initialization creates missing indexes at startup,
+which can block writes on a large table. See [Upgrading to 1.12](upgrading-to-1-12.md) for the steps.
 
-**SQL Server** uses filtered indexes with the same names and key columns and the same predicate. Each
-also includes `completed_at`. Sessions that write to `outbox_record` need `QUOTED_IDENTIFIER ON`, which
-is the Microsoft JDBC driver default.
+---
 
-**MySQL, MariaDB and H2** have no partial indexes, so `completed_at` is part of the key:
+## Other Databases
 
-| Index | Columns |
-|-------|---------|
-| `idx_outbox_record_status_completed_created_id` | `status, completed_at, created_at, id, partition_no, next_retry_at, record_key` |
-| `idx_outbox_record_key_completed_created_id` | `record_key, completed_at, created_at, id` |
-| `idx_outbox_record_status_completed_retry` | `status, completed_at, next_retry_at, partition_no` |
-| `idx_outbox_record_status_completed_partition` | `status, completed_at, partition_no` |
-
-The first index has a maximum key length of about 2150 bytes with `utf8mb4`. This fits the 3072-byte
-InnoDB limit of the default 16 KB page size, but not the limit of a smaller `innodb_page_size`.
-
-**Oracle** has no partial indexes. The status-leading indexes do not contain `completed_at`:
-
-| Index | Columns |
-|-------|---------|
-| `idx_outbox_rec_status_created` | `status, created_at, id, partition_no, next_retry_at, record_key` |
-| `idx_outbox_rec_k_c_c_id` | `record_key, completed_at, created_at, id` |
-| `idx_outbox_rec_s_r_p` | `status, next_retry_at, partition_no` |
-| `idx_outbox_rec_s_p` | `status, partition_no` |
-
-Only the PostgreSQL index set is based on benchmarks. The other sets are translated from it.
-
-Automatic schema initialization creates missing indexes on an existing table on PostgreSQL, H2 and SQL
-Server. On MySQL, MariaDB and Oracle, indexes are created together with the table.
-
-The queries rely on `completed_at` being `NULL` exactly for `NEW` and `FAILED` records. The library
-maintains this. Applications that write to `outbox_record` directly must keep it.
-
-### Other Databases
-
-The JDBC module selects its SQL from the product name reported by the JDBC driver, on the first record
-query. Other databases receive portable SQL without a row-limit clause, and the driver applies the
-row limit, so they can read and sort more rows than the supported databases. Automatic schema
-initialization supports only the databases listed above, so disable it for other databases and create
-the schema yourself.
+Other databases receive portable SQL without a row-limit clause. The driver applies the row limit, so
+the database can read and sort more rows than on a supported database. Automatic schema initialization
+does not support them, so disable it and create the schema yourself.
 
 ---
 
