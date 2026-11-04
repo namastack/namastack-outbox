@@ -46,8 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry
     ON outbox_record (status, next_retry_at);
 
 CREATE INDEX IF NOT EXISTS idx_outbox_record_status_created
-    ON outbox_record (status, created_at, id)
-    INCLUDE (record_key, partition_no, next_retry_at, completed_at);
+    ON outbox_record (status, created_at, id);
 
 CREATE INDEX IF NOT EXISTS idx_outbox_record_record_key_completed_created
     ON outbox_record (record_key, completed_at, created_at);
