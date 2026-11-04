@@ -127,7 +127,7 @@ class MongoOutboxRecordRepositoryTest {
             saveDelivery(5, defaultKey)
         }
 
-        private fun readyKeys(): List<String> = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+        private fun readyKeys(): List<String> = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
         private fun saveDelivery(
             number: Int,
@@ -223,15 +223,15 @@ class MongoOutboxRecordRepositoryTest {
             saveRecord(2)
             saveRecord(1, status = FAILED)
 
-            assertThat(repository.findRecordKeysInPartitions(setOf(1), NEW, 10, false))
+            assertThat(repository.findRecordKeysInPartitions(setOf(1), 10, false))
                 .containsExactly(recordKey)
             assertThat(oldestDueAt(false)).isEqualTo(retentionBase)
         }
 
         private fun oldestDueAt(strict: Boolean): Instant? =
-            repository.findOldestDueNextRetryAtByPartitions(setOf(1), NEW, Instant.now(clock), strict)
+            repository.findOldestDueNextRetryAtByPartitions(setOf(1), Instant.now(clock), strict)
 
-        private fun readyKeys(): List<String> = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+        private fun readyKeys(): List<String> = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
         private fun saveRecord(
             number: Int,
@@ -759,8 +759,8 @@ class MongoOutboxRecordRepositoryTest {
             createRecordWithPartition(partition1RecordKey, NEW, 1)
             createRecordWithPartition(partition2RecordKey, NEW, 2)
 
-            val partition1RecordKeys = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
-            val partition2RecordKeys = repository.findRecordKeysInPartitions(setOf(2), NEW, 10, true)
+            val partition1RecordKeys = repository.findRecordKeysInPartitions(setOf(1), 10, true)
+            val partition2RecordKeys = repository.findRecordKeysInPartitions(setOf(2), 10, true)
 
             assertThat(partition1RecordKeys).containsExactly(partition1RecordKey)
             assertThat(partition2RecordKeys).containsExactly(partition2RecordKey)
@@ -776,7 +776,7 @@ class MongoOutboxRecordRepositoryTest {
             createRecordWithPartition(recordKey2, NEW, 2)
             createRecordWithPartition(recordKey3, NEW, 3)
 
-            val recordKeys = repository.findRecordKeysInPartitions(setOf(1, 2), NEW, 10, true)
+            val recordKeys = repository.findRecordKeysInPartitions(setOf(1, 2), 10, true)
 
             assertThat(recordKeys).containsExactlyInAnyOrder(recordKey1, recordKey2)
             assertThat(recordKeys).doesNotContain(recordKey3)
@@ -790,7 +790,7 @@ class MongoOutboxRecordRepositoryTest {
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(5, MINUTES))
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(2, MINUTES))
 
-            val result = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val result = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(result).containsExactly(recordKey)
         }
@@ -803,7 +803,7 @@ class MongoOutboxRecordRepositoryTest {
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES))
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(1, MINUTES))
 
-            val result = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val result = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(result).contains(recordKey)
         }
@@ -815,7 +815,7 @@ class MongoOutboxRecordRepositoryTest {
 
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES))
 
-            val result = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val result = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(result).contains(recordKey)
         }
@@ -832,7 +832,7 @@ class MongoOutboxRecordRepositoryTest {
             createRecordWithPartitionAndTime(recordKey1, NEW, 2, now.minus(3, MINUTES))
             createRecordWithPartitionAndTime(recordKey3, NEW, 1, now.minus(1, MINUTES))
 
-            val result = repository.findRecordKeysInPartitions(setOf(1, 2), NEW, 10, true)
+            val result = repository.findRecordKeysInPartitions(setOf(1, 2), 10, true)
 
             assertThat(result).containsExactly(recordKey1, recordKey2, recordKey3)
         }
@@ -850,7 +850,7 @@ class MongoOutboxRecordRepositoryTest {
             // ready-key: r3 is the oldest for this key and is ready
             createRecord(keyReadyToProcess, NEW, 1, now.minus(8, MINUTES), nextRetryAt = now.minus(1, MINUTES))
 
-            val result = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val result = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(result).containsExactly(keyReadyToProcess)
         }
@@ -921,9 +921,8 @@ class MongoOutboxRecordRepositoryTest {
             saveRetentionRecord(COMPLETED, partition = 2, createdAt = now.minusSeconds(400), completedAt = now)
             saveRetentionRecord(NEW, partition = 3, createdAt = now.minusSeconds(500))
 
-            assertThat(oldestCreatedAt(setOf(1, 2), NEW)).isEqualTo(now.minusSeconds(120))
-            assertThat(oldestCreatedAt(setOf(1), NEW)).isEqualTo(now.minusSeconds(60))
-            assertThat(oldestCreatedAt(setOf(1, 2), FAILED)).isEqualTo(now.minusSeconds(300))
+            assertThat(oldestCreatedAt(setOf(1, 2))).isEqualTo(now.minusSeconds(120))
+            assertThat(oldestCreatedAt(setOf(1))).isEqualTo(now.minusSeconds(60))
         }
 
         @Test
@@ -931,20 +930,18 @@ class MongoOutboxRecordRepositoryTest {
             saveRetentionRecord(COMPLETED, partition = 1, completedAt = retentionBase)
             saveRetentionRecord(NEW, partition = 3)
 
-            assertThat(oldestCreatedAt(setOf(1, 2), NEW)).isNull()
+            assertThat(oldestCreatedAt(setOf(1, 2))).isNull()
         }
 
         @Test
         fun `returns null for empty partitions`() {
             saveRetentionRecord(NEW, partition = 1)
 
-            assertThat(oldestCreatedAt(emptySet(), NEW)).isNull()
+            assertThat(oldestCreatedAt(emptySet())).isNull()
         }
 
-        private fun oldestCreatedAt(
-            partitions: Set<Int>,
-            status: OutboxRecordStatus,
-        ): Instant? = repository.findOldestCreatedAtByPartitions(partitions, status)
+        private fun oldestCreatedAt(partitions: Set<Int>): Instant? =
+            repository.findOldestCreatedAtByPartitions(partitions)
     }
 
     @Nested
@@ -1050,7 +1047,6 @@ class MongoOutboxRecordRepositoryTest {
         ): Instant? =
             repository.findOldestDueNextRetryAtByPartitions(
                 partitions = partitions,
-                status = NEW,
                 now = now,
                 ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
             )
@@ -1058,7 +1054,6 @@ class MongoOutboxRecordRepositoryTest {
         private fun recordKeys(ignoreRecordKeysWithPreviousFailure: Boolean): List<String> =
             repository.findRecordKeysInPartitions(
                 partitions = setOf(1),
-                status = NEW,
                 batchSize = 10,
                 ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
             )
@@ -1317,9 +1312,9 @@ class MongoOutboxRecordRepositoryTest {
             )
             saveRetentionRecord(NEW, recordKey = recordKey, createdAt = retentionBase.minusSeconds(30))
 
-            val keysBeforeDelete = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val keysBeforeDelete = repository.findRecordKeysInPartitions(setOf(1), 10, true)
             assertThat(repository.deleteFailedRecords(retentionBase, 10)).isEqualTo(1)
-            val keysAfterDelete = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val keysAfterDelete = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(keysBeforeDelete).doesNotContain(recordKey)
             assertThat(keysAfterDelete).containsExactly(recordKey)

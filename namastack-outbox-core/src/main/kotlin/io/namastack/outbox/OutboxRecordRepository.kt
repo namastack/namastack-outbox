@@ -154,7 +154,7 @@ interface OutboxRecordRepository {
     fun findIncompleteRecordPages(recordKeys: Set<String>): Map<String, OutboxRecordPage>
 
     /**
-     * Finds record keys that have pending records in specific partitions.
+     * Finds record keys that have due `NEW` records in specific partitions.
      *
      * The query logic depends on the ignoreRecordKeysWithPreviousFailure flag:
      * - If true: only record keys with no previous open/failed record (older.completedAt is null) are returned.
@@ -162,18 +162,13 @@ interface OutboxRecordRepository {
      * Previous records are determined by the same creation-time and record-ID ordering used by
      * [findIncompleteRecordsByRecordKey].
      *
-     * Keys are selected from incomplete records, so [status] is `NEW` or `FAILED`. The result for
-     * `COMPLETED` is implementation-specific: the JDBC and JPA implementations return no keys.
-     *
      * @param partitions List of partition numbers to search in
-     * @param status The status to filter by
      * @param batchSize Maximum number of record keys to return
      * @param ignoreRecordKeysWithPreviousFailure Whether to exclude record keys with previous open/failed records
      * @return List of record keys with pending records in the specified partitions
      */
     fun findRecordKeysInPartitions(
         partitions: Set<Int>,
-        status: OutboxRecordStatus,
         batchSize: Int,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): List<String>
@@ -231,27 +226,20 @@ interface OutboxRecordRepository {
     ): Long = partitions.sumOf { countRecordsByPartition(it, status) }
 
     /**
-     * Finds the earliest creation time of records across the specified partitions by status,
-     * regardless of their next retry time.
+     * Finds the earliest creation time of `NEW` records across the specified partitions, regardless of
+     * their next retry time.
      *
      * Returns `null` without querying the data store when [partitions] is empty.
      * Persistence implementations must provide this method using a single query.
      *
-     * The search covers incomplete records, so [status] is `NEW` or `FAILED`. The result for `COMPLETED`
-     * is implementation-specific: the JDBC and JPA implementations return `null`.
-     *
      * @param partitions The partition numbers to search in
-     * @param status The status to filter by
      * @return Earliest `createdAt` of the matching records, or `null` if the set is empty or no records match
      * @since 1.12.0
      */
-    fun findOldestCreatedAtByPartitions(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-    ): Instant?
+    fun findOldestCreatedAtByPartitions(partitions: Set<Int>): Instant?
 
     /**
-     * Finds the earliest next retry time of records across the specified partitions that are due
+     * Finds the earliest next retry time of `NEW` records across the specified partitions that are due
      * for processing at [now].
      *
      * Uses the same eligibility predicate as [findRecordKeysInPartitions]:
@@ -264,11 +252,7 @@ interface OutboxRecordRepository {
      * Returns `null` without querying the data store when [partitions] is empty.
      * Persistence implementations must provide this method using a single query.
      *
-     * The search covers incomplete records, so [status] is `NEW` or `FAILED`. The result for `COMPLETED`
-     * is implementation-specific: the JDBC and JPA implementations return `null`.
-     *
      * @param partitions The partition numbers to search in
-     * @param status The status to filter by
      * @param now Inclusive upper bound for `nextRetryAt`
      * @param ignoreRecordKeysWithPreviousFailure Whether to exclude records blocked by earlier incomplete records
      * @return Earliest `nextRetryAt` of the matching records, or `null` if the set is empty or no records match
@@ -276,7 +260,6 @@ interface OutboxRecordRepository {
      */
     fun findOldestDueNextRetryAtByPartitions(
         partitions: Set<Int>,
-        status: OutboxRecordStatus,
         now: Instant,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): Instant?

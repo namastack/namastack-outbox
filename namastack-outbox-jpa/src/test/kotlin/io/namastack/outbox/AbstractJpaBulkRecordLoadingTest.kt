@@ -261,7 +261,7 @@ abstract class AbstractJpaBulkRecordLoadingTest {
             assertThat(repository.findCompletedRecords().map { it.id }).containsExactlyInAnyOrderElementsOf(expected)
             assertThat(repository.findIncompleteRecordsByRecordKey("a").map { it.id })
                 .containsExactlyElementsOf(if (strict) listOf("a2", "a3") else listOf("a2"))
-            assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, strict)).isEmpty()
+            assertThat(repository.findRecordKeysInPartitions(setOf(1), 10, strict)).isEmpty()
         } finally {
             deleteAllRecords()
         }
@@ -390,7 +390,7 @@ abstract class AbstractJpaBulkRecordLoadingTest {
         create("remaining", "remaining")
         create("disappeared", "disappeared")
         flushAndClear()
-        val selected = repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, true).toSet()
+        val selected = repository.findRecordKeysInPartitions(setOf(1), 10, true).toSet()
         repository.deleteById("disappeared")
         flushAndClear()
         statistics.clear()
@@ -405,34 +405,33 @@ abstract class AbstractJpaBulkRecordLoadingTest {
     fun `key query returns keys whose first incomplete record is due in creation time then id order`() {
         seedHeadOfKeyScenario()
 
-        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, true))
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), 10, true))
             .containsExactly("tie-z", "tie-a", "a", "d")
-        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 3, true))
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), 3, true))
             .containsExactly("tie-z", "tie-a", "a")
-        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, false))
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), 10, false))
             .containsExactly("tie-z", "tie-a", "a", "d", "b", "c")
-        assertThat(repository.findRecordKeysInPartitions(setOf(2), OutboxRecordStatus.NEW, 10, true)).isEmpty()
+        assertThat(repository.findRecordKeysInPartitions(setOf(2), 10, true)).isEmpty()
     }
 
     @Test
     fun `age queries consider only due heads with the previous failure filter and incomplete records`() {
         seedHeadOfKeyScenario()
 
-        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.NEW, now, true))
+        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), now, true))
             .isEqualTo(now.minusSeconds(15))
-        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.NEW, now, false))
+        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), now, false))
             .isEqualTo(now.minusSeconds(50))
         assertThat(
             repository.findOldestDueNextRetryAtByPartitions(
                 setOf(1),
-                OutboxRecordStatus.NEW,
                 now.minusSeconds(60),
                 true,
             ),
         ).isNull()
-        assertThat(repository.findOldestCreatedAtByPartitions(setOf(1), OutboxRecordStatus.NEW))
+        assertThat(repository.findOldestCreatedAtByPartitions(setOf(1)))
             .isEqualTo(now.minusSeconds(30))
-        assertThat(repository.findOldestCreatedAtByPartitions(setOf(2), OutboxRecordStatus.NEW)).isNull()
+        assertThat(repository.findOldestCreatedAtByPartitions(setOf(2))).isNull()
     }
 
     @Test
@@ -475,35 +474,6 @@ abstract class AbstractJpaBulkRecordLoadingTest {
     }
 
     @Test
-    fun `incomplete record reads return nothing for completed status`() {
-        create("c1", "a", status = OutboxRecordStatus.COMPLETED)
-
-        listOf(true, false).forEach { filter ->
-            assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.COMPLETED, 10, filter))
-                .isEmpty()
-            assertThat(
-                repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.COMPLETED, now, filter),
-            ).isNull()
-        }
-        assertThat(repository.findOldestCreatedAtByPartitions(setOf(1), OutboxRecordStatus.COMPLETED)).isNull()
-    }
-
-    @Test
-    fun `incomplete record reads return failed records`() {
-        create("f1", "a", now.minusSeconds(10), retry = now.minusSeconds(5), status = OutboxRecordStatus.FAILED)
-        create("n1", "b", now.minusSeconds(20))
-
-        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.FAILED, 10, true))
-            .containsExactly("a")
-        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.FAILED, 10, false))
-            .containsExactly("a")
-        assertThat(repository.findOldestCreatedAtByPartitions(setOf(1), OutboxRecordStatus.FAILED))
-            .isEqualTo(now.minusSeconds(10))
-        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.FAILED, now, false))
-            .isEqualTo(now.minusSeconds(5))
-    }
-
-    @Test
     fun `records with equal creation time keep id order in pages and per key reads`() {
         create("c", "a")
         create("a", "a")
@@ -529,21 +499,21 @@ abstract class AbstractJpaBulkRecordLoadingTest {
         create("a1", "a", now.minusSeconds(5), retry = now.plusSeconds(3600))
         create("a2", "a", now.minusSeconds(5))
 
-        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, true)).isEmpty()
-        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, false))
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), 10, true)).isEmpty()
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), 10, false))
             .containsExactly("a")
-        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.NEW, now, true))
+        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), now, true))
             .isNull()
     }
 
     @Test
     fun `key and age reads return nothing without records`() {
         listOf(true, false).forEach { filter ->
-            assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, filter)).isEmpty()
-            assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.NEW, now, filter))
+            assertThat(repository.findRecordKeysInPartitions(setOf(1), 10, filter)).isEmpty()
+            assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), now, filter))
                 .isNull()
         }
-        assertThat(repository.findOldestCreatedAtByPartitions(setOf(1), OutboxRecordStatus.NEW)).isNull()
+        assertThat(repository.findOldestCreatedAtByPartitions(setOf(1))).isNull()
         assertThat(repository.countByStatuses(setOf(OutboxRecordStatus.NEW)))
             .containsExactlyEntriesOf(mapOf(OutboxRecordStatus.NEW to 0L))
     }

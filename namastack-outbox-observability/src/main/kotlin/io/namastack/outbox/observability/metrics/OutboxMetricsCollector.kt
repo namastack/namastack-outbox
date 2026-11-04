@@ -186,7 +186,7 @@ internal class OutboxMetricsCollector(
                     0.0
                 } else {
                     val now = clock.instant()
-                    secondsSince(recordRepository.findOldestCreatedAtByPartitions(partitions, NEW), now)
+                    secondsSince(recordRepository.findOldestCreatedAtByPartitions(partitions), now)
                 }
             }
         val overdueCollected =
@@ -198,7 +198,6 @@ internal class OutboxMetricsCollector(
                     val oldestDueAt =
                         recordRepository.findOldestDueNextRetryAtByPartitions(
                             partitions,
-                            NEW,
                             now,
                             stopOnFirstFailure,
                         )

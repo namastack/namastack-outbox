@@ -239,9 +239,9 @@ class OutboxInstanceMetricsAutoConfigurationTest {
                     every { context.getBean(PartitionCoordinator::class.java).getAssignedPartitionNumbers() } returns
                         setOf(1)
                     every { repository.countRecordsByPartitions(setOf(1), NEW) } returns 1
-                    every { repository.findOldestCreatedAtByPartitions(setOf(1), NEW) } returns now.minusSeconds(90)
+                    every { repository.findOldestCreatedAtByPartitions(setOf(1)) } returns now.minusSeconds(90)
                     every {
-                        repository.findOldestDueNextRetryAtByPartitions(setOf(1), NEW, now, stopOnFirstFailure)
+                        repository.findOldestDueNextRetryAtByPartitions(setOf(1), now, stopOnFirstFailure)
                     } returns now.minusSeconds(30)
                     context.getBean(OutboxInstanceMetricsMeterBinder::class.java).bindTo(registry)
                     context.getBean(OutboxMetricsCollector::class.java).refresh()
@@ -253,7 +253,7 @@ class OutboxInstanceMetricsAutoConfigurationTest {
                         registry.get(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE).gauge().value(),
                     ).isEqualTo(30.0)
                     verify(exactly = 1) {
-                        repository.findOldestDueNextRetryAtByPartitions(setOf(1), NEW, now, stopOnFirstFailure)
+                        repository.findOldestDueNextRetryAtByPartitions(setOf(1), now, stopOnFirstFailure)
                     }
                 }
         } finally {

@@ -396,7 +396,6 @@ class OutboxProcessingSchedulerTest {
             verify(exactly = 0) {
                 recordRepository.findRecordKeysInPartitions(
                     partitions = any(),
-                    status = any(),
                     batchSize = any(),
                     ignoreRecordKeysWithPreviousFailure = any(),
                 )
@@ -547,7 +546,6 @@ class OutboxProcessingSchedulerTest {
             verify {
                 recordRepository.findRecordKeysInPartitions(
                     partitions = any(),
-                    status = any(),
                     batchSize = 50,
                     ignoreRecordKeysWithPreviousFailure = any(),
                 )
@@ -567,7 +565,6 @@ class OutboxProcessingSchedulerTest {
             verify {
                 recordRepository.findRecordKeysInPartitions(
                     partitions = any(),
-                    status = any(),
                     batchSize = 50,
                     ignoreRecordKeysWithPreviousFailure = any(),
                 )
@@ -586,7 +583,6 @@ class OutboxProcessingSchedulerTest {
             verify {
                 recordRepository.findRecordKeysInPartitions(
                     partitions = any(),
-                    status = any(),
                     batchSize = any(),
                     ignoreRecordKeysWithPreviousFailure = true,
                 )
@@ -844,7 +840,6 @@ class OutboxProcessingSchedulerTest {
         every {
             recordRepository.findRecordKeysInPartitions(
                 partitions = any(),
-                status = any(),
                 batchSize = any(),
                 ignoreRecordKeysWithPreviousFailure = any(),
             )

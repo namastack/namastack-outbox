@@ -200,18 +200,14 @@ internal open class JdbcOutboxRecordRepository(
     }
 
     /**
-     * Finds record keys in specified partitions that are ready for processing.
+     * Finds record keys in specified partitions with due `NEW` records.
      * Optionally filters out keys with previous incomplete records.
-     * Only `NEW` and `FAILED` records are incomplete, so `COMPLETED` returns no keys.
      */
     override fun findRecordKeysInPartitions(
         partitions: Set<Int>,
-        status: OutboxRecordStatus,
         batchSize: Int,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): List<String> {
-        if (status == OutboxRecordStatus.COMPLETED) return emptyList()
-
         val now = Instant.now(clock)
 
         val query =
@@ -224,7 +220,7 @@ internal open class JdbcOutboxRecordRepository(
         return jdbcClient
             .sql(query)
             .param("partitions", partitions.toList())
-            .param("status", status.name)
+            .param("status", OutboxRecordStatus.NEW.name)
             .param("now", now.toTimestamp())
             .param("limit", batchSize)
             .withMaxRows(batchSize)
@@ -305,19 +301,15 @@ internal open class JdbcOutboxRecordRepository(
     }
 
     /**
-     * Finds the earliest creation time of incomplete outbox records across the specified partitions by status.
-     * Only `NEW` and `FAILED` records are incomplete, so `COMPLETED` returns `null`.
+     * Finds the earliest creation time of `NEW` records across the specified partitions.
      */
-    override fun findOldestCreatedAtByPartitions(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-    ): Instant? {
-        if (partitions.isEmpty() || status == OutboxRecordStatus.COMPLETED) return null
+    override fun findOldestCreatedAtByPartitions(partitions: Set<Int>): Instant? {
+        if (partitions.isEmpty()) return null
 
         return jdbcClient
             .sql(sql.oldestCreatedAtByPartitionsStatus)
             .param("partitions", partitions)
-            .param("status", status.name)
+            .param("status", OutboxRecordStatus.NEW.name)
             .param("limit", 1)
             .withMaxRows(1)
             .query { rs, _ -> rs.getInstantOrNull(1) }
@@ -326,16 +318,14 @@ internal open class JdbcOutboxRecordRepository(
     }
 
     /**
-     * Finds the earliest next retry time of due incomplete outbox records across the specified partitions.
-     * Only `NEW` and `FAILED` records are incomplete, so `COMPLETED` returns `null`.
+     * Finds the earliest next retry time of due `NEW` records across the specified partitions.
      */
     override fun findOldestDueNextRetryAtByPartitions(
         partitions: Set<Int>,
-        status: OutboxRecordStatus,
         now: Instant,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): Instant? {
-        if (partitions.isEmpty() || status == OutboxRecordStatus.COMPLETED) return null
+        if (partitions.isEmpty()) return null
 
         val query =
             if (ignoreRecordKeysWithPreviousFailure) {
@@ -347,7 +337,7 @@ internal open class JdbcOutboxRecordRepository(
         return jdbcClient
             .sql(query)
             .param("partitions", partitions)
-            .param("status", status.name)
+            .param("status", OutboxRecordStatus.NEW.name)
             .param("now", now.toTimestamp())
             .param("limit", 1)
             .withMaxRows(1)

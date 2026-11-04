@@ -114,7 +114,7 @@ class JdbcOutboxRecordRepositoryTest {
         }
 
         private fun readyKeys(): List<String> =
-            jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
 
         private fun saveDelivery(
             number: Int,
@@ -210,16 +210,16 @@ class JdbcOutboxRecordRepositoryTest {
             saveRecord(2)
             saveRecord(1, status = FAILED)
 
-            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, false))
+            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, false))
                 .containsExactly(recordKey)
             assertThat(oldestDueAt(false)).isEqualTo(retentionBase)
         }
 
         private fun oldestDueAt(strict: Boolean): Instant? =
-            jdbcOutboxRecordRepository.findOldestDueNextRetryAtByPartitions(setOf(1), NEW, Instant.now(clock), strict)
+            jdbcOutboxRecordRepository.findOldestDueNextRetryAtByPartitions(setOf(1), Instant.now(clock), strict)
 
         private fun readyKeys(): List<String> =
-            jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
 
         private fun saveRecord(
             number: Int,
@@ -753,7 +753,6 @@ class JdbcOutboxRecordRepositoryTest {
             val partition1RecordKeys =
                 jdbcOutboxRecordRepository.findRecordKeysInPartitions(
                     setOf(1),
-                    NEW,
                     10,
                     true,
                 )
@@ -761,7 +760,6 @@ class JdbcOutboxRecordRepositoryTest {
             val partition2RecordKeys =
                 jdbcOutboxRecordRepository.findRecordKeysInPartitions(
                     setOf(2),
-                    NEW,
                     10,
                     true,
                 )
@@ -783,7 +781,6 @@ class JdbcOutboxRecordRepositoryTest {
             val recordKeys =
                 jdbcOutboxRecordRepository.findRecordKeysInPartitions(
                     setOf(1, 2),
-                    NEW,
                     10,
                     true,
                 )
@@ -800,7 +797,7 @@ class JdbcOutboxRecordRepositoryTest {
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES).truncatedTo(MILLIS))
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(1, MINUTES).truncatedTo(MILLIS))
 
-            val result = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val result = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(result).containsExactly(recordKey)
         }
@@ -814,9 +811,9 @@ class JdbcOutboxRecordRepositoryTest {
                 createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3L - index, MINUTES).truncatedTo(MILLIS))
             }
 
-            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 2, true))
+            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 2, true))
                 .containsExactly(recordKeys[0], recordKeys[1])
-            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 2, false))
+            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 2, false))
                 .containsExactly(recordKeys[0], recordKeys[1])
         }
 
@@ -828,9 +825,9 @@ class JdbcOutboxRecordRepositoryTest {
             createRecordWithPartitionAndTime("key-c", NEW, 1, createdAt, id = "001")
             createRecordWithPartitionAndTime("key-b", NEW, 1, createdAt, id = "002")
 
-            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 2, true))
+            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 2, true))
                 .containsExactly("key-c", "key-b")
-            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 3, true))
+            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 3, true))
                 .containsExactly("key-c", "key-b", "key-a")
         }
 
@@ -841,7 +838,7 @@ class JdbcOutboxRecordRepositoryTest {
 
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES).truncatedTo(MILLIS))
 
-            val result = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val result = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(result).contains(recordKey)
         }
@@ -858,7 +855,7 @@ class JdbcOutboxRecordRepositoryTest {
             createRecordWithPartitionAndTime(recordKey1, NEW, 2, now.minus(3, MINUTES).truncatedTo(MILLIS))
             createRecordWithPartitionAndTime(recordKey3, NEW, 1, now.minus(1, MINUTES).truncatedTo(MILLIS))
 
-            val result = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1, 2), NEW, 10, true)
+            val result = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1, 2), 10, true)
 
             assertThat(result).containsExactly(recordKey1, recordKey2, recordKey3)
         }
@@ -929,9 +926,8 @@ class JdbcOutboxRecordRepositoryTest {
             saveRetentionRecord(COMPLETED, partition = 2, createdAt = now.minusSeconds(400), completedAt = now)
             saveRetentionRecord(NEW, partition = 3, createdAt = now.minusSeconds(500))
 
-            assertThat(oldestCreatedAt(setOf(1, 2), NEW)).isEqualTo(now.minusSeconds(120))
-            assertThat(oldestCreatedAt(setOf(1), NEW)).isEqualTo(now.minusSeconds(60))
-            assertThat(oldestCreatedAt(setOf(1, 2), FAILED)).isEqualTo(now.minusSeconds(300))
+            assertThat(oldestCreatedAt(setOf(1, 2))).isEqualTo(now.minusSeconds(120))
+            assertThat(oldestCreatedAt(setOf(1))).isEqualTo(now.minusSeconds(60))
         }
 
         @Test
@@ -939,20 +935,18 @@ class JdbcOutboxRecordRepositoryTest {
             saveRetentionRecord(COMPLETED, partition = 1, completedAt = retentionBase)
             saveRetentionRecord(NEW, partition = 3)
 
-            assertThat(oldestCreatedAt(setOf(1, 2), NEW)).isNull()
+            assertThat(oldestCreatedAt(setOf(1, 2))).isNull()
         }
 
         @Test
         fun `returns null for empty partitions`() {
             saveRetentionRecord(NEW, partition = 1)
 
-            assertThat(oldestCreatedAt(emptySet(), NEW)).isNull()
+            assertThat(oldestCreatedAt(emptySet())).isNull()
         }
 
-        private fun oldestCreatedAt(
-            partitions: Set<Int>,
-            status: OutboxRecordStatus,
-        ): Instant? = jdbcOutboxRecordRepository.findOldestCreatedAtByPartitions(partitions, status)
+        private fun oldestCreatedAt(partitions: Set<Int>): Instant? =
+            jdbcOutboxRecordRepository.findOldestCreatedAtByPartitions(partitions)
     }
 
     @Nested
@@ -1058,7 +1052,6 @@ class JdbcOutboxRecordRepositoryTest {
         ): Instant? =
             jdbcOutboxRecordRepository.findOldestDueNextRetryAtByPartitions(
                 partitions = partitions,
-                status = NEW,
                 now = now,
                 ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
             )
@@ -1066,7 +1059,6 @@ class JdbcOutboxRecordRepositoryTest {
         private fun recordKeys(ignoreRecordKeysWithPreviousFailure: Boolean): List<String> =
             jdbcOutboxRecordRepository.findRecordKeysInPartitions(
                 partitions = setOf(1),
-                status = NEW,
                 batchSize = 10,
                 ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
             )
@@ -1325,9 +1317,9 @@ class JdbcOutboxRecordRepositoryTest {
             )
             saveRetentionRecord(NEW, recordKey = recordKey, createdAt = retentionBase.minusSeconds(30))
 
-            val keysBeforeDelete = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val keysBeforeDelete = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
             assertThat(jdbcOutboxRecordRepository.deleteFailedRecords(retentionBase, 10)).isEqualTo(1)
-            val keysAfterDelete = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val keysAfterDelete = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(keysBeforeDelete).doesNotContain(recordKey)
             assertThat(keysAfterDelete).containsExactly(recordKey)

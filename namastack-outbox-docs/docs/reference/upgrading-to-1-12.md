@@ -256,9 +256,8 @@ longer have a dedicated full index, so they can be slower on large tables.
 `OutboxRecordRepository.countByStatuses` has a default implementation that calls `countByStatus` once
 per status. Override it with a single grouped query.
 
-The JDBC and JPA implementations of `findRecordKeysInPartitions`, `findOldestCreatedAtByPartitions` and
-`findOldestDueNextRetryAtByPartitions` return no result for `COMPLETED`, because they read incomplete
-records only. The library itself calls them with `NEW`.
+`findRecordKeysInPartitions` no longer has a `status` parameter and always selects `NEW` records. Remove
+the parameter from implementations and calls.
 
 Applications that write to `outbox_record` directly must keep `completed_at` `NULL` exactly for `NEW` and
 `FAILED` records.

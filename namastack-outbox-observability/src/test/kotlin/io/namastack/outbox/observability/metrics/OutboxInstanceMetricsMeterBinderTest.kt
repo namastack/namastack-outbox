@@ -75,8 +75,8 @@ class OutboxInstanceMetricsMeterBinderTest {
             firstArg<Set<OutboxRecordStatus>>().associateWith { recordRepository.countByStatus(it) }
         }
         every { coordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
-        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } returns null
-        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } returns null
+        every { recordRepository.findOldestCreatedAtByPartitions(any()) } returns null
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any()) } returns null
         every { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) } returns 10
         every { instanceRegistry.getActiveInstanceCount() } returns 2
         every { coordinator.getPartitionContext().getPartitionStats().unassignedPartitionsCount } returns 5
@@ -129,8 +129,8 @@ class OutboxInstanceMetricsMeterBinderTest {
         verify(exactly = 1) { recordRepository.countByStatuses(setOf(NEW, FAILED)) }
         verify(exactly = 0) { recordRepository.countByStatus(COMPLETED) }
         verify(exactly = 1) { coordinator.getAssignedPartitionNumbers() }
-        verify(exactly = 1) { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2), NEW) }
-        verify(exactly = 1) { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), NEW, now.get(), true) }
+        verify(exactly = 1) { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2)) }
+        verify(exactly = 1) { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), now.get(), true) }
         verify(exactly = 1) { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) }
         verify(exactly = 1) { instanceRegistry.getActiveInstanceCount() }
         verify(exactly = 1) { coordinator.getPartitionContext() }
@@ -192,8 +192,8 @@ class OutboxInstanceMetricsMeterBinderTest {
         assertThat(value(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE)).isEqualTo(2.0)
         verify(exactly = 0) {
             recordRepository.countRecordsByPartitions(any(), any())
-            recordRepository.findOldestCreatedAtByPartitions(any(), any())
-            recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any(), any())
+            recordRepository.findOldestCreatedAtByPartitions(any())
+            recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any())
         }
     }
 
@@ -417,9 +417,9 @@ class OutboxInstanceMetricsMeterBinderTest {
 
     @Test
     fun `age gauges cache fractional seconds with only the channel tag`() {
-        every { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2), NEW) } returns
+        every { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2)) } returns
             now.get().minusMillis(90_500)
-        every { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), NEW, now.get(), true) } returns
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), now.get(), true) } returns
             now.get().minusSeconds(30)
         collector.refresh()
         now.set(now.get().plusSeconds(10))
@@ -443,28 +443,28 @@ class OutboxInstanceMetricsMeterBinderTest {
         createCollector(stopOnFirstFailure = stopOnFirstFailure).refresh()
 
         verify(exactly = 1) {
-            recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), NEW, now.get(), stopOnFirstFailure)
+            recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), now.get(), stopOnFirstFailure)
         }
     }
 
     @Test
     fun `age collection refreshes assignments and skips all record queries when no partitions are assigned`() {
-        every { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2), NEW) } returns now.get().minusSeconds(90)
+        every { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2)) } returns now.get().minusSeconds(90)
         collector.refresh()
         every { coordinator.getAssignedPartitionNumbers() } returns setOf(3)
         every { recordRepository.countRecordsByPartitions(setOf(3), NEW) } returns 1
-        every { recordRepository.findOldestCreatedAtByPartitions(setOf(3), NEW) } returns now.get().minusSeconds(20)
+        every { recordRepository.findOldestCreatedAtByPartitions(setOf(3)) } returns now.get().minusSeconds(20)
         collector.refresh()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isEqualTo(20.0)
-        verify(exactly = 1) { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(3), NEW, now.get(), true) }
+        verify(exactly = 1) { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(3), now.get(), true) }
 
         every { coordinator.getAssignedPartitionNumbers() } returns emptySet()
         collector.refresh()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isZero()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isZero()
         verify(exactly = 2) { recordRepository.countRecordsByPartitions(any(), any()) }
-        verify(exactly = 2) { recordRepository.findOldestCreatedAtByPartitions(any(), any()) }
-        verify(exactly = 2) { recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any(), any()) }
+        verify(exactly = 2) { recordRepository.findOldestCreatedAtByPartitions(any()) }
+        verify(exactly = 2) { recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any()) }
     }
 
     @Test
@@ -473,7 +473,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isZero()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isZero()
 
-        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } returns now.get().plusSeconds(5)
+        every { recordRepository.findOldestCreatedAtByPartitions(any()) } returns now.get().plusSeconds(5)
         collector.refresh()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isZero()
     }
@@ -483,9 +483,9 @@ class OutboxInstanceMetricsMeterBinderTest {
         collector.refresh()
         val lastSuccess = collector.lastSuccessTimestamp
         now.set(now.get().plusSeconds(15))
-        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } throws
+        every { recordRepository.findOldestCreatedAtByPartitions(any()) } throws
             IllegalStateException("database unavailable")
-        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } returns
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any()) } returns
             now.get().minusSeconds(30)
         collector.refresh()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isNaN()
@@ -493,15 +493,15 @@ class OutboxInstanceMetricsMeterBinderTest {
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isEqualTo(10.0)
         assertThat(collector.lastSuccessTimestamp).isEqualTo(lastSuccess)
 
-        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } returns now.get().minusSeconds(90)
-        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } throws
+        every { recordRepository.findOldestCreatedAtByPartitions(any()) } returns now.get().minusSeconds(90)
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any()) } throws
             IllegalStateException()
         collector.refresh()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isEqualTo(90.0)
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isNaN()
         assertThat(collector.lastSuccessTimestamp).isEqualTo(lastSuccess)
 
-        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } returns null
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any()) } returns null
         collector.refresh()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isZero()
         assertThat(collector.lastSuccessTimestamp).isEqualTo(now.get().epochSecond.toDouble())
@@ -515,7 +515,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         PrometheusMeterRegistry(PrometheusConfig.DEFAULT).useRegistry { prometheus ->
             binder.bindTo(prometheus)
             collector.refresh()
-            every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } answers {
+            every { recordRepository.findOldestCreatedAtByPartitions(any()) } answers {
                 entered.countDown()
                 check(release.await(10, TimeUnit.SECONDS))
                 null

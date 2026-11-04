@@ -500,22 +500,16 @@ internal open class JpaOutboxRecordRepository(
      * - If true: only record keys with no previous open/failed event (earlier.completedAt is null) are returned.
      * - If false: all record keys with pending records are returned, regardless of previous failures.
      *
-     * Only `NEW` and `FAILED` records are incomplete, so `COMPLETED` returns no keys.
-     *
      * @param partitions List of partition numbers to search in
-     * @param status The status to filter by
      * @param batchSize Maximum number of record keys to return
      * @param ignoreRecordKeysWithPreviousFailure Whether to exclude record keys with previous open/failed events
      * @return List of record keys with pending records in the specified partitions
      */
     override fun findRecordKeysInPartitions(
         partitions: Set<Int>,
-        status: OutboxRecordStatus,
         batchSize: Int,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): List<String> {
-        if (status == OutboxRecordStatus.COMPLETED) return emptyList()
-
         val now = Instant.now(clock)
         val query =
             if (ignoreRecordKeysWithPreviousFailure) {
@@ -527,7 +521,7 @@ internal open class JpaOutboxRecordRepository(
         return entityManager
             .createQuery(query, String::class.java)
             .setParameter("partitions", partitions)
-            .setParameter("status", status)
+            .setParameter("status", OutboxRecordStatus.NEW)
             .setParameter("now", now)
             .setMaxResults(batchSize)
             .resultList
@@ -618,35 +612,29 @@ internal open class JpaOutboxRecordRepository(
     }
 
     /**
-     * Finds the earliest creation time of incomplete outbox records across the specified partitions by status.
-     * Only `NEW` and `FAILED` records are incomplete, so `COMPLETED` returns `null`.
+     * Finds the earliest creation time of `NEW` records across the specified partitions.
      */
-    override fun findOldestCreatedAtByPartitions(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-    ): Instant? {
-        if (partitions.isEmpty() || status == OutboxRecordStatus.COMPLETED) return null
+    override fun findOldestCreatedAtByPartitions(partitions: Set<Int>): Instant? {
+        if (partitions.isEmpty()) return null
 
         return entityManager
             .createQuery(oldestCreatedAtByPartitionsQuery, Instant::class.java)
             .setParameter("partitions", partitions)
-            .setParameter("status", status)
+            .setParameter("status", OutboxRecordStatus.NEW)
             .setMaxResults(1)
             .resultList
             .firstOrNull()
     }
 
     /**
-     * Finds the earliest next retry time of due incomplete outbox records across the specified partitions.
-     * Only `NEW` and `FAILED` records are incomplete, so `COMPLETED` returns `null`.
+     * Finds the earliest next retry time of due `NEW` records across the specified partitions.
      */
     override fun findOldestDueNextRetryAtByPartitions(
         partitions: Set<Int>,
-        status: OutboxRecordStatus,
         now: Instant,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): Instant? {
-        if (partitions.isEmpty() || status == OutboxRecordStatus.COMPLETED) return null
+        if (partitions.isEmpty()) return null
 
         val query =
             if (ignoreRecordKeysWithPreviousFailure) {
@@ -658,7 +646,7 @@ internal open class JpaOutboxRecordRepository(
         return entityManager
             .createQuery(query, Instant::class.java)
             .setParameter("partitions", partitions)
-            .setParameter("status", status)
+            .setParameter("status", OutboxRecordStatus.NEW)
             .setParameter("now", now)
             .setMaxResults(1)
             .resultList

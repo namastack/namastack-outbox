@@ -270,7 +270,7 @@ class MongoBulkRecordLoadingIntegrationTest {
         assertThat(repository.findCompletedRecords().map { it.id }).containsExactlyInAnyOrderElementsOf(expected)
         assertThat(repository.findIncompleteRecordsByRecordKey("a").map { it.id })
             .containsExactlyElementsOf(if (strict) listOf("a2", "a3") else listOf("a2"))
-        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, strict)).isEmpty()
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), 10, strict)).isEmpty()
     }
 
     @Test
@@ -332,7 +332,7 @@ class MongoBulkRecordLoadingIntegrationTest {
     fun `a selected key that disappears requires only the bulk read`() {
         create("remaining", "remaining")
         create("disappeared", "disappeared")
-        val selected = repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, true).toSet()
+        val selected = repository.findRecordKeysInPartitions(setOf(1), 10, true).toSet()
         repository.deleteById("disappeared")
         commands.reads.set(0)
 
