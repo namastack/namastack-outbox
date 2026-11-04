@@ -1,9 +1,9 @@
 # ADR-0005: Query Priorities and Per-Dialect JDBC Optimization
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-04
 - **Decision owner:** @Alek96
-- **Discussion:** To be opened
+- **Discussion:** No GitHub Discussion recorded
 - **Related:** [ADR-0003](0003-retention-of-terminal-records.md)
 - **Supersedes:** None
 
