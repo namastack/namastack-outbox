@@ -821,6 +821,20 @@ class JdbcOutboxRecordRepositoryTest {
         }
 
         @Test
+        fun `strict key selection uses record ids to break equal creation times before applying the batch limit`() {
+            val createdAt = Instant.now(clock).minus(1, MINUTES).truncatedTo(MILLIS)
+            createRecordWithPartitionAndTime("key-a", NEW, 1, createdAt, id = "003")
+            createRecordWithPartitionAndTime("key-c", NEW, 1, createdAt, id = "004")
+            createRecordWithPartitionAndTime("key-c", NEW, 1, createdAt, id = "001")
+            createRecordWithPartitionAndTime("key-b", NEW, 1, createdAt, id = "002")
+
+            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 2, true))
+                .containsExactly("key-c", "key-b")
+            assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 3, true))
+                .containsExactly("key-c", "key-b", "key-a")
+        }
+
+        @Test
         fun `allows processing when oldest record is ready`() {
             val recordKey = UUID.randomUUID().toString()
             val now = Instant.now(clock)
@@ -1505,10 +1519,11 @@ class JdbcOutboxRecordRepositoryTest {
         status: OutboxRecordStatus,
         partition: Int,
         createdAt: Instant,
+        id: String = UUID.randomUUID().toString(),
     ): OutboxRecord<String> {
         val record =
             OutboxRecord.restore(
-                id = UUID.randomUUID().toString(),
+                id = id,
                 recordKey = recordKey,
                 payload = "payload",
                 context = mapOf("key1" to "value1", "key2" to "value2"),
