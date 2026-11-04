@@ -14,7 +14,7 @@ import javax.sql.DataSource
  * @param dataSource Datasource used for both statements and dialect detection
  *
  * @author Roland Beisel
- * @since 1.11.0
+ * @since 1.12.0
  */
 internal class JdbcOutboxClient(
     dataSource: DataSource,

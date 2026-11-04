@@ -12,7 +12,7 @@ package io.namastack.outbox
  * @param dialectProvider Lazy query dialect; construction resolves names without opening a connection
  *
  * @author Roland Beisel
- * @since 1.11.0
+ * @since 1.12.0
  */
 internal class JdbcOutboxRecordQueries(
     tableNameResolver: JdbcTableNameResolver,

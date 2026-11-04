@@ -11,7 +11,7 @@ package io.namastack.outbox
  * @param limitClause Optional SQL row-limit suffix containing the `:limit` placeholder
  *
  * @author Roland Beisel
- * @since 1.11.0
+ * @since 1.12.0
  */
 internal data class JdbcOutboxQueryDialect(
     val keySelection: JdbcOutboxKeySelection = JdbcOutboxKeySelection.WINDOW,

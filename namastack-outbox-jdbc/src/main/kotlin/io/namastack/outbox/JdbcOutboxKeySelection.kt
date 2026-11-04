@@ -6,7 +6,7 @@ package io.namastack.outbox
  * Every strategy applies ownership and readiness after checking the global predecessor barrier.
  *
  * @author Roland Beisel
- * @since 1.11.0
+ * @since 1.12.0
  */
 internal enum class JdbcOutboxKeySelection {
     /** Ranks incomplete records globally before testing head eligibility. */
