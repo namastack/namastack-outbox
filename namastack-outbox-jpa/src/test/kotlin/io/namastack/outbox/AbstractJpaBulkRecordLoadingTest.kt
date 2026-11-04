@@ -401,6 +401,165 @@ abstract class AbstractJpaBulkRecordLoadingTest {
         assertThat(statistics.prepareStatementCount).isEqualTo(1)
     }
 
+    @Test
+    fun `key query returns keys whose first incomplete record is due in creation time then id order`() {
+        seedHeadOfKeyScenario()
+
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, true))
+            .containsExactly("tie-z", "tie-a", "a", "d")
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 3, true))
+            .containsExactly("tie-z", "tie-a", "a")
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, false))
+            .containsExactly("tie-z", "tie-a", "a", "d", "b", "c")
+        assertThat(repository.findRecordKeysInPartitions(setOf(2), OutboxRecordStatus.NEW, 10, true)).isEmpty()
+    }
+
+    @Test
+    fun `age queries consider only due heads with the previous failure filter and incomplete records`() {
+        seedHeadOfKeyScenario()
+
+        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.NEW, now, true))
+            .isEqualTo(now.minusSeconds(15))
+        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.NEW, now, false))
+            .isEqualTo(now.minusSeconds(50))
+        assertThat(
+            repository.findOldestDueNextRetryAtByPartitions(
+                setOf(1),
+                OutboxRecordStatus.NEW,
+                now.minusSeconds(60),
+                true,
+            ),
+        ).isNull()
+        assertThat(repository.findOldestCreatedAtByPartitions(setOf(1), OutboxRecordStatus.NEW))
+            .isEqualTo(now.minusSeconds(30))
+        assertThat(repository.findOldestCreatedAtByPartitions(setOf(2), OutboxRecordStatus.NEW)).isNull()
+    }
+
+    @Test
+    fun `grouped status counts include requested statuses without records`() {
+        create("n1", "a")
+        create("n2", "b")
+        create("f1", "c", status = OutboxRecordStatus.FAILED)
+
+        assertThat(repository.countByStatuses(setOf(OutboxRecordStatus.NEW, OutboxRecordStatus.FAILED)))
+            .containsExactlyInAnyOrderEntriesOf(mapOf(OutboxRecordStatus.NEW to 2L, OutboxRecordStatus.FAILED to 1L))
+        assertThat(repository.countByStatuses(setOf(OutboxRecordStatus.COMPLETED)))
+            .containsExactlyEntriesOf(mapOf(OutboxRecordStatus.COMPLETED to 0L))
+        assertThat(repository.countByStatuses(emptySet())).isEmpty()
+    }
+
+    @Test
+    fun `completed records are counted alone and mixed with incomplete statuses`() {
+        create("n1", "a", now.plusSeconds(1))
+        create("f1", "b", status = OutboxRecordStatus.FAILED)
+        create("c1", "c", status = OutboxRecordStatus.COMPLETED)
+        create("c2", "d", status = OutboxRecordStatus.COMPLETED)
+
+        assertThat(repository.countByStatuses(setOf(OutboxRecordStatus.COMPLETED)))
+            .containsExactlyEntriesOf(mapOf(OutboxRecordStatus.COMPLETED to 2L))
+        assertThat(repository.countByStatuses(setOf(OutboxRecordStatus.NEW, OutboxRecordStatus.COMPLETED)))
+            .containsExactlyInAnyOrderEntriesOf(mapOf(OutboxRecordStatus.NEW to 1L, OutboxRecordStatus.COMPLETED to 2L))
+        assertThat(repository.countByStatuses(OutboxRecordStatus.entries.toSet()))
+            .containsExactlyInAnyOrderEntriesOf(
+                mapOf(
+                    OutboxRecordStatus.NEW to 1L,
+                    OutboxRecordStatus.FAILED to 1L,
+                    OutboxRecordStatus.COMPLETED to 2L,
+                ),
+            )
+        assertThat(repository.countRecordsByPartitions(setOf(1), OutboxRecordStatus.COMPLETED)).isEqualTo(2)
+        assertThat(repository.countRecordsByPartitions(setOf(1), OutboxRecordStatus.NEW)).isEqualTo(1)
+        assertThat(repository.countRecordsByPartitions(setOf(1), OutboxRecordStatus.FAILED)).isEqualTo(1)
+        assertThat(repository.countRecordsByPartitions(setOf(2), OutboxRecordStatus.COMPLETED)).isZero()
+        assertThat(repository.countRecordsByPartitions(emptySet(), OutboxRecordStatus.COMPLETED)).isZero()
+    }
+
+    @Test
+    fun `incomplete record reads return nothing for completed status`() {
+        create("c1", "a", status = OutboxRecordStatus.COMPLETED)
+
+        listOf(true, false).forEach { filter ->
+            assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.COMPLETED, 10, filter))
+                .isEmpty()
+            assertThat(
+                repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.COMPLETED, now, filter),
+            ).isNull()
+        }
+        assertThat(repository.findOldestCreatedAtByPartitions(setOf(1), OutboxRecordStatus.COMPLETED)).isNull()
+    }
+
+    @Test
+    fun `incomplete record reads return failed records`() {
+        create("f1", "a", now.minusSeconds(10), retry = now.minusSeconds(5), status = OutboxRecordStatus.FAILED)
+        create("n1", "b", now.minusSeconds(20))
+
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.FAILED, 10, true))
+            .containsExactly("a")
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.FAILED, 10, false))
+            .containsExactly("a")
+        assertThat(repository.findOldestCreatedAtByPartitions(setOf(1), OutboxRecordStatus.FAILED))
+            .isEqualTo(now.minusSeconds(10))
+        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.FAILED, now, false))
+            .isEqualTo(now.minusSeconds(5))
+    }
+
+    @Test
+    fun `records with equal creation time keep id order in pages and per key reads`() {
+        create("c", "a")
+        create("a", "a")
+        create("b", "a")
+
+        assertThat(repository.findIncompleteRecordPages(setOf("a")).getValue("a").recordIds())
+            .containsExactly("a", "b", "c")
+        assertThat(repository.findIncompleteRecordsByRecordKey("a").map { it.id }).containsExactly("a", "b", "c")
+    }
+
+    @Test
+    fun `per key read excludes completed and failed records and retains future retries`() {
+        create("n1", "a", now.minusSeconds(2))
+        create("n2", "a", now.minusSeconds(1), retry = now.plusSeconds(3600))
+        create("c1", "a", now.minusSeconds(3), status = OutboxRecordStatus.COMPLETED)
+        create("f1", "a", now.minusSeconds(4), status = OutboxRecordStatus.FAILED)
+
+        assertThat(repository.findIncompleteRecordsByRecordKey("a").map { it.id }).containsExactly("n1", "n2")
+    }
+
+    @Test
+    fun `strict selection is blocked by an earlier equal time record while non strict selection is not`() {
+        create("a1", "a", now.minusSeconds(5), retry = now.plusSeconds(3600))
+        create("a2", "a", now.minusSeconds(5))
+
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, true)).isEmpty()
+        assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, false))
+            .containsExactly("a")
+        assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.NEW, now, true))
+            .isNull()
+    }
+
+    @Test
+    fun `key and age reads return nothing without records`() {
+        listOf(true, false).forEach { filter ->
+            assertThat(repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, 10, filter)).isEmpty()
+            assertThat(repository.findOldestDueNextRetryAtByPartitions(setOf(1), OutboxRecordStatus.NEW, now, filter))
+                .isNull()
+        }
+        assertThat(repository.findOldestCreatedAtByPartitions(setOf(1), OutboxRecordStatus.NEW)).isNull()
+        assertThat(repository.countByStatuses(setOf(OutboxRecordStatus.NEW)))
+            .containsExactlyEntriesOf(mapOf(OutboxRecordStatus.NEW to 0L))
+    }
+
+    private fun seedHeadOfKeyScenario() {
+        create("t-2", "tie-a", now.minusSeconds(15), retry = now.minusSeconds(15))
+        create("t-1", "tie-z", now.minusSeconds(15), retry = now.minusSeconds(15))
+        create("a1", "a", now.minusSeconds(10), retry = now.minusSeconds(10))
+        create("d1", "d", now.minusSeconds(40), status = OutboxRecordStatus.COMPLETED)
+        create("d2", "d", now.minusSeconds(8), retry = now.minusSeconds(8))
+        create("b1", "b", now.minusSeconds(20), retry = now.minusSeconds(20), status = OutboxRecordStatus.FAILED)
+        create("b2", "b", now.minusSeconds(5), retry = now.minusSeconds(50))
+        create("c1", "c", now.minusSeconds(30), retry = now.plusSeconds(3600))
+        create("c2", "c", now.minusSeconds(1), retry = now.minusSeconds(1))
+    }
+
     private fun create(
         id: String,
         key: String,

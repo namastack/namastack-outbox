@@ -128,12 +128,12 @@ interface OutboxRecordRepository {
     ): List<OutboxRecord<*>>
 
     /**
-     * Finds all incomplete records for a specific record key.
+     * Finds the `NEW` records of a specific record key, including records whose retry is not yet due.
      * Implementations **must** return records sorted by creation time ascending, then by record ID
      * ascending, consistently with the predecessor check in [findRecordKeysInPartitions].
      *
      * @param recordKey The record key to search for
-     * @return List of incomplete outbox records for the given record key
+     * @return List of `NEW` outbox records for the given record key
      */
     fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord<*>>
 
@@ -162,6 +162,9 @@ interface OutboxRecordRepository {
      * Previous records are determined by the same creation-time and record-ID ordering used by
      * [findIncompleteRecordsByRecordKey].
      *
+     * Keys are selected from incomplete records, so [status] is `NEW` or `FAILED`. The result for
+     * `COMPLETED` is implementation-specific: the JDBC and JPA implementations return no keys.
+     *
      * @param partitions List of partition numbers to search in
      * @param status The status to filter by
      * @param batchSize Maximum number of record keys to return
@@ -182,6 +185,21 @@ interface OutboxRecordRepository {
      * @return The number of records with the given status
      */
     fun countByStatus(status: OutboxRecordStatus): Long
+
+    /**
+     * Counts records grouped by status.
+     *
+     * The returned map contains an entry for every requested status, with zero when no record has
+     * that status. Returns an empty map without querying the data store when [statuses] is empty.
+     * The default implementation calls [countByStatus] once per status for compatibility with custom
+     * repositories. Persistence implementations should override this method with a single grouped query.
+     *
+     * @param statuses The statuses to count
+     * @return Number of records per requested status
+     * @since 1.12.0
+     */
+    fun countByStatuses(statuses: Set<OutboxRecordStatus>): Map<OutboxRecordStatus, Long> =
+        statuses.associateWith { countByStatus(it) }
 
     /**
      * Counts records in a specific partition by status.
@@ -217,7 +235,10 @@ interface OutboxRecordRepository {
      * regardless of their next retry time.
      *
      * Returns `null` without querying the data store when [partitions] is empty.
-     * Persistence implementations must provide this method using a single aggregate query.
+     * Persistence implementations must provide this method using a single query.
+     *
+     * The search covers incomplete records, so [status] is `NEW` or `FAILED`. The result for `COMPLETED`
+     * is implementation-specific: the JDBC and JPA implementations return `null`.
      *
      * @param partitions The partition numbers to search in
      * @param status The status to filter by
@@ -241,7 +262,10 @@ interface OutboxRecordRepository {
      * The result can include records that are currently being processed.
      *
      * Returns `null` without querying the data store when [partitions] is empty.
-     * Persistence implementations must provide this method using a single aggregate query.
+     * Persistence implementations must provide this method using a single query.
+     *
+     * The search covers incomplete records, so [status] is `NEW` or `FAILED`. The result for `COMPLETED`
+     * is implementation-specific: the JDBC and JPA implementations return `null`.
      *
      * @param partitions The partition numbers to search in
      * @param status The status to filter by

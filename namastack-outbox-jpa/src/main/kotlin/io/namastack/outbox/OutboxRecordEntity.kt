@@ -18,6 +18,9 @@ import java.time.Instant
  * fields for tracking outbox events including status, retry information,
  * and partition assignment.
  *
+ * The declared indexes are full indexes, because `@Index` cannot express a partial index. On PostgreSQL,
+ * production schemas should come from the shipped schema script, whose partial indexes are the measured set.
+ *
  * @author Roland Beisel
  * @since 0.1.0
  */
@@ -25,11 +28,19 @@ import java.time.Instant
 @Table(
     name = "outbox_record",
     indexes = [
-        Index(name = "idx_outbox_record_record_key_created", columnList = "recordKey, createdAt"),
-        Index(name = "idx_outbox_record_partition_status_retry", columnList = "partitionNo, status, nextRetryAt"),
-        Index(name = "idx_outbox_record_status_retry", columnList = "status, nextRetryAt"),
-        Index(name = "idx_outbox_record_status_created", columnList = "status, createdAt"),
-        Index(name = "idx_outbox_record_key_completed_created", columnList = "recordKey, completedAt, createdAt"),
+        Index(
+            name = "idx_outbox_record_status_completed_created_id",
+            columnList = "status, completedAt, createdAt, id, partitionNo, nextRetryAt, recordKey",
+        ),
+        Index(
+            name = "idx_outbox_record_key_completed_created_id",
+            columnList = "recordKey, completedAt, createdAt, id",
+        ),
+        Index(
+            name = "idx_outbox_record_status_completed_retry",
+            columnList = "status, completedAt, nextRetryAt, partitionNo",
+        ),
+        Index(name = "idx_outbox_record_status_completed_partition", columnList = "status, completedAt, partitionNo"),
     ],
 )
 data class OutboxRecordEntity(
