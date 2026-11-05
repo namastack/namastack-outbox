@@ -16,7 +16,7 @@ orchestrator explicitly allows it for this experiment.
    - Query-only: overlays in `docs/db-mariadb/experiments/<id>/queries/<query id>.sql`, used with `--queries` and
      `--catalog-variant <base>`.
    - Code change (only for the final candidate or when overlays cannot express it): worktree `../outbox-wt-mdb-exp-<id>` on a new
-     local branch `exp/mdb-<id>` from the base, `bin/extract-catalog.sh`, and `./gradlew :namastack-outbox-jdbc:test` there.
+     local branch `exp/mdb-<id>` from the base, `bin/extract-catalog.sh`, and `./gradlew --init-script <harness>/gradle/jdk25.init.gradle.kts :namastack-outbox-jdbc:test` there.
    Keep the repository contract (KDoc of `OutboxRecordRepository`), strict per-key ordering, status/retry semantics and partition
    ownership. Never weaken a test to make it pass.
 2. **Correctness.** Equivalence against the base on `S1` and on the scenario most at risk (`S5` for ordering and hot keys, `S7` for

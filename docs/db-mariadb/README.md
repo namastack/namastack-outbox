@@ -13,7 +13,8 @@ A self-contained, multi-agent prompt for finding the best MariaDB indexes and qu
 
 ## How to run
 
-Prerequisites: Docker running, JDK 17 installed (the orchestrator checks and asks otherwise). From the repository root:
+Prerequisites: Docker running, JDK 25 installed (the orchestrator checks and asks otherwise). No JDK 17 is needed: project builds use
+`harness/gradle/jdk25.init.gradle.kts`. From the repository root:
 
 ```bash
 claude --model opus

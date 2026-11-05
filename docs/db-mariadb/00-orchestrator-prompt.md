@@ -73,8 +73,10 @@ and (2) the final MariaDB DDL and SQL ready to apply to `feature/db-jdbc-optimiz
 
 ## Phase 0 — Preflight
 
-1. Check: JDK 17 (`java -version`; Gradle toolchain 17 is required by the project and the harness). If it is missing, **ask the user**
-   to install it (for example `! sudo apt-get install -y openjdk-17-jdk-headless`) and wait. Docker, `python3`, `taskset`, image
+1. Check: JDK 25 (`java -version`). The harness uses toolchain 25. The project pins a Java 17 toolchain, so **every Gradle command in
+   a worktree** (jars, tests, ktlint) runs with `--init-script <primary tree>/docs/db-mariadb/harness/gradle/jdk25.init.gradle.kts`
+   (switches the toolchain to 25, bytecode stays 17, no worktree file changes); `bin/variant-build.sh` already does this, and every
+   sub-agent prompt that runs Gradle in a worktree must say so. If JDK 25 is missing, **ask the user** to install it and wait. Docker, `python3`, `taskset`, image
    `mariadb:12` (pull if missing), free disk, `/sys/fs/cgroup/cpuset.cpus.effective` against `harness/bin/lane.sh` (update the lane
    table if the CPU set changed and record it).
 2. Create the two worktrees, pin their shas in `STATE.md`, build the harness (`cd docs/db-mariadb/harness && ./gradlew

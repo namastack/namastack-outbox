@@ -9,7 +9,7 @@ Not started. Next: phase 0 (preflight) of `00-orchestrator-prompt.md`.
 ## Environment
 
 - Host (2026-11-05): LXC container, AMD Ryzen 9 7900X, cgroup cpuset `0,2-5,7,9-11,13-15,17-18,21,23` (16 threads, 2 CCDs),
-  56 GiB RAM, ~57 GB free on `/`, Docker 26.1.4. JDK: **not installed on 2026-11-05** (phase 0).
+  56 GiB RAM, ~57 GB free on `/`, Docker 26.1.4. JDK: OpenJDK 25.0.4.1 only (Ubuntu package); worktree builds use `harness/gradle/jdk25.init.gradle.kts`.
 - Lanes (`harness/bin/lane.sh`): lane 1 db `2,14,3,15` client `0,4,13` (CCD0); lane 2 db `9,21,11,23` client `7,10,18` (CCD1);
   `5,17` free for orchestrator/Gradle. Container limits `--cpus=4 --memory=4g`.
 - MariaDB image `mariadb:12` = 12.3.3-MariaDB-ubu2404 on 2026-11-05 (smoke test): `innodb_buffer_pool_size` 128 MiB,
@@ -46,6 +46,9 @@ Not started. Next: phase 0 (preflight) of `00-orchestrator-prompt.md`.
 ## Decisions
 
 - Inherited decisions: section 0.3 of `00-orchestrator-prompt.md`.
+- 2026-11-05 (preparation session): JDK 25 only on the host. Harness toolchain 25; worktree builds use
+  `harness/gradle/jdk25.init.gradle.kts`. Pre-check done: harness builds, `hashcheck` passes, catalog extraction works, lane-1 MariaDB
+  S1 smoke bench ran (results discarded). Phase 2 still validates the full harness.
 
 ## User decisions
 

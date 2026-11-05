@@ -3,7 +3,7 @@ plugins {
     application
 }
 
-kotlin { jvmToolchain(17) }
+kotlin { jvmToolchain(25) }
 
 dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))

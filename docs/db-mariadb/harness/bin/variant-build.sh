@@ -5,7 +5,7 @@ set -euo pipefail
 H="$(cd "$(dirname "$0")/.." && pwd)"
 variant="$1"; wt="$2"
 mkdir -p "$H/build/variants"
-(cd "$wt" && ./gradlew --console=plain -q :namastack-outbox-api:jar :namastack-outbox-core:jar \
+(cd "$wt" && ./gradlew --console=plain -q --init-script "$H/gradle/jdk25.init.gradle.kts" :namastack-outbox-api:jar :namastack-outbox-core:jar \
   :namastack-outbox-jdbc:jar :namastack-outbox-jpa:jar)
 for m in api core jdbc jpa; do
   ls -t "$wt"/namastack-outbox-$m/build/libs/namastack-outbox-$m-*.jar | grep -v -- '-sources\|-javadoc\|-plain' | head -1

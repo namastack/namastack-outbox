@@ -19,7 +19,7 @@ scenario (apart from the timestamp truncation that already applies to MariaDB).
 
 ## Add / fix
 
-1. **Build and smoke.** `./gradlew :sql:installDist :repo:installDist` with JDK 17. `bin/repo-bench <v> hashcheck` passes against
+1. **Build and smoke.** `./gradlew :sql:installDist :repo:installDist` with JDK 25 (worktree builds use `gradle/jdk25.init.gradle.kts`). `bin/repo-bench <v> hashcheck` passes against
    both worktrees.
 2. **Lanes.** Already implemented (`bin/lane.sh`, `HARNESS_LANE`, `HARNESS_CPUSET`, `HARNESS_CLIENT_CPUSET`,
    `HARNESS_EXTRA_ARGS`, lane fields in `env.txt`). Verify two lanes run `gen` + `bench` on S1 at the same time without touching each

@@ -18,7 +18,8 @@ See `docs/db-mariadb/briefs/00-isolation-rule.md` (pasted into your prompt). You
      conventions: current behaviour, `@author`/`@since` as in the file, no comparisons with earlier versions).
    - Other MariaDB copies of the schema, if any exist in the branch (examples, test resources): find them with
      `git grep -l -i mariadb -- . ':!docs'` and keep them consistent.
-2. **Tests.** In the worktree: `./gradlew :namastack-outbox-jdbc:test` (includes the MariaDB Testcontainers tests
+2. **Tests.** In the worktree, every Gradle command with `--init-script <primary tree>/docs/db-mariadb/harness/gradle/jdk25.init.gradle.kts`
+   (the host has JDK 25 only; the script switches the Java 17 toolchain to 25, bytecode stays 17): `./gradlew :namastack-outbox-jdbc:test` (includes the MariaDB Testcontainers tests
    `JdbcOutboxRecordRepositoryMariaDbIntegrationTest`, `JdbcSchemaInitializationMariaDbIntegrationTest`,
    `JdbcConcurrentSchedulingMariaDbIntegrationTest`), `./gradlew :namastack-outbox-integration-tests:test --tests "*MariaDb*"`,
    `./gradlew ktlintCheck`. Add or adapt tests for new statements (query factory test, schema test expecting the index list).

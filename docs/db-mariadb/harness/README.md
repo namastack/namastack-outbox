@@ -13,23 +13,25 @@ harness/
   bin/repo-bench         repository-level runner (real JdbcOutboxRecordRepository / JpaOutboxRecordRepository, PostgreSQL)
   bin/compare.py         diff two result dirs into a markdown table with relative change
   catalog/               one .sql file per query id, per variant and dialect (generated, committed)
-  sql/  repo/            Gradle sub-projects (Kotlin, JDK 17 toolchain), built on first use
+  sql/  repo/            Gradle sub-projects (Kotlin, JDK 25 toolchain), built on first use
 ../results/<variant>/<dialect>/<scenario>/   timings.csv  plans/  env.txt  (+ writecost.csv, concurrency-*.txt, churn.txt, repo-jdbc/, repo-jpa/)
 ../results/equiv/<dialect>/<scenario>/<a>-vs-<b>.md
 ```
 
 All commands are run from anywhere; the scripts `cd` into `harness/`. Paths below are relative to `harness/`.
-Needs: Docker, JDK 17+ (build uses toolchain 17; runs fine on 25), network for the first Gradle build.
+Needs: Docker, JDK 25 (harness toolchain 25), network for the first Gradle build. Worktree jars are built with
+`--init-script gradle/jdk25.init.gradle.kts`, which switches the project's Java 17 toolchain to 25 without touching the worktree
+(bytecode stays Java 17 through the project's `release = 17` / `jvmTarget = 17`).
 The harness never modifies a worktree (only its `build/` directories change when jars are built).
 
 ## Quick start (MariaDB, S1, variants `mdb-main` and `mdb-opt`)
 
 ```bash
-./gradlew --console=plain -q :sql:installDist :repo:installDist     # build once; never while lanes are running
+./gradlew --console=plain -q :sql:installDist                       # SQL runner; build before starting lanes, never while lanes run
+bin/extract-catalog.sh mdb-main /home/azamojski/outbox-wt-mdb-main   # worktree jars (JDK 25 init script) + catalog/mdb-main/<dialect>/*.sql;
+bin/extract-catalog.sh mdb-opt  /home/azamojski/outbox-wt-mdb-opt    #   the first call also builds repo/, which compiles against build/variants/mdb-main.jars
 source bin/lane.sh 1                                               # lane env (container, port, CPU pinning); omit for the single default container
 bin/db.sh start mariadb
-bin/extract-catalog.sh mdb-main /home/azamojski/outbox-wt-mdb-main   # jars + catalog/mdb-main/<dialect>/*.sql from the worktree's real code
-bin/extract-catalog.sh mdb-opt  /home/azamojski/outbox-wt-mdb-opt
 bin/bench gen   --dialect mariadb --scenario S1                     # deterministic snapshot (database "snap", seed 42), per lane
 bin/bench bench --dialect mariadb --variant mdb-main --worktree /home/azamojski/outbox-wt-mdb-main --scenario S1 --prepare --groups HOT,WRITE,MON
 bin/bench bench --dialect mariadb --variant mdb-opt  --worktree /home/azamojski/outbox-wt-mdb-opt  --scenario S1 --prepare --groups HOT,WRITE,MON
@@ -142,6 +144,11 @@ MySQL/MariaDB/Oracle none. Client sessions run in UTC (`-Duser.timezone=UTC`, My
 The default credentials are throw-away (`bench`).
 
 ## Known limits
+
+- Validated on this host on 2026-11-05 with JDK 25 only: both Gradle modules build, `hashcheck` passes (0 of 20 004), catalog
+  extraction through `variant-build.sh` with the JDK 25 init script works (worktree jars keep Java 17 bytecode, class major 61), and a
+  lane-1 MariaDB S1 `gen` + `bench --prepare --groups HOT,WRITE,MON` ran end to end (container, port, cpuset and snapshot marker per
+  lane recorded in `env.txt`). Not yet validated: two lanes at once, `writecost`/`concurrency`/`churn`/`equiv` on MariaDB.
 
 - Inherited from the PostgreSQL study, where it was validated on PostgreSQL end to end and on MySQL and MariaDB at the SQL level
   (S1, S2, S8-S2). The MariaDB study validates again on S1 (phase 2) before any measurement.

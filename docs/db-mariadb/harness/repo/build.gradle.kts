@@ -3,12 +3,12 @@ plugins {
     application
 }
 
-kotlin { jvmToolchain(17) }
+kotlin { jvmToolchain(25) }
 
-// Compile against the jars of one worktree (default: main). Run against any worktree via bin/repo-bench,
+// Compile against the jars of one worktree (default: mdb-main). Run against any worktree via bin/repo-bench,
 // which prepends that worktree's namastack-outbox-*.jar files to the classpath.
 // The jar list is written by bin/variant-build.sh to build/variants/<variant>.jars
-val compileJars: String = (findProperty("harness.compileJars") as String?) ?: "build/variants/main.jars"
+val compileJars: String = (findProperty("harness.compileJars") as String?) ?: "build/variants/mdb-main.jars"
 
 dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))
