@@ -1,0 +1,3 @@
+query_id,Handler_read_key,Handler_read_next,Handler_read_prev,Handler_read_first,Handler_read_rnd,Handler_read_rnd_next,Handler_read_last,bp_read_requests,bp_reads
+keys_strict,21,19,0,0,0,0,0,28,0
+find_completed_before,1,999,0,0,0,0,0,3080,0

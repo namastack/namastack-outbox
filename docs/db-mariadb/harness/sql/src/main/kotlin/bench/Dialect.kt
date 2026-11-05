@@ -174,6 +174,10 @@ enum class Dialect(val id: String, private val baseContainer: String?, private v
                 q("SELECT table_rows, data_length, index_length FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='outbox_record'", "table_rows,data_length,index_length")
                 q("SELECT index_name, stat_value*@@innodb_page_size bytes FROM mysql.innodb_index_stats WHERE database_name=DATABASE() AND table_name='outbox_record' AND stat_name='size' ORDER BY 1", "index_sizes")
                 q("SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='outbox_record'", "index_count (incl. primary)")
+                if (this == MARIADB) {
+                    q("SELECT file_size, allocated_size FROM information_schema.INNODB_SYS_TABLESPACES WHERE name = CONCAT(DATABASE(), '/outbox_record')", "tablespace file_size,allocated_size")
+                    q("SHOW GLOBAL STATUS LIKE 'Innodb_history_list_length'", "history_list_length")
+                }
             }
             SQLSERVER -> {
                 q("SELECT i.name, SUM(s.used_page_count)*8*1024 bytes FROM sys.dm_db_partition_stats s JOIN sys.indexes i ON i.object_id=s.object_id AND i.index_id=s.index_id WHERE s.object_id=OBJECT_ID('outbox_record') GROUP BY i.name ORDER BY 1", "index_sizes (clustered = table)")

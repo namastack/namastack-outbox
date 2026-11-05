@@ -1,0 +1,10 @@
+lane1 S2 pass1 snap.rec	3370317100
+lane1 S4 pass1 snap.rec	593475532
+lane1 S5 pass1 snap.rec	3839299731
+lane1 S4 pass2 snap.rec	593475532
+lane1 S2 pass2 snap.rec	3370317100
+lane2 S4 loadA snap.rec	593475532
+lane1 S4 loadA snap.rec	593475532
+lane2 S2 loadB snap.rec	3370317100
+lane1 S2 loadB snap.rec	3370317100
+lane1 S4 loadB snap.rec	593475532

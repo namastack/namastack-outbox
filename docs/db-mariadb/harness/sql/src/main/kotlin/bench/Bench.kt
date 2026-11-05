@@ -127,13 +127,13 @@ object Bench {
     }
 
     /** Writes the plan files; PostgreSQL: returns (planning ms, execution ms) from the EXPLAIN ANALYZE JSON, else null. */
-    fun plan(d: Dialect, c: Connection, q: CatalogQuery, p: Map<String, Any?>, maxRows: Int, dir: File, plain: Boolean = false): Pair<Double, Double>? {
+    fun plan(d: Dialect, c: Connection, q: CatalogQuery, p: Map<String, Any?>, maxRows: Int, dir: File, plain: Boolean = false, rows: Int = -1): Pair<Double, Double>? {
         var times: Pair<Double, Double>? = null
         val (sql, values) = NamedSql.expand(q.sql, p)
         val write = q.kind != "read"
         try {
             c.autoCommit = !write
-            if (plain && d != Dialect.POSTGRES && d != Dialect.H2) { planPlain(d, c, NamedSql.literalize(d, sql, values), q, dir); return null }
+            if (plain && d != Dialect.POSTGRES && d != Dialect.H2) { planPlain(d, c, NamedSql.literalize(d, sql, values), q, dir, maxRows, rows); return null }
             when (d) {
                 Dialect.POSTGRES -> {
                     for ((ext, fmt) in listOf("json" to "FORMAT JSON", "txt" to "FORMAT TEXT")) {
@@ -163,7 +163,8 @@ object Bench {
                     val txt = try { runExplain(c, "EXPLAIN ANALYZE $lit") } catch (e: SQLException) { "EXPLAIN ANALYZE unsupported here (${e.message}); plain EXPLAIN FORMAT=TREE\n" + runExplain(c, "EXPLAIN FORMAT=TREE $lit") }
                     File(dir, "${q.id}.txt").writeText(txt)
                 }
-                Dialect.MARIADB -> File(dir, "${q.id}.json").writeText(runExplain(c, "ANALYZE FORMAT=JSON " + NamedSql.literalize(d, sql, values)))
+                // same row limit as the MariaDB driver applies for setMaxRows (SET STATEMENT SQL_SELECT_LIMIT=n FOR ...), so main plans are not shown unlimited
+                Dialect.MARIADB -> Maria.capture(c, q, NamedSql.literalize(d, sql, values), maxRows, rows, dir, executing = true)
                 Dialect.H2 -> File(dir, "${q.id}.txt").writeText(runExplain(c, "EXPLAIN ANALYZE " + NamedSql.literalize(d, sql, values)))
                 Dialect.SQLSERVER -> {
                     val lit = NamedSql.literalize(d, sql, values)
@@ -205,10 +206,10 @@ object Bench {
     }
 
     /** Non-executing plan for very slow queries (first execution > 30 s). */
-    private fun planPlain(d: Dialect, c: Connection, lit: String, q: CatalogQuery, dir: File) {
+    private fun planPlain(d: Dialect, c: Connection, lit: String, q: CatalogQuery, dir: File, maxRows: Int = 0, rows: Int = -1) {
         when (d) {
             Dialect.MYSQL -> File(dir, "${q.id}.txt").writeText("plain EXPLAIN (query not executed)\n" + runExplain(c, "EXPLAIN FORMAT=TREE $lit"))
-            Dialect.MARIADB -> File(dir, "${q.id}.json").writeText(runExplain(c, "EXPLAIN FORMAT=JSON $lit"))
+            Dialect.MARIADB -> Maria.capture(c, q, lit, maxRows, rows, dir, executing = false)
             Dialect.SQLSERVER -> c.createStatement().use { st ->
                 st.execute("SET SHOWPLAN_XML ON")
                 try { st.executeQuery(lit).use { rs -> val sb = StringBuilder(); while (rs.next()) sb.append(rs.getString(1)); File(dir, "${q.id}.xml").writeText(sb.toString()) } }
@@ -238,6 +239,9 @@ object Bench {
         File(dir, "plans").mkdirs()
         val skipPlans = o.has("no-plans")
         cm.dialect.connect(cm.schema).use { c ->
+            val maria = cm.dialect == Dialect.MARIADB
+            if (maria) { Maria.settleHistory(c); if (!o.has("no-prime")) Maria.primeNote = Maria.prime(c) }
+            val hcsv = StringBuilder(Maria.HANDLER_HEADER + "\n")
             val ctx = Ctx(cm.dialect, c, cm.scenario, cm.batch, cm.owned, cm.warmup + cm.reps + 5)
             val adminOnly = cm.scenario.uppercase() in setOf("S1", "S3")
             val csv = StringBuilder("query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note\n")
@@ -266,7 +270,8 @@ object Bench {
                     csv.appendLine("$id,%.3f,%.3f,%.3f,%.3f,$rows,${times.size},$note".format(percentile(s, 0.5), percentile(s, 0.95), s.first(), s.last()))
                     println("%-24s median %9.3f ms  p95 %9.3f  rows %d %s".format(id, percentile(s, 0.5), percentile(s, 0.95), rows, note))
                     if (R3.applies(q) && dbOnly.isNotEmpty()) { val d = dbOnly.sorted(); csortcsv.appendLine("$id,%.3f,%.3f,%.3f,%.3f".format(percentile(d, .5), percentile(d, .95), percentile(s, .5), percentile(s, .95))) }
-                    if (!skipPlans) plan(cm.dialect, c, q, ctx.paramsFor(q, 0), maxRowsFor(q, ctx), File(dir, "plans"), note.startsWith("very slow"))?.let { ptcsv.appendLine("$id,%.3f,%.3f".format(it.first, it.second)) }
+                    if (maria && !note.startsWith("very slow")) try { hcsv.appendLine(Maria.handlerRow(c, q, ctx.paramsFor(q, 0), maxRowsFor(q, ctx))) } catch (e: Exception) { println("  handlers failed for $id: ${e.message?.lines()?.first()}"); try { c.rollback() } catch (_: Exception) {}; c.autoCommit = true }
+                    if (!skipPlans) plan(cm.dialect, c, q, ctx.paramsFor(q, 0), maxRowsFor(q, ctx), File(dir, "plans"), note.startsWith("very slow"), rows)?.let { ptcsv.appendLine("$id,%.3f,%.3f".format(it.first, it.second)) }
                 } catch (e: Exception) {
                     try { c.rollback() } catch (_: Exception) {}
                     c.autoCommit = true
@@ -274,11 +279,12 @@ object Bench {
                     println("%-24s ERROR %s".format(id, e.message?.lines()?.first()))
                     if (e.message?.startsWith("stopped at limit") == true && !skipPlans) try { // plan without executing, to see why it was stopped
                         val (sql, values) = NamedSql.expand(q.sql, ctx.paramsFor(q, 0))
-                        planPlain(cm.dialect, c, NamedSql.literalize(cm.dialect, sql, values), q, File(dir, "plans"))
+                        planPlain(cm.dialect, c, NamedSql.literalize(cm.dialect, sql, values), q, File(dir, "plans"), maxRowsFor(q, ctx))
                     } catch (e2: Exception) { File(dir, "plans/$id.error.txt").writeText(e2.toString()) }
                 }
             }
             File(dir, "timings.csv").writeText(csv.toString())
+            if (maria) File(dir, "handlers.csv").writeText(hcsv.toString())
             if (cm.dialect == Dialect.POSTGRES) { File(dir, "plancache.csv").writeText(pcsv.toString()); File(dir, "plantimes.csv").writeText(ptcsv.toString()) }
             if (R3.pagesClientSort) File(dir, "pages-clientsort.csv").writeText(csortcsv.toString())
             Env.write(cm, o, c, File(dir, "env.txt"))
@@ -332,6 +338,7 @@ object Env {
                 sb.appendLine("key_settings:"); while (rs.next()) sb.appendLine("  ${rs.getString(1)} = ${rs.getString(2)} ${rs.getString(3) ?: ""}") } }
         } catch (_: Exception) {}
         if (d == Dialect.POSTGRES && Dialect.pgSessionSql.isNotEmpty()) sb.appendLine("session_init: ${Dialect.pgSessionSql.joinToString("; ")}")
+        if (d == Dialect.MARIADB) sb.append(Maria.envBlock(c))
         sb.appendLine("--- sizes ---"); sb.append(d.sizeReport(c))
         f.writeText(sb.toString())
     }

@@ -1,0 +1,5 @@
+id: pages   mode: ANALYZE (executed)   sql_select_limit: none   rows_returned: 10
+r_total_time_ms: 0.171   cost: 0.126
+select#1 table=outbox_record access=range key=idx_outbox_record_record_key_created key_parts=[record_key] key_len=1022 loops=1 rows_est=60 r_rows=60 r_index_rows=60 examined=60 filtered_est=0.129 r_filtered=16.667 index_condition=yes attached_condition=yes using_index=no rowid_filter=no
+filesort: no   temporary_table: no   duplicates_removal: no   strategies: -
+rows_examined_total: 60   rows_returned: 10

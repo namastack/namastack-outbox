@@ -62,6 +62,40 @@ private fun wrapConn(c: Connection, log: SqlLog): Connection =
         } else r
     } as Connection
 
+/** Reflection over the repository's lazily resolved dialect/query objects: class names prove which dialect class was selected. */
+fun describeDialect(repo: Any): String {
+    val sb = StringBuilder()
+    var cls: Class<*>? = repo.javaClass
+    while (cls != null && cls != Any::class.java) {
+        for (f in cls.declaredFields) {
+            try {
+                f.isAccessible = true
+                val v = f.get(repo)
+                val target = if (v is Lazy<*>) v.value else v
+                if (target is String && f.name.contains("rowLimit", true) && target.length < 80) sb.appendLine("# repository field ${f.name}: '$target'")
+                else if (target != null && ("Queries" in target.javaClass.name || "DatabaseType" in target.javaClass.name || target.javaClass.simpleName.contains("Dialect")))
+                    sb.appendLine("# repository field ${f.name}: ${target.javaClass.name}${if (target is Enum<*>) " = $target" else ""}")
+            } catch (_: Exception) {}
+        }
+        cls = cls.superclass
+    }
+    return sb.toString().trimEnd().ifEmpty { "# repository dialect class: not found by reflection" }
+}
+
+/**
+ * Calls a repository method whose signature differs between variants: `statusIdx` is the position of the `OutboxRecordStatus`
+ * argument that some variants do not have (the runner is compiled against one variant's interface, runs against another's).
+ */
+fun callFlex(repo: Any, name: String, statusIdx: Int, vararg args: Any?): Any? {
+    val ms = OutboxRecordRepository::class.java.methods.filter { it.name == name }
+    val full = ms.firstOrNull { it.parameterCount == args.size }
+    val short = ms.firstOrNull { it.parameterCount == args.size - 1 }
+    return try {
+        if (full != null) full.invoke(repo, *args)
+        else short!!.invoke(repo, *args.toList().filterIndexed { i, _ -> i != statusIdx }.toTypedArray())
+    } catch (e: InvocationTargetException) { throw e.targetException }
+}
+
 object RepoBench {
     class Wiring(val repo: OutboxRecordRepository, val tx: TransactionTemplate, val close: () -> Unit)
 
@@ -103,12 +137,20 @@ object RepoBench {
         val engine = o.get("engine")
         val outDir = File(cm.outDir, "repo-$engine").also { it.mkdirs() }
         val log = SqlLog()
+        require(cm.dialect == Dialect.POSTGRES || (cm.dialect == Dialect.MARIADB && engine == "jdbc")) { "repository-level runner supports postgres (jdbc, jpa) and mariadb (jdbc only)" }
         val hikari = HikariDataSource(HikariConfig().apply {
-            jdbcUrl = "jdbc:postgresql://127.0.0.1:15432/bench?currentSchema=${cm.schema}&ApplicationName=repo-bench"
-            username = "bench"; password = "bench"; maximumPoolSize = 4; minimumIdle = 4
+            if (cm.dialect == Dialect.MARIADB) {   // MariaDB Connector/J on the lane's port; same URL options as the SQL runner, no useMysqlMetadata
+                jdbcUrl = "jdbc:mariadb://127.0.0.1:${cm.dialect.port}/${cm.schema}?sessionVariables=time_zone='+00:00'"
+                username = "root"; password = "bench"
+            } else {
+                jdbcUrl = "jdbc:postgresql://127.0.0.1:15432/bench?currentSchema=${cm.schema}&ApplicationName=repo-bench"
+                username = "bench"; password = "bench"
+            }
+            maximumPoolSize = 4; minimumIdle = 4
         })
-        require(cm.dialect == Dialect.POSTGRES) { "repository-level runner supports postgres only" }
         val w = wire(engine, capturingDataSource(hikari, log))
+        val sqlOut = StringBuilder()
+        hikari.connection.use { hc -> sqlOut.appendLine("# datasource: ${hc.metaData.databaseProductName} ${hc.metaData.databaseProductVersion.lines().first()} via ${hc.metaData.driverName} ${hc.metaData.driverVersion}") }
         val repo = w.repo; val tt = w.tx
         val owned = cm.owned.toSet(); val NEW = OutboxRecordStatus.NEW
         val t0 = instantOfMicros(T0_MICROS)
@@ -122,16 +164,16 @@ object RepoBench {
             class Op(val id: String, val rollback: Boolean, val fn: (Int) -> Int)
             fun size(x: Any?): Int = when (x) { is Collection<*> -> x.size; is Map<*, *> -> x.size; is Number -> 1; null -> 0; else -> 1 }
             val ops = mutableListOf<Op>()
-            ops += Op("keys_strict", false) { lastKeys = repo.findRecordKeysInPartitions(owned, NEW, cm.batch, true).toSet(); lastKeys.size }
-            ops += Op("keys_nonstrict", false) { size(repo.findRecordKeysInPartitions(owned, NEW, cm.batch, false)) }
+            ops += Op("keys_strict", false) { lastKeys = (callFlex(repo, "findRecordKeysInPartitions", 1, owned, NEW, cm.batch, true) as List<String>).toSet(); lastKeys.size }
+            ops += Op("keys_nonstrict", false) { size(callFlex(repo, "findRecordKeysInPartitions", 1, owned, NEW, cm.batch, false)) }
             ops += Op("pages", false) { size(repo.findIncompleteRecordPages(lastKeys.ifEmpty { ctx.dueKeys.take(cm.batch).toSet() })) }
             for (s in OutboxRecordStatus.entries) ops += Op("count_${s.name.lowercase()}", false) { repo.countByStatus(s); 1 }
             if (statuses != null) ops += Op("count_statuses", false) { size(statuses.invoke(repo, setOf(NEW, OutboxRecordStatus.FAILED))) }
             ops += Op("count_partitions", false) { repo.countRecordsByPartitions(owned, NEW); 1 }
             ops += Op("count_partition_single", false) { repo.countRecordsByPartition(ctx.samplePartition, NEW); 1 }
-            ops += Op("oldest_created", false) { size(repo.findOldestCreatedAtByPartitions(owned, NEW)) }
-            ops += Op("oldest_due_strict", false) { size(repo.findOldestDueNextRetryAtByPartitions(owned, NEW, t0, true)) }
-            ops += Op("oldest_due_nonstrict", false) { size(repo.findOldestDueNextRetryAtByPartitions(owned, NEW, t0, false)) }
+            ops += Op("oldest_created", false) { size(callFlex(repo, "findOldestCreatedAtByPartitions", 1, owned, NEW)) }
+            ops += Op("oldest_due_strict", false) { size(callFlex(repo, "findOldestDueNextRetryAtByPartitions", 1, owned, NEW, t0, true)) }
+            ops += Op("oldest_due_nonstrict", false) { size(callFlex(repo, "findOldestDueNextRetryAtByPartitions", 1, owned, NEW, t0, false)) }
             ops += Op("find_completed_before", false) { size(repo.findCompletedRecords(t0.minusSeconds(7 * 86400), 1000)) }
             ops += Op("find_failed_before", false) { size(repo.findFailedRecords(t0.minusSeconds(30 * 86400), 1000)) }
             ops += Op("find_incomplete_by_key", false) { size(repo.findIncompleteRecordsByRecordKey(ctx.sampleKey)) }
@@ -165,7 +207,6 @@ object RepoBench {
             ops += Op("delete_by_key_status", true) { repo.deleteByRecordKeyAndStatus(ctx.sampleKey, NEW); 0 }
 
             val csv = StringBuilder("query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note\n")
-            val sqlOut = StringBuilder()
             for (op in ops) {
                 if (only != null && op.id !in only) continue
                 try {
@@ -193,6 +234,8 @@ object RepoBench {
                     csv.appendLine("${op.id},,,,,,0,ERROR $msg"); println("%-24s ERROR %s".format(op.id, msg))
                 }
             }
+            // which dialect class the repository picked (lazy fields of the real repository, resolved by the calls above)
+            sqlOut.insert(0, describeDialect(repo) + "\n")
             // cleanup rows created by the committed operations
             c.createStatement().use { st -> st.executeUpdate("DELETE FROM outbox_record WHERE record_key LIKE 'order-repo-%' OR record_key LIKE 'order-repodel-%'") }
             File(outDir, "timings.csv").writeText(csv.toString())

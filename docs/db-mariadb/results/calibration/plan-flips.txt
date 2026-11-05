@@ -1,0 +1,6 @@
+FLIP mdb-opt S8-S2 pass2 count_new.summary.txt
+FLIP mdb-opt S8-S2 pass2 count_partition_single.summary.txt
+FLIP mdb-opt S8-S2 pass2 count_partitions.summary.txt
+FLIP mdb-opt S8-S2 loadB count_new.summary.txt
+FLIP mdb-opt S8-S2 loadB count_partition_single.summary.txt
+FLIP mdb-opt S8-S2 loadB count_partitions.summary.txt

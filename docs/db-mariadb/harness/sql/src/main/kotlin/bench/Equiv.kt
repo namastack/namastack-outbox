@@ -32,6 +32,13 @@ object Equiv {
         return Bench.exec(s.c, q, p, if (unlimited) 0 else Bench.maxRowsFor(q, s.ctx), collect = true)
     }
 
+    /** Values of the ORDER BY column for the returned rows: taken from the result when it has the column, else looked up by id. */
+    private fun orderVals(s: Side, r: Bench.ExecResult, idCol: Int, col: String): List<String?> {
+        val ci = r.cols.indexOf(col)
+        if (ci >= 0) return r.data!!.map { it[ci] }
+        return r.data!!.map { row -> s.c.prepareStatement("SELECT $col FROM outbox_record WHERE id = ?").use { ps -> ps.setString(1, row[idCol]); ps.executeQuery().use { rs -> rs.next(); rs.getString(1) } } }
+    }
+
     private fun effect(s: Side, id: String): String {
         val q = s.cat.getValue(id)
         s.c.autoCommit = false
@@ -95,8 +102,26 @@ object Equiv {
                         if (lx == ly) add(id, "PASS", "${lx.size} keys, same order")
                         else {
                             val ux = run(a, id, unlimited = true).data!!.map { it[0] }; val uy = run(b, id, unlimited = true).data!!.map { it[0] }
-                            if (ux.toSet() == uy.toSet() && ux.size == uy.size) add(id, "WARN", "limited result differs (a=${lx.take(5)}.. b=${ly.take(5)}..) but full eligible key sets are equal (${ux.size}); order differs only for equal created_at")
-                            else add(id, "FAIL", "limited a=${lx.size} b=${ly.size}; unlimited a=${ux.size} b=${uy.size}; only-a=${(ux.toSet() - uy.toSet()).take(3)} only-b=${(uy.toSet() - ux.toSet()).take(3)}")
+                            if (ux.toSet() != uy.toSet() || ux.size != uy.size)
+                                add(id, "FAIL", "limited a=${lx.size} b=${ly.size}; unlimited a=${ux.size} b=${uy.size}; only-a=${(ux.toSet() - uy.toSet()).take(3)} only-b=${(uy.toSet() - ux.toSet()).take(3)}")
+                            else {
+                                // The two queries order keys by MIN(created_at) of the key's due rows (main) or by (created_at, id) of its first due row (branch).
+                                // WARN only when this is verified: both limited lists are sorted by that timestamp and the timestamp sequences are equal
+                                // (so the lists can differ only by permutation inside created_at ties / which tied key falls on the limit boundary).
+                                val q = a.cat.getValue(id); val par = a.ctx.paramsFor(q, 0)
+                                fun ts(s: Side, keys: List<String?>): List<String> = keys.map { k ->
+                                    s.c.prepareStatement("SELECT MIN(created_at) FROM outbox_record WHERE record_key = ? AND status = ? AND next_retry_at <= ?").use { ps ->
+                                        ps.setString(1, k); ps.setString(2, par["status"] as String); ps.setTimestamp(3, par["now"] as java.sql.Timestamp)
+                                        ps.executeQuery().use { rs -> rs.next(); rs.getString(1) ?: "?" } } }
+                                val tx = ts(a, lx); val ty = ts(b, ly)
+                                val sortedX = tx == tx.sorted(); val sortedY = ty == ty.sorted()
+                                val boundary = tx.lastOrNull()
+                                val tiedAtBoundary = if (boundary == null) 0 else a.c.prepareStatement("SELECT COUNT(*) FROM (SELECT record_key FROM outbox_record WHERE partition_no IN (${a.cm.owned.joinToString(",")}) AND status = ? AND next_retry_at <= ? GROUP BY record_key HAVING MIN(created_at) = ?) t").use { ps ->
+                                    ps.setString(1, par["status"] as String); ps.setTimestamp(2, par["now"] as java.sql.Timestamp); ps.setString(3, boundary); ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) } }
+                                if (sortedX && sortedY && tx == ty)
+                                    add(id, "WARN", "limited lists differ (first difference at position ${lx.indices.firstOrNull { lx[it] != ly.getOrNull(it) } ?: -1}: a=${lx.firstOrNull { it !in ly.toSet() } ?: lx.getOrNull(lx.indices.firstOrNull { lx[it] != ly.getOrNull(it) } ?: 0)} b=${ly.firstOrNull { it !in lx.toSet() } ?: ly.getOrNull(lx.indices.firstOrNull { lx[it] != ly.getOrNull(it) } ?: 0)}, ${lx.toSet().minus(ly.toSet()).size} key(s) only in a, ${ly.toSet().minus(lx.toSet()).size} only in b) but full key sets are equal (${ux.size}); verified: both lists sorted by MIN(created_at) of the due rows and the created_at sequences are identical, so the difference is only created_at ties ($tiedAtBoundary keys tie with the last returned created_at)")
+                                else add(id, "FAIL", "limited lists differ beyond ties: sorted a=$sortedX b=$sortedY, created_at sequences equal=${tx == ty} (a=${tx.take(5)} b=${ty.take(5)})")
+                            }
                         }
                     }
                     id == "pages" -> {
@@ -107,15 +132,18 @@ object Equiv {
                         add(id, if (gx == gy) "PASS" else "FAIL", "${x.rows} vs ${y.rows} rows over ${gx.size} keys; per-key id order ${if (gx == gy) "equal" else "differs"}")
                     }
                     id.startsWith("find_") && id != "find_pending_all" && id != "find_failed_all" && id != "find_incomplete_by_key" || id.startsWith("ids_") -> {
-                        val ox = if (id.contains("completed")) "completed_at" else "next_retry_at"
+                        val ox = if (id.contains("completed")) "completed_at" else "next_retry_at"   // ORDER BY column of the *_before queries
                         val ix = idx(x, "id").let { if (it < 0) 0 else it }; val iy = idx(y, "id").let { if (it < 0) 0 else it }
                         val sx = x.data!!.map { it[ix] }; val sy = y.data!!.map { it[iy] }
                         if (sx == sy) add(id, "PASS", "${sx.size} rows, same ids same order")
-                        else if (sx.toSet() == sy.toSet()) add(id, "PASS", "same id set, order differs inside ties")
+                        else if (sx.toSet() == sy.toSet()) {
+                            // verified, not assumed: the order column must read identically in both lists (differences are only permutations of equal values)
+                            if (orderVals(a, x, ix, ox) == orderVals(b, y, iy, ox)) add(id, "PASS", "same id set, order differs only inside equal $ox values (verified)")
+                            else add(id, "FAIL", "same id set but the $ox sequences differ")
+                        }
                         else {
                             // boundary ties: compare the order-column sequence instead
-                            val ocx = idx(x, ox); val ocy = idx(y, ox)
-                            if (ocx >= 0 && ocy >= 0 && x.data.map { it[ocx] } == y.data.map { it[ocy] }) add(id, "WARN", "id sets differ only at the limit boundary (equal ${ox} values)")
+                            if (orderVals(a, x, ix, ox) == orderVals(b, y, iy, ox)) add(id, "WARN", "id sets differ only at the limit boundary (equal ${ox} values)")
                             else add(id, "FAIL", "a=${sx.size} rows b=${sy.size} rows")
                         }
                     }

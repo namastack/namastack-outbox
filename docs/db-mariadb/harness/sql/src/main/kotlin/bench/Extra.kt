@@ -11,14 +11,24 @@ object WriteCost {
         Nonce.value = System.nanoTime().toString()
         val n = o.int("n", 5000); val threads = o.int("threads", 4)
         val cat = Catalog.load(cm.catalogRoot, cm.catalogVariant, cm.dialect, cm.queries)
-        val ins = cat.getValue("insert"); val upd = cat.getValue("upd_complete")
+        val ins = cat.getValue("insert"); val upd = cat.getValue("upd_complete"); val updRetry = cat.getValue("upd_retry"); val updFail = cat.getValue("upd_fail"); val del = cat.getValue("delete_by_id")
         val out = StringBuilder("metric,value\n")
         val dir = cm.outDir
         cm.dialect.connect(cm.schema).use { c0 ->
-            val ctx = Ctx(cm.dialect, c0, cm.scenario, cm.batch, cm.owned, n + 10)
-            val pg = cm.dialect == Dialect.POSTGRES
+            val ctx = Ctx(cm.dialect, c0, cm.scenario, cm.batch, cm.owned, 3 * n + 10)
+            val pg = cm.dialect == Dialect.POSTGRES; val maria = cm.dialect == Dialect.MARIADB
+            if (maria) { Maria.settleHistory(c0); out.appendLine("innodb_history_list_length_at_start,\"${Maria.settleNote}\"") }
             fun scalar(sql: String): String = c0.createStatement().use { st -> st.executeQuery(sql).use { rs -> rs.next(); rs.getString(1) } }
             fun idxReport(tag: String) {
+                if (maria) {   // InnoDB: plain ANALYZE TABLE, then per-index sizes from mysql.innodb_index_stats and the tablespace file size
+                    val sizes = Maria.indexSizes(c0, true)
+                    for ((k, v) in sizes) out.appendLine("index_bytes_$tag.$k,$v")
+                    if (tag == "before") out.appendLine("index_count,${sizes.size}")
+                    out.appendLine("table_bytes_$tag,${sizes["PRIMARY"] ?: 0}")
+                    out.appendLine("indexes_total_bytes_$tag,${sizes.filterKeys { it != "PRIMARY" }.values.sum()}")
+                    Maria.tablespaceBytes(c0)?.let { out.appendLine("tablespace_file_bytes_$tag,${it.first}"); out.appendLine("tablespace_allocated_bytes_$tag,${it.second}") }
+                    return
+                }
                 if (!pg) return
                 c0.createStatement().use { st -> st.executeQuery("SELECT indexrelid::regclass::text, pg_relation_size(indexrelid) FROM pg_index WHERE indrelid='outbox_record'::regclass ORDER BY 1").use { rs ->
                     var n = 0; while (rs.next()) { n++; out.appendLine("index_bytes_$tag.${rs.getString(1)},${rs.getLong(2)}") }; if (tag == "before") out.appendLine("index_count,$n") } }
@@ -26,8 +36,18 @@ object WriteCost {
                 out.appendLine("indexes_total_bytes_$tag,${scalar("SELECT pg_indexes_size('outbox_record')")}")
             }
             idxReport("before")
-            // WAL bytes (PostgreSQL only): pg_current_wal_lsn() difference over each phase, after a CHECKPOINT so every phase starts with full-page-write state
+            // PostgreSQL: WAL bytes (pg_current_wal_lsn difference over each phase, after a CHECKPOINT).
+            // MariaDB: deltas of the GLOBAL InnoDB counters over each phase (redo bytes, pages/data written, buffer pool reads); the lane's server
+            // has no other client. Dirty pages are flushed (Maria.flushAll) before and after each phase, so pages/data written = pages the phase dirtied.
             fun <T> walPhase(label: String, writes: () -> Int): Int {
+                if (maria) {
+                    Maria.flushAll(c0)   // clean baseline: no dirty pages of earlier phases
+                    val g0 = Maria.globals(c0); val w = writes(); val dirty = Maria.flushAll(c0); val d = Maria.delta(g0, Maria.globals(c0))   // flush: pages_written/data_written = pages this phase dirtied
+                    out.appendLine("$label.writes,$w"); out.appendLine("$label.dirty_pages_left_after_flush,$dirty")
+                    for ((k, v) in d) { if (k == "Innodb_buffer_pool_pages_dirty") continue
+                        val short = k.removePrefix("Innodb_"); out.appendLine("$label.$short.total,$v"); out.appendLine("$label.$short.per_write,%.2f".format(v.toDouble() / maxOf(1, w))) }
+                    return w
+                }
                 if (!pg) return writes()
                 try { c0.createStatement().use { it.execute("CHECKPOINT") } } catch (_: Exception) {}
                 val lsn0 = scalar("SELECT pg_current_wal_lsn()")
@@ -38,6 +58,7 @@ object WriteCost {
             }
             val before = cm.dialect.sizeReport(c0)
             fun stats(label: String, lat: List<Double>, wallMs: Double) {
+                if (lat.isEmpty()) { out.appendLine("$label.count,0"); return }
                 val s = lat.sorted()
                 out.appendLine("$label.count,${s.size}"); out.appendLine("$label.p50_ms,%.3f".format(Bench.percentile(s, .5)))
                 out.appendLine("$label.p95_ms,%.3f".format(Bench.percentile(s, .95))); out.appendLine("$label.throughput_per_s,%.1f".format(s.size / (wallMs / 1000)))
@@ -57,23 +78,47 @@ object WriteCost {
                 } }.forEach { it.join() }
                 stats(label, lats.toList(), (System.nanoTime() - t0) / 1e6)
             }
+            val all = ctx.dueIds   // sampled before the insert phases so that the update slices are the same rows for every variant
             // warm up
             insertRun("insert_warmup", "order-wcw-", 1, 200)
+            if (maria) Maria.flushAll(c0)
+            val gStart = if (maria) Maria.globals(c0) else emptyMap()
             walPhase<Unit>("insert_1thread") { insertRun("insert_1thread", "order-wc1-", 1, n); n }
             walPhase<Unit>("insert_${threads}threads") { insertRun("insert_${threads}threads", "order-wc4-", threads, n / threads); n / threads * threads }
-            // committed status updates (complete) on due records
-            val ids = ctx.dueIds.take(n)
-            val lats = mutableListOf<Double>(); c0.autoCommit = true
-            var t0 = System.nanoTime()
-            walPhase<Unit>("upd_complete_committed") {
-                t0 = System.nanoTime()
-                for ((i, id) in ids.withIndex()) {
-                    val p = ctx.paramsFor(upd, i).toMutableMap(); p["id"] = id
-                    val t = System.nanoTime(); Bench.exec(c0, upd, p, 0); lats += (System.nanoTime() - t) / 1e6
+            // committed status updates on due records (disjoint slices: complete, retry, fail), then committed deletes of the completed ones
+            val nu = minOf(n, all.size / 3)   // three disjoint slices of due ids; S1 has only 150 due records
+            if (nu < n) out.appendLine("note_update_phases_limited_to,$nu")
+            val slice = { k: Int -> all.drop(k * nu).take(nu) }
+            c0.autoCommit = true
+            fun updPhase(label: String, q: CatalogQuery, ids: List<String>) {
+                val lats = mutableListOf<Double>(); var t0 = System.nanoTime()
+                walPhase<Unit>(label) {
+                    t0 = System.nanoTime()
+                    for ((i, id) in ids.withIndex()) {
+                        val p = ctx.paramsFor(q, i).toMutableMap(); p["id"] = id
+                        val t = System.nanoTime(); Bench.exec(c0, q, p, 0); lats += (System.nanoTime() - t) / 1e6
+                    }
+                    ids.size
                 }
-                ids.size
+                stats(label, lats, (System.nanoTime() - t0) / 1e6)
             }
-            stats("upd_complete_committed", lats, (System.nanoTime() - t0) / 1e6)
+            val completeIds = slice(0)
+            updPhase("upd_complete_committed", upd, completeIds)
+            updPhase("upd_retry_committed", updRetry, slice(1))
+            updPhase("upd_fail_committed", updFail, slice(2))
+            run { // delete_by_id on the records completed above (status COMPLETED, as retention would remove them)
+                val lats = mutableListOf<Double>(); var t0 = System.nanoTime()
+                walPhase<Unit>("delete_by_id_committed") {
+                    t0 = System.nanoTime()
+                    for (id in completeIds) { val t = System.nanoTime(); Bench.exec(c0, del, mapOf("id" to id), 0); lats += (System.nanoTime() - t) / 1e6 }
+                    completeIds.size
+                }
+                stats("delete_by_id_committed", lats, (System.nanoTime() - t0) / 1e6)
+            }
+            if (maria) {
+                val dAll = Maria.delta(gStart, Maria.globals(c0))
+                for ((k, v) in dAll) if (k != "Innodb_buffer_pool_pages_dirty") out.appendLine("all_phases.${k.removePrefix("Innodb_")}.total,$v")
+            }
             idxReport("after")
             File(dir, "writecost.csv").writeText(out.toString())
             File(dir, "sizes-before-write.txt").writeText(before)
@@ -117,6 +162,9 @@ object Concurrency {
         val sinceInstant = java.time.Instant.now().toString()
         val start = System.nanoTime()
         fun virtualNow(): Long = T0_MICROS + (System.nanoTime() - start) / 1000
+        val maria = cm.dialect == Dialect.MARIADB
+        var g0: Map<String, Long> = emptyMap(); var hll0 = -1L; var settle = ""
+        if (maria) cm.dialect.connect(cm.schema).use { c -> settle = Maria.settleHistory(c); hll0 = Maria.historyListLength(c); g0 = Maria.globals(c) }
         val ctx0 = cm.dialect.connect(cm.schema).use { Ctx(cm.dialect, it, cm.scenario, cm.batch, cm.owned, 10) }
         val workers = mutableListOf<Thread>()
         for (pi in 0 until pollers) {
@@ -192,6 +240,13 @@ object Concurrency {
                 slow.take(3).joinToString("\n\n") + "\n\n== final captures ==\n" + fin.joinToString("\n\n") + "\n")
             pollerInfo += "auto_explain: ${slow.size} pages plans >= 5 ms logged, ${fin.size} final captures (concurrency-$tag.plans.txt)"
         } catch (e: Exception) { pollerInfo += "auto_explain log read failed: $e" }
+        var mariaTxt = ""
+        if (maria) cm.dialect.connect(cm.schema).use { c ->
+            val d = Maria.delta(g0, Maria.globals(c))
+            mariaTxt = "innodb_history_list_length: start $settle; before run $hll0; end ${Maria.historyListLength(c)}\n" +
+                "innodb_global_deltas: " + d.entries.filter { it.key != "Innodb_buffer_pool_pages_dirty" }.joinToString(" ") { "${it.key.removePrefix("Innodb_")}=${it.value}" } + "\n" +
+                "lock_waits=${d["Innodb_row_lock_waits"]} deadlocks=${d["Innodb_deadlocks"]} row_lock_time_ms=${d["Innodb_row_lock_time"]}\n"
+        }
         val txt = """tag: $tag  pollers=$pollers producers=$prodThreads rate=${if (rate == 0) "unthrottled" else rate} seconds=%.1f
 processed_per_s: %.1f   (total ${processed.get()})
 inserted_per_s: %.1f   (total ${inserted.get()})
@@ -203,7 +258,7 @@ client_sort: ${R3.pagesClientSort && R3.applies(pagesQ)}  session_init: ${Dialec
 ${pollerInfo.sorted().joinToString("\n")}
 update_ms: ${latUpd.summary()}
 insert_ms: ${latIns.summary()}
-""".format(secs, processed.get() / secs, inserted.get() / secs)
+$mariaTxt""".format(secs, processed.get() / secs, inserted.get() / secs)
         File(cm.outDir, "concurrency-$tag.txt").writeText(txt); println(txt)
     }
 }
@@ -218,7 +273,11 @@ object Churn {
         val rep = StringBuilder()
         cm.dialect.connect(cm.schema).use { c ->
             val ctx = Ctx(cm.dialect, c, cm.scenario, cm.batch, cm.owned, 10)
+            val maria = cm.dialect == Dialect.MARIADB
+            if (maria) { Maria.settleHistory(c); rep.appendLine("innodb_history_list_length_at_start: ${Maria.settleNote}") }
+            val gc0 = if (maria) Maria.globals(c) else emptyMap()
             rep.appendLine("== before ==").append(cm.dialect.sizeReport(c))
+            if (maria) rep.appendLine("history_list_length_before: ${Maria.historyListLength(c)}")
             val t0 = System.nanoTime(); val rnd = java.util.Random(3)
             c.autoCommit = false
             var seq = 0
@@ -257,7 +316,11 @@ object Churn {
                 c.autoCommit = false; removed += Bench.exec(c, delIds, mapOf("ids" to ids), 0).rows; c.commit(); c.autoCommit = true
             }
             rep.appendLine("removed_by_retention: $removed").appendLine("churn_seconds: ${(System.nanoTime() - t0) / 1_000_000_000}")
-            rep.appendLine("== after churn (no manual VACUUM/ANALYZE) ==").append(cm.dialect.sizeReport(c))
+            rep.appendLine("== after churn (no manual VACUUM/ANALYZE/OPTIMIZE) ==").append(cm.dialect.sizeReport(c))
+            if (maria) {
+                rep.appendLine("history_list_length_after: ${Maria.historyListLength(c)}")
+                rep.appendLine("innodb_global_deltas: " + Maria.delta(gc0, Maria.globals(c)).entries.filter { it.key != "Innodb_buffer_pool_pages_dirty" }.joinToString(" ") { "${it.key.removePrefix("Innodb_")}=${it.value}" })
+            }
         }
         File(cm.outDir, "churn.txt").writeText(rep.toString()); println(rep)
     }

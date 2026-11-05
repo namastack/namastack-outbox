@@ -132,6 +132,54 @@ Differences to the SQL level: `insert` and `delete_by_id` are committed (JPA flu
 bench rows afterwards), so they include commit and the extra JPA statements; counts report `rows = 1`; read methods include row mapping
 (payload deserialisation with a trivial serializer) and, for `find_*Records`, full object construction.
 
+## MariaDB port
+
+Changes made for the MariaDB study (all in `sql/` and `repo/`, plus `bin/`):
+
+- **setMaxRows fidelity.** The SQL runner uses MariaDB Connector/J 3.5.10 (`jdbc:mariadb:`, client-side prepared statements) for every
+  variant and calls the real `PreparedStatement.setMaxRows(n)` for catalog entries whose `maxrows` is not `none`. Against MariaDB >= 10.3 the
+  driver rewrites this to `SET STATEMENT SQL_SELECT_LIMIT=n FOR <sql>` (server-side limit). Checked with the server's `general_log`
+  (`results/validation/VALIDATION.md`): the server receives exactly that text. **Plans use the same limit**: for a query with `maxrows` != none the
+  capture is `SET STATEMENT SQL_SELECT_LIMIT=n FOR ANALYZE FORMAT=JSON <sql>` (`EXPLAIN FORMAT=JSON` for capped queries), because the limit changes the
+  chosen plan (e.g. `find_completed_before` on `main`: full scan without the limit, index range with it). `plans/<id>.summary.txt` states the limit.
+- **Plans.** `ANALYZE FORMAT=JSON` for every query with the first parameter set (writes in a rolled-back transaction); `plans/<id>.json` plus
+  `plans/<id>.summary.txt` (per table: access type, key, used key parts, loops, estimated/actual rows, rows examined, index condition, attached
+  condition, covering index, rowid filter; then filesort, temporary table, duplicates removal, strategy keywords such as `dependent-subquery`,
+  `subquery-cache`, `materialization`; rows examined vs returned). "examined" uses `r_index_rows` when MariaDB reports it. Very slow queries (> 30 s)
+  and queries stopped by the per-query limit get a non-executing `EXPLAIN FORMAT=JSON`.
+- **Rows examined.** `handlers.csv` (`query_id,Handler_read_key,_next,_prev,_first,_rnd,_rnd_next,_last,bp_read_requests,bp_reads`): session
+  `Handler_read%` deltas of one extra execution after the timed reps (never inside the timed section); the cost of two consecutive `SHOW STATUS` calls is
+  subtracted. `bp_*` are deltas of the global `Innodb_buffer_pool_read_requests/reads` (the lane's server has no other client).
+- **Statistics and warm-up.** `prepare` ends with plain `ANALYZE TABLE outbox_record` (persistent InnoDB statistics; with `use_stat_tables=
+  PREFERABLY_FOR_QUERIES` this creates no engine-independent statistics: `env.txt` shows 0 rows in `mysql.table_stats/column_stats/index_stats`).
+  Before the first timed query `bench` waits for `Innodb_history_list_length` < 1000 (max 120 s) and records the value, then primes the buffer pool
+  identically for every variant: one `SELECT COUNT(*) ... FORCE INDEX (i)` per index (smallest first) until 80 % of `innodb_buffer_pool_size` is
+  covered (`--no-prime` disables); the 5 warm-up reps per query follow. `env.txt` records the server settings (`innodb_stats_persistent*`, `use_stat_tables`,
+  `optimizer_use_condition_selectivity`, `eq_range_index_dive_limit`, `optimizer_switch`, buffer pool, flush settings, `log_bin`, `explicit_defaults_for_timestamp`,
+  `character_set_server`, `collation_server`, `sql_mode`), the actual charset/collation of `id` and `record_key` from `information_schema.COLUMNS`, history list
+  length, priming note, and the sizes (per-index sizes from `mysql.innodb_index_stats`, tablespace file size from `INNODB_SYS_TABLESPACES`).
+- **Write cost (InnoDB).** `writecost` phases `insert_1thread`, `insert_4threads`, `upd_complete_committed`, `upd_retry_committed`, `upd_fail_committed`,
+  `delete_by_id_committed` (deletes the records completed in the first update phase). Per phase and per write: global deltas of `Innodb_os_log_written` (redo bytes),
+  `Innodb_pages_written`, `Innodb_data_written`, `Innodb_buffer_pool_read_requests`, `Innodb_buffer_pool_reads`, row-lock waits/time, deadlocks; latency p50/p95
+  and throughput. Before and after each phase all dirty pages are flushed (`SET GLOBAL innodb_max_dirty_pages_pct=0`, wait until the dirty count is <= 5 or stable,
+  settings restored), so pages/data written count the pages the phase dirtied (an idle server otherwise defers them); latencies are measured before that flush.
+  Table and per-index sizes before/after come from a plain `ANALYZE TABLE` + `mysql.innodb_index_stats`, plus the tablespace file size and the index count.
+  The counters are GLOBAL: run one lane per server and nothing else against it.
+- **S9 / S10.** `churn` records sizes, `Innodb_history_list_length` and global counter deltas before/after (no manual `ANALYZE`/`OPTIMIZE`); `run-cells.sh churn:*:S9`
+  then runs the P1/P2 bench on the churned table under the same label. `concurrency` works on MariaDB (disjoint partitions per poller, `--rate 500` or `0`) and adds
+  history list length and `Innodb_row_lock_waits`, `Innodb_deadlocks`, `Innodb_row_lock_time`, redo/pages deltas to `concurrency-<tag>.txt`.
+- **Equivalence.** `keys_strict`/`keys_nonstrict`: a differing limited list is `WARN` only when the full key sets are equal AND both limited lists are sorted by
+  `MIN(created_at)` of the key's due rows AND their created_at sequences are identical (so the difference is only a permutation inside created_at ties, e.g. `main` orders by
+  `MIN(created_at)` only, the branch by `(created_at, id)`); otherwise `FAIL`. For `find_*`/`ids_*` the `ORDER BY` column is compared the same way (looked up by id for `ids_*`). Self-tests: an
+  override with a deliberately wrong order gives `FAIL`; an override that permutes the tie gives the verified `WARN`.
+- **Repository-level runner.** `bin/repo-bench <v> bench --engine jdbc --dialect mariadb --worktree W --scenario S1`: Hikari (4 connections) with MariaDB Connector/J on the lane's
+  port, the worktree's real `JdbcOutboxPersistenceFactory.create(...)`. `repo-jdbc/sql.txt` starts with the product the datasource reports and the dialect class the repository resolved
+  (`io.namastack.outbox.query.MariaDbJdbcOutboxRecordQueries` on the branch; `rowLimitClause` on `main`), then every statement with the `setMaxRows` it was prepared with. The runner is compiled
+  against the `mdb-main` interface; methods whose signature differs between variants (the `status` argument) are called by reflection (`callFlex`).
+- **Per-query limit.** `--query-limit-s` / `--limit-from` work with the MariaDB driver (`Statement.cancel()` = `KILL QUERY`); `bench limitcheck --dialect mariadb --query-limit-s 3` stops a long query after 3.2 s.
+- **Drivers.** `bin/run-cells.sh` (resumable single-lane driver, see its header) and `bin/noise.py <tree1> <tree2>` (any two result trees, per group: p90/max relative spread; p90/max absolute difference below 0.3 ms).
+- **Catalog extractor.** The `oldest_created` `maxrows` of the branch is `none` (the code at `2a2663de` calls no `setMaxRows`).
+
 ## Container settings (bin/db.sh)
 
 Images as in the integration tests: `postgres:18-alpine`, `mysql:9.2`, `mariadb:12`, `mcr.microsoft.com/mssql/server:2022-latest`,
@@ -145,19 +193,12 @@ The default credentials are throw-away (`bench`).
 
 ## Known limits
 
-- Validated on this host on 2026-11-05 with JDK 25 only: both Gradle modules build, `hashcheck` passes (0 of 20 004), catalog
-  extraction through `variant-build.sh` with the JDK 25 init script works (worktree jars keep Java 17 bytecode, class major 61), and a
-  lane-1 MariaDB S1 `gen` + `bench --prepare --groups HOT,WRITE,MON` ran end to end (container, port, cpuset and snapshot marker per
-  lane recorded in `env.txt`). Not yet validated: two lanes at once, `writecost`/`concurrency`/`churn`/`equiv` on MariaDB.
-
-- Inherited from the PostgreSQL study, where it was validated on PostgreSQL end to end and on MySQL and MariaDB at the SQL level
-  (S1, S2, S8-S2). The MariaDB study validates again on S1 (phase 2) before any measurement.
-- The SQL-level numbers use one JDBC connection (no pool, no Spring). Network/driver round trips are included.
-- `writecost` records WAL volume on PostgreSQL only; the MariaDB equivalents (InnoDB redo bytes, pages written) are a phase 2 task.
-- The repository-level runner is PostgreSQL only; a MariaDB JDBC mode is a phase 2 task.
-- Row-limit behaviour of `setMaxRows` is the driver's; the harness does not force anything.
-- `gen` for MySQL/MariaDB is JDBC-batch based: 1M rows take several minutes.
-- Concurrency pollers use the catalog SQL (exactly what the variant sends) but not the scheduler's thread pool.
+- Validated on 2026-11-05 (JDK 25, lanes 1 and 2, `mariadb:12` = 12.3.3) on S1 only; evidence in `../results/validation/VALIDATION.md`. Larger scenarios
+  (S2+) are validated by the first real runs; `gen` for MariaDB is JDBC-batch based (1M rows take several minutes).
+- Inherited from the PostgreSQL study: the SQL-level numbers use one JDBC connection (no pool, no Spring); network/driver round trips are included.
+  Concurrency pollers use the catalog SQL (exactly what the variant sends) but not the scheduler's thread pool.
+- `writecost`'s update phases use three disjoint slices of due ids (`min(n, due/3)`); S1 has only 150 due records, so use `--n 120` or less there.
+- The repository-level runner on MariaDB is JDBC only; JPA stays PostgreSQL-only.
 
 ## Options (summary of the inherited runner)
 

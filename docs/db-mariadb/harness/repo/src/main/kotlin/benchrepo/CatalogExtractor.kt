@@ -39,7 +39,7 @@ object CatalogExtractor {
         Entry("count_statuses_all", "MON", "read", null, "countByStatuses", "none", "none"),
         Entry("count_partitions", "MON", "read", "countByPartitionsStatusQuery", "countByPartitionsStatus", "none", "none"),
         Entry("count_partition_single", "MON", "read", "countByPartitionStatusQuery", "countByPartitionStatus", "none", "none"),
-        Entry("oldest_created", "MON", "read", "oldestCreatedAtByPartitionsStatusQuery", "oldestCreatedAtByPartitionsStatus", "none", "one"),
+        Entry("oldest_created", "MON", "read", "oldestCreatedAtByPartitionsStatusQuery", "oldestCreatedAtByPartitionsStatus", "none", "none"),
         Entry("oldest_due_strict", "MON", "read", "oldestDueNextRetryAtQueryWithPreviousFailureFilter", "oldestDueNextRetryAtWithPreviousFailureFilter", "none", "one"),
         Entry("oldest_due_nonstrict", "MON", "read", "oldestDueNextRetryAtQueryWithoutPreviousFailureFilter", "oldestDueNextRetryAtWithoutPreviousFailureFilter", "none", "one"),
         Entry("find_completed_before", "RET", "read", "findByStatusAndCompletedBeforeQuery", "findByStatusAndCompletedBefore", "retention", "retention"),

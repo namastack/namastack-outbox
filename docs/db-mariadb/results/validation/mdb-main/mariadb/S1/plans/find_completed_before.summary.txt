@@ -1,0 +1,5 @@
+id: find_completed_before   mode: ANALYZE (executed)   sql_select_limit: 1000   rows_returned: 1000
+r_total_time_ms: 9.316   cost: 2.505
+select#1 table=outbox_record access=range key=idx_outbox_record_status_retry key_parts=[status] key_len=82 loops=1 rows_est=10077 r_rows=9800 examined=9800 filtered_est=100 r_filtered=76.857 index_condition=yes attached_condition=yes using_index=no rowid_filter=no
+filesort: yes   temporary_table: no   duplicates_removal: no   strategies: -
+rows_examined_total: 9800   rows_returned: 1000

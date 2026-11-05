@@ -1,0 +1,5 @@
+id: oldest_due_nonstrict   mode: ANALYZE (executed)   sql_select_limit: none   rows_returned: 1
+r_total_time_ms: 0.145   cost: 0.274
+select#1 table=o access=range key=idx_outbox_record_status_retry key_parts=[status,next_retry_at] key_len=86 loops=1 rows_est=150 r_rows=150 r_index_rows=150 examined=150 filtered_est=100 r_filtered=100 index_condition=yes attached_condition=yes using_index=no rowid_filter=no
+filesort: no   temporary_table: no   duplicates_removal: no   strategies: -
+rows_examined_total: 150   rows_returned: 1

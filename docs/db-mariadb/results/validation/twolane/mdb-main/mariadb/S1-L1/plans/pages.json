@@ -1,0 +1,71 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.083336733
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 0.052903459,
+    "r_loops": 1,
+    "r_total_time_ms": 0.092171228,
+    "nested_loop": [
+      {
+        "read_sorted_file": {
+          "r_rows": 10,
+          "filesort": {
+            "sort_key": "outbox_record.record_key, outbox_record.created_at, outbox_record.`id`",
+            "r_loops": 1,
+            "r_total_time_ms": 0.049651465,
+            "r_used_priority_queue": false,
+            "r_output_rows": 10,
+            "r_buffer_size": "2046KiB",
+            "r_sort_mode": "packed_sort_key,rowid",
+            "table": {
+              "table_name": "outbox_record",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_record_key_created",
+                "idx_outbox_record_status_retry",
+                "idx_outbox_record_status_created",
+                "idx_outbox_record_record_key_completed_created"
+              ],
+              "key": "idx_outbox_record_status_retry",
+              "key_length": "82",
+              "used_key_parts": ["status"],
+              "ref": ["const"],
+              "rowid_filter": {
+                "range": {
+                  "key": "idx_outbox_record_record_key_created",
+                  "used_key_parts": ["record_key"]
+                },
+                "rows": 22,
+                "selectivity_pct": 0.231432779,
+                "r_rows": 22,
+                "r_lookups": 180,
+                "r_selectivity_pct": 5.555555556,
+                "r_buffer_size": 2810,
+                "r_filling_time_ms": 0.026523518
+              },
+              "loops": 1,
+              "r_loops": 1,
+              "rows": 180,
+              "r_index_rows": 180,
+              "r_rows": 10,
+              "cost": 0.052903459,
+              "r_table_time_ms": 0.077847727,
+              "r_other_time_ms": 0.006550748,
+              "r_engine_stats": {
+                "pages_accessed": 146
+              },
+              "filtered": 0.231432781,
+              "r_total_filtered": 5.555555556,
+              "index_condition": "outbox_record.`status` = 'NEW'",
+              "r_icp_filtered": 100,
+              "attached_condition": "outbox_record.`status` <=> 'NEW' and outbox_record.record_key in ('order-000000000000000000000000000033','order-000000000000000000000000000085','order-000000000000000000000000000042','order-000000000000000000000000000066','order-000000000000000000000000000126','order-000000000000000000000000000113','order-000000000000000000000000000041','order-000000000000000000000000000134','order-000000000000000000000000000146','order-000000000000000000000000000129')",
+              "r_filtered": 100
+            }
+          }
+        }
+      }
+    ]
+  }
+}
