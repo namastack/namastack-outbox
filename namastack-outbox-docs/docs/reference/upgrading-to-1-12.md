@@ -33,7 +33,9 @@ indexes that have not been measured. Compare your own query latency before and a
     below the new queries run against the old indexes.
 - **Custom names:** if you use a table prefix or a custom schema, adapt the table names.
 - **Disk space:** the old and new indexes exist together during the migration.
-- **JPA with generated DDL:** use the shipped schema script on PostgreSQL. See [JPA Module](database.md#jpa-module--no-automatic-schema-creation).
+- **JPA on PostgreSQL or SQL Server:** the JPA queries select incomplete records by status alone, which
+  the partial and filtered indexes of these schema scripts do not serve. Create the indexes from the
+  [MySQL and MariaDB](#mysql-and-mariadb) section instead. See [JPA Module](database.md#jpa-module--no-automatic-schema-creation).
 
 ## Migration Order
 
@@ -109,10 +111,10 @@ writes if the online build is not possible:
 
 ```sql
 ALTER TABLE outbox_record
-    ADD INDEX idx_outbox_record_status_completed_created_id (status, completed_at, created_at, id, partition_no, next_retry_at, record_key),
+    ADD INDEX idx_outbox_record_status_created_id (status, created_at, id, partition_no, next_retry_at, record_key),
     ADD INDEX idx_outbox_record_key_completed_created_id (record_key, completed_at, created_at, id),
-    ADD INDEX idx_outbox_record_status_completed_retry (status, completed_at, next_retry_at, partition_no),
-    ADD INDEX idx_outbox_record_status_completed_partition (status, completed_at, partition_no);
+    ADD INDEX idx_outbox_record_status_retry_partition (status, next_retry_at, partition_no),
+    ADD INDEX idx_outbox_record_status_partition (status, partition_no);
 ```
 
 After the rollout, drop the old indexes:
@@ -177,17 +179,18 @@ UPDATE STATISTICS outbox_record;
 
 ## Oracle
 
-Create the indexes. `ONLINE` requires an edition that supports it; remove it otherwise:
+Create the indexes. `ONLINE` requires an edition that supports it; remove it otherwise. `COMPRESS n`
+is prefix compression, which needs no Advanced Compression license:
 
 ```sql
 CREATE INDEX idx_outbox_rec_status_created
-    ON outbox_record (status, created_at, id, partition_no, next_retry_at, record_key) ONLINE;
+    ON outbox_record (status, created_at, id, partition_no, next_retry_at, record_key) COMPRESS 1 ONLINE;
 CREATE INDEX idx_outbox_rec_k_c_c_id
-    ON outbox_record (record_key, completed_at, created_at, id) ONLINE;
+    ON outbox_record (record_key, completed_at, created_at, id) COMPRESS 1 ONLINE;
 CREATE INDEX idx_outbox_rec_s_r_p
-    ON outbox_record (status, next_retry_at, partition_no) ONLINE;
+    ON outbox_record (status, next_retry_at, partition_no) COMPRESS 1 ONLINE;
 CREATE INDEX idx_outbox_rec_s_p
-    ON outbox_record (status, partition_no) ONLINE;
+    ON outbox_record (status, partition_no) COMPRESS 2 ONLINE;
 ```
 
 After the rollout, drop the old indexes. Skip any name that does not exist; `idx_outbox_rec_stat` can

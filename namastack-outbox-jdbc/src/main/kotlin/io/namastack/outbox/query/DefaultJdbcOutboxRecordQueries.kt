@@ -10,6 +10,12 @@ import io.namastack.outbox.toSingleLine
  * applies the row limit through `withMaxRows`. Dialect classes supply their row-limit clause and override
  * single statements to adapt them to their planner and indexes.
  *
+ * The statements that read `NEW` records by status select incomplete records through the status alone,
+ * because `completed_at` is `NULL` exactly for `NEW` and `FAILED` records. This lets status-leading composite
+ * indexes without `completed_at` serve them. Dialects with partial or filtered indexes on
+ * `completed_at IS NULL` override them to repeat that condition. The predecessor checks keep
+ * `completed_at IS NULL`, because an earlier `FAILED` record also blocks its key.
+ *
  * @param tableName Resolved name of the record table
  * @param rowLimitClause Clause appended after `ORDER BY` to cap the result at the `:limit` parameter, or an
  * empty string for none
@@ -174,9 +180,8 @@ internal open class DefaultJdbcOutboxRecordQueries(
         """.toSingleLine()
 
     /**
-     * A key has at most one record without an earlier incomplete record, so no grouping is needed.
-     * `o.completed_at IS NULL` lets the incomplete-record index serve the outer scan in
-     * `(created_at, id)` order, so the row limit stops it early.
+     * A key has at most one record without an earlier incomplete record, so no grouping is needed. The
+     * status index serves the outer scan in `(created_at, id)` order, so the row limit stops it early.
      */
     override val findStrictRecordKeys: String =
         """
@@ -185,7 +190,6 @@ internal open class DefaultJdbcOutboxRecordQueries(
         WHERE o.partition_no IN (:partitions)
           AND o.status = :status
           AND o.next_retry_at <= :now
-          AND o.completed_at IS NULL
           AND $noEarlierIncompleteRecord
         ORDER BY o.created_at, o.id
         $rowLimitClause
@@ -198,7 +202,6 @@ internal open class DefaultJdbcOutboxRecordQueries(
         WHERE o.partition_no IN (:partitions)
           AND o.status = :status
           AND o.next_retry_at <= :now
-          AND o.completed_at IS NULL
           AND $noEarlierDueRecord
         ORDER BY o.created_at, o.id
         $rowLimitClause
@@ -241,11 +244,12 @@ internal open class DefaultJdbcOutboxRecordQueries(
 
     override val oldestCreatedAtByPartitionsStatus: String =
         """
-        SELECT MIN(created_at)
+        SELECT created_at
         FROM $tableName
         WHERE partition_no IN (:partitions)
           AND status = :status
-          AND completed_at IS NULL
+        ORDER BY created_at
+        $rowLimitClause
         """.toSingleLine()
 
     override val oldestDueStrict: String =
@@ -255,7 +259,6 @@ internal open class DefaultJdbcOutboxRecordQueries(
         WHERE o.partition_no IN (:partitions)
           AND o.status = :status
           AND o.next_retry_at <= :now
-          AND o.completed_at IS NULL
           AND $noEarlierIncompleteRecord
         ORDER BY o.next_retry_at
         $rowLimitClause
@@ -263,12 +266,13 @@ internal open class DefaultJdbcOutboxRecordQueries(
 
     override val oldestDueNonStrict: String =
         """
-        SELECT MIN(next_retry_at)
+        SELECT next_retry_at
         FROM $tableName
         WHERE partition_no IN (:partitions)
           AND status = :status
           AND next_retry_at <= :now
-          AND completed_at IS NULL
+        ORDER BY next_retry_at
+        $rowLimitClause
         """.toSingleLine()
 
     override val deleteByStatus: String =

@@ -22,10 +22,10 @@ BEGIN
                 handler_id     VARCHAR2(1000) NOT NULL,
                 PRIMARY KEY (id)
             )';
-        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_status_created ON outbox_record (status, created_at, id, partition_no, next_retry_at, record_key)';
-        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_k_c_c_id ON outbox_record (record_key, completed_at, created_at, id)';
-        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_s_r_p ON outbox_record (status, next_retry_at, partition_no)';
-        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_s_p ON outbox_record (status, partition_no)';
+        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_status_created ON outbox_record (status, created_at, id, partition_no, next_retry_at, record_key) COMPRESS 1';
+        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_k_c_c_id ON outbox_record (record_key, completed_at, created_at, id) COMPRESS 1';
+        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_s_r_p ON outbox_record (status, next_retry_at, partition_no) COMPRESS 1';
+        EXECUTE IMMEDIATE 'CREATE INDEX idx_outbox_rec_s_p ON outbox_record (status, partition_no) COMPRESS 2';
     END IF;
 END;
 /

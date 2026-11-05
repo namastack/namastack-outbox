@@ -3,13 +3,10 @@ package io.namastack.outbox.query
 import io.namastack.outbox.toSingleLine
 
 /**
- * Oracle statements: `FETCH FIRST ... ROWS ONLY`, adapted to the status-leading indexes.
+ * Oracle statements: `FETCH FIRST ... ROWS ONLY`, ordered by `SYS_EXTRACT_UTC`.
  *
- * Oracle has no partial indexes and its status-leading indexes do not contain `completed_at`, so the
- * status-led statements have no outer `completed_at IS NULL` condition: it would force a table access per
- * row. The status alone selects the same rows, because `completed_at` is `NULL` exactly for `NEW` and
- * `FAILED` records. `TIMESTAMP WITH TIME ZONE` index entries sort by `SYS_EXTRACT_UTC`, so ordering by that
- * expression lets the index order serve the statement; the result order is the same instant order.
+ * `TIMESTAMP WITH TIME ZONE` index entries sort by `SYS_EXTRACT_UTC`, so ordering by that expression lets the
+ * index order serve the statement; the result order is the same instant order.
  *
  * @author Aleksander Zamojski
  * @since 1.12.0
@@ -43,10 +40,12 @@ internal class OracleJdbcOutboxRecordQueries(
 
     override val oldestCreatedAtByPartitionsStatus: String =
         """
-        SELECT MIN(created_at)
+        SELECT created_at
         FROM $tableName
         WHERE partition_no IN (:partitions)
           AND status = :status
+        ORDER BY SYS_EXTRACT_UTC(created_at)
+        $rowLimitClause
         """.toSingleLine()
 
     /**
@@ -67,10 +66,12 @@ internal class OracleJdbcOutboxRecordQueries(
 
     override val oldestDueNonStrict: String =
         """
-        SELECT MIN(next_retry_at)
+        SELECT next_retry_at
         FROM $tableName
         WHERE partition_no IN (:partitions)
           AND status = :status
           AND next_retry_at <= :now
+        ORDER BY SYS_EXTRACT_UTC(next_retry_at)
+        $rowLimitClause
         """.toSingleLine()
 }

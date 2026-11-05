@@ -136,7 +136,6 @@ internal open class JpaOutboxRecordRepository(
         where o.partitionNo in :partitions
         and o.status = :status
         and o.nextRetryAt <= :now
-        and o.completedAt is null
         and not exists (
             select 1 from OutboxRecordEntity earlier
             where earlier.recordKey = o.recordKey
@@ -160,7 +159,6 @@ internal open class JpaOutboxRecordRepository(
         where o.partitionNo in :partitions
         and o.status = :status
         and o.nextRetryAt <= :now
-        and o.completedAt is null
         and not exists (
             select 1 from OutboxRecordEntity earlier
             where earlier.recordKey = o.recordKey
@@ -216,14 +214,14 @@ internal open class JpaOutboxRecordRepository(
     """
 
     /**
-     * Query to select the earliest creation time of incomplete records, or `null` if none match.
+     * Query to select the creation times of incomplete records, earliest first. Read with a row limit of one.
      */
     private val oldestCreatedAtByPartitionsQuery = """
-        select min(o.createdAt)
+        select o.createdAt
         from OutboxRecordEntity o
         where o.partitionNo in :partitions
         and o.status = :status
-        and o.completedAt is null
+        order by o.createdAt
     """
 
     /**
@@ -236,7 +234,6 @@ internal open class JpaOutboxRecordRepository(
         where o.partitionNo in :partitions
         and o.status = :status
         and o.nextRetryAt <= :now
-        and o.completedAt is null
         and not exists (
             select 1 from OutboxRecordEntity earlier
             where earlier.recordKey = o.recordKey
@@ -250,13 +247,16 @@ internal open class JpaOutboxRecordRepository(
         order by o.nextRetryAt
     """
 
+    /**
+     * Query to select the next retry times of due incomplete records, earliest first. Read with a row limit of one.
+     */
     private val oldestDueNextRetryAtQueryWithoutPreviousFailureFilter = """
-        select min(o.nextRetryAt)
+        select o.nextRetryAt
         from OutboxRecordEntity o
         where o.partitionNo in :partitions
         and o.status = :status
         and o.nextRetryAt <= :now
-        and o.completedAt is null
+        order by o.nextRetryAt
     """
 
     /**
@@ -587,7 +587,9 @@ internal open class JpaOutboxRecordRepository(
             .createQuery(oldestCreatedAtByPartitionsQuery, Instant::class.java)
             .setParameter("partitions", partitions)
             .setParameter("status", OutboxRecordStatus.NEW)
-            .singleResult
+            .setMaxResults(1)
+            .resultList
+            .firstOrNull()
     }
 
     /**

@@ -84,13 +84,19 @@ internal interface JdbcOutboxRecordQueries {
      */
     fun countByPartitionsStatus(status: OutboxRecordStatus): String
 
-    /** Selects the earliest creation time of incomplete records of a status in several partitions; one row, `NULL` if none match. */
+    /**
+     * Selects the earliest creation time of incomplete records of a status in several partitions; at most `limit`
+     * rows. A dialect may instead select one aggregate row, `NULL` if none match.
+     */
     val oldestCreatedAtByPartitionsStatus: String
 
     /** Selects the earliest next retry time of due records that are the first incomplete record of their key; at most `limit` rows. */
     val oldestDueStrict: String
 
-    /** Selects the earliest next retry time of due incomplete records; one row. */
+    /**
+     * Selects the earliest next retry time of due incomplete records; at most `limit` rows. A dialect may instead
+     * select one aggregate row, `NULL` if none match.
+     */
     val oldestDueNonStrict: String
 
     /** Deletes records of a status. */

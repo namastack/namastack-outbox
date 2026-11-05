@@ -91,9 +91,11 @@ Option 2 for query scope and Option C for query implementation.
    bloat. An index that serves only Priority 3 is dropped. Removing indexes to make processing
    faster is an explicit goal.
 2. **Indexes and SQL change.** The `outbox_record` indexes are replaced by a set built around
-   incomplete records, and the Priority 1 and 2 queries gain `completed_at IS NULL` so they
-   can use it. Databases with partial or filtered indexes index only incomplete records. Other
-   databases use the closest composite index.
+   incomplete records. Databases with partial or filtered indexes index only incomplete records,
+   and their Priority 1 and 2 queries add `completed_at IS NULL` so they can use them. The
+   default queries, JPA and the other databases select incomplete records by status alone and
+   use status-leading composite indexes without `completed_at`. Checks for earlier records of a
+   key keep `completed_at IS NULL` everywhere, because `FAILED` records also block their key.
 3. **`COMPLETED` is not counted in metrics by default.**
    `namastack.outbox.observability.metrics.record-statuses` defaults to `NEW` and `FAILED`,
    collected with one grouped query per refresh. Applications that need the `COMPLETED` gauge
@@ -128,8 +130,9 @@ intact.
   `COMPLETED` must not add that condition, or they silently count nothing.
 - On PostgreSQL, the partial status and record key indexes must keep the same predicate.
   Diverging predicates can bring back a `BitmapAnd` plan that doubled bulk loading on hot keys.
-- JPA does not get dialect-specific improvements, and `@Index` cannot express partial indexes.
-  Production PostgreSQL should use the shipped schema script instead of generated DDL.
+- JPA does not get dialect-specific improvements. Its queries do not repeat `completed_at IS NULL`,
+  so the partial and filtered indexes of the PostgreSQL and SQL Server schema scripts do not serve
+  them; JPA on those databases needs the status-leading composite indexes.
 - JDBC has more query classes to maintain and test, and every dialect must return the same
   results.
 - Existing installations keep their old indexes until they migrate, because schema

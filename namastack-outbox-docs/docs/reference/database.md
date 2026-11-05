@@ -89,8 +89,8 @@ the desired behavior for production deployments.
 
 ## Indexes
 
-The schema files create four secondary indexes on `outbox_record`. Their exact definitions differ per
-database; see the [schema files](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema).
+The schema files create these secondary indexes on `outbox_record`. Their exact definitions differ per
+database, and H2 creates only the first two; see the [schema files](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema).
 
 | Index on | Used for |
 |----------|----------|
@@ -98,6 +98,13 @@ database; see the [schema files](https://github.com/namastack/namastack-outbox/t
 | record key, creation time, id | Loading the records of a key, and checking for earlier records of a key |
 | status, next retry time | The oldest due record metric |
 | status, partition | Record count metrics per partition |
+
+PostgreSQL and SQL Server index only incomplete records, with partial and filtered indexes on
+`completed_at IS NULL`. The other databases use composite indexes that lead with the status.
+
+The JPA module selects incomplete records by status alone, so the partial and filtered indexes do not
+serve its queries. With JPA on PostgreSQL or SQL Server, create the status-leading composite indexes of
+the MySQL schema file instead.
 
 Retention queries have no dedicated index and can be slow on large tables. See
 [Record Retention](retention.md#indexes).
