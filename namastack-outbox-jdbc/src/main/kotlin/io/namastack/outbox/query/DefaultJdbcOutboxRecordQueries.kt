@@ -241,13 +241,11 @@ internal open class DefaultJdbcOutboxRecordQueries(
 
     override val oldestCreatedAtByPartitionsStatus: String =
         """
-        SELECT created_at
+        SELECT MIN(created_at)
         FROM $tableName
         WHERE partition_no IN (:partitions)
           AND status = :status
           AND completed_at IS NULL
-        ORDER BY created_at
-        $rowLimitClause
         """.toSingleLine()
 
     override val oldestDueStrict: String =

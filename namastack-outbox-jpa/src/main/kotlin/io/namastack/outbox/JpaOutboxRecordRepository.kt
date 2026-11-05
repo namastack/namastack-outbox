@@ -216,15 +216,14 @@ internal open class JpaOutboxRecordRepository(
     """
 
     /**
-     * Query to select the creation times of incomplete records, earliest first. Read with a row limit of one.
+     * Query to select the earliest creation time of incomplete records, or `null` if none match.
      */
     private val oldestCreatedAtByPartitionsQuery = """
-        select o.createdAt
+        select min(o.createdAt)
         from OutboxRecordEntity o
         where o.partitionNo in :partitions
         and o.status = :status
         and o.completedAt is null
-        order by o.createdAt
     """
 
     /**
@@ -588,9 +587,7 @@ internal open class JpaOutboxRecordRepository(
             .createQuery(oldestCreatedAtByPartitionsQuery, Instant::class.java)
             .setParameter("partitions", partitions)
             .setParameter("status", OutboxRecordStatus.NEW)
-            .setMaxResults(1)
-            .resultList
-            .firstOrNull()
+            .singleResult
     }
 
     /**
