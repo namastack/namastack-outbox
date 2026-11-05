@@ -1,0 +1,30 @@
+# Build output and caches of the harness (Gradle/Kotlin, H2 database files)
+harness/build/
+harness/*/build/
+harness/.gradle/
+harness/.kotlin/
+*.class
+*.hprof
+
+# Python caches of the harness scripts
+__pycache__/
+*.pyc
+
+# Temporary files of drivers and agents
+*.tmp
+*.bak
+results/**/tmp/
+
+# Driver logs and console output of benchmark runs
+results/logs/
+*.log
+*.out
+
+# Repeat runs used only for the noise threshold duplicate the plans of run 1. Their timings.csv and env.txt stay tracked.
+results/**/*-r2/plans/
+
+# Editor and OS files
+.idea/
+*.iml
+.DS_Store
+*.swp
