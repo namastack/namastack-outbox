@@ -1,7 +1,7 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordRepository.Companion.MAX_RECORD_KEYS_PER_FETCH
-import io.namastack.outbox.query.JdbcOutboxRecordQueries
+import io.namastack.outbox.config.JdbcDatabaseType
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
@@ -10,15 +10,14 @@ import java.time.Instant
  * JDBC implementation of [OutboxRecordRepository].
  *
  * This implementation uses Spring's JdbcClient to persist and query outbox records
- * from a relational database. The SQL statements come from [JdbcOutboxRecordQueries], supplied by
- * [queryProvider] on the first record query, so construction opens no connection.
+ * from a relational database.
  *
  * @param jdbcClient JDBC client for database operations
  * @param transactionTemplate Transaction template for programmatic transaction management
  * @param entityMapper Mapper for converting between domain objects and entities
  * @param clock Clock for time-based operations
  * @param tableNameResolver Resolver for fully qualified table names
- * @param queryProvider Supplies the statements on first use; a failed call is retried on the next query
+ * @param databaseType Supplies the database type on first use, so construction opens no connection
  *
  * @author Roland Beisel
  * @since 1.0.0
@@ -29,13 +28,255 @@ internal open class JdbcOutboxRecordRepository(
     private val entityMapper: JdbcOutboxRecordEntityMapper,
     private val clock: java.time.Clock,
     private val tableNameResolver: JdbcTableNameResolver,
-    queryProvider: () -> JdbcOutboxRecordQueries,
+    databaseType: () -> JdbcDatabaseType,
 ) : OutboxRecordRepository {
     private val tableName = tableNameResolver.outboxRecord
     private val rowMapper = JdbcOutboxRecordEntityRowMapper()
+    private val rowLimitClause by lazy { databaseType().rowLimitClause }
 
-    /** Statements for the record table. A failed [queryProvider] call is retried on the next query. */
-    private val queries: JdbcOutboxRecordQueries by lazy(queryProvider)
+    /**
+     * Query to update an existing outbox record.
+     */
+    private val updateRecordQuery =
+        """
+        UPDATE $tableName
+        SET status = :status, record_key = :recordKey, record_type = :recordType, payload = :payload, context = :context,
+            partition_no = :partitionNo, created_at = :createdAt, completed_at = :completedAt, failure_count = :failureCount,
+            failure_reason = :failureReason, next_retry_at = :nextRetryAt, handler_id = :handlerId
+        WHERE id = :id
+        """.toSingleLine()
+
+    /**
+     * Query to update the processing state of an existing outbox record.
+     */
+    private val updateProcessingStateQuery =
+        """
+        UPDATE $tableName
+        SET status = :status, completed_at = :completedAt, failure_count = :failureCount,
+            failure_reason = :failureReason, next_retry_at = :nextRetryAt
+        WHERE id = :id
+        """.toSingleLine()
+
+    /**
+     * Query to insert a new outbox record.
+     */
+    private val insertRecordQuery =
+        """
+        INSERT INTO $tableName
+        (id, status, record_key, record_type, payload, context, partition_no,
+         created_at, completed_at, failure_count, failure_reason, next_retry_at, handler_id)
+        VALUES (:id, :status, :recordKey, :recordType, :payload, :context, :partitionNo,
+         :createdAt, :completedAt, :failureCount, :failureReason, :nextRetryAt, :handlerId)
+        """.toSingleLine()
+
+    /**
+     * Query to select outbox records by status ordered by creation time.
+     */
+    private val findByStatusQuery =
+        """
+        SELECT * FROM $tableName
+        WHERE status = :status
+        ORDER BY created_at, id
+        """.toSingleLine()
+
+    /**
+     * Query to select outbox records by record key and status ordered by creation time.
+     */
+    private val findByKeyAndStatusQuery =
+        """
+        SELECT * FROM $tableName
+        WHERE record_key = :recordKey AND status = :status
+        ORDER BY created_at, id
+        """.toSingleLine()
+
+    /** Bulk equivalent of the per-key NEW-record read, including retries that are not yet due. */
+    private val findByKeysAndStatusQuery =
+        """
+        SELECT * FROM $tableName
+        WHERE record_key IN (:recordKeys) AND status = :status
+        ORDER BY record_key, created_at, id
+        """.toSingleLine()
+
+    /**
+     * Query to select outbox records by status completed before a cutoff, oldest first.
+     */
+    private val findByStatusAndCompletedBeforeQuery =
+        """
+        SELECT * FROM $tableName
+        WHERE status = :status AND completed_at < :cutoff
+        ORDER BY completed_at
+        """.toSingleLine()
+
+    /**
+     * Query to select outbox records by status with next retry time before a cutoff, oldest first.
+     */
+    private val findByStatusAndNextRetryBeforeQuery =
+        """
+        SELECT * FROM $tableName
+        WHERE status = :status AND next_retry_at < :cutoff
+        ORDER BY next_retry_at
+        """.toSingleLine()
+
+    /**
+     * Query to select ids of outbox records by status completed before a cutoff, oldest first.
+     */
+    private val findIdsByStatusAndCompletedBeforeQuery =
+        """
+        SELECT id FROM $tableName
+        WHERE status = :status AND completed_at < :cutoff
+        ORDER BY completed_at
+        """.toSingleLine()
+
+    /**
+     * Query to select ids of outbox records by status with next retry time before a cutoff, oldest first.
+     */
+    private val findIdsByStatusAndNextRetryBeforeQuery =
+        """
+        SELECT id FROM $tableName
+        WHERE status = :status AND next_retry_at < :cutoff
+        ORDER BY next_retry_at
+        """.toSingleLine()
+
+    /**
+     * Query to select record keys with no previous open/failed event (older.completedAt is null).
+     * Used when ignoreRecordKeysWithPreviousFailure is true.
+     *
+     * Only the oldest incomplete record of a key passes the NOT EXISTS filter, so each key appears
+     * at most once and the oldest due records can be read in index order up to the row limit.
+     */
+    private val recordKeysQueryWithPreviousFailureFilterTemplate by lazy {
+        """
+        SELECT o.record_key
+        FROM $tableName o
+        WHERE o.partition_no IN (:partitions)
+          AND o.status = :status
+          AND o.next_retry_at <= :now
+          AND NOT EXISTS (
+            SELECT 1 FROM $tableName older
+            WHERE older.record_key = o.record_key
+              AND older.completed_at IS NULL
+              AND (
+                older.created_at < o.created_at
+                OR (older.created_at = o.created_at AND older.id < o.id)
+              )
+          )
+        ORDER BY o.created_at ASC, o.id ASC
+        $rowLimitClause
+        """.toSingleLine()
+    }
+
+    /**
+     * Query to select all record keys with pending records, regardless of previous failures.
+     * Used when ignoreRecordKeysWithPreviousFailure is false.
+     */
+    private val recordKeysQueryWithoutPreviousFailureFilterTemplate by lazy {
+        """
+        SELECT o.record_key
+        FROM $tableName o
+        WHERE o.partition_no IN (:partitions)
+          AND o.status = :status
+          AND o.next_retry_at <= :now
+        GROUP BY o.record_key
+        ORDER BY MIN(o.created_at) ASC
+        $rowLimitClause
+        """.toSingleLine()
+    }
+
+    /**
+     * Query to count outbox records by status.
+     */
+    private val countByStatusQuery =
+        """
+        SELECT COUNT(*) FROM $tableName
+        WHERE status = :status
+        """.toSingleLine()
+
+    /**
+     * Query to count outbox records by partition and status.
+     */
+    private val countByPartitionStatusQuery =
+        """
+        SELECT COUNT(*) FROM $tableName
+        WHERE partition_no = :partitionNo AND status = :status
+        """.toSingleLine()
+
+    /**
+     * Query to count records across the specified partitions by status.
+     */
+    private val countByPartitionsStatusQuery =
+        """
+        SELECT COUNT(*) FROM $tableName
+        WHERE partition_no IN (:partitions) AND status = :status
+        """.toSingleLine()
+
+    private val oldestCreatedAtByPartitionsStatusQuery =
+        """
+        SELECT MIN(created_at) FROM $tableName
+        WHERE partition_no IN (:partitions) AND status = :status
+        """.toSingleLine()
+
+    private val oldestDueNextRetryAtQueryWithPreviousFailureFilter =
+        """
+        SELECT MIN(o.next_retry_at)
+        FROM $tableName o
+        WHERE o.partition_no IN (:partitions)
+          AND o.status = :status
+          AND o.next_retry_at <= :now
+          AND NOT EXISTS (
+            SELECT 1 FROM $tableName older
+            WHERE older.record_key = o.record_key
+              AND older.completed_at IS NULL
+              AND (
+                older.created_at < o.created_at
+                OR (older.created_at = o.created_at AND older.id < o.id)
+              )
+          )
+        """.toSingleLine()
+
+    private val oldestDueNextRetryAtQueryWithoutPreviousFailureFilter =
+        """
+        SELECT MIN(o.next_retry_at)
+        FROM $tableName o
+        WHERE o.partition_no IN (:partitions)
+          AND o.status = :status
+          AND o.next_retry_at <= :now
+        """.toSingleLine()
+
+    /**
+     * Query to delete outbox records by status.
+     */
+    private val deleteByStatusQuery =
+        """
+        DELETE FROM $tableName
+        WHERE status = :status
+        """.toSingleLine()
+
+    /**
+     * Query to delete outbox records by record key and status.
+     */
+    private val deleteByKeyAndStatusQuery =
+        """
+        DELETE FROM $tableName
+        WHERE record_key = :recordKey AND status = :status
+        """.toSingleLine()
+
+    /**
+     * Query to delete outbox record by id.
+     */
+    private val deleteByIdQuery =
+        """
+        DELETE FROM $tableName
+        WHERE id = :id
+        """.toSingleLine()
+
+    /**
+     * Query to delete outbox records by ids.
+     */
+    private val deleteByIdsQuery =
+        """
+        DELETE FROM $tableName
+        WHERE id IN (:ids)
+        """.toSingleLine()
 
     /**
      * Saves an outbox record.
@@ -91,7 +332,7 @@ internal open class JdbcOutboxRecordRepository(
         transactionTemplate.execute {
             val updatedRows =
                 jdbcClient
-                    .sql(queries.updateProcessingState)
+                    .sql(updateProcessingStateQuery)
                     .param("status", record.status.name)
                     .param("completedAt", record.completedAt?.toTimestamp())
                     .param("failureCount", record.failureCount)
@@ -122,10 +363,9 @@ internal open class JdbcOutboxRecordRepository(
         require(limit > 0) { "limit must be positive but was $limit" }
 
         return jdbcClient
-            .sql(queries.findByStatusAndCompletedBefore)
+            .sql(findByStatusAndCompletedBeforeQuery)
             .param("status", OutboxRecordStatus.COMPLETED.name)
             .param("cutoff", completedBefore.toTimestamp())
-            .param("limit", limit)
             .withMaxRows(limit)
             .query(rowMapper)
             .list()
@@ -148,10 +388,9 @@ internal open class JdbcOutboxRecordRepository(
         require(limit > 0) { "limit must be positive but was $limit" }
 
         return jdbcClient
-            .sql(queries.findByStatusAndNextRetryBefore)
+            .sql(findByStatusAndNextRetryBeforeQuery)
             .param("status", OutboxRecordStatus.FAILED.name)
             .param("cutoff", lastRetryBefore.toTimestamp())
-            .param("limit", limit)
             .withMaxRows(limit)
             .query(rowMapper)
             .list()
@@ -160,11 +399,11 @@ internal open class JdbcOutboxRecordRepository(
     }
 
     /**
-     * Finds the `NEW` records of a specific record key ordered by creation time and id.
+     * Finds all incomplete records for a specific record key ordered by creation time.
      */
     override fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord<*>> =
         jdbcClient
-            .sql(queries.findByKeyAndStatus)
+            .sql(findByKeyAndStatusQuery)
             .param("recordKey", recordKey)
             .param("status", OutboxRecordStatus.NEW.name)
             .query(rowMapper)
@@ -194,7 +433,7 @@ internal open class JdbcOutboxRecordRepository(
 
         val rowsByKey =
             jdbcClient
-                .sql(queries.findByKeysAndStatus)
+                .sql(findByKeysAndStatusQuery)
                 .param("recordKeys", recordKeys)
                 .param("status", OutboxRecordStatus.NEW.name)
                 .query(rowMapper)
@@ -208,10 +447,6 @@ internal open class JdbcOutboxRecordRepository(
     /**
      * Finds record keys in specified partitions that are ready for processing.
      * Optionally filters out keys with previous incomplete records.
-     *
-     * The statement contains a SQL row limit where the dialect is known; `withMaxRows` bounds the
-     * result as well, which applies the limit for portable SQL and keeps PostgreSQL plans fast when
-     * the driver switches to a generic plan.
      */
     override fun findRecordKeysInPartitions(
         partitions: Set<Int>,
@@ -223,9 +458,9 @@ internal open class JdbcOutboxRecordRepository(
 
         val query =
             if (ignoreRecordKeysWithPreviousFailure) {
-                queries.findStrictRecordKeys
+                recordKeysQueryWithPreviousFailureFilterTemplate
             } else {
-                queries.findNonStrictRecordKeys
+                recordKeysQueryWithoutPreviousFailureFilterTemplate
             }
 
         return jdbcClient
@@ -234,7 +469,6 @@ internal open class JdbcOutboxRecordRepository(
             .param("status", status.name)
             .param("now", now.toTimestamp())
             .param("limit", batchSize)
-            .withMaxRows(batchSize)
             .query(String::class.java)
             .list()
             .filterNotNull()
@@ -245,33 +479,10 @@ internal open class JdbcOutboxRecordRepository(
      */
     override fun countByStatus(status: OutboxRecordStatus): Long =
         jdbcClient
-            .sql(queries.countByStatus)
+            .sql(countByStatusQuery)
             .param("status", status.name)
             .query(Long::class.java)
             .single()
-
-    /**
-     * Counts outbox records grouped by status in a single query.
-     *
-     * Returns an entry for every requested status, with zero when no record has that status.
-     * Returns an empty map without querying the data store when [statuses] is empty.
-     *
-     * @param statuses The statuses to count
-     * @return Number of records per requested status
-     */
-    override fun countByStatuses(statuses: Set<OutboxRecordStatus>): Map<OutboxRecordStatus, Long> {
-        if (statuses.isEmpty()) return emptyMap()
-
-        val counts =
-            jdbcClient
-                .sql(queries.countByStatuses)
-                .param("statuses", statuses.map { it.name })
-                .query { rs, _ -> OutboxRecordStatus.valueOf(rs.getString(1)) to rs.getLong(2) }
-                .list()
-                .toMap()
-
-        return statuses.associateWith { counts[it] ?: 0L }
-    }
 
     /**
      * Counts outbox records by partition and status.
@@ -281,7 +492,7 @@ internal open class JdbcOutboxRecordRepository(
         status: OutboxRecordStatus,
     ): Long =
         jdbcClient
-            .sql(queries.countByPartitionStatus)
+            .sql(countByPartitionStatusQuery)
             .param("partitionNo", partition)
             .param("status", status.name)
             .query(Long::class.java)
@@ -304,7 +515,7 @@ internal open class JdbcOutboxRecordRepository(
         if (partitions.isEmpty()) return 0L
 
         return jdbcClient
-            .sql(queries.countByPartitionsStatus)
+            .sql(countByPartitionsStatusQuery)
             .param("partitions", partitions)
             .param("status", status.name)
             .query(Long::class.java)
@@ -321,11 +532,9 @@ internal open class JdbcOutboxRecordRepository(
         if (partitions.isEmpty()) return null
 
         return jdbcClient
-            .sql(queries.oldestCreatedAtByPartitionsStatus)
+            .sql(oldestCreatedAtByPartitionsStatusQuery)
             .param("partitions", partitions)
             .param("status", status.name)
-            .param("limit", 1)
-            .withMaxRows(1)
             .query { rs, _ -> rs.getInstantOrNull(1) }
             .list()
             .firstOrNull()
@@ -344,9 +553,9 @@ internal open class JdbcOutboxRecordRepository(
 
         val query =
             if (ignoreRecordKeysWithPreviousFailure) {
-                queries.findOldestStrictDueRetry
+                oldestDueNextRetryAtQueryWithPreviousFailureFilter
             } else {
-                queries.findOldestDueRetry
+                oldestDueNextRetryAtQueryWithoutPreviousFailureFilter
             }
 
         return jdbcClient
@@ -354,8 +563,6 @@ internal open class JdbcOutboxRecordRepository(
             .param("partitions", partitions)
             .param("status", status.name)
             .param("now", now.toTimestamp())
-            .param("limit", 1)
-            .withMaxRows(1)
             .query { rs, _ -> rs.getInstantOrNull(1) }
             .list()
             .firstOrNull()
@@ -367,7 +574,7 @@ internal open class JdbcOutboxRecordRepository(
     override fun deleteByStatus(status: OutboxRecordStatus) {
         transactionTemplate.execute {
             jdbcClient
-                .sql(queries.deleteByStatus)
+                .sql(deleteByStatusQuery)
                 .param("status", status.name)
                 .update()
         }
@@ -382,7 +589,7 @@ internal open class JdbcOutboxRecordRepository(
     ) {
         transactionTemplate.execute {
             jdbcClient
-                .sql(queries.deleteByKeyAndStatus)
+                .sql(deleteByKeyAndStatusQuery)
                 .param("recordKey", recordKey)
                 .param("status", status.name)
                 .update()
@@ -395,7 +602,7 @@ internal open class JdbcOutboxRecordRepository(
     override fun deleteById(id: String) {
         transactionTemplate.executeWithoutResult {
             jdbcClient
-                .sql(queries.deleteById)
+                .sql(deleteByIdQuery)
                 .param("id", id)
                 .update()
         }
@@ -409,7 +616,7 @@ internal open class JdbcOutboxRecordRepository(
 
         return transactionTemplate.execute {
             jdbcClient
-                .sql(queries.deleteByIds)
+                .sql(deleteByIdsQuery)
                 .param("ids", ids)
                 .update()
         } ?: 0
@@ -427,10 +634,9 @@ internal open class JdbcOutboxRecordRepository(
         return transactionTemplate.execute {
             val ids =
                 jdbcClient
-                    .sql(queries.findIdsByStatusAndCompletedBefore)
+                    .sql(findIdsByStatusAndCompletedBeforeQuery)
                     .param("status", OutboxRecordStatus.COMPLETED.name)
                     .param("cutoff", completedBefore.toTimestamp())
-                    .param("limit", limit)
                     .withMaxRows(limit)
                     .query(String::class.java)
                     .list()
@@ -452,10 +658,9 @@ internal open class JdbcOutboxRecordRepository(
         return transactionTemplate.execute {
             val ids =
                 jdbcClient
-                    .sql(queries.findIdsByStatusAndNextRetryBefore)
+                    .sql(findIdsByStatusAndNextRetryBeforeQuery)
                     .param("status", OutboxRecordStatus.FAILED.name)
                     .param("cutoff", lastRetryBefore.toTimestamp())
-                    .param("limit", limit)
                     .withMaxRows(limit)
                     .query(String::class.java)
                     .list()
@@ -470,7 +675,7 @@ internal open class JdbcOutboxRecordRepository(
      */
     private fun tryUpdate(entity: JdbcOutboxRecordEntity): Int =
         jdbcClient
-            .sql(queries.updateRecord)
+            .sql(updateRecordQuery)
             .param("status", entity.status.name)
             .param("recordKey", entity.recordKey)
             .param("recordType", entity.recordType)
@@ -491,7 +696,7 @@ internal open class JdbcOutboxRecordRepository(
      */
     private fun insert(entity: JdbcOutboxRecordEntity) {
         jdbcClient
-            .sql(queries.insertRecord)
+            .sql(insertRecordQuery)
             .param("id", entity.id)
             .param("status", entity.status.name)
             .param("recordKey", entity.recordKey)
@@ -513,7 +718,7 @@ internal open class JdbcOutboxRecordRepository(
      */
     private fun findRecordsByStatus(status: OutboxRecordStatus): List<OutboxRecord<*>> =
         jdbcClient
-            .sql(queries.findByStatus)
+            .sql(findByStatusQuery)
             .param("status", status.name)
             .query(rowMapper)
             .list()

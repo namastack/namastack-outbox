@@ -161,10 +161,10 @@ internal open class MongoOutboxRecordRepository(
     }
 
     /**
-     * Finds the `NEW` records of a specific record key ordered by creation time and id.
+     * Finds all incomplete records for a specific record key ordered by creation time.
      *
      * @param recordKey the record key to filter by
-     * @return list of `NEW` records for the given key
+     * @return list of incomplete records for the given key
      */
     override fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord<*>> {
         val query =
@@ -206,9 +206,7 @@ internal open class MongoOutboxRecordRepository(
                     .where("recordKey")
                     .`in`(recordKeys)
                     .and("status")
-                    .`is`(OutboxRecordStatus.NEW)
-                    .and("completedAt")
-                    .`is`(null),
+                    .`is`(OutboxRecordStatus.NEW),
             ).with(Sort.by(Sort.Direction.ASC, "recordKey", "createdAt", "_id"))
         val rowsByKey =
             mongoTemplate
@@ -221,10 +219,9 @@ internal open class MongoOutboxRecordRepository(
     /**
      * Finds record keys in specified partitions that are ready for processing.
      *
-     * When [ignoreRecordKeysWithPreviousFailure] is true, uses a head-of-key aggregation pipeline
-     * that only returns a key if its oldest incomplete record is ready. This prevents out-of-order
-     * processing when earlier records are still pending or failed. Keys are ordered by the creation
-     * time and id of that record.
+     * When [ignoreRecordKeysWithPreviousFailure] is true, uses a strict FIFO aggregation
+     * pipeline that only returns a key if its absolute oldest incomplete record is ready.
+     * This prevents out-of-order processing when earlier records are still pending or failed.
      *
      * When false, uses a standard aggregation that returns any key with at least one
      * ready record, regardless of older incomplete records.
@@ -245,7 +242,7 @@ internal open class MongoOutboxRecordRepository(
 
         val aggregation =
             if (ignoreRecordKeysWithPreviousFailure) {
-                buildHeadOfKeyAggregation(partitions, status, now, batchSize)
+                buildStrictFifoAggregation(partitions, status, now, batchSize)
             } else {
                 buildStandardAggregation(partitions, status, now, batchSize)
             }
@@ -268,32 +265,6 @@ internal open class MongoOutboxRecordRepository(
     override fun countByStatus(status: OutboxRecordStatus): Long {
         val query = Query(Criteria.where("status").`is`(status))
         return mongoTemplate.count(query, collectionNameResolver.outboxRecords)
-    }
-
-    /**
-     * Counts outbox records grouped by status in a single aggregation.
-     *
-     * Returns an entry for every requested status, with zero when no record has that status.
-     * Returns an empty map without querying the data store when [statuses] is empty.
-     *
-     * @param statuses the statuses to count
-     * @return the number of records per requested status
-     */
-    override fun countByStatuses(statuses: Set<OutboxRecordStatus>): Map<OutboxRecordStatus, Long> {
-        if (statuses.isEmpty()) return emptyMap()
-
-        val aggregation =
-            Aggregation.newAggregation(
-                Aggregation.match(Criteria.where("status").`in`(statuses.map { it.name })),
-                Aggregation.group("status").count().`as`("count"),
-            )
-        val counts =
-            mongoTemplate
-                .aggregate(aggregation, collectionNameResolver.outboxRecords, Document::class.java)
-                .mappedResults
-                .associate { OutboxRecordStatus.valueOf(it.getString("_id")) to (it.get("count") as Number).toLong() }
-
-        return statuses.associateWith { counts[it] ?: 0L }
     }
 
     /**
@@ -346,7 +317,7 @@ internal open class MongoOutboxRecordRepository(
     }
 
     /**
-     * Finds the earliest creation time of incomplete outbox records across the specified partitions by status.
+     * Finds the earliest creation time of outbox records across the specified partitions by status.
      */
     override fun findOldestCreatedAtByPartitions(
         partitions: Set<Int>,
@@ -360,22 +331,16 @@ internal open class MongoOutboxRecordRepository(
                     .where("partitionNo")
                     .`in`(partitions)
                     .and("status")
-                    .`is`(status.name)
-                    .and("completedAt")
-                    .`is`(null),
+                    .`is`(status.name),
             )
-        return aggregateFirst(
-            listOf(match, Aggregation.sort(Sort.by(Sort.Direction.ASC, "createdAt", "_id"))),
-            "createdAt",
-        )
+        return aggregateMin(listOf(match), "createdAt")
     }
 
     /**
      * Finds the earliest next retry time of due outbox records across the specified partitions.
      *
      * With [ignoreRecordKeysWithPreviousFailure], only the oldest incomplete record of each key is
-     * considered, as in [buildHeadOfKeyAggregation]. Due records are read in retry-time order and the
-     * first one that heads its key is returned.
+     * considered, as in [buildStrictFifoAggregation].
      */
     override fun findOldestDueNextRetryAtByPartitions(
         partitions: Set<Int>,
@@ -386,7 +351,7 @@ internal open class MongoOutboxRecordRepository(
         if (partitions.isEmpty()) return null
 
         return if (ignoreRecordKeysWithPreviousFailure) {
-            aggregateFirst(headOfKeyStages(partitions, status, now, "nextRetryAt"), "nextRetryAt")
+            aggregateMin(strictFifoReadyKeyStages(partitions, status, now), "oldestDoc.nextRetryAt")
         } else {
             aggregateMin(listOf(readyRecordsMatchStage(partitions, status, now)), "nextRetryAt")
         }
@@ -530,11 +495,14 @@ internal open class MongoOutboxRecordRepository(
     }
 
     /**
-     * Builds the head-of-key aggregation pipeline for the record-key query.
+     * Builds an aggregation pipeline that enforces strict FIFO processing per record key.
      *
-     * The due records are read in creation-time and id order; for each one, a lookup reads the oldest
-     * incomplete record of its key. Only records that are that oldest record remain, so each key appears
-     * at most once and the pipeline stops after [batchSize] keys.
+     * Pipeline stages:
+     * 1. Match all incomplete records (completedAt is null) in the given partitions
+     * 2. Sort by recordKey, createdAt and _id to prepare for grouping with deterministic ties
+     * 3. Group by recordKey, capturing the oldest record as the "blocker"
+     * 4. Filter to only keys where the oldest record matches the target status and retry time
+     * 5. Order by oldest record's creation time and limit results
      *
      * @param partitions the set of partition numbers to query
      * @param status the record status to match
@@ -542,17 +510,23 @@ internal open class MongoOutboxRecordRepository(
      * @param batchSize the maximum number of record keys to return
      * @return the aggregation pipeline
      */
-    private fun buildHeadOfKeyAggregation(
+    private fun buildStrictFifoAggregation(
         partitions: Set<Int>,
         status: OutboxRecordStatus,
         now: Instant,
         batchSize: Int,
     ): Aggregation =
         Aggregation.newAggregation(
-            headOfKeyStages(partitions, status, now, "createdAt") +
+            strictFifoReadyKeyStages(partitions, status, now) +
                 listOf(
+                    // Order keys by their oldest record's creation time
+                    Aggregation.sort(Sort.by(Sort.Direction.ASC, "oldestDoc.createdAt")),
                     Aggregation.limit(batchSize.toLong()),
-                    rawStage(Document("\$project", Document("_id", 0).append("recordKey", 1))),
+                    Aggregation
+                        .project()
+                        .andExclude("_id")
+                        .and("_id")
+                        .`as`("recordKey"),
                 ),
         )
 
@@ -592,90 +566,39 @@ internal open class MongoOutboxRecordRepository(
         )
 
     /**
-     * Builds the head-of-key stages: due incomplete records with the given status in the partitions,
-     * sorted by [sortField] and id, restricted to the records that are the oldest incomplete record of
-     * their key (by creation time and id).
-     *
-     * The literal `completedAt: null` predicates allow the partial indexes to be used.
+     * Builds the stages that reduce incomplete records to one `oldestDoc` per record key whose
+     * oldest incomplete record is ready for processing.
      */
-    private fun headOfKeyStages(
+    private fun strictFifoReadyKeyStages(
         partitions: Set<Int>,
         status: OutboxRecordStatus,
         now: Instant,
-        sortField: String,
     ): List<AggregationOperation> =
         listOf(
+            // Match all incomplete records in partitions
             Aggregation.match(
                 Criteria
                     .where("partitionNo")
                     .`in`(partitions)
                     .and("completedAt")
-                    .`is`(null)
-                    .and("status")
+                    .`is`(null),
+            ),
+            // Sort to ensure the 'first' in group is the oldest
+            Aggregation.sort(Sort.by(Sort.Direction.ASC, "recordKey", "createdAt", "_id")),
+            // Group by recordKey and take the absolute oldest record (the "blocker")
+            Aggregation
+                .group("recordKey")
+                .first(Aggregation.ROOT)
+                .`as`("oldestDoc"),
+            // Only process if the oldest record for this key is actually ready
+            Aggregation.match(
+                Criteria
+                    .where("oldestDoc.status")
                     .`is`(status.name)
-                    .and("nextRetryAt")
+                    .and("oldestDoc.nextRetryAt")
                     .lte(now),
             ),
-            Aggregation.sort(Sort.by(Sort.Direction.ASC, sortField, "_id")),
-            rawStage(
-                Document(
-                    "\$lookup",
-                    Document("from", collectionNameResolver.outboxRecords)
-                        .append("let", Document("key", "\$recordKey"))
-                        .append(
-                            "pipeline",
-                            listOf(
-                                Document(
-                                    "\$match",
-                                    Document("completedAt", null)
-                                        .append("\$expr", Document("\$eq", listOf("\$recordKey", "\$\$key"))),
-                                ),
-                                Document("\$sort", Document("createdAt", 1).append("_id", 1)),
-                                Document("\$limit", 1),
-                                Document("\$project", Document("_id", 1)),
-                            ),
-                        ).append("as", "head"),
-                ),
-            ),
-            rawStage(
-                Document(
-                    "\$match",
-                    Document(
-                        "\$expr",
-                        Document("\$eq", listOf("\$_id", Document("\$arrayElemAt", listOf("\$head._id", 0)))),
-                    ),
-                ),
-            ),
         )
-
-    /**
-     * Runs the given stages and returns [field] of the first resulting document.
-     *
-     * @return the value of the first document, or null if no documents match
-     */
-    private fun aggregateFirst(
-        stages: List<AggregationOperation>,
-        field: String,
-    ): Instant? =
-        mongoTemplate
-            .aggregate(
-                Aggregation.newAggregation(
-                    stages +
-                        listOf(
-                            Aggregation.limit(1),
-                            rawStage(Document("\$project", Document("_id", 0).append("value", "\$$field"))),
-                        ),
-                ),
-                collectionNameResolver.outboxRecords,
-                MinInstantDto::class.java,
-            ).mappedResults
-            .firstOrNull()
-            ?.value
-
-    /**
-     * Wraps a raw pipeline stage. Raw stages are passed to the server unchanged.
-     */
-    private fun rawStage(stage: Document): AggregationOperation = AggregationOperation { stage }
 
     /**
      * Runs the given stages followed by a group stage that reduces all documents to the minimum of [field].

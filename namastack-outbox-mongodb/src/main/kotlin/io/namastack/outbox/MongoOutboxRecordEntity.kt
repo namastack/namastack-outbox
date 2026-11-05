@@ -20,14 +20,13 @@ import java.time.Instant
         CompoundIndex(name = "partition_status_retry_idx", def = "{'partitionNo': 1, 'status': 1, 'nextRetryAt': 1}"),
         CompoundIndex(name = "status_retry_idx", def = "{'status': 1, 'nextRetryAt': 1}"),
         CompoundIndex(
-            name = "incomplete_created_idx",
-            def = "{'createdAt': 1, '_id': 1, 'partitionNo': 1, 'status': 1, 'nextRetryAt': 1, 'recordKey': 1}",
-            partialFilter = "{'completedAt': null}",
+            name = "record_key_completed_created_idx",
+            def = "{'recordKey': 1, 'completedAt': 1, 'createdAt': 1}",
         ),
         CompoundIndex(
-            name = "incomplete_key_created_idx",
-            def = "{'recordKey': 1, 'createdAt': 1, '_id': 1}",
-            partialFilter = "{'completedAt': null}",
+            name = "fifo_pipeline_idx",
+            def = "{'partitionNo': 1, 'recordKey': 1, 'createdAt': 1}",
+            useGeneratedName = false,
         ),
     ],
 )
