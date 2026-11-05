@@ -1,0 +1,6 @@
+-- id: find_completed_before
+-- group: RET
+-- kind: read
+-- maxrows: retention
+-- source: OracleJdbcOutboxRecordQueries.findByStatusAndCompletedBefore (query-package, omin-ref)
+SELECT * FROM outbox_record WHERE status = :status AND completed_at < :cutoff ORDER BY completed_at FETCH FIRST :limit ROWS ONLY

@@ -111,6 +111,7 @@ A difference counts only if it exceeds both the relative threshold of its group 
 
 ## User decisions
 
+- 2026-11-05: **`feature/db-optimalization` holds `main`'s code plus the experiment files only** (`07142275`). `oldest_created` measured with `MIN` vs `ORDER BY` + `LIMIT` at `a06a74c0`: `experiments/O-MIN-oldest-created-form.md`; adoption open. Its temporary worktree and Docker data were removed.
 - 2026-11-05: **`P-KK2` adopted for PostgreSQL `pages`** (`experiments/P-KK2-pages-without-inner-sort.md`). Edited on `feature/db-jdbc-optimization`, uncommitted, the user commits and pushes. `outbox-wt-cmp-jdbc-opt` stays pinned at `01165d15`; the running non-PostgreSQL comparison is not affected.
 - 2026-11-04: **Other dialects start right after the `P-KK` `pages` test, not later.** Driver `harness/bin/cmp-dialects.sh`, preceded by an S1 check on all five. **Timings cover P1 and P2 groups only** (`--groups HOT,WRITE,MON`), no retention or admin.
 - 2026-11-04: **The branch stays as it is (`01165d15`). The deprecated metrics module slowdown is not fixed** (`experiments/CMP-main-vs-jdbc-opt-pg.md`). **Other dialects run later,** when the user asks.
