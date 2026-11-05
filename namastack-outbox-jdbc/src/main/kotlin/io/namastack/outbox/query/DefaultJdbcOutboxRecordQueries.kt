@@ -263,12 +263,12 @@ internal open class DefaultJdbcOutboxRecordQueries(
 
     override val oldestDueNonStrict: String =
         """
-        SELECT MIN(o.next_retry_at)
-        FROM $tableName o
-        WHERE o.partition_no IN (:partitions)
-          AND o.status = :status
-          AND o.next_retry_at <= :now
-          AND o.completed_at IS NULL
+        SELECT MIN(next_retry_at)
+        FROM $tableName
+        WHERE partition_no IN (:partitions)
+          AND status = :status
+          AND next_retry_at <= :now
+          AND completed_at IS NULL
         """.toSingleLine()
 
     override val deleteByStatus: String =
