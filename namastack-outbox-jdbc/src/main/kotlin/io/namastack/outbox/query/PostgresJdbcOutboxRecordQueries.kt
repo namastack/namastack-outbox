@@ -13,6 +13,8 @@ import io.namastack.outbox.toSingleLine
 internal class PostgresJdbcOutboxRecordQueries(
     tableName: String,
 ) : DefaultJdbcOutboxRecordQueries(tableName, "LIMIT :limit") {
+    // `OFFSET 0` keeps the `LATERAL` subquery from being merged into a plain join, which under load gets a
+    // slow plan reading all rows of the status, so it must not be removed.
     override val findIncompleteByKeysAndStatus: String =
         """
         SELECT o.*
@@ -27,8 +29,9 @@ internal class PostgresJdbcOutboxRecordQueries(
           WHERE r.record_key = k.k
             AND r.status = :status
             AND r.completed_at IS NULL
-          ORDER BY r.created_at, r.id
+          OFFSET 0
         ) o
+        ORDER BY k.k, o.created_at, o.id
         """.toSingleLine()
 
     private val countIncompleteByStatuses: String =
