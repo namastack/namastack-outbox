@@ -1,0 +1,24 @@
+Limit  (cost=131221.09..131221.11 rows=10 width=45) (actual time=310.442..310.443 rows=10.00 loops=1)
+  Buffers: shared hit=378 read=16953, temp read=1333 written=3046
+  ->  Sort  (cost=131221.09..131823.20 rows=240846 width=45) (actual time=306.902..306.903 rows=10.00 loops=1)
+        Sort Key: (min(created_at))
+        Sort Method: top-N heapsort  Memory: 26kB
+        Buffers: shared hit=378 read=16953, temp read=1333 written=3046
+        ->  HashAggregate  (cost=119226.33..126016.49 rows=240846 width=45) (actual time=228.724..284.203 rows=250815.00 loops=1)
+              Group Key: record_key
+              Planned Partitions: 8  Batches: 9  Memory Usage: 8281kB  Disk Usage: 15216kB
+              Buffers: shared hit=378 read=16953, temp read=1333 written=3046
+              ->  Index Only Scan using idx_outbox_record_status_created on outbox_record o  (cost=0.71..95467.79 rows=249270 width=45) (actual time=0.052..157.874 rows=250815.00 loops=1)
+                    Index Cond: (status = 'NEW'::text)
+                    Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                    Rows Removed by Filter: 749185
+                    Heap Fetches: 0
+                    Index Searches: 1
+                    Buffers: shared hit=378 read=16953
+Settings: search_path = 'run'
+Planning Time: 0.187 ms
+JIT:
+  Functions: 13
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 0.671 ms (Deform 0.144 ms), Inlining 0.000 ms, Optimization 0.301 ms, Emission 6.070 ms, Total 7.041 ms
+Execution Time: 313.167 ms

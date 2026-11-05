@@ -61,11 +61,54 @@ object CatalogExtractor {
 
     /** Statement names of the `query` package that differ from the `JdbcOutboxRecordQueries.of` variant. */
     private val QUERY_PACKAGE_NAMES = mapOf(
-        "recordKeysWithPreviousFailureFilter" to "findStrictRecordKeys",
-        "recordKeysWithoutPreviousFailureFilter" to "findNonStrictRecordKeys",
-        "oldestDueNextRetryAtWithPreviousFailureFilter" to "findOldestStrictDueRetry",
-        "oldestDueNextRetryAtWithoutPreviousFailureFilter" to "findOldestDueRetry",
+        "recordKeysWithPreviousFailureFilter" to listOf("findStrictRecordKeys"),
+        "recordKeysWithoutPreviousFailureFilter" to listOf("findNonStrictRecordKeys"),
+        "oldestDueNextRetryAtWithPreviousFailureFilter" to listOf("oldestDueStrict", "findOldestStrictDueRetry"),
+        "oldestDueNextRetryAtWithoutPreviousFailureFilter" to listOf("oldestDueNonStrict", "findOldestDueRetry"),
+        "findByKeysAndStatus" to listOf("findIncompleteByKeysAndStatus", "findByKeysAndStatus"),
+        "findByKeyAndStatus" to listOf("findIncompleteByKeyAndStatus", "findByKeyAndStatus"),
     )
+
+    /**
+     * Reads one statement of the `query` package: a function when the SQL depends on the requested statuses
+     * (called with what the entry measures), otherwise a getter. A missing statement is an error, because a
+     * skipped entry would silently leave the query out of the measurements.
+     */
+    private fun queryPackageStatement(cl: ClassLoader, inst: Any, e: Entry): Pair<String, String>? {
+        val base = e.newField ?: return null
+        val names = QUERY_PACKAGE_NAMES[base] ?: listOf(base)
+        @Suppress("UNCHECKED_CAST")
+        val statusCls = cl.loadClass("io.namastack.outbox.OutboxRecordStatus") as Class<out Enum<*>>
+        val statuses = statusCls.enumConstants.associateBy { it.name }
+        val fnArg: Any? = when (e.id) {
+            "count_statuses" -> setOf(statuses.getValue("NEW"), statuses.getValue("FAILED"))
+            "count_statuses_all" -> statuses.values.toSet()
+            "count_partitions" -> statuses.getValue("NEW")
+            else -> null
+        }
+        if (fnArg != null) {
+            inst.javaClass.methods.firstOrNull { it.name == base && it.parameterCount == 1 }?.let { m ->
+                return (m.invoke(inst, fnArg) as String) to "${inst.javaClass.simpleName}.$base"
+            }
+        }
+        for (name in names) {
+            inst.javaClass.methods.firstOrNull { it.name == "get" + name.replaceFirstChar { c -> c.uppercase() } }?.let { getter ->
+                return (getter.invoke(inst) as String) to "${inst.javaClass.simpleName}.$name"
+            }
+        }
+        error("no statement for ${e.id} on ${inst.javaClass.name}; tried $names")
+    }
+
+    /** Reads a private query field of the repository, plain or `by lazy`. */
+    private fun repositoryField(repo: Any, name: String): String {
+        val cls = repo.javaClass
+        cls.declaredFields.firstOrNull { it.name == name }?.let { f ->
+            f.isAccessible = true
+            return f.get(repo) as String
+        }
+        val delegate = cls.getDeclaredField("$name\$delegate").also { it.isAccessible = true }
+        return (delegate.get(repo) as Lazy<*>).value as String
+    }
 
     fun run(o: Opts) {
         val variant = o.get("variant"); val table = o.opt("table") ?: "outbox_record"
@@ -75,42 +118,41 @@ object CatalogExtractor {
         val queriesClass = if (factoryClass != null) null else try { cl.loadClass("io.namastack.outbox.JdbcOutboxRecordQueries") } catch (_: ClassNotFoundException) { null }
         for (d in Dialect.entries) {
             val dir = File(outRoot, d.id).also { it.deleteRecursively(); it.mkdirs() }
-            val (source: (String?, String?) -> Pair<String, String>?, mode) =
+            val (source: (Entry) -> Pair<String, String>?, mode) =
                 if (factoryClass != null) {
                     val factory = factoryClass.getField("INSTANCE").get(null)
                     val create = factoryClass.methods.first { it.name == "create" }
                     val typeCls = cl.loadClass("io.namastack.outbox.config.JdbcDatabaseType\$${V1_TYPES.getValue(d)}")
                     val inst = create.invoke(factory, typeCls.getField("INSTANCE").get(null), table)
-                    val fn = { _: String?, n: String? ->
-                        n?.let { old ->
-                            val name = QUERY_PACKAGE_NAMES[old] ?: old
-                            val getter = inst.javaClass.methods.firstOrNull { it.name == "get" + name.replaceFirstChar { c -> c.uppercase() } }
-                            getter?.let { (it.invoke(inst) as String) to "${inst.javaClass.simpleName}.$name" }
-                        }
-                    }
+                    val fn = { e: Entry -> queryPackageStatement(cl, inst, e) }
                     Pair(fn, "query-package")
                 } else if (queriesClass != null) {
                     val companion = queriesClass.getField("Companion").get(null)
                     val of = companion.javaClass.methods.first { it.name == "of" }
                     val typeCls = cl.loadClass("io.namastack.outbox.config.JdbcDatabaseType\$${V1_TYPES.getValue(d)}")
                     val inst = of.invoke(companion, typeCls.getField("INSTANCE").get(null), table)
-                    val fn = { _: String?, n: String? ->
-                        n?.let { name ->
+                    val fn = { e: Entry ->
+                        e.newField?.let { name ->
                             val getter = inst.javaClass.methods.firstOrNull { it.name == "get" + name.replaceFirstChar { c -> c.uppercase() } }
                             getter?.let { (it.invoke(inst) as String) to "${inst.javaClass.simpleName}.$name" }
                         }
                     }
                     Pair(fn, "queries-class")
                 } else {
-                    val repo = oldRepository(cl, table)
-                    val fn = { f: String?, _: String? ->
-                        f?.let { name -> repo.javaClass.getDeclaredField(name).also { it.isAccessible = true }.let { (it.get(repo) as String) to "JdbcOutboxRecordRepository.$name" } }
+                    val repo = oldRepository(cl, table, V1_TYPES.getValue(d))
+                    val fn = { e: Entry ->
+                        e.oldField?.let { name -> repositoryField(repo, name) to "JdbcOutboxRecordRepository.$name" }
                     }
                     Pair(fn, "repository-fields")
                 }
             for (e in ENTRIES) {
-                val s = source(e.oldField, e.newField) ?: continue
-                val maxrows = if (queriesClass != null || factoryClass != null) e.maxNew else e.maxOld
+                val s = source(e) ?: continue
+                // Repository-field variants whose key query binds :limit in SQL (GH-551) do not call setMaxRows.
+                val maxrows = when {
+                    queriesClass != null || factoryClass != null -> e.maxNew
+                    e.maxOld == "batchSize" && s.first.contains(":limit") -> "none"
+                    else -> e.maxOld
+                }
                 val statusNote = if (e.id == "find_failed_all") "-- note: status FAILED bound by the harness\n" else ""
                 File(dir, "${e.id}.sql").writeText(
                     "-- id: ${e.id}\n-- group: ${e.group}\n-- kind: ${e.kind}\n-- maxrows: $maxrows\n-- source: ${s.second} ($mode, $variant)\n$statusNote${s.first}\n")
@@ -119,7 +161,7 @@ object CatalogExtractor {
         }
     }
 
-    private fun oldRepository(cl: ClassLoader, table: String): Any {
+    private fun oldRepository(cl: ClassLoader, table: String, typeName: String): Any {
         val repoCls = cl.loadClass("io.namastack.outbox.JdbcOutboxRecordRepository")
         val mapperCls = cl.loadClass("io.namastack.outbox.JdbcOutboxRecordEntityMapper")
         val resolverCls = cl.loadClass("io.namastack.outbox.DefaultJdbcTableNameResolver")
@@ -127,6 +169,12 @@ object CatalogExtractor {
         val mapper = mapperCls.getConstructors().first().newInstance(BenchSerializer())
         val resolver = resolverCls.getConstructors().first { it.parameterCount == 0 }.newInstance()
         val ctor = repoCls.constructors.first()
-        return ctor.newInstance(JdbcClient.create(ds), TransactionTemplate(DataSourceTransactionManager(ds)), mapper, Clock.systemUTC(), resolver)
+        val args = mutableListOf<Any>(JdbcClient.create(ds), TransactionTemplate(DataSourceTransactionManager(ds)), mapper, Clock.systemUTC(), resolver)
+        // GH-551 added a database type supplier, which renders the row-limit clause per dialect.
+        if (ctor.parameterCount == 6) {
+            val type = cl.loadClass("io.namastack.outbox.config.JdbcDatabaseType\$$typeName").getField("INSTANCE").get(null)
+            args += { type }
+        }
+        return ctor.newInstance(*args.toTypedArray())
     }
 }

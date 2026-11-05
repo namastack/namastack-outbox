@@ -1,0 +1,14 @@
+Result  (cost=1.12..1.13 rows=1 width=8) (actual time=0.029..0.029 rows=1.00 loops=1)
+  Buffers: shared hit=5
+  InitPlan 1
+    ->  Limit  (cost=0.57..1.12 rows=1 width=8) (actual time=0.028..0.028 rows=1.00 loops=1)
+          Buffers: shared hit=5
+          ->  Index Only Scan using idx_outbox_record_status_created on outbox_record  (cost=0.57..26.44 rows=47 width=8) (actual time=0.027..0.027 rows=1.00 loops=1)
+                Index Cond: (status = 'NEW'::text)
+                Filter: (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[]))
+                Heap Fetches: 1
+                Index Searches: 1
+                Buffers: shared hit=5
+Settings: search_path = 'run'
+Planning Time: 0.185 ms
+Execution Time: 0.047 ms

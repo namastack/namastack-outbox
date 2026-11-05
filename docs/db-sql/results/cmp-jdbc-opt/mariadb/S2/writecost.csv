@@ -1,0 +1,17 @@
+metric,value
+insert_warmup.count,200
+insert_warmup.p50_ms,2.589
+insert_warmup.p95_ms,3.789
+insert_warmup.throughput_per_s,330.6
+insert_1thread.count,5000
+insert_1thread.p50_ms,2.301
+insert_1thread.p95_ms,3.258
+insert_1thread.throughput_per_s,367.0
+insert_4threads.count,5000
+insert_4threads.p50_ms,2.385
+insert_4threads.p95_ms,6.507
+insert_4threads.throughput_per_s,984.2
+upd_complete_committed.count,5000
+upd_complete_committed.p50_ms,2.427
+upd_complete_committed.p95_ms,3.326
+upd_complete_committed.throughput_per_s,281.3

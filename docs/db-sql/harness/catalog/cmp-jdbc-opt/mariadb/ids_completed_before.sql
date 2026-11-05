@@ -1,0 +1,6 @@
+-- id: ids_completed_before
+-- group: RET
+-- kind: read
+-- maxrows: retention
+-- source: MariaDbJdbcOutboxRecordQueries.findIdsByStatusAndCompletedBefore (query-package, cmp-jdbc-opt)
+SELECT id FROM outbox_record WHERE status = :status AND completed_at < :cutoff ORDER BY completed_at LIMIT :limit

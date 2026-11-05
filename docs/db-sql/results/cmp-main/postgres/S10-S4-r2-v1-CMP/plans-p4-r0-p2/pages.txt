@@ -1,0 +1,14 @@
+Incremental Sort  (cost=11.92..91.80 rows=8 width=1089) (actual time=0.556..0.557 rows=0.00 loops=1)
+  Sort Key: record_key, created_at, id
+  Presorted Key: record_key, created_at
+  Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+  Buffers: shared hit=49
+  ->  Index Scan using idx_outbox_record_record_key_created on outbox_record  (cost=0.55..91.44 rows=8 width=1089) (actual time=0.467..0.468 rows=0.00 loops=1)
+        Index Cond: ((record_key)::text = ANY ('{order-000000000000000000000000825427,order-000000000000000000000000216111,order-000000000000000000000000984822,order-000000000000000000000000531876,order-000000000000000000000000665522,order-000000000000000000000000551463,order-000000000000000000000000741385,order-000000000000000000000000962265,order-000000000000000000000000068640,order-000000000000000000000000411923}'::text[]))
+        Filter: ((status)::text = 'NEW'::text)
+        Rows Removed by Filter: 10
+        Index Searches: 10
+        Buffers: shared hit=49
+Settings: search_path = 'run'
+Planning Time: 0.638 ms
+Execution Time: 0.739 ms

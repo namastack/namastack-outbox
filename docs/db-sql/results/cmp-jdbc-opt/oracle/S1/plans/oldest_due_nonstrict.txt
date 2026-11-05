@@ -1,0 +1,1 @@
+User has no SELECT privilege on V$SESSION

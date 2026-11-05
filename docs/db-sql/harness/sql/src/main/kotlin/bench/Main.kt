@@ -13,7 +13,9 @@ fun main(args: Array<String>) {
     if (o.has("pg-no-parallel")) sess += "SET max_parallel_workers_per_gather = 0"
     Dialect.pgSessionSql = sess
     R3.pagesClientSort = o.has("pages-client-sort")
+    Limit.init(o)
     when (args[0]) {
+        "limitcheck" -> Limit.check(Dialect.of(o.get("dialect")))
         "gen" -> Loader.createSnapshot(Dialect.of(o.get("dialect")), o.get("scenario"), o.opt("seed")?.toLong() ?: 42L)
         "dropruns" -> { val d = Dialect.of(o.get("dialect")); for (n in listOf("run", "eq_a", "eq_b")) if (d.schemaExists(n)) d.resetSchema(n) } // frees disk between scenarios
         "prepare" -> Bench.prepare(Common(o))

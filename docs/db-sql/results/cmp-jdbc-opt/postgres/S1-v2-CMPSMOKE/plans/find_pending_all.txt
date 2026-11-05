@@ -1,0 +1,11 @@
+Sort  (cost=1302.13..1302.59 rows=182 width=1093) (actual time=1.292..1.299 rows=180.00 loops=1)
+  Sort Key: created_at, id
+  Sort Method: quicksort  Memory: 182kB
+  Buffers: shared hit=1169
+  ->  Seq Scan on outbox_record  (cost=0.00..1295.30 rows=182 width=1093) (actual time=0.184..1.195 rows=180.00 loops=1)
+        Filter: ((status)::text = 'NEW'::text)
+        Rows Removed by Filter: 9820
+        Buffers: shared hit=1169
+Settings: search_path = 'run'
+Planning Time: 0.039 ms
+Execution Time: 1.338 ms

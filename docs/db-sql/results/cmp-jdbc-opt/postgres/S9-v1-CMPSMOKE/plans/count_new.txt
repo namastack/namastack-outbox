@@ -1,0 +1,9 @@
+Aggregate  (cost=2470.68..2470.69 rows=1 width=8) (actual time=1.000..1.000 rows=1.00 loops=1)
+  Buffers: shared hit=2229
+  ->  Seq Scan on outbox_record  (cost=0.00..2469.81 rows=347 width=0) (actual time=0.048..0.990 rows=180.00 loops=1)
+        Filter: ((status)::text = 'NEW'::text)
+        Rows Removed by Filter: 8369
+        Buffers: shared hit=2229
+Settings: search_path = 'run'
+Planning Time: 0.035 ms
+Execution Time: 1.014 ms

@@ -1,0 +1,32 @@
+Finalize Aggregate  (cost=62385.71..62385.72 rows=1 width=8) (actual time=493.660..498.061 rows=1.00 loops=1)
+  Buffers: shared hit=12584, temp read=2429 written=2464
+  ->  Gather  (cost=62385.49..62385.70 rows=2 width=8) (actual time=493.655..498.058 rows=3.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=12584, temp read=2429 written=2464
+        ->  Partial Aggregate  (cost=61385.49..61385.50 rows=1 width=8) (actual time=487.837..487.839 rows=1.00 loops=3)
+              Buffers: shared hit=12584, temp read=2429 written=2464
+              ->  Parallel Hash Anti Join  (cost=42406.57..61365.26 rows=8092 width=8) (actual time=140.046..487.832 rows=3.00 loops=3)
+                    Hash Cond: ((o.record_key)::text = (older.record_key)::text)
+                    Join Filter: ((older.created_at < o.created_at) OR ((older.created_at = o.created_at) AND ((older.id)::text < (o.id)::text)))
+                    Rows Removed by Join Filter: 5518914
+                    Buffers: shared hit=12584, temp read=2429 written=2464
+                    ->  Parallel Index Only Scan using idx_outbox_record_status_created on outbox_record o  (cost=0.58..17203.59 rows=14144 width=90) (actual time=0.024..8.782 rows=11330.67 loops=3)
+                          Index Cond: (status = 'NEW'::text)
+                          Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                          Rows Removed by Filter: 55329
+                          Heap Fetches: 215
+                          Index Searches: 1
+                          Buffers: shared hit=3519
+                    ->  Parallel Hash  (cost=40226.45..40226.45 rows=83243 width=82) (actual time=43.801..43.801 rows=66666.67 loops=3)
+                          Buckets: 65536  Batches: 4  Memory Usage: 8288kB
+                          Buffers: shared hit=9065, temp written=1968
+                          ->  Parallel Index Only Scan using idx_outbox_record_status_created on outbox_record older  (cost=0.42..40226.45 rows=83243 width=82) (actual time=18.201..28.379 rows=66666.67 loops=3)
+                                Filter: (completed_at IS NULL)
+                                Rows Removed by Filter: 100000
+                                Heap Fetches: 438
+                                Index Searches: 1
+                                Buffers: shared hit=9065
+Settings: search_path = 'run'
+Planning Time: 0.426 ms
+Execution Time: 498.132 ms

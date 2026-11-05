@@ -1,0 +1,95 @@
+pages statements >= 5 ms logged during the run: 41
+final captures (one per poller, with actuals): 4
+
+== first 3 slow pages plans ==
+2026-11-04 17:30:36.137 UTC [2571] LOG:  duration: 5.428 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-000000000000000000000000859713', $2 = 'order-000000000000000000000000651748', $3 = 'order-000000000000000000000000923675', $4 = 'order-000000000000000000000000417824', $5 = 'order-000000000000000000000000720982', $6 = 'order-000000000000000000000000307705', $7 = 'order-000000000000000000000000812838', $8 = 'order-000000000000000000000000240954', $9 = 'order-000000000000000000000000561114', $10 = 'order-000000000000000000000000704817', $11 = 'NEW'
+	Incremental Sort  (cost=11.93..91.86 rows=8 width=1090)
+	  Sort Key: record_key, created_at, id
+	  Presorted Key: record_key, created_at
+	  ->  Index Scan using idx_outbox_record_record_key_created on outbox_record  (cost=0.55..91.50 rows=8 width=1090)
+	        Index Cond: ((record_key)::text = ANY ('{order-000000000000000000000000859713,order-000000000000000000000000651748,order-000000000000000000000000923675,order-000000000000000000000000417824,order-000000000000000000000000720982,order-000000000000000000000000307705,order-000000000000000000000000812838,order-000000000000000000000000240954,order-000000000000000000000000561114,order-000000000000000000000000704817}'::text[]))
+	        Filter: ((status)::text = 'NEW'::text)
+
+2026-11-04 17:30:36.180 UTC [2571] LOG:  duration: 5.383 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-000000000000000000000000933727', $2 = 'order-000000000000000000000000337168', $3 = 'order-000000000000000000000000174837', $4 = 'order-000000000000000000000000748063', $5 = 'order-000000000000000000000000393380', $6 = 'order-000000000000000000000000872814', $7 = 'order-000000000000000000000000379332', $8 = 'order-000000000000000000000000518914', $9 = 'order-000000000000000000000000072482', $10 = 'order-000000000000000000000000070491', $11 = 'NEW'
+	Incremental Sort  (cost=11.93..91.86 rows=8 width=1090)
+	  Sort Key: record_key, created_at, id
+	  Presorted Key: record_key, created_at
+	  ->  Index Scan using idx_outbox_record_record_key_created on outbox_record  (cost=0.55..91.50 rows=8 width=1090)
+	        Index Cond: ((record_key)::text = ANY ('{order-000000000000000000000000933727,order-000000000000000000000000337168,order-000000000000000000000000174837,order-000000000000000000000000748063,order-000000000000000000000000393380,order-000000000000000000000000872814,order-000000000000000000000000379332,order-000000000000000000000000518914,order-000000000000000000000000072482,order-000000000000000000000000070491}'::text[]))
+	        Filter: ((status)::text = 'NEW'::text)
+
+2026-11-04 17:30:36.220 UTC [2569] LOG:  duration: 5.186 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-000000000000000000000000323543', $2 = 'order-000000000000000000000000317153', $3 = 'order-000000000000000000000000601265', $4 = 'order-000000000000000000000000514274', $5 = 'order-000000000000000000000000048258', $6 = 'order-000000000000000000000000383254', $7 = 'order-000000000000000000000000517371', $8 = 'order-000000000000000000000000141713', $9 = 'order-000000000000000000000000494352', $10 = 'order-000000000000000000000000420329', $11 = 'NEW'
+	Incremental Sort  (cost=11.93..91.86 rows=8 width=1090)
+	  Sort Key: record_key, created_at, id
+	  Presorted Key: record_key, created_at
+	  ->  Index Scan using idx_outbox_record_record_key_created on outbox_record  (cost=0.55..91.50 rows=8 width=1090)
+	        Index Cond: ((record_key)::text = ANY ('{order-000000000000000000000000323543,order-000000000000000000000000317153,order-000000000000000000000000601265,order-000000000000000000000000514274,order-000000000000000000000000048258,order-000000000000000000000000383254,order-000000000000000000000000517371,order-000000000000000000000000141713,order-000000000000000000000000494352,order-000000000000000000000000420329}'::text[]))
+	        Filter: ((status)::text = 'NEW'::text)
+
+== final captures ==
+2026-11-04 17:31:35.165 UTC [2570] LOG:  duration: 0.581 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-000000000000000000000000643246', $2 = 'order-000000000000000000000000206838', $3 = 'order-000000000000000000000000168844', $4 = 'order-000000000000000000000000867453', $5 = 'order-000000000000000000000000021646', $6 = 'order-000000000000000000000000733256', $7 = 'order-000000000000000000000000200990', $8 = 'order-000000000000000000000000274255', $9 = 'order-000000000000000000000000702313', $10 = 'order-000000000000000000000000232226', $11 = 'NEW'
+	Incremental Sort  (cost=11.93..91.86 rows=8 width=1090) (actual time=0.577..0.578 rows=0.00 loops=1)
+	  Sort Key: record_key, created_at, id
+	  Presorted Key: record_key, created_at
+	  Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+	  Buffers: shared hit=60
+	  ->  Index Scan using idx_outbox_record_record_key_created on outbox_record  (cost=0.55..91.50 rows=8 width=1090) (actual time=0.495..0.495 rows=0.00 loops=1)
+	        Index Cond: ((record_key)::text = ANY ((ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10])::text[]))
+	        Filter: ((status)::text = ($11)::text)
+	        Rows Removed by Filter: 10
+	        Index Searches: 10
+	        Buffers: shared hit=60
+
+2026-11-04 17:31:35.165 UTC [2569] LOG:  duration: 0.614 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-000000000000000000000000643682', $2 = 'order-000000000000000000000000931326', $3 = 'order-000000000000000000000000726701', $4 = 'order-000000000000000000000000873892', $5 = 'order-000000000000000000000000907552', $6 = 'order-000000000000000000000000227684', $7 = 'order-000000000000000000000000032652', $8 = 'order-000000000000000000000000419729', $9 = 'order-000000000000000000000000536303', $10 = 'order-000000000000000000000000075010', $11 = 'NEW'
+	Incremental Sort  (cost=11.93..91.86 rows=8 width=1090) (actual time=0.608..0.610 rows=0.00 loops=1)
+	  Sort Key: record_key, created_at, id
+	  Presorted Key: record_key, created_at
+	  Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+	  Buffers: shared hit=60
+	  ->  Index Scan using idx_outbox_record_record_key_created on outbox_record  (cost=0.55..91.50 rows=8 width=1090) (actual time=0.534..0.535 rows=0.00 loops=1)
+	        Index Cond: ((record_key)::text = ANY ((ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10])::text[]))
+	        Filter: ((status)::text = ($11)::text)
+	        Rows Removed by Filter: 10
+	        Index Searches: 10
+	        Buffers: shared hit=60
+
+2026-11-04 17:31:35.174 UTC [2568] LOG:  duration: 0.517 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-000000000000000000000000734335', $2 = 'order-000000000000000000000000376621', $3 = 'order-000000000000000000000000494882', $4 = 'order-000000000000000000000000976762', $5 = 'order-000000000000000000000000798995', $6 = 'order-000000000000000000000000911677', $7 = 'order-000000000000000000000000509747', $8 = 'order-000000000000000000000000839335', $9 = 'order-000000000000000000000000745960', $10 = 'order-000000000000000000000000244442', $11 = 'NEW'
+	Incremental Sort  (cost=11.93..91.86 rows=8 width=1090) (actual time=0.512..0.514 rows=0.00 loops=1)
+	  Sort Key: record_key, created_at, id
+	  Presorted Key: record_key, created_at
+	  Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+	  Buffers: shared hit=66
+	  ->  Index Scan using idx_outbox_record_record_key_created on outbox_record  (cost=0.55..91.50 rows=8 width=1090) (actual time=0.451..0.451 rows=0.00 loops=1)
+	        Index Cond: ((record_key)::text = ANY ((ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10])::text[]))
+	        Filter: ((status)::text = ($11)::text)
+	        Rows Removed by Filter: 10
+	        Index Searches: 10
+	        Buffers: shared hit=66
+
+2026-11-04 17:31:35.175 UTC [2571] LOG:  duration: 0.563 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-000000000000000000000000705192', $2 = 'order-000000000000000000000000319745', $3 = 'order-000000000000000000000000768999', $4 = 'order-000000000000000000000000111945', $5 = 'order-000000000000000000000000213044', $6 = 'order-000000000000000000000000423527', $7 = 'order-000000000000000000000000507428', $8 = 'order-000000000000000000000000175593', $9 = 'order-000000000000000000000000317544', $10 = 'order-000000000000000000000000471062', $11 = 'NEW'
+	Incremental Sort  (cost=11.93..91.86 rows=8 width=1090) (actual time=0.557..0.559 rows=0.00 loops=1)
+	  Sort Key: record_key, created_at, id
+	  Presorted Key: record_key, created_at
+	  Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+	  Buffers: shared hit=59
+	  ->  Index Scan using idx_outbox_record_record_key_created on outbox_record  (cost=0.55..91.50 rows=8 width=1090) (actual time=0.481..0.482 rows=0.00 loops=1)
+	        Index Cond: ((record_key)::text = ANY ((ARRAY[$1, $2, $3, $4, $5, $6, $7, $8, $9, $10])::text[]))
+	        Filter: ((status)::text = ($11)::text)
+	        Rows Removed by Filter: 10
+	        Index Searches: 10
+	        Buffers: shared hit=59
+

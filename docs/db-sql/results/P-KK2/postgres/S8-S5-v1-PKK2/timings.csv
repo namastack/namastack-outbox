@@ -1,0 +1,3 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_strict,161.793,162.787,160.257,163.217,9,20,
+pages,67.091,82.621,64.435,117.227,18000,20,

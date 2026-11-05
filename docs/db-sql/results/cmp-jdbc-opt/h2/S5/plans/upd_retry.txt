@@ -1,0 +1,10 @@
+UPDATE "RUN"."OUTBOX_RECORD"
+    /* RUN.PRIMARY_KEY_A: ID = '00007d24-3dfc-4780-b2b6-e66f90d575de' */
+    /* scanCount: 2 */
+SET
+    "STATUS" = 'NEW',
+    "COMPLETED_AT" = NULL,
+    "FAILURE_COUNT" = 1,
+    "FAILURE_REASON" = 'java.lang.IllegalStateException: downstream call failed',
+    "NEXT_RETRY_AT" = TIMESTAMP WITH TIME ZONE '2026-01-01 12:01:00+00'
+WHERE "ID" = '00007d24-3dfc-4780-b2b6-e66f90d575de'

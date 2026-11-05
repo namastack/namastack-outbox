@@ -1,0 +1,7 @@
+Index Scan using idx_outbox_record_status_created on outbox_record  (cost=0.41..78.64 rows=39 width=1093) (actual time=0.024..0.089 rows=121.00 loops=1)
+  Index Cond: ((status)::text = 'FAILED'::text)
+  Index Searches: 1
+  Buffers: shared hit=126
+Settings: search_path = 'run'
+Planning Time: 0.054 ms
+Execution Time: 0.108 ms

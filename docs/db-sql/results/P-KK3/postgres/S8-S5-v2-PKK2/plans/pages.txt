@@ -1,0 +1,24 @@
+Incremental Sort  (cost=686.68..56669.02 rows=18104 width=1123) (actual time=3.804..29.736 rows=18000.00 loops=1)
+  Sort Key: r.record_key, r.created_at, r.id
+  Presorted Key: r.record_key
+  Full-sort Groups: 9  Sort Method: quicksort  Average Memory: 81kB  Peak Memory: 81kB
+  Pre-sorted Groups: 9  Sort Method: quicksort  Average Memory: 1789kB  Peak Memory: 1793kB
+  Buffers: shared hit=17285
+  ->  Nested Loop  (cost=123.50..55761.81 rows=18104 width=1123) (actual time=0.543..15.403 rows=18000.00 loops=1)
+        Buffers: shared hit=17285
+        ->  Sort  (cost=0.24..0.26 rows=9 width=32) (actual time=0.020..0.022 rows=9.00 loops=1)
+              Sort Key: t.k
+              Sort Method: quicksort  Memory: 25kB
+              ->  Function Scan on unnest t  (cost=0.00..0.09 rows=9 width=32) (actual time=0.007..0.008 rows=9.00 loops=1)
+        ->  Bitmap Heap Scan on outbox_record r  (cost=123.27..6187.64 rows=809 width=1091) (actual time=0.501..1.347 rows=2000.00 loops=9)
+              Recheck Cond: (((t.k)::text = (record_key)::text) AND (completed_at IS NULL))
+              Filter: ((status)::text = 'NEW'::text)
+              Heap Blocks: exact=17013
+              Buffers: shared hit=17285
+              ->  Bitmap Index Scan on idx_outbox_record_key_created_id_incomplete  (cost=0.00..123.07 rows=2012 width=0) (actual time=0.337..0.337 rows=2000.00 loops=9)
+                    Index Cond: ((record_key)::text = (t.k)::text)
+                    Index Searches: 9
+                    Buffers: shared hit=272
+Settings: search_path = 'run'
+Planning Time: 0.150 ms
+Execution Time: 31.550 ms

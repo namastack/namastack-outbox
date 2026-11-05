@@ -4,7 +4,9 @@ Maintained by the orchestrator. Update after every step.
 
 ## Current phase
 
-Phase 5 (PostgreSQL) done: every query group has a justified recommendation. Recommended set `D3` = `UABC-L` + `(status, partition_no) WHERE completed_at IS NULL` (`experiments/R5-d2-literal.md`); `pages` stays `unnest` + `LATERAL` (`R5-pages-form.md`), `oldest_due_nonstrict` stays `MIN` (`R5-oldest-due.md`), UUIDv7 recommended on write cost, user to decide (`R5-uuidv7.md`; larger key in R5 is a harness load-order artefact, `R5-uuidv7-pkey.md`; `Loader.prepare` fix not applied). Accepted open cost: S8-S5 `keys_strict` ~165 ms. Next: finish phases 3/4.
+Current `main` (`f4446c8`) vs `feature/db-jdbc-optimization` (`01165d15`) measured on PostgreSQL: `experiments/CMP-main-vs-jdbc-opt-pg.md`. Reviewed by the user: the branch is kept as it is. The other-dialect run was stopped during H2 S4; the remaining work is in `07-next-runs-plan.md`. This replaces the old `313eb58` baseline and v1 as the comparison.
+
+Phase 5 (PostgreSQL) done: every query group has a justified recommendation. Recommended set `D3` = `UABC-L` + `(status, partition_no) WHERE completed_at IS NULL` (`experiments/R5-d2-literal.md`); `pages` stays `unnest` + `LATERAL` (`R5-pages-form.md`), `oldest_due_nonstrict` stays `MIN` (`R5-oldest-due.md`), UUIDv7 recommended on write cost, user to decide (`R5-uuidv7.md`; larger key in R5 is a harness load-order artefact, `R5-uuidv7-pkey.md`; `Loader.prepare` fix not applied). Accepted open cost: S8-S5 `keys_strict` ~165 ms.
 
 ## Environment
 
@@ -97,7 +99,9 @@ A difference counts only if it exceeds both the relative threshold of its group 
 
 ## Running sub-agents
 
-- None. Phase 3/4 driver `harness/bin/finish-34.sh` stopped by the user 2026-11-04, to continue later. Resume with the same command (`main` only, resumable, log `results/logs/finish34.log`). Other dialects' bench volumes and images were removed for disk; the driver pulls what it needs.
+- **Nothing is running.** Stopped by the user on 2026-11-05 at the start of MySQL (step 3 of `07-next-runs-plan.md`); to continue later. H2 and MariaDB are complete, MySQL has `cmp-main` S2 only, SQL Server and Oracle have S1 only. Resume with `DIALECTS="mysql sqlserver oracle" bin/cmp-dialects.sh`; it skips finished cells. Note that `reclaim` keeps the current dialect's volume. MariaDB's results are not yet in `06-cross-dialect.md`; `keys_strict` on S4, S5, S7 is far slower on the branch and needs its plans read. Steps 1 and 2 are done: `experiments/P-KK2-pages-without-inner-sort.md`, `06-cross-dialect.md`.
+- `harness/bin/cmp-dialects.sh`: S1 check on all five dialects, then the full run; log `results/logs/cmpdb.log`, resumable with the same command. `pages` idea tested: `experiments/P-KK-pages-outer-order.md` (no difference by threshold, order guaranteed; adoption is the user's decision).
+- `harness/bin/cmp-pg.sh` finished. The `finish-34.sh` run on the `313eb58` baseline is superseded by the user's 2026-11-04 decision and should not be resumed. Images of the other dialects, `mongo:9.0.4` and `testcontainers/ryuk:0.14.0` were removed for disk and need pulling again.
 
 ## Open findings after round 2
 
@@ -107,6 +111,10 @@ A difference counts only if it exceeds both the relative threshold of its group 
 
 ## User decisions
 
+- 2026-11-05: **`P-KK2` adopted for PostgreSQL `pages`** (`experiments/P-KK2-pages-without-inner-sort.md`). Edited on `feature/db-jdbc-optimization`, uncommitted, the user commits and pushes. `outbox-wt-cmp-jdbc-opt` stays pinned at `01165d15`; the running non-PostgreSQL comparison is not affected.
+- 2026-11-04: **Other dialects start right after the `P-KK` `pages` test, not later.** Driver `harness/bin/cmp-dialects.sh`, preceded by an S1 check on all five. **Timings cover P1 and P2 groups only** (`--groups HOT,WRITE,MON`), no retention or admin.
+- 2026-11-04: **The branch stays as it is (`01165d15`). The deprecated metrics module slowdown is not fixed** (`experiments/CMP-main-vs-jdbc-opt-pg.md`). **Other dialects run later,** when the user asks.
+- 2026-11-04: **Compare current `main` with the solution in `feature/db-jdbc-optimization`,** pinned in `../outbox-wt-cmp-main` (`f4446c8`) and `../outbox-wt-cmp-jdbc-opt` (`01165d15`), variants `cmp-main` and `cmp-jdbc-opt`. **JPA is not measured.**
 - 2026-11-04: **Phases 3/4 finish with `main` only:** `v1` lost to the phase 5 sets on PostgreSQL, so it is no longer measured on the other dialects. Phase 6 compares `main` with the candidates directly and does its own equivalence. Finished `v1` cells are kept. `VARIANTS="main v1"` on `finish-34.sh` restores it.
 - 2026-11-03: **`K3` (capped `keys_strict` candidates) rejected, do not test it or a fallback form:** if the 1000 candidates share one key, the query returns one key instead of `:limit`.
 - 2026-11-02: **Run order, without waiting for the user:** screen extension (X0, X1) → print its summary → stage 2 confirm → stage 3 validate → round 4 → further rounds if the orchestrator finds ideas worth checking, up to the phase 5 stop criterion → finish phases 3/4 (see "Next step"). Report after each stage and round. **Do not start phases 6 and 7** without the user.
@@ -137,6 +145,6 @@ A difference counts only if it exceeds both the relative threshold of its group 
 
 ## Next step
 
-Phase 5 done on PostgreSQL. Now: finish phases 3/4, then stop. Open for the user: UUIDv7 as a code change; whether COMPLETED in `record-statuses` is common (favours the full `(status, partition_no)` index).
+Nothing is running. Follow `07-next-runs-plan.md` once the user gives the go: harness per-query limit, `P-KK2` and `P-KK3` on PostgreSQL, finish H2, then MariaDB, MySQL, SQL Server, Oracle. If the branch has changed by then, re-pin `../outbox-wt-cmp-jdbc-opt` and re-extract its catalog first. Open for the user: UUIDv7 as a code change; whether COMPLETED in `record-statuses` is common.
 
-**Finishing phases 3/4 (after phase 5):** main + v1 on the remaining non-PostgreSQL cells, serially: MySQL S4, S8-S4, S5, S7, writecost, equivalence; MariaDB the same; SQL Server, Oracle, H2 entirely; JPA on PostgreSQL if not measured; per-dialect summaries; `03-baseline.md`, `04-v1.md`. Driver `bin/matrix-sql.sh`. First make MariaDB/MySQL `prepare` create secondary indexes after the load (S2 prepare took ~35 min), and validate SQL Server on S1 (incl. its `keys_nonstrict` form). Phase 6 then only adds v2 on the same seeded data.
+**Superseded plan, kept for its dialect notes:** main + v1 on the remaining non-PostgreSQL cells, serially: MySQL S4, S8-S4, S5, S7, writecost, equivalence; MariaDB the same; SQL Server, Oracle, H2 entirely; JPA on PostgreSQL if not measured; per-dialect summaries; `03-baseline.md`, `04-v1.md`. Driver `bin/matrix-sql.sh`. First make MariaDB/MySQL `prepare` create secondary indexes after the load (S2 prepare took ~35 min), and validate SQL Server on S1 (incl. its `keys_nonstrict` form). Phase 6 then only adds v2 on the same seeded data.

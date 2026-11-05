@@ -1,0 +1,21 @@
+Sort  (cost=68.89..68.89 rows=1 width=1093) (actual time=3.504..3.507 rows=0.00 loops=1)
+  Sort Key: record_key, created_at, id
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=149
+  ->  Bitmap Heap Scan on outbox_record  (cost=64.86..68.88 rows=1 width=1093) (actual time=3.472..3.473 rows=0.00 loops=1)
+        Recheck Cond: (((status)::text = 'NEW'::text) AND ((record_key)::text = ANY ('{order-cc-31232-00000000000100003172,order-cc-59252-00000000000100003174,order-cc-24601-00000000000100003175,order-cc-91880-00000000000000003162,order-cc-51684-00000000000300003162,order-cc-24277-00000000000100003177,order-cc-77622-00000000000300003164,order-cc-30646-00000000000000003165,order-cc-3058-00000000000100003179,order-cc-69267-00000000000100003180}'::text[])))
+        Heap Blocks: exact=4
+        Buffers: shared hit=149
+        ->  BitmapAnd  (cost=64.83..64.83 rows=1 width=0) (actual time=3.438..3.439 rows=0.00 loops=1)
+              Buffers: shared hit=145
+              ->  Bitmap Index Scan on idx_outbox_record_status_retry  (cost=0.00..20.31 rows=536 width=0) (actual time=3.189..3.189 rows=18491.00 loops=1)
+                    Index Cond: ((status)::text = 'NEW'::text)
+                    Index Searches: 1
+                    Buffers: shared hit=118
+              ->  Bitmap Index Scan on idx_outbox_record_record_key_completed_created  (cost=0.00..44.27 rows=20 width=0) (actual time=0.101..0.101 rows=20.00 loops=1)
+                    Index Cond: ((record_key)::text = ANY ('{order-cc-31232-00000000000100003172,order-cc-59252-00000000000100003174,order-cc-24601-00000000000100003175,order-cc-91880-00000000000000003162,order-cc-51684-00000000000300003162,order-cc-24277-00000000000100003177,order-cc-77622-00000000000300003164,order-cc-30646-00000000000000003165,order-cc-3058-00000000000100003179,order-cc-69267-00000000000100003180}'::text[]))
+                    Index Searches: 9
+                    Buffers: shared hit=27
+Settings: search_path = 'run'
+Planning Time: 0.834 ms
+Execution Time: 3.685 ms

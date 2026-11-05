@@ -1,0 +1,11 @@
+Sort  (cost=2470.84..2470.94 rows=39 width=1093) (actual time=1.340..1.345 rows=121.00 loops=1)
+  Sort Key: created_at, id
+  Sort Method: quicksort  Memory: 135kB
+  Buffers: shared hit=2229
+  ->  Seq Scan on outbox_record  (cost=0.00..2469.81 rows=39 width=1093) (actual time=0.004..1.261 rows=121.00 loops=1)
+        Filter: ((status)::text = 'FAILED'::text)
+        Rows Removed by Filter: 8428
+        Buffers: shared hit=2229
+Settings: search_path = 'run'
+Planning Time: 0.035 ms
+Execution Time: 1.377 ms

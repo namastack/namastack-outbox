@@ -1,0 +1,4 @@
+DELETE FROM "RUN"."OUTBOX_RECORD"
+    /* RUN.PRIMARY_KEY_A: ID = '0000d206-4940-4379-a1c6-9f1da89e0afb' */
+    /* scanCount: 2 */
+WHERE "ID" = '0000d206-4940-4379-a1c6-9f1da89e0afb'

@@ -1,0 +1,11 @@
+Sort  (cost=5370.07..5388.70 rows=7455 width=1093) (actual time=11.152..12.889 rows=7532.00 loops=1)
+  Sort Key: completed_at
+  Sort Method: external merge  Disk: 6496kB
+  Buffers: shared hit=1169, temp read=812 written=813
+  ->  Seq Scan on outbox_record  (cost=0.00..1320.56 rows=7455 width=1093) (actual time=0.008..2.219 rows=7532.00 loops=1)
+        Filter: ((completed_at < '2025-12-25 12:00:00+00'::timestamp with time zone) AND ((status)::text = 'COMPLETED'::text))
+        Rows Removed by Filter: 2468
+        Buffers: shared hit=1169
+Settings: search_path = 'run'
+Planning Time: 0.071 ms
+Execution Time: 13.711 ms

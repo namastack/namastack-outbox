@@ -1,0 +1,3 @@
+query_id,planning_ms,execution_ms
+keys_strict,0.476,164.038
+pages,0.136,32.048

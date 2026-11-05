@@ -1,0 +1,13 @@
+Limit  (cost=3297.59..3300.09 rows=1000 width=1093) (actual time=3.488..3.603 rows=1000.00 loops=1)
+  Buffers: shared hit=2229
+  ->  Sort  (cost=3297.59..3333.13 rows=14219 width=1093) (actual time=3.487..3.558 rows=1000.00 loops=1)
+        Sort Key: completed_at
+        Sort Method: top-N heapsort  Memory: 1174kB
+        Buffers: shared hit=2229
+        ->  Seq Scan on outbox_record  (cost=0.00..2517.97 rows=14219 width=1093) (actual time=0.036..2.198 rows=2532.00 loops=1)
+              Filter: ((completed_at < '2025-12-25 12:00:00+00'::timestamp with time zone) AND ((status)::text = 'COMPLETED'::text))
+              Rows Removed by Filter: 6017
+              Buffers: shared hit=2229
+Settings: search_path = 'run'
+Planning Time: 0.090 ms
+Execution Time: 3.789 ms

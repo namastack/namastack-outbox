@@ -1,0 +1,93 @@
+[
+  {
+    "Plan": {
+      "Node Type": "Incremental Sort",
+      "Parallel Aware": false,
+      "Async Capable": false,
+      "Startup Cost": 11.58,
+      "Total Cost": 89.07,
+      "Plan Rows": 8,
+      "Plan Width": 1089,
+      "Actual Startup Time": 0.468,
+      "Actual Total Time": 0.470,
+      "Actual Rows": 0.00,
+      "Actual Loops": 1,
+      "Disabled": false,
+      "Sort Key": ["record_key", "created_at", "id"],
+      "Presorted Key": ["record_key", "created_at"],
+      "Full-sort Groups": {
+        "Group Count": 1,
+        "Sort Methods Used": ["quicksort"],
+        "Sort Space Memory": {
+          "Average Sort Space Used": 25,
+          "Peak Sort Space Used": 25
+        }
+      },
+      "Shared Hit Blocks": 47,
+      "Shared Read Blocks": 0,
+      "Shared Dirtied Blocks": 0,
+      "Shared Written Blocks": 0,
+      "Local Hit Blocks": 0,
+      "Local Read Blocks": 0,
+      "Local Dirtied Blocks": 0,
+      "Local Written Blocks": 0,
+      "Temp Read Blocks": 0,
+      "Temp Written Blocks": 0,
+      "Plans": [
+        {
+          "Node Type": "Index Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Scan Direction": "Forward",
+          "Index Name": "idx_outbox_record_record_key_created",
+          "Relation Name": "outbox_record",
+          "Alias": "outbox_record",
+          "Startup Cost": 0.55,
+          "Total Cost": 88.71,
+          "Plan Rows": 8,
+          "Plan Width": 1089,
+          "Actual Startup Time": 0.414,
+          "Actual Total Time": 0.414,
+          "Actual Rows": 0.00,
+          "Actual Loops": 1,
+          "Disabled": false,
+          "Index Cond": "((record_key)::text = ANY ('{order-000000000000000000000000954508,order-000000000000000000000000250287,order-000000000000000000000000515605,order-000000000000000000000000524601,order-000000000000000000000000891022,order-000000000000000000000000378951,order-000000000000000000000000315020,order-000000000000000000000000653791,order-000000000000000000000000928297,order-000000000000000000000000933749}'::text[]))",
+          "Rows Removed by Index Recheck": 0,
+          "Filter": "((status)::text = 'NEW'::text)",
+          "Rows Removed by Filter": 10,
+          "Index Searches": 10,
+          "Shared Hit Blocks": 47,
+          "Shared Read Blocks": 0,
+          "Shared Dirtied Blocks": 0,
+          "Shared Written Blocks": 0,
+          "Local Hit Blocks": 0,
+          "Local Read Blocks": 0,
+          "Local Dirtied Blocks": 0,
+          "Local Written Blocks": 0,
+          "Temp Read Blocks": 0,
+          "Temp Written Blocks": 0
+        }
+      ]
+    },
+    "Settings": {
+      "search_path": "run"
+    },
+    "Planning": {
+      "Shared Hit Blocks": 0,
+      "Shared Read Blocks": 0,
+      "Shared Dirtied Blocks": 0,
+      "Shared Written Blocks": 0,
+      "Local Hit Blocks": 0,
+      "Local Read Blocks": 0,
+      "Local Dirtied Blocks": 0,
+      "Local Written Blocks": 0,
+      "Temp Read Blocks": 0,
+      "Temp Written Blocks": 0
+    },
+    "Planning Time": 0.453,
+    "Triggers": [
+    ],
+    "Execution Time": 0.669
+  }
+]

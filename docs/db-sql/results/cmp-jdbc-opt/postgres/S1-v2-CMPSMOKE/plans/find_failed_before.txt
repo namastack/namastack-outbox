@@ -1,0 +1,13 @@
+Limit  (cost=1320.57..1320.58 rows=1 width=1093) (actual time=1.935..1.936 rows=0.00 loops=1)
+  Buffers: shared hit=1169
+  ->  Sort  (cost=1320.57..1320.58 rows=1 width=1093) (actual time=1.935..1.935 rows=0.00 loops=1)
+        Sort Key: next_retry_at
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=1169
+        ->  Seq Scan on outbox_record  (cost=0.00..1320.56 rows=1 width=1093) (actual time=1.925..1.925 rows=0.00 loops=1)
+              Filter: ((next_retry_at < '2025-12-02 12:00:00+00'::timestamp with time zone) AND ((status)::text = 'FAILED'::text))
+              Rows Removed by Filter: 10000
+              Buffers: shared hit=1169
+Settings: search_path = 'run'
+Planning Time: 0.050 ms
+Execution Time: 1.952 ms

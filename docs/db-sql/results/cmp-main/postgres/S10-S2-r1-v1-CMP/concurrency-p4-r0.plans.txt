@@ -1,0 +1,132 @@
+pages statements >= 5 ms logged during the run: 3597
+final captures (one per poller, with actuals): 4
+
+== first 3 slow pages plans ==
+2026-11-04 15:11:12.742 UTC [940] LOG:  duration: 5.025 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-cc-24342-00000000000200001838', $2 = 'order-cc-23897-00000000000200001839', $3 = 'order-cc-20456-00000000000100001845', $4 = 'order-cc-86929-00000000000200001841', $5 = 'order-cc-61221-00000000000300001849', $6 = 'order-cc-17647-00000000000100001846', $7 = 'order-cc-95740-00000000000100001848', $8 = 'order-cc-17157-00000000000000001848', $9 = 'order-cc-45520-00000000000100001849', $10 = 'order-cc-68420-00000000000000001849', $11 = 'NEW'
+	Sort  (cost=81.27..81.27 rows=1 width=1092)
+	  Sort Key: record_key, created_at, id
+	  ->  Bitmap Heap Scan on outbox_record  (cost=77.24..81.26 rows=1 width=1092)
+	        Recheck Cond: (((status)::text = 'NEW'::text) AND ((record_key)::text = ANY ('{order-cc-24342-00000000000200001838,order-cc-23897-00000000000200001839,order-cc-20456-00000000000100001845,order-cc-86929-00000000000200001841,order-cc-61221-00000000000300001849,order-cc-17647-00000000000100001846,order-cc-95740-00000000000100001848,order-cc-17157-00000000000000001848,order-cc-45520-00000000000100001849,order-cc-68420-00000000000000001849}'::text[])))
+	        ->  BitmapAnd  (cost=77.21..77.21 rows=1 width=0)
+	              ->  Bitmap Index Scan on idx_outbox_record_status_retry  (cost=0.00..32.26 rows=1045 width=0)
+	                    Index Cond: ((status)::text = 'NEW'::text)
+	              ->  Bitmap Index Scan on idx_outbox_record_record_key_completed_created  (cost=0.00..44.70 rows=63 width=0)
+	                    Index Cond: ((record_key)::text = ANY ('{order-cc-24342-00000000000200001838,order-cc-23897-00000000000200001839,order-cc-20456-00000000000100001845,order-cc-86929-00000000000200001841,order-cc-61221-00000000000300001849,order-cc-17647-00000000000100001846,order-cc-95740-00000000000100001848,order-cc-17157-00000000000000001848,order-cc-45520-00000000000100001849,order-cc-68420-00000000000000001849}'::text[]))
+
+2026-11-04 15:11:12.744 UTC [942] LOG:  duration: 5.062 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-cc-86708-00000000000000001808', $2 = 'order-cc-842-00000000000300001813', $3 = 'order-cc-34640-00000000000300001814', $4 = 'order-cc-90179-00000000000000001811', $5 = 'order-cc-58716-00000000000200001809', $6 = 'order-cc-66950-00000000000300001819', $7 = 'order-cc-53144-00000000000000001815', $8 = 'order-cc-30772-00000000000300001820', $9 = 'order-cc-28157-00000000000000001816', $10 = 'order-cc-2819-00000000000300001821', $11 = 'NEW'
+	Sort  (cost=81.27..81.27 rows=1 width=1092)
+	  Sort Key: record_key, created_at, id
+	  ->  Bitmap Heap Scan on outbox_record  (cost=77.24..81.26 rows=1 width=1092)
+	        Recheck Cond: (((status)::text = 'NEW'::text) AND ((record_key)::text = ANY ('{order-cc-86708-00000000000000001808,order-cc-842-00000000000300001813,order-cc-34640-00000000000300001814,order-cc-90179-00000000000000001811,order-cc-58716-00000000000200001809,order-cc-66950-00000000000300001819,order-cc-53144-00000000000000001815,order-cc-30772-00000000000300001820,order-cc-28157-00000000000000001816,order-cc-2819-00000000000300001821}'::text[])))
+	        ->  BitmapAnd  (cost=77.21..77.21 rows=1 width=0)
+	              ->  Bitmap Index Scan on idx_outbox_record_status_retry  (cost=0.00..32.26 rows=1045 width=0)
+	                    Index Cond: ((status)::text = 'NEW'::text)
+	              ->  Bitmap Index Scan on idx_outbox_record_record_key_completed_created  (cost=0.00..44.70 rows=63 width=0)
+	                    Index Cond: ((record_key)::text = ANY ('{order-cc-86708-00000000000000001808,order-cc-842-00000000000300001813,order-cc-34640-00000000000300001814,order-cc-90179-00000000000000001811,order-cc-58716-00000000000200001809,order-cc-66950-00000000000300001819,order-cc-53144-00000000000000001815,order-cc-30772-00000000000300001820,order-cc-28157-00000000000000001816,order-cc-2819-00000000000300001821}'::text[]))
+
+2026-11-04 15:11:13.179 UTC [939] LOG:  duration: 5.044 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-cc-19860-00000000000300001973', $2 = 'order-cc-21767-00000000000300001974', $3 = 'order-cc-9869-00000000000300001976', $4 = 'order-cc-36968-00000000000200001966', $5 = 'order-cc-61927-00000000000100001974', $6 = 'order-cc-43925-00000000000300001978', $7 = 'order-cc-10741-00000000000200001967', $8 = 'order-cc-96317-00000000000300001980', $9 = 'order-cc-66470-00000000000000001975', $10 = 'order-cc-8176-00000000000200001970', $11 = 'NEW'
+	Sort  (cost=81.27..81.28 rows=1 width=1092)
+	  Sort Key: record_key, created_at, id
+	  ->  Bitmap Heap Scan on outbox_record  (cost=77.25..81.26 rows=1 width=1092)
+	        Recheck Cond: (((status)::text = 'NEW'::text) AND ((record_key)::text = ANY ('{order-cc-19860-00000000000300001973,order-cc-21767-00000000000300001974,order-cc-9869-00000000000300001976,order-cc-36968-00000000000200001966,order-cc-61927-00000000000100001974,order-cc-43925-00000000000300001978,order-cc-10741-00000000000200001967,order-cc-96317-00000000000300001980,order-cc-66470-00000000000000001975,order-cc-8176-00000000000200001970}'::text[])))
+	        ->  BitmapAnd  (cost=77.22..77.22 rows=1 width=0)
+	              ->  Bitmap Index Scan on idx_outbox_record_status_retry  (cost=0.00..32.27 rows=1046 width=0)
+	                    Index Cond: ((status)::text = 'NEW'::text)
+	              ->  Bitmap Index Scan on idx_outbox_record_record_key_completed_created  (cost=0.00..44.70 rows=63 width=0)
+	                    Index Cond: ((record_key)::text = ANY ('{order-cc-19860-00000000000300001973,order-cc-21767-00000000000300001974,order-cc-9869-00000000000300001976,order-cc-36968-00000000000200001966,order-cc-61927-00000000000100001974,order-cc-43925-00000000000300001978,order-cc-10741-00000000000200001967,order-cc-96317-00000000000300001980,order-cc-66470-00000000000000001975,order-cc-8176-00000000000200001970}'::text[]))
+
+== final captures ==
+2026-11-04 15:12:03.753 UTC [940] LOG:  duration: 7.023 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-cc-6810-00000000000000014541', $2 = 'order-cc-95336-00000000000300014523', $3 = 'order-cc-41876-00000000000100014546', $4 = 'order-cc-29714-00000000000200014526', $5 = 'order-cc-24103-00000000000300014524', $6 = 'order-cc-48183-00000000000100014547', $7 = 'order-cc-31678-00000000000000014544', $8 = 'order-cc-75462-00000000000200014528', $9 = 'order-cc-46019-00000000000200014530', $10 = 'order-cc-78207-00000000000000014546', $11 = 'NEW'
+	Sort  (cost=82.01..82.01 rows=1 width=1092) (actual time=7.020..7.021 rows=0.00 loops=1)
+	  Sort Key: record_key, created_at, id
+	  Sort Method: quicksort  Memory: 25kB
+	  Buffers: shared hit=692
+	  ->  Bitmap Heap Scan on outbox_record  (cost=77.98..82.00 rows=1 width=1092) (actual time=7.007..7.008 rows=0.00 loops=1)
+	        Recheck Cond: (((status)::text = 'NEW'::text) AND ((record_key)::text = ANY ('{order-cc-6810-00000000000000014541,order-cc-95336-00000000000300014523,order-cc-41876-00000000000100014546,order-cc-29714-00000000000200014526,order-cc-24103-00000000000300014524,order-cc-48183-00000000000100014547,order-cc-31678-00000000000000014544,order-cc-75462-00000000000200014528,order-cc-46019-00000000000200014530,order-cc-78207-00000000000000014546}'::text[])))
+	        Heap Blocks: exact=5
+	        Buffers: shared hit=692
+	        ->  BitmapAnd  (cost=77.95..77.95 rows=1 width=0) (actual time=6.951..6.951 rows=0.00 loops=1)
+	              Buffers: shared hit=687
+	              ->  Bitmap Index Scan on idx_outbox_record_status_retry  (cost=0.00..32.98 rows=1140 width=0) (actual time=6.592..6.592 rows=97862.00 loops=1)
+	                    Index Cond: ((status)::text = 'NEW'::text)
+	                    Index Searches: 1
+	                    Buffers: shared hit=657
+	              ->  Bitmap Index Scan on idx_outbox_record_record_key_completed_created  (cost=0.00..44.73 rows=63 width=0) (actual time=0.059..0.059 rows=20.00 loops=1)
+	                    Index Cond: ((record_key)::text = ANY ('{order-cc-6810-00000000000000014541,order-cc-95336-00000000000300014523,order-cc-41876-00000000000100014546,order-cc-29714-00000000000200014526,order-cc-24103-00000000000300014524,order-cc-48183-00000000000100014547,order-cc-31678-00000000000000014544,order-cc-75462-00000000000200014528,order-cc-46019-00000000000200014530,order-cc-78207-00000000000000014546}'::text[]))
+	                    Index Searches: 10
+	                    Buffers: shared hit=30
+
+2026-11-04 15:12:03.756 UTC [942] LOG:  duration: 10.338 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-cc-27448-00000000000100014510', $2 = 'order-cc-47349-00000000000100014511', $3 = 'order-cc-85406-00000000000100014512', $4 = 'order-cc-6933-00000000000000014509', $5 = 'order-cc-47294-00000000000100014514', $6 = 'order-cc-35945-00000000000000014512', $7 = 'order-cc-23954-00000000000100014517', $8 = 'order-cc-67321-00000000000100014519', $9 = 'order-cc-87312-00000000000100014520', $10 = 'order-cc-62464-00000000000200014501', $11 = 'NEW'
+	Sort  (cost=82.01..82.01 rows=1 width=1092) (actual time=10.334..10.336 rows=0.00 loops=1)
+	  Sort Key: record_key, created_at, id
+	  Sort Method: quicksort  Memory: 25kB
+	  Buffers: shared hit=691
+	  ->  Bitmap Heap Scan on outbox_record  (cost=77.98..82.00 rows=1 width=1092) (actual time=10.319..10.321 rows=0.00 loops=1)
+	        Recheck Cond: (((status)::text = 'NEW'::text) AND ((record_key)::text = ANY ('{order-cc-27448-00000000000100014510,order-cc-47349-00000000000100014511,order-cc-85406-00000000000100014512,order-cc-6933-00000000000000014509,order-cc-47294-00000000000100014514,order-cc-35945-00000000000000014512,order-cc-23954-00000000000100014517,order-cc-67321-00000000000100014519,order-cc-87312-00000000000100014520,order-cc-62464-00000000000200014501}'::text[])))
+	        Heap Blocks: exact=4
+	        Buffers: shared hit=691
+	        ->  BitmapAnd  (cost=77.95..77.95 rows=1 width=0) (actual time=10.228..10.229 rows=0.00 loops=1)
+	              Buffers: shared hit=687
+	              ->  Bitmap Index Scan on idx_outbox_record_status_retry  (cost=0.00..32.98 rows=1140 width=0) (actual time=9.733..9.733 rows=97862.00 loops=1)
+	                    Index Cond: ((status)::text = 'NEW'::text)
+	                    Index Searches: 1
+	                    Buffers: shared hit=657
+	              ->  Bitmap Index Scan on idx_outbox_record_record_key_completed_created  (cost=0.00..44.73 rows=63 width=0) (actual time=0.084..0.084 rows=20.00 loops=1)
+	                    Index Cond: ((record_key)::text = ANY ('{order-cc-27448-00000000000100014510,order-cc-47349-00000000000100014511,order-cc-85406-00000000000100014512,order-cc-6933-00000000000000014509,order-cc-47294-00000000000100014514,order-cc-35945-00000000000000014512,order-cc-23954-00000000000100014517,order-cc-67321-00000000000100014519,order-cc-87312-00000000000100014520,order-cc-62464-00000000000200014501}'::text[]))
+	                    Index Searches: 10
+	                    Buffers: shared hit=30
+
+2026-11-04 15:12:03.757 UTC [939] LOG:  duration: 11.105 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-cc-29006-00000000000000014543', $2 = 'order-cc-85529-00000000000100014548', $3 = 'order-cc-45863-00000000000300014526', $4 = 'order-cc-96347-00000000000000014545', $5 = 'order-cc-50200-00000000000200014529', $6 = 'order-cc-57118-00000000000100014550', $7 = 'order-cc-66817-00000000000200014531', $8 = 'order-cc-51327-00000000000200014532', $9 = 'order-cc-93236-00000000000300014531', $10 = 'order-cc-32780-00000000000000014550', $11 = 'NEW'
+	Sort  (cost=82.01..82.01 rows=1 width=1092) (actual time=11.103..11.104 rows=0.00 loops=1)
+	  Sort Key: record_key, created_at, id
+	  Sort Method: quicksort  Memory: 25kB
+	  Buffers: shared hit=693
+	  ->  Bitmap Heap Scan on outbox_record  (cost=77.98..82.00 rows=1 width=1092) (actual time=11.087..11.088 rows=0.00 loops=1)
+	        Recheck Cond: (((status)::text = 'NEW'::text) AND ((record_key)::text = ANY ('{order-cc-29006-00000000000000014543,order-cc-85529-00000000000100014548,order-cc-45863-00000000000300014526,order-cc-96347-00000000000000014545,order-cc-50200-00000000000200014529,order-cc-57118-00000000000100014550,order-cc-66817-00000000000200014531,order-cc-51327-00000000000200014532,order-cc-93236-00000000000300014531,order-cc-32780-00000000000000014550}'::text[])))
+	        Heap Blocks: exact=6
+	        Buffers: shared hit=693
+	        ->  BitmapAnd  (cost=77.95..77.95 rows=1 width=0) (actual time=10.997..10.998 rows=0.00 loops=1)
+	              Buffers: shared hit=687
+	              ->  Bitmap Index Scan on idx_outbox_record_status_retry  (cost=0.00..32.98 rows=1140 width=0) (actual time=10.436..10.436 rows=97862.00 loops=1)
+	                    Index Cond: ((status)::text = 'NEW'::text)
+	                    Index Searches: 1
+	                    Buffers: shared hit=657
+	              ->  Bitmap Index Scan on idx_outbox_record_record_key_completed_created  (cost=0.00..44.73 rows=63 width=0) (actual time=0.114..0.114 rows=20.00 loops=1)
+	                    Index Cond: ((record_key)::text = ANY ('{order-cc-29006-00000000000000014543,order-cc-85529-00000000000100014548,order-cc-45863-00000000000300014526,order-cc-96347-00000000000000014545,order-cc-50200-00000000000200014529,order-cc-57118-00000000000100014550,order-cc-66817-00000000000200014531,order-cc-51327-00000000000200014532,order-cc-93236-00000000000300014531,order-cc-32780-00000000000000014550}'::text[]))
+	                    Index Searches: 10
+	                    Buffers: shared hit=30
+
+2026-11-04 15:12:03.757 UTC [941] LOG:  duration: 11.119 ms  plan:
+	Query Text: /* pages */ SELECT * FROM outbox_record WHERE record_key IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AND status = $11 ORDER BY record_key, created_at, id
+	Query Parameters: $1 = 'order-cc-46223-00000000000200014608', $2 = 'order-cc-24900-00000000000100014630', $3 = 'order-cc-91839-00000000000000014627', $4 = 'order-cc-19406-00000000000100014632', $5 = 'order-cc-14480-00000000000200014612', $6 = 'order-cc-97207-00000000000000014631', $7 = 'order-cc-27483-00000000000000014632', $8 = 'order-cc-17315-00000000000000014633', $9 = 'order-cc-33999-00000000000300014615', $10 = 'order-cc-75111-00000000000200014619', $11 = 'NEW'
+	Sort  (cost=82.01..82.01 rows=1 width=1092) (actual time=11.116..11.118 rows=0.00 loops=1)
+	  Sort Key: record_key, created_at, id
+	  Sort Method: quicksort  Memory: 25kB
+	  Buffers: shared hit=693
+	  ->  Bitmap Heap Scan on outbox_record  (cost=77.98..82.00 rows=1 width=1092) (actual time=11.100..11.101 rows=0.00 loops=1)
+	        Recheck Cond: (((status)::text = 'NEW'::text) AND ((record_key)::text = ANY ('{order-cc-46223-00000000000200014608,order-cc-24900-00000000000100014630,order-cc-91839-00000000000000014627,order-cc-19406-00000000000100014632,order-cc-14480-00000000000200014612,order-cc-97207-00000000000000014631,order-cc-27483-00000000000000014632,order-cc-17315-00000000000000014633,order-cc-33999-00000000000300014615,order-cc-75111-00000000000200014619}'::text[])))
+	        Heap Blocks: exact=6
+	        Buffers: shared hit=693
+	        ->  BitmapAnd  (cost=77.95..77.95 rows=1 width=0) (actual time=10.997..10.998 rows=0.00 loops=1)
+	              Buffers: shared hit=687
+	              ->  Bitmap Index Scan on idx_outbox_record_status_retry  (cost=0.00..32.98 rows=1140 width=0) (actual time=10.436..10.436 rows=97862.00 loops=1)
+	                    Index Cond: ((status)::text = 'NEW'::text)
+	                    Index Searches: 1
+	                    Buffers: shared hit=657
+	              ->  Bitmap Index Scan on idx_outbox_record_record_key_completed_created  (cost=0.00..44.73 rows=63 width=0) (actual time=0.114..0.114 rows=20.00 loops=1)
+	                    Index Cond: ((record_key)::text = ANY ('{order-cc-46223-00000000000200014608,order-cc-24900-00000000000100014630,order-cc-91839-00000000000000014627,order-cc-19406-00000000000100014632,order-cc-14480-00000000000200014612,order-cc-97207-00000000000000014631,order-cc-27483-00000000000000014632,order-cc-17315-00000000000000014633,order-cc-33999-00000000000300014615,order-cc-75111-00000000000200014619}'::text[]))
+	                    Index Searches: 10
+	                    Buffers: shared hit=30
+

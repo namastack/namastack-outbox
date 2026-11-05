@@ -1,0 +1,20 @@
+Limit  (cost=1047.49..1047.52 rows=10 width=45) (actual time=2.275..2.277 rows=10.00 loops=1)
+  Buffers: shared hit=180
+  ->  Sort  (cost=1047.49..1053.67 rows=2470 width=45) (actual time=2.275..2.275 rows=10.00 loops=1)
+        Sort Key: (min(created_at))
+        Sort Method: top-N heapsort  Memory: 26kB
+        Buffers: shared hit=180
+        ->  HashAggregate  (cost=969.42..994.12 rows=2470 width=45) (actual time=1.823..2.026 rows=2510.00 loops=1)
+              Group Key: record_key
+              Batches: 1  Memory Usage: 345kB
+              Buffers: shared hit=180
+              ->  Index Only Scan using idx_outbox_record_status_created on outbox_record o  (cost=0.58..957.01 rows=2481 width=45) (actual time=0.029..1.335 rows=2510.00 loops=1)
+                    Index Cond: (status = 'NEW'::text)
+                    Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+                    Rows Removed by Filter: 7490
+                    Heap Fetches: 0
+                    Index Searches: 1
+                    Buffers: shared hit=180
+Settings: search_path = 'run'
+Planning Time: 0.154 ms
+Execution Time: 2.394 ms

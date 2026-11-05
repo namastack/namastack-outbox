@@ -1,0 +1,29 @@
+Finalize GroupAggregate  (cost=229736.11..229736.99 rows=3 width=17) (actual time=293.085..303.699 rows=3.00 loops=1)
+  Group Key: status
+  Buffers: shared hit=15933 read=206153
+  ->  Gather Merge  (cost=229736.11..229736.92 rows=7 width=17) (actual time=293.071..303.684 rows=9.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=15933 read=206153
+        ->  Sort  (cost=228736.09..228736.09 rows=3 width=17) (actual time=279.098..279.099 rows=3.00 loops=3)
+              Sort Key: status
+              Sort Method: quicksort  Memory: 25kB
+              Buffers: shared hit=15933 read=206153
+              Worker 0:  Sort Method: quicksort  Memory: 25kB
+              Worker 1:  Sort Method: quicksort  Memory: 25kB
+              ->  Partial HashAggregate  (cost=228736.03..228736.06 rows=3 width=17) (actual time=279.063..279.064 rows=3.00 loops=3)
+                    Group Key: status
+                    Batches: 1  Memory Usage: 32kB
+                    Buffers: shared hit=15917 read=206153
+                    Worker 0:  Batches: 1  Memory Usage: 32kB
+                    Worker 1:  Batches: 1  Memory Usage: 32kB
+                    ->  Parallel Seq Scan on outbox_record  (cost=0.00..226993.50 rows=348507 width=9) (actual time=5.795..196.924 rows=284413.33 loops=3)
+                          Filter: ((status)::text = ANY ('{NEW,FAILED,COMPLETED}'::text[]))
+                          Buffers: shared hit=15917 read=206153
+Settings: search_path = 'run'
+Planning Time: 0.072 ms
+JIT:
+  Functions: 33
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 1.865 ms (Deform 0.567 ms), Inlining 0.000 ms, Optimization 0.764 ms, Emission 16.085 ms, Total 18.714 ms
+Execution Time: 304.321 ms

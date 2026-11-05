@@ -1,0 +1,10 @@
+HashAggregate  (cost=2588.33..2588.36 rows=3 width=17) (actual time=2.551..2.552 rows=3.00 loops=1)
+  Group Key: status
+  Batches: 1  Memory Usage: 32kB
+  Buffers: shared hit=2229
+  ->  Seq Scan on outbox_record  (cost=0.00..2493.89 rows=18887 width=9) (actual time=0.013..1.595 rows=8549.00 loops=1)
+        Filter: ((status)::text = ANY ('{NEW,FAILED,COMPLETED}'::text[]))
+        Buffers: shared hit=2229
+Settings: search_path = 'run'
+Planning Time: 0.042 ms
+Execution Time: 2.568 ms

@@ -64,14 +64,20 @@ object Bench {
         c.prepareStatement(sql).use { ps ->
             NamedSql.bind(ps, values)
             if (maxRows > 0) ps.maxRows = maxRows
-            if (q.kind == "read") {
-                ps.executeQuery().use { rs ->
-                    val n = rs.metaData.columnCount; var rows = 0; val data = if (collect) mutableListOf<List<String?>>() else null
-                    while (rs.next()) { rows++; val r = (1..n).map { rs.getString(it) }; data?.add(r) }
-                    return ExecResult(rows, data, (1..n).map { rs.metaData.getColumnLabel(it).lowercase() })
+            val armed = Limit.arm(q.id, ps)
+            try {
+                if (q.kind == "read") {
+                    ps.executeQuery().use { rs ->
+                        val n = rs.metaData.columnCount; var rows = 0; val data = if (collect) mutableListOf<List<String?>>() else null
+                        while (rs.next()) { rows++; val r = (1..n).map { rs.getString(it) }; data?.add(r) }
+                        return ExecResult(rows, data, (1..n).map { rs.metaData.getColumnLabel(it).lowercase() })
+                    }
                 }
-            }
-            return ExecResult(ps.executeUpdate(), null)
+                return ExecResult(ps.executeUpdate(), null)
+            } catch (e: SQLException) {
+                if (armed?.fired == true) throw SQLException(armed.message(), e)
+                throw e
+            } finally { armed?.close() }
         }
     }
 
@@ -214,7 +220,7 @@ object Bench {
                 st.executeQuery("SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY)").use { rs -> while (rs.next()) sb.appendLine(rs.getString(1)) }
                 File(dir, "${q.id}.txt").writeText(sb.toString())
             }
-            else -> {}
+            Dialect.H2, Dialect.POSTGRES -> File(dir, "${q.id}.txt").writeText("plain EXPLAIN (query not executed)\n" + runExplain(c, "EXPLAIN $lit"))
         }
     }
 
@@ -266,6 +272,10 @@ object Bench {
                     c.autoCommit = true
                     csv.appendLine("$id,,,,,,0,ERROR ${e.message?.lines()?.first()?.replace(',', ';')}")
                     println("%-24s ERROR %s".format(id, e.message?.lines()?.first()))
+                    if (e.message?.startsWith("stopped at limit") == true && !skipPlans) try { // plan without executing, to see why it was stopped
+                        val (sql, values) = NamedSql.expand(q.sql, ctx.paramsFor(q, 0))
+                        planPlain(cm.dialect, c, NamedSql.literalize(cm.dialect, sql, values), q, File(dir, "plans"))
+                    } catch (e2: Exception) { File(dir, "plans/$id.error.txt").writeText(e2.toString()) }
                 }
             }
             File(dir, "timings.csv").writeText(csv.toString())
