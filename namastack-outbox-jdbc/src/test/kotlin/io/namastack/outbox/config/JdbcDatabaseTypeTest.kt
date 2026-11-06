@@ -120,6 +120,11 @@ class JdbcDatabaseTypeTest {
         }
     }
 
+    /**
+     * Tests database type detection from datasource metadata.
+     *
+     * @author Aleksander Zamojski
+     */
     @Nested
     inner class DetectTest {
         @Test

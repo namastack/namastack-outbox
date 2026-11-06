@@ -7,6 +7,11 @@ import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.mariadb.MariaDBContainer
 
+/**
+ * Runs the JDBC repository integration checks against MariaDB.
+ *
+ * @author Aleksander Zamojski
+ */
 @Testcontainers
 class JdbcOutboxRecordRepositoryMariaDbIntegrationTest : AbstractJdbcOutboxRecordRepositoryIntegrationTest() {
     companion object {

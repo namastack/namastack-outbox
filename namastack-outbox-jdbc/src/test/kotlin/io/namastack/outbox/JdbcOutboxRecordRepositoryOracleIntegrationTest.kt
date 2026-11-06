@@ -7,6 +7,11 @@ import org.testcontainers.containers.OracleContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 
+/**
+ * Runs the JDBC repository integration checks against Oracle.
+ *
+ * @author Aleksander Zamojski
+ */
 @Testcontainers
 class JdbcOutboxRecordRepositoryOracleIntegrationTest : AbstractJdbcOutboxRecordRepositoryIntegrationTest() {
     companion object {

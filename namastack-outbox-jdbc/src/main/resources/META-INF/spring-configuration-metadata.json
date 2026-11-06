@@ -57,7 +57,7 @@
       "name": "namastack.outbox.jdbc.completion-batching.max-wait",
       "type": "java.time.Duration",
       "defaultValue": "1ms",
-      "description": "Maximum time to collect a batch after its first completion arrives"
+      "description": "Maximum time a writer collects a batch after taking its first completion"
     }
   ]
 }

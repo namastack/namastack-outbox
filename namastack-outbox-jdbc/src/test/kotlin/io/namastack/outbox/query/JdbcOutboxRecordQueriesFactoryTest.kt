@@ -4,6 +4,11 @@ import io.namastack.outbox.config.JdbcDatabaseType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
+/**
+ * Tests JDBC query selection for supported database types.
+ *
+ * @author Aleksander Zamojski
+ */
 class JdbcOutboxRecordQueriesFactoryTest {
     private val table = "outbox_record"
 

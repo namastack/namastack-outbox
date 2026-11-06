@@ -256,7 +256,7 @@ class OutboxCoreAutoConfigurationTest {
                 .run { context ->
                     assertThat(context.getBean<OutboxInstanceRegistry>().phase).isEqualTo(0)
                     assertThat(context.getBean<PartitionCoordinator>().phase).isEqualTo(1)
-                    assertThat(context.getBean<OutboxProcessingScheduler>().phase).isEqualTo(2)
+                    assertThat(context.getBean<OutboxProcessingScheduler>().phase).isEqualTo(3)
                 }
         }
     }

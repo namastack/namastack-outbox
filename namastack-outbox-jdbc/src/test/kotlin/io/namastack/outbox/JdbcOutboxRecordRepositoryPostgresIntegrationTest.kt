@@ -6,6 +6,11 @@ import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
 
+/**
+ * Runs the JDBC repository integration checks against PostgreSQL.
+ *
+ * @author Aleksander Zamojski
+ */
 @Testcontainers
 class JdbcOutboxRecordRepositoryPostgresIntegrationTest : AbstractJdbcOutboxRecordRepositoryIntegrationTest() {
     companion object {

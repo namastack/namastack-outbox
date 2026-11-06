@@ -8,6 +8,7 @@ import io.namastack.outbox.OutboxRecordRepository
  *
  * @param repository Repository used to update or delete completed records
  *
+ * @author Roland Beisel
  * @since 1.12.0
  */
 class DefaultOutboxCompletionPersistence(

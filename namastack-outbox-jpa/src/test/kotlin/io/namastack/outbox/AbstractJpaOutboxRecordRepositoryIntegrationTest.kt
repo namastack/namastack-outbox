@@ -44,6 +44,11 @@ import java.util.Collections
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit.SECONDS
 
+/**
+ * Shared JPA repository integration checks across database dialects.
+ *
+ * @author Roland Beisel
+ */
 @DataJpaTest(
     properties = [
         "spring.jpa.hibernate.ddl-auto=create-drop",
@@ -916,6 +921,11 @@ abstract class AbstractJpaOutboxRecordRepositoryIntegrationTest {
             failureException = record.failureException,
         )
 
+    /**
+     * Counts serialization calls made by repository operations.
+     *
+     * @author Roland Beisel
+     */
     private class CountingSerializer : OutboxPayloadSerializer {
         private val delegate = JacksonOutboxPayloadSerializer(JsonMapper.builder().build())
         var serializations = 0

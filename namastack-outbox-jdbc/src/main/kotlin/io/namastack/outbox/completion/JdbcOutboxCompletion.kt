@@ -10,6 +10,7 @@ import java.time.Instant
  * [Update] captures the record's processing fields; [Delete] identifies the record to remove.
  * Neither action retains the payload, context, or mutable [OutboxRecord].
  *
+ * @author Roland Beisel
  * @since 1.12.0
  */
 internal sealed interface JdbcOutboxCompletion {
@@ -25,6 +26,7 @@ internal sealed interface JdbcOutboxCompletion {
      * @property failureCount Number of processing failures to persist
      * @property failureReason Last failure reason to persist, if present
      * @property nextRetryAt Next retry time to persist
+     * @author Roland Beisel
      */
     data class Update(
         override val recordId: String,
@@ -57,6 +59,7 @@ internal sealed interface JdbcOutboxCompletion {
      * Record identifier for a delete completion.
      *
      * @property recordId ID of the record to delete
+     * @author Roland Beisel
      */
     data class Delete(
         override val recordId: String,

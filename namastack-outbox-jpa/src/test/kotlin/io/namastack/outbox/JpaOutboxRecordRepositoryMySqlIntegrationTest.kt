@@ -6,6 +6,11 @@ import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.mysql.MySQLContainer
 
+/**
+ * Runs the JPA repository integration checks against MySQL.
+ *
+ * @author Aleksander Zamojski
+ */
 @Testcontainers
 class JpaOutboxRecordRepositoryMySqlIntegrationTest : AbstractJpaOutboxRecordRepositoryIntegrationTest() {
     companion object {

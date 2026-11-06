@@ -14,6 +14,9 @@ check its KDoc against the implementation and its callers before finishing the c
   or passed through to a caller.
 - For sealed hierarchies, document the shared contract on the base type and the distinct role of
   each subtype on that subtype. Describe data holders as data holders, not as methods that execute.
+- Give every new named class, interface, and object, including nested types and test classes,
+  a KDoc with an `@author` tag. Use the actual contributor's name; do not copy an unrelated
+  author's tag from a nearby type.
 - For new declarations, `@since` normally uses the next minor release after the current project
   version (for example, `1.11.x` becomes `1.12.0`). Check the planned release before setting it;
   keep the original `@since` on existing declarations.

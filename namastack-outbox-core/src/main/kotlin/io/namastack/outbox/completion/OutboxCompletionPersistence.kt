@@ -11,6 +11,7 @@ import io.namastack.outbox.OutboxRecordRepository
  * can preserve record-key order. Retry and permanent-failure state changes use
  * [OutboxRecordRepository] directly.
  *
+ * @author Roland Beisel
  * @since 1.12.0
  */
 interface OutboxCompletionPersistence {

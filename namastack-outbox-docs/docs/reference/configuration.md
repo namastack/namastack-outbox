@@ -68,6 +68,11 @@ namastack:
         partition: "outbox_partition"          # Base name for the partitions table (default: outbox_partition)
       schema-initialization:
         enabled: true                          # Auto-create tables on startup (default: true)
+      completion-batching:
+        enabled: false                         # Batch JDBC completion writes (default: false)
+        writer-count: 1                        # Concurrent completion writers (default: 1)
+        max-batch-size: 1024                   # Maximum completions per batch (default: 1024)
+        max-wait: 1ms                          # Maximum wait after the first completion (default: 1ms)
 
     mongodb:
       collection-prefix: ""                    # Prefix for collection names (default: empty)

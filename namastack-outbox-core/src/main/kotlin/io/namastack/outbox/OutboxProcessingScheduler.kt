@@ -77,8 +77,8 @@ class OutboxProcessingScheduler(
 
     private val compatibilityCooldownUntil = AtomicReference<Instant?>()
 
-    /** Starts after instance registration (`phase = 0`) and partition coordination (`phase = 1`). */
-    override fun getPhase(): Int = 2
+    /** Starts after instance registration (`phase = 0`), coordination (`phase = 1`), and completion batching (`phase = 2`). */
+    override fun getPhase(): Int = 3
 
     /**
      * Returns `true` while this lifecycle is active (idle, running, or shutting down).
