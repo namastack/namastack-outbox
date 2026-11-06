@@ -13,7 +13,9 @@ import io.namastack.outbox.OutboxRecordRepository
 class DefaultOutboxCompletionPersistence(
     private val repository: OutboxRecordRepository,
 ) : OutboxCompletionPersistence {
-    override fun updateCompleted(record: OutboxRecord<*>): Boolean = repository.updateProcessingState(record)
+    override fun updateCompleted(record: OutboxRecord<*>) {
+        repository.updateProcessingState(record)
+    }
 
     override fun deleteCompleted(id: String) = repository.deleteById(id)
 }

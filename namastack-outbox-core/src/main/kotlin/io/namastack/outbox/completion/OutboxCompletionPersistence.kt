@@ -18,9 +18,8 @@ interface OutboxCompletionPersistence {
      * Persists the completed processing state of an existing record.
      *
      * @param record Record whose status and completion time have already been updated in memory
-     * @return `true` if the record was updated, `false` if it no longer exists
      */
-    fun updateCompleted(record: OutboxRecord<*>): Boolean
+    fun updateCompleted(record: OutboxRecord<*>)
 
     /**
      * Deletes a successfully processed record.
