@@ -1,1 +1,0 @@
-Hibernate SQL captured from JpaOutboxRecordRepositoryTest (H2 dialect) with SPRING_JPA_SHOW_SQL=true ./gradlew :namastack-outbox-jpa:test --tests io.namastack.outbox.JpaOutboxRecordRepositoryTest -i (env var only, nothing committed).
