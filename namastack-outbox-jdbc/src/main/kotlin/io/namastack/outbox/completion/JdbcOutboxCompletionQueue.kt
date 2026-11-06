@@ -53,8 +53,8 @@ internal class JdbcOutboxCompletionQueue(
     /**
      * Enqueues a completion, waiting for capacity while submissions are accepted.
      *
-     * The caller's interrupted status is restored after waiting. Closing the queue wakes a waiting
-     * caller within one poll interval; that caller then receives null.
+     * The caller's interrupted status is restored after waiting. A caller waiting for capacity
+     * checks whether the queue has closed after each permit wait and then returns null.
      *
      * @param completion Immutable completion action
      * @return Future completed by a worker, or null if the queue closes before submission
