@@ -86,6 +86,8 @@ class OutboxProcessingScheduler(
 
     /**
      * Returns `true` while this lifecycle is active (idle, running, or shutting down).
+     *
+     * @return true while idle, processing, or shutting down; false when the lifecycle state is stopped
      */
     override fun isRunning(): Boolean = lifecycle.isStarted()
 
@@ -326,7 +328,9 @@ class OutboxProcessingScheduler(
         private val state = AtomicReference(LifecycleState.STOPPED)
 
         /**
-         * Returns `true` when the scheduler lifecycle was started and not fully stopped yet.
+         * Reports whether the lifecycle state is other than [LifecycleState.STOPPED].
+         *
+         * @return true while idle, processing, or shutting down; false when the state is stopped
          */
         fun isStarted(): Boolean = state.get() != LifecycleState.STOPPED
 
@@ -334,6 +338,9 @@ class OutboxProcessingScheduler(
          * Transitions from [LifecycleState.STOPPED] to [LifecycleState.IDLE] and invokes [schedule].
          *
          * If already started, the request is ignored.
+         *
+         * @param schedule Registers the processing job when the lifecycle is stopped
+         * @throws Exception if registering the processing job fails; the lifecycle remains stopped
          */
         fun scheduleJob(schedule: () -> Unit) =
             lock.withLock {
@@ -392,6 +399,9 @@ class OutboxProcessingScheduler(
          *
          * When called during [LifecycleState.RUNNING] or [LifecycleState.SHUTTING_DOWN], this method waits
          * for processing completion, timeout, or interruption before finalizing stop.
+         *
+         * @param cancel Cancels the scheduled processing job when the lifecycle is idle or running
+         * @throws Exception if cancelling the scheduled job fails before shutdown can proceed
          */
         fun cancelScheduledJob(cancel: () -> Unit) =
             lock.withLock {

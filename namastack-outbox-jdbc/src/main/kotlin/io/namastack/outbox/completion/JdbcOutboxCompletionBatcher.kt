@@ -55,7 +55,7 @@ internal class JdbcOutboxCompletionBatcher(
      * Schedules all completion workers and then allows callers to submit.
      *
      * The queue is opened first so a worker cannot see it as closed and exit during startup.
-     * If scheduling fails, the queue is closed and the failure is propagated.
+     * If the executor throws an exception while scheduling, the queue closes and the exception propagates.
      *
      * @throws IllegalStateException if workers from a previous run are still active
      */

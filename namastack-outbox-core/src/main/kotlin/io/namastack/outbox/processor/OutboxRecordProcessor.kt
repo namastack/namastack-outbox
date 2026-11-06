@@ -8,6 +8,7 @@ import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
  *
  * Processors form a chain where each processor can handle a record or pass it to the next processor.
  *
+ * @property next Next processor in the chain, or null until one is configured
  * @author Roland Beisel
  * @since 1.0.0
  */
@@ -29,6 +30,7 @@ abstract class OutboxRecordProcessor(
     /**
      * Passes record to next processor in chain.
      *
+     * @param record Record to pass to the next processor
      * @return Outcome returned by the next processor.
      * @throws IllegalStateException if the chain has no next processor.
      */
@@ -39,6 +41,7 @@ abstract class OutboxRecordProcessor(
     /**
      * Processes the record.
      *
+     * @param record Record to handle or pass to the next processor
      * @return Final outcome produced by this processor or a downstream processor.
      */
     abstract fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome
