@@ -11,6 +11,7 @@ import io.namastack.outbox.config.JdbcOutboxConfigurationProperties.CompletionBa
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Test
 import org.springframework.jdbc.datasource.DataSourceTransactionManager
 import org.springframework.jdbc.datasource.DriverManagerDataSource
@@ -210,6 +211,30 @@ class JdbcOutboxCompletionBatcherTest {
         result.get(2, TimeUnit.SECONDS)
         stopping.get(2, TimeUnit.SECONDS)
         assertThat(batcher.submit(JdbcOutboxCompletion.Delete("late"))).isNull()
+    }
+
+    @Test
+    fun `shutdown drains queued completions in bounded batches without waiting to fill the last batch`() {
+        val queue = JdbcOutboxCompletionQueue(7)
+        val written = mutableListOf<List<String>>()
+        val writer =
+            writer { deletions ->
+                written.add(deletions.map { it.recordId })
+                deletions.map { Result.success(Unit) }
+            }
+        val worker = JdbcOutboxCompletionWorker(queue, writer, 3, Duration.ofSeconds(10))
+        queue.startAccepting()
+        val results = (1..7).map { queue.submit(JdbcOutboxCompletion.Delete("record-$it"))!! }
+        queue.stopAccepting()
+
+        assertTimeoutPreemptively(Duration.ofSeconds(2)) { worker.run() }
+
+        results.forEach { it.get(2, TimeUnit.SECONDS) }
+        assertThat(written).containsExactly(
+            listOf("record-1", "record-2", "record-3"),
+            listOf("record-4", "record-5", "record-6"),
+            listOf("record-7"),
+        )
     }
 
     @Test
