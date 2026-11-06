@@ -26,9 +26,9 @@ internal class JdbcOutboxCompletionWorker(
      * Takes submissions from the shared queue and writes them in batches.
      *
      * A batch starts with the first available submission. The worker then collects more until
-     * [maxBatchSize] is reached, [maxWait] has elapsed, or the queue closes. After the queue
-     * closes, it writes any submissions still waiting before returning. Each caller receives
-     * the result of its own write through the submission's future.
+     * [maxBatchSize] is reached or [maxWait] has elapsed. When the queue closes, it drains queued
+     * submissions in batches up to [maxBatchSize] without waiting to fill a partial batch.
+     * Each caller receives the result of its own write through the submission's future.
      */
     fun run() {
         while (queue.isAccepting() || queue.hasPending()) {
@@ -43,6 +43,12 @@ internal class JdbcOutboxCompletionWorker(
                 if (remainingWaitNanos <= 0) break
 
                 val next = queue.poll(minOf(remainingWaitNanos, POLL_NANOS)) ?: continue
+                batch.add(next)
+            }
+
+            // Shutdown stops waiting for new work, but queued completions still share a batch.
+            while (batch.size < maxBatchSize && !queue.isAccepting()) {
+                val next = queue.poll(0) ?: break
                 batch.add(next)
             }
 
