@@ -1,0 +1,25 @@
+Limit  (cost=61.56..61.57 rows=2 width=82) (actual time=14.234..14.235 rows=10.00 loops=1)
+  Buffers: shared hit=4315
+  ->  Sort  (cost=61.56..61.57 rows=2 width=82) (actual time=14.234..14.234 rows=10.00 loops=1)
+        Sort Key: o.created_at, o.id
+        Sort Method: top-N heapsort  Memory: 26kB
+        Buffers: shared hit=4315
+        ->  Index Scan using idx_outbox_record_status_partition_incomplete on outbox_record o  (cost=0.29..61.55 rows=2 width=82) (actual time=0.042..14.191 rows=229.00 loops=1)
+              Index Cond: (((status)::text = 'NEW'::text) AND (partition_no = ANY ('{0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252}'::integer[])))
+              Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND ((id)::text = ((SubPlan 1))::text))
+              Rows Removed by Filter: 49
+              Index Searches: 1
+              Buffers: shared hit=4315
+              SubPlan 1
+                ->  Limit  (cost=0.41..4.86 rows=1 width=45) (actual time=0.061..0.061 rows=1.00 loops=229)
+                      Buffers: shared hit=4035
+                      ->  Index Only Scan using idx_outbox_record_status_created_id_incomplete on outbox_record e  (cost=0.41..4.86 rows=1 width=45) (actual time=0.061..0.061 rows=1.00 loops=229)
+                            Index Cond: (status = 'NEW'::text)
+                            Filter: ((next_retry_at <= '2026-01-01 12:00:00+00'::timestamp with time zone) AND ((record_key)::text = (o.record_key)::text))
+                            Rows Removed by Filter: 600
+                            Heap Fetches: 0
+                            Index Searches: 229
+                            Buffers: shared hit=4035
+Settings: search_path = 'run'
+Planning Time: 0.193 ms
+Execution Time: 14.267 ms

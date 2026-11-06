@@ -1,0 +1,3 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_strict,1.014,1.142,0.979,1.404,10,20,
+keys_nonstrict,0.971,1.097,0.939,1.247,10,20,
