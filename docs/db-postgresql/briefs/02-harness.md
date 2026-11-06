@@ -1,7 +1,7 @@
 # Brief 02 — Benchmark harness
 
-You are a sub-agent. Inputs: `docs/db-sql/01-usage-map.md`, `docs/db-sql/01-usage-map-v1-delta.md`,
-`docs/db-sql/02-scenarios.md`. Output: `docs/db-sql/harness/` with a `README.md` explaining usage.
+You are a sub-agent. Inputs: `docs/db-postgresql/01-usage-map.md`, `docs/db-postgresql/01-usage-map-v1-delta.md`,
+`docs/db-postgresql/02-scenarios.md`. Output: `docs/db-postgresql/harness/` with a `README.md` explaining usage.
 
 ## Isolation rule
 
@@ -41,7 +41,7 @@ report it.
    (find keys → load pages → update state) while a producer inserts; report throughput and latency.
 9. **Equivalence check**: for two variants on identical data, compare results of every read query
    (rows, order where order is part of the contract, counts) and the effect of every write/delete.
-10. **Output format**: `docs/db-sql/results/<variant>/<dialect>/<scenario>/` with `timings.csv`
+10. **Output format**: `docs/db-postgresql/results/<variant>/<dialect>/<scenario>/` with `timings.csv`
     (query_id, median_ms, p95_ms, min_ms, max_ms, rows, reps), `plans/<query_id>.*`, `env.txt`
     (images, limits, settings, git sha). Provide a compare script that diffs two result dirs into a
     markdown table with relative change.

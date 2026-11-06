@@ -1,7 +1,7 @@
 # E04 / MIN: partial record-key index and the minimal index set (round 2, PostgreSQL)
 
 Author: analysis sub-agent. No measurements were made for this report; every number is read from the files cited. Result dirs are
-`docs/db-sql/results/<variant>/postgres/<label>-R2/` (abbreviated `<variant>/<label>`), `timings.csv`, `plancache.csv`, `plans/`.
+`docs/db-postgresql/results/<variant>/postgres/<label>-R2/` (abbreviated `<variant>/<label>`), `timings.csv`, `plancache.csv`, `plans/`.
 Harness mechanics, spec: `experiments/round2-spec.md`. Equivalence: `results/equiv/postgres/{S2,S5,S7}/{E04,MIN}-vs-v1.md`.
 
 ## Hypothesis, base, change

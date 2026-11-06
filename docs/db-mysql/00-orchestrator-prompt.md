@@ -13,7 +13,7 @@ and (2) the final MySQL DDL and SQL ready to apply to `feature/db-jdbc-optimizat
    the path of its brief in `docs/db-mysql/briefs/`, the concrete parameters (variants, worktrees, lane, labels, output paths),
    and the isolation rule from `briefs/00-isolation-rule.md` **verbatim**.
 2. **Isolation.** The rule in `briefs/00-isolation-rule.md` applies to you too: never open, list, grep or summarize `docs/db/`,
-   `docs/db-sql/` or `docs/db-mariadb/` (in any tree, branch or commit). Their numbers and conclusions must not influence this study.
+   `docs/db-postgresql/` or `docs/db-mariadb/` (in any tree, branch or commit). Their numbers and conclusions must not influence this study.
    The only PostgreSQL knowledge allowed is `docs/db-mysql/reference/postgres-rationale.md` — you may read it, but give it only to the
    sub-agents whose brief allows it (the PostgreSQL-transfer proposer, and experiments you mark as transfer experiments). Treat it as
    hypotheses, not as facts about MySQL.

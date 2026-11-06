@@ -1,6 +1,6 @@
 # R2-v1b — v1b vs v1 vs main (PostgreSQL, round 2)
 
-Analysis of existing measurements only (no new runs). Spec: `experiments/round2-spec.md`. All paths below are relative to `docs/db-sql/`.
+Analysis of existing measurements only (no new runs). Spec: `experiments/round2-spec.md`. All paths below are relative to `docs/db-postgresql/`.
 
 ## Hypothesis, base, change
 

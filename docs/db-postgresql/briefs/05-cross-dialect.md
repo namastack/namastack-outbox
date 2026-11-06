@@ -21,8 +21,8 @@ report it.
    with output.
 3. **Measure** (only when the orchestrator says so, serially, never in parallel with other
    benchmarks): baseline vs v1 vs v2 on the requested dialects and scenarios with the harness, into
-   `docs/db-sql/results/v2/<dialect>/<scenario>/`, plus equivalence checks against baseline.
-4. **Report** a section per dialect for `docs/db-sql/06-cross-dialect.md`: final DDL, query
+   `docs/db-postgresql/results/v2/<dialect>/<scenario>/`, plus equivalence checks against baseline.
+4. **Report** a section per dialect for `docs/db-postgresql/06-cross-dialect.md`: final DDL, query
    differences, deviations from PostgreSQL, results table (baseline / v1 / v2), regressions.
 
 Return a summary of ≤300 words with paths, test results and regressions.

@@ -13,7 +13,7 @@ and (2) the final MariaDB DDL and SQL ready to apply to `feature/db-jdbc-optimiz
    the path of its brief in `docs/db-mariadb/briefs/`, the concrete parameters (variants, worktrees, lanes, labels, output paths),
    and the isolation rule from `briefs/00-isolation-rule.md` **verbatim**.
 2. **Isolation.** The rule in `briefs/00-isolation-rule.md` applies to you too: never open, list, grep or summarize `docs/db/` or
-   `docs/db-sql/`. Earlier MariaDB numbers exist there and must not influence this study. The only PostgreSQL knowledge allowed is
+   `docs/db-postgresql/`. Earlier MariaDB numbers exist there and must not influence this study. The only PostgreSQL knowledge allowed is
    `docs/db-mariadb/reference/postgres-rationale.md` — you may read it, but give it only to the sub-agents whose brief allows it
    (the PostgreSQL-transfer proposer, and experiments you mark as transfer experiments). Treat it as hypotheses, not as facts about
    MariaDB.

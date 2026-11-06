@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Driver: phase 5 round 3, PostgreSQL, screen extension (spec: experiments/round3-spec.md "Screen extension"). Run from anywhere:
-#   nohup docs/db-sql/harness/bin/round3-screenx-pg.sh > /dev/null 2>&1 &     (env: STAGES="X0 X1" default (X0 then X1), SCENARIOS="S2 S4 S7" (X1), REDO=1)
+#   nohup docs/db-postgresql/harness/bin/round3-screenx-pg.sh > /dev/null 2>&1 &     (env: STAGES="X0 X1" default (X0 then X1), SCENARIOS="S2 S4 S7" (X1), REDO=1)
 # Logs: results/logs/round3-screenx-pg.log (steps, pass order, variant order per label), round3-screenx-pg.out (tool output), failures: results/logs/failures-round3x.txt.
 # Resumable: a step is skipped when its output file exists (timings.csv, writecost.csv, concurrency-p4-r0.txt) unless REDO=1. Results: results/<variant>/postgres/<label>-R3X/.
 # Override inputs: experiments/R3X-<variant>/{ddl.sql,queries/}; references reuse experiments/R2-v1b, R3-UABCD2, R3-UABC-L. Aborts when free disk < 12 GB.

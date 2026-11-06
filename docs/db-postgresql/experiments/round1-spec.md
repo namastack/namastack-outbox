@@ -6,7 +6,7 @@ per scenario and shared), then writes one report per experiment. All variants ar
 
 Base DDL files: main = `/home/zamo/git/outbox-wt-main/namastack-outbox-jdbc/src/main/resources/schema/postgres/outbox-tables.sql`,
 v1 = `/home/zamo/git/outbox-wt-v1/.../schema/postgres/outbox-tables.sql`. Put every derived DDL/queries dir under
-`docs/db-sql/experiments/<Exx>-<slug>/` (`ddl.sql`, `queries/<id>.sql`).
+`docs/db-postgresql/experiments/<Exx>-<slug>/` (`ddl.sql`, `queries/<id>.sql`).
 
 ## Variants
 
@@ -78,11 +78,11 @@ candidate for removal, not a win.
 
 ## Noise
 
-Use `docs/db-sql/STATE.md` thresholds: HOT/WRITE 30 %, MON/RET/ADMIN 20 %, and always > 0.15 ms absolute.
+Use `docs/db-postgresql/STATE.md` thresholds: HOT/WRITE 30 %, MON/RET/ADMIN 20 %, and always > 0.15 ms absolute.
 
 ## Reports
 
-`docs/db-sql/experiments/E01-status-created-main.md`, `E02-status-created-v1.md`, `E1x-v1-ablation-leave-one-out.md`
+`docs/db-postgresql/experiments/E01-status-created-main.md`, `E02-status-created-v1.md`, `E1x-v1-ablation-leave-one-out.md`
 (one section per V1 item with a verdict: `matters` / `no difference` / `harmful`), each per brief 04: hypothesis, exact change,
 results table (query × scenario: base, experiment, main, v1, relative change), plan excerpts for affected queries,
 write cost and index sizes, verdict, portability, follow-ups. V1-10/V1-11 (metrics) need no run: compute from the results

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Driver: phase 5 round 3, PostgreSQL, stage 0 (pages form in the S10 loop) + stage 1 (screen). Spec: experiments/round3-spec.md. Run from anywhere:
-#   nohup docs/db-sql/harness/bin/round3-screen-pg.sh > /dev/null 2>&1 &     (env: STAGES="0 1" default, SCENARIOS="S2 S4 S7" default (stage 1), REDO=1)
+#   nohup docs/db-postgresql/harness/bin/round3-screen-pg.sh > /dev/null 2>&1 &     (env: STAGES="0 1" default, SCENARIOS="S2 S4 S7" default (stage 1), REDO=1)
 # Logs: results/logs/round3-screen-pg.log (steps, pass order, variant order per label), round3-screen-pg.out (tool output), failures: results/logs/failures-round3.txt.
 # Resumable: a step is skipped when its output file exists (timings.csv, writecost.csv, concurrency-p4-r0.txt) unless REDO=1. Results: results/<variant>/postgres/<label>-R3/.
 # Override inputs: experiments/R3-<variant>/{ddl.sql,queries/}; v1b and E04 reuse experiments/R2-v1b, R2-E04.

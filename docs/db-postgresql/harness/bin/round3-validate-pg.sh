@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Driver: phase 5 round 3, PostgreSQL, stage 3 (validate). Spec: experiments/round3-spec.md "Stage 3: validate"; stage 2 results: experiments/R3C-confirm.md.
-#   nohup docs/db-sql/harness/bin/round3-validate-pg.sh > /dev/null 2>&1 &     (env: SCENARIOS="S2 S4 S5 S6 S7" default, REDO=1, VARIANTS="..." optional)
+#   nohup docs/db-postgresql/harness/bin/round3-validate-pg.sh > /dev/null 2>&1 &     (env: SCENARIOS="S2 S4 S5 S6 S7" default, REDO=1, VARIANTS="..." optional)
 # Logs: results/logs/round3-validate-pg.log (steps, orders, plan checks), round3-validate-pg.out (tool output), failures: results/logs/failures-round3v.txt.
 # Resumable: a step is skipped when its output file exists (timings.csv, writecost.csv, concurrency-*.txt) unless REDO=1. Restart after an abort: the same command.
 # Results: results/<variant>/postgres/<label>-v<pass>-R3V/ (suffix -R3V). Override inputs: experiments/R3C-<variant>/{ddl.sql,queries/} (no new variants);

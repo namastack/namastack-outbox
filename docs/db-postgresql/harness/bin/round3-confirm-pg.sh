@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Driver: phase 5 round 3, PostgreSQL, stage 2 (confirm). Spec: experiments/round3-spec.md "Stage 2: confirm". Run from anywhere:
-#   nohup docs/db-sql/harness/bin/round3-confirm-pg.sh > /dev/null 2>&1 &     (env: SCENARIOS="S2 S4 S5 S6 S7" default, REDO=1, VARIANTS="..." optional, the default is the 9 variants below)
+#   nohup docs/db-postgresql/harness/bin/round3-confirm-pg.sh > /dev/null 2>&1 &     (env: SCENARIOS="S2 S4 S5 S6 S7" default, REDO=1, VARIANTS="..." optional, the default is the 9 variants below)
 # Logs: results/logs/round3-confirm-pg.log (steps, variant order per label, pass order, plan/equivalence checks), round3-confirm-pg.out (tool output),
 #   failures: results/logs/failures-round3c.txt.
 # Resumable: a step is skipped when its output file exists (timings.csv, writecost.csv, concurrency-*.txt, equivalence report) unless REDO=1.

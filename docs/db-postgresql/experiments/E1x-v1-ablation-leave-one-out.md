@@ -1,9 +1,9 @@
 # E1x - v1 leave-one-out ablation (PostgreSQL 18.6, round 1)
 
-Experiments E11, E12, E13, E14, E1Q, E1M (spec: `docs/db-sql/experiments/round1-spec.md`). Base = `v1`. Each variant reverts exactly one v1 item
+Experiments E11, E12, E13, E14, E1Q, E1M (spec: `docs/db-postgresql/experiments/round1-spec.md`). Base = `v1`. Each variant reverts exactly one v1 item
 (or one disjoint set of query ids for E1Q); the reference is the `v1` run of the same snapshot.
 
-Paths below are relative to `docs/db-sql/results/`. "T" = `<variant>/postgres/<label>-R1/timings.csv` (median ms, 20 reps, 5 warmup),
+Paths below are relative to `docs/db-postgresql/results/`. "T" = `<variant>/postgres/<label>-R1/timings.csv` (median ms, 20 reps, 5 warmup),
 "P" = `<variant>/postgres/<label>-R1/plans/<query>.json|.txt`, "W" = `<variant>/postgres/S2-R1/writecost.csv`.
 
 ## How to read the verdicts

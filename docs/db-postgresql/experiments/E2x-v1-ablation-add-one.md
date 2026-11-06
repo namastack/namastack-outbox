@@ -1,9 +1,9 @@
 # E2x - v1 add-one ablation on main (PostgreSQL 18.6, round 2)
 
-Experiments E21, E22, E22b, E23, E24, E26, E28 (spec: `docs/db-sql/experiments/round2-spec.md`). Base = `main`; each variant adds (or, for E21,
+Experiments E21, E22, E22b, E23, E24, E26, E28 (spec: `docs/db-postgresql/experiments/round2-spec.md`). Base = `main`; each variant adds (or, for E21,
 removes) exactly one v1 item. Counterpart of the round 1 leave-one-out report `E1x-v1-ablation-leave-one-out.md`.
 
-Paths are relative to `docs/db-sql/results/`. "T" = `<variant>/postgres/<label>-R2/timings.csv` (median ms, 20 reps, 5 warmup; reps are fewer for
+Paths are relative to `docs/db-postgresql/results/`. "T" = `<variant>/postgres/<label>-R2/timings.csv` (median ms, 20 reps, 5 warmup; reps are fewer for
 cells slower than 2 s), "PC" = `.../plancache.csv`, "P" = `.../plans/<query>.txt`, "W" = `<variant>/postgres/S2-R2/writecost.csv`.
 Every number below is one run of one 20-rep sample unless it says otherwise (no repeat of any E2x variant was measured).
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Driver: phase 5 round 2, PostgreSQL (spec: experiments/round2-spec.md). Run from anywhere:
-#   nohup docs/db-sql/harness/bin/round2-pg.sh > /dev/null 2>&1 &        (env: SCENARIOS="S2 S4 S5 S6 S7" default, REDO=1)
+#   nohup docs/db-postgresql/harness/bin/round2-pg.sh > /dev/null 2>&1 &        (env: SCENARIOS="S2 S4 S5 S6 S7" default, REDO=1)
 # Logs: results/logs/round2-pg.log (steps, variant order per label), round2-pg.out (tool output), failures: results/logs/failures-round2.txt.
 # Resumable: a step is skipped when its output file exists (timings.csv, writecost.csv, churn/timings.csv, concurrency-p<N>-r0.txt, equiv report)
 # unless REDO=1. Results: results/<variant>/postgres/<label>-R2/; equivalence results/equiv/postgres/<scenario>/<a>-vs-<b>.md.

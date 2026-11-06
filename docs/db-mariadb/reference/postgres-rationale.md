@@ -1,10 +1,10 @@
 # Why the PostgreSQL outbox_record indexes and queries look the way they do
-> Agents of the MariaDB study: the `docs/db-sql/...` paths cited below are evidence pointers for the user. Do not open them (isolation rule).
+> Agents of the MariaDB study: the `docs/db-postgresql/...` paths cited below are evidence pointers for the user. Do not open them (isolation rule).
 
 Purpose: hypotheses for an independent MariaDB experiment. This file explains mechanisms and cites PostgreSQL evidence only. It contains no results for any other database. The MariaDB experiment must measure for itself whether each idea carries over.
 
 Conventions
-- Paths are relative to `docs/db-sql/` and cite the PostgreSQL experiment. "Final" means branch `origin/feature/db-jdbc-optimization` (`PostgresJdbcOutboxRecordQueries.kt`, `DefaultJdbcOutboxRecordQueries.kt`, `schema/postgres/outbox-tables.sql`) with the `P-KK2` `pages` form. The ADR is `docs/adr/0005-query-priorities-and-jdbc-dialect-optimization.md` on that branch.
+- Paths are relative to `docs/db-postgresql/` and cite the PostgreSQL experiment. "Final" means branch `origin/feature/db-jdbc-optimization` (`PostgresJdbcOutboxRecordQueries.kt`, `DefaultJdbcOutboxRecordQueries.kt`, `schema/postgres/outbox-tables.sql`) with the `P-KK2` `pages` form. The ADR is `docs/adr/0005-query-priorities-and-jdbc-dialect-optimization.md` on that branch.
 - "General knowledge" marks statements about database engines that were not measured in the experiment.
 - Evidence labels: S2 = 1M rows, 98.6 % COMPLETED, 1 000 NEW due; S4 = 1M NEW backlog plus 1M COMPLETED; S5 = 100 hot keys x 2 000 NEW; S6 = 195k future retries; S7 = 390k FAILED; S8-x = partial ownership (64 of 256 partitions); S9 = churn; S10 = 4-poller concurrency loop (`02-scenarios.md`).
 - Baseline caveat: early rounds compared against an older `main` (`313eb58`) whose strict key query still used GROUP BY. Current `main` (`f4446c8`, with GH-551) already has the strict key query without GROUP BY, so the final comparison is `experiments/CMP-main-vs-jdbc-opt-pg.md`.
@@ -320,7 +320,7 @@ Final: `SELECT created_at ... WHERE partition_no IN (:p) AND status = :status AN
 Why. Served by A (ordered by `created_at` per status, first qualifying row). Versus main: S8-S4 211 -> 0.41 ms on the older baseline (`experiments/E2x-v1-ablation-add-one.md`, E26 + queue index; `experiments/E1x-v1-ablation-leave-one-out.md` V1-6). `ORDER BY ... LIMIT` was preferred over `MIN` by the user's rule ("ORDER BY + row limit over MIN/GROUP BY when performance is the same", `STATE.md`).
 Dependence on A: alone it is worse than main (S8-S4 211 -> 459 ms: `Limit > Gather Merge > Sort > Parallel Index Scan idx_status`, no created_at-ordered index) (`experiments/E2x-v1-ablation-add-one.md`). Needs the queue index.
 Measured cost against current main: +0.2 ms in S8-S2..S8-S7 (0.19-0.29 -> 0.37-0.48 ms), above the threshold (`experiments/CMP-main-vs-jdbc-opt-pg.md`, Priority 2 table).
-Preliminary note from the user (not in `docs/db-sql/`, a still-running PostgreSQL test): `MIN(created_at)` appears better than `ORDER BY created_at LIMIT 1` for `oldest_created` on PostgreSQL; the branch will be updated later. This agrees directionally with the +0.2 ms measured vs main and with E1M/R5 results for `oldest_due_nonstrict` (section 3.9). Treat as preliminary until the run is documented.
+Preliminary note from the user (not in `docs/db-postgresql/`, a still-running PostgreSQL test): `MIN(created_at)` appears better than `ORDER BY created_at LIMIT 1` for `oldest_created` on PostgreSQL; the branch will be updated later. This agrees directionally with the +0.2 ms measured vs main and with E1M/R5 results for `oldest_due_nonstrict` (section 3.9). Treat as preliminary until the run is documented.
 
 **Portable idea / PG-specific part.** Portable: `MIN(col)` and `ORDER BY col LIMIT 1` are equivalent for the optimizer when an index on `(status, col)` exists; the difference measured was planning/plan-cache behaviour, not execution. PG-specific: custom-vs-generic plan mode (section 3.9).
 
@@ -426,7 +426,7 @@ Open/unexplained
 - Mixed v4/v7 id rows not tested. `experiments/R5-uuidv7.md`.
 - Planner rule behind the missing `BitmapAnd` with equal predicates is inferred (planner source not read, PG 18.6 only). `experiments/R5-pages-bitmapand.md`.
 
-**Preliminary note from the user (not in `docs/db-sql/`, not yet documented):** a still-running PostgreSQL test indicates `MIN(created_at)` is better than `ORDER BY created_at LIMIT 1` for `oldest_created` on PostgreSQL. The branch will be updated later. The documented data here (+0.2 ms for the final `ORDER BY` form against main's `MIN`, `experiments/CMP-main-vs-jdbc-opt-pg.md`) points the same way. Treat the `ORDER BY ... LIMIT` form of `oldest_created` in section 3.7 as provisional.
+**Preliminary note from the user (not in `docs/db-postgresql/`, not yet documented):** a still-running PostgreSQL test indicates `MIN(created_at)` is better than `ORDER BY created_at LIMIT 1` for `oldest_created` on PostgreSQL. The branch will be updated later. The documented data here (+0.2 ms for the final `ORDER BY` form against main's `MIN`, `experiments/CMP-main-vs-jdbc-opt-pg.md`) points the same way. Treat the `ORDER BY ... LIMIT` form of `oldest_created` in section 3.7 as provisional.
 
 ---
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Driver: phase 5 round 4, PostgreSQL, screen (spec: experiments/round4-spec.md "Variants" and "Screen"). Run from anywhere:
-#   nohup docs/db-sql/harness/bin/round4-screen-pg.sh > /dev/null 2>&1 &     (env: SCENARIOS="S2 S4 S5 S6 S7" default, VARIANTS="..." optional, REDO=1)
+#   nohup docs/db-postgresql/harness/bin/round4-screen-pg.sh > /dev/null 2>&1 &     (env: SCENARIOS="S2 S4 S5 S6 S7" default, VARIANTS="..." optional, REDO=1)
 # Logs: results/logs/round4-screen-pg.log (steps, variant order per label, plan and equivalence checks), round4-screen-pg.out (tool output),
 #   failures: results/logs/failures-round4.txt.
 # Resumable: a step is skipped when its output file exists (timings.csv, writecost.csv, concurrency-*.txt, equivalence report) unless REDO=1.

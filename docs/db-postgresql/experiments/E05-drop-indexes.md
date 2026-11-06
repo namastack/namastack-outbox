@@ -1,6 +1,6 @@
 # E05 — drop-index ablations on v1b (A1, A2, A5, A6, K12), PostgreSQL
 
-Analysis of existing round 2 measurements only. Spec: `experiments/round2-spec.md`; reference: `experiments/R2-v1b.md`. Paths are relative to `docs/db-sql/`. User rule (STATE.md): an index is justified only by P1/P2 queries and only if its read benefit outweighs its write cost; P3 is reported, never decisive. **Partial partition ownership (`S8-*`, S10 with 4 pollers) is the default deployment and is listed first; S5, S6, S7 were measured with full ownership only.**
+Analysis of existing round 2 measurements only. Spec: `experiments/round2-spec.md`; reference: `experiments/R2-v1b.md`. Paths are relative to `docs/db-postgresql/`. User rule (STATE.md): an index is justified only by P1/P2 queries and only if its read benefit outweighs its write cost; P3 is reported, never decisive. **Partial partition ownership (`S8-*`, S10 with 4 pollers) is the default deployment and is listed first; S5, S6, S7 were measured with full ownership only.**
 
 ## Hypotheses, base, changes
 

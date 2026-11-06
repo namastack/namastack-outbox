@@ -1,6 +1,6 @@
 # Isolation rule (copy verbatim into every sub-agent prompt)
 
-> Never open, list, grep, glob or summarize anything under `docs/db/`, `docs/db-sql/` or `docs/db-mariadb/` (in the primary tree,
+> Never open, list, grep, glob or summarize anything under `docs/db/`, `docs/db-postgresql/` or `docs/db-mariadb/` (in the primary tree,
 > in any worktree or in any git branch/commit, e.g. `git show <ref>:docs/db-mariadb/...`). Exclude all three from every search
 > (search only the paths you need; `git diff ... -- . ':!docs'`). They hold an older study, the PostgreSQL study and the MariaDB
 > study, whose numbers and conclusions must not influence this MySQL study.

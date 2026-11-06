@@ -14,7 +14,7 @@ for v1 changes; judge v1 only by its code and by measurements. If you accidental
 ## Task
 
 1. **Change.**
-   - Index-only change: write a DDL override file in `docs/db-sql/experiments/Exx-<slug>/` and run the
+   - Index-only change: write a DDL override file in `docs/db-postgresql/experiments/Exx-<slug>/` and run the
      harness with it. No code change needed.
    - Query change: create worktree `../outbox-wt-exp-<id>` on a new local branch `exp/<id>` from the
      base, change the JDBC (and JPA if relevant) query code, and update the harness query catalog
@@ -25,7 +25,7 @@ for v1 changes; judge v1 only by its code and by measurements. If you accidental
    experiment worktree. A failing experiment is reported as such, not fixed by weakening tests.
 3. **Measure** on PostgreSQL, the requested scenarios, SQL-level and repository-level as instructed,
    including write cost and table/index sizes. Do not run in parallel with other benchmarks.
-4. **Report** `docs/db-sql/experiments/Exx-<slug>.md`:
+4. **Report** `docs/db-postgresql/experiments/Exx-<slug>.md`:
    - Hypothesis, base, exact change (DDL/diff), branch name if any.
    - Results table: query × scenario, base vs experiment vs other targets, relative change, noise
      threshold from `STATE.md`.

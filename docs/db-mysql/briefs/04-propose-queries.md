@@ -9,7 +9,7 @@ See `docs/db-mysql/briefs/00-isolation-rule.md` (pasted into your prompt).
 - **Independent proposer:** you may **not** read `docs/db-mysql/reference/postgres-rationale.md`, nor any `results/` or
   `experiments/` file. Work from the contract and the data shape only.
 - **PostgreSQL-transfer proposer:** you **must** read `docs/db-mysql/reference/postgres-rationale.md` and propose MySQL
-  forms of its ideas. Its citations point into `docs/db-sql/`: do **not** open them (the isolation rule still applies). You may not
+  forms of its ideas. Its citations point into `docs/db-postgresql/`: do **not** open them (the isolation rule still applies). You may not
   read MySQL results.
 
 ## Inputs

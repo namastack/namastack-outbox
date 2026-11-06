@@ -33,7 +33,7 @@ To resume an interrupted run:
 
 ## Isolation rule
 
-`docs/db/` (old study), `docs/db-sql/` (PostgreSQL study) and `docs/db-mariadb/` (MariaDB study) must never be opened, listed,
+`docs/db/` (old study), `docs/db-postgresql/` (PostgreSQL study) and `docs/db-mariadb/` (MariaDB study) must never be opened, listed,
 grepped or summarized by any agent of this study (`briefs/00-isolation-rule.md`). Everything needed from the earlier studies is
 already copied here: the scenario definitions (`02-scenarios.md`), the harness (`harness/`), and a rationale of the PostgreSQL
 choices (`reference/postgres-rationale.md`), which only the PostgreSQL-transfer proposer reads. No MariaDB result, proposal or

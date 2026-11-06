@@ -4,7 +4,7 @@ Hypothesis (`round2-spec.md`, "Plan-mode study"): pgjdbc server-prepares a state
 (`status = $1`) for some runs, which produces cells that flip between ~0.2-0.8 ms and ~22 ms (`count_failed`, `count_new`, S4 write cells) and the
 stable 0.2-0.5 ms E1M gap with identical EXPLAIN plans.
 
-Paths are relative to `docs/db-sql/results/`. "T" = `<variant>/postgres/<label>-R2/timings.csv` (median ms), "PC" = `.../plancache.csv`
+Paths are relative to `docs/db-postgresql/results/`. "T" = `<variant>/postgres/<label>-R2/timings.csv` (median ms), "PC" = `.../plancache.csv`
 (`custom_timed`, `generic_timed` = plan counters of the server-prepared statement over the timed reps; `c20/g0` = 20 custom plans, `c4/g16` = 4 custom then
 16 generic, `c0/g20` = 20 generic), "P" = `.../plans/<query>.txt`. Plan-mode labels: `<S>-custom-R2` (`force_custom_plan`) and `<S>-generic-R2`
 (`force_generic_plan`), for v1 and v1b on S2, S4, S7 (24 label runs, e.g. `v1/postgres/S4-generic-R2/`). Default-mode cells are the `-R2` labels of all 17 variants.

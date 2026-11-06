@@ -7,7 +7,7 @@ review and decide. Sub-agents do the exploring, building and measuring.
 ## 0. Ground rules
 
 1. **Models.** You run on Opus. Spawn every sub-agent with the Agent tool and `model: "sonnet"`.
-   Give each sub-agent: the path of its brief in `docs/db-sql/briefs/`, the concrete parameters
+   Give each sub-agent: the path of its brief in `docs/db-postgresql/briefs/`, the concrete parameters
    (variant, worktree path, dialects, scenarios, output paths), and the isolation rule below verbatim.
 2. **Isolation rule (verbatim in every sub-agent prompt).**
    > Never open, list, grep, glob or summarize anything under `docs/db/` (this includes
@@ -27,10 +27,10 @@ review and decide. Sub-agents do the exploring, building and measuring.
    - `../outbox-wt-main` → `main` (baseline)
    - `../outbox-wt-v1` → `e0b09b4` (v1, current `feature/db-optimalization`)
    - `../outbox-wt-exp-<id>` → new local branches `exp/<id>` from main or v1, one per code experiment.
-   All reports and results go to `docs/db-sql/` **in the primary tree**. Never commit to or push
+   All reports and results go to `docs/db-postgresql/` **in the primary tree**. Never commit to or push
    existing branches. Experiment branches stay local.
 6. **Context hygiene.** Sub-agents write details to files and return a summary of ≤300 words with
-   paths to what they wrote. You read files selectively. After each step, update `docs/db-sql/STATE.md`
+   paths to what they wrote. You read files selectively. After each step, update `docs/db-postgresql/STATE.md`
    (phase, done, running, decisions, next step) so the run can be resumed.
 7. **Parallelism.** Exploration, code reading, harness writing and analysis may run in parallel
    (at most 3 sub-agents). **Benchmarks never run in parallel** with other benchmarks on this machine;
@@ -41,8 +41,8 @@ review and decide. Sub-agents do the exploring, building and measuring.
 ## Phase 1 — Usage map
 
 Spawn 2 sub-agents in parallel with `briefs/01-explore-usage.md`:
-- **A:** worktree `../outbox-wt-main`, writes `docs/db-sql/01-usage-map.md`.
-- **B:** worktree `../outbox-wt-v1`, writes `docs/db-sql/01-usage-map-v1-delta.md` (only what v1
+- **A:** worktree `../outbox-wt-main`, writes `docs/db-postgresql/01-usage-map.md`.
+- **B:** worktree `../outbox-wt-v1`, writes `docs/db-postgresql/01-usage-map-v1-delta.md` (only what v1
   changes in queries, DDL and callers, derived from code via
   `git diff main..e0b09b4 -- . ':!docs'`).
 
@@ -52,7 +52,7 @@ drives the ablation in phase 5.
 
 ## Phase 2 — Scenarios and harness
 
-1. Write `docs/db-sql/02-scenarios.md` yourself from the usage map. Each scenario fixes: row count,
+1. Write `docs/db-postgresql/02-scenarios.md` yourself from the usage map. Each scenario fixes: row count,
    status mix, retry mix, key distribution, partition ownership, payload size, retention, churn and
    concurrency. Cover at least:
 
@@ -70,7 +70,7 @@ drives the ablation in phase 5.
    | S10 | Concurrency | 1 vs 4 concurrent pollers, mixed with inserts |
 
    Pick concrete values; keep the matrix runnable (use 10M only where it changes conclusions).
-2. Spawn one sub-agent with `briefs/02-harness.md` to build `docs/db-sql/harness/`. Review the
+2. Spawn one sub-agent with `briefs/02-harness.md` to build `docs/db-postgresql/harness/`. Review the
    harness yourself (warmup, repetitions, statistics, plan capture, equal data across variants) before
    any measurement.
 
@@ -82,21 +82,21 @@ Spawn measuring sub-agents with `briefs/03-measure.md`, one at a time:
 2. MySQL, MariaDB, SQL Server, Oracle, H2 JDBC.
 3. JPA on PostgreSQL (repository-level runner; capture Hibernate SQL).
 
-Summarize in `docs/db-sql/03-baseline.md`: per query group, per dialect, slowest queries, plans,
+Summarize in `docs/db-postgresql/03-baseline.md`: per query group, per dialect, slowest queries, plans,
 write cost (insert/update latency, index count, table + index size).
 
 ## Phase 4 — v1
 
 Same matrix as phase 3 on `../outbox-wt-v1`, plus the equivalence check (same rows, same order where
 order matters, same counts and deletes as baseline on identical data). Summarize in
-`docs/db-sql/04-v1.md` as baseline-vs-v1 deltas per query, scenario and dialect, including regressions
+`docs/db-postgresql/04-v1.md` as baseline-vs-v1 deltas per query, scenario and dialect, including regressions
 and write cost.
 
 ## Phase 5 — Exploration on PostgreSQL
 
 Iterative loop. Each experiment is one sub-agent with `briefs/04-experiment.md` and gets an id
 `Exx`, a hypothesis, a starting variant (baseline, v1 or a previous experiment), the change, and the
-scenarios to measure. Results go to `docs/db-sql/experiments/Exx-<slug>.md`. Read each report, update
+scenarios to measure. Results go to `docs/db-postgresql/experiments/Exx-<slug>.md`. Read each report, update
 the ledger in `STATE.md`, then decide the next experiments. Experiment ideas may also come from
 dedicated sub-agents you spawn to propose (not measure) solutions from the usage map and plans.
 
@@ -125,11 +125,11 @@ Assemble a candidate **v2** (best combination from phase 5) in `../outbox-wt-exp
 JPA, respecting dialect limits (e.g. no partial indexes on MySQL/MariaDB/Oracle, filtered indexes on
 SQL Server, function-based indexes on Oracle), then measure baseline vs v1 vs v2 on all JDBC dialects and
 JPA/PostgreSQL. Run `:namastack-outbox-jdbc:test` and `:namastack-outbox-jpa:test` in the v2 worktree.
-Summarize in `docs/db-sql/06-cross-dialect.md`.
+Summarize in `docs/db-postgresql/06-cross-dialect.md`.
 
 ## Phase 7 — Final report
 
-Write `docs/db-sql/99-final-report.md` yourself:
+Write `docs/db-postgresql/99-final-report.md` yourself:
 1. Executive summary: v2 vs v1 vs baseline on the hot path and per query group.
 2. Per query group: recommended SQL and index per dialect, with evidence links.
 3. Keep / drop / modify table for each v1 change (from the ablation).

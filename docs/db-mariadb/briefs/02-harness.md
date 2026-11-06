@@ -6,7 +6,7 @@ harness in `docs/db-mariadb/harness/` with an updated `README.md` ("MariaDB port
 
 ## Isolation rule
 
-See `docs/db-mariadb/briefs/00-isolation-rule.md` (pasted into your prompt). Do not reuse any script from `docs/db-sql/` or `docs/db/`;
+See `docs/db-mariadb/briefs/00-isolation-rule.md` (pasted into your prompt). Do not reuse any script from `docs/db-postgresql/` or `docs/db/`;
 everything you may use is already copied into `docs/db-mariadb/harness/`. You may not read the reference file.
 
 ## Keep

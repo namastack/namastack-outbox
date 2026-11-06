@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Driver: phase 5 round 5, PostgreSQL (spec: experiments/round5-spec.md). Protocol as round3-validate-pg.sh (two passes, reversed order, restart between passes).
-#   nohup docs/db-sql/harness/bin/round5-pg.sh > /dev/null 2>&1 &     (env: SCENARIOS="S2 S4 S5 S6 S7" default, PASSES="1 2", VARIANTS="..." optional, REDO=1)
+#   nohup docs/db-postgresql/harness/bin/round5-pg.sh > /dev/null 2>&1 &     (env: SCENARIOS="S2 S4 S5 S6 S7" default, PASSES="1 2", VARIANTS="..." optional, REDO=1)
 # Logs: results/logs/round5-pg.log (steps, orders, plan and equivalence checks), round5-pg.out (tool output), failures: results/logs/failures-round5.txt.
 # Resumable: a step is skipped when its output file exists (timings.csv, writecost.csv, concurrency-*.txt, equivalence report) unless REDO=1. Restart after an abort: the same command.
 # Results: results/<variant>/postgres/<label>-v<pass>-R5/ (suffix -R5), equivalence results/equiv/postgres/<scenario>/<variant>-vs-v1.md.

@@ -21,11 +21,11 @@ claude --model opus
 
 Then say:
 
-> Execute `docs/db-sql/00-orchestrator-prompt.md`.
+> Execute `docs/db-postgresql/00-orchestrator-prompt.md`.
 
 To resume an interrupted run, say:
 
-> Resume `docs/db-sql/00-orchestrator-prompt.md` from `docs/db-sql/STATE.md`.
+> Resume `docs/db-postgresql/00-orchestrator-prompt.md` from `docs/db-postgresql/STATE.md`.
 
 ## Isolation rule
 

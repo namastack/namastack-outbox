@@ -7,7 +7,7 @@ MySQL support from the PostgreSQL study and MariaDB-specific additions in `Maria
 
 ## Isolation rule
 
-See `docs/db-mysql/briefs/00-isolation-rule.md` (pasted into your prompt). Do not reuse any script from `docs/db-sql/`,
+See `docs/db-mysql/briefs/00-isolation-rule.md` (pasted into your prompt). Do not reuse any script from `docs/db-postgresql/`,
 `docs/db-mariadb/` or `docs/db/`; everything you may use is already copied into `docs/db-mysql/harness/`. You may not read the
 reference file.
 
