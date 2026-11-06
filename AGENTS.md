@@ -14,5 +14,14 @@ check its KDoc against the implementation and its callers before finishing the c
   or passed through to a caller.
 - For sealed hierarchies, document the shared contract on the base type and the distinct role of
   each subtype on that subtype. Describe data holders as data holders, not as methods that execute.
+- For new declarations, `@since` normally uses the next minor release after the current project
+  version (for example, `1.11.x` becomes `1.12.0`). Check the planned release before setting it;
+  keep the original `@since` on existing declarations.
 - State guarantees about commits, ordering, retries, affected rows, and interruption only when
   the code enforces them. Check all documented methods in a touched class, not just one example.
+
+## Kotlin style
+
+After changing Kotlin code, run the ktlint check for each affected module and source set before
+finishing. Use `./gradlew :<module>:ktlintMainSourceSetCheck` for production code and
+`./gradlew :<module>:ktlintTestSourceSetCheck` for tests. Fix any violations in the changed files.
