@@ -9,6 +9,8 @@ import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
+import io.namastack.outbox.completion.DefaultOutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.runtime.toRuntimeSettings
@@ -45,9 +47,11 @@ class PrimaryOutboxRecordProcessorTest {
     private fun createProcessor(): PrimaryOutboxRecordProcessor =
         PrimaryOutboxRecordProcessor(
             handlerInvoker,
-            recordRepository,
-            properties.toRuntimeSettings().processing,
-            clock,
+            OutboxRecordCompleter(
+                DefaultOutboxCompletionPersistence(recordRepository),
+                properties.toRuntimeSettings().processing,
+                clock,
+            ),
         ).also { it.setNext(nextProcessor) }
 
     @Test
@@ -166,9 +170,11 @@ class PrimaryOutboxRecordProcessorTest {
         val processorWithoutNext =
             PrimaryOutboxRecordProcessor(
                 handlerInvoker,
-                recordRepository,
-                properties.toRuntimeSettings().processing,
-                clock,
+                OutboxRecordCompleter(
+                    DefaultOutboxCompletionPersistence(recordRepository),
+                    properties.toRuntimeSettings().processing,
+                    clock,
+                ),
             )
 
         every { handlerInvoker.dispatch(any()) } throws exception

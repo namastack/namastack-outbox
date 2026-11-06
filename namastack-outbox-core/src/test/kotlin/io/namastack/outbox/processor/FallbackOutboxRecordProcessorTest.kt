@@ -8,6 +8,8 @@ import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
+import io.namastack.outbox.completion.DefaultOutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.handler.OutboxFallbackDisposition
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.method.fallback.OutboxFallbackHandlerMethod
@@ -45,11 +47,13 @@ class FallbackOutboxRecordProcessorTest {
 
     private fun createProcessor(): FallbackOutboxRecordProcessor =
         FallbackOutboxRecordProcessor(
-            recordRepository,
             fallbackHandlerRegistry,
             fallbackHandlerInvoker,
-            properties.toRuntimeSettings().processing,
-            clock,
+            OutboxRecordCompleter(
+                DefaultOutboxCompletionPersistence(recordRepository),
+                properties.toRuntimeSettings().processing,
+                clock,
+            ),
         ).also { it.setNext(nextProcessor) }
 
     private fun fallbackMethod(
@@ -235,11 +239,13 @@ class FallbackOutboxRecordProcessorTest {
         val record = createFailedRecord()
         val processorWithoutNext =
             FallbackOutboxRecordProcessor(
-                recordRepository,
                 fallbackHandlerRegistry,
                 fallbackHandlerInvoker,
-                properties.toRuntimeSettings().processing,
-                clock,
+                OutboxRecordCompleter(
+                    DefaultOutboxCompletionPersistence(recordRepository),
+                    properties.toRuntimeSettings().processing,
+                    clock,
+                ),
             )
 
         every { fallbackHandlerRegistry.getByHandlerId(record.handlerId) } returns null
