@@ -237,6 +237,38 @@ class JdbcOutboxCompletionBatcherTest {
     }
 
     @Test
+    fun `interrupted shutdown returns without failing an unfinished write`() {
+        val writing = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val writer =
+            writer { deletions ->
+                writing.countDown()
+                check(release.await(2, TimeUnit.SECONDS))
+                deletions.map { Result.success(Unit) }
+            }
+        start(writer)
+        val result = batcher.submit(JdbcOutboxCompletion.Delete("record"))!!
+        assertThat(writing.await(2, TimeUnit.SECONDS)).isTrue()
+        val stopped = CompletableFuture<Boolean>()
+        val stoppingThread =
+            Thread {
+                Thread.currentThread().interrupt()
+                batcher.stop()
+                stopped.complete(Thread.currentThread().isInterrupted)
+            }
+
+        try {
+            stoppingThread.start()
+            assertThat(stopped.get(2, TimeUnit.SECONDS)).isTrue()
+            assertThat(result.isDone).isFalse()
+        } finally {
+            release.countDown()
+            stoppingThread.join(2_000)
+        }
+        result.get(2, TimeUnit.SECONDS)
+    }
+
+    @Test
     fun `shutdown rejects a blocked submission and drains already queued completions`() {
         val writing = CountDownLatch(1)
         val release = CountDownLatch(1)
@@ -373,6 +405,20 @@ class JdbcOutboxCompletionBatcherTest {
 
         assertThatThrownBy { persistence.updateCompleted(record) }.isSameAs(failure)
         verify(exactly = 0) { repository.updateProcessingState(record) }
+    }
+
+    @Test
+    fun `checked database failure retains its cause for the processor`() {
+        val failure = Exception("Database communication failed")
+        val writer =
+            writer { deletions -> deletions.map { Result.failure(failure) } }
+        start(writer)
+        val persistence = JdbcOutboxCompletionBatchingPersistence(mockk(), batcher)
+
+        assertThatThrownBy { persistence.deleteCompleted("record") }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessage("Completion write failed")
+            .hasCause(failure)
     }
 
     @Test
