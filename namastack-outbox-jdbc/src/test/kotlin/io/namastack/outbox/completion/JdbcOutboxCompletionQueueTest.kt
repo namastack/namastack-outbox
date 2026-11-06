@@ -14,6 +14,29 @@ import java.util.concurrent.TimeoutException
  */
 class JdbcOutboxCompletionQueueTest {
     @Test
+    fun `interrupted polling leaves the queue usable`() {
+        val queue = JdbcOutboxCompletionQueue(1)
+        queue.startAccepting()
+        val polled = CompletableFuture<JdbcOutboxCompletionSubmission?>()
+        val pollingThread =
+            Thread {
+                Thread.currentThread().interrupt()
+                polled.complete(queue.poll(TimeUnit.SECONDS.toNanos(1)))
+            }
+
+        pollingThread.start()
+        try {
+            assertThat(polled.get(2, TimeUnit.SECONDS)).isNull()
+            val accepted = queue.submit(JdbcOutboxCompletion.Delete("record"))
+            assertThat(accepted).isNotNull()
+            assertThat((queue.poll(0L)?.completion as JdbcOutboxCompletion.Delete).recordId).isEqualTo("record")
+        } finally {
+            queue.stopAccepting()
+            pollingThread.join(2_000)
+        }
+    }
+
+    @Test
     fun `an interrupted waiter submits after capacity frees and restores its interrupt status`() {
         val queue = JdbcOutboxCompletionQueue(1)
         queue.startAccepting()
