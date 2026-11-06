@@ -16,6 +16,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
+import org.springframework.jdbc.datasource.DataSourceTransactionManager
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.transaction.support.TransactionTemplate
 import javax.sql.DataSource
@@ -55,15 +56,19 @@ class JdbcOutboxCompletionAutoConfiguration {
         tableNameResolver: JdbcTableNameResolver,
         jdbcProperties: JdbcOutboxConfigurationProperties,
         outboxProperties: OutboxProperties,
-    ): JdbcOutboxCompletionBatcher =
-        JdbcOutboxCompletionBatcher(
+    ): JdbcOutboxCompletionBatcher {
+        val transactions = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate")
+        val completionDataSource =
+            (transactions.transactionManager as? DataSourceTransactionManager)?.dataSource ?: dataSource
+
+        return JdbcOutboxCompletionBatcher(
             writer =
                 JdbcOutboxCompletionBatchWriter(
-                    jdbc = NamedParameterJdbcTemplate(dataSource),
-                    transactions = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
+                    jdbc = NamedParameterJdbcTemplate(completionDataSource),
+                    transactions = transactions,
                     queries = {
                         JdbcOutboxRecordQueriesFactory.create(
-                            JdbcDatabaseType.detect(dataSource),
+                            JdbcDatabaseType.detect(completionDataSource),
                             tableNameResolver.outboxRecord,
                         )
                     },
@@ -72,6 +77,7 @@ class JdbcOutboxCompletionAutoConfiguration {
             settings = jdbcProperties.completionBatching,
             shutdownTimeout = outboxProperties.processing.effectiveShutdownTimeout,
         )
+    }
 
     @Bean
     @ConditionalOnMissingBean(OutboxCompletionPersistence::class)

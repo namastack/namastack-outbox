@@ -1,5 +1,6 @@
 package io.namastack.outbox.completion
 
+import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.verify
@@ -22,6 +23,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Tests completion batching, backpressure, and shutdown behavior.
@@ -309,6 +311,71 @@ class JdbcOutboxCompletionBatcherTest {
     }
 
     @Test
+    fun `update completion snapshots metadata and waits for the committed result`() {
+        val writing = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        var captured: JdbcOutboxCompletion.Update? = null
+        val writer =
+            object : JdbcOutboxCompletionWriter {
+                override fun writeUpdates(updates: List<JdbcOutboxCompletion.Update>): List<Result<Unit>> {
+                    captured = updates.single()
+                    writing.countDown()
+                    check(release.await(2, TimeUnit.SECONDS))
+                    return listOf(Result.success(Unit))
+                }
+
+                override fun writeDeletions(deletions: List<JdbcOutboxCompletion.Delete>): List<Result<Unit>> =
+                    deletions.map { Result.success(Unit) }
+            }
+        start(writer, maxBatchSize = 1)
+        val record = completedRecord()
+        val repository = mockk<OutboxRecordRepository>()
+        val persistence = JdbcOutboxCompletionBatchingPersistence(repository, batcher)
+
+        val processing = CompletableFuture.runAsync { persistence.updateCompleted(record) }
+        assertThat(writing.await(2, TimeUnit.SECONDS)).isTrue()
+        try {
+            assertThat(processing.isDone).isFalse()
+        } finally {
+            release.countDown()
+        }
+        processing.get(2, TimeUnit.SECONDS)
+
+        assertThat(captured)
+            .isEqualTo(
+                JdbcOutboxCompletion.Update(
+                    record.id,
+                    COMPLETED,
+                    record.completedAt,
+                    record.failureCount,
+                    record.failureReason,
+                    record.nextRetryAt,
+                ),
+            )
+        verify(exactly = 0) { repository.updateProcessingState(record) }
+    }
+
+    @Test
+    fun `failed batched update propagates the database failure without repository fallback`() {
+        val failure = IllegalStateException("Database rejected the update")
+        val writer =
+            object : JdbcOutboxCompletionWriter {
+                override fun writeUpdates(updates: List<JdbcOutboxCompletion.Update>): List<Result<Unit>> =
+                    updates.map { Result.failure(failure) }
+
+                override fun writeDeletions(deletions: List<JdbcOutboxCompletion.Delete>): List<Result<Unit>> =
+                    deletions.map { Result.success(Unit) }
+            }
+        start(writer)
+        val record = completedRecord()
+        val repository = mockk<OutboxRecordRepository>()
+        val persistence = JdbcOutboxCompletionBatchingPersistence(repository, batcher)
+
+        assertThatThrownBy { persistence.updateCompleted(record) }.isSameAs(failure)
+        verify(exactly = 0) { repository.updateProcessingState(record) }
+    }
+
+    @Test
     fun `a failed write reaches the processor without failing another completion`() {
         val failure = IllegalStateException("Database rejected the second completion")
         val writer =
@@ -327,6 +394,23 @@ class JdbcOutboxCompletionBatcherTest {
     }
 
     @Test
+    fun `a writer exception fails its batch and later completions still run`() {
+        val attempts = AtomicInteger()
+        val failure = IllegalStateException("Writer failed")
+        val writer =
+            writer { deletions ->
+                if (attempts.incrementAndGet() == 1) throw failure
+                deletions.map { Result.success(Unit) }
+            }
+        start(writer, maxBatchSize = 1)
+
+        val first = batcher.submit(JdbcOutboxCompletion.Delete("first"))!!
+        assertThatThrownBy { first.join() }.hasCause(failure)
+        batcher.submit(JdbcOutboxCompletion.Delete("second"))!!.get(2, TimeUnit.SECONDS)
+        assertThat(attempts.get()).isEqualTo(2)
+    }
+
+    @Test
     fun `completions after shutdown use the synchronous repository`() {
         val repository = mockk<OutboxRecordRepository>()
         justRun { repository.deleteById("late") }
@@ -338,6 +422,39 @@ class JdbcOutboxCompletionBatcherTest {
         persistence.deleteCompleted("late")
 
         verify(exactly = 1) { repository.deleteById("late") }
+    }
+
+    @Test
+    fun `updates after shutdown use the synchronous repository`() {
+        val record = completedRecord()
+        val repository = mockk<OutboxRecordRepository>()
+        every { repository.updateProcessingState(record) } returns true
+        start(writer { deletions -> deletions.map { Result.success(Unit) } })
+        val persistence = JdbcOutboxCompletionBatchingPersistence(repository, batcher)
+        batcher.stop()
+
+        persistence.updateCompleted(record)
+
+        verify(exactly = 1) { repository.updateProcessingState(record) }
+    }
+
+    private fun completedRecord(): OutboxRecord<String> {
+        val now = Instant.parse("2026-01-01T12:00:00Z")
+        return OutboxRecord.restore(
+            id = "record",
+            recordKey = "key",
+            payload = "payload",
+            context = emptyMap(),
+            createdAt = now.minusSeconds(60),
+            status = COMPLETED,
+            completedAt = now,
+            failureCount = 2,
+            failureException = null,
+            failureReason = "previous failure",
+            partition = 0,
+            nextRetryAt = now.plusSeconds(60),
+            handlerId = "handler",
+        )
     }
 
     private fun start(
