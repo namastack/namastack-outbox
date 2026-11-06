@@ -1,0 +1,8 @@
+id: oldest_due_strict   mode: ANALYZE (executed)   sql_select_limit: 1 (SET SESSION, as Connector/J does for setMaxRows)   rows_returned: 1
+query_cost: 67.76
+select#1 table=o access=range key=idx_outbox_record_status_completed_retry key_parts=[status,completed_at,next_retry_at] key_len=95 rows_examined_per_scan=150 rows_produced_per_join=75 filtered=50 using_index=no attached_condition=yes index_condition=yes prefix_cost=67.76
+select#2 table=e access=ref key=idx_outbox_record_key_completed_created_id key_parts=[record_key,completed_at] key_len=1027 rows_examined_per_scan=1 rows_produced_per_join=0 filtered=11.850 using_index=yes attached_condition=yes index_condition=no prefix_cost=1.09
+access: table=o index=idx_outbox_record_status_completed_retry node="Index range scan on o using idx_outbox_record_status_completed_retry over (status = 'NEW' AND completed_at = NULL AND next_retry_at <= '2026" est_rows=150 actual_rows=1 loops=1 rows_read=1
+access: table=e index=idx_outbox_record_key_completed_created_id node="Covering index lookup on e using idx_outbox_record_key_completed_created_id (record_key=o.record_key, completed_at=NULL)" est_rows=1 actual_rows=1 loops=1 rows_read=1
+filesort: no   temporary: no   strategies: limit   json_flags: attached_subqueries
+rows_examined_total (tree, sum of table access nodes): 2   rows_returned: 1   root_node_actual_rows: 1

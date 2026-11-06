@@ -1,0 +1,8 @@
+id: count_partitions   mode: ANALYZE (executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 1
+query_cost: 307.85
+select#1 table=p access=ALL key=- key_parts=[-] key_len=- rows_examined_per_scan=256 rows_produced_per_join=256 filtered=100 using_index=no attached_condition=no index_condition=no prefix_cost=31.30
+select#1 table=r access=ref key=idx_outbox_record_status_completed_partition key_parts=[status,completed_at,partition_no] key_len=91 rows_examined_per_scan=1 rows_produced_per_join=256 filtered=100 using_index=yes attached_condition=yes index_condition=no prefix_cost=307.85
+access: table=p index=- node="Table scan on p" est_rows=256 actual_rows=256 loops=1 rows_read=256
+access: table=r index=idx_outbox_record_status_completed_partition node="Covering index lookup on r using idx_outbox_record_status_completed_partition (status='NEW', completed_at=NULL, partition_no=p.n)" est_rows=1 actual_rows=0.703 loops=256 rows_read=179.968
+filesort: no   temporary: yes   strategies: Materialize,nested loop,aggregate   json_flags: materialized_subquery
+rows_examined_total (tree, sum of table access nodes): 435.968   rows_returned: 1   root_node_actual_rows: 1

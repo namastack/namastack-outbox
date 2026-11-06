@@ -1,0 +1,8 @@
+-> Filter: (t.cnt > 0)  (cost=2.73..2.73 rows=1) (actual time=0.0746..0.075 rows=2 loops=1)
+    -> Table scan on t  (cost=4.19..5.45 rows=2) (actual time=0.0739..0.0741 rows=2 loops=1)
+        -> Materialize  (cost=2.93..2.93 rows=2) (actual time=0.0736..0.0736 rows=2 loops=1)
+            -> Materialize table function  (cost=2.73 rows=2) (actual time=0.00692..0.00722 rows=2 loops=1)
+            -> Select #3 (subquery in projection; dependent)
+                -> Aggregate: count(0)  (cost=1128 rows=1) (actual time=0.0286..0.0287 rows=1 loops=2)
+                    -> Covering index lookup on r using idx_outbox_record_status_completed_partition (status=s.`status`)  (cost=779 rows=3495) (actual time=0.0151..0.0252 rows=100 loops=2)
+

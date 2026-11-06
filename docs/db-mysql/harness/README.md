@@ -1,0 +1,292 @@
+# SQL benchmark harness for `outbox_record`
+
+> **MySQL study copy.** Copied on 2026-11-06 from the MariaDB study harness (which itself was copied from the PostgreSQL study),
+> so the data generator, scenarios, query ids, timing rules and drivers are identical. The MariaDB-specific code (`Maria.kt`, the
+> "MariaDB port" section below) is kept as it is; phase 2 of the MySQL study adds the MySQL equivalents and documents them in a
+> "MySQL port" section at the end of this file. Variants in this study: `my-main`, `my-opt`, experiment variants, `my-final`;
+> worktrees `/home/zamo/git/outbox-wt-my-*`. Dialect for every command: `--dialect mysql`. One lane only on this host (`bin/lane.sh`).
+> Results go to `../results/` (= `docs/db-mysql/results/`). Priority 3 (RET, ADMIN groups) is never run in this study.
+
+
+Measures the SQL the JDBC repository really sends (and the JDBC/JPA repositories themselves) for the scenarios in
+`../02-scenarios.md`, on identical deterministic data, for any variant (worktree + optional DDL / per-query overrides).
+
+```
+harness/
+  bin/db.sh              start|stop|status|rm|wipe <dialect>   (docker, fixed limits)
+  bin/cleanup.sh         stop+remove all harness containers (--wipe: also volumes, h2 files)
+  bin/variant-build.sh   build a worktree's jars (api/core/jdbc/jpa) -> build/variants/<variant>.jars
+  bin/extract-catalog.sh extract catalog/<variant>/<dialect>/<id>.sql from the worktree's real code
+  bin/bench              SQL-level runner (Kotlin, plain JDBC): gen prepare bench writecost concurrency churn equiv
+  bin/repo-bench         repository-level runner (real JdbcOutboxRecordRepository / JpaOutboxRecordRepository, PostgreSQL)
+  bin/compare.py         diff two result dirs into a markdown table with relative change
+  catalog/               one .sql file per query id, per variant and dialect (generated, committed)
+  sql/  repo/            Gradle sub-projects (Kotlin, JDK 25 toolchain), built on first use
+../results/<variant>/<dialect>/<scenario>/   timings.csv  plans/  env.txt  (+ writecost.csv, concurrency-*.txt, churn.txt, repo-jdbc/, repo-jpa/)
+../results/equiv/<dialect>/<scenario>/<a>-vs-<b>.md
+```
+
+All commands are run from anywhere; the scripts `cd` into `harness/`. Paths below are relative to `harness/`.
+Needs: Docker, JDK 25 (harness toolchain 25), network for the first Gradle build. Worktree jars are built with
+`--init-script gradle/jdk25.init.gradle.kts`, which switches the project's Java 17 toolchain to 25 without touching the worktree
+(bytecode stays Java 17 through the project's `release = 17` / `jvmTarget = 17`).
+The harness never modifies a worktree (only its `build/` directories change when jars are built).
+
+## Quick start (MariaDB, S1, variants `my-main` and `my-opt`)
+
+```bash
+./gradlew --console=plain -q :sql:installDist                       # SQL runner; build before starting lanes, never while lanes run
+bin/extract-catalog.sh my-main /home/zamo/git/outbox-wt-my-main   # worktree jars (JDK 25 init script) + catalog/my-main/<dialect>/*.sql;
+bin/extract-catalog.sh my-opt  /home/zamo/git/outbox-wt-my-opt    #   the first call also builds repo/, which compiles against build/variants/my-main.jars
+source bin/lane.sh 1                                               # lane env (container, port, CPU pinning); omit for the single default container
+bin/db.sh start mariadb
+bin/bench gen   --dialect mariadb --scenario S1                     # deterministic snapshot (database "snap", seed 42), per lane
+bin/bench bench --dialect mariadb --variant my-main --worktree /home/zamo/git/outbox-wt-my-main --scenario S1 --prepare --groups HOT,WRITE,MON
+bin/bench bench --dialect mariadb --variant my-opt  --worktree /home/zamo/git/outbox-wt-my-opt  --scenario S1 --prepare --groups HOT,WRITE,MON
+bin/compare.py ../results/my-main/mariadb/S1 ../results/my-opt/mariadb/S1
+HARNESS_SAMPLE_ORDERED=1 bin/bench equiv --dialect mariadb --a my-main --b my-opt \
+  --worktree-a /home/zamo/git/outbox-wt-my-main --worktree-b /home/zamo/git/outbox-wt-my-opt --scenario S1
+bin/db.sh stop mariadb; bin/cleanup.sh                              # cleanup.sh removes every harness container of every lane
+```
+
+Parallel lanes (see `bin/lane.sh`): each lane has its own container, port, volume and snapshot marker, so each lane runs its own `gen`.
+Two lanes must never write the same result directory (use distinct variants or labels). Run the commands of a lane in a subshell
+(`( source bin/lane.sh 2; bin/db.sh start mariadb; ... )`) so lane variables do not leak into another lane's commands.
+
+## Concepts
+
+- **Snapshot** (`gen`): the scenario data is generated once per dialect into schema/database `snap`, table `rec`
+  (no keys, no indexes). A new `gen` replaces it. Only one snapshot per dialect exists (disk).
+- **Run schema** (`prepare`, or `bench --prepare`): for a variant, schema `run` is dropped and rebuilt: DDL from
+  `<worktree>/namastack-outbox-jdbc/src/main/resources/schema/<dialect>/outbox-tables.sql` (or `--ddl <file>`), data copied
+  from the snapshot (`INSERT ... SELECT`), secondary indexes created after the load on PostgreSQL and H2 (inline on the other
+  dialects), statistics refreshed (`ANALYZE` / `ANALYZE TABLE` / `UPDATE STATISTICS ... FULLSCAN` / `DBMS_STATS` / `ANALYZE`).
+  Use `--schema <name>` to keep several variants side by side (the equivalence check uses `eq_a`, `eq_b`).
+  **Re-run `prepare` before every `bench`, `writecost`, `concurrency` or `churn`**: `writecost`, `concurrency` and `churn` commit changes;
+  `bench` itself rolls back every write/delete (S9 `churn` and S10 `concurrency` are meant for a fresh schema).
+- **Variant** = `--variant <name> --worktree <path> [--ddl <file>] [--queries <dir>]`. `--queries` is a directory of `<id>.sql`
+  files overriding single catalog entries (headers `-- maxrows:` etc. are inherited from the base entry when omitted).
+  Experiments: copy the base `catalog/<variant>/<dialect>/` as the starting point, change the files, pass `--queries`.
+  Experiments with other jars: `bin/extract-catalog.sh exp-3 /home/zamo/git/outbox-wt-my-exp-3`; the repository-level runner
+  takes the worktree's jars via `bin/repo-bench exp-3 ...`.
+- **Catalog entry** (`catalog/<variant>/<dialect>/<id>.sql`): header lines `-- id/group/kind/maxrows/source`, then the SQL with named
+  parameters, exactly as built by the repository (whitespace collapsed by `toSingleLine`). `maxrows` is how the repository limits
+  rows: `none`, `batchSize`, `one`, `retention` (limit = 1000). The runner reproduces **exactly** what each variant sends:
+  `main` has no `LIMIT` in SQL and calls `Statement.setMaxRows`; `v1` binds `:limit` in SQL (where the dialect has a limit clause)
+  **and** also calls `setMaxRows`. A new `PreparedStatement` per execution (like `JdbcClient`), collections expanded to `?,?,...`.
+  `main` extraction reads the private query fields of `JdbcOutboxRecordRepository`; `v1` calls `JdbcOutboxRecordQueries.of(dialect, table)`
+  (reflection on the built jar). Extraction is dialect-complete (main: same SQL for all six dialects).
+- **Query ids** are those of `02-scenarios.md`; additionally `count_statuses_all` (v1, all three statuses) and, for update ids,
+  `upd_complete` / `upd_retry` / `upd_fail` share SQL but bind different values. Not applicable ids are written as `n/a` rows.
+- **Parameters** (`sql/.../Params.kt`): `now = T0`, owned partitions (`--owned all|mod4|1,2,3`), batch size (`--batch`, default 10),
+  retention cutoffs `T0-7d` (completed) / `T0-30d` (failed), limit 1000. `pages` gets the keys returned by `keys_strict` (fallback:
+  `keys_nonstrict`, then sampled due keys), like the scheduler. Single-key / single-partition / id parameters are sampled from the
+  loaded data with plain SQL. S4 batch-100 runs: `--batch 100 --label S4-b100`; S8: `--owned mod4` (+ `--label S8-S2` ...).
+  `find_pending_all`/`find_failed_all` run only on S1/S3 (override: `--all-admin`).
+- **Timing**: warmup 5 + 20 measured (`--warmup`, `--reps`); if the first run is > 2 s: 1 warmup + 5 measured and a `note`.
+  Reads run in autocommit and fetch every column of every row (`getString`). Writes/deletes run in a transaction that is rolled back;
+  the timer stops before the rollback (no commit cost). `rows` = rows returned, or the update count for writes.
+  `timings.csv`: `query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note`.
+- **Plans** (`plans/<id>.*`, `--no-plans` to skip), one capture per query with the first parameter set, writes inside a rolled-back
+  transaction:
+  PostgreSQL `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON|TEXT)` with real bind parameters (`.json`, `.txt`);
+  MySQL `EXPLAIN ANALYZE` (falls back to `EXPLAIN FORMAT=TREE` for single-table UPDATE/DELETE); MariaDB `ANALYZE FORMAT=JSON`;
+  SQL Server `SET STATISTICS XML ON` actual plan (`.xml`) and `SET STATISTICS IO ON` messages (`.io.txt`);
+  Oracle `gather_plan_statistics` + `DBMS_XPLAN.DISPLAY_CURSOR(... 'ALLSTATS LAST')`; H2 `EXPLAIN ANALYZE`.
+  Non-PostgreSQL engines get literals instead of bind parameters. A failed capture writes `<id>.error.txt`.
+  **Plans show the statement without the client-side row cap**: `setMaxRows` is applied by the driver (pgjdbc: portal row limit, i.e. the
+  plan is for the full result and execution stops after N rows; other drivers differ), so a plan for a `main` query can show more work
+  than the capped execution does, as in production.
+- **env.txt**: date, variant, worktree git sha and dirty files (excluding `docs`), DDL path and sha256, query override dir, scenario
+  parameters, snapshot seed, image and image id, container limits, DB version, driver version, JVM, host, non-default PostgreSQL
+  settings, then table/index sizes and index count (`--- sizes ---`).
+- **Data generator** (`sql/.../Gen.kt`): seed 42, `T0 = 2026-01-01T12:00:00Z`, real hashing (`Hasher` = MurmurHash3 x86-32 seed 0 via
+  commons-codec like `PartitionHasher`; `bin/repo-bench <variant> hashcheck` verifies 20 004 keys against the worktree's
+  `PartitionHasher` class), rows emitted in `created_at` order (heap order of a live system), timeline per key strictly increasing with
+  ~2 % ties. Scenarios S1, S2, S2L, S3, S4, S5, S6, S7 are generated (row counts exact; status counts as in `02-scenarios.md`, S5: the
+  FAILED/future heads replace the first of a key's 2 000 NEW rows). S8 = S2/S4 data with `--owned mod4`; S9 = `churn` on S2 data;
+  S10 = `concurrency` on S2 data. MySQL/MariaDB get second-truncated timestamps. PostgreSQL loads with `COPY`, the others with JDBC
+  batches (SQL Server/Oracle bulk paths are not implemented).
+  S2L (10M rows, 200 B payload) needs ~12 GB (snapshot + one run schema) on PostgreSQL: run only with nothing else on disk.
+
+## Other commands
+
+- `bin/bench writecost <variant args> [--n 5000 --threads 4]`: committed single-row insert latency/throughput (1 and N threads),
+  committed `upd_complete` latency, size reports before/after (`writecost.csv`, `sizes-*.txt`; index count/sizes also in `env.txt`).
+- `bin/bench concurrency <variant args> --pollers 1|4 [--seconds 60 --rate 500|0 --producers N --idle-ms 100 --tag t]`: pollers own
+  disjoint partitions (`p % pollers == i`) and loop keys query -> pages -> `upd_complete` per due record; a producer inserts at
+  `--rate` rec/s (0 = unthrottled, 4 threads). Virtual clock = `T0 + elapsed` so new rows are due. Output `concurrency-<tag>.txt`:
+  processed rec/s, inserted rec/s, p50/p95 of keys, pages, update, insert.
+- `bin/bench churn <variant args> [--inserts 500000]` (S9): inserts, processes (30 % delete-on-complete, 2 % FAILED, 10 % with 1-3
+  retries), retention deletes of ~`inserts` oldest COMPLETED, **no manual VACUUM/ANALYZE**; `churn.txt` has sizes and
+  `n_dead_tup` (PostgreSQL) before and after.
+- `bin/bench equiv --dialect d --a <variant> --b <variant> --worktree-a W --worktree-b W [--ddl-a/--ddl-b/--queries-a/--queries-b]
+  --scenario S1 [--no-prepare]`: builds `eq_a`/`eq_b` from the same snapshot and compares every read query (ordered where the contract
+  has an order: keys, pages per key, finds; counts and MIN values; `count_statuses` against the three `countByStatus` of the other
+  variant) and the effect (update count and resulting row/status counts) of every write/delete (rolled back). Verdicts PASS / WARN
+  (limited result differs only through created_at ties, or the id set differs only at the limit boundary) / FAIL / N/A / SKIP. Exit code 2
+  on FAIL or ERROR; report in `../results/equiv/...`.
+
+## Repository-level runner
+
+`bin/repo-bench <variant> bench --engine jdbc|jpa --dialect postgres --worktree W --scenario S1` instantiates the worktree's real
+`JdbcOutboxPersistenceFactory.create(...)` (JDBC) or `JpaOutboxRecordRepository` on a Hikari pool (4 connections) with a transaction manager,
+calls every repository method (warmup/reps as above) and records **every statement prepared through the data source** with its
+`setMaxRows` (`repo-<engine>/sql.txt`, last repetition of each method; for JPA this is the Hibernate SQL). Results: `repo-<engine>/timings.csv`.
+The classes are compiled against the `main` jars and run against the variant's jars (`bin/repo-bench <variant>` puts that variant's
+`namastack-outbox-{api,core,jdbc,jpa}` jars first on the classpath), so variants never touch `mavenLocal`.
+Extra ids: `delete_completed_batch` / `delete_failed_batch` (`deleteCompletedRecords` / `deleteFailedRecords`, rolled back).
+Differences to the SQL level: `insert` and `delete_by_id` are committed (JPA flushes `persist`/`remove` only at commit; cleanup deletes the
+bench rows afterwards), so they include commit and the extra JPA statements; counts report `rows = 1`; read methods include row mapping
+(payload deserialisation with a trivial serializer) and, for `find_*Records`, full object construction.
+
+## MariaDB port
+
+Changes made for the MariaDB study (all in `sql/` and `repo/`, plus `bin/`):
+
+- **setMaxRows fidelity.** The SQL runner uses MariaDB Connector/J 3.5.10 (`jdbc:mariadb:`, client-side prepared statements) for every
+  variant and calls the real `PreparedStatement.setMaxRows(n)` for catalog entries whose `maxrows` is not `none`. Against MariaDB >= 10.3 the
+  driver rewrites this to `SET STATEMENT SQL_SELECT_LIMIT=n FOR <sql>` (server-side limit). Checked with the server's `general_log`
+  (`results/validation/VALIDATION.md`): the server receives exactly that text. **Plans use the same limit**: for a query with `maxrows` != none the
+  capture is `SET STATEMENT SQL_SELECT_LIMIT=n FOR ANALYZE FORMAT=JSON <sql>` (`EXPLAIN FORMAT=JSON` for capped queries), because the limit changes the
+  chosen plan (e.g. `find_completed_before` on `main`: full scan without the limit, index range with it). `plans/<id>.summary.txt` states the limit.
+- **Plans.** `ANALYZE FORMAT=JSON` for every query with the first parameter set (writes in a rolled-back transaction); `plans/<id>.json` plus
+  `plans/<id>.summary.txt` (per table: access type, key, used key parts, loops, estimated/actual rows, rows examined, index condition, attached
+  condition, covering index, rowid filter; then filesort, temporary table, duplicates removal, strategy keywords such as `dependent-subquery`,
+  `subquery-cache`, `materialization`; rows examined vs returned). "examined" uses `r_index_rows` when MariaDB reports it. Very slow queries (> 30 s)
+  and queries stopped by the per-query limit get a non-executing `EXPLAIN FORMAT=JSON`.
+- **Rows examined.** `handlers.csv` (`query_id,Handler_read_key,_next,_prev,_first,_rnd,_rnd_next,_last,bp_read_requests,bp_reads`): session
+  `Handler_read%` deltas of one extra execution after the timed reps (never inside the timed section); the cost of two consecutive `SHOW STATUS` calls is
+  subtracted. `bp_*` are deltas of the global `Innodb_buffer_pool_read_requests/reads` (the lane's server has no other client).
+- **Statistics and warm-up.** `prepare` ends with plain `ANALYZE TABLE outbox_record` (persistent InnoDB statistics; with `use_stat_tables=
+  PREFERABLY_FOR_QUERIES` this creates no engine-independent statistics: `env.txt` shows 0 rows in `mysql.table_stats/column_stats/index_stats`).
+  Before the first timed query `bench` waits for `Innodb_history_list_length` < 1000 (max 120 s) and records the value, then primes the buffer pool
+  identically for every variant: one `SELECT COUNT(*) ... FORCE INDEX (i)` per index (smallest first) until 80 % of `innodb_buffer_pool_size` is
+  covered (`--no-prime` disables); the 5 warm-up reps per query follow. `env.txt` records the server settings (`innodb_stats_persistent*`, `use_stat_tables`,
+  `optimizer_use_condition_selectivity`, `eq_range_index_dive_limit`, `optimizer_switch`, buffer pool, flush settings, `log_bin`, `explicit_defaults_for_timestamp`,
+  `character_set_server`, `collation_server`, `sql_mode`), the actual charset/collation of `id` and `record_key` from `information_schema.COLUMNS`, history list
+  length, priming note, and the sizes (per-index sizes from `mysql.innodb_index_stats`, tablespace file size from `INNODB_SYS_TABLESPACES`).
+- **Write cost (InnoDB).** `writecost` phases `insert_1thread`, `insert_4threads`, `upd_complete_committed`, `upd_retry_committed`, `upd_fail_committed`,
+  `delete_by_id_committed` (deletes the records completed in the first update phase). Per phase and per write: global deltas of `Innodb_os_log_written` (redo bytes),
+  `Innodb_pages_written`, `Innodb_data_written`, `Innodb_buffer_pool_read_requests`, `Innodb_buffer_pool_reads`, row-lock waits/time, deadlocks; latency p50/p95
+  and throughput. Before and after each phase all dirty pages are flushed (`SET GLOBAL innodb_max_dirty_pages_pct=0`, wait until the dirty count is <= 5 or stable,
+  settings restored), so pages/data written count the pages the phase dirtied (an idle server otherwise defers them); latencies are measured before that flush.
+  Table and per-index sizes before/after come from a plain `ANALYZE TABLE` + `mysql.innodb_index_stats`, plus the tablespace file size and the index count.
+  The counters are GLOBAL: run one lane per server and nothing else against it.
+- **S9 / S10.** `churn` records sizes, `Innodb_history_list_length` and global counter deltas before/after (no manual `ANALYZE`/`OPTIMIZE`); `run-cells.sh churn:*:S9`
+  then runs the P1/P2 bench on the churned table under the same label. `concurrency` works on MariaDB (disjoint partitions per poller, `--rate 500` or `0`) and adds
+  history list length and `Innodb_row_lock_waits`, `Innodb_deadlocks`, `Innodb_row_lock_time`, redo/pages deltas to `concurrency-<tag>.txt`.
+- **Equivalence.** `keys_strict`/`keys_nonstrict`: a differing limited list is `WARN` only when the full key sets are equal AND both limited lists are sorted by
+  `MIN(created_at)` of the key's due rows AND their created_at sequences are identical (so the difference is only a permutation inside created_at ties, e.g. `main` orders by
+  `MIN(created_at)` only, the branch by `(created_at, id)`); otherwise `FAIL`. For `find_*`/`ids_*` the `ORDER BY` column is compared the same way (looked up by id for `ids_*`). Self-tests: an
+  override with a deliberately wrong order gives `FAIL`; an override that permutes the tie gives the verified `WARN`.
+- **Repository-level runner.** `bin/repo-bench <v> bench --engine jdbc --dialect mariadb --worktree W --scenario S1`: Hikari (4 connections) with MariaDB Connector/J on the lane's
+  port, the worktree's real `JdbcOutboxPersistenceFactory.create(...)`. `repo-jdbc/sql.txt` starts with the product the datasource reports and the dialect class the repository resolved
+  (`io.namastack.outbox.query.MariaDbJdbcOutboxRecordQueries` on the branch; `rowLimitClause` on `main`), then every statement with the `setMaxRows` it was prepared with. The runner is compiled
+  against the `my-main` interface; methods whose signature differs between variants (the `status` argument) are called by reflection (`callFlex`).
+- **Per-query limit.** `--query-limit-s` / `--limit-from` work with the MariaDB driver (`Statement.cancel()` = `KILL QUERY`); `bench limitcheck --dialect mariadb --query-limit-s 3` stops a long query after 3.2 s.
+- **Drivers.** `bin/run-cells.sh` (resumable single-lane driver, see its header) and `bin/noise.py <tree1> <tree2>` (any two result trees, per group: p90/max relative spread; p90/max absolute difference below 0.3 ms).
+- **Catalog extractor.** The `oldest_created` `maxrows` is `none` for repository-fields variants (`main`) and `one` for query-package variants (2026-11-06: the branch at `270c42cf` uses `ORDER BY created_at LIMIT :limit` with `withMaxRows(1)`; at `2a2663de` it used `MIN` without `setMaxRows`).
+
+## Container settings (bin/db.sh)
+
+Images: `postgres:18-alpine`, `mysql:8.4` (default of `HARNESS_MYSQL_IMAGE`; 8.4.13, sha256:a81d0439...), `mariadb:12`, `mcr.microsoft.com/mssql/server:2022-latest`,
+`gvenzl/oracle-xe:18-slim-faststart`; H2 in-process (file `build/h2`). Limits `--cpus=4 --memory=4g` (`HARNESS_CPUS`, `HARNESS_MEM`),
+recorded in every `env.txt`. Ports on 127.0.0.1: 15432 postgres, 13306 mysql, 13307 mariadb, 11433 sqlserver, 11521 oracle; data in docker volumes
+`outbox-bench-<dialect>-data`.
+Changes from image defaults: PostgreSQL `--shm-size=512m` (Docker default 64 MB), nothing else (default `shared_buffers=128MB`, `work_mem=4MB`, `jit=on`;
+the actual non-default settings are listed in `env.txt`); SQL Server `MSSQL_MEMORY_LIMIT_MB=3072` (so it stays inside the 4 GB limit);
+MySQL/MariaDB/Oracle none. Client sessions run in UTC (`-Duser.timezone=UTC`, MySQL/MariaDB `time_zone='+00:00'`, Oracle `ALTER SESSION`).
+The default credentials are throw-away (`bench`).
+
+## Known limits
+
+- Validated on 2026-11-05 (JDK 25, lanes 1 and 2, `mariadb:12` = 12.3.3) on S1 only; evidence in `../results/validation/VALIDATION.md`. Larger scenarios
+  (S2+) are validated by the first real runs; `gen` for MariaDB is JDBC-batch based (1M rows take several minutes).
+- Inherited from the PostgreSQL study: the SQL-level numbers use one JDBC connection (no pool, no Spring); network/driver round trips are included.
+  Concurrency pollers use the catalog SQL (exactly what the variant sends) but not the scheduler's thread pool.
+- `writecost`'s update phases use three disjoint slices of due ids (`min(n, due/3)`); S1 has only 150 due records, so use `--n 120` or less there.
+- The repository-level runner on MariaDB is JDBC only; JPA stays PostgreSQL-only.
+
+## Options (summary of the inherited runner)
+
+- `bench bench`: `--prepare`, `--groups HOT,WRITE,MON` (restrict to catalog groups), `--only id1,id2`, `--owned all|mod4|<list>`
+  (`S8-*` labels = `--owned mod4`, `S16-*` = `--owned 0,16,...,240`), `--batch N`, `--label L`, `--results DIR`, `--no-plans`,
+  `--all-admin`, `--ddl FILE`, `--queries DIR` (overlay of single `<id>.sql` files on the base catalog), `--catalog-variant NAME`
+  (base catalog when `--variant` is an experiment name), `--schema NAME`, `--seed N`, `--warmup/--reps`.
+- Per-query limit: `--query-limit-s N`, `--limit-from <timings.csv> --limit-factor 2 --limit-min-s 60` (stopped executions are recorded,
+  the run continues). `bench limitcheck --dialect d --query-limit-s 3` verifies that the limit can stop a query on that database.
+- Slow-query cap: first execution > 2 s -> 1 warmup + 5 reps; > 30 s -> 1 execution, non-executing plan (MariaDB `EXPLAIN FORMAT=JSON`).
+- Parameter samples use `ORDER BY 1` by default (`HARNESS_SAMPLE_ORDERED=0` disables), so variants with different indexes sample the
+  same rows.
+- MySQL/MariaDB `prepare` creates the secondary indexes after the data load (`ALTER TABLE ... ADD INDEX`), same final index list.
+- `bench dropruns --dialect d` drops `run`, `eq_a`, `eq_b` (frees disk). `HARNESS_ID_VERSION=7` generates UUIDv7 ids (out of scope here).
+- `--pages-client-sort`, `--pg-*`, `--capture-plans`, `analyze`: PostgreSQL-oriented options of the inherited runner.
+- New in this copy: lanes (`HARNESS_LANE`, `HARNESS_CPUSET`, `HARNESS_CLIENT_CPUSET`, `HARNESS_EXTRA_ARGS` for server options), lane,
+  container and cpuset recorded in `env.txt`.
+
+## MySQL port
+
+Changes made for the MySQL study (all in `sql/`, `repo/` and `bin/`; MariaDB code paths are kept). Evidence: `../results/validation/VALIDATION.md`.
+
+- **New `MySql.kt`** (modelled on `Maria.kt`, which supplies the generic InnoDB helpers `status`, `flushAll`, `indexSizes`, `prime`, `handlerRow`, the JSON reader) and an `Inno` object that dispatches
+  the dialect-specific calls (history list, global counters, tablespace size) for `writecost`, `concurrency` and `churn`. `Dialect.isInnoDb` = MySQL or MariaDB.
+- **Driver and connections.** MySQL Connector/J (9.7.0 as resolved by the build; recorded in `env.txt` as `jdbc_driver` / `connector_j`), driver defaults (client-side prepared statements, no statement cache).
+  `rewriteBatchedStatements=true` only on the `gen` load connection (`Dialect.connect(schema, forLoad = true)`); the timed connection and `churn` batches do not use it. Sessions run in UTC (`time_zone='+00:00'`).
+- **setMaxRows is not client-side only.** The runner calls the real `PreparedStatement.setMaxRows(n)` for every catalog entry whose `maxrows` is not `none`, and nothing for `none` (`main` sends `LIMIT :limit` in SQL
+  and no `setMaxRows` on the P1/P2 queries). Connector/J 9.7.0 wraps each such execution in `SET sql_select_limit=n` before and `SET sql_select_limit=DEFAULT` after (two extra statements, seen in the
+  server's `general_log`, also when the SQL already contains `LIMIT`); the timed section includes them. `bench maxrowscheck --dialect mysql --out FILE` reproduces the proof (`../results/validation/general_log.txt`).
+- **Plans** (`plans/<id>.*`): `EXPLAIN ANALYZE` tree (`.txt`), `EXPLAIN FORMAT=JSON` (`.json`), optimizer trace of `EXPLAIN FORMAT=JSON` for reads (`.trace.json`; full when <= 60 000 chars, else only `considered_execution_plans`,
+  `rows_estimation`, `attaching_conditions_to_tables`, each cut to 20 000 chars) and `.summary.txt` (per table: access type, key, key parts, key length, estimated rows, filtered, covering/index condition/attached condition,
+  then per access node of the tree actual rows, loops, rows read; filesort/temporary; strategies such as antijoin, semijoin, hash join, Materialize, index skip scan; rows examined vs returned; the applied `sql_select_limit`).
+  Queries with `maxrows` != none are captured under `SET SESSION sql_select_limit = n` (reset afterwards) because that is what Connector/J sends; `--no-plan-select-limit` captures without it (experiment M9).
+  Single-table INSERT/UPDATE/DELETE: MySQL 8.4 returns `<not executable by iterator executor>` for `EXPLAIN ANALYZE`, so these plans are estimates from `FORMAT=JSON` (the summary says so). Writes are explained in a rolled-back
+  transaction. Very slow queries (> 30 s) and queries stopped at the limit get non-executing `EXPLAIN FORMAT=TREE` + JSON.
+- **Rows examined.** `handlers.csv`: `query_id,Handler_read_key,_next,_prev,_first,_last,_rnd,_rnd_next,bp_read_requests,bp_reads` (session deltas of one extra execution outside the timed section, the cost of two `SHOW STATUS` calls subtracted).
+- **Statistics, history list, warm-up.** `prepare` ends with `ANALYZE TABLE outbox_record` (persistent stats, no histograms). Before the first timed query `bench`/`writecost`/`concurrency`/`churn` wait for
+  `INNODB_METRICS.trx_rseg_history_len` < 1000 (max 120 s; the counter is enabled with `innodb_monitor_enable`). Buffer pool priming is the MariaDB one (`SELECT COUNT(*) ... FORCE INDEX` per index, smallest first, until 80 % of
+  `innodb_buffer_pool_size`; `--no-prime` disables). `env.txt` lists the server settings of brief 02 item 8 (including `innodb_redo_log_capacity`, `binlog_*`, `sync_binlog`, `innodb_adaptive_hash_index`,
+  `innodb_change_buffering`), column charset/collation of `id`/`record_key`, histograms present, image tag and id, per-index sizes (`mysql.innodb_index_stats`) and tablespace size (`INNODB_TABLESPACES`).
+- **Write cost.** `writecost` as on MariaDB (phases, flush of dirty pages before/after each phase, latency p50/p95, throughput, per-index sizes) with `Innodb_os_log_written`, `Innodb_redo_log_current_lsn`, pages/data written,
+  buffer pool reads, row-lock waits/time, `deadlocks` (`INNODB_METRICS.lock_deadlocks`) and `binlog_bytes` (sum of `SHOW BINARY LOGS`) per phase and per write. `--n 120` on S1 (50 per update slice).
+- **Binary log.** The image default (`log_bin=ON`) is kept. `RESET BINARY LOGS AND GTIDS` (fallbacks `RESET MASTER`, `PURGE BINARY LOGS BEFORE NOW()`) runs after `gen`, `prepare`, `churn`, `concurrency` and `writecost`, never inside a timed step.
+- **S9 (`churn`).** The insert/process part is unchanged (catalog `insert`, `upd_*`, `delete_by_id`). The retention part is harness-internal and identical for every variant: the `--inserts` oldest COMPLETED rows of the snapshot
+  (`ORDER BY created_at, id`) are deleted by primary key in batches of 1000, untimed. Sizes, history list length and global counter deltas are recorded before/after; no manual `ANALYZE`/`OPTIMIZE`.
+- **S10 (`concurrency`).** Works on MySQL (pollers on disjoint partitions, `--rate 500` or `0`); adds history list length, row-lock waits, deadlocks, redo/pages/binlog deltas. A single producer is bounded by the
+  durable commit latency (`sync_binlog=1`, `innodb_flush_log_at_trx_commit=1`: about 130 inserts/s on S1), so `--rate 500` needs `--producers N`.
+- **Priority 3 never runs.** `--groups` defaults to `HOT,WRITE,MON` in `bench` and `equiv`, and any `RET`/`ADMIN` group is rejected before anything runs (`Priority.groups`). `equiv` reads only P1/P2 ids.
+  The repository-level runner skips the P3 methods (`find*Records`, `delete*Records`, `deleteByIds`, `deleteByStatus`, `deleteByRecordKeyAndStatus`, `findIncompleteRecordsByRecordKey`, ids `delete_completed_batch`,
+  `delete_failed_batch`). `run-cells.sh` passes `--groups HOT,WRITE,MON` to `bench` and `equiv` and refuses a `BENCH_ARGS` that names `RET`/`ADMIN`. Parameter sampling in `Ctx.sample` gets `LIMIT n` in the SQL on MySQL (same rows as
+  the client-side `maxRows` truncation).
+- **Repository-level runner.** `bin/repo-bench <v> bench --engine jdbc --dialect mysql --worktree W --scenario S1`: Hikari (4 connections), MySQL Connector/J with driver defaults on the lane's port, the worktree's real
+  `JdbcOutboxPersistenceFactory`. `repo-jdbc/sql.txt` starts with the dialect class resolved by the repository (`io.namastack.outbox.query.MySqlJdbcOutboxRecordQueries` on `my-opt`; `rowLimitClause` on `my-main`) and the product the data
+  source reports (`MySQL 8.4.13 via MySQL Connector/J ...`), then every P1/P2 statement with the `setMaxRows` it was prepared with. JDBC only.
+- **Per-query limit.** `bench limitcheck --dialect mysql --query-limit-s 3` stops the test query after 3.7 s (`Statement.cancel()` = `KILL QUERY`).
+- **Lane.** Container `outbox-bench-mysql-L1`, volume `outbox-bench-mysql-L1-data`, port 13406, snapshot marker `build/snap-mysql-L1.txt`, H2 dir `build/h2-L1`; `run-cells.sh` defaults to `DIALECT=mysql`.
+
+Known limits of the MySQL port: container defaults are kept (buffer pool 128 MiB, redo log capacity 100 MiB, `sync_binlog=1`), so larger scenarios fit the buffer pool only partly (priming stops at 80 %); the harness
+does not set a server option the image does not set. Single-table DML has no actual-row plan on 8.4.
+
+## MySQL port - round tooling
+
+Tooling added for the query-form rounds (all in `harness/`; no change to scenario definitions or data).
+
+**`bin/run-cells.sh`**
+- Labels: `S16-S2`, `S16-S4` (`--owned 0,16,32,...,240`, 16 partitions); `S10-S2-p1`, `S10-S2-p4`, `S10-S4-p4` run `concurrency --pollers 1|4 --seconds 60 --rate 500 --producers 8` on S2 or S4 data; the suffix `-unthr` gives
+  `--rate 0 --producers 4`. The results label is the full label (`results/<variant>/mysql/S10-S2-p4/concurrency-p4-r500.txt`; unthrottled tag `p4-r0`). `Concurrency` divides `--rate` over `--producers` (per-thread rate = rate / producers), so
+  8 threads give 500 rec/s in total; one producer thread reaches only ~130 durable inserts/s. The plain `S10` label still works (S2 data, 4 pollers, 500 rec/s, now with 8 producer threads). `CONC_ARGS` still overrides everything.
+- Load gate: before every step (gen, prepare, bench, writecost, concurrency, churn, equiv) the 1-min `/proc/loadavg` is logged; if it is > 3 the driver waits up to 10 min (`LOAD_MAX`, `LOAD_WAIT_S`) until it is <= 3 and logs the wait; after the timeout it starts and logs that.
+- Pseudo-cell `restart:-:-`: stops and starts the lane's container (`bin/db.sh stop|start mysql`), for use between passes.
+- `DRYRUN=1`: prints every command (`DRY [...] bin/bench ...`, the gen steps implied by scenario changes, the restart) without running, waiting, touching the container or writing results.
+
+**Merged query forms in the SQL runner** (`NamedSql.expand`, used by bench timing and plans, equiv, concurrency, churn, writecost; plans use the literalized form of the expanded statement):
+- `:<coll>Json` (`:recordKeysJson`, `:statusesJson`, ...): one bind parameter, a JSON array string of the elements (strings escaped, numbers bare).
+- `:<coll>Rows` (`:recordKeysRows`, `:partitionsRows`): `ROW(?),ROW(?),...`, one bind per element.
+- `:recordKeysSelects` (`:<coll>Selects`): `SELECT ? AS k UNION ALL SELECT ? UNION ALL ...`.
+- EACH block (`/*EACH:<coll>:<sep>*/ body /*END*/`): body repeated once per element, joined by `<sep>` (spaces kept); each `:item` of a copy is its own bind to the element, other named scalars are bound again in every copy. At least one element.
+- A named scalar or collection may occur several times; each occurrence is expanded and bound separately.
+
+**Equivalence**: `equiv --only <id,...>` restricts the check to those query ids; in the generic comparison a single all-NULL row (`MIN(...)` over no rows) equals an empty result (needed for `MIN` versus `ORDER BY ... LIMIT 1` forms).
+
+**Overlays**: `bin/form-overlay.sh <QM-file> <outdir>` empties `<outdir>`, copies the form to `<outdir>/<id>.sql` (id from the `-- id:` header) and prints the id. Use `--queries <outdir>`
+(`--queries-a/--queries-b` for equiv, `--catalog-variant my-opt` to take the catalog of the unchanged queries). The S1 smoke of every merged form is in `../experiments/Q-merged/S1-smoke.md` (results in `../results/smoke`).

@@ -1,0 +1,92 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "62911.75"
+    },
+    "ordering_operation": {
+      "using_filesort": false,
+      "nested_loop": [
+        {
+          "table": {
+            "table_name": "o",
+            "access_type": "range",
+            "possible_keys": [
+              "idx_outbox_record_status_completed_created_id",
+              "idx_outbox_record_status_completed_retry",
+              "idx_outbox_record_status_completed_partition"
+            ],
+            "key": "idx_outbox_record_status_completed_created_id",
+            "used_key_parts": [
+              "status",
+              "completed_at"
+            ],
+            "key_length": "87",
+            "rows_examined_per_scan": 243012,
+            "rows_produced_per_join": 12456,
+            "filtered": "16.66",
+            "using_index": true,
+            "cost_info": {
+              "read_cost": "40983.81",
+              "eval_cost": "1245.64",
+              "prefix_cost": "42229.45",
+              "data_read_per_join": "133M"
+            },
+            "used_columns": [
+              "id",
+              "status",
+              "record_key",
+              "created_at",
+              "completed_at",
+              "next_retry_at",
+              "partition_no"
+            ],
+            "attached_condition": "((`run`.`o`.`status` = 'NEW') and (`run`.`o`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (`run`.`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00') and (`run`.`o`.`completed_at` is null))"
+          }
+        },
+        {
+          "table": {
+            "table_name": "earlier",
+            "access_type": "ref",
+            "possible_keys": [
+              "PRIMARY",
+              "idx_outbox_record_status_completed_created_id",
+              "idx_outbox_record_key_completed_created_id",
+              "idx_outbox_record_status_completed_retry",
+              "idx_outbox_record_status_completed_partition"
+            ],
+            "key": "idx_outbox_record_key_completed_created_id",
+            "used_key_parts": [
+              "record_key",
+              "completed_at"
+            ],
+            "key_length": "1027",
+            "ref": [
+              "run.o.record_key",
+              "const"
+            ],
+            "rows_examined_per_scan": 1,
+            "rows_produced_per_join": 12456,
+            "filtered": "100.00",
+            "not_exists": true,
+            "cost_info": {
+              "read_cost": "18671.10",
+              "eval_cost": "1245.64",
+              "prefix_cost": "62911.75",
+              "data_read_per_join": "133M"
+            },
+            "used_columns": [
+              "id",
+              "status",
+              "record_key",
+              "created_at",
+              "completed_at",
+              "next_retry_at"
+            ],
+            "attached_condition": "(<if>(is_not_null_compl(earlier), ((`run`.`earlier`.`status` = 'NEW') and (`run`.`earlier`.`completed_at` is null) and (`run`.`earlier`.`next_retry_at` <= '2026-01-01 12:00:00.000000') and (`run`.`earlier`.`created_at` <= `run`.`o`.`created_at`) and ((`run`.`earlier`.`created_at` < `run`.`o`.`created_at`) or ((`run`.`earlier`.`created_at` = `run`.`o`.`created_at`) and (`run`.`earlier`.`id` < `run`.`o`.`id`)))), true) and <if>(is_not_null_compl(earlier), <if>(found_match(earlier), false, true), true))"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,851 @@
+{
+  "steps": [
+    {
+      "join_preparation": {
+        "select#": 1,
+        "steps": [
+          {
+            "IN_uses_bisection": true
+          },
+          {
+            "join_preparation": {
+              "select#": 2,
+              "steps": [
+                {
+                  "expanded_query": "/* select#2 */ select 1 from `outbox_record` `earlier` where ((`earlier`.`record_key` = `o`.`record_key`) and (`earlier`.`completed_at` is null) and (`earlier`.`created_at` <= `o`.`created_at`) and ((`earlier`.`created_at` < `o`.`created_at`) or ((`earlier`.`created_at` = `o`.`created_at`) and (`earlier`.`id` < `o`.`id`))))"
+                }
+              ]
+            }
+          },
+          {
+            "expanded_query": "/* select#1 */ select `o`.`next_retry_at` AS `next_retry_at` from `outbox_record` `o` where ((`o`.`partition_no` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255)) and (`o`.`status` = 'NEW') and (`o`.`next_retry_at` <= '2026-01-01 12:00:00.000000') and (`o`.`completed_at` is null) and exists(/* select#2 */ select 1 from `outbox_record` `earlier` where ((`earlier`.`record_key` = `o`.`record_key`) and (`earlier`.`completed_at` is null) and (`earlier`.`created_at` <= `o`.`created_at`) and ((`earlier`.`created_at` < `o`.`created_at`) or ((`earlier`.`created_at` = `o`.`created_at`) and (`earlier`.`id` < `o`.`id`))))) is false) order by `o`.`next_retry_at` limit 1"
+          },
+          {
+            "transformation": {
+              "select#": 2,
+              "from": "IN (SELECT)",
+              "to": "antijoin",
+              "chosen": true,
+              "transformation_to_semi_join": {
+                "subquery_predicate": "exists(/* select#2 */ select 1 from `outbox_record` `earlier` where ((`earlier`.`record_key` = `o`.`record_key`) and (`earlier`.`completed_at` is null) and (`earlier`.`created_at` <= `o`.`created_at`) and ((`earlier`.`created_at` < `o`.`created_at`) or ((`earlier`.`created_at` = `o`.`created_at`) and (`earlier`.`id` < `o`.`id`))))) is false",
+                "embedded in": "WHERE",
+                "evaluating_constant_semijoin_conditions": [
+                ],
+                "semi-join condition": "((`earlier`.`completed_at` is null) and (`earlier`.`created_at` <= `o`.`created_at`) and ((`earlier`.`created_at` < `o`.`created_at`) or ((`earlier`.`created_at` = `o`.`created_at`) and (`earlier`.`id` < `o`.`id`))) and (`o`.`record_key` = `earlier`.`record_key`))",
+                "decorrelated_predicates": [
+                  {
+                    "outer": "`o`.`record_key`",
+                    "inner": "`earlier`.`record_key`"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "transformations_to_nested_joins": {
+              "transformations": [
+                "parenthesis_removal"
+              ],
+              "expanded_query": "/* select#1 */ select `o`.`next_retry_at` AS `next_retry_at` from `outbox_record` `o` anti join (`outbox_record` `earlier`) on(((`earlier`.`completed_at` is null) and (`earlier`.`created_at` <= `o`.`created_at`) and ((`earlier`.`created_at` < `o`.`created_at`) or ((`earlier`.`created_at` = `o`.`created_at`) and (`earlier`.`id` < `o`.`id`))) and (`o`.`record_key` = `earlier`.`record_key`))) where ((`o`.`partition_no` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255)) and (`o`.`status` = 'NEW') and (`o`.`next_retry_at` <= '2026-01-01 12:00:00.000000') and (`o`.`completed_at` is null) and true) order by `o`.`next_retry_at` limit 1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "join_optimization": {
+        "select#": 1,
+        "steps": [
+          {
+            "condition_processing": {
+              "condition": "WHERE",
+              "original_condition": "((`o`.`partition_no` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255)) and (`o`.`status` = 'NEW') and (`o`.`next_retry_at` <= '2026-01-01 12:00:00.000000') and (`o`.`completed_at` is null) and true)",
+              "steps": [
+                {
+                  "transformation": "equality_propagation",
+                  "subselect_evaluation": [
+                  ],
+                  "resulting_condition": "((`o`.`partition_no` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255)) and (`o`.`next_retry_at` <= '2026-01-01 12:00:00.000000') and (`o`.`completed_at` is null) and true and multiple equal('NEW', `o`.`status`))"
+                },
+                {
+                  "transformation": "constant_propagation",
+                  "resulting_condition": "((`o`.`partition_no` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255)) and (`o`.`next_retry_at` <= '2026-01-01 12:00:00.000000') and (`o`.`completed_at` is null) and true and multiple equal('NEW', `o`.`status`))"
+                },
+                {
+                  "transformation": "trivial_condition_removal",
+                  "resulting_condition": "((`o`.`partition_no` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255)) and (`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00') and (`o`.`completed_at` is null) and multiple equal('NEW', `o`.`status`))"
+                }
+              ]
+            }
+          },
+          {
+            "substitute_generated_columns": {
+            }
+          },
+          {
+            "table_dependencies": [
+              {
+                "table": "`outbox_record` `o`",
+                "row_may_be_null": false,
+                "map_bit": 0,
+                "depends_on_map_bits": [
+                ]
+              },
+              {
+                "table": "`outbox_record` `earlier`",
+                "row_may_be_null": true,
+                "map_bit": 1,
+                "depends_on_map_bits": [
+                  0
+                ]
+              }
+            ]
+          },
+          {
+            "ref_optimizer_key_uses": [
+              {
+                "table": "`outbox_record` `o`",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": true
+              },
+              {
+                "table": "`outbox_record` `o`",
+                "field": "completed_at",
+                "equals": "NULL",
+                "null_rejecting": false
+              },
+              {
+                "table": "`outbox_record` `o`",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": true
+              },
+              {
+                "table": "`outbox_record` `o`",
+                "field": "completed_at",
+                "equals": "NULL",
+                "null_rejecting": false
+              },
+              {
+                "table": "`outbox_record` `o`",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": true
+              },
+              {
+                "table": "`outbox_record` `o`",
+                "field": "completed_at",
+                "equals": "NULL",
+                "null_rejecting": false
+              },
+              {
+                "table": "`outbox_record` `earlier`",
+                "field": "record_key",
+                "equals": "`o`.`record_key`",
+                "null_rejecting": true
+              },
+              {
+                "table": "`outbox_record` `earlier`",
+                "field": "completed_at",
+                "equals": "NULL",
+                "null_rejecting": false
+              }
+            ]
+          },
+          {
+            "pulled_out_semijoin_tables": [
+            ]
+          },
+          {
+            "rows_estimation": [
+              {
+                "table": "`outbox_record` `o`",
+                "range_analysis": {
+                  "table_scan": {
+                    "rows": 7996,
+                    "cost": 1050.95
+                  },
+                  "potential_range_indexes": [
+                    {
+                      "index": "PRIMARY",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_created_id",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "completed_at",
+                        "created_at",
+                        "id",
+                        "partition_no",
+                        "next_retry_at",
+                        "record_key"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_retry",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "completed_at",
+                        "next_retry_at",
+                        "partition_no",
+                        "id"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_partition",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "completed_at",
+                        "partition_no",
+                        "id"
+                      ]
+                    }
+                  ],
+                  "best_covering_index_scan": {
+                    "index": "idx_outbox_record_status_completed_created_id",
+                    "cost": 2193.19,
+                    "chosen": false,
+                    "cause": "cost"
+                  },
+                  "setup_range_conditions": [
+                  ],
+                  "group_index_skip_scan": {
+                    "chosen": false,
+                    "cause": "not_group_by_or_distinct"
+                  },
+                  "skip_scan_range": {
+                    "chosen": false,
+                    "cause": "not_single_table"
+                  },
+                  "analyzing_range_alternatives": {
+                    "range_scan_alternatives": [
+                      {
+                        "index": "idx_outbox_record_status_completed_created_id",
+                        "ranges": [
+                          "status = 'NEW' AND completed_at = NULL"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": true,
+                        "in_memory": 0.636364,
+                        "rows": 180,
+                        "cost": 49.7221,
+                        "chosen": true
+                      },
+                      {
+                        "index": "idx_outbox_record_status_completed_retry",
+                        "ranges": [
+                          "status = 'NEW' AND completed_at = NULL AND next_retry_at <= '2026-01-01 12:00:00'"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "in_memory": 0.0487805,
+                        "rows": 150,
+                        "cost": 52.76,
+                        "chosen": false,
+                        "cause": "cost"
+                      },
+                      {
+                        "index": "idx_outbox_record_status_completed_partition",
+                        "ranges": [
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 0",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 1",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 2",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 3",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 4",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 5",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 6",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 7",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 8",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 9",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 10",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 11",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 12",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 13",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 14",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 15",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 16",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 17",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 18",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 19",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 20",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 21",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 22",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 23",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 24",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 25",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 26",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 27",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 28",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 29",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 30",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 31",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 32",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 33",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 34",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 35",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 36",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 37",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 38",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 39",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 40",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 41",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 42",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 43",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 44",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 45",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 46",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 47",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 48",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 49",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 50",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 51",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 52",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 53",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 54",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 55",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 56",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 57",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 58",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 59",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 60",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 61",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 62",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 63",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 64",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 65",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 66",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 67",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 68",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 69",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 70",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 71",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 72",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 73",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 74",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 75",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 76",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 77",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 78",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 79",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 80",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 81",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 82",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 83",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 84",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 85",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 86",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 87",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 88",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 89",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 90",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 91",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 92",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 93",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 94",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 95",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 96",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 97",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 98",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 99",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 100",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 101",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 102",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 103",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 104",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 105",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 106",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 107",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 108",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 109",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 110",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 111",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 112",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 113",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 114",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 115",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 116",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 117",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 118",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 119",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 120",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 121",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 122",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 123",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 124",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 125",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 126",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 127",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 128",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 129",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 130",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 131",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 132",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 133",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 134",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 135",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 136",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 137",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 138",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 139",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 140",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 141",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 142",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 143",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 144",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 145",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 146",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 147",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 148",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 149",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 150",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 151",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 152",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 153",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 154",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 155",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 156",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 157",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 158",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 159",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 160",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 161",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 162",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 163",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 164",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 165",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 166",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 167",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 168",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 169",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 170",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 171",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 172",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 173",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 174",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 175",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 176",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 177",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 178",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 179",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 180",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 181",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 182",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 183",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 184",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 185",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 186",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 187",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 188",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 189",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 190",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 191",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 192",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 193",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 194",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 195",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 196",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 197",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 198",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 199",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 200",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 201",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 202",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 203",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 204",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 205",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 206",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 207",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 208",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 209",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 210",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 211",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 212",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 213",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 214",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 215",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 216",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 217",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 218",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 219",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 220",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 221",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 222",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 223",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 224",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 225",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 226",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 227",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 228",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 229",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 230",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 231",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 232",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 233",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 234",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 235",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 236",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 237",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 238",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 239",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 240",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 241",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 242",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 243",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 244",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 245",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 246",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 247",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 248",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 249",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 250",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 251",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 252",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 253",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 254",
+                          "status = 'NEW' AND completed_at = NULL AND partition_no = 255"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "in_memory": 0.0263158,
+                        "rows": 297,
+                        "cost": 167.96,
+                        "chosen": false,
+                        "cause": "cost"
+                      }
+                    ],
+                    "analyzing_roworder_intersect": {
+                      "usable": false,
+                      "cause": "too_few_roworder_scans"
+                    }
+                  },
+                  "chosen_range_access_summary": {
+                    "range_access_plan": {
+                      "type": "range_scan",
+                      "index": "idx_outbox_record_status_completed_created_id",
+                      "rows": 180,
+                      "ranges": [
+                        "status = 'NEW' AND completed_at = NULL"
+                      ]
+                    },
+                    "rows_for_plan": 180,
+                    "cost_for_plan": 49.7221,
+                    "chosen": true
+                  }
+                }
+              },
+              {
+                "table": "`outbox_record` `earlier`",
+                "table_scan": {
+                  "rows": 7996,
+                  "cost": 249.25
+                }
+              }
+            ]
+          },
+          {
+            "execution_plan_for_potential_materialization": {
+              "steps": [
+              ]
+            }
+          },
+          {
+            "considered_execution_plans": [
+              {
+                "plan_prefix": [
+                ],
+                "table": "`outbox_record` `o`",
+                "best_access_path": {
+                  "considered_access_paths": [
+                    {
+                      "access_type": "ref",
+                      "index": "idx_outbox_record_status_completed_created_id",
+                      "rows": 180,
+                      "cost": 49.7121,
+                      "chosen": true
+                    },
+                    {
+                      "access_type": "ref",
+                      "index": "idx_outbox_record_status_completed_retry",
+                      "chosen": false,
+                      "cause": "range_uses_more_keyparts"
+                    },
+                    {
+                      "access_type": "ref",
+                      "index": "idx_outbox_record_status_completed_partition",
+                      "chosen": false,
+                      "cause": "range_uses_more_keyparts"
+                    },
+                    {
+                      "access_type": "range",
+                      "range_details": {
+                        "used_index": "idx_outbox_record_status_completed_created_id"
+                      },
+                      "chosen": false,
+                      "cause": "heuristic_index_cheaper"
+                    }
+                  ]
+                },
+                "condition_filtering_pct": 16.665,
+                "rows_for_plan": 29.997,
+                "cost_for_plan": 49.7121,
+                "semijoin_strategy_choice": [
+                ],
+                "rest_of_plan": [
+                  {
+                    "plan_prefix": [
+                      "`outbox_record` `o`"
+                    ],
+                    "table": "`outbox_record` `earlier`",
+                    "best_access_path": {
+                      "considered_access_paths": [
+                        {
+                          "access_type": "ref",
+                          "index": "idx_outbox_record_key_completed_created_id",
+                          "rows": 1,
+                          "cost": 21.9523,
+                          "chosen": true
+                        },
+                        {
+                          "access_type": "scan",
+                          "cost": 1048.85,
+                          "rows": 7996,
+                          "chosen": false,
+                          "cause": "cost"
+                        }
+                      ]
+                    },
+                    "condition_filtering_pct": 100,
+                    "rows_for_plan": 29.997,
+                    "cost_for_plan": 71.6645,
+                    "semijoin_strategy_choice": [
+                      {
+                        "strategy": "FirstMatch",
+                        "recalculate_access_paths_and_cost": {
+                          "tables": [
+                          ]
+                        },
+                        "cost": 71.6645,
+                        "rows": 29.997,
+                        "chosen": true
+                      },
+                      {
+                        "strategy": "DuplicatesWeedout",
+                        "cost": 78.6639,
+                        "rows": 29.997,
+                        "duplicate_tables_left": false,
+                        "chosen": false
+                      }
+                    ],
+                    "chosen": true
+                  }
+                ]
+              },
+              {
+                "final_semijoin_strategy": "FirstMatch",
+                "recalculate_access_paths_and_cost": {
+                  "tables": [
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "attaching_conditions_to_tables": {
+              "original_condition": "((`o`.`status` = 'NEW') and (`o`.`partition_no` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255)) and (`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00') and (`o`.`completed_at` is null))",
+              "attached_conditions_computation": [
+              ],
+              "attached_conditions_summary": [
+                {
+                  "table": "`outbox_record` `o`",
+                  "attached": "((`o`.`status` = 'NEW') and (`o`.`partition_no` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255)) and (`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00') and (`o`.`completed_at` is null))"
+                },
+                {
+                  "table": "`outbox_record` `earlier`",
+                  "attached": "(<if>(is_not_null_compl(earlier), ((`earlier`.`record_key` = `o`.`record_key`) and (`earlier`.`completed_at` is null) and (`earlier`.`created_at` <= `o`.`created_at`) and ((`earlier`.`created_at` < `o`.`created_at`) or ((`earlier`.`created_at` = `o`.`created_at`) and (`earlier`.`id` < `o`.`id`)))), true) and <if>(is_not_null_compl(earlier), <if>(found_match(earlier), false, true), true))"
+                }
+              ]
+            }
+          },
+          {
+            "optimizing_distinct_group_by_order_by": {
+              "simplifying_order_by": {
+                "original_clause": "`o`.`next_retry_at`",
+                "items": [
+                  {
+                    "item": "`o`.`next_retry_at`"
+                  }
+                ],
+                "resulting_clause_is_simple": true,
+                "resulting_clause": "`o`.`next_retry_at`"
+              }
+            }
+          },
+          {
+            "reconsidering_access_paths_for_index_ordering": {
+              "clause": "ORDER BY",
+              "steps": [
+                {
+                  "rows_estimation": {
+                    "table": "`outbox_record` `o`",
+                    "index": "idx_outbox_record_status_completed_retry",
+                    "range_analysis": {
+                      "table_scan": {
+                        "rows": 7996,
+                        "cost": 2800.6
+                      },
+                      "potential_range_indexes": [
+                        {
+                          "index": "PRIMARY",
+                          "usable": false,
+                          "cause": "not_applicable"
+                        },
+                        {
+                          "index": "idx_outbox_record_status_completed_created_id",
+                          "usable": false,
+                          "cause": "not_applicable"
+                        },
+                        {
+                          "index": "idx_outbox_record_key_completed_created_id",
+                          "usable": false,
+                          "cause": "not_applicable"
+                        },
+                        {
+                          "index": "idx_outbox_record_status_completed_retry",
+                          "usable": true,
+                          "key_parts": [
+                            "status",
+                            "completed_at",
+                            "next_retry_at",
+                            "partition_no",
+                            "id"
+                          ]
+                        },
+                        {
+                          "index": "idx_outbox_record_status_completed_partition",
+                          "usable": false,
+                          "cause": "not_applicable"
+                        }
+                      ],
+                      "best_covering_index_scan": {
+                        "index": "idx_outbox_record_status_completed_created_id",
+                        "cost": 2193.19,
+                        "chosen": true
+                      },
+                      "setup_range_conditions": [
+                      ],
+                      "group_index_skip_scan": {
+                        "chosen": false,
+                        "cause": "not_group_by_or_distinct"
+                      },
+                      "skip_scan_range": {
+                        "chosen": false,
+                        "cause": "not_single_table"
+                      },
+                      "analyzing_range_alternatives": {
+                        "range_scan_alternatives": [
+                          {
+                            "index": "idx_outbox_record_status_completed_retry",
+                            "ranges": [
+                              "status = 'NEW' AND completed_at = NULL AND next_retry_at <= '2026-01-01 12:00:00'"
+                            ],
+                            "index_dives_for_eq_ranges": true,
+                            "rowid_ordered": false,
+                            "using_mrr": false,
+                            "index_only": false,
+                            "in_memory": 0.0487805,
+                            "rows": 150,
+                            "cost": 52.76,
+                            "chosen": true
+                          }
+                        ],
+                        "analyzing_roworder_intersect": {
+                          "usable": false,
+                          "cause": "too_few_roworder_scans"
+                        }
+                      },
+                      "chosen_range_access_summary": {
+                        "range_access_plan": {
+                          "type": "range_scan",
+                          "index": "idx_outbox_record_status_completed_retry",
+                          "rows": 150,
+                          "ranges": [
+                            "status = 'NEW' AND completed_at = NULL AND next_retry_at <= '2026-01-01 12:00:00' AND partition_no <= 255"
+                          ]
+                        },
+                        "rows_for_plan": 150,
+                        "cost_for_plan": 52.76,
+                        "chosen": true
+                      }
+                    }
+                  }
+                }
+              ],
+              "index_order_summary": {
+                "table": "`outbox_record` `o`",
+                "index_provides_order": true,
+                "order_direction": "asc",
+                "index": "idx_outbox_record_status_completed_retry",
+                "plan_changed": true,
+                "access_type": "range"
+              }
+            }
+          },
+          {
+            "finalizing_table_conditions": [
+              {
+                "table": "`outbox_record` `o`",
+                "original_table_condition": "((`o`.`status` = 'NEW') and (`o`.`partition_no` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255)) and (`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00') and (`o`.`completed_at` is null))",
+                "final_table_condition   ": "((`o`.`status` = 'NEW') and (`o`.`partition_no` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255)) and (`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00') and (`o`.`completed_at` is null))"
+              },
+              {
+                "table": "`outbox_record` `earlier`",
+                "original_table_condition": "(<if>(is_not_null_compl(earlier), ((`earlier`.`record_key` = `o`.`record_key`) and (`earlier`.`completed_at` is null) and (`earlier`.`created_at` <= `o`.`created_at`) and ((`earlier`.`created_at` < `o`.`created_at`) or ((`earlier`.`created_at` = `o`.`created_at`) and (`earlier`.`id` < `o`.`id`)))), true) and <if>(is_not_null_compl(earlier), <if>(found_match(earlier), false, true), true))",
+                "final_table_condition   ": "(<if>(is_not_null_compl(earlier), ((`earlier`.`completed_at` is null) and (`earlier`.`created_at` <= `o`.`created_at`) and ((`earlier`.`created_at` < `o`.`created_at`) or ((`earlier`.`created_at` = `o`.`created_at`) and (`earlier`.`id` < `o`.`id`)))), true) and <if>(is_not_null_compl(earlier), <if>(found_match(earlier), false, true), true))"
+              }
+            ]
+          },
+          {
+            "refine_plan": [
+              {
+                "table": "`outbox_record` `o`",
+                "pushed_index_condition": "((`o`.`status` = 'NEW') and (`o`.`partition_no` in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255)) and (`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00') and (`o`.`completed_at` is null))",
+                "table_condition_attached": null
+              },
+              {
+                "table": "`outbox_record` `earlier`"
+              }
+            ]
+          },
+          {
+            "considering_tmp_tables": [
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "join_explain": {
+        "select#": 1,
+        "steps": [
+        ]
+      }
+    }
+  ]
+}

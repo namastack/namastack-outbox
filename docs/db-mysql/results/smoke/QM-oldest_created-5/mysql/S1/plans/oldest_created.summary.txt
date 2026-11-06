@@ -1,0 +1,6 @@
+id: oldest_created   mode: ANALYZE (executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 1
+query_cost: 1.09
+select#1 table=outbox_record access=ref key=idx_outbox_record_status_completed_created_id key_parts=[status,completed_at] key_len=87 rows_examined_per_scan=1 rows_produced_per_join=0 filtered=50 using_index=yes attached_condition=yes index_condition=no prefix_cost=1.09
+access: table=outbox_record index=idx_outbox_record_status_completed_created_id node="Covering index lookup on outbox_record using idx_outbox_record_status_completed_created_id (status='NEW', completed_at=NULL)" est_rows=1 actual_rows=1 loops=1 rows_read=1
+filesort: no   temporary: no   strategies: limit   json_flags: -
+rows_examined_total (tree, sum of table access nodes): 1   rows_returned: 1   root_node_actual_rows: 1

@@ -1,0 +1,1 @@
+NOTE cal-bg: gradle build loop (taskset -c 0,4,5, --offline build -x test -x ktlintCheck) running in my-opt worktree throughout; LOAD_MAX=100 (load gate disabled); first attempt aborted after seconds (build failed offline), restarted

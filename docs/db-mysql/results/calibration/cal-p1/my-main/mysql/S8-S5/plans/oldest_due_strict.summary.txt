@@ -1,0 +1,8 @@
+id: oldest_due_strict   mode: ANALYZE (executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 1
+query_cost: 89456.53
+select#1 table=o access=range key=idx_outbox_record_partition_status_retry key_parts=[partition_no,status,next_retry_at] key_len=90 rows_examined_per_scan=37338 rows_produced_per_join=37338 filtered=100 using_index=no attached_condition=no index_condition=yes prefix_cost=40783.99
+select#1 table=older access=ref key=idx_outbox_record_record_key_completed_created key_parts=[record_key,completed_at] key_len=1027 rows_examined_per_scan=1 rows_produced_per_join=37338 filtered=100 using_index=yes attached_condition=yes index_condition=no prefix_cost=89456.53
+access: table=o index=idx_outbox_record_partition_status_retry node="Index range scan on o using idx_outbox_record_partition_status_retry over (partition_no = 0 AND status = 'NEW' AND next_retry_at <= '2026-01" est_rows=37338 actual_rows=33992 loops=1 rows_read=33992
+access: table=older index=idx_outbox_record_record_key_completed_created node="Covering index lookup on older using idx_outbox_record_record_key_completed_created (record_key=o.record_key, completed_at=NULL)" est_rows=1.580 actual_rows=1.530 loops=33992 rows_read=52007.760
+filesort: no   temporary: no   strategies: antijoin,nested loop,aggregate   json_flags: -
+rows_examined_total (tree, sum of table access nodes): 85999.760   rows_returned: 1   root_node_actual_rows: 1

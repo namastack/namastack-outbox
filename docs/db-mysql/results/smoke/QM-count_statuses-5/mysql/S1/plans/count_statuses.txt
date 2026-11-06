@@ -1,0 +1,10 @@
+-> Append  (cost=66.2 rows=2) (actual time=0.0568..0.0679 rows=2 loops=1)
+    -> Stream results  (cost=58.9 rows=1) (actual time=0.0562..0.0563 rows=1 loops=1)
+        -> Aggregate: count(0)  (cost=58.9 rows=1) (actual time=0.0548..0.0549 rows=1 loops=1)
+            -> Filter: (outbox_record.completed_at is null)  (cost=40.9 rows=180) (actual time=0.00929..0.049 rows=180 loops=1)
+                -> Covering index lookup on outbox_record using idx_outbox_record_status_completed_partition (status='NEW', completed_at=NULL)  (cost=40.9 rows=180) (actual time=0.00888..0.0412 rows=180 loops=1)
+    -> Stream results  (cost=7.31 rows=1) (actual time=0.0103..0.0104 rows=1 loops=1)
+        -> Aggregate: count(0)  (cost=7.31 rows=1) (actual time=0.0101..0.0101 rows=1 loops=1)
+            -> Filter: (outbox_record.completed_at is null)  (cost=5.31 rows=20) (actual time=0.00375..0.00911 rows=20 loops=1)
+                -> Covering index lookup on outbox_record using idx_outbox_record_status_completed_partition (status='FAILED', completed_at=NULL)  (cost=5.31 rows=20) (actual time=0.00364..0.00815 rows=20 loops=1)
+

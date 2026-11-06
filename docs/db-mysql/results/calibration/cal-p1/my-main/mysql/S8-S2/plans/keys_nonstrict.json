@@ -1,0 +1,52 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "318.14"
+    },
+    "ordering_operation": {
+      "using_filesort": true,
+      "grouping_operation": {
+        "using_temporary_table": true,
+        "using_filesort": false,
+        "table": {
+          "table_name": "o",
+          "access_type": "range",
+          "possible_keys": [
+            "idx_outbox_record_record_key_created",
+            "idx_outbox_record_partition_status_retry",
+            "idx_outbox_record_status_retry",
+            "idx_outbox_record_status_created",
+            "idx_outbox_record_record_key_completed_created"
+          ],
+          "key": "idx_outbox_record_partition_status_retry",
+          "used_key_parts": [
+            "partition_no",
+            "status",
+            "next_retry_at"
+          ],
+          "key_length": "90",
+          "rows_examined_per_scan": 233,
+          "rows_produced_per_join": 233,
+          "filtered": "100.00",
+          "index_condition": "((`run`.`o`.`status` = 'NEW') and (`run`.`o`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (`run`.`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00'))",
+          "using_MRR": true,
+          "cost_info": {
+            "read_cost": "294.85",
+            "eval_cost": "23.30",
+            "prefix_cost": "318.15",
+            "data_read_per_join": "2M"
+          },
+          "used_columns": [
+            "id",
+            "status",
+            "record_key",
+            "created_at",
+            "next_retry_at",
+            "partition_no"
+          ]
+        }
+      }
+    }
+  }
+}

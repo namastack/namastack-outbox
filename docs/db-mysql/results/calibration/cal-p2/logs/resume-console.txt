@@ -1,0 +1,34 @@
+[11-06 15:19:43] L1 ##### run cal-p2 lane 1 order=reverse variants: my-main my-opt cells: bench:*:S8-S5 bench:*:S8-S4 bench:*:S8-S2 writecost:*:S2-wc
+[11-06 15:19:43] L1 loadavg before step: 3.52 3.08 2.55
+[11-06 15:19:43] L1 load 3.52 > 3: waiting (max 600s)
+[11-06 15:20:03] L1 load 2.66 <= 3 after waiting 20s
+[11-06 15:20:03] L1 RUN gen S5 (free 14G, loadavg 2.66 2.91 2.50)
+[11-06 15:20:44] L1 SKIP (done) bench my-opt S8-S5
+[11-06 15:20:44] L1 SKIP (done) bench my-main S8-S5
+[11-06 15:20:44] L1 loadavg before step: 2.08 2.73 2.46
+[11-06 15:20:44] L1 RUN gen S4 (free 17G, loadavg 2.08 2.73 2.46)
+[11-06 15:24:25] L1 loadavg before step: 1.98 2.40 2.39
+[11-06 15:24:25] L1 RUN bench my-opt S8-S4 (free 15G, loadavg 1.98 2.40 2.39)
+[11-06 15:53:50] L1 loadavg before step: 1.06 1.51 2.05
+[11-06 15:53:50] L1 RUN bench my-main S8-S4 (free 15G, loadavg 1.06 1.51 2.05)
+[11-06 16:29:55] L1 loadavg before step: 1.24 1.25 1.69
+[11-06 16:29:55] L1 RUN gen S2 (free 15G, loadavg 1.24 1.25 1.69)
+[11-06 16:31:52] L1 loadavg before step: 1.46 1.37 1.69
+[11-06 16:31:52] L1 RUN bench my-opt S8-S2 (free 15G, loadavg 1.46 1.37 1.69)
+[11-06 16:42:21] L1 loadavg before step: 2.40 2.47 2.16
+[11-06 16:42:21] L1 RUN bench my-main S8-S2 (free 17G, loadavg 2.40 2.47 2.16)
+[11-06 16:51:50] L1 loadavg before step: 3.03 2.98 2.56
+[11-06 16:51:50] L1 load 3.03 > 3: waiting (max 600s)
+[11-06 16:52:00] L1 load 2.72 <= 3 after waiting 10s
+[11-06 16:52:00] L1 RUN prepare my-opt S2-wc (free 17G, loadavg 2.72 2.91 2.54)
+[11-06 17:01:19] L1 loadavg before step: 3.23 2.88 2.68
+[11-06 17:01:19] L1 load 3.23 > 3: waiting (max 600s)
+[11-06 17:01:29] L1 load 2.73 <= 3 after waiting 10s
+[11-06 17:01:29] L1 RUN writecost my-opt S2-wc (free 17G, loadavg 2.73 2.79 2.65)
+[11-06 17:02:36] L1 loadavg before step: 2.03 2.58 2.58
+[11-06 17:02:36] L1 RUN prepare my-main S2-wc (free 17G, loadavg 2.03 2.58 2.58)
+[11-06 17:12:36] L1 loadavg before step: 3.46 2.97 2.76
+[11-06 17:12:36] L1 load 3.46 > 3: waiting (max 600s)
+[11-06 17:12:56] L1 load 2.61 <= 3 after waiting 20s
+[11-06 17:12:56] L1 RUN writecost my-main S2-wc (free 17G, loadavg 2.61 2.81 2.71)
+[11-06 17:14:02] L1 DONE run cal-p2 lane 1

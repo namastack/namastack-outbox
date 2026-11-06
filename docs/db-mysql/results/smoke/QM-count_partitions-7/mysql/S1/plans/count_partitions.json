@@ -1,0 +1,76 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "307.85"
+    },
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "p",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 256,
+          "rows_produced_per_join": 256,
+          "filtered": "100.00",
+          "cost_info": {
+            "read_cost": "5.70",
+            "eval_cost": "25.60",
+            "prefix_cost": "31.30",
+            "data_read_per_join": "4K"
+          },
+          "used_columns": [
+            "n"
+          ],
+          "materialized_from_subquery": {
+            "using_temporary_table": true,
+            "dependent": false,
+            "cacheable": true,
+            "query_block": {
+              "select_id": 2,
+              "message": "No tables used"
+            }
+          }
+        }
+      },
+      {
+        "table": {
+          "table_name": "r",
+          "access_type": "ref",
+          "possible_keys": [
+            "idx_outbox_record_status_completed_created_id",
+            "idx_outbox_record_status_completed_retry",
+            "idx_outbox_record_status_completed_partition"
+          ],
+          "key": "idx_outbox_record_status_completed_partition",
+          "used_key_parts": [
+            "status",
+            "completed_at",
+            "partition_no"
+          ],
+          "key_length": "91",
+          "ref": [
+            "const",
+            "const",
+            "p.n"
+          ],
+          "rows_examined_per_scan": 1,
+          "rows_produced_per_join": 256,
+          "filtered": "100.00",
+          "using_index": true,
+          "cost_info": {
+            "read_cost": "250.95",
+            "eval_cost": "25.60",
+            "prefix_cost": "307.85",
+            "data_read_per_join": "2M"
+          },
+          "used_columns": [
+            "status",
+            "completed_at",
+            "partition_no"
+          ],
+          "attached_condition": "((`run`.`r`.`partition_no` = `p`.`n`) and (`run`.`r`.`completed_at` is null))"
+        }
+      }
+    ]
+  }
+}

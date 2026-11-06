@@ -1,0 +1,97 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "2.72"
+    },
+    "table": {
+      "table_name": "t",
+      "access_type": "ALL",
+      "rows_examined_per_scan": 2,
+      "rows_produced_per_join": 1,
+      "filtered": "50.00",
+      "cost_info": {
+        "read_cost": "2.62",
+        "eval_cost": "0.10",
+        "prefix_cost": "2.73",
+        "data_read_per_join": "96"
+      },
+      "used_columns": [
+        "status",
+        "cnt"
+      ],
+      "attached_condition": "(`t`.`cnt` > 0)",
+      "materialized_from_subquery": {
+        "using_temporary_table": true,
+        "dependent": false,
+        "cacheable": true,
+        "query_block": {
+          "select_id": 2,
+          "cost_info": {
+            "query_cost": "2.72"
+          },
+          "table": {
+            "table_name": "s",
+            "access_type": "ALL",
+            "rows_examined_per_scan": 2,
+            "rows_produced_per_join": 2,
+            "filtered": "100.00",
+            "table_function": "json_table",
+            "using_temporary_table": true,
+            "cost_info": {
+              "read_cost": "2.52",
+              "eval_cost": "0.20",
+              "prefix_cost": "2.73",
+              "data_read_per_join": "176"
+            },
+            "used_columns": [
+              "status"
+            ]
+          },
+          "select_list_subqueries": [
+            {
+              "dependent": true,
+              "cacheable": false,
+              "query_block": {
+                "select_id": 3,
+                "cost_info": {
+                  "query_cost": "778.61"
+                },
+                "table": {
+                  "table_name": "r",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "idx_outbox_record_status_completed_created_id",
+                    "idx_outbox_record_status_completed_retry",
+                    "idx_outbox_record_status_completed_partition"
+                  ],
+                  "key": "idx_outbox_record_status_completed_partition",
+                  "used_key_parts": [
+                    "status"
+                  ],
+                  "key_length": "82",
+                  "ref": [
+                    "s.status"
+                  ],
+                  "rows_examined_per_scan": 3495,
+                  "rows_produced_per_join": 3495,
+                  "filtered": "100.00",
+                  "using_index": true,
+                  "cost_info": {
+                    "read_cost": "429.11",
+                    "eval_cost": "349.50",
+                    "prefix_cost": "778.61",
+                    "data_read_per_join": "37M"
+                  },
+                  "used_columns": [
+                    "status"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

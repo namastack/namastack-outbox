@@ -1,0 +1,521 @@
+{
+  "steps": [
+    {
+      "join_preparation": {
+        "select#": 1,
+        "steps": [
+          {
+            "derived": {
+              "table": " `p` (`n`)",
+              "select#": 2,
+              "materialized": true
+            }
+          },
+          {
+            "expanded_query": "/* select#1 */ select count(0) AS `COUNT(*)` from ((values row(0),row(1),row(2),row(3),row(4),row(5),row(6),row(7),row(8),row(9),row(10),row(11),row(12),row(13),row(14),row(15),row(16),row(17),row(18),row(19),row(20),row(21),row(22),row(23),row(24),row(25),row(26),row(27),row(28),row(29),row(30),row(31),row(32),row(33),row(34),row(35),row(36),row(37),row(38),row(39),row(40),row(41),row(42),row(43),row(44),row(45),row(46),row(47),row(48),row(49),row(50),row(51),row(52),row(53),row(54),row(55),row(56),row(57),row(58),row(59),row(60),row(61),row(62),row(63),row(64),row(65),row(66),row(67),row(68),row(69),row(70),row(71),row(72),row(73),row(74),row(75),row(76),row(77),row(78),row(79),row(80),row(81),row(82),row(83),row(84),row(85),row(86),row(87),row(88),row(89),row(90),row(91),row(92),row(93),row(94),row(95),row(96),row(97),row(98),row(99),row(100),row(101),row(102),row(103),row(104),row(105),row(106),row(107),row(108),row(109),row(110),row(111),row(112),row(113),row(114),row(115),row(116),row(117),row(118),row(119),row(120),row(121),row(122),row(123),row(124),row(125),row(126),row(127),row(128),row(129),row(130),row(131),row(132),row(133),row(134),row(135),row(136),row(137),row(138),row(139),row(140),row(141),row(142),row(143),row(144),row(145),row(146),row(147),row(148),row(149),row(150),row(151),row(152),row(153),row(154),row(155),row(156),row(157),row(158),row(159),row(160),row(161),row(162),row(163),row(164),row(165),row(166),row(167),row(168),row(169),row(170),row(171),row(172),row(173),row(174),row(175),row(176),row(177),row(178),row(179),row(180),row(181),row(182),row(183),row(184),row(185),row(186),row(187),row(188),row(189),row(190),row(191),row(192),row(193),row(194),row(195),row(196),row(197),row(198),row(199),row(200),row(201),row(202),row(203),row(204),row(205),row(206),row(207),row(208),row(209),row(210),row(211),row(212),row(213),row(214),row(215),row(216),row(217),row(218),row(219),row(220),row(221),row(222),row(223),row(224),row(225),row(226),row(227),row(228),row(229),row(230),row(231),row(232),row(233),row(234),row(235),row(236),row(237),row(238),row(239),row(240),row(241),row(242),row(243),row(244),row(245),row(246),row(247),row(248),row(249),row(250),row(251),row(252),row(253),row(254),row(255)) `p` (`n`) join `outbox_record` `r` on(((`r`.`partition_no` = `p`.`n`) and (`r`.`status` = 'NEW') and (`r`.`completed_at` is null))))"
+          },
+          {
+            "transformations_to_nested_joins": {
+              "transformations": [
+                "JOIN_condition_to_WHERE",
+                "parenthesis_removal"
+              ],
+              "expanded_query": "/* select#1 */ select count(0) AS `COUNT(*)` from (values row(0),row(1),row(2),row(3),row(4),row(5),row(6),row(7),row(8),row(9),row(10),row(11),row(12),row(13),row(14),row(15),row(16),row(17),row(18),row(19),row(20),row(21),row(22),row(23),row(24),row(25),row(26),row(27),row(28),row(29),row(30),row(31),row(32),row(33),row(34),row(35),row(36),row(37),row(38),row(39),row(40),row(41),row(42),row(43),row(44),row(45),row(46),row(47),row(48),row(49),row(50),row(51),row(52),row(53),row(54),row(55),row(56),row(57),row(58),row(59),row(60),row(61),row(62),row(63),row(64),row(65),row(66),row(67),row(68),row(69),row(70),row(71),row(72),row(73),row(74),row(75),row(76),row(77),row(78),row(79),row(80),row(81),row(82),row(83),row(84),row(85),row(86),row(87),row(88),row(89),row(90),row(91),row(92),row(93),row(94),row(95),row(96),row(97),row(98),row(99),row(100),row(101),row(102),row(103),row(104),row(105),row(106),row(107),row(108),row(109),row(110),row(111),row(112),row(113),row(114),row(115),row(116),row(117),row(118),row(119),row(120),row(121),row(122),row(123),row(124),row(125),row(126),row(127),row(128),row(129),row(130),row(131),row(132),row(133),row(134),row(135),row(136),row(137),row(138),row(139),row(140),row(141),row(142),row(143),row(144),row(145),row(146),row(147),row(148),row(149),row(150),row(151),row(152),row(153),row(154),row(155),row(156),row(157),row(158),row(159),row(160),row(161),row(162),row(163),row(164),row(165),row(166),row(167),row(168),row(169),row(170),row(171),row(172),row(173),row(174),row(175),row(176),row(177),row(178),row(179),row(180),row(181),row(182),row(183),row(184),row(185),row(186),row(187),row(188),row(189),row(190),row(191),row(192),row(193),row(194),row(195),row(196),row(197),row(198),row(199),row(200),row(201),row(202),row(203),row(204),row(205),row(206),row(207),row(208),row(209),row(210),row(211),row(212),row(213),row(214),row(215),row(216),row(217),row(218),row(219),row(220),row(221),row(222),row(223),row(224),row(225),row(226),row(227),row(228),row(229),row(230),row(231),row(232),row(233),row(234),row(235),row(236),row(237),row(238),row(239),row(240),row(241),row(242),row(243),row(244),row(245),row(246),row(247),row(248),row(249),row(250),row(251),row(252),row(253),row(254),row(255)) `p` (`n`) join `outbox_record` `r` where ((`r`.`partition_no` = `p`.`n`) and (`r`.`status` = 'NEW') and (`r`.`completed_at` is null))"
+            }
+          },
+          {
+            "condition_pushdown_to_derived": {
+              "table": " `p` (`n`)",
+              "original_condition": "((`r`.`partition_no` = `p`.`n`) and (`r`.`status` = 'NEW') and (`r`.`completed_at` is null))",
+              "condition_to_push": null,
+              "remaining_condition": "((`r`.`partition_no` = `p`.`n`) and (`r`.`status` = 'NEW') and (`r`.`completed_at` is null))"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "join_optimization": {
+        "select#": 1,
+        "steps": [
+          {
+            "join_optimization": {
+              "select#": 2,
+              "steps": [
+              ]
+            }
+          },
+          {
+            "condition_processing": {
+              "condition": "WHERE",
+              "original_condition": "((`r`.`partition_no` = `p`.`n`) and (`r`.`status` = 'NEW') and (`r`.`completed_at` is null))",
+              "steps": [
+                {
+                  "transformation": "equality_propagation",
+                  "resulting_condition": "((`r`.`partition_no` = `p`.`n`) and (`r`.`completed_at` is null) and multiple equal('NEW', `r`.`status`))"
+                },
+                {
+                  "transformation": "constant_propagation",
+                  "resulting_condition": "((`r`.`partition_no` = `p`.`n`) and (`r`.`completed_at` is null) and multiple equal('NEW', `r`.`status`))"
+                },
+                {
+                  "transformation": "trivial_condition_removal",
+                  "resulting_condition": "((`r`.`partition_no` = `p`.`n`) and (`r`.`completed_at` is null) and multiple equal('NEW', `r`.`status`))"
+                }
+              ]
+            }
+          },
+          {
+            "substitute_generated_columns": {
+            }
+          },
+          {
+            "table_dependencies": [
+              {
+                "table": " `p` (`n`)",
+                "row_may_be_null": false,
+                "map_bit": 0,
+                "depends_on_map_bits": [
+                ]
+              },
+              {
+                "table": "`outbox_record` `r`",
+                "row_may_be_null": false,
+                "map_bit": 1,
+                "depends_on_map_bits": [
+                ]
+              }
+            ]
+          },
+          {
+            "ref_optimizer_key_uses": [
+              {
+                "table": " `p` (`n`)",
+                "field": "n",
+                "equals": "`r`.`partition_no`",
+                "null_rejecting": true
+              },
+              {
+                "table": " `p` (`n`)",
+                "field": "n",
+                "equals": "`r`.`partition_no`",
+                "null_rejecting": true
+              },
+              {
+                "table": "`outbox_record` `r`",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": true
+              },
+              {
+                "table": "`outbox_record` `r`",
+                "field": "completed_at",
+                "equals": "NULL",
+                "null_rejecting": false
+              },
+              {
+                "table": "`outbox_record` `r`",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": true
+              },
+              {
+                "table": "`outbox_record` `r`",
+                "field": "completed_at",
+                "equals": "NULL",
+                "null_rejecting": false
+              },
+              {
+                "table": "`outbox_record` `r`",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": true
+              },
+              {
+                "table": "`outbox_record` `r`",
+                "field": "completed_at",
+                "equals": "NULL",
+                "null_rejecting": false
+              },
+              {
+                "table": "`outbox_record` `r`",
+                "field": "partition_no",
+                "equals": "`p`.`n`",
+                "null_rejecting": true
+              }
+            ]
+          },
+          {
+            "rows_estimation": [
+              {
+                "table": " `p` (`n`)",
+                "table_scan": {
+                  "rows": 256,
+                  "cost": 5.7
+                }
+              },
+              {
+                "table": "`outbox_record` `r`",
+                "range_analysis": {
+                  "table_scan": {
+                    "rows": 9628,
+                    "cost": 1214.15
+                  },
+                  "potential_range_indexes": [
+                    {
+                      "index": "PRIMARY",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_created_id",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "completed_at",
+                        "created_at",
+                        "id",
+                        "partition_no",
+                        "next_retry_at",
+                        "record_key"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_retry",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "completed_at",
+                        "next_retry_at",
+                        "partition_no",
+                        "id"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_partition",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "completed_at",
+                        "partition_no",
+                        "id"
+                      ]
+                    }
+                  ],
+                  "best_covering_index_scan": {
+                    "index": "idx_outbox_record_status_completed_partition",
+                    "cost": 2143.4,
+                    "chosen": false,
+                    "cause": "cost"
+                  },
+                  "setup_range_conditions": [
+                  ],
+                  "group_index_skip_scan": {
+                    "chosen": false,
+                    "cause": "not_single_table"
+                  },
+                  "skip_scan_range": {
+                    "chosen": false,
+                    "cause": "not_single_table"
+                  },
+                  "analyzing_range_alternatives": {
+                    "range_scan_alternatives": [
+                      {
+                        "index": "idx_outbox_record_status_completed_created_id",
+                        "ranges": [
+                          "status = 'NEW' AND completed_at = NULL"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": true,
+                        "in_memory": 0.0151515,
+                        "rows": 180,
+                        "cost": 77.9873,
+                        "chosen": true
+                      },
+                      {
+                        "index": "idx_outbox_record_status_completed_retry",
+                        "ranges": [
+                          "status = 'NEW' AND completed_at = NULL"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": true,
+                        "in_memory": 0.0243902,
+                        "rows": 180,
+                        "cost": 40.9574,
+                        "chosen": true
+                      },
+                      {
+                        "index": "idx_outbox_record_status_completed_partition",
+                        "ranges": [
+                          "status = 'NEW' AND completed_at = NULL"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": true,
+                        "in_memory": 0.0263158,
+                        "rows": 180,
+                        "cost": 40.9237,
+                        "chosen": true
+                      }
+                    ],
+                    "analyzing_roworder_intersect": {
+                      "usable": false,
+                      "cause": "too_few_roworder_scans"
+                    }
+                  },
+                  "chosen_range_access_summary": {
+                    "range_access_plan": {
+                      "type": "range_scan",
+                      "index": "idx_outbox_record_status_completed_partition",
+                      "rows": 180,
+                      "ranges": [
+                        "status = 'NEW' AND completed_at = NULL"
+                      ]
+                    },
+                    "rows_for_plan": 180,
+                    "cost_for_plan": 40.9237,
+                    "chosen": true
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "considered_execution_plans": [
+              {
+                "plan_prefix": [
+                ],
+                "table": "`outbox_record` `r`",
+                "best_access_path": {
+                  "considered_access_paths": [
+                    {
+                      "access_type": "ref",
+                      "index": "idx_outbox_record_status_completed_created_id",
+                      "rows": 180,
+                      "cost": 77.9773,
+                      "chosen": true
+                    },
+                    {
+                      "access_type": "ref",
+                      "index": "idx_outbox_record_status_completed_retry",
+                      "rows": 180,
+                      "cost": 40.9474,
+                      "chosen": true
+                    },
+                    {
+                      "access_type": "ref",
+                      "index": "idx_outbox_record_status_completed_partition",
+                      "rows": 180,
+                      "cost": 40.9137,
+                      "chosen": true
+                    },
+                    {
+                      "access_type": "range",
+                      "range_details": {
+                        "used_index": "idx_outbox_record_status_completed_partition"
+                      },
+                      "chosen": false,
+                      "cause": "heuristic_index_cheaper"
+                    }
+                  ]
+                },
+                "condition_filtering_pct": 100,
+                "rows_for_plan": 180,
+                "cost_for_plan": 40.9137,
+                "rest_of_plan": [
+                  {
+                    "plan_prefix": [
+                      "`outbox_record` `r`"
+                    ],
+                    "table": " `p` (`n`)",
+                    "best_access_path": {
+                      "considered_access_paths": [
+                        {
+                          "access_type": "ref",
+                          "index": "<auto_key0>",
+                          "rows": 10.24,
+                          "cost": 645.12,
+                          "chosen": true
+                        },
+                        {
+                          "access_type": "ref",
+                          "index": "<auto_key1>",
+                          "rows": 10.24,
+                          "cost": 645.12,
+                          "chosen": false
+                        },
+                        {
+                          "rows_to_scan": 256,
+                          "filtering_effect": [
+                          ],
+                          "final_filtering_effect": 1,
+                          "access_type": "scan",
+                          "using_join_cache": true,
+                          "buffers_needed": 1,
+                          "resulting_rows": 256,
+                          "cost": 4614.05,
+                          "chosen": false
+                        }
+                      ]
+                    },
+                    "condition_filtering_pct": 100,
+                    "rows_for_plan": 1843.2,
+                    "cost_for_plan": 686.034,
+                    "chosen": true
+                  }
+                ]
+              },
+              {
+                "plan_prefix": [
+                ],
+                "table": " `p` (`n`)",
+                "best_access_path": {
+                  "considered_access_paths": [
+                    {
+                      "access_type": "ref",
+                      "index": "<auto_key0>",
+                      "usable": false,
+                      "chosen": false
+                    },
+                    {
+                      "access_type": "ref",
+                      "index": "<auto_key1>",
+                      "usable": false,
+                      "chosen": false
+                    },
+                    {
+                      "rows_to_scan": 256,
+                      "filtering_effect": [
+                      ],
+                      "final_filtering_effect": 1,
+                      "access_type": "scan",
+                      "resulting_rows": 256,
+                      "cost": 31.3,
+                      "chosen": true
+                    }
+                  ]
+                },
+                "condition_filtering_pct": 100,
+                "rows_for_plan": 256,
+                "cost_for_plan": 31.3,
+                "rest_of_plan": [
+                  {
+                    "plan_prefix": [
+                      " `p` (`n`)"
+                    ],
+                    "table": "`outbox_record` `r`",
+                    "best_access_path": {
+                      "considered_access_paths": [
+                        {
+                          "access_type": "ref",
+                          "index": "idx_outbox_record_status_completed_created_id",
+                          "rows": 180,
+                          "cost": 19962.2,
+                          "chosen": true
+                        },
+                        {
+                          "access_type": "ref",
+                          "index": "idx_outbox_record_status_completed_retry",
+                          "rows": 180,
+                          "cost": 10482.5,
+                          "chosen": true
+                        },
+                        {
+                          "access_type": "ref",
+                          "index": "idx_outbox_record_status_completed_partition",
+                          "rows": 1,
+                          "cost": 276.547,
+                          "chosen": true
+                        },
+                        {
+                          "access_type": "range",
+                          "range_details": {
+                            "used_index": "idx_outbox_record_status_completed_partition"
+                          },
+                          "chosen": false,
+                          "cause": "heuristic_index_cheaper"
+                        }
+                      ]
+                    },
+                    "condition_filtering_pct": 100,
+                    "rows_for_plan": 256,
+                    "cost_for_plan": 307.847,
+                    "chosen": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "attaching_conditions_to_tables": {
+              "original_condition": "((`r`.`status` = 'NEW') and (`r`.`partition_no` = `p`.`n`) and (`r`.`completed_at` is null))",
+              "attached_conditions_computation": [
+              ],
+              "attached_conditions_summary": [
+                {
+                  "table": " `p` (`n`)",
+                  "attached": null
+                },
+                {
+                  "table": "`outbox_record` `r`",
+                  "attached": "((`r`.`status` = 'NEW') and (`r`.`partition_no` = `p`.`n`) and (`r`.`completed_at` is null))"
+                }
+              ]
+            }
+          },
+          {
+            "optimizing_distinct_group_by_order_by": {
+            }
+          },
+          {
+            "finalizing_table_conditions": [
+              {
+                "table": "`outbox_record` `r`",
+                "original_table_condition": "((`r`.`status` = 'NEW') and (`r`.`partition_no` = `p`.`n`) and (`r`.`completed_at` is null))",
+                "final_table_condition   ": "((`r`.`partition_no` = `p`.`n`) and (`r`.`completed_at` is null))"
+              }
+            ]
+          },
+          {
+            "refine_plan": [
+              {
+                "table": " `p` (`n`)"
+              },
+              {
+                "table": "`outbox_record` `r`"
+              }
+            ]
+          },
+          {
+            "considering_tmp_tables": [
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "join_explain": {
+        "select#": 1,
+        "steps": [
+          {
+            "join_explain": {
+              "select#": 2,
+              "steps": [
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

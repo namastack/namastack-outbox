@@ -1,0 +1,2 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+count_partitions,3.977,4.486,3.148,4.563,1,20,

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# SQL-level runner / data generator / equivalence checker (see README.md). Run from anywhere.
+H="$(cd "$(dirname "$0")/.." && pwd)"; cd "$H"
+if [ ! -x sql/build/install/bench/bin/bench ] || [ -n "$(find sql/src -newer sql/build/install/bench/bin/bench -name '*.kt' | head -1)" ]; then
+  ./gradlew --console=plain -q :sql:installDist
+fi
+# HARNESS_CLIENT_CPUSET=<list> pins the client JVM (taskset), e.g. to the CPUs of its lane's CCD. Never build while lanes run:
+# build once (./gradlew :sql:installDist) before starting parallel lanes.
+if [ -n "${HARNESS_CLIENT_CPUSET:-}" ]; then exec taskset -c "$HARNESS_CLIENT_CPUSET" sql/build/install/bench/bin/bench "$@"; fi
+exec sql/build/install/bench/bin/bench "$@"

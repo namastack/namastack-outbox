@@ -1,0 +1,12 @@
+-> Sort row IDs: r.record_key, r.created_at, r.id  (actual time=0.225..0.225 rows=10 loops=1)
+    -> Table scan on <temporary>  (cost=28.3..30.5 rows=7.33) (actual time=0.214..0.216 rows=10 loops=1)
+        -> Temporary table  (cost=27.9..27.9 rows=7.33) (actual time=0.213..0.213 rows=10 loops=1)
+            -> Nested loop inner join  (cost=27.2 rows=7.33) (actual time=0.119..0.197 rows=10 loops=1)
+                -> Table scan on k  (cost=16.8..19.5 rows=22) (actual time=0.104..0.105 rows=10 loops=1)
+                    -> Materialize  (cost=16.7..16.7 rows=22) (actual time=0.103..0.103 rows=10 loops=1)
+                        -> Group (no aggregates)  (cost=14.5 rows=22) (actual time=0.027..0.0989 rows=10 loops=1)
+                            -> Filter: (d.record_key in ('order-000000000000000000000000000033','order-000000000000000000000000000085','order-000000000000000000000000000042','order-000000000000000000000000000066','order-000000000000000000000000000126','order-000000000000000000000000000113','order-000000000000000000000000000041','order-000000000000000000000000000134','order-000000000000000000000000000146','order-000000000000000000000000000129'))  (cost=12.3 rows=22) (actual time=0.0146..0.091 rows=22 loops=1)
+                                -> Covering index range scan on d using idx_outbox_record_key_completed_created_id over (record_key = 'order-000000000000000000000000000033') OR (record_key = 'order-000000000000000000000000000041') OR (8 more)  (cost=12.3 rows=22) (actual time=0.0127..0.0667 rows=22 loops=1)
+                -> Filter: (r.`status` = 'NEW')  (cost=0.252 rows=0.333) (actual time=0.0083..0.00895 rows=1 loops=10)
+                    -> Index lookup on r using idx_outbox_record_key_completed_created_id (record_key=k.record_key, completed_at=NULL), with index condition: (r.completed_at is null)  (cost=0.252 rows=1) (actual time=0.00815..0.00875 rows=1 loops=10)
+

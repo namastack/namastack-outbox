@@ -1,0 +1,8 @@
+plain EXPLAIN (query not executed)
+-> Limit: 10 row(s)
+    -> Sort: min(o.created_at), limit input to 10 row(s) per chunk
+        -> Table scan on <temporary>
+            -> Aggregate using temporary table
+                -> Filter: ((o.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (o.next_retry_at <= TIMESTAMP'2026-01-01 12:00:00'))  (cost=202944 rows=158431)
+                    -> Index lookup on o using idx_outbox_record_status_created (status='NEW')  (cost=202944 rows=950684)
+

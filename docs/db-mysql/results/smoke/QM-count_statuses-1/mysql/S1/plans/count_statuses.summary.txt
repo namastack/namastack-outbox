@@ -1,0 +1,8 @@
+id: count_statuses   mode: ANALYZE (executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 2
+query_cost: -
+select#1 table=outbox_record access=ref key=idx_outbox_record_status_completed_partition key_parts=[status] key_len=82 rows_examined_per_scan=180 rows_produced_per_join=180 filtered=100 using_index=yes attached_condition=no index_condition=no prefix_cost=40.91
+select#2 table=outbox_record access=ref key=idx_outbox_record_status_completed_partition key_parts=[status] key_len=82 rows_examined_per_scan=20 rows_produced_per_join=20 filtered=100 using_index=yes attached_condition=no index_condition=no prefix_cost=5.31
+access: table=outbox_record index=idx_outbox_record_status_completed_partition node="Covering index lookup on outbox_record using idx_outbox_record_status_completed_partition (status='NEW')" est_rows=180 actual_rows=180 loops=1 rows_read=180
+access: table=outbox_record index=idx_outbox_record_status_completed_partition node="Covering index lookup on outbox_record using idx_outbox_record_status_completed_partition (status='FAILED')" est_rows=20 actual_rows=20 loops=1 rows_read=20
+filesort: no   temporary: no   strategies: aggregate,stream results   json_flags: -
+rows_examined_total (tree, sum of table access nodes): 200   rows_returned: 2   root_node_actual_rows: 2

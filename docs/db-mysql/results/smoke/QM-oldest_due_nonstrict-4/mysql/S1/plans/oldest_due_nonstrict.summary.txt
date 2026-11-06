@@ -1,0 +1,6 @@
+id: oldest_due_nonstrict   mode: ANALYZE (executed)   sql_select_limit: 1 (SET SESSION, as Connector/J does for setMaxRows)   rows_returned: 1
+query_cost: 49.28
+select#1 table=o access=range key=idx_outbox_record_status_completed_retry key_parts=[status,completed_at,next_retry_at] key_len=95 rows_examined_per_scan=150 rows_produced_per_join=75 filtered=50 using_index=yes attached_condition=yes index_condition=no prefix_cost=49.28
+access: table=o index=idx_outbox_record_status_completed_retry node="Covering index range scan on o using idx_outbox_record_status_completed_retry over (status = 'NEW' AND completed_at = NULL AND next_retry_at" est_rows=150 actual_rows=150 loops=1 rows_read=150
+filesort: no   temporary: no   strategies: aggregate,limit   json_flags: -
+rows_examined_total (tree, sum of table access nodes): 150   rows_returned: 1   root_node_actual_rows: 1

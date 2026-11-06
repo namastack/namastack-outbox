@@ -1,0 +1,6 @@
+[11-06 17:26:59] L1 ##### run cal-bg lane 1 order=forward variants: my-main my-opt cells: bench:*:S8-S2
+[11-06 17:26:59] L1 loadavg before step: 4.37 3.42 2.83
+[11-06 17:26:59] L1 RUN bench my-main S8-S2 (free 17G, loadavg 4.37 3.42 2.83)
+[11-06 17:37:48] L1 loadavg before step: 5.85 4.95 3.96
+[11-06 17:37:48] L1 RUN bench my-opt S8-S2 (free 17G, loadavg 5.85 4.95 3.96)
+[11-06 17:47:24] L1 DONE run cal-bg lane 1

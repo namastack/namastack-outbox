@@ -1,0 +1,10 @@
+id: count_partitions   mode: ANALYZE (executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 1
+query_cost: 2.72
+select#1 table=t access=ALL key=- key_parts=[-] key_len=- rows_examined_per_scan=2 rows_produced_per_join=2 filtered=100 using_index=no attached_condition=no index_condition=no prefix_cost=2.73
+select#2 table=outbox_record access=ref key=idx_outbox_record_status_completed_retry key_parts=[status,completed_at] key_len=87 rows_examined_per_scan=180 rows_produced_per_join=90 filtered=50 using_index=yes attached_condition=yes index_condition=no prefix_cost=40.95
+select#3 table=outbox_record access=range key=idx_outbox_record_status_completed_partition key_parts=[status,completed_at] key_len=87 rows_examined_per_scan=1 rows_produced_per_join=0 filtered=50 using_index=yes attached_condition=yes index_condition=no prefix_cost=1.19
+access: table=t index=- node="Table scan on t" est_rows=2 actual_rows=2 loops=1 rows_read=2
+access: table=outbox_record index=idx_outbox_record_status_completed_retry node="Covering index lookup on outbox_record using idx_outbox_record_status_completed_retry (status='NEW', completed_at=NULL)" est_rows=180 actual_rows=180 loops=1 rows_read=180
+access: table=outbox_record index=idx_outbox_record_status_completed_partition node="Covering index range scan on outbox_record using idx_outbox_record_status_completed_partition over (status = 'NEW' AND NULL < completed_at)" est_rows=1 actual_rows=0 loops=1 rows_read=0
+filesort: no   temporary: yes   strategies: Materialize,union,aggregate   json_flags: materialized_subquery
+rows_examined_total (tree, sum of table access nodes): 182   rows_returned: 1   root_node_actual_rows: 1

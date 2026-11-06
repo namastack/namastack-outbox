@@ -1,0 +1,10 @@
+-> Sort row IDs: r.record_key, r.created_at, r.id  (actual time=0.142..0.142 rows=10 loops=1)
+    -> Table scan on <temporary>  (cost=8.22..10 rows=3.33) (actual time=0.131..0.132 rows=10 loops=1)
+        -> Temporary table  (cost=7.46..7.46 rows=3.33) (actual time=0.129..0.129 rows=10 loops=1)
+            -> Nested loop inner join  (cost=7.12 rows=3.33) (actual time=0.0271..0.112 rows=10 loops=1)
+                -> Table scan on kt  (cost=1.26..3.62 rows=10) (actual time=0.00553..0.00674 rows=10 loops=1)
+                    -> Materialize  (cost=1..1 rows=10) (actual time=0.00472..0.00472 rows=10 loops=1)
+                        -> Rows fetched before execution  (cost=0..0 rows=10) (actual time=224e-6..775e-6 rows=10 loops=1)
+                -> Filter: (r.`status` = 'NEW')  (cost=0.253 rows=0.333) (actual time=0.00952..0.0102 rows=1 loops=10)
+                    -> Index lookup on r using idx_outbox_record_key_completed_created_id (record_key=kt.k, completed_at=NULL), with index condition: ((r.completed_at is null) and (r.record_key = kt.k))  (cost=0.253 rows=1) (actual time=0.00936..0.01 rows=1 loops=10)
+

@@ -1,0 +1,573 @@
+{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+      "select_id": 11,
+      "table_name": "<union1,2,3,4,5,6,7,8,9,10>",
+      "access_type": "ALL",
+      "using_filesort": true,
+      "query_specifications": [
+        {
+          "dependent": false,
+          "cacheable": true,
+          "query_block": {
+            "select_id": 1,
+            "cost_info": {
+              "query_cost": "0.35"
+            },
+            "table": {
+              "table_name": "r",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry",
+                "idx_outbox_record_status_completed_partition"
+              ],
+              "key": "idx_outbox_record_key_completed_created_id",
+              "used_key_parts": [
+                "record_key",
+                "completed_at"
+              ],
+              "key_length": "1027",
+              "ref": [
+                "const",
+                "const"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "33.33",
+              "index_condition": "(`run`.`r`.`completed_at` is null)",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.03",
+                "prefix_cost": "0.35",
+                "data_read_per_join": "3K"
+              },
+              "used_columns": [
+                "id",
+                "status",
+                "record_key",
+                "record_type",
+                "payload",
+                "context",
+                "created_at",
+                "completed_at",
+                "failure_count",
+                "failure_reason",
+                "next_retry_at",
+                "partition_no",
+                "handler_id"
+              ],
+              "attached_condition": "(`run`.`r`.`status` = 'NEW')"
+            }
+          }
+        },
+        {
+          "dependent": false,
+          "cacheable": true,
+          "query_block": {
+            "select_id": 2,
+            "cost_info": {
+              "query_cost": "0.35"
+            },
+            "table": {
+              "table_name": "r",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry",
+                "idx_outbox_record_status_completed_partition"
+              ],
+              "key": "idx_outbox_record_key_completed_created_id",
+              "used_key_parts": [
+                "record_key",
+                "completed_at"
+              ],
+              "key_length": "1027",
+              "ref": [
+                "const",
+                "const"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "33.33",
+              "index_condition": "(`run`.`r`.`completed_at` is null)",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.03",
+                "prefix_cost": "0.35",
+                "data_read_per_join": "3K"
+              },
+              "used_columns": [
+                "id",
+                "status",
+                "record_key",
+                "record_type",
+                "payload",
+                "context",
+                "created_at",
+                "completed_at",
+                "failure_count",
+                "failure_reason",
+                "next_retry_at",
+                "partition_no",
+                "handler_id"
+              ],
+              "attached_condition": "(`run`.`r`.`status` = 'NEW')"
+            }
+          }
+        },
+        {
+          "dependent": false,
+          "cacheable": true,
+          "query_block": {
+            "select_id": 3,
+            "cost_info": {
+              "query_cost": "0.35"
+            },
+            "table": {
+              "table_name": "r",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry",
+                "idx_outbox_record_status_completed_partition"
+              ],
+              "key": "idx_outbox_record_key_completed_created_id",
+              "used_key_parts": [
+                "record_key",
+                "completed_at"
+              ],
+              "key_length": "1027",
+              "ref": [
+                "const",
+                "const"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "33.33",
+              "index_condition": "(`run`.`r`.`completed_at` is null)",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.03",
+                "prefix_cost": "0.35",
+                "data_read_per_join": "3K"
+              },
+              "used_columns": [
+                "id",
+                "status",
+                "record_key",
+                "record_type",
+                "payload",
+                "context",
+                "created_at",
+                "completed_at",
+                "failure_count",
+                "failure_reason",
+                "next_retry_at",
+                "partition_no",
+                "handler_id"
+              ],
+              "attached_condition": "(`run`.`r`.`status` = 'NEW')"
+            }
+          }
+        },
+        {
+          "dependent": false,
+          "cacheable": true,
+          "query_block": {
+            "select_id": 4,
+            "cost_info": {
+              "query_cost": "0.35"
+            },
+            "table": {
+              "table_name": "r",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry",
+                "idx_outbox_record_status_completed_partition"
+              ],
+              "key": "idx_outbox_record_key_completed_created_id",
+              "used_key_parts": [
+                "record_key",
+                "completed_at"
+              ],
+              "key_length": "1027",
+              "ref": [
+                "const",
+                "const"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "33.33",
+              "index_condition": "(`run`.`r`.`completed_at` is null)",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.03",
+                "prefix_cost": "0.35",
+                "data_read_per_join": "3K"
+              },
+              "used_columns": [
+                "id",
+                "status",
+                "record_key",
+                "record_type",
+                "payload",
+                "context",
+                "created_at",
+                "completed_at",
+                "failure_count",
+                "failure_reason",
+                "next_retry_at",
+                "partition_no",
+                "handler_id"
+              ],
+              "attached_condition": "(`run`.`r`.`status` = 'NEW')"
+            }
+          }
+        },
+        {
+          "dependent": false,
+          "cacheable": true,
+          "query_block": {
+            "select_id": 5,
+            "cost_info": {
+              "query_cost": "0.35"
+            },
+            "table": {
+              "table_name": "r",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry",
+                "idx_outbox_record_status_completed_partition"
+              ],
+              "key": "idx_outbox_record_key_completed_created_id",
+              "used_key_parts": [
+                "record_key",
+                "completed_at"
+              ],
+              "key_length": "1027",
+              "ref": [
+                "const",
+                "const"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "33.33",
+              "index_condition": "(`run`.`r`.`completed_at` is null)",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.03",
+                "prefix_cost": "0.35",
+                "data_read_per_join": "3K"
+              },
+              "used_columns": [
+                "id",
+                "status",
+                "record_key",
+                "record_type",
+                "payload",
+                "context",
+                "created_at",
+                "completed_at",
+                "failure_count",
+                "failure_reason",
+                "next_retry_at",
+                "partition_no",
+                "handler_id"
+              ],
+              "attached_condition": "(`run`.`r`.`status` = 'NEW')"
+            }
+          }
+        },
+        {
+          "dependent": false,
+          "cacheable": true,
+          "query_block": {
+            "select_id": 6,
+            "cost_info": {
+              "query_cost": "0.35"
+            },
+            "table": {
+              "table_name": "r",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry",
+                "idx_outbox_record_status_completed_partition"
+              ],
+              "key": "idx_outbox_record_key_completed_created_id",
+              "used_key_parts": [
+                "record_key",
+                "completed_at"
+              ],
+              "key_length": "1027",
+              "ref": [
+                "const",
+                "const"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "33.33",
+              "index_condition": "(`run`.`r`.`completed_at` is null)",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.03",
+                "prefix_cost": "0.35",
+                "data_read_per_join": "3K"
+              },
+              "used_columns": [
+                "id",
+                "status",
+                "record_key",
+                "record_type",
+                "payload",
+                "context",
+                "created_at",
+                "completed_at",
+                "failure_count",
+                "failure_reason",
+                "next_retry_at",
+                "partition_no",
+                "handler_id"
+              ],
+              "attached_condition": "(`run`.`r`.`status` = 'NEW')"
+            }
+          }
+        },
+        {
+          "dependent": false,
+          "cacheable": true,
+          "query_block": {
+            "select_id": 7,
+            "cost_info": {
+              "query_cost": "0.35"
+            },
+            "table": {
+              "table_name": "r",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry",
+                "idx_outbox_record_status_completed_partition"
+              ],
+              "key": "idx_outbox_record_key_completed_created_id",
+              "used_key_parts": [
+                "record_key",
+                "completed_at"
+              ],
+              "key_length": "1027",
+              "ref": [
+                "const",
+                "const"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "33.33",
+              "index_condition": "(`run`.`r`.`completed_at` is null)",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.03",
+                "prefix_cost": "0.35",
+                "data_read_per_join": "3K"
+              },
+              "used_columns": [
+                "id",
+                "status",
+                "record_key",
+                "record_type",
+                "payload",
+                "context",
+                "created_at",
+                "completed_at",
+                "failure_count",
+                "failure_reason",
+                "next_retry_at",
+                "partition_no",
+                "handler_id"
+              ],
+              "attached_condition": "(`run`.`r`.`status` = 'NEW')"
+            }
+          }
+        },
+        {
+          "dependent": false,
+          "cacheable": true,
+          "query_block": {
+            "select_id": 8,
+            "cost_info": {
+              "query_cost": "0.35"
+            },
+            "table": {
+              "table_name": "r",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry",
+                "idx_outbox_record_status_completed_partition"
+              ],
+              "key": "idx_outbox_record_key_completed_created_id",
+              "used_key_parts": [
+                "record_key",
+                "completed_at"
+              ],
+              "key_length": "1027",
+              "ref": [
+                "const",
+                "const"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "33.33",
+              "index_condition": "(`run`.`r`.`completed_at` is null)",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.03",
+                "prefix_cost": "0.35",
+                "data_read_per_join": "3K"
+              },
+              "used_columns": [
+                "id",
+                "status",
+                "record_key",
+                "record_type",
+                "payload",
+                "context",
+                "created_at",
+                "completed_at",
+                "failure_count",
+                "failure_reason",
+                "next_retry_at",
+                "partition_no",
+                "handler_id"
+              ],
+              "attached_condition": "(`run`.`r`.`status` = 'NEW')"
+            }
+          }
+        },
+        {
+          "dependent": false,
+          "cacheable": true,
+          "query_block": {
+            "select_id": 9,
+            "cost_info": {
+              "query_cost": "0.35"
+            },
+            "table": {
+              "table_name": "r",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry",
+                "idx_outbox_record_status_completed_partition"
+              ],
+              "key": "idx_outbox_record_key_completed_created_id",
+              "used_key_parts": [
+                "record_key",
+                "completed_at"
+              ],
+              "key_length": "1027",
+              "ref": [
+                "const",
+                "const"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "33.33",
+              "index_condition": "(`run`.`r`.`completed_at` is null)",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.03",
+                "prefix_cost": "0.35",
+                "data_read_per_join": "3K"
+              },
+              "used_columns": [
+                "id",
+                "status",
+                "record_key",
+                "record_type",
+                "payload",
+                "context",
+                "created_at",
+                "completed_at",
+                "failure_count",
+                "failure_reason",
+                "next_retry_at",
+                "partition_no",
+                "handler_id"
+              ],
+              "attached_condition": "(`run`.`r`.`status` = 'NEW')"
+            }
+          }
+        },
+        {
+          "dependent": false,
+          "cacheable": true,
+          "query_block": {
+            "select_id": 10,
+            "cost_info": {
+              "query_cost": "0.35"
+            },
+            "table": {
+              "table_name": "r",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry",
+                "idx_outbox_record_status_completed_partition"
+              ],
+              "key": "idx_outbox_record_key_completed_created_id",
+              "used_key_parts": [
+                "record_key",
+                "completed_at"
+              ],
+              "key_length": "1027",
+              "ref": [
+                "const",
+                "const"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "33.33",
+              "index_condition": "(`run`.`r`.`completed_at` is null)",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.03",
+                "prefix_cost": "0.35",
+                "data_read_per_join": "3K"
+              },
+              "used_columns": [
+                "id",
+                "status",
+                "record_key",
+                "record_type",
+                "payload",
+                "context",
+                "created_at",
+                "completed_at",
+                "failure_count",
+                "failure_reason",
+                "next_retry_at",
+                "partition_no",
+                "handler_id"
+              ],
+              "attached_condition": "(`run`.`r`.`status` = 'NEW')"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

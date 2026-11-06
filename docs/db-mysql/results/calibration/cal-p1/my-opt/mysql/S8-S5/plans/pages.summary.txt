@@ -1,0 +1,6 @@
+id: pages   mode: ANALYZE (executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 18000
+query_cost: 36176.41
+select#1 table=outbox_record access=range key=idx_outbox_record_key_completed_created_id key_parts=[record_key,completed_at] key_len=1027 rows_examined_per_scan=32414 rows_produced_per_join=107 filtered=0.330 using_index=no attached_condition=yes index_condition=yes prefix_cost=36176.41
+access: table=outbox_record index=idx_outbox_record_key_completed_created_id node="Index range scan on outbox_record using idx_outbox_record_key_completed_created_id over (record_key = 'order-000000000000000000000000000056'" est_rows=32414 actual_rows=18000 loops=1 rows_read=18000
+filesort: no   temporary: no   strategies: -   json_flags: -
+rows_examined_total (tree, sum of table access nodes): 18000   rows_returned: 18000   root_node_actual_rows: 18000

@@ -1,0 +1,8 @@
+-> Aggregate: count(0)  (cost=333 rows=1) (actual time=0.596..0.596 rows=1 loops=1)
+    -> Nested loop inner join  (cost=308 rows=256) (actual time=0.05..0.589 rows=180 loops=1)
+        -> Table scan on p  (cost=25.6..31.3 rows=256) (actual time=0.035..0.0535 rows=256 loops=1)
+            -> Materialize  (cost=25.6..25.6 rows=256) (actual time=0.0343..0.0343 rows=256 loops=1)
+                -> Rows fetched before execution  (cost=0..0 rows=256) (actual time=237e-6..0.00967 rows=256 loops=1)
+        -> Filter: ((r.partition_no = p.n) and (r.completed_at is null))  (cost=0.981 rows=1) (actual time=0.00176..0.00198 rows=0.703 loops=256)
+            -> Covering index lookup on r using idx_outbox_record_status_completed_partition (status='NEW', completed_at=NULL, partition_no=p.n)  (cost=0.981 rows=1) (actual time=0.00166..0.00185 rows=0.703 loops=256)
+

@@ -1,0 +1,89 @@
+{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": false,
+      "query_specifications": [
+        {
+          "dependent": false,
+          "cacheable": true,
+          "query_block": {
+            "select_id": 1,
+            "cost_info": {
+              "query_cost": "40.91"
+            },
+            "table": {
+              "table_name": "outbox_record",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_status_completed_retry",
+                "idx_outbox_record_status_completed_partition"
+              ],
+              "key": "idx_outbox_record_status_completed_partition",
+              "used_key_parts": [
+                "status"
+              ],
+              "key_length": "82",
+              "ref": [
+                "const"
+              ],
+              "rows_examined_per_scan": 180,
+              "rows_produced_per_join": 180,
+              "filtered": "100.00",
+              "using_index": true,
+              "cost_info": {
+                "read_cost": "22.91",
+                "eval_cost": "18.00",
+                "prefix_cost": "40.91",
+                "data_read_per_join": "1M"
+              },
+              "used_columns": [
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "dependent": false,
+          "cacheable": true,
+          "query_block": {
+            "select_id": 2,
+            "cost_info": {
+              "query_cost": "5.31"
+            },
+            "table": {
+              "table_name": "outbox_record",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_status_completed_retry",
+                "idx_outbox_record_status_completed_partition"
+              ],
+              "key": "idx_outbox_record_status_completed_partition",
+              "used_key_parts": [
+                "status"
+              ],
+              "key_length": "82",
+              "ref": [
+                "const"
+              ],
+              "rows_examined_per_scan": 20,
+              "rows_produced_per_join": 20,
+              "filtered": "100.00",
+              "using_index": true,
+              "cost_info": {
+                "read_cost": "3.31",
+                "eval_cost": "2.00",
+                "prefix_cost": "5.31",
+                "data_read_per_join": "218K"
+              },
+              "used_columns": [
+                "status"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

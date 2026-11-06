@@ -1,0 +1,9 @@
+id: pages   mode: ANALYZE (executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 10
+query_cost: 10.46
+select#1 table=kt access=ALL key=- key_parts=[-] key_len=- rows_examined_per_scan=10 rows_produced_per_join=10 filtered=100 using_index=no attached_condition=no index_condition=no prefix_cost=3.62
+select#1 table=r access=ref key=idx_outbox_record_key_completed_created_id key_parts=[record_key,completed_at] key_len=1027 rows_examined_per_scan=1 rows_produced_per_join=3 filtered=33.330 using_index=no attached_condition=yes index_condition=yes prefix_cost=7.12
+access: table=<temporary> index=- node="Table scan on <temporary>" est_rows=3.330 actual_rows=10 loops=1 rows_read=10
+access: table=kt index=- node="Table scan on kt" est_rows=10 actual_rows=10 loops=1 rows_read=10
+access: table=r index=idx_outbox_record_key_completed_created_id node="Index lookup on r using idx_outbox_record_key_completed_created_id (record_key=kt.k, completed_at=NULL), with index condition: ((r.completed" est_rows=1 actual_rows=1 loops=10 rows_read=10
+filesort: yes   temporary: yes   strategies: Materialize,index merge (sort row ids),union,nested loop   json_flags: materialized_subquery
+rows_examined_total (tree, sum of table access nodes): 30   rows_returned: 10   root_node_actual_rows: 10

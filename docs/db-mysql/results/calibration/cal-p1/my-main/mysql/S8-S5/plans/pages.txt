@@ -1,0 +1,5 @@
+plain EXPLAIN (query not executed)
+-> Sort row IDs: outbox_record.record_key, outbox_record.created_at, outbox_record.id  (cost=49516 rows=247062)
+    -> Filter: (outbox_record.record_key in ('order-000000000000000000000000000056','order-000000000000000000000000000057','order-000000000000000000000000000066','order-000000000000000000000000000087','order-000000000000000000000000000085','order-000000000000000000000000000089','order-000000000000000000000000000097','order-000000000000000000000000000094','order-000000000000000000000000000081'))  (cost=49516 rows=247062)
+        -> Index lookup on outbox_record using idx_outbox_record_status_retry (status='NEW')  (cost=49516 rows=247062)
+

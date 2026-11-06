@@ -1,0 +1,5 @@
+-> Limit: 1 row(s)  (cost=317231 rows=1) (actual time=360..360 rows=1 loops=1)
+    -> Aggregate: min(o.next_retry_at)  (cost=317231 rows=1) (actual time=360..360 rows=1 loops=1)
+        -> Filter: ((o.`status` = 'NEW') and (o.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (o.next_retry_at <= TIMESTAMP'2026-01-01 12:00:00') and (o.completed_at is null))  (cost=274934 rows=422974) (actual time=0.0162..344 rows=250815 loops=1)
+            -> Covering index range scan on o using idx_outbox_record_status_completed_retry over (status = 'NEW' AND completed_at = NULL AND next_retry_at <= '2026-01-01 12:00:00' AND partition_no <= 252)  (cost=274934 rows=845948) (actual time=0.0128..243 rows=1e+6 loops=1)
+

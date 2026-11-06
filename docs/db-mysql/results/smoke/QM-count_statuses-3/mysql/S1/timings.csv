@@ -1,0 +1,2 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+count_statuses,0.763,0.846,0.706,0.971,2,20,
