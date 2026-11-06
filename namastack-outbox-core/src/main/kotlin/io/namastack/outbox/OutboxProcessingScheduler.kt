@@ -77,7 +77,11 @@ class OutboxProcessingScheduler(
 
     private val compatibilityCooldownUntil = AtomicReference<Instant?>()
 
-    /** Starts after instance registration (`phase = 0`), coordination (`phase = 1`), and completion batching (`phase = 2`). */
+    /**
+     * Starts after instance registration, partition coordination, and completion batching.
+     *
+     * @return phase 3; Spring stops this scheduler before the completion batcher
+     */
     override fun getPhase(): Int = 3
 
     /**

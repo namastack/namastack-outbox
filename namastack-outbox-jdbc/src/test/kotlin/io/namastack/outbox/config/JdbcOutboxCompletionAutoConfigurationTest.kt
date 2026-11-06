@@ -79,6 +79,39 @@ class JdbcOutboxCompletionAutoConfigurationTest {
     }
 
     @Test
+    fun `completion writes use the datasource of the outbox transaction manager`() {
+        val applicationDataSource =
+            DriverManagerDataSource("jdbc:h2:mem:application-${UUID.randomUUID()};DB_CLOSE_DELAY=-1", "sa", "")
+        val outboxDataSource =
+            DriverManagerDataSource("jdbc:h2:mem:outbox-${UUID.randomUUID()};DB_CLOSE_DELAY=-1", "sa", "")
+        val applicationJdbc = JdbcTemplate(applicationDataSource)
+        val outboxJdbc = JdbcTemplate(outboxDataSource)
+        listOf(applicationJdbc, outboxJdbc).forEach { jdbc ->
+            jdbc.execute("CREATE TABLE outbox_record (id VARCHAR(255) PRIMARY KEY)")
+            jdbc.update("INSERT INTO outbox_record (id) VALUES (?)", "record")
+        }
+
+        contextRunner
+            .withBean(DataSource::class.java, { applicationDataSource })
+            .withBean("outboxJdbcClient", JdbcClient::class.java, { JdbcClient.create(outboxDataSource) })
+            .withBean("outboxTransactionTemplate", TransactionTemplate::class.java, {
+                TransactionTemplate(DataSourceTransactionManager(outboxDataSource))
+            })
+            .withBean(JdbcTableNameResolver::class.java, { DefaultJdbcTableNameResolver() })
+            .withBean(OutboxProperties::class.java, { OutboxProperties() })
+            .withBean(JdbcOutboxRecordRepository::class.java, { mockk() })
+            .withPropertyValues("namastack.outbox.jdbc.completion-batching.enabled=true")
+            .run { context ->
+                assertThat(context).hasNotFailed()
+                context.getBean(OutboxCompletionPersistence::class.java).deleteCompleted("record")
+                assertThat(outboxJdbc.queryForObject("SELECT COUNT(*) FROM outbox_record", Int::class.java)).isZero()
+                assertThat(
+                    applicationJdbc.queryForObject("SELECT COUNT(*) FROM outbox_record", Int::class.java),
+                ).isOne()
+            }
+    }
+
+    @Test
     fun `completion executor is absent when outbox is disabled`() {
         contextRunner
             .withPropertyValues(
