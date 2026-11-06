@@ -8,6 +8,7 @@ package io.namastack.outbox.completion
  * the connection failed while committing). Implementations can retry a failed batch in smaller
  * transactions to identify which actions failed. The writer may be called concurrently.
  *
+ * @author Roland Beisel
  * @since 1.12.0
  */
 internal interface JdbcOutboxCompletionWriter {

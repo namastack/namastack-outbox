@@ -20,11 +20,16 @@ import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 
-class DefaultJdbcOutboxCompletionWriterTest {
+/**
+ * Tests transactional JDBC completion writes and batch result handling.
+ *
+ * @author Roland Beisel
+ */
+class JdbcOutboxCompletionBatchWriterTest {
     private val now = Instant.parse("2026-01-01T12:00:00Z")
     private lateinit var jdbc: JdbcTemplate
     private lateinit var transactions: TransactionTemplate
-    private lateinit var writer: DefaultJdbcOutboxCompletionWriter
+    private lateinit var writer: JdbcOutboxCompletionBatchWriter
 
     @BeforeEach
     fun setUp() {
@@ -49,7 +54,7 @@ class DefaultJdbcOutboxCompletionWriterTest {
             """.trimIndent(),
         )
         writer =
-            DefaultJdbcOutboxCompletionWriter(
+            JdbcOutboxCompletionBatchWriter(
                 NamedParameterJdbcTemplate(dataSource),
                 transactions,
             ) { H2JdbcOutboxRecordQueries("outbox_record") }
@@ -131,7 +136,7 @@ class DefaultJdbcOutboxCompletionWriterTest {
         every { batchJdbc.batchUpdate(any(), any<Array<SqlParameterSource>>()) } returns
             intArrayOf(Statement.SUCCESS_NO_INFO)
         val batchWriter =
-            DefaultJdbcOutboxCompletionWriter(batchJdbc, transactions) {
+            JdbcOutboxCompletionBatchWriter(batchJdbc, transactions) {
                 H2JdbcOutboxRecordQueries("outbox_record")
             }
 
@@ -145,7 +150,7 @@ class DefaultJdbcOutboxCompletionWriterTest {
         val batchJdbc = mockk<NamedParameterJdbcTemplate>()
         every { batchJdbc.batchUpdate(any(), any<Array<SqlParameterSource>>()) } returns intArrayOf(-4)
         val batchWriter =
-            DefaultJdbcOutboxCompletionWriter(batchJdbc, transactions) {
+            JdbcOutboxCompletionBatchWriter(batchJdbc, transactions) {
                 H2JdbcOutboxRecordQueries("outbox_record")
             }
 

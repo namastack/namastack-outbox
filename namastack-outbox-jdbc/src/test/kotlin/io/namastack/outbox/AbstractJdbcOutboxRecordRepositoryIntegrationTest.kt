@@ -3,8 +3,12 @@ package io.namastack.outbox
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.completion.JdbcOutboxCompletion
+import io.namastack.outbox.completion.JdbcOutboxCompletionBatchWriter
+import io.namastack.outbox.config.JdbcDatabaseType
 import io.namastack.outbox.config.JdbcOutboxAutoConfiguration
 import io.namastack.outbox.config.JdbcOutboxSchemaAutoConfiguration
+import io.namastack.outbox.query.JdbcOutboxRecordQueriesFactory
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -14,9 +18,12 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.jdbc.autoconfigure.JdbcClientAutoConfiguration
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.context.ContextConfiguration
+import org.springframework.transaction.annotation.Propagation
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import tools.jackson.databind.json.JsonMapper
 import java.time.Clock
@@ -24,6 +31,11 @@ import java.time.Instant
 import java.time.ZoneOffset.UTC
 import javax.sql.DataSource
 
+/**
+ * Shared JDBC repository integration checks across database query implementations.
+ *
+ * @author Aleksander Zamojski
+ */
 @JdbcTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ImportAutoConfiguration(
@@ -48,6 +60,9 @@ abstract class AbstractJdbcOutboxRecordRepositoryIntegrationTest {
 
     @Autowired
     private lateinit var jdbc: JdbcClient
+
+    @Autowired
+    private lateinit var tableNameResolver: JdbcTableNameResolver
 
     @BeforeEach
     fun setUp() {
@@ -514,6 +529,34 @@ abstract class AbstractJdbcOutboxRecordRepositoryIntegrationTest {
     }
 
     @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `completion writer commits update and delete batches with the database driver`() {
+        val ids = listOf("batch-update-1", "batch-update-2", "batch-delete-1", "batch-delete-2")
+        try {
+            ids.forEach { create(it, it) }
+            val writer =
+                JdbcOutboxCompletionBatchWriter(NamedParameterJdbcTemplate(source), transactions) {
+                    JdbcOutboxRecordQueriesFactory.create(
+                        JdbcDatabaseType.detect(source),
+                        tableNameResolver.outboxRecord,
+                    )
+                }
+            val updates =
+                ids.take(2).map { id ->
+                    JdbcOutboxCompletion.Update(id, COMPLETED, now, 0, null, now)
+                }
+            val deletions = ids.drop(2).map(JdbcOutboxCompletion::Delete)
+
+            assertThat(writer.writeUpdates(updates)).allMatch { it.isSuccess }
+            assertThat(writer.writeDeletions(deletions)).allMatch { it.isSuccess }
+            assertThat(repository.findCompletedRecords().map { it.id }).containsAll(ids.take(2))
+            assertThat(repository.countByStatus(NEW)).isZero()
+        } finally {
+            ids.forEach(repository::deleteById)
+        }
+    }
+
+    @Test
     fun `findCompletedRecords returns at most the limit oldest first`() {
         seedRetentionScenario()
 
@@ -643,6 +686,11 @@ abstract class AbstractJdbcOutboxRecordRepositoryIntegrationTest {
             ),
         )
 
+    /**
+     * Counts serialization calls made by repository operations.
+     *
+     * @author Aleksander Zamojski
+     */
     private class CountingSerializer : OutboxPayloadSerializer {
         private val delegate = JacksonOutboxPayloadSerializer(JsonMapper.builder().build())
         var serializations = 0

@@ -31,8 +31,9 @@ data class JdbcOutboxConfigurationProperties(
      * @property enabled Whether completion batching is enabled. Defaults to false.
      * @property writerCount Number of concurrent completion writers. Defaults to one.
      * @property maxBatchSize Maximum number of completions in one batch. Defaults to 1024.
-     * @property maxWait Maximum time to collect a batch after its first completion arrives. Defaults to one millisecond.
-     *
+     * @property maxWait Maximum time to collect a batch after a writer takes its first completion.
+     *                   Defaults to one millisecond.
+     * @author Roland Beisel
      * @since 1.12.0
      */
     data class CompletionBatching(

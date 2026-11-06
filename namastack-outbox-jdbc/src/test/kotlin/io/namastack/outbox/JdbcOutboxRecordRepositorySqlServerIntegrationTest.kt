@@ -5,6 +5,11 @@ import org.junit.jupiter.api.parallel.ResourceLock
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 
+/**
+ * Runs the JDBC repository integration checks against SQL Server.
+ *
+ * @author Aleksander Zamojski
+ */
 @ResourceLock("jdbc-sqlserver")
 class JdbcOutboxRecordRepositorySqlServerIntegrationTest : AbstractJdbcOutboxRecordRepositoryIntegrationTest() {
     companion object {

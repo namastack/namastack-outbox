@@ -14,6 +14,7 @@ dependencies {
     api(libs.spring.tx)
     implementation(libs.spring.boot.autoconfigure)
     implementation(libs.spring.boot.jdbc)
+    compileOnly(libs.slf4j.api)
 
     testImplementation(project(":namastack-outbox-jackson"))
     testImplementation(libs.spring.boot.starter.jdbc.test)

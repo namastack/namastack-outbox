@@ -14,6 +14,7 @@ import java.time.Clock
  * @param settings Processing settings that determine whether completed records are deleted
  * @param clock Clock used to set the completion time when records are retained
  *
+ * @author Roland Beisel
  * @since 1.12.0
  */
 class OutboxRecordCompleter(

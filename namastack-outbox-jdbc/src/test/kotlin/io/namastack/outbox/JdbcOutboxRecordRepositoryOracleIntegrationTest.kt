@@ -5,6 +5,11 @@ import org.junit.jupiter.api.parallel.ResourceLock
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 
+/**
+ * Runs the JDBC repository integration checks against Oracle.
+ *
+ * @author Aleksander Zamojski
+ */
 @ResourceLock("jdbc-oracle")
 class JdbcOutboxRecordRepositoryOracleIntegrationTest : AbstractJdbcOutboxRecordRepositoryIntegrationTest() {
     companion object {

@@ -1,15 +1,29 @@
 package io.namastack.outbox.config
 
+import io.namastack.outbox.JdbcTableNameResolver
+import io.namastack.outbox.OutboxProperties
+import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.completion.JdbcOutboxCompletionBatchWriter
+import io.namastack.outbox.completion.JdbcOutboxCompletionBatcher
+import io.namastack.outbox.completion.JdbcOutboxCompletionBatchingPersistence
+import io.namastack.outbox.completion.OutboxCompletionPersistence
+import io.namastack.outbox.query.JdbcOutboxRecordQueriesFactory
+import org.springframework.beans.factory.BeanFactory
+import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
+import org.springframework.transaction.support.TransactionTemplate
+import javax.sql.DataSource
 
 /**
- * Configures the JDBC completion writer executor when completion batching is enabled.
+ * Configures JDBC completion batching when enabled.
  *
+ * @author Roland Beisel
  * @since 1.12.0
  */
 @AutoConfiguration(
@@ -25,9 +39,44 @@ class JdbcOutboxCompletionAutoConfiguration {
     @ConditionalOnMissingBean(name = ["outboxCompletionExecutor"])
     internal fun outboxCompletionExecutor(properties: JdbcOutboxConfigurationProperties): ThreadPoolTaskExecutor =
         ThreadPoolTaskExecutor().apply {
-            setThreadNamePrefix("outbox-jdbc-completion-writer-")
             corePoolSize = properties.completionBatching.writerCount
             maxPoolSize = properties.completionBatching.writerCount
             queueCapacity = 0
+            isDaemon = true
+            setThreadNamePrefix("outbox-jdbc-completion-writer-")
+            setWaitForTasksToCompleteOnShutdown(true)
         }
+
+    @Bean
+    @ConditionalOnMissingBean
+    internal fun jdbcOutboxCompletionBatcher(
+        beanFactory: BeanFactory,
+        dataSource: DataSource,
+        tableNameResolver: JdbcTableNameResolver,
+        jdbcProperties: JdbcOutboxConfigurationProperties,
+        outboxProperties: OutboxProperties,
+    ): JdbcOutboxCompletionBatcher =
+        JdbcOutboxCompletionBatcher(
+            writer =
+                JdbcOutboxCompletionBatchWriter(
+                    jdbc = NamedParameterJdbcTemplate(dataSource),
+                    transactions = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
+                    queries = {
+                        JdbcOutboxRecordQueriesFactory.create(
+                            JdbcDatabaseType.detect(dataSource),
+                            tableNameResolver.outboxRecord,
+                        )
+                    },
+                ),
+            executor = beanFactory.getBean<ThreadPoolTaskExecutor>("outboxCompletionExecutor"),
+            settings = jdbcProperties.completionBatching,
+            shutdownTimeout = outboxProperties.processing.effectiveShutdownTimeout,
+        )
+
+    @Bean
+    @ConditionalOnMissingBean(OutboxCompletionPersistence::class)
+    internal fun batchingOutboxCompletionPersistence(
+        recordRepository: OutboxRecordRepository,
+        batcher: JdbcOutboxCompletionBatcher,
+    ): OutboxCompletionPersistence = JdbcOutboxCompletionBatchingPersistence(recordRepository, batcher)
 }
