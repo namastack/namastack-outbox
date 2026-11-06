@@ -6,6 +6,8 @@ import io.mockk.mockk
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.completion.DefaultOutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionAssignmentCache
@@ -806,7 +808,14 @@ abstract class AbstractJpaOutboxRecordRepositoryIntegrationTest {
                 recordRepository = repository,
                 recordProcessorChainInvoker =
                     OutboxRecordProcessorChainInvoker(
-                        PrimaryOutboxRecordProcessor(handlers, repository, settings.processing, clock),
+                        PrimaryOutboxRecordProcessor(
+                            handlers,
+                            OutboxRecordCompleter(
+                                DefaultOutboxCompletionPersistence(repository),
+                                settings.processing,
+                                clock,
+                            ),
+                        ),
                     ),
                 partitionCoordinator = coordinator,
                 taskExecutor = TaskExecutor { workers.execute(it) },

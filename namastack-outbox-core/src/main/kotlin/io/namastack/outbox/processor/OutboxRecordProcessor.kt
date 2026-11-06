@@ -1,11 +1,7 @@
 package io.namastack.outbox.processor
 
 import io.namastack.outbox.OutboxRecord
-import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
-import io.namastack.outbox.runtime.OutboxRuntimeSettings
-import org.slf4j.LoggerFactory
-import java.time.Clock
 
 /**
  * Base class for chain-of-responsibility pattern for processing outbox records.
@@ -18,8 +14,6 @@ import java.time.Clock
 abstract class OutboxRecordProcessor(
     protected var next: OutboxRecordProcessor? = null,
 ) {
-    private val log = LoggerFactory.getLogger(OutboxRecordProcessor::class.java)
-
     /**
      * Sets the next processor in the chain.
      *
@@ -48,34 +42,4 @@ abstract class OutboxRecordProcessor(
      * @return Final outcome produced by this processor or a downstream processor.
      */
     abstract fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome
-
-    /**
-     * Completes record after successful processing.
-     * Deletes if configured, otherwise marks as COMPLETED and persists only the processing state.
-     * Restores the in-memory completion state if the update fails and propagates the error.
-     * A later polling cycle reloads the authoritative database state before deciding on redelivery.
-     */
-    protected fun completeRecord(
-        record: OutboxRecord<*>,
-        repository: OutboxRecordRepository,
-        settings: OutboxRuntimeSettings.Processing,
-        clock: Clock,
-    ) {
-        if (settings.deleteCompletedRecords) {
-            log.trace("Deleting completed record {}", record.id)
-            repository.deleteById(record.id)
-        } else {
-            log.trace("Marking record {} as COMPLETED", record.id)
-            val previousStatus = record.status
-            val previousCompletedAt = record.completedAt
-            try {
-                record.markCompleted(clock)
-                repository.updateProcessingState(record)
-            } catch (exception: Exception) {
-                record.status = previousStatus
-                record.completedAt = previousCompletedAt
-                throw exception
-            }
-        }
-    }
 }
