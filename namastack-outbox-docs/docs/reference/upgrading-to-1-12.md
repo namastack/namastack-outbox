@@ -253,14 +253,3 @@ read its `completed` series report no data after the upgrade. Choose one of thes
 
 The deprecated `namastack-outbox-metrics` module keeps its `outbox.records.count` gauges. Its counts no
 longer have a dedicated full index, so they can be slower on large tables.
-
-## Custom Repository Implementations
-
-`OutboxRecordRepository.countByStatuses` has a default implementation that calls `countByStatus` once
-per status. Override it with a single grouped query.
-
-`findRecordKeysInPartitions` no longer has a `status` parameter and always selects `NEW` records. Remove
-the parameter from implementations and calls.
-
-Applications that write to `outbox_record` directly must keep `completed_at` `NULL` exactly for `NEW` and
-`FAILED` records.
