@@ -159,8 +159,8 @@ ANALYZE TABLE outbox_record;
 
 If you created the schema from a snapshot build, the name `idx_outbox_record_status` can instead be
 `idx_outbox_record_status_created`. Hibernate-generated DDL uses
-`idx_outbox_record_key_completed_created` for the last index. X
-`idx_outbox_record_status_completed_partition` from an earlier 1.12 snapshot, drop it as well.
+`idx_outbox_record_key_completed_created` for the last index. If the table has the index
+`idx_outbox_record_status_completed_partition` from a 1.12 snapshot build, drop it as well.
 
 ## SQL Server
 

@@ -4,7 +4,7 @@ import io.namastack.outbox.toSingleLine
 
 /**
  * MariaDB statements: the portable statements with `LIMIT`, and four statements shaped for the MariaDB
- * planner and the `idx_outbox_record_status_partition_created` index.
+ * planner.
  *
  * The key and oldest-time statements read the incomplete records of the owned partitions in
  * `(created_at, id)` or `next_retry_at` order and stop at the row limit. The predecessor check is a scalar
@@ -20,8 +20,9 @@ internal class MariaDbJdbcOutboxRecordQueries(
     /**
      * Keeps a record `o` only if it is the first incomplete record of its key
      * (`o.id = (SELECT ... ORDER BY created_at, id LIMIT 1)`), so a key with an earlier incomplete record
-     * of any status or due time is excluded. The outer scan walks `(status, partition_no, created_at)` in
-     * order and the row limit ends it early.
+     * of any status or due time is excluded. The outer scan reads
+     * `idx_outbox_record_status_completed_created_id` in `(created_at, id)` order and the row limit ends it
+     * early. The subquery reads the first entry of the key in `idx_outbox_record_key_completed_created_id`.
      */
     override val findStrictRecordKeys: String =
         """
@@ -45,8 +46,9 @@ internal class MariaDbJdbcOutboxRecordQueries(
 
     /**
      * Keeps a record `o` only if it is the first due incomplete record of its key with the given status
-     * (`o.id = (SELECT ... ORDER BY created_at, id LIMIT 1)`). The outer scan walks
-     * `(status, partition_no, created_at)` in order and the row limit ends it early.
+     * (`o.id = (SELECT ... ORDER BY created_at, id LIMIT 1)`). The outer scan reads
+     * `idx_outbox_record_status_completed_created_id` in `(created_at, id)` order and the row limit ends it
+     * early.
      */
     override val findNonStrictRecordKeys: String =
         """
@@ -72,9 +74,9 @@ internal class MariaDbJdbcOutboxRecordQueries(
 
     /**
      * Reads the creation time of the oldest incomplete record of the owned partitions with the given status.
-     * Ordering by `(created_at, id)` with a row limit of one lets the `(status, partition_no, created_at)`
-     * index return the first entry of each partition in order and stop at the first match. No row means no
-     * record.
+     * Ordering by `(created_at, id)` with a row limit of one lets the planner read
+     * `idx_outbox_record_status_completed_created_id` in order and stop at the first row of an owned
+     * partition. No row means no record.
      */
     override val oldestCreatedAtByPartitionsStatus: String =
         """
@@ -89,8 +91,8 @@ internal class MariaDbJdbcOutboxRecordQueries(
 
     /**
      * Reads the earliest retry time of the due incomplete records of the owned partitions. Ordering by
-     * `next_retry_at` with a row limit of one lets the planner stop at the first match. No row means no due
-     * record.
+     * `next_retry_at` with a row limit of one lets the planner read `idx_outbox_record_status_completed_retry`
+     * in order and stop at the first row of an owned partition. No row means no due record.
      */
     override val oldestDueNonStrict: String =
         """
