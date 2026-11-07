@@ -1,0 +1,51 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "136698.50"
+    },
+    "ordering_operation": {
+      "using_filesort": true,
+      "grouping_operation": {
+        "using_temporary_table": true,
+        "using_filesort": false,
+        "table": {
+          "table_name": "o",
+          "access_type": "range",
+          "possible_keys": [
+            "idx_outbox_record_record_key_created",
+            "idx_outbox_record_partition_status_retry",
+            "idx_outbox_record_status_retry",
+            "idx_outbox_record_status_created",
+            "idx_outbox_record_record_key_completed_created"
+          ],
+          "key": "idx_outbox_record_partition_status_retry",
+          "used_key_parts": [
+            "partition_no",
+            "status",
+            "next_retry_at"
+          ],
+          "key_length": "90",
+          "rows_examined_per_scan": 115444,
+          "rows_produced_per_join": 115444,
+          "filtered": "100.00",
+          "index_condition": "((`run`.`o`.`status` = 'NEW') and (`run`.`o`.`partition_no` in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240)) and (`run`.`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00'))",
+          "cost_info": {
+            "read_cost": "125154.10",
+            "eval_cost": "11544.40",
+            "prefix_cost": "136698.50",
+            "data_read_per_join": "1G"
+          },
+          "used_columns": [
+            "id",
+            "status",
+            "record_key",
+            "created_at",
+            "next_retry_at",
+            "partition_no"
+          ]
+        }
+      }
+    }
+  }
+}

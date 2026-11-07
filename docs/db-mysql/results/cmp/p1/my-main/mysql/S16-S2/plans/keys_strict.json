@@ -1,0 +1,89 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "130.88"
+    },
+    "ordering_operation": {
+      "using_filesort": true,
+      "nested_loop": [
+        {
+          "table": {
+            "table_name": "o",
+            "access_type": "range",
+            "possible_keys": [
+              "idx_outbox_record_partition_status_retry",
+              "idx_outbox_record_status_retry",
+              "idx_outbox_record_status_created"
+            ],
+            "key": "idx_outbox_record_partition_status_retry",
+            "used_key_parts": [
+              "partition_no",
+              "status",
+              "next_retry_at"
+            ],
+            "key_length": "90",
+            "rows_examined_per_scan": 53,
+            "rows_produced_per_join": 53,
+            "filtered": "100.00",
+            "index_condition": "((`run`.`o`.`status` = 'NEW') and (`run`.`o`.`partition_no` in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240)) and (`run`.`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00'))",
+            "using_MRR": true,
+            "cost_info": {
+              "read_cost": "67.28",
+              "eval_cost": "5.30",
+              "prefix_cost": "72.58",
+              "data_read_per_join": "579K"
+            },
+            "used_columns": [
+              "id",
+              "status",
+              "record_key",
+              "created_at",
+              "next_retry_at",
+              "partition_no"
+            ]
+          }
+        },
+        {
+          "table": {
+            "table_name": "older",
+            "access_type": "ref",
+            "possible_keys": [
+              "PRIMARY",
+              "idx_outbox_record_record_key_created",
+              "idx_outbox_record_record_key_completed_created"
+            ],
+            "key": "idx_outbox_record_record_key_completed_created",
+            "used_key_parts": [
+              "record_key",
+              "completed_at"
+            ],
+            "key_length": "1027",
+            "ref": [
+              "run.o.record_key",
+              "const"
+            ],
+            "rows_examined_per_scan": 1,
+            "rows_produced_per_join": 53,
+            "filtered": "100.00",
+            "not_exists": true,
+            "using_index": true,
+            "cost_info": {
+              "read_cost": "53.00",
+              "eval_cost": "5.30",
+              "prefix_cost": "130.88",
+              "data_read_per_join": "579K"
+            },
+            "used_columns": [
+              "id",
+              "record_key",
+              "created_at",
+              "completed_at"
+            ],
+            "attached_condition": "(<if>(is_not_null_compl(older), ((`run`.`older`.`completed_at` is null) and ((`run`.`older`.`created_at` < `run`.`o`.`created_at`) or ((`run`.`older`.`created_at` = `run`.`o`.`created_at`) and (`run`.`older`.`id` < `run`.`o`.`id`)))), true) and <if>(is_not_null_compl(older), <if>(found_match(older), false, true), true))"
+          }
+        }
+      ]
+    }
+  }
+}

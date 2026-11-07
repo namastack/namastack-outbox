@@ -1,0 +1,38 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "94648.88"
+    },
+    "table": {
+      "table_name": "outbox_record",
+      "access_type": "ref",
+      "possible_keys": [
+        "idx_outbox_record_status_created_id",
+        "idx_outbox_record_status_retry_partition",
+        "idx_outbox_record_status_partition"
+      ],
+      "key": "idx_outbox_record_status_retry_partition",
+      "used_key_parts": [
+        "status"
+      ],
+      "key_length": "82",
+      "ref": [
+        "const"
+      ],
+      "rows_examined_per_scan": 424452,
+      "rows_produced_per_join": 424452,
+      "filtered": "100.00",
+      "using_index": true,
+      "cost_info": {
+        "read_cost": "52203.68",
+        "eval_cost": "42445.20",
+        "prefix_cost": "94648.88",
+        "data_read_per_join": "4G"
+      },
+      "used_columns": [
+        "status"
+      ]
+    }
+  }
+}

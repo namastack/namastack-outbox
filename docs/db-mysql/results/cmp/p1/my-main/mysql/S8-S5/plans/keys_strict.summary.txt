@@ -1,0 +1,8 @@
+id: keys_strict   mode: EXPLAIN FORMAT=TREE (not executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 9
+query_cost: 89993.46
+select#1 table=o access=range key=idx_outbox_record_status_created key_parts=[status] key_len=82 rows_examined_per_scan=232886 rows_produced_per_join=37338 filtered=16.660 using_index=no attached_condition=yes index_condition=yes prefix_cost=42490.54
+select#1 table=older access=ref key=idx_outbox_record_record_key_completed_created key_parts=[record_key,completed_at] key_len=1027 rows_examined_per_scan=1 rows_produced_per_join=37338 filtered=100 using_index=yes attached_condition=yes index_condition=no prefix_cost=89993.47
+access: table=o index=idx_outbox_record_status_created node="Index range scan on o using idx_outbox_record_status_created over (status = 'NEW'), with index condition: (o.`status` = 'NEW')" est_rows=232886 actual_rows=- loops=- rows_read=-
+access: table=older index=idx_outbox_record_record_key_completed_created node="Covering index lookup on older using idx_outbox_record_record_key_completed_created (record_key=o.record_key, completed_at=NULL)" est_rows=1.490 actual_rows=- loops=- rows_read=-
+filesort: no   temporary: no   strategies: antijoin,nested loop,limit   json_flags: -
+rows_examined_total (tree, sum of table access nodes): n/a (no actuals)   rows_returned: 9   root_node_actual_rows: -

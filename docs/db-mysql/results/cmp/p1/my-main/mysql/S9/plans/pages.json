@@ -1,0 +1,52 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "45.99"
+    },
+    "ordering_operation": {
+      "using_filesort": false,
+      "table": {
+        "table_name": "outbox_record",
+        "access_type": "range",
+        "possible_keys": [
+          "idx_outbox_record_record_key_created",
+          "idx_outbox_record_status_retry",
+          "idx_outbox_record_status_created",
+          "idx_outbox_record_record_key_completed_created"
+        ],
+        "key": "idx_outbox_record_record_key_created",
+        "used_key_parts": [
+          "record_key"
+        ],
+        "key_length": "1022",
+        "rows_examined_per_scan": 32,
+        "rows_produced_per_join": 0,
+        "filtered": "0.16",
+        "index_condition": "(`run`.`outbox_record`.`record_key` in ('order-000000000000000000000000000558','order-000000000000000000000000000426','order-000000000000000000000000000702','order-000000000000000000000000000383','order-000000000000000000000000000293','order-000000000000000000000000000142','order-000000000000000000000000000289','order-000000000000000000000000000683','order-000000000000000000000000000765','order-000000000000000000000000000926'))",
+        "cost_info": {
+          "read_cost": "45.99",
+          "eval_cost": "0.01",
+          "prefix_cost": "45.99",
+          "data_read_per_join": "560"
+        },
+        "used_columns": [
+          "id",
+          "status",
+          "record_key",
+          "record_type",
+          "payload",
+          "context",
+          "created_at",
+          "completed_at",
+          "failure_count",
+          "failure_reason",
+          "next_retry_at",
+          "partition_no",
+          "handler_id"
+        ],
+        "attached_condition": "(`run`.`outbox_record`.`status` = 'NEW')"
+      }
+    }
+  }
+}

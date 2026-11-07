@@ -1,0 +1,6 @@
+id: oldest_created   mode: ANALYZE (executed)   sql_select_limit: 1 (SET SESSION, as Connector/J does for setMaxRows)   rows_returned: 1
+query_cost: 305748.85
+select#1 table=outbox_record access=ref key=idx_outbox_record_status_created_id key_parts=[status] key_len=82 rows_examined_per_scan=1019166 rows_produced_per_join=509583 filtered=50 using_index=yes attached_condition=yes index_condition=no prefix_cost=305748.85
+access: table=outbox_record index=idx_outbox_record_status_created_id node="Covering index lookup on outbox_record using idx_outbox_record_status_created_id (status='NEW')" est_rows=1020000 actual_rows=8 loops=1 rows_read=8
+filesort: no   temporary: no   strategies: limit   json_flags: -
+rows_examined_total (tree, sum of table access nodes): 8   rows_returned: 1   root_node_actual_rows: 1

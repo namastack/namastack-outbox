@@ -1,0 +1,44 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "84.83"
+    },
+    "ordering_operation": {
+      "using_filesort": true,
+      "table": {
+        "table_name": "outbox_record",
+        "access_type": "range",
+        "possible_keys": [
+          "idx_outbox_record_status_created_id",
+          "idx_outbox_record_status_retry_partition",
+          "idx_outbox_record_status_partition"
+        ],
+        "key": "idx_outbox_record_status_partition",
+        "used_key_parts": [
+          "status",
+          "partition_no"
+        ],
+        "key_length": "86",
+        "rows_examined_per_scan": 62,
+        "rows_produced_per_join": 20,
+        "filtered": "33.33",
+        "index_condition": "((`run`.`outbox_record`.`status` = 'NEW') and (`run`.`outbox_record`.`partition_no` in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240)))",
+        "using_MRR": true,
+        "cost_info": {
+          "read_cost": "82.76",
+          "eval_cost": "2.07",
+          "prefix_cost": "84.83",
+          "data_read_per_join": "226K"
+        },
+        "used_columns": [
+          "id",
+          "status",
+          "next_retry_at",
+          "partition_no"
+        ],
+        "attached_condition": "(`run`.`outbox_record`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00')"
+      }
+    }
+  }
+}

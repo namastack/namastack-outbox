@@ -1,5 +1,11 @@
 # Q-pgtransfer: PostgreSQL-transfer query forms for MySQL 8.4.13
 
+> **Rebased to 270c42cf (2026-11-06).** The index names and columns in this file describe the 2a2663de schema in which the forms were written; the 270c42cf indexes are `idx_outbox_record_status_created_id` (status, created_at, id, partition_no, next_retry_at, record_key), `idx_outbox_record_key_completed_created_id` (unchanged), `idx_outbox_record_status_retry_partition` (status, next_retry_at, partition_no), `idx_outbox_record_status_partition` (status, partition_no). Hints in the `.sql` files were renamed accordingly (no hint lost its target). No new forms were added.
+> New reference SQL for keys_strict, keys_nonstrict, oldest_created, oldest_due_strict, oldest_due_nonstrict: see `../Q-merged/<id>/QM-<id>-0.sql`. Duplicate status of this file's forms of those ids, after normalising aliases, whitespace and `LIMIT`:
+> - Not byte-identical to the new reference: none (the forms keep the outer `completed_at IS NULL` that the new SQL dropped, or use other shapes).
+> - Equal to the new reference apart from the redundant outer `completed_at IS NULL` (plus hints/aliases): QP-keys_strict-3, -4 (hints); QP-keys_nonstrict-3, -4 (hints); QP-oldest_created-2, -4 (-4 hint); QP-oldest_due_nonstrict-2, -4 (-4 hint); QP-oldest_due_strict-2, -5 (-5 hint)
+> - Formerly duplicates of the 2a2663de reference, now duplicates of the former reference kept as `QM-<id>-<n>` (`keys_strict-11`, `keys_nonstrict-13`, `oldest_created-6`, `oldest_due_strict-10`, `oldest_due_nonstrict-6`): QP-oldest_created-1, QP-oldest_due_nonstrict-1 (MIN forms), QP-oldest_due_strict-2 (differs from the 2a2663de reference only by literal `LIMIT 1`, so it is also in the previous list)
+
 Proposer: PostgreSQL-transfer. Every PostgreSQL idea below is a hypothesis; none is a fact about InnoDB. Form files are
 `<query>/QP-<query>-<n>.sql` in harness catalog format. No indexes are proposed; "access path" names indexes of the `my-opt` DDL
 (A = `idx_outbox_record_status_completed_created_id (status, completed_at, created_at, id, partition_no, next_retry_at, record_key)`,

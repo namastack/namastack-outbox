@@ -1,0 +1,6 @@
+id: oldest_due_nonstrict   mode: ANALYZE (executed)   sql_select_limit: 1 (SET SESSION, as Connector/J does for setMaxRows)   rows_returned: 1
+query_cost: 88190.39
+select#1 table=outbox_record access=range key=idx_outbox_record_status_retry_partition key_parts=[status,next_retry_at] key_len=90 rows_examined_per_scan=910401 rows_produced_per_join=24744 filtered=50 using_index=yes attached_condition=yes index_condition=no prefix_cost=88190.39
+access: table=outbox_record index=idx_outbox_record_status_retry_partition node="Covering index range scan on outbox_record using idx_outbox_record_status_retry_partition over (status = 'NEW' AND next_retry_at <= '2026-01" est_rows=910401 actual_rows=1 loops=1 rows_read=1
+filesort: no   temporary: no   strategies: limit   json_flags: -
+rows_examined_total (tree, sum of table access nodes): 1   rows_returned: 1   root_node_actual_rows: 1

@@ -1,0 +1,44 @@
+innodb_history_list_length_at_start: 7 (threshold < 1000, waited 0.0 s)
+== before ==
+# rows_by_status
+COMPLETED	986000
+FAILED	12800
+NEW	1200
+# table_rows,data_length,index_length
+927202	1550614528	361168896
+# index_sizes
+PRIMARY	1550614528
+idx_outbox_record_key_completed_created_id	104841216
+idx_outbox_record_status_created_id	119521280
+idx_outbox_record_status_partition	65765376
+idx_outbox_record_status_retry_partition	71041024
+# index_count (incl. primary)
+5
+# tablespace file_size,allocated_size
+1937768448	1937772544
+# history_list_length (trx_rseg_history_len)
+7
+history_list_length_before: 7
+removed_by_retention (harness-internal PK delete of the 500000 oldest snapshot COMPLETED rows): 500000
+churn_seconds: 2394
+== after churn (no manual VACUUM/ANALYZE/OPTIMIZE) ==
+# rows_by_status
+COMPLETED	829213
+FAILED	22827
+NEW	1200
+# table_rows,data_length,index_length
+927202	1550614528	361168896
+# index_sizes
+PRIMARY	1916190720
+idx_outbox_record_key_completed_created_id	162496512
+idx_outbox_record_status_created_id	142835712
+idx_outbox_record_status_partition	125403136
+idx_outbox_record_status_retry_partition	82165760
+# index_count (incl. primary)
+5
+# tablespace file_size,allocated_size
+2617245696	2617249792
+# history_list_length (trx_rseg_history_len)
+282
+history_list_length_after: 282
+innodb_global_deltas: os_log_written=3338995712 redo_log_current_lsn=2721980549 pages_written=4830423 data_written=84032701440 buffer_pool_read_requests=65106871 buffer_pool_reads=3274277 row_lock_waits=0 row_lock_time=0 deadlocks=0 binlog_bytes=1752427425

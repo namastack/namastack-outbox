@@ -1,0 +1,442 @@
+{
+  "steps": [
+    {
+      "join_preparation": {
+        "select#": 1,
+        "steps": [
+          {
+            "IN_uses_bisection": true
+          },
+          {
+            "expanded_query": "/* select#1 */ select min(`o`.`next_retry_at`) AS `MIN(o.next_retry_at)` from `outbox_record` `o` where ((`o`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (`o`.`status` = 'NEW') and (`o`.`next_retry_at` <= '2026-01-01 12:00:00.000000'))"
+          }
+        ]
+      }
+    },
+    {
+      "join_optimization": {
+        "select#": 1,
+        "steps": [
+          {
+            "condition_processing": {
+              "condition": "WHERE",
+              "original_condition": "((`o`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (`o`.`status` = 'NEW') and (`o`.`next_retry_at` <= '2026-01-01 12:00:00.000000'))",
+              "steps": [
+                {
+                  "transformation": "equality_propagation",
+                  "resulting_condition": "((`o`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (`o`.`next_retry_at` <= '2026-01-01 12:00:00.000000') and multiple equal('NEW', `o`.`status`))"
+                },
+                {
+                  "transformation": "constant_propagation",
+                  "resulting_condition": "((`o`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (`o`.`next_retry_at` <= '2026-01-01 12:00:00.000000') and multiple equal('NEW', `o`.`status`))"
+                },
+                {
+                  "transformation": "trivial_condition_removal",
+                  "resulting_condition": "((`o`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00') and multiple equal('NEW', `o`.`status`))"
+                }
+              ]
+            }
+          },
+          {
+            "substitute_generated_columns": {
+            }
+          },
+          {
+            "table_dependencies": [
+              {
+                "table": "`outbox_record` `o`",
+                "row_may_be_null": false,
+                "map_bit": 0,
+                "depends_on_map_bits": [
+                ]
+              }
+            ]
+          },
+          {
+            "ref_optimizer_key_uses": [
+              {
+                "table": "`outbox_record` `o`",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": true
+              },
+              {
+                "table": "`outbox_record` `o`",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": true
+              }
+            ]
+          },
+          {
+            "rows_estimation": [
+              {
+                "table": "`outbox_record` `o`",
+                "range_analysis": {
+                  "table_scan": {
+                    "rows": 894235,
+                    "cost": 183797
+                  },
+                  "potential_range_indexes": [
+                    {
+                      "index": "PRIMARY",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_record_key_created",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_partition_status_retry",
+                      "usable": true,
+                      "key_parts": [
+                        "partition_no",
+                        "status",
+                        "next_retry_at",
+                        "id"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_status_retry",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "next_retry_at",
+                        "id"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_status_created",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "created_at",
+                        "id"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_record_key_completed_created",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    }
+                  ],
+                  "best_covering_index_scan": {
+                    "index": "idx_outbox_record_partition_status_retry",
+                    "cost": 201204,
+                    "chosen": false,
+                    "cause": "cost"
+                  },
+                  "setup_range_conditions": [
+                  ],
+                  "group_index_skip_scan": {
+                    "chosen": false,
+                    "cause": "not_group_by_or_distinct"
+                  },
+                  "skip_scan_range": {
+                    "potential_skip_scan_indexes": [
+                      {
+                        "index": "idx_outbox_record_partition_status_retry",
+                        "usable": false,
+                        "cause": "prefix_not_const_equality"
+                      },
+                      {
+                        "index": "idx_outbox_record_status_retry",
+                        "usable": false,
+                        "cause": "query_references_nonkey_column"
+                      },
+                      {
+                        "index": "idx_outbox_record_status_created",
+                        "usable": false,
+                        "cause": "query_references_nonkey_column"
+                      }
+                    ]
+                  },
+                  "analyzing_range_alternatives": {
+                    "range_scan_alternatives": [
+                      {
+                        "index": "idx_outbox_record_partition_status_retry",
+                        "ranges": [
+                          "partition_no = 0 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 4 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 8 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 12 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 16 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 20 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 24 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 28 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 32 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 36 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 40 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 44 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 48 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 52 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 56 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 60 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 64 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 68 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 72 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 76 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 80 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 84 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 88 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 92 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 96 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 100 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 104 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 108 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 112 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 116 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 120 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 124 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 128 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 132 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 136 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 140 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 144 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 148 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 152 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 156 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 160 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 164 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 168 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 172 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 176 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 180 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 184 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 188 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 192 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 196 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 200 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 204 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 208 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 212 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 216 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 220 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 224 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 228 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 232 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 236 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 240 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 244 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 248 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                          "partition_no = 252 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": true,
+                        "in_memory": 0,
+                        "rows": 233,
+                        "cost": 53.31,
+                        "chosen": true
+                      },
+                      {
+                        "index": "idx_outbox_record_status_retry",
+                        "ranges": [
+                          "status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "in_memory": 0.0186674,
+                        "rows": 1000,
+                        "cost": 1098.15,
+                        "chosen": false,
+                        "cause": "cost"
+                      },
+                      {
+                        "index": "idx_outbox_record_status_created",
+                        "ranges": [
+                          "status = 'NEW'"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "in_memory": 0,
+                        "rows": 1200,
+                        "cost": 1317.58,
+                        "chosen": false,
+                        "cause": "cost"
+                      }
+                    ],
+                    "analyzing_roworder_intersect": {
+                      "usable": false,
+                      "cause": "too_few_roworder_scans"
+                    }
+                  },
+                  "chosen_range_access_summary": {
+                    "range_access_plan": {
+                      "type": "range_scan",
+                      "index": "idx_outbox_record_partition_status_retry",
+                      "rows": 233,
+                      "ranges": [
+                        "partition_no = 0 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 4 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 8 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 12 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 16 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 20 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 24 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 28 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 32 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 36 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 40 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 44 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 48 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 52 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 56 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 60 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 64 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 68 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 72 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 76 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 80 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 84 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 88 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 92 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 96 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 100 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 104 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 108 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 112 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 116 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 120 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 124 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 128 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 132 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 136 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 140 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 144 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 148 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 152 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 156 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 160 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 164 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 168 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 172 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 176 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 180 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 184 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 188 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 192 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 196 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 200 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 204 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 208 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 212 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 216 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 220 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 224 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 228 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 232 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 236 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 240 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 244 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 248 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'",
+                        "partition_no = 252 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00'"
+                      ]
+                    },
+                    "rows_for_plan": 233,
+                    "cost_for_plan": 53.31,
+                    "chosen": true
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "considered_execution_plans": [
+              {
+                "plan_prefix": [
+                ],
+                "table": "`outbox_record` `o`",
+                "best_access_path": {
+                  "considered_access_paths": [
+                    {
+                      "access_type": "ref",
+                      "index": "idx_outbox_record_status_retry",
+                      "chosen": false,
+                      "cause": "range_uses_more_keyparts"
+                    },
+                    {
+                      "access_type": "ref",
+                      "index": "idx_outbox_record_status_created",
+                      "rows": 1200,
+                      "cost": 1316.57,
+                      "chosen": true
+                    },
+                    {
+                      "rows_to_scan": 233,
+                      "filtering_effect": [
+                      ],
+                      "final_filtering_effect": 1,
+                      "access_type": "range",
+                      "range_details": {
+                        "used_index": "idx_outbox_record_partition_status_retry"
+                      },
+                      "resulting_rows": 233,
+                      "cost": 76.61,
+                      "chosen": true
+                    }
+                  ]
+                },
+                "condition_filtering_pct": 100,
+                "rows_for_plan": 233,
+                "cost_for_plan": 76.61,
+                "chosen": true
+              }
+            ]
+          },
+          {
+            "attaching_conditions_to_tables": {
+              "original_condition": "((`o`.`status` = 'NEW') and (`o`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00'))",
+              "attached_conditions_computation": [
+              ],
+              "attached_conditions_summary": [
+                {
+                  "table": "`outbox_record` `o`",
+                  "attached": "((`o`.`status` = 'NEW') and (`o`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00'))"
+                }
+              ]
+            }
+          },
+          {
+            "optimizing_distinct_group_by_order_by": {
+            }
+          },
+          {
+            "finalizing_table_conditions": [
+              {
+                "table": "`outbox_record` `o`",
+                "original_table_condition": "((`o`.`status` = 'NEW') and (`o`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00'))",
+                "final_table_condition   ": "((`o`.`status` = 'NEW') and (`o`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (`o`.`next_retry_at` <= TIMESTAMP'2026-01-01 12:00:00'))"
+              }
+            ]
+          },
+          {
+            "refine_plan": [
+              {
+                "table": "`outbox_record` `o`"
+              }
+            ]
+          },
+          {
+            "considering_tmp_tables": [
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "join_explain": {
+        "select#": 1,
+        "steps": [
+        ]
+      }
+    }
+  ]
+}

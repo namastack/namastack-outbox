@@ -1,0 +1,10 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "insert": true,
+      "table_name": "outbox_record",
+      "access_type": "ALL"
+    }
+  }
+}

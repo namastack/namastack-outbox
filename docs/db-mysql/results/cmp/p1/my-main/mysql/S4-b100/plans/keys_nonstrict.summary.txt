@@ -1,0 +1,6 @@
+id: keys_nonstrict   mode: EXPLAIN FORMAT=TREE (not executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 100
+query_cost: 285152.20
+select#1 table=o access=ref key=idx_outbox_record_status_created key_parts=[status] key_len=82 rows_examined_per_scan=950684 rows_produced_per_join=158431 filtered=16.660 using_index=no attached_condition=yes index_condition=no prefix_cost=285152.20
+access: table=o index=idx_outbox_record_status_created node="Index lookup on o using idx_outbox_record_status_created (status='NEW')" est_rows=950684 actual_rows=- loops=- rows_read=-
+filesort: yes   temporary: yes   strategies: aggregate,limit   json_flags: -
+rows_examined_total (tree, sum of table access nodes): n/a (no actuals)   rows_returned: 100   root_node_actual_rows: -

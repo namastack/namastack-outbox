@@ -1,0 +1,6 @@
+id: count_new   mode: ANALYZE (executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 1
+query_cost: 47160.20
+select#1 table=outbox_record access=ref key=idx_outbox_record_status_retry_partition key_parts=[status] key_len=82 rows_examined_per_scan=209597 rows_produced_per_join=209597 filtered=100 using_index=yes attached_condition=no index_condition=no prefix_cost=47160.20
+access: table=outbox_record index=idx_outbox_record_status_retry_partition node="Covering index lookup on outbox_record using idx_outbox_record_status_retry_partition (status='NEW')" est_rows=209597 actual_rows=199980 loops=1 rows_read=199980
+filesort: no   temporary: no   strategies: aggregate   json_flags: -
+rows_examined_total (tree, sum of table access nodes): 199980   rows_returned: 1   root_node_actual_rows: 1

@@ -1,5 +1,11 @@
 # Independent proposer: query forms (MySQL 8.4.13, no measurements)
 
+> **Rebased to 270c42cf (2026-11-06).** The index names and columns in this file describe the 2a2663de schema in which the forms were written; the 270c42cf indexes are `idx_outbox_record_status_created_id` (status, created_at, id, partition_no, next_retry_at, record_key), `idx_outbox_record_key_completed_created_id` (unchanged), `idx_outbox_record_status_retry_partition` (status, next_retry_at, partition_no), `idx_outbox_record_status_partition` (status, partition_no). Hints in the `.sql` files were renamed accordingly (no hint lost its target). No new forms were added.
+> New reference SQL for keys_strict, keys_nonstrict, oldest_created, oldest_due_strict, oldest_due_nonstrict: see `../Q-merged/<id>/QM-<id>-0.sql`. Duplicate status of this file's forms of those ids, after normalising aliases, whitespace and `LIMIT`:
+> - Not byte-identical to the new reference: none (the forms keep the outer `completed_at IS NULL` that the new SQL dropped, or use other shapes).
+> - Equal to the new reference apart from the redundant outer `completed_at IS NULL` (plus hints/aliases): QI-keys_strict-5, -6 (hints); QI-keys_nonstrict-6, -7 (hints); QI-oldest_created-2; QI-oldest_due_nonstrict-2; QI-oldest_due_strict-6 (hint)
+> - Formerly duplicates of the 2a2663de reference, now duplicates of the former reference kept as `QM-<id>-<n>` (`keys_strict-11`, `keys_nonstrict-13`, `oldest_created-6`, `oldest_due_strict-10`, `oldest_due_nonstrict-6`): QI-oldest_created-1, QI-oldest_due_nonstrict-1 (both MIN forms)
+
 Schema assumed (branch DDL): `idx_outbox_record_status_completed_created_id (status, completed_at, created_at, id, partition_no, next_retry_at, record_key)` = **IX_S**,
 `idx_outbox_record_key_completed_created_id (record_key, completed_at, created_at, id)` = **IX_K**,
 `idx_outbox_record_status_completed_retry (status, completed_at, next_retry_at, partition_no)` = **IX_R**,

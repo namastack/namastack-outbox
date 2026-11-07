@@ -1,0 +1,5 @@
+id: upd_retry   mode: EXPLAIN ANALYZE gave no iterator tree (single-table DML); plan from EXPLAIN FORMAT=JSON (estimates only, not executed by the plan capture)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 1
+query_cost: -
+select#1 table=outbox_record access=range key=PRIMARY key_parts=[id] key_len=1022 rows_examined_per_scan=1 rows_produced_per_join=- filtered=100 using_index=no attached_condition=yes index_condition=no prefix_cost=-
+filesort: no   temporary: no   strategies: -   json_flags: -
+rows_examined_total (tree, sum of table access nodes): n/a (no actuals)   rows_returned: 1   root_node_actual_rows: -

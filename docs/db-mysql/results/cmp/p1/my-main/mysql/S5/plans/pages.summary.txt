@@ -1,0 +1,6 @@
+id: pages   mode: EXPLAIN FORMAT=TREE (not executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 20000
+query_cost: 65663.89
+select#1 table=outbox_record access=ref key=idx_outbox_record_status_retry key_parts=[status] key_len=82 rows_examined_per_scan=230861 rows_produced_per_join=48198 filtered=20.880 using_index=no attached_condition=yes index_condition=no prefix_cost=65663.89
+access: table=outbox_record index=idx_outbox_record_status_retry node="Index lookup on outbox_record using idx_outbox_record_status_retry (status='NEW')" est_rows=230861 actual_rows=- loops=- rows_read=-
+filesort: yes   temporary: no   strategies: index merge (sort row ids)   json_flags: -
+rows_examined_total (tree, sum of table access nodes): n/a (no actuals)   rows_returned: 20000   root_node_actual_rows: -

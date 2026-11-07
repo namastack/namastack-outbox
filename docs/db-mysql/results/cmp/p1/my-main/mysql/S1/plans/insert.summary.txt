@@ -1,0 +1,5 @@
+id: insert   mode: ANALYZE (executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 1
+query_cost: -
+select#1 table=outbox_record access=ALL key=- key_parts=[-] key_len=- rows_examined_per_scan=- rows_produced_per_join=- filtered=- using_index=no attached_condition=no index_condition=no prefix_cost=-
+filesort: no   temporary: no   strategies: -   json_flags: -
+rows_examined_total (tree, sum of table access nodes): n/a (no actuals)   rows_returned: 1   root_node_actual_rows: -

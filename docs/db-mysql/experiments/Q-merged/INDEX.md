@@ -1,17 +1,17 @@
 # Merged query forms (MySQL 8.4)
 
-Merged from Q-indep (QI-*) and Q-pgtransfer (QP-*). Every `QM-<query>-0` is the current my-opt SQL (reference). Forms were checked against the `OutboxRecordRepository` KDoc, usage map 2 and 4, and the scenarios; no form caps strict candidates before the anti-join.
+Merged from Q-indep (QI-*) and Q-pgtransfer (QP-*). Every `QM-<query>-0` is the my-opt SQL at 270c42cf (reference). Index names IX_S, IX_K, IX_R, IX_P in the access-path columns are the 270c42cf indexes `idx_outbox_record_status_created_id`, `idx_outbox_record_key_completed_created_id`, `idx_outbox_record_status_retry_partition`, `idx_outbox_record_status_partition`; remarks "(status, NULL)" / "completed_at IS NULL" on those refer to the pre-270c42cf column lists. Forms were checked against the `OutboxRecordRepository` KDoc, usage map 2 and 4, and the scenarios; no form caps strict candidates before the anti-join.
 Aliases are unified (`o`, `e`, `r`); `oldest_*` forms use a literal `LIMIT 1` (the repository binds 1; `:limit` is not referenced by these forms, the runner may still supply it).
 Classes: `ok`, `hint` (names an index, needs a user decision), `hint-generic` (optimizer hint without index name), `code change` (needs runner or repository SQL building beyond plain `IN` expansion), `status-conditional` (valid only for NEW/FAILED), `MySQL-only syntax` (MariaDB does not parse). `/*+ ... */` hints are comments to MariaDB 11; `FORCE INDEX` errors when the index is missing.
 Null/zero-row column: `MIN` returns exactly one row (NULL when nothing matches); a bare `ORDER BY ... LIMIT 1` returns no row; the wrapped scalar `SELECT (SELECT ... LIMIT 1)` returns exactly one row. The repository maps both to `null`.
 
-Dropped as duplicates of the reference `-0` (same SQL up to alias or literal `LIMIT 1`): `QI-pages-1` (pages-0), `QI-oldest_created-1`, `QP-oldest_created-1` (oldest_created-0), `QI-oldest_due_nonstrict-1`, `QP-oldest_due_nonstrict-1` (oldest_due_nonstrict-0), `QP-oldest_due_strict-2` (oldest_due_strict-0). Other duplicates are listed in the origin column.
+Dropped as duplicates of the pre-270c42cf reference (now `QM-oldest_created-6` etc., see the rebase section; the new `-0` differs for the five rebased ids) (same SQL up to alias or literal `LIMIT 1`): `QI-pages-1` (pages-0), `QI-oldest_created-1`, `QP-oldest_created-1` (oldest_created-0), `QI-oldest_due_nonstrict-1`, `QP-oldest_due_nonstrict-1` (oldest_due_nonstrict-0), `QP-oldest_due_strict-2` (oldest_due_strict-0). Other duplicates are listed in the origin column.
 
 ## keys_strict
 
 | QM id | Origin ids | Idea | Class | Runner parameter support | Access path (per proposers) | Null / zero-row |
 |---|---|---|---|---|---|---|
-| QM-keys_strict-0 | (reference) my-opt | current my-opt SQL, unchanged | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | n/a |
+| QM-keys_strict-0 | (reference) my-opt 270c42cf | 270c42cf SQL: no outer `completed_at IS NULL` (subquery keeps it) | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | n/a |
 | QM-keys_strict-1 | QI-keys_strict-1, QP-keys_strict-1 | explicit LEFT JOIN ... e.id IS NULL anti-join with the expanded tie-break | ok | none (plain :partitions IN expansion) | outer IX_S (status, completed_at IS NULL) in (created_at, id) order with early stop; probe IX_K per candidate | LIMIT query, 0 rows = empty list |
 | QM-keys_strict-2 | QI-keys_strict-2, QP-keys_strict-2 | NOT EXISTS with row-constructor tie-break (e.created_at, e.id) < (o.created_at, o.id), no <= conjunct | ok | none | same as form 1; row constructor may give a different range on IX_K | empty list |
 | QM-keys_strict-3 | QI-keys_strict-3 | scalar 'first incomplete of key' o.id = (SELECT e.id ... ORDER BY e.created_at, e.id LIMIT 1); no antijoin, no hash anti-join | ok | none | outer IX_S early stop; one covering IX_K entry per probe | empty list |
@@ -22,12 +22,13 @@ Dropped as duplicates of the reference `-0` (same SQL up to alias or literal `LI
 | QM-keys_strict-8 | QP-keys_strict-3 | NOT EXISTS + NO_SEMIJOIN() in the subquery block (dependent subquery, no hash anti-join) | hint-generic | none | outer IX_S early stop; per-candidate probe IX_K | empty list |
 | QM-keys_strict-9 | QP-keys_strict-5 | NOT EXISTS with tie-break spelled e.created_at <= o.created_at AND (e.created_at < o.created_at OR e.id < o.id) | ok | none | same as the reference; different OR shape for range analysis on IX_K | empty list |
 | QM-keys_strict-10 | QP-keys_strict-6 | LEFT JOIN anti-join + JOIN_ORDER(o, e) | hint-generic | none | outer first (IX_S early stop), probe IX_K | empty list |
+| QM-keys_strict-11 | pre-270c42cf my-opt reference (2a2663de) | former reference SQL (2a2663de): outer `completed_at IS NULL` re-added (E-candidate; `M2`/`M3` MIN baseline where MIN) | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | n/a |
 
 ## keys_nonstrict
 
 | QM id | Origin ids | Idea | Class | Runner parameter support | Access path (per proposers) | Null / zero-row |
 |---|---|---|---|---|---|---|
-| QM-keys_nonstrict-0 | (reference) my-opt | current my-opt SQL, unchanged | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | n/a |
+| QM-keys_nonstrict-0 | (reference) my-opt 270c42cf | 270c42cf SQL: no outer `completed_at IS NULL` (subquery keeps it) | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | n/a |
 | QM-keys_nonstrict-1 | QI-keys_nonstrict-1, QP-keys_nonstrict-1 | explicit LEFT JOIN ... e.id IS NULL anti-join with the expanded tie-break | ok | none (plain :partitions IN expansion) | outer IX_S (status, completed_at IS NULL) in (created_at, id) order with early stop; probe IX_K per candidate | LIMIT query, 0 rows = empty list |
 | QM-keys_nonstrict-2 | QI-keys_nonstrict-2, QP-keys_nonstrict-2 | NOT EXISTS with row-constructor tie-break (e.created_at, e.id) < (o.created_at, o.id), no <= conjunct | ok | none | same as form 1; row constructor may give a different range on IX_K | empty list |
 | QM-keys_nonstrict-3 | QI-keys_nonstrict-3 | scalar 'first incomplete of key' o.id = (SELECT e.id ... ORDER BY e.created_at, e.id LIMIT 1); no antijoin, no hash anti-join | ok | none | outer IX_S early stop; one covering IX_K entry per probe (probe also reads status/next_retry_at from the clustered row; may skip several non-due heads) | empty list |
@@ -40,6 +41,7 @@ Dropped as duplicates of the reference `-0` (same SQL up to alias or literal `LI
 | QM-keys_nonstrict-10 | QP-keys_nonstrict-6 | LEFT JOIN anti-join + JOIN_ORDER(o, e) | hint-generic | none | outer first, probe IX_K | empty list |
 | QM-keys_nonstrict-11 | QP-keys_nonstrict-7 | GROUP BY record_key ORDER BY MIN(created_at), record_key (tie-break by key) | ok | none | as nonstrict-5; ties between keys with equal MIN(created_at) ordered by record_key | empty list |
 | QM-keys_nonstrict-12 | QP-keys_nonstrict-8 | ROW_NUMBER() = 1 window with the partition filter inside the derived table (assumes record_key -> partition_no is a function, true with PartitionHasher) | ok | none | scans due NEW rows of owned partitions; no early stop | empty list |
+| QM-keys_nonstrict-13 | pre-270c42cf my-opt reference (2a2663de) | former reference SQL (2a2663de): outer `completed_at IS NULL` re-added (E-candidate; `M2`/`M3` MIN baseline where MIN) | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | n/a |
 
 ## pages
 
@@ -88,18 +90,19 @@ Dropped as duplicates of the reference `-0` (same SQL up to alias or literal `LI
 
 | QM id | Origin ids | Idea | Class | Runner parameter support | Access path (per proposers) | Null / zero-row |
 |---|---|---|---|---|---|---|
-| QM-oldest_created-0 | (reference) my-opt, QI-oldest_created-1, QP-oldest_created-1 | current my-opt SQL, unchanged | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | MIN: one NULL row |
+| QM-oldest_created-0 | (reference) my-opt 270c42cf | 270c42cf SQL: `SELECT created_at ... ORDER BY created_at LIMIT :limit`, no `completed_at`, maxrows one | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | ORDER BY LIMIT: no row when nothing matches |
 | QM-oldest_created-1 | QI-oldest_created-2, QP-oldest_created-2 | ORDER BY created_at LIMIT 1 (stop at first owned-partition row) | ok | none | IX_S (status, NULL) in created_at order, partition_no in-index, early stop | bare: no row when nothing matches (reference: one NULL row) |
 | QM-oldest_created-2 | QI-oldest_created-3 | scalar subquery wrapper of form 1: always one row | ok | none | as form 1 | always one row (NULL when nothing matches) |
 | QM-oldest_created-3 | QI-oldest_created-4 | form 2 + INDEX(IX_S) | hint | none | forced IX_S | always one row |
 | QM-oldest_created-4 | QP-oldest_created-3 | MIN(created_at) + INDEX(IX_S) | hint | none | forced IX_S | one NULL row |
 | QM-oldest_created-5 | QP-oldest_created-4 | form 1 + INDEX(IX_S) | hint | none | forced IX_S, early stop | no row when nothing matches |
+| QM-oldest_created-6 | pre-270c42cf my-opt reference (2a2663de), QI-oldest_created-1, QP-oldest_created-1 | former reference SQL (2a2663de): with `completed_at IS NULL`, MIN form (E-candidate; `M2`/`M3` MIN baseline where MIN) | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | MIN: one NULL row |
 
 ## oldest_due_strict
 
 | QM id | Origin ids | Idea | Class | Runner parameter support | Access path (per proposers) | Null / zero-row |
 |---|---|---|---|---|---|---|
-| QM-oldest_due_strict-0 | (reference) my-opt, QP-oldest_due_strict-2 (literal LIMIT 1) | current my-opt SQL, unchanged | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | ORDER BY LIMIT: no row |
+| QM-oldest_due_strict-0 | (reference) my-opt 270c42cf | 270c42cf SQL: no outer `completed_at IS NULL` (subquery keeps it) | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | ORDER BY LIMIT: no row |
 | QM-oldest_due_strict-1 | QI-oldest_due_strict-1 | MIN(next_retry_at) + NOT EXISTS row constructor (probe for every due candidate) | ok | none | outer IX_R range over all due rows; probe IX_K each; no early stop | always one row (NULL when empty) |
 | QM-oldest_due_strict-2 | QP-oldest_due_strict-1 | MIN(next_retry_at) + NOT EXISTS with expanded tie-break | ok | none | as form 1 | always one row |
 | QM-oldest_due_strict-3 | QI-oldest_due_strict-2, QP-oldest_due_strict-6 | ORDER BY next_retry_at LIMIT 1 + NOT EXISTS row constructor | ok | none (:limit not referenced) | outer IX_R in next_retry_at order, probe IX_K until the first unblocked row | bare: no row when nothing matches (reference: no row as well) |
@@ -109,17 +112,28 @@ Dropped as duplicates of the reference `-0` (same SQL up to alias or literal `LI
 | QM-oldest_due_strict-7 | QI-oldest_due_strict-6 | NOT EXISTS + JOIN_ORDER(o, e) NO_BNL(e) INDEX(o IX_R) | hint; hint-generic | none | forced outer IX_R, probe IX_K | bare: no row |
 | QM-oldest_due_strict-8 | QP-oldest_due_strict-4 | MIN over LEFT JOIN anti-join (control) | ok | none | all due rows, no early stop | always one row |
 | QM-oldest_due_strict-9 | QP-oldest_due_strict-5 | ORDER BY LIMIT 1 + NOT EXISTS with NO_SEMIJOIN() in the subquery | hint-generic | none | outer IX_R, dependent subquery per candidate | bare: no row |
+| QM-oldest_due_strict-10 | pre-270c42cf my-opt reference (2a2663de), QP-oldest_due_strict-2 (literal LIMIT 1) | former reference SQL (2a2663de): outer `completed_at IS NULL` re-added (E-candidate; `M2`/`M3` MIN baseline where MIN) | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | ORDER BY LIMIT: no row |
 
 ## oldest_due_nonstrict
 
 | QM id | Origin ids | Idea | Class | Runner parameter support | Access path (per proposers) | Null / zero-row |
 |---|---|---|---|---|---|---|
-| QM-oldest_due_nonstrict-0 | (reference) my-opt, QI-oldest_due_nonstrict-1, QP-oldest_due_nonstrict-1 | current my-opt SQL, unchanged | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | MIN: one NULL row |
+| QM-oldest_due_nonstrict-0 | (reference) my-opt 270c42cf | 270c42cf SQL: `SELECT next_retry_at ... ORDER BY next_retry_at LIMIT :limit`, no `completed_at`, maxrows one | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | ORDER BY LIMIT: no row when nothing matches |
 | QM-oldest_due_nonstrict-1 | QI-oldest_due_nonstrict-2, QP-oldest_due_nonstrict-2 | ORDER BY next_retry_at LIMIT 1 (literal 1) | ok | none (:limit not referenced) | IX_R (status, NULL, next_retry_at range) in order, partition_no in-index, early stop | bare: no row when nothing matches (reference: one NULL row) |
 | QM-oldest_due_nonstrict-2 | QI-oldest_due_nonstrict-3 | scalar subquery wrapper of form 1 | ok | none | as form 1 | always one row |
 | QM-oldest_due_nonstrict-3 | QI-oldest_due_nonstrict-4 | form 2 + INDEX(o IX_R) | hint | none | forced IX_R | always one row |
 | QM-oldest_due_nonstrict-4 | QP-oldest_due_nonstrict-3 | MIN + INDEX(o IX_R) | hint | none | forced IX_R | one NULL row |
 | QM-oldest_due_nonstrict-5 | QP-oldest_due_nonstrict-4 | form 1 + INDEX(o IX_R) | hint | none | forced IX_R, early stop | no row when nothing matches |
+| QM-oldest_due_nonstrict-6 | pre-270c42cf my-opt reference (2a2663de), QI-oldest_due_nonstrict-1, QP-oldest_due_nonstrict-1 | former reference SQL (2a2663de): MIN form with `completed_at IS NULL` (E-candidate; `M2`/`M3` MIN baseline where MIN) | ok | none (plain `IN` expansion where lists occur) | see usage map section 4 | MIN: one NULL row |
+
+## Rebased to 270c42cf (2026-11-06)
+
+Re-deduplicated against the new my-opt catalog (changed ids: keys_strict, keys_nonstrict, oldest_created, oldest_due_strict, oldest_due_nonstrict).
+- `-0` of the five ids is now the 270c42cf SQL. The previous reference (2a2663de) was kept as an extra form: `QM-keys_strict-11`, `QM-keys_nonstrict-13`, `QM-oldest_created-6`, `QM-oldest_due_strict-10`, `QM-oldest_due_nonstrict-6` (origin ids unchanged, so QI-/QP- duplicates of the old reference, e.g. `QI-oldest_created-1`, `QI-oldest_due_nonstrict-1`, `QP-oldest_due_strict-2`, now point to these).
+- No remaining form is byte-identical to a new `-0` (normalised for aliases, whitespace, `LIMIT :limit` vs `LIMIT 1`). Forms that equal the new `-0` apart from the redundant outer `completed_at IS NULL` and/or hints: keys_strict-5, -6, -8; keys_nonstrict-6, -7, -8 (hint variants of the reference, outer `completed_at IS NULL` kept as in the forms' origin); oldest_created-1 and -5; oldest_due_nonstrict-1 and -5 (differ from the new `-0` only by `completed_at IS NULL`, `LIMIT 1` literal, aliases); oldest_due_strict-7 and -9 (hint variants). They stay as forms: they are the `completed_at IS NULL` counterparts needed for M1/M2/M3 and the E-candidates, and traceable to the proposers.
+- Hints renamed (hint class forms in all ids, also count_*): `status_completed_created_id` -> `status_created_id`, `status_completed_retry` -> `status_retry_partition`, `status_completed_partition` -> `status_partition`. No hint lost its target (every dropped index has a successor); forms hinting on the old R/P now hint on the narrower successor without `completed_at`.
+- `maxrows` headers: the new `-0` of `oldest_created` and `oldest_due_nonstrict` has `maxrows: one` (the branch calls `withMaxRows(1)`), forms 1-5 of `oldest_created` still say `none`; set per experiment (M9) when comparing.
+- S1 smoke of the forms of these five ids must be rerun (`S1-smoke.md`).
 
 ## Rejected
 

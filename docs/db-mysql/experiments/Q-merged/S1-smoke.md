@@ -1,5 +1,8 @@
 # S1 smoke of the merged query forms
 
+> **Pending rerun (270c42cf rebase, 2026-11-06).** The results below were produced on the 2a2663de catalog and DDL. The forms of the five changed ids (keys_strict, keys_nonstrict, oldest_created, oldest_due_strict, oldest_due_nonstrict: forms 0-11, 0-13, 0-6, 0-10, 0-6, including the new `-0` and the added former references `keys_strict-11`, `keys_nonstrict-13`, `oldest_created-6`, `oldest_due_strict-10`, `oldest_due_nonstrict-6`) and all hinted forms (hints renamed to the 270c42cf index names) need an S1 smoke rerun against `my-opt` at 270c42cf, to be run after Phase 3. The `-0` references are included this time (equiv of the new `-0` against the catalog query must be identical). Rows below for those ids are stale until rerun.
+> Per form: `bin/form-overlay.sh <QM file> <dir>`, then `bin/bench equiv --a my-opt --b <QM name> --catalog-variant-b my-opt --queries-b <dir> --only <id>`, then `bin/bench bench --variant <QM name> --catalog-variant my-opt --queries <dir> --only <id> --label S1 --prepare` (flags as in the paragraph above; HOT,WRITE,MON groups).
+
 Date 2026-11-06, lane 1, scenario S1, DDL and catalog of `my-opt` (worktree `/home/zamo/git/outbox-wt-my-opt`), `--groups HOT,WRITE,MON`, `HARNESS_SAMPLE_ORDERED=1` (default).
 Per form: `bin/form-overlay.sh <QM file> <dir>`, then `bin/bench equiv --a my-opt --b <QM name> --catalog-variant-b my-opt --queries-b <dir> --only <id>` (the form versus the `my-opt` catalog query of the same id)
 and `bin/bench bench --variant <QM name> --catalog-variant my-opt --queries <dir> --only <id> --label S1 --prepare` (timing + plan capture). The `-0` reference files were not run.

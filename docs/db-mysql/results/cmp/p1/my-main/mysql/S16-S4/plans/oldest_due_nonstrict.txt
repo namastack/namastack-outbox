@@ -1,0 +1,4 @@
+-> Aggregate: min(o.next_retry_at)  (cost=49093 rows=1) (actual time=28.8..28.8 rows=1 loops=1)
+    -> Filter: ((o.`status` = 'NEW') and (o.partition_no in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240)) and (o.next_retry_at <= TIMESTAMP'2026-01-01 12:00:00'))  (cost=37542 rows=115510) (actual time=0.0125..24.2 rows=62536 loops=1)
+        -> Covering index range scan on o using idx_outbox_record_partition_status_retry over (partition_no = 0 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00') OR (partition_no = 16 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00') OR (14 more)  (cost=37542 rows=115510) (actual time=0.011..15.3 rows=62536 loops=1)
+

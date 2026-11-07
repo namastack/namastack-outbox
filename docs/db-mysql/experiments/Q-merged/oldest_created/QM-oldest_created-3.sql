@@ -3,4 +3,4 @@
 -- kind: read
 -- maxrows: none
 -- source: QM-oldest_created-3 (from QI-oldest_created-4)
-SELECT (SELECT /*+ INDEX(outbox_record idx_outbox_record_status_completed_created_id) */ created_at FROM outbox_record WHERE partition_no IN (:partitions) AND status = :status AND completed_at IS NULL ORDER BY created_at LIMIT 1) AS oldest
+SELECT (SELECT /*+ INDEX(outbox_record idx_outbox_record_status_created_id) */ created_at FROM outbox_record WHERE partition_no IN (:partitions) AND status = :status AND completed_at IS NULL ORDER BY created_at LIMIT 1) AS oldest

@@ -1,0 +1,4 @@
+-> Group aggregate: count(0)  (cost=190078 rows=152) (actual time=570..577 rows=3 loops=1)
+    -> Filter: (outbox_record.`status` in ('NEW','FAILED','COMPLETED'))  (cost=145141 rows=449366) (actual time=0.0382..481 rows=1e+6 loops=1)
+        -> Covering index range scan on outbox_record using idx_outbox_record_status_retry_partition over (status = 'COMPLETED') OR (status = 'FAILED') OR (status = 'NEW')  (cost=145141 rows=449366) (actual time=0.0373..300 rows=1e+6 loops=1)
+

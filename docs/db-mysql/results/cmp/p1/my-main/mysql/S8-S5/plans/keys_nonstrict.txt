@@ -1,0 +1,6 @@
+-> Limit: 10 row(s)  (actual time=8016..8016 rows=10 loops=1)
+    -> Sort: `min(o.created_at)`, limit input to 10 row(s) per chunk  (actual time=8016..8016 rows=10 loops=1)
+        -> Table scan on <temporary>  (actual time=8016..8016 rows=17 loops=1)
+            -> Aggregate using temporary table  (actual time=8016..8016 rows=17 loops=1)
+                -> Index range scan on o using idx_outbox_record_partition_status_retry over (partition_no = 0 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00') OR (partition_no = 4 AND status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00') OR (62 more), with index condition: ((o.`status` = 'NEW') and (o.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (o.next_retry_at <= TIMESTAMP'2026-01-01 12:00:00'))  (cost=41999 rows=37338) (actual time=4.35..7950 rows=33992 loops=1)
+

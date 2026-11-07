@@ -1,0 +1,304 @@
+{
+  "steps": [
+    {
+      "join_preparation": {
+        "select#": 1,
+        "steps": [
+          {
+            "IN_uses_bisection": true
+          },
+          {
+            "expanded_query": "/* select#1 */ select `outbox_record`.`status` AS `status`,count(0) AS `COUNT(*)` from `outbox_record` where (`outbox_record`.`status` in ('NEW','FAILED')) group by `outbox_record`.`status`"
+          }
+        ]
+      }
+    },
+    {
+      "join_optimization": {
+        "select#": 1,
+        "steps": [
+          {
+            "condition_processing": {
+              "condition": "WHERE",
+              "original_condition": "(`outbox_record`.`status` in ('NEW','FAILED'))",
+              "steps": [
+                {
+                  "transformation": "equality_propagation",
+                  "resulting_condition": "(`outbox_record`.`status` in ('NEW','FAILED'))"
+                },
+                {
+                  "transformation": "constant_propagation",
+                  "resulting_condition": "(`outbox_record`.`status` in ('NEW','FAILED'))"
+                },
+                {
+                  "transformation": "trivial_condition_removal",
+                  "resulting_condition": "(`outbox_record`.`status` in ('NEW','FAILED'))"
+                }
+              ]
+            }
+          },
+          {
+            "substitute_generated_columns": {
+            }
+          },
+          {
+            "table_dependencies": [
+              {
+                "table": "`outbox_record`",
+                "row_may_be_null": false,
+                "map_bit": 0,
+                "depends_on_map_bits": [
+                ]
+              }
+            ]
+          },
+          {
+            "ref_optimizer_key_uses": [
+            ]
+          },
+          {
+            "rows_estimation": [
+              {
+                "table": "`outbox_record`",
+                "range_analysis": {
+                  "table_scan": {
+                    "rows": 8853,
+                    "cost": 1136.65
+                  },
+                  "potential_range_indexes": [
+                    {
+                      "index": "PRIMARY",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_created_id",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "created_at",
+                        "id",
+                        "partition_no",
+                        "next_retry_at",
+                        "record_key"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_retry_partition",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "next_retry_at",
+                        "partition_no",
+                        "id"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_status_partition",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "partition_no",
+                        "id"
+                      ]
+                    }
+                  ],
+                  "best_covering_index_scan": {
+                    "index": "idx_outbox_record_status_partition",
+                    "cost": 1352.03,
+                    "chosen": false,
+                    "cause": "cost"
+                  },
+                  "setup_range_conditions": [
+                  ],
+                  "group_index_skip_scan": {
+                    "chosen": false,
+                    "cause": "not_applicable_aggregate_function"
+                  },
+                  "skip_scan_range": {
+                    "chosen": false,
+                    "cause": "has_group_by"
+                  },
+                  "analyzing_range_alternatives": {
+                    "range_scan_alternatives": [
+                      {
+                        "index": "idx_outbox_record_status_created_id",
+                        "ranges": [
+                          "status = 'FAILED'",
+                          "status = 'NEW'"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": true,
+                        "in_memory": 1,
+                        "rows": 200,
+                        "cost": 36.8433,
+                        "chosen": true
+                      },
+                      {
+                        "index": "idx_outbox_record_status_retry_partition",
+                        "ranges": [
+                          "status = 'FAILED'",
+                          "status = 'NEW'"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": true,
+                        "in_memory": 1,
+                        "rows": 200,
+                        "cost": 26.4788,
+                        "chosen": true
+                      },
+                      {
+                        "index": "idx_outbox_record_status_partition",
+                        "ranges": [
+                          "status = 'FAILED'",
+                          "status = 'NEW'"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": true,
+                        "in_memory": 0.771429,
+                        "rows": 200,
+                        "cost": 30.9145,
+                        "chosen": false,
+                        "cause": "cost"
+                      }
+                    ],
+                    "analyzing_roworder_intersect": {
+                      "usable": false,
+                      "cause": "too_few_roworder_scans"
+                    }
+                  },
+                  "chosen_range_access_summary": {
+                    "range_access_plan": {
+                      "type": "range_scan",
+                      "index": "idx_outbox_record_status_retry_partition",
+                      "rows": 200,
+                      "ranges": [
+                        "status = 'FAILED'",
+                        "status = 'NEW'"
+                      ]
+                    },
+                    "rows_for_plan": 200,
+                    "cost_for_plan": 26.4788,
+                    "chosen": true
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "considered_execution_plans": [
+              {
+                "plan_prefix": [
+                ],
+                "table": "`outbox_record`",
+                "best_access_path": {
+                  "considered_access_paths": [
+                    {
+                      "rows_to_scan": 200,
+                      "filtering_effect": [
+                      ],
+                      "final_filtering_effect": 1,
+                      "access_type": "range",
+                      "range_details": {
+                        "used_index": "idx_outbox_record_status_retry_partition"
+                      },
+                      "resulting_rows": 200,
+                      "cost": 46.4788,
+                      "chosen": true,
+                      "use_tmp_table": true
+                    }
+                  ]
+                },
+                "condition_filtering_pct": 100,
+                "rows_for_plan": 200,
+                "cost_for_plan": 46.4788,
+                "sort_cost": 200,
+                "new_cost_for_plan": 246.479,
+                "chosen": true
+              }
+            ]
+          },
+          {
+            "attaching_conditions_to_tables": {
+              "original_condition": "(`outbox_record`.`status` in ('NEW','FAILED'))",
+              "attached_conditions_computation": [
+              ],
+              "attached_conditions_summary": [
+                {
+                  "table": "`outbox_record`",
+                  "attached": "(`outbox_record`.`status` in ('NEW','FAILED'))"
+                }
+              ]
+            }
+          },
+          {
+            "optimizing_distinct_group_by_order_by": {
+              "simplifying_group_by": {
+                "original_clause": "`outbox_record`.`status`",
+                "items": [
+                  {
+                    "item": "`outbox_record`.`status`"
+                  }
+                ],
+                "resulting_clause_is_simple": true,
+                "resulting_clause": "`outbox_record`.`status`"
+              }
+            }
+          },
+          {
+            "reconsidering_access_paths_for_index_ordering": {
+              "clause": "GROUP BY",
+              "steps": [
+              ],
+              "index_order_summary": {
+                "table": "`outbox_record`",
+                "index_provides_order": true,
+                "order_direction": "asc",
+                "index": "idx_outbox_record_status_retry_partition",
+                "plan_changed": false
+              }
+            }
+          },
+          {
+            "finalizing_table_conditions": [
+              {
+                "table": "`outbox_record`",
+                "original_table_condition": "(`outbox_record`.`status` in ('NEW','FAILED'))",
+                "final_table_condition   ": "(`outbox_record`.`status` in ('NEW','FAILED'))"
+              }
+            ]
+          },
+          {
+            "refine_plan": [
+              {
+                "table": "`outbox_record`"
+              }
+            ]
+          },
+          {
+            "considering_tmp_tables": [
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "join_explain": {
+        "select#": 1,
+        "steps": [
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,392 @@
+{
+  "steps": [
+    {
+      "join_preparation": {
+        "select#": 1,
+        "steps": [
+          {
+            "IN_uses_bisection": true
+          },
+          {
+            "expanded_query": "/* select#1 */ select `outbox_record`.`id` AS `id`,`outbox_record`.`status` AS `status`,`outbox_record`.`record_key` AS `record_key`,`outbox_record`.`record_type` AS `record_type`,`outbox_record`.`payload` AS `payload`,`outbox_record`.`context` AS `context`,`outbox_record`.`created_at` AS `created_at`,`outbox_record`.`completed_at` AS `completed_at`,`outbox_record`.`failure_count` AS `failure_count`,`outbox_record`.`failure_reason` AS `failure_reason`,`outbox_record`.`next_retry_at` AS `next_retry_at`,`outbox_record`.`partition_no` AS `partition_no`,`outbox_record`.`handler_id` AS `handler_id` from `outbox_record` where ((`outbox_record`.`record_key` in ('order-000000000000000000000000000056','order-000000000000000000000000000057','order-000000000000000000000000000066','order-000000000000000000000000000087','order-000000000000000000000000000085','order-000000000000000000000000000089','order-000000000000000000000000000097','order-000000000000000000000000000094','order-000000000000000000000000000081')) and (`outbox_record`.`status` = 'NEW')) order by `outbox_record`.`record_key`,`outbox_record`.`created_at`,`outbox_record`.`id`"
+          }
+        ]
+      }
+    },
+    {
+      "join_optimization": {
+        "select#": 1,
+        "steps": [
+          {
+            "condition_processing": {
+              "condition": "WHERE",
+              "original_condition": "((`outbox_record`.`record_key` in ('order-000000000000000000000000000056','order-000000000000000000000000000057','order-000000000000000000000000000066','order-000000000000000000000000000087','order-000000000000000000000000000085','order-000000000000000000000000000089','order-000000000000000000000000000097','order-000000000000000000000000000094','order-000000000000000000000000000081')) and (`outbox_record`.`status` = 'NEW'))",
+              "steps": [
+                {
+                  "transformation": "equality_propagation",
+                  "resulting_condition": "((`outbox_record`.`record_key` in ('order-000000000000000000000000000056','order-000000000000000000000000000057','order-000000000000000000000000000066','order-000000000000000000000000000087','order-000000000000000000000000000085','order-000000000000000000000000000089','order-000000000000000000000000000097','order-000000000000000000000000000094','order-000000000000000000000000000081')) and multiple equal('NEW', `outbox_record`.`status`))"
+                },
+                {
+                  "transformation": "constant_propagation",
+                  "resulting_condition": "((`outbox_record`.`record_key` in ('order-000000000000000000000000000056','order-000000000000000000000000000057','order-000000000000000000000000000066','order-000000000000000000000000000087','order-000000000000000000000000000085','order-000000000000000000000000000089','order-000000000000000000000000000097','order-000000000000000000000000000094','order-000000000000000000000000000081')) and multiple equal('NEW', `outbox_record`.`status`))"
+                },
+                {
+                  "transformation": "trivial_condition_removal",
+                  "resulting_condition": "((`outbox_record`.`record_key` in ('order-000000000000000000000000000056','order-000000000000000000000000000057','order-000000000000000000000000000066','order-000000000000000000000000000087','order-000000000000000000000000000085','order-000000000000000000000000000089','order-000000000000000000000000000097','order-000000000000000000000000000094','order-000000000000000000000000000081')) and multiple equal('NEW', `outbox_record`.`status`))"
+                }
+              ]
+            }
+          },
+          {
+            "substitute_generated_columns": {
+            }
+          },
+          {
+            "table_dependencies": [
+              {
+                "table": "`outbox_record`",
+                "row_may_be_null": false,
+                "map_bit": 0,
+                "depends_on_map_bits": [
+                ]
+              }
+            ]
+          },
+          {
+            "ref_optimizer_key_uses": [
+              {
+                "table": "`outbox_record`",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": true
+              },
+              {
+                "table": "`outbox_record`",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": true
+              }
+            ]
+          },
+          {
+            "rows_estimation": [
+              {
+                "table": "`outbox_record`",
+                "range_analysis": {
+                  "table_scan": {
+                    "rows": 465773,
+                    "cost": 89133.9
+                  },
+                  "potential_range_indexes": [
+                    {
+                      "index": "PRIMARY",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_record_key_created",
+                      "usable": true,
+                      "key_parts": [
+                        "record_key",
+                        "created_at",
+                        "id"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_partition_status_retry",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_retry",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "next_retry_at",
+                        "id"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_status_created",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "created_at",
+                        "id"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_record_key_completed_created",
+                      "usable": true,
+                      "key_parts": [
+                        "record_key",
+                        "completed_at",
+                        "created_at",
+                        "id"
+                      ]
+                    }
+                  ],
+                  "setup_range_conditions": [
+                  ],
+                  "group_index_skip_scan": {
+                    "chosen": false,
+                    "cause": "not_group_by_or_distinct"
+                  },
+                  "skip_scan_range": {
+                    "potential_skip_scan_indexes": [
+                      {
+                        "index": "idx_outbox_record_record_key_created",
+                        "usable": false,
+                        "cause": "query_references_nonkey_column"
+                      },
+                      {
+                        "index": "idx_outbox_record_status_retry",
+                        "usable": false,
+                        "cause": "query_references_nonkey_column"
+                      },
+                      {
+                        "index": "idx_outbox_record_status_created",
+                        "usable": false,
+                        "cause": "query_references_nonkey_column"
+                      },
+                      {
+                        "index": "idx_outbox_record_record_key_completed_created",
+                        "usable": false,
+                        "cause": "query_references_nonkey_column"
+                      }
+                    ]
+                  },
+                  "analyzing_range_alternatives": {
+                    "range_scan_alternatives": [
+                      {
+                        "index": "idx_outbox_record_record_key_created",
+                        "ranges": [
+                          "record_key = 'order-000000000000000000000000000056'",
+                          "record_key = 'order-000000000000000000000000000057'",
+                          "record_key = 'order-000000000000000000000000000066'",
+                          "record_key = 'order-000000000000000000000000000081'",
+                          "record_key = 'order-000000000000000000000000000085'",
+                          "record_key = 'order-000000000000000000000000000087'",
+                          "record_key = 'order-000000000000000000000000000089'",
+                          "record_key = 'order-000000000000000000000000000094'",
+                          "record_key = 'order-000000000000000000000000000097'"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "in_memory": 0,
+                        "rows": 86376,
+                        "cost": 87669.1,
+                        "chosen": true
+                      },
+                      {
+                        "index": "idx_outbox_record_status_retry",
+                        "ranges": [
+                          "status = 'NEW'"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "in_memory": 0,
+                        "rows": 232886,
+                        "cost": 236351,
+                        "chosen": false,
+                        "cause": "cost"
+                      },
+                      {
+                        "index": "idx_outbox_record_status_created",
+                        "ranges": [
+                          "status = 'NEW'"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "in_memory": 0,
+                        "rows": 232886,
+                        "cost": 236351,
+                        "chosen": false,
+                        "cause": "cost"
+                      },
+                      {
+                        "index": "idx_outbox_record_record_key_completed_created",
+                        "ranges": [
+                          "record_key = 'order-000000000000000000000000000056'",
+                          "record_key = 'order-000000000000000000000000000057'",
+                          "record_key = 'order-000000000000000000000000000066'",
+                          "record_key = 'order-000000000000000000000000000081'",
+                          "record_key = 'order-000000000000000000000000000085'",
+                          "record_key = 'order-000000000000000000000000000087'",
+                          "record_key = 'order-000000000000000000000000000089'",
+                          "record_key = 'order-000000000000000000000000000094'",
+                          "record_key = 'order-000000000000000000000000000097'"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "in_memory": 0,
+                        "rows": 89622,
+                        "cost": 90963.3,
+                        "chosen": false,
+                        "cause": "cost"
+                      }
+                    ],
+                    "analyzing_roworder_intersect": {
+                      "usable": false,
+                      "cause": "too_few_roworder_scans"
+                    }
+                  },
+                  "chosen_range_access_summary": {
+                    "range_access_plan": {
+                      "type": "range_scan",
+                      "index": "idx_outbox_record_record_key_created",
+                      "rows": 86376,
+                      "ranges": [
+                        "record_key = 'order-000000000000000000000000000056'",
+                        "record_key = 'order-000000000000000000000000000057'",
+                        "record_key = 'order-000000000000000000000000000066'",
+                        "record_key = 'order-000000000000000000000000000081'",
+                        "record_key = 'order-000000000000000000000000000085'",
+                        "record_key = 'order-000000000000000000000000000087'",
+                        "record_key = 'order-000000000000000000000000000089'",
+                        "record_key = 'order-000000000000000000000000000094'",
+                        "record_key = 'order-000000000000000000000000000097'"
+                      ]
+                    },
+                    "rows_for_plan": 86376,
+                    "cost_for_plan": 87669.1,
+                    "chosen": true
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "considered_execution_plans": [
+              {
+                "plan_prefix": [
+                ],
+                "table": "`outbox_record`",
+                "best_access_path": {
+                  "considered_access_paths": [
+                    {
+                      "access_type": "ref",
+                      "index": "idx_outbox_record_status_retry",
+                      "rows": 232886,
+                      "cost": 65901,
+                      "chosen": true
+                    },
+                    {
+                      "access_type": "ref",
+                      "index": "idx_outbox_record_status_created",
+                      "rows": 232886,
+                      "cost": 65901,
+                      "chosen": false
+                    },
+                    {
+                      "rows_to_scan": 86376,
+                      "filtering_effect": [
+                      ],
+                      "final_filtering_effect": 0.499999,
+                      "access_type": "range",
+                      "range_details": {
+                        "used_index": "idx_outbox_record_record_key_created"
+                      },
+                      "resulting_rows": 43187.9,
+                      "cost": 96306.7,
+                      "chosen": false
+                    }
+                  ]
+                },
+                "condition_filtering_pct": 18.5447,
+                "rows_for_plan": 43187.9,
+                "cost_for_plan": 65901,
+                "chosen": true
+              }
+            ]
+          },
+          {
+            "attaching_conditions_to_tables": {
+              "original_condition": "((`outbox_record`.`status` = 'NEW') and (`outbox_record`.`record_key` in ('order-000000000000000000000000000056','order-000000000000000000000000000057','order-000000000000000000000000000066','order-000000000000000000000000000087','order-000000000000000000000000000085','order-000000000000000000000000000089','order-000000000000000000000000000097','order-000000000000000000000000000094','order-000000000000000000000000000081')))",
+              "attached_conditions_computation": [
+              ],
+              "attached_conditions_summary": [
+                {
+                  "table": "`outbox_record`",
+                  "attached": "((`outbox_record`.`status` = 'NEW') and (`outbox_record`.`record_key` in ('order-000000000000000000000000000056','order-000000000000000000000000000057','order-000000000000000000000000000066','order-000000000000000000000000000087','order-000000000000000000000000000085','order-000000000000000000000000000089','order-000000000000000000000000000097','order-000000000000000000000000000094','order-000000000000000000000000000081')))"
+                }
+              ]
+            }
+          },
+          {
+            "optimizing_distinct_group_by_order_by": {
+              "simplifying_order_by": {
+                "original_clause": "`outbox_record`.`record_key`,`outbox_record`.`created_at`,`outbox_record`.`id`",
+                "items": [
+                  {
+                    "item": "`outbox_record`.`record_key`"
+                  },
+                  {
+                    "item": "`outbox_record`.`created_at`"
+                  },
+                  {
+                    "item": "`outbox_record`.`id`"
+                  }
+                ],
+                "resulting_clause_is_simple": true,
+                "resulting_clause": "`outbox_record`.`record_key`,`outbox_record`.`created_at`,`outbox_record`.`id`"
+              }
+            }
+          },
+          {
+            "reconsidering_access_paths_for_index_ordering": {
+              "clause": "ORDER BY",
+              "steps": [
+              ],
+              "index_order_summary": {
+                "table": "`outbox_record`",
+                "index_provides_order": false,
+                "order_direction": "undefined",
+                "index": "idx_outbox_record_status_retry",
+                "plan_changed": false
+              }
+            }
+          },
+          {
+            "finalizing_table_conditions": [
+              {
+                "table": "`outbox_record`",
+                "original_table_condition": "((`outbox_record`.`status` = 'NEW') and (`outbox_record`.`record_key` in ('order-000000000000000000000000000056','order-000000000000000000000000000057','order-000000000000000000000000000066','order-000000000000000000000000000087','order-000000000000000000000000000085','order-000000000000000000000000000089','order-000000000000000000000000000097','order-000000000000000000000000000094','order-000000000000000000000000000081')))",
+                "final_table_condition   ": "(`outbox_record`.`record_key` in ('order-000000000000000000000000000056','order-000000000000000000000000000057','order-000000000000000000000000000066','order-000000000000000000000000000087','order-000000000000000000000000000085','order-000000000000000000000000000089','order-000000000000000000000000000097','order-000000000000000000000000000094','order-000000000000000000000000000081'))"
+              }
+            ]
+          },
+          {
+            "refine_plan": [
+              {
+                "table": "`outbox_record`"
+              }
+            ]
+          },
+          {
+            "considering_tmp_tables": [
+              {
+                "adding_sort_to_table": "outbox_record"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "join_explain": {
+        "select#": 1,
+        "steps": [
+        ]
+      }
+    }
+  ]
+}

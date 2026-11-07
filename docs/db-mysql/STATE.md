@@ -4,7 +4,7 @@ Maintained by the orchestrator. Update after every step.
 
 ## Current phase
 
-Phases 0, 1, 2 (port + S1 validation) done and reviewed; 4a (Q-merged, 66 forms PASS S1 smoke) and 4b (I-a, I-b) done. Calibration done (2026-11-06, `results/calibration/REPORT.md`; my-opt jars rebuilt, hashcheck 0/20004). Phase 3 not started (user starts it).
+Phases 0, 1, 2 (port + S1 validation) done and reviewed; 4a (Q-merged, 66 forms PASS S1 smoke) and 4b (I-a, I-b) done. Calibration done (2026-11-06, `results/calibration/REPORT.md`; my-opt jars rebuilt, hashcheck 0/20004). Phase 3 started 2026-11-06 22:03 (user; `cmp` run on lane 1, results `results/cmp/`). **Paused 2026-11-07 10:07 by the user** during pass 1: 21 of 23 cells x 2 variants done (all S1, S2, S4 labels, S9, S10, S5, S8-S5 my-main); left in pass 1: S8-S5 my-opt (partial output deleted), S6, S8-S6, S7, S8-S7; then restart, pass 2 (reverse), equiv. Resume: `results/cmp/run.sh all` in the background (finished cells are skipped; it restarts the container once between passes). Pass 1 took ~12 h so far; pass 2 will take about as long. User: start phase 4 automatically after phase 3.
 
 ## Environment
 
@@ -116,6 +116,9 @@ Note: re-adding outer `completed_at IS NULL` (as at `2a2663de`) and the `complet
 (questions with options and a recommendation; see 0.10 of the orchestrator prompt)
 
 ## Running sub-agents
+
+- (paused 2026-11-07) Phase 3 `cmp` measurement (brief 03, Sonnet) → `results/cmp/SUMMARY.md` not written yet; sub-agent stopped, driver killed, container stopped. Wrapper `results/cmp/run.sh` (p1 | restart | p2 | equiv | all).
+- (done 2026-11-06) rebase of phase 4 inputs to 270c42cf: I-a/I-b DDL + proposal notes (IA-0 = branch DDL; rule: `completed_at` dropped from status/partition-led indexes, record-key indexes unchanged; IB-3 now = IA-4; IA-1=IB-1, IA-2=IB-2), Q-merged `-0` of the 5 ids replaced (old refs kept as keys_strict-11, keys_nonstrict-13, oldest_created-6, oldest_due_strict-10, oldest_due_nonstrict-6), hints renamed (none lost), duplicates listed in INDEX.md/forms.md. Open: oldest_created forms 1-5 header maxrows `none` vs ref `one`; predicted sizes in proposal bodies stale. S1 smoke of those forms pending after `cmp` (recipe `Q-merged/S1-smoke.md`).
 
 - Phase 2 (done): harness port, `harness/README.md` "MySQL port", `results/validation/VALIDATION.md` (S1 both variants: bench,
   plans, handlers, writecost, equiv 18 PASS + wrong-order self-test FAIL, concurrency/churn smoke, repo-level sql.txt shows

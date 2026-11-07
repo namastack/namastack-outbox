@@ -1,0 +1,6 @@
+id: count_statuses   mode: ANALYZE (executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 2
+query_cost: 68104.46
+select#1 table=outbox_record access=range key=idx_outbox_record_status_retry_partition key_parts=[status] key_len=82 rows_examined_per_scan=209617 rows_produced_per_join=209617 filtered=100 using_index=yes attached_condition=yes index_condition=no prefix_cost=68104.46
+access: table=outbox_record index=idx_outbox_record_status_retry_partition node="Covering index range scan on outbox_record using idx_outbox_record_status_retry_partition over (status = 'FAILED') OR (status = 'NEW')" est_rows=209617 actual_rows=200000 loops=1 rows_read=200000
+filesort: no   temporary: no   strategies: aggregate   json_flags: -
+rows_examined_total (tree, sum of table access nodes): 200000   rows_returned: 2   root_node_actual_rows: 2

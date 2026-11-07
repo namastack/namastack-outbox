@@ -1,0 +1,6 @@
+id: oldest_created   mode: EXPLAIN FORMAT=TREE (not executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 1
+query_cost: 81883.89
+select#1 table=outbox_record access=range key=idx_outbox_record_partition_status_retry key_parts=[partition_no,status] key_len=86 rows_examined_per_scan=68864 rows_produced_per_join=68864 filtered=100 using_index=no attached_condition=no index_condition=yes prefix_cost=81883.89
+access: table=outbox_record index=idx_outbox_record_partition_status_retry node="Index range scan on outbox_record using idx_outbox_record_partition_status_retry over (partition_no = 0 AND status = 'NEW') OR (partition_no" est_rows=68864 actual_rows=- loops=- rows_read=-
+filesort: no   temporary: no   strategies: aggregate   json_flags: -
+rows_examined_total (tree, sum of table access nodes): n/a (no actuals)   rows_returned: 1   root_node_actual_rows: -

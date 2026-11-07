@@ -1,0 +1,8 @@
+id: oldest_due_strict   mode: ANALYZE (executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 1
+query_cost: 82.02
+select#1 table=o access=ref key=idx_outbox_record_status_created key_parts=[status] key_len=82 rows_examined_per_scan=180 rows_produced_per_join=29 filtered=16.660 using_index=no attached_condition=yes index_condition=no prefix_cost=63.00
+select#1 table=older access=ref key=idx_outbox_record_record_key_created key_parts=[record_key] key_len=1022 rows_examined_per_scan=1 rows_produced_per_join=29 filtered=100 using_index=no attached_condition=yes index_condition=no prefix_cost=82.02
+access: table=o index=idx_outbox_record_status_created node="Index lookup on o using idx_outbox_record_status_created (status='NEW')" est_rows=180 actual_rows=180 loops=1 rows_read=180
+access: table=older index=idx_outbox_record_record_key_created node="Index lookup on older using idx_outbox_record_record_key_created (record_key=o.record_key)" est_rows=1.810 actual_rows=1.990 loops=150 rows_read=298.500
+filesort: no   temporary: no   strategies: antijoin,nested loop,aggregate   json_flags: -
+rows_examined_total (tree, sum of table access nodes): 478.500   rows_returned: 1   root_node_actual_rows: 1

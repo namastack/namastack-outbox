@@ -1,0 +1,4 @@
+-> Aggregate: count(0)  (cost=27.2 rows=1) (actual time=0.0676..0.0677 rows=1 loops=1)
+    -> Filter: ((outbox_record.`status` = 'NEW') and (outbox_record.partition_no in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240)))  (cost=21 rows=62) (actual time=0.00959..0.0646 rows=62 loops=1)
+        -> Covering index range scan on outbox_record using idx_outbox_record_status_partition over (status = 'NEW' AND partition_no = 0) OR (status = 'NEW' AND partition_no = 16) OR (14 more)  (cost=21 rows=62) (actual time=0.00862..0.057 rows=62 loops=1)
+

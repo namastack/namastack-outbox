@@ -1,0 +1,24 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "update": true,
+      "table_name": "outbox_record",
+      "access_type": "range",
+      "possible_keys": [
+        "PRIMARY"
+      ],
+      "key": "PRIMARY",
+      "used_key_parts": [
+        "id"
+      ],
+      "key_length": "1022",
+      "ref": [
+        "const"
+      ],
+      "rows_examined_per_scan": 1,
+      "filtered": "100.00",
+      "attached_condition": "(`run`.`outbox_record`.`id` = '012ecd3b-e8bd-4ca0-80fb-bb36865cbec1')"
+    }
+  }
+}

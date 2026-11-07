@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS outbox_record
     handler_id     VARCHAR(1000)                                         NOT NULL,
     PRIMARY KEY (id),
     INDEX idx_outbox_record_key_created (record_key, created_at),
-    INDEX idx_outbox_record_status_completed_created_id (status, completed_at, created_at, id, partition_no, next_retry_at)
+    INDEX idx_outbox_record_status_created_id (status, created_at, id, partition_no, next_retry_at)
 ) ENGINE = InnoDB;
 
 CREATE TABLE IF NOT EXISTS outbox_instance

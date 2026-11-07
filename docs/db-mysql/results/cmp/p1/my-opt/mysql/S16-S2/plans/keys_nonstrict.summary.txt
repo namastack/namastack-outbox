@@ -1,0 +1,8 @@
+id: keys_nonstrict   mode: ANALYZE (executed)   sql_select_limit: 10 (SET SESSION, as Connector/J does for setMaxRows)   rows_returned: 10
+query_cost: 107.53
+select#1 table=o access=range key=idx_outbox_record_status_partition key_parts=[status,partition_no] key_len=86 rows_examined_per_scan=62 rows_produced_per_join=20 filtered=33.330 using_index=no attached_condition=yes index_condition=yes prefix_cost=84.82
+select#1 table=earlier access=ref key=idx_outbox_record_key_completed_created_id key_parts=[record_key,completed_at] key_len=1027 rows_examined_per_scan=1 rows_produced_per_join=20 filtered=100 using_index=no attached_condition=yes index_condition=no prefix_cost=107.53
+access: table=o index=idx_outbox_record_status_partition node="Index range scan on o using idx_outbox_record_status_partition over (status = 'NEW' AND partition_no = 0) OR (status = 'NEW' AND partition_n" est_rows=62 actual_rows=62 loops=1 rows_read=62
+access: table=earlier index=idx_outbox_record_key_completed_created_id node="Index lookup on earlier using idx_outbox_record_key_completed_created_id (record_key=o.record_key, completed_at=NULL)" est_rows=1 actual_rows=1 loops=10 rows_read=10
+filesort: yes   temporary: no   strategies: antijoin,nested loop,limit   json_flags: mrr
+rows_examined_total (tree, sum of table access nodes): 72   rows_returned: 10   root_node_actual_rows: 10

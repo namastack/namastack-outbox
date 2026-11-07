@@ -1,0 +1,6 @@
+id: oldest_due_nonstrict   mode: ANALYZE (executed)   sql_select_limit: none (statement without setMaxRows, or --no-plan-select-limit)   rows_returned: 1
+query_cost: 150594.83
+select#1 table=o access=range key=idx_outbox_record_partition_status_retry key_parts=[partition_no,status,next_retry_at] key_len=90 rows_examined_per_scan=463366 rows_produced_per_join=463366 filtered=100 using_index=yes attached_condition=yes index_condition=no prefix_cost=150594.84
+access: table=o index=idx_outbox_record_partition_status_retry node="Covering index range scan on o using idx_outbox_record_partition_status_retry over (partition_no = 0 AND status = 'NEW' AND next_retry_at <=" est_rows=463366 actual_rows=250815 loops=1 rows_read=250815
+filesort: no   temporary: no   strategies: aggregate   json_flags: -
+rows_examined_total (tree, sum of table access nodes): 250815   rows_returned: 1   root_node_actual_rows: 1

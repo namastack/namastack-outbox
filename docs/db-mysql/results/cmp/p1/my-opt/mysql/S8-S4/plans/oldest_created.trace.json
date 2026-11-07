@@ -1,0 +1,500 @@
+{
+  "steps": [
+    {
+      "join_preparation": {
+        "select#": 1,
+        "steps": [
+          {
+            "IN_uses_bisection": true
+          },
+          {
+            "expanded_query": "/* select#1 */ select `outbox_record`.`created_at` AS `created_at` from `outbox_record` where ((`outbox_record`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (`outbox_record`.`status` = 'NEW')) order by `outbox_record`.`created_at` limit 1"
+          }
+        ]
+      }
+    },
+    {
+      "join_optimization": {
+        "select#": 1,
+        "steps": [
+          {
+            "condition_processing": {
+              "condition": "WHERE",
+              "original_condition": "((`outbox_record`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and (`outbox_record`.`status` = 'NEW'))",
+              "steps": [
+                {
+                  "transformation": "equality_propagation",
+                  "resulting_condition": "((`outbox_record`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and multiple equal('NEW', `outbox_record`.`status`))"
+                },
+                {
+                  "transformation": "constant_propagation",
+                  "resulting_condition": "((`outbox_record`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and multiple equal('NEW', `outbox_record`.`status`))"
+                },
+                {
+                  "transformation": "trivial_condition_removal",
+                  "resulting_condition": "((`outbox_record`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)) and multiple equal('NEW', `outbox_record`.`status`))"
+                }
+              ]
+            }
+          },
+          {
+            "substitute_generated_columns": {
+            }
+          },
+          {
+            "table_dependencies": [
+              {
+                "table": "`outbox_record`",
+                "row_may_be_null": false,
+                "map_bit": 0,
+                "depends_on_map_bits": [
+                ]
+              }
+            ]
+          },
+          {
+            "ref_optimizer_key_uses": [
+              {
+                "table": "`outbox_record`",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": true
+              },
+              {
+                "table": "`outbox_record`",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": true
+              },
+              {
+                "table": "`outbox_record`",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": true
+              }
+            ]
+          },
+          {
+            "rows_estimation": [
+              {
+                "table": "`outbox_record`",
+                "range_analysis": {
+                  "table_scan": {
+                    "rows": 2038332,
+                    "cost": 388717
+                  },
+                  "potential_range_indexes": [
+                    {
+                      "index": "PRIMARY",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_created_id",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "created_at",
+                        "id",
+                        "partition_no",
+                        "next_retry_at",
+                        "record_key"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_retry_partition",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "next_retry_at",
+                        "partition_no",
+                        "id"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_status_partition",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "partition_no",
+                        "id"
+                      ]
+                    }
+                  ],
+                  "best_covering_index_scan": {
+                    "index": "idx_outbox_record_status_created_id",
+                    "cost": 883278,
+                    "chosen": false,
+                    "cause": "cost"
+                  },
+                  "setup_range_conditions": [
+                  ],
+                  "group_index_skip_scan": {
+                    "chosen": false,
+                    "cause": "not_group_by_or_distinct"
+                  },
+                  "skip_scan_range": {
+                    "potential_skip_scan_indexes": [
+                      {
+                        "index": "idx_outbox_record_status_created_id",
+                        "usable": false,
+                        "cause": "range_predicate_too_complex"
+                      },
+                      {
+                        "index": "idx_outbox_record_status_retry_partition",
+                        "usable": false,
+                        "cause": "query_references_nonkey_column"
+                      },
+                      {
+                        "index": "idx_outbox_record_status_partition",
+                        "usable": false,
+                        "cause": "query_references_nonkey_column"
+                      }
+                    ]
+                  },
+                  "analyzing_range_alternatives": {
+                    "range_scan_alternatives": [
+                      {
+                        "index": "idx_outbox_record_status_created_id",
+                        "ranges": [
+                          "status = 'NEW'"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": true,
+                        "in_memory": 0,
+                        "rows": 1019166,
+                        "cost": 441639,
+                        "chosen": false,
+                        "cause": "cost"
+                      },
+                      {
+                        "index": "idx_outbox_record_status_retry_partition",
+                        "ranges": [
+                          "status = 'NEW'"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "in_memory": 0,
+                        "rows": 1019166,
+                        "cost": 1.12108e+06,
+                        "chosen": false,
+                        "cause": "cost"
+                      },
+                      {
+                        "index": "idx_outbox_record_status_partition",
+                        "ranges": [
+                          "status = 'NEW' AND partition_no = 0",
+                          "status = 'NEW' AND partition_no = 4",
+                          "status = 'NEW' AND partition_no = 8",
+                          "status = 'NEW' AND partition_no = 12",
+                          "status = 'NEW' AND partition_no = 16",
+                          "status = 'NEW' AND partition_no = 20",
+                          "status = 'NEW' AND partition_no = 24",
+                          "status = 'NEW' AND partition_no = 28",
+                          "status = 'NEW' AND partition_no = 32",
+                          "status = 'NEW' AND partition_no = 36",
+                          "status = 'NEW' AND partition_no = 40",
+                          "status = 'NEW' AND partition_no = 44",
+                          "status = 'NEW' AND partition_no = 48",
+                          "status = 'NEW' AND partition_no = 52",
+                          "status = 'NEW' AND partition_no = 56",
+                          "status = 'NEW' AND partition_no = 60",
+                          "status = 'NEW' AND partition_no = 64",
+                          "status = 'NEW' AND partition_no = 68",
+                          "status = 'NEW' AND partition_no = 72",
+                          "status = 'NEW' AND partition_no = 76",
+                          "status = 'NEW' AND partition_no = 80",
+                          "status = 'NEW' AND partition_no = 84",
+                          "status = 'NEW' AND partition_no = 88",
+                          "status = 'NEW' AND partition_no = 92",
+                          "status = 'NEW' AND partition_no = 96",
+                          "status = 'NEW' AND partition_no = 100",
+                          "status = 'NEW' AND partition_no = 104",
+                          "status = 'NEW' AND partition_no = 108",
+                          "status = 'NEW' AND partition_no = 112",
+                          "status = 'NEW' AND partition_no = 116",
+                          "status = 'NEW' AND partition_no = 120",
+                          "status = 'NEW' AND partition_no = 124",
+                          "status = 'NEW' AND partition_no = 128",
+                          "status = 'NEW' AND partition_no = 132",
+                          "status = 'NEW' AND partition_no = 136",
+                          "status = 'NEW' AND partition_no = 140",
+                          "status = 'NEW' AND partition_no = 144",
+                          "status = 'NEW' AND partition_no = 148",
+                          "status = 'NEW' AND partition_no = 152",
+                          "status = 'NEW' AND partition_no = 156",
+                          "status = 'NEW' AND partition_no = 160",
+                          "status = 'NEW' AND partition_no = 164",
+                          "status = 'NEW' AND partition_no = 168",
+                          "status = 'NEW' AND partition_no = 172",
+                          "status = 'NEW' AND partition_no = 176",
+                          "status = 'NEW' AND partition_no = 180",
+                          "status = 'NEW' AND partition_no = 184",
+                          "status = 'NEW' AND partition_no = 188",
+                          "status = 'NEW' AND partition_no = 192",
+                          "status = 'NEW' AND partition_no = 196",
+                          "status = 'NEW' AND partition_no = 200",
+                          "status = 'NEW' AND partition_no = 204",
+                          "status = 'NEW' AND partition_no = 208",
+                          "status = 'NEW' AND partition_no = 212",
+                          "status = 'NEW' AND partition_no = 216",
+                          "status = 'NEW' AND partition_no = 220",
+                          "status = 'NEW' AND partition_no = 224",
+                          "status = 'NEW' AND partition_no = 228",
+                          "status = 'NEW' AND partition_no = 232",
+                          "status = 'NEW' AND partition_no = 236",
+                          "status = 'NEW' AND partition_no = 240",
+                          "status = 'NEW' AND partition_no = 244",
+                          "status = 'NEW' AND partition_no = 248",
+                          "status = 'NEW' AND partition_no = 252"
+                        ],
+                        "index_dives_for_eq_ranges": true,
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "in_memory": 0,
+                        "rows": 459730,
+                        "cost": 505765,
+                        "chosen": false,
+                        "cause": "cost"
+                      }
+                    ],
+                    "analyzing_roworder_intersect": {
+                      "usable": false,
+                      "cause": "too_few_roworder_scans"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "considered_execution_plans": [
+              {
+                "plan_prefix": [
+                ],
+                "table": "`outbox_record`",
+                "best_access_path": {
+                  "considered_access_paths": [
+                    {
+                      "access_type": "ref",
+                      "index": "idx_outbox_record_status_created_id",
+                      "rows": 1.01917e+06,
+                      "cost": 441639,
+                      "chosen": true
+                    },
+                    {
+                      "access_type": "ref",
+                      "index": "idx_outbox_record_status_retry_partition",
+                      "rows": 1.01917e+06,
+                      "cost": 305749,
+                      "chosen": true
+                    },
+                    {
+                      "access_type": "ref",
+                      "index": "idx_outbox_record_status_partition",
+                      "chosen": false,
+                      "cause": "range_uses_more_keyparts"
+                    },
+                    {
+                      "access_type": "scan",
+                      "chosen": false,
+                      "cause": "covering_index_better_than_full_scan"
+                    }
+                  ]
+                },
+                "condition_filtering_pct": 50,
+                "rows_for_plan": 509583,
+                "cost_for_plan": 305749,
+                "chosen": true
+              }
+            ]
+          },
+          {
+            "attaching_conditions_to_tables": {
+              "original_condition": "((`outbox_record`.`status` = 'NEW') and (`outbox_record`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)))",
+              "attached_conditions_computation": [
+              ],
+              "attached_conditions_summary": [
+                {
+                  "table": "`outbox_record`",
+                  "attached": "((`outbox_record`.`status` = 'NEW') and (`outbox_record`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)))"
+                }
+              ]
+            }
+          },
+          {
+            "optimizing_distinct_group_by_order_by": {
+              "simplifying_order_by": {
+                "original_clause": "`outbox_record`.`created_at`",
+                "items": [
+                  {
+                    "item": "`outbox_record`.`created_at`"
+                  }
+                ],
+                "resulting_clause_is_simple": true,
+                "resulting_clause": "`outbox_record`.`created_at`"
+              }
+            }
+          },
+          {
+            "reconsidering_access_paths_for_index_ordering": {
+              "clause": "ORDER BY",
+              "steps": [
+                {
+                  "check_if_range_uses_more_keyparts_than_ref": {
+                    "rerunning_range_optimizer_for_single_index": {
+                      "range_analysis": {
+                        "table_scan": {
+                          "rows": 2038332,
+                          "cost": 1.79769e+308
+                        },
+                        "potential_range_indexes": [
+                          {
+                            "index": "PRIMARY",
+                            "usable": false,
+                            "cause": "not_applicable"
+                          },
+                          {
+                            "index": "idx_outbox_record_status_created_id",
+                            "usable": true,
+                            "key_parts": [
+                              "status",
+                              "created_at",
+                              "id",
+                              "partition_no",
+                              "next_retry_at",
+                              "record_key"
+                            ]
+                          },
+                          {
+                            "index": "idx_outbox_record_key_completed_created_id",
+                            "usable": false,
+                            "cause": "not_applicable"
+                          },
+                          {
+                            "index": "idx_outbox_record_status_retry_partition",
+                            "usable": false,
+                            "cause": "not_applicable"
+                          },
+                          {
+                            "index": "idx_outbox_record_status_partition",
+                            "usable": false,
+                            "cause": "not_applicable"
+                          }
+                        ],
+                        "best_covering_index_scan": {
+                          "index": "idx_outbox_record_status_created_id",
+                          "cost": 883278,
+                          "chosen": true
+                        },
+                        "setup_range_conditions": [
+                        ],
+                        "group_index_skip_scan": {
+                          "chosen": false,
+                          "cause": "not_group_by_or_distinct"
+                        },
+                        "skip_scan_range": {
+                          "potential_skip_scan_indexes": [
+                            {
+                              "index": "idx_outbox_record_status_created_id",
+                              "usable": false,
+                              "cause": "range_predicate_too_complex"
+                            }
+                          ]
+                        },
+                        "analyzing_range_alternatives": {
+                          "range_scan_alternatives": [
+                            {
+                              "index": "idx_outbox_record_status_created_id",
+                              "ranges": [
+                                "status = 'NEW'"
+                              ],
+                              "index_dives_for_eq_ranges": true,
+                              "rowid_ordered": false,
+                              "using_mrr": false,
+                              "index_only": true,
+                              "in_memory": 0,
+                              "rows": 1019166,
+                              "cost": 441639,
+                              "chosen": true
+                            }
+                          ],
+                          "analyzing_roworder_intersect": {
+                            "usable": false,
+                            "cause": "too_few_roworder_scans"
+                          }
+                        },
+                        "chosen_range_access_summary": {
+                          "range_access_plan": {
+                            "type": "range_scan",
+                            "index": "idx_outbox_record_status_created_id",
+                            "rows": 1.01917e+06,
+                            "ranges": [
+                              "status = 'NEW'"
+                            ]
+                          },
+                          "rows_for_plan": 1.01917e+06,
+                          "cost_for_plan": 441639,
+                          "chosen": true
+                        }
+                      },
+                      "access_type_unchanged": {
+                        "ref_key_length": 82,
+                        "range_key_length": 82
+                      }
+                    }
+                  }
+                }
+              ],
+              "index_order_summary": {
+                "table": "`outbox_record`",
+                "index_provides_order": true,
+                "order_direction": "asc",
+                "index": "idx_outbox_record_status_created_id",
+                "plan_changed": true,
+                "access_type": "ref"
+              }
+            }
+          },
+          {
+            "finalizing_table_conditions": [
+              {
+                "table": "`outbox_record`",
+                "original_table_condition": "((`outbox_record`.`status` = 'NEW') and (`outbox_record`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)))",
+                "final_table_condition   ": "(`outbox_record`.`partition_no` in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252))"
+              }
+            ]
+          },
+          {
+            "refine_plan": [
+              {
+                "table": "`outbox_record`"
+              }
+            ]
+          },
+          {
+            "considering_tmp_tables": [
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "join_explain": {
+        "select#": 1,
+        "steps": [
+        ]
+      }
+    }
+  ]
+}
