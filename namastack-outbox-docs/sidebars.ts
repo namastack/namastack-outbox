@@ -30,6 +30,7 @@ const sidebars: SidebarsConfig = {
             'reference/persistence',
             'reference/database',
             'reference/retention',
+            'reference/upgrading-to-1-12',
           ],
         },
         {

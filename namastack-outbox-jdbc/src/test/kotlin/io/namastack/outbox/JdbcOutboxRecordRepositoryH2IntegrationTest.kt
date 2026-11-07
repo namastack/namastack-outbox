@@ -1,0 +1,3 @@
+package io.namastack.outbox
+
+class JdbcOutboxRecordRepositoryH2IntegrationTest : AbstractJdbcOutboxRecordRepositoryIntegrationTest()

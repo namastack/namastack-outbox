@@ -227,14 +227,12 @@ internal open class MongoOutboxRecordRepository(
      * ready record, regardless of older incomplete records.
      *
      * @param partitions the set of partition numbers to query
-     * @param status the record status to match
      * @param batchSize the maximum number of record keys to return
      * @param ignoreRecordKeysWithPreviousFailure whether to enforce strict FIFO ordering
      * @return list of record keys ready for processing
      */
     override fun findRecordKeysInPartitions(
         partitions: Set<Int>,
-        status: OutboxRecordStatus,
         batchSize: Int,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): List<String> {
@@ -242,9 +240,9 @@ internal open class MongoOutboxRecordRepository(
 
         val aggregation =
             if (ignoreRecordKeysWithPreviousFailure) {
-                buildStrictFifoAggregation(partitions, status, now, batchSize)
+                buildStrictFifoAggregation(partitions, OutboxRecordStatus.NEW, now, batchSize)
             } else {
-                buildStandardAggregation(partitions, status, now, batchSize)
+                buildStandardAggregation(partitions, OutboxRecordStatus.NEW, now, batchSize)
             }
 
         return mongoTemplate
@@ -317,12 +315,9 @@ internal open class MongoOutboxRecordRepository(
     }
 
     /**
-     * Finds the earliest creation time of outbox records across the specified partitions by status.
+     * Finds the earliest creation time of `NEW` records across the specified partitions.
      */
-    override fun findOldestCreatedAtByPartitions(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-    ): Instant? {
+    override fun findOldestCreatedAtByPartitions(partitions: Set<Int>): Instant? {
         if (partitions.isEmpty()) return null
 
         val match =
@@ -331,29 +326,28 @@ internal open class MongoOutboxRecordRepository(
                     .where("partitionNo")
                     .`in`(partitions)
                     .and("status")
-                    .`is`(status.name),
+                    .`is`(OutboxRecordStatus.NEW.name),
             )
         return aggregateMin(listOf(match), "createdAt")
     }
 
     /**
-     * Finds the earliest next retry time of due outbox records across the specified partitions.
+     * Finds the earliest next retry time of due `NEW` records across the specified partitions.
      *
      * With [ignoreRecordKeysWithPreviousFailure], only the oldest incomplete record of each key is
      * considered, as in [buildStrictFifoAggregation].
      */
     override fun findOldestDueNextRetryAtByPartitions(
         partitions: Set<Int>,
-        status: OutboxRecordStatus,
         now: Instant,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): Instant? {
         if (partitions.isEmpty()) return null
 
         return if (ignoreRecordKeysWithPreviousFailure) {
-            aggregateMin(strictFifoReadyKeyStages(partitions, status, now), "oldestDoc.nextRetryAt")
+            aggregateMin(strictFifoReadyKeyStages(partitions, OutboxRecordStatus.NEW, now), "oldestDoc.nextRetryAt")
         } else {
-            aggregateMin(listOf(readyRecordsMatchStage(partitions, status, now)), "nextRetryAt")
+            aggregateMin(listOf(readyRecordsMatchStage(partitions, OutboxRecordStatus.NEW, now)), "nextRetryAt")
         }
     }
 

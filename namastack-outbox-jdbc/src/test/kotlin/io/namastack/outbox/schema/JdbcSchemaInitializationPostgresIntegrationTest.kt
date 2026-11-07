@@ -18,16 +18,50 @@ class JdbcSchemaInitializationPostgresIntegrationTest : AbstractJdbcSchemaInitia
     private lateinit var dataSource: DataSource
 
     @Test
-    fun `polling index covers metadata and the complete creation time and id ordering`() {
-        val definition =
-            JdbcTemplate(dataSource).queryForObject(
-                "SELECT pg_get_indexdef('idx_outbox_record_status_created'::regclass)",
+    fun `incomplete record indexes have the shipped columns and the same predicate`() {
+        val template = JdbcTemplate(dataSource)
+
+        fun definition(index: String) =
+            template.queryForObject("SELECT pg_get_indexdef('$index'::regclass)", String::class.java)
+
+        assertThat(definition("idx_outbox_record_status_created_id_incomplete"))
+            .contains("USING btree (status, created_at, id)")
+            .contains("INCLUDE (partition_no, next_retry_at, record_key)")
+            .contains("WHERE (completed_at IS NULL)")
+        assertThat(definition("idx_outbox_record_key_created_id_incomplete"))
+            .contains("USING btree (record_key, created_at, id)")
+            .contains("WHERE (completed_at IS NULL)")
+        assertThat(definition("idx_outbox_record_status_retry_incomplete"))
+            .contains("USING btree (status, next_retry_at)")
+            .contains("INCLUDE (partition_no)")
+            .contains("WHERE (completed_at IS NULL)")
+        assertThat(definition("idx_outbox_record_status_partition_incomplete"))
+            .contains("USING btree (status, partition_no)")
+            .contains("WHERE (completed_at IS NULL)")
+    }
+
+    @Test
+    fun `outbox record has no full secondary index and has the extended statistics`() {
+        val template = JdbcTemplate(dataSource)
+
+        val fullIndexes =
+            template.queryForList(
+                """
+                SELECT indexname FROM pg_indexes
+                WHERE tablename = 'outbox_record'
+                  AND indexname <> 'outbox_record_pkey'
+                  AND indexdef NOT LIKE '%WHERE (completed_at IS NULL)'
+                """.trimIndent(),
                 String::class.java,
             )
+        val statistics =
+            template.queryForObject(
+                "SELECT count(*) FROM pg_statistic_ext WHERE stxname = 'outbox_record_status_completed_stx'",
+                Long::class.java,
+            )
 
-        assertThat(definition)
-            .contains("USING btree (status, created_at, id)")
-            .contains("INCLUDE (record_key, partition_no, next_retry_at, completed_at)")
+        assertThat(fullIndexes).isEmpty()
+        assertThat(statistics).isEqualTo(1L)
     }
 
     companion object {

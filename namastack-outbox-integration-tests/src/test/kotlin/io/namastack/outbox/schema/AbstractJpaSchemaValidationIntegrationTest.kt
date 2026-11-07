@@ -61,13 +61,12 @@ abstract class AbstractJpaSchemaValidationIntegrationTest {
             )
         }
 
-        assertThat(outboxRecordRepository.findOldestCreatedAtByPartitions(setOf(AGE_QUERY_PARTITION), NEW))
+        assertThat(outboxRecordRepository.findOldestCreatedAtByPartitions(setOf(AGE_QUERY_PARTITION)))
             .isEqualTo(createdAt)
         listOf(true, false).forEach { ignoreRecordKeysWithPreviousFailure ->
             assertThat(
                 outboxRecordRepository.findOldestDueNextRetryAtByPartitions(
                     partitions = setOf(AGE_QUERY_PARTITION),
-                    status = NEW,
                     now = nextRetryAt,
                     ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
                 ),
@@ -75,7 +74,6 @@ abstract class AbstractJpaSchemaValidationIntegrationTest {
             assertThat(
                 outboxRecordRepository.findOldestDueNextRetryAtByPartitions(
                     partitions = setOf(AGE_QUERY_PARTITION),
-                    status = NEW,
                     now = nextRetryAt.minusSeconds(1),
                     ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
                 ),

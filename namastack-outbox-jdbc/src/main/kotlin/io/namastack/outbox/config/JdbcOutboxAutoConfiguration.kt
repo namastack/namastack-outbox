@@ -11,6 +11,7 @@ import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxService
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
+import io.namastack.outbox.query.JdbcOutboxRecordQueriesFactory
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -101,7 +102,7 @@ class JdbcOutboxAutoConfiguration {
      * @param jdbcOutboxRecordEntityMapper Mapper for converting between domain objects and entities
      * @param clock Clock for time-based operations
      * @param tableNameResolver Resolver for fully qualified table names
-     * @param dataSource DataSource whose database type selects the row limit syntax
+     * @param dataSource DataSource whose database type selects the SQL dialect on first use
      * @return JDBC outbox record repository implementation
      */
     @Bean
@@ -118,8 +119,12 @@ class JdbcOutboxAutoConfiguration {
             transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
             entityMapper = jdbcOutboxRecordEntityMapper,
             clock = clock,
-            tableNameResolver = tableNameResolver,
-            databaseType = { JdbcDatabaseType.from(dataSource) },
+            queries = {
+                JdbcOutboxRecordQueriesFactory.create(
+                    JdbcDatabaseType.detect(dataSource),
+                    tableNameResolver.outboxRecord,
+                )
+            },
         )
 
     /**

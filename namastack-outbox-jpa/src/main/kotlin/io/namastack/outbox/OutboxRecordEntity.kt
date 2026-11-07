@@ -18,6 +18,10 @@ import java.time.Instant
  * fields for tracking outbox events including status, retry information,
  * and partition assignment.
  *
+ * The declared indexes are status-leading composite indexes. The queries select incomplete records through
+ * the status alone, so these indexes serve them on every database; the partial and filtered indexes of the
+ * shipped PostgreSQL and SQL Server schema scripts do not, because they require `completed_at IS NULL`.
+ *
  * @author Roland Beisel
  * @since 0.1.0
  */
@@ -25,11 +29,16 @@ import java.time.Instant
 @Table(
     name = "outbox_record",
     indexes = [
-        Index(name = "idx_outbox_record_record_key_created", columnList = "recordKey, createdAt"),
-        Index(name = "idx_outbox_record_partition_status_retry", columnList = "partitionNo, status, nextRetryAt"),
-        Index(name = "idx_outbox_record_status_retry", columnList = "status, nextRetryAt"),
-        Index(name = "idx_outbox_record_status_created", columnList = "status, createdAt"),
-        Index(name = "idx_outbox_record_key_completed_created", columnList = "recordKey, completedAt, createdAt"),
+        Index(
+            name = "idx_outbox_record_status_created_id",
+            columnList = "status, createdAt, id, partitionNo, nextRetryAt, recordKey",
+        ),
+        Index(
+            name = "idx_outbox_record_key_completed_created_id",
+            columnList = "recordKey, completedAt, createdAt, id",
+        ),
+        Index(name = "idx_outbox_record_status_retry_partition", columnList = "status, nextRetryAt, partitionNo"),
+        Index(name = "idx_outbox_record_status_partition", columnList = "status, partitionNo"),
     ],
 )
 data class OutboxRecordEntity(

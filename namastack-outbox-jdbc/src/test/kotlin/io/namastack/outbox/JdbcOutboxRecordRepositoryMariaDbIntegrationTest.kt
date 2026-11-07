@@ -8,9 +8,9 @@ import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.mariadb.MariaDBContainer
 
 @Testcontainers
-class JdbcBulkRecordLoadingMariaDbIntegrationTest : AbstractJdbcBulkRecordLoadingTest() {
+class JdbcOutboxRecordRepositoryMariaDbIntegrationTest : AbstractJdbcOutboxRecordRepositoryIntegrationTest() {
     companion object {
-        private val log = LoggerFactory.getLogger(JdbcBulkRecordLoadingMariaDbIntegrationTest::class.java)
+        private val log = LoggerFactory.getLogger(JdbcOutboxRecordRepositoryMariaDbIntegrationTest::class.java)
 
         @Container
         @JvmStatic

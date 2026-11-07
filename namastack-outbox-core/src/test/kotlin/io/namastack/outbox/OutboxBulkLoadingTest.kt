@@ -76,7 +76,7 @@ class OutboxBulkLoadingTest {
             keys.chunked(1000).forEach { chunk -> repository.findIncompleteRecordPages(chunk.toSet()) }
         }
         verify(exactly = (batchSize + 999) / 1000) { repository.findIncompleteRecordPages(any()) }
-        verify(exactly = 1) { repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, batchSize, true) }
+        verify(exactly = 1) { repository.findRecordKeysInPartitions(setOf(1), batchSize, true) }
         verify(exactly = 0) { repository.findIncompleteRecordsByRecordKey(any()) }
     }
 
@@ -377,7 +377,7 @@ class OutboxBulkLoadingTest {
         ).also { it.start() }
 
     private fun selectKeys(vararg keys: String) {
-        every { repository.findRecordKeysInPartitions(setOf(1), OutboxRecordStatus.NEW, any(), any()) } returns
+        every { repository.findRecordKeysInPartitions(setOf(1), any(), any()) } returns
             keys.toList()
     }
 

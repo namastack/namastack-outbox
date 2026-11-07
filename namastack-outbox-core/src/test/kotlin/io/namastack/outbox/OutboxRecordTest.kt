@@ -591,4 +591,61 @@ class OutboxRecordTest {
             assertThat(record2.partition).isEqualTo(PartitionHasher.getPartitionForRecordKey(key2))
         }
     }
+
+    /**
+     * The partial indexes and the literal `completed_at IS NULL` queries rely on this invariant.
+     */
+    @Nested
+    inner class CompletedAtInvariant {
+        private fun assertInvariant(record: OutboxRecord<*>) {
+            val incomplete = record.status == OutboxRecordStatus.NEW || record.status == OutboxRecordStatus.FAILED
+            assertThat(record.completedAt == null).isEqualTo(incomplete)
+        }
+
+        private fun newRecord() =
+            OutboxRecord
+                .Builder<String>()
+                .key("key")
+                .payload("payload")
+                .handlerId("handler")
+                .build(clock)
+
+        @Test
+        fun `a new record has no completion time`() {
+            assertInvariant(newRecord())
+        }
+
+        @Test
+        fun `completion sets status and completion time together`() {
+            val record = newRecord()
+
+            record.markCompleted(clock)
+            assertInvariant(record)
+
+            record.markCompleted(clock)
+            assertInvariant(record)
+        }
+
+        @Test
+        fun `a retry leaves the completion time empty`() {
+            val record = newRecord()
+
+            record.incrementFailureCount()
+            record.scheduleNextRetry(Duration.ofSeconds(5), clock)
+            record.updateFailureReason("failed")
+            assertInvariant(record)
+        }
+
+        @Test
+        fun `a permanent failure leaves the completion time empty`() {
+            val record = newRecord()
+
+            record.incrementFailureCount()
+            record.markFailed()
+            assertInvariant(record)
+
+            record.markFailed()
+            assertInvariant(record)
+        }
+    }
 }
