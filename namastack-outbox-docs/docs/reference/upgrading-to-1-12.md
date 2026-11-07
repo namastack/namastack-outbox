@@ -19,8 +19,8 @@ and check the duration, locking, and disk space on your database and version.
 :::
 
 :::note Benchmarks
-Only the PostgreSQL indexes and queries are based on benchmarks. The other databases use translated
-indexes that have not been measured. Compare your own query latency before and after the upgrade.
+Only the PostgreSQL and MariaDB indexes and queries are based on benchmarks. The other databases use
+translated indexes that have not been measured. Compare your own query latency before and after the upgrade.
 :::
 
 ## Before You Start
@@ -102,10 +102,10 @@ ANALYZE outbox_record;
 If you created the optional `(status, completed_at)` retention index, replace it as described in
 [Record Retention](retention.md#indexes).
 
-## MySQL and MariaDB
+## MySQL
 
-Create the indexes. On MySQL, you can add `, ALGORITHM=INPLACE, LOCK=NONE` to fail rather than block
-writes if the online build is not possible:
+Create the indexes. You can add `, ALGORITHM=INPLACE, LOCK=NONE` to fail rather than block writes if
+the online build is not possible:
 
 ```sql
 ALTER TABLE outbox_record
@@ -131,6 +131,36 @@ ANALYZE TABLE outbox_record;
 If you created the schema from a snapshot build, the name `idx_outbox_record_status` can instead be
 `idx_outbox_record_status_created`. Hibernate-generated DDL uses
 `idx_outbox_record_key_completed_created` for the last index.
+
+## MariaDB
+
+Create the indexes:
+
+```sql
+ALTER TABLE outbox_record
+    ADD INDEX idx_outbox_record_status_completed_created_id (status, completed_at, created_at, id, partition_no, next_retry_at, record_key),
+    ADD INDEX idx_outbox_record_key_completed_created_id (record_key, completed_at, created_at, id),
+    ADD INDEX idx_outbox_record_status_completed_retry (status, completed_at, next_retry_at, partition_no),
+    ADD INDEX idx_outbox_record_status_partition_created (status, partition_no, created_at);
+```
+
+After the rollout, drop the old indexes:
+
+```sql
+ALTER TABLE outbox_record
+    DROP INDEX idx_outbox_record_record_key_created,
+    DROP INDEX idx_outbox_record_partition_status_retry,
+    DROP INDEX idx_outbox_record_status_retry,
+    DROP INDEX idx_outbox_record_status,
+    DROP INDEX idx_outbox_record_record_key_completed_created;
+
+ANALYZE TABLE outbox_record;
+```
+
+If you created the schema from a snapshot build, the name `idx_outbox_record_status` can instead be
+`idx_outbox_record_status_created`. Hibernate-generated DDL uses
+`idx_outbox_record_key_completed_created` for the last index. X
+`idx_outbox_record_status_completed_partition` from an earlier 1.12 snapshot, drop it as well.
 
 ## SQL Server
 

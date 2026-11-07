@@ -310,6 +310,8 @@ internal open class JdbcOutboxRecordRepository(
             .sql(sql.oldestCreatedAtByPartitionsStatus)
             .param("partitions", partitions)
             .param("status", OutboxRecordStatus.NEW.name)
+            .param("limit", 1)
+            .withMaxRows(1)
             .query { rs, _ -> rs.getInstantOrNull(1) }
             .list()
             .firstOrNull()

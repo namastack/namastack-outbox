@@ -99,6 +99,9 @@ database; see the [schema files](https://github.com/namastack/namastack-outbox/t
 | status, next retry time | The oldest due record metric |
 | status, partition | Record count metrics per partition |
 
+On MariaDB, the fourth index covers status, partition and creation time. It also serves the oldest record
+metric.
+
 Retention queries have no dedicated index and can be slow on large tables. See
 [Record Retention](retention.md#indexes).
 

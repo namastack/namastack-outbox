@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS outbox_record
     INDEX idx_outbox_record_status_completed_created_id (status, completed_at, created_at, id, partition_no, next_retry_at, record_key),
     INDEX idx_outbox_record_key_completed_created_id (record_key, completed_at, created_at, id),
     INDEX idx_outbox_record_status_completed_retry (status, completed_at, next_retry_at, partition_no),
-    INDEX idx_outbox_record_status_completed_partition (status, completed_at, partition_no)
+    INDEX idx_outbox_record_status_partition_created (status, partition_no, created_at)
 ) ENGINE = InnoDB;
 
 CREATE TABLE IF NOT EXISTS outbox_instance
