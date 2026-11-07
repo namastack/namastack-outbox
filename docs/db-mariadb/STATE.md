@@ -266,6 +266,18 @@ From `01-usage-map.md` §7 (branch `a06a74c0` vs main `f4446c8c`):
   review fixed the MariaDB snapshot upgrade step (same-name indexes, `status_completed_partition`) and the retention sentence in
   `database.md`. Quiet-machine list: report section 5.
 
+- **2026-11-07 — study committed and rebased.** `f4c0ccf5` -> after `git pull -r` `412f160f` on `feature/db-optimalization` (clean
+  rebase; not pushed). The remote brought `docs/db-postgresql/` (renamed from `docs/db-sql/`), removed `docs/db/`, and an independent
+  MySQL study in `docs/db-mysql/`. Isolation rule extended for sub-agents: no reading of `docs/db-postgresql/` or `docs/db-mysql/`.
+- **2026-11-07 — MySQL check started (user request).** `mysql-check/spec.md`: mysql:9.2, UUIDv7, code `4037faa5` (MySQL DDL and
+  catalog), forms A (branch) vs B (MIN / `NOT EXISTS`) for `oldest_created`, `oldest_due_*`, `keys_*`. Kept in
+  `docs/db-mariadb/mysql-check/` so it never touches `docs/db-mysql/`.
+
+- **2026-11-08 — MySQL check done (`mysql-check/REPORT.md`).** MySQL 9.2, v7, `4037faa5`: ORDER BY LIMIT 1 > MIN carries over;
+  ordered `oldest_due_strict` kept carries over (but seconds on MySQL at S4-type data); head form for `keys_*` reverses (S8-S5
+  `keys_strict` 31.8 s head vs 227 ms `NOT EXISTS`): `4037faa5`'s MySQL head forms regress at hot keys. Added to `99-final-report.md`
+  section 5. MySQL container stopped (volume kept). Harness: MySQL support (`DIALECT`), binlog purge needed once (disk).
+
 ## Deferred tests (quiet host / quiet time)
 
 | Id | What | Why deferred | Relevant against | Status |
@@ -305,4 +317,5 @@ From `01-usage-map.md` §7 (branch `a06a74c0` vs main `f4446c8c`):
 
 ## Next step
 
-Phases 0-7 done. Commit the study (`git add .`) + `git pull -r`, then the MySQL experiment (see 2026-11-07 'after phase 7'). Never push.
+All done (phases 0-7, M5/S10, `mdb-opt2`, MySQL check). Final changes wait uncommitted in `/home/azamojski/outbox-wt-jdbc-opt` for the
+user. Never push.

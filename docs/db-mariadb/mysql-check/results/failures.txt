@@ -1,0 +1,4 @@
+EQUIV FAIL in /home/azamojski/namastack-outbox/docs/db-mariadb/mysql-check/results/equiv/mysql/S1/my-A-vs-my-B.md
+EQUIV FAIL in /home/azamojski/namastack-outbox/docs/db-mariadb/mysql-check/results/equiv/mysql/S5/my-A-vs-my-B.md
+EQUIV FAIL in /home/azamojski/namastack-outbox/docs/db-mariadb/mysql-check/results/equiv/mysql/S1/my-A-vs-my-B.md
+EQUIV FAIL in /home/azamojski/namastack-outbox/docs/db-mariadb/mysql-check/results/equiv/mysql/S5/my-A-vs-my-B.md

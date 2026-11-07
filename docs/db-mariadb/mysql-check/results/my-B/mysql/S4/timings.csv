@@ -1,0 +1,14 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_strict,1.175,1.256,1.089,1.264,10,20,
+keys_nonstrict,1.079,1.174,0.976,1.182,10,20,
+pages,0.662,0.923,0.605,0.985,10,20,
+count_new,98.723,120.908,98.458,163.461,1,20,
+count_failed,0.189,0.260,0.166,0.424,1,20,
+count_completed,348.026,356.052,346.367,356.798,1,20,
+count_statuses,214.818,215.439,214.161,215.767,1,20,
+count_statuses_all,825.215,829.038,819.145,829.732,2,20,
+count_partitions,407.042,413.130,405.529,413.167,1,20,
+count_partition_single,0.649,0.673,0.634,0.685,1,20,
+oldest_created,,,,,,0,ERROR stopped at limit 60 s (oldest_created)
+oldest_due_strict,,,,,,0,ERROR stopped at limit 60 s (oldest_due_strict)
+oldest_due_nonstrict,,,,,,0,ERROR stopped at limit 60 s (oldest_due_nonstrict)

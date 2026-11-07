@@ -1,0 +1,14 @@
+query_id,Handler_read_key,Handler_read_next,Handler_read_prev,Handler_read_first,Handler_read_rnd,Handler_read_rnd_next,Handler_read_last,bp_read_requests,bp_reads
+keys_strict,11,19,0,0,0,0,0,122,0
+keys_nonstrict,11,19,0,0,0,0,0,250,0
+pages,10,10,0,0,0,0,0,218,0
+count_new,1,1000000,0,0,0,0,0,11841,0
+count_failed,1,0,0,0,0,0,0,22,0
+count_completed,1,1000000,0,0,0,0,0,15348,3087
+count_statuses,2,1000000,0,0,0,0,0,11862,0
+count_statuses_all,1,2000000,0,1,0,0,0,30170,6517
+count_partitions,256,1000000,0,0,0,0,0,59782,3067
+count_partition_single,1,3963,0,0,0,0,0,344,0
+oldest_created,1,0,0,0,0,0,0,82,0
+oldest_due_strict,2,1000001,0,1,0,0,0,5066195,51984
+oldest_due_nonstrict,1,0,0,0,0,0,0,81,0

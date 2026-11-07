@@ -24,7 +24,8 @@ object Maria {
         return m
     }
 
-    fun historyListLength(c: Connection): Long = status(c, true, "Innodb_history_list_length")["Innodb_history_list_length"] ?: -1
+    fun historyListLength(c: Connection): Long = status(c, true, "Innodb_history_list_length")["Innodb_history_list_length"]
+        ?: scalar(c, "SELECT count FROM information_schema.INNODB_METRICS WHERE name='trx_rseg_history_len'")?.toLongOrNull() ?: -1   // MySQL: no status variable
 
     /** Waits until `Innodb_history_list_length` < [below] (at most [maxS] s) and records the value in [settleNote]. */
     fun settleHistory(c: Connection, below: Long = 1000, maxS: Int = 120): String {
@@ -105,7 +106,7 @@ object Maria {
             c.createStatement().use { st -> st.executeQuery("SELECT column_name, column_type, character_set_name, collation_name FROM information_schema.COLUMNS WHERE table_schema=DATABASE() AND table_name='outbox_record' AND column_name IN ('id','record_key') ORDER BY ordinal_position").use { rs ->
                 while (rs.next()) sb.appendLine("column ${rs.getString(1)}: ${rs.getString(2)} charset=${rs.getString(3)} collation=${rs.getString(4)}") } }
             c.createStatement().use { st -> st.executeQuery("SELECT table_collation FROM information_schema.TABLES WHERE table_schema=DATABASE() AND table_name='outbox_record'").use { rs -> if (rs.next()) sb.appendLine("table_collation: ${rs.getString(1)}") } }
-            sb.appendLine("engine_independent_stats rows (mysql.table_stats/column_stats/index_stats for this schema): " +
+            if (scalar(c, "SELECT @@use_stat_tables") != null) sb.appendLine("engine_independent_stats rows (mysql.table_stats/column_stats/index_stats for this schema): " +
                 listOf("table_stats", "column_stats", "index_stats").joinToString(" / ") { t -> scalar(c, "SELECT COUNT(*) FROM mysql.$t WHERE db_name=DATABASE() AND table_name='outbox_record'") ?: "n/a" })
         } catch (e: Exception) { sb.appendLine("column info failed: ${e.message?.lines()?.first()}") }
         return sb.toString()

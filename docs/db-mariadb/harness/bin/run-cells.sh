@@ -20,7 +20,7 @@ set -u
 H="$(cd "$(dirname "$0")/.." && pwd)"; cd "$H"
 LANE="${LANE:?LANE=1|2}"; RUN="${RUN:?RUN=<run-name>}"; VARIANTS="${VARIANTS:?VARIANTS=name=worktree[,ddl=F][,queries=D][,catalog=N] ...}"
 R="${RESULTS:-$H/../results}"; mkdir -p "$R/logs"; R="$(cd "$R" && pwd)"; LOG="$R/logs/$RUN-L$LANE.log"; FAIL="$R/logs/$RUN-failures.txt"
-MINFREE_GB="${MINFREE_GB:-8}"; STEP_T=$(( ${STEP_TIMEOUT_H:-6} * 3600 )); ORDER="${ORDER:-forward}"; DIALECT=mariadb
+MINFREE_GB="${MINFREE_GB:-8}"; STEP_T=$(( ${STEP_TIMEOUT_H:-6} * 3600 )); ORDER="${ORDER:-forward}"; DIALECT="${DIALECT:-mariadb}"
 # shellcheck disable=SC1091
 source "$H/bin/lane.sh" "$LANE" >/dev/null || exit 1
 log(){ echo "[$(date '+%m-%d %H:%M:%S')] L$LANE $*" | tee -a "$LOG"; }

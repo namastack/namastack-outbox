@@ -122,8 +122,18 @@ write-cost deltas are unchanged.
 - **JPA entity.** `OutboxRecordEntity` declares the indexes independent of the dialect (at `4037faa5`: the `4037faa5` set). Hibernate-
   generated DDL on MariaDB therefore gets the `4037faa5` indexes, not the final ones; JPA statements are JPQL and were not studied.
   Recommend the shipped schema script for MariaDB; changing the entity is a user decision (it affects every dialect).
-- **MySQL portability.** MySQL is not changed. The final MariaDB forms are plain SQL and run on MySQL; whether the MariaDB results carry
-  over is the subject of the follow-up MySQL experiment (separate report).
+- **MySQL portability.** MySQL is not changed by this study. Check on MySQL 9.2 (`mysql-check/REPORT.md`; one screen pass, UUIDv7,
+  the MySQL code and DDL of `4037faa5`, default server settings):
+  - `ORDER BY ... LIMIT 1` beats `MIN` for `oldest_created` / `oldest_due_nonstrict`: **carries over** (S8-S4 0.45 ms vs 5.8 s, S16-S4
+    0.26 ms vs 4.6 s, S4 0.46 ms vs > 60 s).
+  - `oldest_due_strict` ordered `NOT EXISTS` kept: **carries over** (MIN worse on 5 of 6 labels), but on MySQL both forms take seconds at
+    S8-S4 / S16-S4 / S4 / S5 (5.6 s), where MariaDB answers in 0.4 ms; not investigated.
+  - Head form beats `NOT EXISTS` for `keys_*`: **does not carry over; it reverses.** MySQL runs the head subquery as a ref lookup on
+    `(record_key, completed_at = NULL)` followed by a sort of all unfinished rows of the key, instead of reading the first index entry:
+    S8-S5 `keys_strict` 31.8 s (head) vs 227 ms (`NOT EXISTS`), `keys_nonstrict` 1.6 vs 1.0 s, S8-S2 3.0 vs 1.8 ms; equal elsewhere.
+    `4037faa5` uses the head form in `MySqlJdbcOutboxRecordQueries`, so **MySQL at hot keys regresses with it**; a MySQL-specific
+    decision (keep `NOT EXISTS` on MySQL) needs a confirm run and belongs to the separate MySQL study.
+  - The harness now runs MySQL (`DIALECT` in `run-cells.sh`, InnoDB parts of `bench`), MariaDB behaviour unchanged.
 - **UUIDv7 (observation, round 2).** With time-ordered ids: PRIMARY -28 %, insert redo -30 %, S10-S2-p1-unthr 2.1x; S2 completion/retry/
   fail redo +45-140 % (cause not isolated). The index ranking does not change. The library generates UUIDv4 today.
 - **Host.** The host is shared (outside load 11-13 at times); one-pass results (`opt2-vs-final.md`, `m5-s10.md`) count only where the

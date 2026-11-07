@@ -239,7 +239,7 @@ object Bench {
         File(dir, "plans").mkdirs()
         val skipPlans = o.has("no-plans")
         cm.dialect.connect(cm.schema).use { c ->
-            val maria = cm.dialect == Dialect.MARIADB
+            val maria = cm.dialect == Dialect.MARIADB || cm.dialect == Dialect.MYSQL   // InnoDB counters/priming/handlers apply to both
             if (maria) { Maria.settleHistory(c); if (!o.has("no-prime")) Maria.primeNote = Maria.prime(c) }
             val hcsv = StringBuilder(Maria.HANDLER_HEADER + "\n")
             val ctx = Ctx(cm.dialect, c, cm.scenario, cm.batch, cm.owned, cm.warmup + cm.reps + 5)
@@ -338,7 +338,7 @@ object Env {
                 sb.appendLine("key_settings:"); while (rs.next()) sb.appendLine("  ${rs.getString(1)} = ${rs.getString(2)} ${rs.getString(3) ?: ""}") } }
         } catch (_: Exception) {}
         if (d == Dialect.POSTGRES && Dialect.pgSessionSql.isNotEmpty()) sb.appendLine("session_init: ${Dialect.pgSessionSql.joinToString("; ")}")
-        if (d == Dialect.MARIADB) sb.append(Maria.envBlock(c))
+        if (d == Dialect.MARIADB || d == Dialect.MYSQL) sb.append(Maria.envBlock(c))
         sb.appendLine("--- sizes ---"); sb.append(d.sizeReport(c))
         f.writeText(sb.toString())
     }
