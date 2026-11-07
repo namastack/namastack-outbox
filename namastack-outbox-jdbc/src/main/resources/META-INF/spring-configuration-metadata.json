@@ -34,6 +34,30 @@
       "type": "java.lang.Boolean",
       "defaultValue": true,
       "description": "Whether schema initialization is enabled at startup"
+    },
+    {
+      "name": "namastack.outbox.jdbc.completion-batching.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Whether JDBC completion batching is enabled"
+    },
+    {
+      "name": "namastack.outbox.jdbc.completion-batching.writer-count",
+      "type": "java.lang.Integer",
+      "defaultValue": 1,
+      "description": "Number of concurrent completion writers"
+    },
+    {
+      "name": "namastack.outbox.jdbc.completion-batching.max-batch-size",
+      "type": "java.lang.Integer",
+      "defaultValue": 1024,
+      "description": "Maximum number of completions collected in one batch"
+    },
+    {
+      "name": "namastack.outbox.jdbc.completion-batching.max-wait",
+      "type": "java.time.Duration",
+      "defaultValue": "1ms",
+      "description": "Maximum time a writer collects a batch after taking its first completion"
     }
   ]
 }

@@ -1,25 +1,20 @@
 package io.namastack.outbox.processor
 
 import io.namastack.outbox.OutboxRecord
-import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
-import io.namastack.outbox.runtime.OutboxRuntimeSettings
-import org.slf4j.LoggerFactory
-import java.time.Clock
 
 /**
  * Base class for chain-of-responsibility pattern for processing outbox records.
  *
  * Processors form a chain where each processor can handle a record or pass it to the next processor.
  *
+ * @property next Next processor in the chain, or null until one is configured
  * @author Roland Beisel
  * @since 1.0.0
  */
 abstract class OutboxRecordProcessor(
     protected var next: OutboxRecordProcessor? = null,
 ) {
-    private val log = LoggerFactory.getLogger(OutboxRecordProcessor::class.java)
-
     /**
      * Sets the next processor in the chain.
      *
@@ -35,6 +30,7 @@ abstract class OutboxRecordProcessor(
     /**
      * Passes record to next processor in chain.
      *
+     * @param record Record to pass to the next processor
      * @return Outcome returned by the next processor.
      * @throws IllegalStateException if the chain has no next processor.
      */
@@ -45,37 +41,8 @@ abstract class OutboxRecordProcessor(
     /**
      * Processes the record.
      *
+     * @param record Record to handle or pass to the next processor
      * @return Final outcome produced by this processor or a downstream processor.
      */
     abstract fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome
-
-    /**
-     * Completes record after successful processing.
-     * Deletes if configured, otherwise marks as COMPLETED and persists only the processing state.
-     * Restores the in-memory completion state if the update fails and propagates the error.
-     * A later polling cycle reloads the authoritative database state before deciding on redelivery.
-     */
-    protected fun completeRecord(
-        record: OutboxRecord<*>,
-        repository: OutboxRecordRepository,
-        settings: OutboxRuntimeSettings.Processing,
-        clock: Clock,
-    ) {
-        if (settings.deleteCompletedRecords) {
-            log.trace("Deleting completed record {}", record.id)
-            repository.deleteById(record.id)
-        } else {
-            log.trace("Marking record {} as COMPLETED", record.id)
-            val previousStatus = record.status
-            val previousCompletedAt = record.completedAt
-            try {
-                record.markCompleted(clock)
-                repository.updateProcessingState(record)
-            } catch (exception: Exception) {
-                record.status = previousStatus
-                record.completedAt = previousCompletedAt
-                throw exception
-            }
-        }
-    }
 }

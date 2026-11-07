@@ -3,6 +3,8 @@ package io.namastack.outbox
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.namastack.outbox.completion.OutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
@@ -76,6 +78,30 @@ class OutboxCoreAutoConfigurationTest {
                     OutboxCoreMulticasterAutoConfiguration::class.java,
                 ),
             )
+
+    @Test
+    fun `uses a custom completion persistence bean`() {
+        val completionPersistence = mockk<OutboxCompletionPersistence>(relaxed = true)
+        contextRunner
+            .withUserConfiguration(MinimalTestConfig::class.java)
+            .withBean(OutboxCompletionPersistence::class.java, { completionPersistence })
+            .run { context ->
+                assertThat(context).hasNotFailed()
+                assertThat(context.getBean<OutboxCompletionPersistence>()).isSameAs(completionPersistence)
+
+                val record =
+                    OutboxRecord
+                        .Builder<String>()
+                        .key("order-1")
+                        .payload("event")
+                        .handlerId("handler")
+                        .build(context.getBean<Clock>())
+                context.getBean<OutboxRecordCompleter>().complete(record)
+
+                verify(exactly = 1) { completionPersistence.updateCompleted(record) }
+                verify(exactly = 0) { context.getBean<OutboxRecordRepository>().updateProcessingState(record) }
+            }
+    }
 
     @Test
     fun `supports cycle batch sizes larger than the portable record fetch limit`() {
@@ -230,7 +256,7 @@ class OutboxCoreAutoConfigurationTest {
                 .run { context ->
                     assertThat(context.getBean<OutboxInstanceRegistry>().phase).isEqualTo(0)
                     assertThat(context.getBean<PartitionCoordinator>().phase).isEqualTo(1)
-                    assertThat(context.getBean<OutboxProcessingScheduler>().phase).isEqualTo(2)
+                    assertThat(context.getBean<OutboxProcessingScheduler>().phase).isEqualTo(3)
                 }
         }
     }

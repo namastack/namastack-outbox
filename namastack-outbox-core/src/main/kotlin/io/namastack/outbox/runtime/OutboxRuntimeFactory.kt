@@ -2,6 +2,8 @@ package io.namastack.outbox.runtime
 
 import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxService
+import io.namastack.outbox.completion.DefaultOutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.handler.OutboxHandlerInfrastructure
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionAssignmentCache
@@ -17,7 +19,8 @@ import io.namastack.outbox.trigger.OutboxPollingTriggerFactory
 /**
  * Constructs one stopped outbox runtime from fully resolved inputs.
  *
- * The factory performs no Spring bean lookup, persistence selection, or lifecycle startup.
+ * The factory performs no Spring bean lookup or lifecycle startup. It uses the repositories
+ * supplied in [OutboxRuntimeSpec] and repository-backed completion persistence.
  *
  * @author Roland Beisel
  * @since 1.10.0
@@ -94,15 +97,15 @@ object OutboxRuntimeFactory {
     ): OutboxRecordProcessor {
         val repository = spec.persistence.recordRepository
         val processing = spec.settings.processing
-        val primary = PrimaryOutboxRecordProcessor(handlers.handlerInvoker, repository, processing, spec.clock)
+        val completer =
+            OutboxRecordCompleter(DefaultOutboxCompletionPersistence(repository), processing, spec.clock)
+        val primary = PrimaryOutboxRecordProcessor(handlers.handlerInvoker, completer)
         val retry = RetryOutboxRecordProcessor(handlers.retryPolicyRegistry, repository, spec.clock)
         val fallback =
             FallbackOutboxRecordProcessor(
-                recordRepository = repository,
                 fallbackHandlerRegistry = handlers.fallbackHandlerRegistry,
                 fallbackHandlerInvoker = handlers.fallbackHandlerInvoker,
-                settings = processing,
-                clock = spec.clock,
+                completer = completer,
             )
         val permanentFailure = PermanentFailureOutboxRecordProcessor(repository)
 

@@ -6,6 +6,8 @@ import io.mockk.mockk
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.completion.DefaultOutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionAssignmentCache
@@ -42,6 +44,11 @@ import java.util.Collections
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit.SECONDS
 
+/**
+ * Shared JPA repository integration checks across database dialects.
+ *
+ * @author Roland Beisel
+ */
 @DataJpaTest(
     properties = [
         "spring.jpa.hibernate.ddl-auto=create-drop",
@@ -806,7 +813,14 @@ abstract class AbstractJpaOutboxRecordRepositoryIntegrationTest {
                 recordRepository = repository,
                 recordProcessorChainInvoker =
                     OutboxRecordProcessorChainInvoker(
-                        PrimaryOutboxRecordProcessor(handlers, repository, settings.processing, clock),
+                        PrimaryOutboxRecordProcessor(
+                            handlers,
+                            OutboxRecordCompleter(
+                                DefaultOutboxCompletionPersistence(repository),
+                                settings.processing,
+                                clock,
+                            ),
+                        ),
                     ),
                 partitionCoordinator = coordinator,
                 taskExecutor = TaskExecutor { workers.execute(it) },
@@ -907,6 +921,11 @@ abstract class AbstractJpaOutboxRecordRepositoryIntegrationTest {
             failureException = record.failureException,
         )
 
+    /**
+     * Counts serialization calls made by repository operations.
+     *
+     * @author Roland Beisel
+     */
     private class CountingSerializer : OutboxPayloadSerializer {
         private val delegate = JacksonOutboxPayloadSerializer(JsonMapper.builder().build())
         var serializations = 0

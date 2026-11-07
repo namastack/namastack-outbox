@@ -9,6 +9,8 @@ import com.mongodb.event.CommandStartedEvent
 import io.micrometer.observation.ObservationRegistry
 import io.mockk.every
 import io.mockk.mockk
+import io.namastack.outbox.completion.DefaultOutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.config.MongoOutboxConfigurationProperties
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instance.OutboxInstanceRegistry
@@ -394,7 +396,14 @@ class MongoBulkRecordLoadingIntegrationTest {
                 recordRepository = repository,
                 recordProcessorChainInvoker =
                     OutboxRecordProcessorChainInvoker(
-                        PrimaryOutboxRecordProcessor(handlers, repository, settings.processing, clock),
+                        PrimaryOutboxRecordProcessor(
+                            handlers,
+                            OutboxRecordCompleter(
+                                DefaultOutboxCompletionPersistence(repository),
+                                settings.processing,
+                                clock,
+                            ),
+                        ),
                     ),
                 partitionCoordinator = coordinator,
                 taskExecutor = TaskExecutor { workers.execute(it) },

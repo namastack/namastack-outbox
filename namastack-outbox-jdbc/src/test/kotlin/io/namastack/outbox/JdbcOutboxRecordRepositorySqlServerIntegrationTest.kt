@@ -9,6 +9,11 @@ import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.mssqlserver.MSSQLServerContainer
 import java.time.Duration
 
+/**
+ * Runs the JDBC repository integration checks against SQL Server.
+ *
+ * @author Aleksander Zamojski
+ */
 @Testcontainers
 class JdbcOutboxRecordRepositorySqlServerIntegrationTest : AbstractJdbcOutboxRecordRepositoryIntegrationTest() {
     companion object {
