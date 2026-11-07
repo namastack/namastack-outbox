@@ -1,0 +1,80 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.079793835
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 0.058881504,
+    "r_loops": 1,
+    "r_total_time_ms": 0.196062844,
+    "filesort": {
+      "sort_key": "r.record_key, r.created_at, r.`id`",
+      "r_loops": 1,
+      "r_total_time_ms": 0.005629319,
+      "r_used_priority_queue": false,
+      "r_output_rows": 10,
+      "r_buffer_size": "40KiB",
+      "r_sort_mode": "packed_sort_key,rowid",
+      "temporary_table": {
+        "nested_loop": [
+          {
+            "table": {
+              "table_name": "i",
+              "access_type": "range",
+              "possible_keys": [
+                "PRIMARY",
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry"
+              ],
+              "key": "idx_outbox_record_key_completed_created_id",
+              "key_length": "1027",
+              "used_key_parts": ["record_key", "completed_at"],
+              "loops": 1,
+              "r_loops": 1,
+              "rows": 10,
+              "r_index_rows": 10,
+              "r_rows": 10,
+              "cost": 0.03537672,
+              "r_table_time_ms": 0.030314031,
+              "r_other_time_ms": 0.003491984,
+              "r_engine_stats": {
+                "pages_accessed": 146
+              },
+              "filtered": 100,
+              "r_total_filtered": 100,
+              "index_condition": "i.completed_at is null and i.record_key in ('order-000000000000000000000000429457','order-000000000000000000000000224545','order-000000000000000000000000986254','order-000000000000000000000000396874','order-000000000000000000000000487108','order-000000000000000000000000313541','order-000000000000000000000000184359','order-000000000000000000000000534029','order-000000000000000000000000191962','order-000000000000000000000000621001')",
+              "r_icp_filtered": 100,
+              "attached_condition": "i.`status` = 'NEW'",
+              "r_filtered": 100
+            }
+          },
+          {
+            "table": {
+              "table_name": "r",
+              "access_type": "eq_ref",
+              "possible_keys": ["PRIMARY"],
+              "key": "PRIMARY",
+              "key_length": "1022",
+              "used_key_parts": ["id"],
+              "ref": ["run.i.id"],
+              "loops": 10,
+              "r_loops": 10,
+              "rows": 1,
+              "r_rows": 1,
+              "cost": 0.0171364,
+              "r_table_time_ms": 0.010465917,
+              "r_other_time_ms": 0.102451591,
+              "r_engine_stats": {
+                "pages_accessed": 40
+              },
+              "filtered": 100,
+              "r_total_filtered": 100,
+              "r_filtered": 100
+            }
+          }
+        ]
+      }
+    }
+  }
+}

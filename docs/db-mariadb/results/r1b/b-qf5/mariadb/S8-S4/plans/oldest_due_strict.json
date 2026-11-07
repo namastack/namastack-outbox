@@ -1,0 +1,75 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.083867816
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 2092.866332,
+    "r_loops": 1,
+    "r_total_time_ms": 0.023821751,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "o",
+          "access_type": "range",
+          "possible_keys": [
+            "idx_outbox_record_status_completed_created_id",
+            "idx_outbox_record_status_completed_retry"
+          ],
+          "key": "idx_outbox_record_status_completed_retry",
+          "key_length": "95",
+          "used_key_parts": [
+            "status",
+            "completed_at",
+            "next_retry_at",
+            "partition_no"
+          ],
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 1844686,
+          "r_rows": 8,
+          "cost": 285.1876862,
+          "r_table_time_ms": 0.015001482,
+          "r_other_time_ms": 0.00257885,
+          "r_engine_stats": {
+            "pages_accessed": 124
+          },
+          "filtered": 100,
+          "r_total_filtered": 12.5,
+          "attached_condition": "o.`status` <=> 'NEW' and o.completed_at <=> NULL and o.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null",
+          "r_filtered": 12.5
+        }
+      },
+      {
+        "table": {
+          "table_name": "earlier",
+          "access_type": "ref",
+          "possible_keys": [
+            "PRIMARY",
+            "idx_outbox_record_key_completed_created_id"
+          ],
+          "key": "idx_outbox_record_key_completed_created_id",
+          "key_length": "1027",
+          "used_key_parts": ["record_key", "completed_at"],
+          "ref": ["run.o.record_key", "const"],
+          "loops": 1844686,
+          "r_loops": 1,
+          "rows": 1,
+          "r_rows": 1,
+          "cost": 1807.678646,
+          "r_table_time_ms": 0.001936646,
+          "r_other_time_ms": 0.002468471,
+          "r_engine_stats": {
+            "pages_accessed": 3
+          },
+          "filtered": 100,
+          "r_total_filtered": 0,
+          "attached_condition": "trigcond(earlier.`id` is null) and trigcond(earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`))",
+          "r_filtered": 0,
+          "using_index": true,
+          "not_exists": true
+        }
+      }
+    ]
+  }
+}

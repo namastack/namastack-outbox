@@ -1,0 +1,8 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_strict,0.383,0.539,0.367,0.790,10,20,
+keys_nonstrict,0.419,0.490,0.386,0.496,10,20,
+pages,0.327,0.408,0.306,0.409,10,20,
+count_statuses,125.506,126.071,123.556,126.173,1,20,
+count_partitions,152.906,153.366,152.439,153.375,1,20,
+oldest_created,0.199,0.238,0.187,0.241,1,20,
+oldest_due_strict,1358.714,1414.340,1332.308,1414.340,1,5,slow(>2s): warmup 1, reps 5

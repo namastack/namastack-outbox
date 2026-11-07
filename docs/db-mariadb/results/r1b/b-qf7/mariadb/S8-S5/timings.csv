@@ -1,0 +1,4 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_strict,131.357,132.130,131.009,132.148,9,20,
+keys_nonstrict,104.497,105.415,103.859,105.419,10,20,
+oldest_due_strict,485.336,488.746,482.024,488.970,1,20,

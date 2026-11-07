@@ -1,0 +1,19 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_strict,,,,,,0,ERROR stopped at limit 60 s (keys_strict)
+keys_nonstrict,105830.083,105830.083,105830.083,105830.083,100,1,very slow (>30s): 1 execution
+pages,,,,,,0,ERROR stopped at limit 60 s (keys_strict)
+insert,0.698,0.902,0.557,0.937,1,20,
+upd_complete,0.804,0.886,0.625,0.934,1,20,
+upd_retry,0.428,0.523,0.385,0.575,1,20,
+upd_fail,0.345,0.527,0.253,0.529,1,20,
+delete_by_id,0.570,0.982,0.238,1.040,1,20,
+count_new,92.917,93.543,92.631,93.642,1,20,
+count_failed,0.080,0.091,0.077,0.096,1,20,
+count_completed,101.832,102.716,101.709,103.037,1,20,
+count_statuses,107.272,107.767,107.026,107.916,1,20,
+count_statuses_all,234.461,234.808,233.846,235.456,2,20,
+count_partitions,109.570,110.000,108.891,110.019,1,20,
+count_partition_single,86.145,86.323,85.775,86.537,1,20,
+oldest_created,86653.134,86653.134,86653.134,86653.134,1,1,very slow (>30s): 1 execution
+oldest_due_strict,,,,,,0,ERROR stopped at limit 60 s (oldest_due_strict)
+oldest_due_nonstrict,84101.286,84101.286,84101.286,84101.286,1,1,very slow (>30s): 1 execution

@@ -1,0 +1,4 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_nonstrict,0.704,0.733,0.675,0.786,10,20,
+oldest_created,,,,,,0,ERROR stopped at limit 10 s (oldest_created)
+oldest_due_nonstrict,,,,,,0,ERROR stopped at limit 10 s (oldest_due_nonstrict)

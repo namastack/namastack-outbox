@@ -1,0 +1,19 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_strict,2.120,76.148,2.039,83.335,100,20,
+keys_nonstrict,107965.867,107965.867,107965.867,107965.867,100,1,very slow (>30s): 1 execution
+pages,1.421,1.659,1.343,4.077,100,20,
+insert,0.611,0.965,0.414,1.469,1,20,
+upd_complete,0.731,1.075,0.607,1.193,1,20,
+upd_retry,0.455,0.859,0.326,0.965,1,20,
+upd_fail,0.311,0.478,0.255,0.488,1,20,
+delete_by_id,0.591,0.882,0.357,1.058,1,20,
+count_new,91.534,98.225,90.384,98.766,1,20,
+count_failed,0.079,0.089,0.075,0.089,1,20,
+count_completed,97.265,97.935,96.764,98.118,1,20,
+count_statuses,,,,,,0,n/a
+count_statuses_all,,,,,,0,n/a
+count_partitions,348.240,389.723,345.133,390.287,1,20,
+count_partition_single,0.501,0.505,0.493,0.514,1,20,
+oldest_created,93710.331,93710.331,93710.331,93710.331,1,1,very slow (>30s): 1 execution
+oldest_due_strict,23607.861,24118.729,23324.577,24118.729,1,5,slow(>2s): warmup 1, reps 5
+oldest_due_nonstrict,92932.523,92932.523,92932.523,92932.523,1,1,very slow (>30s): 1 execution

@@ -1,0 +1,56 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.055249604
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 0.062937996,
+    "r_loops": 1,
+    "r_total_time_ms": 0.064541492,
+    "nested_loop": [
+      {
+        "read_sorted_file": {
+          "r_rows": 10,
+          "filesort": {
+            "sort_key": "outbox_record.record_key, outbox_record.created_at, outbox_record.`id`",
+            "r_loops": 1,
+            "r_total_time_ms": 0.050453144,
+            "r_used_priority_queue": false,
+            "r_output_rows": 10,
+            "r_buffer_size": "2046KiB",
+            "r_sort_mode": "packed_sort_key,rowid",
+            "table": {
+              "table_name": "outbox_record",
+              "access_type": "range",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry"
+              ],
+              "key": "idx_outbox_record_key_completed_created_id",
+              "key_length": "1022",
+              "used_key_parts": ["record_key"],
+              "loops": 1,
+              "r_loops": 1,
+              "rows": 25,
+              "r_index_rows": 25,
+              "r_rows": 25,
+              "cost": 0.06256632,
+              "r_table_time_ms": 0.053202579,
+              "r_other_time_ms": 0.00764624,
+              "r_engine_stats": {
+                "pages_accessed": 229
+              },
+              "filtered": 2.369316816,
+              "r_total_filtered": 40,
+              "index_condition": "outbox_record.record_key in ('order-000000000000000000000000005601','order-000000000000000000000000006621','order-000000000000000000000000006562','order-000000000000000000000000002522','order-000000000000000000000000000101','order-000000000000000000000000006924','order-000000000000000000000000006570','order-000000000000000000000000005052','order-000000000000000000000000006065','order-000000000000000000000000001623')",
+              "r_icp_filtered": 100,
+              "attached_condition": "outbox_record.`status` = 'NEW'",
+              "r_filtered": 40
+            }
+          }
+        }
+      }
+    ]
+  }
+}

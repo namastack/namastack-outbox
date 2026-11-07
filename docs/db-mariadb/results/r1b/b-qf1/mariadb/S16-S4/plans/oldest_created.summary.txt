@@ -1,0 +1,5 @@
+id: oldest_created   mode: ANALYZE (executed)   sql_select_limit: 1   rows_returned: 1
+r_total_time_ms: 0.008   cost: 285.188
+select#1 table=outbox_record access=ref key=idx_outbox_record_status_completed_created_id key_parts=[status,completed_at] key_len=87 loops=1 rows_est=1844686 r_rows=12 r_index_rows=- examined=12 filtered_est=100 r_filtered=8.333 index_condition=no attached_condition=yes using_index=yes rowid_filter=no
+filesort: no   temporary_table: no   duplicates_removal: no   strategies: -
+rows_examined_total: 12   rows_returned: 1

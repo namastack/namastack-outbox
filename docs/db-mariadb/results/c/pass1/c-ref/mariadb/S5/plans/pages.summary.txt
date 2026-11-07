@@ -1,0 +1,5 @@
+id: pages   mode: EXPLAIN (not executed)   sql_select_limit: none   rows_returned: n/a
+r_total_time_ms: -   cost: 7.277
+select#1 table=outbox_record access=ref key=idx_outbox_record_key_completed_created_id key_parts=[record_key,completed_at] key_len=1027 loops=1 rows_est=3998 r_rows=- r_index_rows=- examined=- filtered_est=91.667 r_filtered=- index_condition=yes attached_condition=yes using_index=no rowid_filter=no
+filesort: no   temporary_table: no   duplicates_removal: no   strategies: -
+rows_examined_total: n/a (not executed)   rows_returned: n/a

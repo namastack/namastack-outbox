@@ -1,0 +1,6 @@
+id: oldest_created   mode: ANALYZE (executed)   sql_select_limit: none   rows_returned: 1
+r_total_time_ms: 34.589   cost: 0.021
+select#1 table=<derived2> access=ALL key=- key_parts=[-] key_len=- loops=1 rows_est=256 r_rows=84 r_index_rows=- examined=84 filtered_est=100 r_filtered=100 index_condition=no attached_condition=no using_index=no rowid_filter=no
+select#2 table=outbox_record access=range key=idx_outbox_record_status_completed_partition_created key_parts=[status,completed_at,partition_no] key_len=91 loops=1 rows_est=256 r_rows=199980 r_index_rows=- examined=199980 filtered_est=100 r_filtered=100 index_condition=no attached_condition=yes using_index=yes rowid_filter=no
+filesort: no   temporary_table: no   duplicates_removal: no   strategies: materialization
+rows_examined_total: 200064   rows_returned: 1

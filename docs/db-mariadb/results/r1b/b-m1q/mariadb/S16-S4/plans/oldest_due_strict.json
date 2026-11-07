@@ -1,0 +1,93 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 2.930396469
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 285.1876862,
+    "r_loops": 1,
+    "r_total_time_ms": 593.5751879,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "o",
+          "access_type": "ref",
+          "possible_keys": [
+            "idx_outbox_record_status_completed_created_id",
+            "idx_outbox_record_status_completed_retry"
+          ],
+          "key": "idx_outbox_record_status_completed_created_id",
+          "key_length": "82",
+          "used_key_parts": ["status"],
+          "ref": ["const"],
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 1844686,
+          "r_rows": 1000000,
+          "cost": 285.1876862,
+          "r_table_time_ms": 173.5339298,
+          "r_other_time_ms": 40.59113976,
+          "r_engine_stats": {
+            "pages_accessed": 6002,
+            "pages_read_count": 241,
+            "pages_read_time_ms": 16.04412988,
+            "pages_prefetch_read_count": 6099
+          },
+          "filtered": 100,
+          "r_total_filtered": 6.2536,
+          "attached_condition": "o.partition_no in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and !<in_optimizer>(1,exists(subquery#2))",
+          "r_filtered": 6.2536,
+          "using_index": true
+        }
+      }
+    ],
+    "subqueries": [
+      {
+        "subquery_cache": {
+          "state": "disabled",
+          "r_loops": 200,
+          "r_hit_ratio": 0,
+          "query_block": {
+            "select_id": 2,
+            "cost": 0.001792605,
+            "r_loops": 62536,
+            "r_total_time_ms": 371.8628706,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "older",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "PRIMARY",
+                    "idx_outbox_record_key_completed_created_id"
+                  ],
+                  "key": "idx_outbox_record_key_completed_created_id",
+                  "key_length": "1027",
+                  "used_key_parts": ["record_key", "completed_at"],
+                  "ref": ["run.o.record_key", "const"],
+                  "loops": 1,
+                  "r_loops": 62536,
+                  "rows": 1,
+                  "r_rows": 1,
+                  "cost": 0.001792605,
+                  "r_table_time_ms": 346.2796146,
+                  "r_other_time_ms": 12.03503155,
+                  "r_engine_stats": {
+                    "pages_accessed": 188277,
+                    "pages_read_count": 3266,
+                    "pages_read_time_ms": 231.7802081
+                  },
+                  "filtered": 100,
+                  "r_total_filtered": 0,
+                  "attached_condition": "older.completed_at is null and (older.created_at < o.created_at or older.created_at = o.created_at and older.`id` < o.`id`)",
+                  "r_filtered": 0,
+                  "using_index": true
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

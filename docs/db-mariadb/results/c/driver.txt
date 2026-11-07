@@ -1,0 +1,5 @@
+pass1 driver PID 363597 log /home/azamojski/namastack-outbox/docs/db-mariadb/results/c/logs/driver.log (also pass1/logs/pass1-L1.log); started Fri Nov  6 20:07:34 CET 2026; restart: experiments/c/run-c.sh pass1 (resumable)
+pass1 done Sat Nov  7 01:20:53 CET 2026; container restarted; starting pass2 driver
+pass2 driver PID 398336 started Sat Nov  7 01:20:53 CET 2026, log results/c/logs/driver.log; restart: experiments/c/run-c.sh pass2 (resumable)
+pass2 DONE; iso driver PID 425789 started Sat Nov  7 05:28:35 CET 2026, log results/c/logs/driver.log; restart: experiments/c/run-c.sh iso (resumable for bench cells; plantime redone)
+all drivers finished Sat Nov  7 06:41:48 CET 2026; no process running (pass1, pass2, iso done)

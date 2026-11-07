@@ -1,0 +1,4 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_strict,3839.444,3848.001,3829.624,3848.001,10,5,slow(>2s): warmup 1, reps 5
+keys_nonstrict,3360.655,3489.628,3352.138,3489.628,10,5,slow(>2s): warmup 1, reps 5
+oldest_due_strict,3521.883,3549.135,3485.003,3549.135,1,5,slow(>2s): warmup 1, reps 5

@@ -32,8 +32,8 @@ for spec in $VARIANTS; do
 done
 vargs(){ local n=$1 a="--variant $1 --worktree ${WT[$1]}"; [ -n "${DDL[$n]:-}" ] && a+=" --ddl ${DDL[$n]}"; [ -n "${QRY[$n]:-}" ] && a+=" --queries ${QRY[$n]}"; [ -n "${CAT[$n]:-}" ] && a+=" --catalog-variant ${CAT[$n]}"; echo "$a"; }
 ordered(){ if [ "$ORDER" = reverse ]; then for ((i=${#NAMES[@]}-1;i>=0;i--)); do echo "${NAMES[$i]}"; done; else printf '%s\n' "${NAMES[@]}"; fi; }
-scen_of(){ case "$1" in S8-*) echo "${1#S8-}";; S9|S10) echo S2;; *) echo "${1%%-*}";; esac; }
-extra_of(){ case "$1" in S8-*) echo "--owned mod4";; *-b100) echo "--batch 100";; *) echo "";; esac; }
+scen_of(){ case "$1" in S8-*) echo "${1#S8-}";; S16-*) echo "${1#S16-}";; S9|S10) echo S2;; S10-*) local x="${1#S10-}"; echo "${x%%-*}";; *) echo "${1%%-*}";; esac; }
+extra_of(){ case "$1" in S8-*) echo "--owned mod4";; S16-*) echo "--owned $(seq -s, 0 16 240)";; *-b100) echo "--batch 100";; *) echo "";; esac; }
 step(){ # step <description> <done-file|-> cmd...
   local d=$1 done=$2; shift 2
   if [ "$done" != "-" ] && [ -f "$done" ] && [ "${REDO:-0}" != 1 ]; then log "SKIP (done) $d"; return 0; fi

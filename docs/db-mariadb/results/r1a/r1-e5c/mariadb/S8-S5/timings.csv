@@ -1,0 +1,4 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_nonstrict,2162.143,2311.697,2137.867,2311.697,10,5,slow(>2s): warmup 1, reps 5
+oldest_created,28.741,28.840,28.330,28.892,1,20,
+oldest_due_nonstrict,27.783,28.051,27.603,28.219,1,20,

@@ -1,0 +1,6 @@
+id: keys_strict   mode: EXPLAIN (not executed)   sql_select_limit: 100   rows_returned: n/a
+r_total_time_ms: -   cost: 0.467
+select#1 table=o access=range key=idx_outbox_record_status_completed_partition key_parts=[status,completed_at,partition_no] key_len=91 loops=1 rows_est=256 r_rows=- r_index_rows=- examined=- filtered_est=100 r_filtered=- index_condition=yes attached_condition=yes using_index=no rowid_filter=no
+select#3 table=earlier access=ref key=idx_outbox_record_key_completed_created_id key_parts=[record_key,completed_at] key_len=1027 loops=1 rows_est=1 r_rows=- r_index_rows=- examined=- filtered_est=100 r_filtered=- index_condition=no attached_condition=yes using_index=yes rowid_filter=no
+filesort: yes   temporary_table: no   duplicates_removal: no   strategies: dependent-subquery,subquery-cache
+rows_examined_total: n/a (not executed)   rows_returned: n/a

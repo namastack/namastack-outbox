@@ -1,0 +1,6 @@
+query_id,Handler_read_key,Handler_read_next,Handler_read_prev,Handler_read_first,Handler_read_rnd,Handler_read_rnd_next,Handler_read_last,bp_read_requests,bp_reads
+keys_strict,21,168,0,0,0,0,0,567,0
+keys_nonstrict,21,168,0,0,0,0,0,676,0
+oldest_created,1,11,0,0,0,0,0,537,0
+oldest_due_strict,3,15,0,0,0,0,0,627,0
+oldest_due_nonstrict,1,14,0,0,0,0,0,536,0

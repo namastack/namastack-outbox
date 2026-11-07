@@ -1,0 +1,18 @@
+# rows_by_status
+COMPLETED	986000
+FAILED	13133
+NEW	10734
+# table_rows,data_length,index_length
+967934	990904320	352698368
+# index_sizes
+PRIMARY	990904320
+idx_outbox_record_key_completed_created_id	95240192
+idx_outbox_record_status_completed_created_id	115326976
+idx_outbox_record_status_completed_retry	72138752
+idx_outbox_record_status_partition_created	69992448
+# index_count (incl. primary)
+5
+# tablespace file_size,allocated_size
+1371537408	1371586560
+# history_list_length
+Innodb_history_list_length	1

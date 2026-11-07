@@ -1,0 +1,6 @@
+id: keys_strict   mode: ANALYZE (executed)   sql_select_limit: 10   rows_returned: 9
+r_total_time_ms: 132.350   cost: 135.139
+select#1 table=<derived3> access=ALL key=- key_parts=[-] key_len=- loops=1 rows_est=427253 r_rows=34000 r_index_rows=- examined=34000 filtered_est=100 r_filtered=0.026 index_condition=no attached_condition=yes using_index=no rowid_filter=no
+select#3 table=o access=index key=idx_outbox_record_status_completed_created_id key_parts=[status,completed_at,created_at,id,partition_no,next_retry_at,record_key] key_len=2143 loops=1 rows_est=427253 r_rows=500000 r_index_rows=- examined=500000 filtered_est=100 r_filtered=6.800 index_condition=no attached_condition=yes using_index=yes rowid_filter=no
+filesort: yes   temporary_table: yes   duplicates_removal: no   strategies: materialization
+rows_examined_total: 534000   rows_returned: 9

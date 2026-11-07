@@ -1,0 +1,84 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.064290631
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 284.0779418,
+    "r_loops": 1,
+    "r_total_time_ms": 0.086767768,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "o",
+          "access_type": "ref",
+          "possible_keys": [
+            "idx_outbox_record_status_completed_created_id",
+            "idx_outbox_record_status_completed_retry"
+          ],
+          "key": "idx_outbox_record_status_completed_created_id",
+          "key_length": "87",
+          "used_key_parts": ["status", "completed_at"],
+          "ref": ["const", "const"],
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 1836631,
+          "r_rows": 169,
+          "cost": 284.0779418,
+          "r_table_time_ms": 0.027474286,
+          "r_other_time_ms": 0.027514423,
+          "r_engine_stats": {
+            "pages_accessed": 50
+          },
+          "filtered": 100,
+          "r_total_filtered": 5.917159763,
+          "attached_condition": "o.`status` <=> 'NEW' and o.completed_at <=> NULL and o.partition_no in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and o.`id` = (subquery#3)",
+          "r_filtered": 5.917159763,
+          "using_index": true
+        }
+      }
+    ],
+    "subqueries": [
+      {
+        "subquery_cache": {
+          "r_loops": 10,
+          "r_hit_ratio": 0,
+          "query_block": {
+            "select_id": 3,
+            "cost": 0.001792605,
+            "r_loops": 10,
+            "r_total_time_ms": 0.022216241,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "e",
+                  "access_type": "ref",
+                  "possible_keys": ["idx_outbox_record_key_completed_created_id"],
+                  "key": "idx_outbox_record_key_completed_created_id",
+                  "key_length": "1027",
+                  "used_key_parts": ["record_key", "completed_at"],
+                  "ref": ["run.o.record_key", "const"],
+                  "loops": 1,
+                  "r_loops": 10,
+                  "rows": 1,
+                  "r_rows": 1,
+                  "cost": 0.001792605,
+                  "r_table_time_ms": 0.016707336,
+                  "r_other_time_ms": 0.002277817,
+                  "r_engine_stats": {
+                    "pages_accessed": 30
+                  },
+                  "filtered": 100,
+                  "r_total_filtered": 100,
+                  "attached_condition": "e.record_key <=> o.record_key and e.completed_at <=> NULL and e.completed_at is null",
+                  "r_filtered": 100,
+                  "using_index": true
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

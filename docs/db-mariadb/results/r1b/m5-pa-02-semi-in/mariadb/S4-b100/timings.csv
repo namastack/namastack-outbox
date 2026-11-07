@@ -1,0 +1,2 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+pages,1.718,1.850,1.626,1.904,100,20,

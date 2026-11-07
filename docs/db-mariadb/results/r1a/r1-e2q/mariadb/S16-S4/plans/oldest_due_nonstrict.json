@@ -1,0 +1,73 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.124246386
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 5.662959377,
+    "r_loops": 1,
+    "r_total_time_ms": 12.27682132,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "<derived3>",
+          "access_type": "ALL",
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 126508,
+          "r_rows": 16,
+          "cost": 5.662959377,
+          "r_table_time_ms": 8.234642e-4,
+          "r_other_time_ms": 0.004113478,
+          "filtered": 100,
+          "r_total_filtered": 100,
+          "r_filtered": 100,
+          "materialized": {
+            "query_block": {
+              "select_id": 3,
+              "cost": 104.3082169,
+              "r_loops": 1,
+              "r_total_time_ms": 12.27226568,
+              "nested_loop": [
+                {
+                  "table": {
+                    "table_name": "o",
+                    "access_type": "range",
+                    "possible_keys": [
+                      "idx_outbox_record_status_completed_created_id",
+                      "idx_outbox_record_status_completed_partition_retry",
+                      "idx_outbox_record_status_completed_partition_created"
+                    ],
+                    "key": "idx_outbox_record_status_completed_partition_retry",
+                    "key_length": "95",
+                    "used_key_parts": [
+                      "status",
+                      "completed_at",
+                      "partition_no",
+                      "next_retry_at"
+                    ],
+                    "loops": 1,
+                    "r_loops": 1,
+                    "rows": 126508,
+                    "r_rows": 62536,
+                    "cost": 19.12760462,
+                    "r_table_time_ms": 4.870715211,
+                    "r_other_time_ms": 7.397637044,
+                    "r_engine_stats": {
+                      "pages_accessed": 702
+                    },
+                    "filtered": 100,
+                    "r_total_filtered": 100,
+                    "attached_condition": "o.`status` = 'NEW' and o.completed_at is null and o.partition_no in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240) and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000'",
+                    "r_filtered": 100,
+                    "using_index": true
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

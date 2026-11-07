@@ -1,0 +1,6 @@
+query_id,median_ms,p95_ms,min_ms,reps
+keys_strict,0.331,0.353,0.320,20
+keys_nonstrict,0.378,0.497,0.339,20
+oldest_created,0.276,0.302,0.257,20
+oldest_due_strict,0.345,0.364,0.335,20
+oldest_due_nonstrict,0.378,0.442,0.362,20

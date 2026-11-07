@@ -61,6 +61,8 @@ class Ctx(
         p["partitionNo"] = samplePartition
         p["recordKey"] = sampleKey
         p["recordKeys"] = pageKeys.ifEmpty { dueKeys.take(batch) }
+        p["recordKeysJson"] = (p["recordKeys"] as List<*>).joinToString(",", "[", "]") { "\"" + it.toString().replace("\\", "\\\\").replace("\"", "\\\"") + "\"" }   // round 1b (M5)
+        p["recordKeysRows"] = RowList((p["recordKeys"] as List<*>).map { it.toString() })
         when (q.id) {
             "delete_by_ids" -> p["ids"] = retentionIds
             "upd_complete", "upd_retry", "upd_fail" -> {

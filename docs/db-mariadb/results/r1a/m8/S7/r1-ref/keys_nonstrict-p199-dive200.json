@@ -1,0 +1,93 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.518409065
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 3.36237766,
+    "r_loops": 1,
+    "r_total_time_ms": 0.087680901,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "o",
+          "access_type": "ref",
+          "possible_keys": [
+            "idx_outbox_record_status_completed_created_id",
+            "idx_outbox_record_status_completed_retry",
+            "idx_outbox_record_status_completed_partition"
+          ],
+          "key": "idx_outbox_record_status_completed_created_id",
+          "key_length": "87",
+          "used_key_parts": ["status", "completed_at"],
+          "ref": ["const", "const"],
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 21804,
+          "r_rows": 15,
+          "cost": 3.36237766,
+          "r_table_time_ms": 0.009683231,
+          "r_other_time_ms": 0.030835822,
+          "r_engine_stats": {
+            "pages_accessed": 650
+          },
+          "filtered": 35.80535507,
+          "r_total_filtered": 66.66666667,
+          "attached_condition": "o.`status` <=> 'NEW' and o.completed_at <=> NULL and o.partition_no in (0,1,2,3,5,6,7,9,10,11,12,14,15,16,18,19,20,21,23,24,25,27,28,29,30,32,33,34,36,37,38,39,41,42,43,45,46,47,48,50,51,52,54,55,56,57,59,60,61,63,64,65,66,68,69,70,72,73,74,75,77,78,79,81,82,83,84,86,87,88,90,91,92,93,95,96,97,99,100,101,102,104,105,106,108,109,110,111,113,114,115,117,118,119,120,122,123,124,126,127,128,129,131,132,133,135,136,137,138,140,141,142,144,145,146,147,149,150,151,153,154,155,156,158,159,160,162,163,164,165,167,168,169,171,172,173,174,176,177,178,180,181,182,183,185,186,187,189,190,191,192,194,195,196,198,199,200,201,203,204,205,207,208,209,210,212,213,214,216,217,218,219,221,222,223,225,226,227,228,230,231,232,234,235,236,237,239,240,241,243,244,245,246,248,249,250,252,253,254) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00' and o.completed_at is null and !<in_optimizer>(1,exists(subquery#4))",
+          "r_filtered": 66.66666667,
+          "using_index": true
+        }
+      }
+    ],
+    "subqueries": [
+      {
+        "subquery_cache": {
+          "r_loops": 10,
+          "r_hit_ratio": 0,
+          "query_block": {
+            "select_id": 4,
+            "cost": 0.00345856,
+            "r_loops": 10,
+            "r_total_time_ms": 0.03139775,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "earlier",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "PRIMARY",
+                    "idx_outbox_record_status_completed_created_id",
+                    "idx_outbox_record_key_completed_created_id",
+                    "idx_outbox_record_status_completed_retry",
+                    "idx_outbox_record_status_completed_partition"
+                  ],
+                  "key": "idx_outbox_record_key_completed_created_id",
+                  "key_length": "1027",
+                  "used_key_parts": ["record_key", "completed_at"],
+                  "ref": ["m8.o.record_key", "const"],
+                  "loops": 1,
+                  "r_loops": 10,
+                  "rows": 1,
+                  "r_index_rows": 1,
+                  "r_rows": 0,
+                  "cost": 0.00345856,
+                  "r_table_time_ms": 0.026561152,
+                  "r_other_time_ms": 9.532714e-4,
+                  "r_engine_stats": {
+                    "pages_accessed": 69
+                  },
+                  "filtered": 2.044156313,
+                  "r_total_filtered": 0,
+                  "index_condition": "earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)",
+                  "r_icp_filtered": 0,
+                  "attached_condition": "earlier.`status` = 'NEW' and earlier.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00'",
+                  "r_filtered": 100
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

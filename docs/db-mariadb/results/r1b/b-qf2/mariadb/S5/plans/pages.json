@@ -1,0 +1,83 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 1.328087701
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 154.7172879,
+    "r_loops": 1,
+    "r_total_time_ms": 1421.905453,
+    "filesort": {
+      "sort_key": "r.record_key, r.created_at, r.`id`",
+      "r_loops": 1,
+      "r_total_time_ms": 12.9600761,
+      "r_used_priority_queue": false,
+      "r_output_rows": 20000,
+      "r_buffer_size": "2047KiB",
+      "r_sort_mode": "packed_sort_key,rowid",
+      "temporary_table": {
+        "nested_loop": [
+          {
+            "table": {
+              "table_name": "i",
+              "access_type": "ref",
+              "possible_keys": [
+                "PRIMARY",
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry"
+              ],
+              "key": "idx_outbox_record_status_completed_created_id",
+              "key_length": "87",
+              "used_key_parts": ["status", "completed_at"],
+              "ref": ["const", "const"],
+              "loops": 1,
+              "r_loops": 1,
+              "rows": 408356,
+              "r_rows": 199980,
+              "cost": 63.61288738,
+              "r_table_time_ms": 23.54324518,
+              "r_other_time_ms": 27.82212936,
+              "r_engine_stats": {
+                "pages_accessed": 1360,
+                "pages_read_count": 11,
+                "pages_read_time_ms": 1.195081253
+              },
+              "filtered": 9.364942551,
+              "r_total_filtered": 10.0010001,
+              "attached_condition": "i.`status` = 'NEW' and i.completed_at is null and i.record_key in ('order-000000000000000000000000000086','order-000000000000000000000000000098','order-000000000000000000000000000069','order-000000000000000000000000000045','order-000000000000000000000000000056','order-000000000000000000000000000090','order-000000000000000000000000000041','order-000000000000000000000000000057','order-000000000000000000000000000096','order-000000000000000000000000000079')",
+              "r_filtered": 10.0010001,
+              "using_index": true
+            }
+          },
+          {
+            "table": {
+              "table_name": "r",
+              "access_type": "eq_ref",
+              "possible_keys": ["PRIMARY"],
+              "key": "PRIMARY",
+              "key_length": "1022",
+              "used_key_parts": ["id"],
+              "ref": ["run.i.id"],
+              "loops": 38242.30672,
+              "r_loops": 20000,
+              "rows": 1,
+              "r_rows": 1,
+              "cost": 65.53354648,
+              "r_table_time_ms": 1339.397012,
+              "r_other_time_ms": 11.8522844,
+              "r_engine_stats": {
+                "pages_accessed": 60467,
+                "pages_read_count": 17705,
+                "pages_read_time_ms": 1294.049159
+              },
+              "filtered": 100,
+              "r_total_filtered": 100,
+              "r_filtered": 100
+            }
+          }
+        ]
+      }
+    }
+  }
+}

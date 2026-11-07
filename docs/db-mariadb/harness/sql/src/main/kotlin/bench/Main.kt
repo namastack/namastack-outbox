@@ -20,6 +20,7 @@ fun main(args: Array<String>) {
         "dropruns" -> { val d = Dialect.of(o.get("dialect")); for (n in listOf("run", "eq_a", "eq_b")) if (d.schemaExists(n)) d.resetSchema(n) } // frees disk between scenarios
         "prepare" -> Bench.prepare(Common(o))
         "bench" -> { val cm = Common(o); if (o.has("prepare")) Bench.prepare(cm); Bench.run(cm, o) }
+        "plantime" -> Plantime.run(Common(o), o)
         "writecost" -> WriteCost.run(Common(o), o)
         "concurrency" -> Concurrency.run(Common(o), o)
         "analyze" -> Analyze.run(Common(o), o)

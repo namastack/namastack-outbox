@@ -1,0 +1,19 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_strict,0.525,0.563,0.509,0.579,10,20,
+keys_nonstrict,5135.633,5188.207,5111.978,5188.207,10,5,slow(>2s): warmup 1, reps 5
+pages,0.311,0.502,0.297,0.558,10,20,
+insert,0.647,0.812,0.433,1.705,1,20,
+upd_complete,0.740,0.870,0.647,0.907,1,20,
+upd_retry,0.324,0.425,0.271,0.426,1,20,
+upd_fail,0.280,0.450,0.136,0.457,1,20,
+delete_by_id,0.481,0.664,0.352,0.676,1,20,
+count_new,85.445,89.122,84.755,90.963,1,20,
+count_failed,0.083,0.092,0.080,0.097,1,20,
+count_completed,93.808,94.636,93.585,94.894,1,20,
+count_statuses,,,,,,0,n/a
+count_statuses_all,,,,,,0,n/a
+count_partitions,7.476,7.526,7.426,7.705,1,20,
+count_partition_single,0.489,0.494,0.481,0.494,1,20,
+oldest_created,5430.171,5530.642,5383.536,5530.642,1,5,slow(>2s): warmup 1, reps 5
+oldest_due_strict,7838.980,8512.831,7614.174,8512.831,1,5,slow(>2s): warmup 1, reps 5
+oldest_due_nonstrict,11.477,11.597,11.224,11.634,1,20,

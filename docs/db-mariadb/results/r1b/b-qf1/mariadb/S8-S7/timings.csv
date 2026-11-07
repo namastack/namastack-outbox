@@ -1,0 +1,9 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_strict,0.442,0.476,0.415,0.491,10,20,
+keys_nonstrict,0.499,0.541,0.471,0.557,10,20,
+pages,0.339,0.414,0.322,0.473,10,20,
+count_statuses,71.784,72.116,71.061,79.457,2,20,
+count_partitions,1.568,1.610,1.537,1.673,1,20,
+oldest_created,0.158,0.172,0.149,0.188,1,20,
+oldest_due_strict,6.562,6.631,6.475,6.684,1,20,
+oldest_due_nonstrict,0.224,0.249,0.214,0.249,1,20,

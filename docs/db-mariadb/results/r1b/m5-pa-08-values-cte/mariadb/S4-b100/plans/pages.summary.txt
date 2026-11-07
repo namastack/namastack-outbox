@@ -1,0 +1,6 @@
+id: pages   mode: ANALYZE (executed)   sql_select_limit: none   rows_returned: 100
+r_total_time_ms: 0.518   cost: 0.425
+select#1 table=<derived2> access=ALL key=- key_parts=[-] key_len=- loops=1 rows_est=100 r_rows=100 r_index_rows=- examined=100 filtered_est=100 r_filtered=100 index_condition=no attached_condition=no using_index=no rowid_filter=no
+select#1 table=r access=ref key=idx_outbox_record_key_completed_created_id key_parts=[record_key,completed_at] key_len=1027 loops=100 rows_est=1 r_rows=1 r_index_rows=1 examined=100 filtered_est=100 r_filtered=100 index_condition=yes attached_condition=yes using_index=no rowid_filter=no
+filesort: yes   temporary_table: yes   duplicates_removal: no   strategies: materialization
+rows_examined_total: 200   rows_returned: 100

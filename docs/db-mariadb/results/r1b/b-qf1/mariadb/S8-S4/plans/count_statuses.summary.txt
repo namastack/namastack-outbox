@@ -1,0 +1,7 @@
+id: count_statuses   mode: ANALYZE (executed)   sql_select_limit: none   rows_returned: 1
+r_total_time_ms: 133.032   cost: 0.117
+select#1 table=<derived2> access=ALL key=- key_parts=[-] key_len=- loops=1 rows_est=154 r_rows=1 r_index_rows=- examined=1 filtered_est=100 r_filtered=100 index_condition=no attached_condition=no using_index=no rowid_filter=no
+select#2 table=outbox_record access=range key=idx_outbox_record_status_completed_retry key_parts=[status,completed_at] key_len=87 loops=1 rows_est=1844686 r_rows=1000000 r_index_rows=- examined=1000000 filtered_est=100 r_filtered=100 index_condition=no attached_condition=yes using_index=yes rowid_filter=no
+select#3 table=outbox_record access=range key=idx_outbox_record_status_completed_created_id key_parts=[status,completed_at] key_len=87 loops=1 rows_est=2 r_rows=0 r_index_rows=- examined=0 filtered_est=100 r_filtered=100 index_condition=no attached_condition=yes using_index=yes rowid_filter=no
+filesort: yes   temporary_table: yes   duplicates_removal: no   strategies: materialization
+rows_examined_total: 1000001   rows_returned: 1

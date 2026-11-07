@@ -1,0 +1,70 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.069628951
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 0.042221954,
+    "r_loops": 1,
+    "r_total_time_ms": 0.033474878,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "outbox_record",
+          "access_type": "range",
+          "possible_keys": [
+            "PRIMARY",
+            "idx_outbox_record_key_completed_created_id"
+          ],
+          "key": "idx_outbox_record_key_completed_created_id",
+          "key_length": "1027",
+          "used_key_parts": ["record_key", "completed_at"],
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 10,
+          "r_rows": 10,
+          "cost": 0.01871717,
+          "r_table_time_ms": 0.013586626,
+          "r_other_time_ms": 0.004967046,
+          "r_engine_stats": {
+            "pages_accessed": 60
+          },
+          "filtered": 100,
+          "r_total_filtered": 100,
+          "attached_condition": "outbox_record.record_key in ('order-000000000000000000000000002019','order-000000000000000000000000002053','order-000000000000000000000000004868','order-000000000000000000000000003930','order-000000000000000000000000004696','order-000000000000000000000000002408','order-000000000000000000000000004438','order-000000000000000000000000000031','order-000000000000000000000000000668','order-000000000000000000000000004835') and outbox_record.completed_at is null",
+          "r_filtered": 100,
+          "using_index": true
+        }
+      },
+      {
+        "table": {
+          "table_name": "r",
+          "access_type": "eq_ref",
+          "possible_keys": [
+            "PRIMARY",
+            "idx_outbox_record_status_completed_created_id",
+            "idx_outbox_record_status_completed_retry"
+          ],
+          "key": "PRIMARY",
+          "key_length": "1022",
+          "used_key_parts": ["id"],
+          "ref": ["run.outbox_record.id"],
+          "loops": 10,
+          "r_loops": 10,
+          "rows": 1,
+          "r_rows": 1,
+          "cost": 0.0171364,
+          "r_table_time_ms": 0.011730256,
+          "r_other_time_ms": 0.001735957,
+          "r_engine_stats": {
+            "pages_accessed": 68
+          },
+          "filtered": 40.91534424,
+          "r_total_filtered": 100,
+          "attached_condition": "r.`status` = 'NEW'",
+          "r_filtered": 100
+        }
+      }
+    ]
+  }
+}

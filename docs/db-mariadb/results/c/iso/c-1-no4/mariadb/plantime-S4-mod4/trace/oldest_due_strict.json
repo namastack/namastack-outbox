@@ -1,0 +1,538 @@
+{
+  "steps": [
+    {
+      "join_preparation": {
+        "select_id": 1,
+        "steps": [
+          {
+            "join_preparation": {
+              "select_id": 3,
+              "steps": [
+                {
+                  "expanded_query": "/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)"
+                }
+              ]
+            }
+          },
+          {
+            "expanded_query": "/* select#1 */ select o.next_retry_at AS next_retry_at from outbox_record o where o.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1)) order by o.next_retry_at limit 1"
+          }
+        ]
+      }
+    },
+    {
+      "join_optimization": {
+        "select_id": 1,
+        "steps": [
+          {
+            "condition_processing": {
+              "condition": "WHERE",
+              "original_condition": "o.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1))",
+              "steps": [
+                {
+                  "transformation": "equality_propagation",
+                  "resulting_condition": "o.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1))"
+                },
+                {
+                  "transformation": "constant_propagation",
+                  "resulting_condition": "o.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1))"
+                },
+                {
+                  "transformation": "trivial_condition_removal",
+                  "resulting_condition": "o.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1))"
+                }
+              ]
+            }
+          },
+          {
+            "ref_optimizer_key_uses": [
+              {
+                "table": "o",
+                "index": "idx_outbox_record_status_completed_created_id",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": false
+              },
+              {
+                "table": "o",
+                "index": "idx_outbox_record_status_completed_created_id",
+                "field": "completed_at",
+                "equals": "NULL",
+                "null_rejecting": false
+              },
+              {
+                "table": "o",
+                "index": "idx_outbox_record_status_completed_retry",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": false
+              },
+              {
+                "table": "o",
+                "index": "idx_outbox_record_status_completed_retry",
+                "field": "completed_at",
+                "equals": "NULL",
+                "null_rejecting": false
+              }
+            ]
+          },
+          {
+            "rows_estimation": [
+              {
+                "table": "o",
+                "range_analysis": {
+                  "table_scan": {
+                    "rows": 1997739,
+                    "cost": 464.2028274
+                  },
+                  "potential_range_indexes": [
+                    {
+                      "index": "PRIMARY",
+                      "usable": false,
+                      "cause": "not applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_created_id",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "completed_at",
+                        "created_at",
+                        "id",
+                        "partition_no",
+                        "next_retry_at",
+                        "record_key"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "usable": false,
+                      "cause": "not applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_retry",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "completed_at",
+                        "next_retry_at",
+                        "partition_no",
+                        "id"
+                      ]
+                    }
+                  ],
+                  "best_covering_index_scan": {
+                    "index": "idx_outbox_record_status_completed_created_id",
+                    "cost": 307.7757595,
+                    "chosen": true
+                  },
+                  "setup_range_conditions": [],
+                  "analyzing_range_alternatives": {
+                    "range_scan_alternatives": [
+                      {
+                        "index": "idx_outbox_record_status_completed_created_id",
+                        "ranges": [
+                          "(NEW,NULL) <= (status,completed_at) <= (NEW,NULL)"
+                        ],
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": true,
+                        "rows": 1997739,
+                        "cost": 307.7595835,
+                        "chosen": true
+                      },
+                      {
+                        "index": "idx_outbox_record_status_completed_retry",
+                        "ranges": [
+                          "(NEW,NULL) <= (status,completed_at,next_retry_at,partition_no) <= (NEW,NULL,2026-01-01 12:00:00,252)"
+                        ],
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "rows": 1997739,
+                        "cost": 2126.137363,
+                        "chosen": false,
+                        "cause": "cost"
+                      }
+                    ],
+                    "analyzing_roworder_intersect": {
+                      "cause": "too few roworder scans"
+                    }
+                  },
+                  "group_index_range": {
+                    "chosen": false,
+                    "cause": "no group by or distinct"
+                  },
+                  "chosen_range_access_summary": {
+                    "range_access_plan": {
+                      "type": "range_scan",
+                      "index": "idx_outbox_record_status_completed_created_id",
+                      "rows": 1997739,
+                      "ranges": [
+                        "(NEW,NULL) <= (status,completed_at) <= (NEW,NULL)"
+                      ]
+                    },
+                    "rows_for_plan": 1997739,
+                    "cost_for_plan": 307.7595835,
+                    "chosen": true
+                  }
+                }
+              },
+              {
+                "selectivity_for_indexes": [
+                  {
+                    "index_name": "idx_outbox_record_status_completed_retry",
+                    "selectivity_from_index": 1
+                  }
+                ],
+                "selectivity_for_columns": [],
+                "cond_selectivity": 1
+              }
+            ]
+          },
+          {
+            "table_dependencies": [
+              {
+                "table": "o",
+                "row_may_be_null": false,
+                "map_bit": 0,
+                "depends_on_map_bits": []
+              }
+            ]
+          },
+          {
+            "considered_execution_plans": [
+              {
+                "plan_prefix": "",
+                "get_costs_for_tables": [
+                  {
+                    "best_access_path": {
+                      "table": "o",
+                      "plan_details": {
+                        "record_count": 1
+                      },
+                      "considered_access_paths": [
+                        {
+                          "access_type": "ref",
+                          "index": "idx_outbox_record_status_completed_created_id",
+                          "used_range_estimates": true,
+                          "rows": 1997739,
+                          "cost": 307.7587923,
+                          "chosen": true
+                        },
+                        {
+                          "access_type": "ref",
+                          "index": "idx_outbox_record_status_completed_retry",
+                          "chosen": false,
+                          "cause": "range is simple and more selective"
+                        },
+                        {
+                          "type": "scan",
+                          "chosen": false,
+                          "cause": "cost"
+                        }
+                      ],
+                      "chosen_access_method": {
+                        "type": "ref",
+                        "index": "idx_outbox_record_status_completed_created_id",
+                        "rows_read": 1997739,
+                        "rows_out": 1997739,
+                        "cost": 307.7587923,
+                        "uses_join_buffering": false
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "plan_prefix": "",
+                "table": "o",
+                "rows_for_plan": 1997739,
+                "cost_for_plan": 307.7587923
+              }
+            ]
+          },
+          {
+            "best_join_order": ["o"],
+            "rows": 1997739,
+            "cost": 307.7587923
+          },
+          {
+            "substitute_best_equal": {
+              "condition": "WHERE",
+              "resulting_condition": "o.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1))"
+            }
+          },
+          {
+            "attaching_conditions_to_tables": {
+              "attached_conditions_computation": [],
+              "attached_conditions_summary": [
+                {
+                  "table": "o",
+                  "attached_condition": "o.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1))"
+                }
+              ]
+            }
+          },
+          {
+            "make_join_readinfo": []
+          },
+          {
+            "join_optimization": {
+              "select_id": 3,
+              "steps": [
+                {
+                  "condition_processing": {
+                    "condition": "WHERE",
+                    "original_condition": "earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)",
+                    "steps": [
+                      {
+                        "transformation": "equality_propagation",
+                        "resulting_condition": "earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)"
+                      },
+                      {
+                        "transformation": "constant_propagation",
+                        "resulting_condition": "earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)"
+                      },
+                      {
+                        "transformation": "trivial_condition_removal",
+                        "resulting_condition": "earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "ref_optimizer_key_uses": [
+                    {
+                      "table": "earlier",
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "field": "record_key",
+                      "equals": "o.record_key",
+                      "null_rejecting": false
+                    },
+                    {
+                      "table": "earlier",
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "field": "completed_at",
+                      "equals": "NULL",
+                      "null_rejecting": false
+                    }
+                  ]
+                },
+                {
+                  "rows_estimation": [
+                    {
+                      "selectivity_for_indexes": [],
+                      "selectivity_for_columns": [],
+                      "cond_selectivity": 1
+                    },
+                    {
+                      "table": "earlier",
+                      "table_scan": {
+                        "rows": 1997739,
+                        "read_cost": 241.6239219,
+                        "read_and_compare_cost": 305.5515699
+                      }
+                    }
+                  ]
+                },
+                {
+                  "table_dependencies": [
+                    {
+                      "table": "earlier",
+                      "row_may_be_null": false,
+                      "map_bit": 0,
+                      "depends_on_map_bits": []
+                    }
+                  ]
+                },
+                {
+                  "considered_execution_plans": [
+                    {
+                      "plan_prefix": "",
+                      "get_costs_for_tables": [
+                        {
+                          "best_access_path": {
+                            "table": "earlier",
+                            "plan_details": {
+                              "record_count": 1
+                            },
+                            "considered_access_paths": [
+                              {
+                                "access_type": "ref",
+                                "index": "idx_outbox_record_key_completed_created_id",
+                                "rows": 1,
+                                "cost": 0.001792605,
+                                "chosen": true
+                              },
+                              {
+                                "type": "scan",
+                                "chosen": false,
+                                "cause": "cost"
+                              }
+                            ],
+                            "chosen_access_method": {
+                              "type": "ref",
+                              "index": "idx_outbox_record_key_completed_created_id",
+                              "rows_read": 1,
+                              "rows_out": 1,
+                              "cost": 0.001792605,
+                              "uses_join_buffering": false
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "plan_prefix": "",
+                      "table": "earlier",
+                      "rows_for_plan": 1,
+                      "cost_for_plan": 0.001792605
+                    }
+                  ]
+                },
+                {
+                  "best_join_order": ["earlier"],
+                  "rows": 1,
+                  "cost": 0.001792605
+                },
+                {
+                  "substitute_best_equal": {
+                    "condition": "WHERE",
+                    "resulting_condition": "earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)"
+                  }
+                },
+                {
+                  "attaching_conditions_to_tables": {
+                    "attached_conditions_computation": [],
+                    "attached_conditions_summary": [
+                      {
+                        "table": "earlier",
+                        "attached_condition": "earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "make_join_readinfo": []
+                }
+              ]
+            }
+          },
+          {
+            "test_if_skip_sort_order": [
+              {
+                "reconsidering_access_paths_for_index_ordering": {
+                  "clause": "ORDER BY",
+                  "table": "o",
+                  "rows_estimation": 1997739,
+                  "filesort_cost": 17.12905555,
+                  "read_cost": 324.8878479,
+                  "filesort_type": "priority_queue with row lookup",
+                  "fanout": 1,
+                  "possible_keys": [
+                    {
+                      "index": "PRIMARY",
+                      "can_resolve_order": false,
+                      "cause": "not usable index for the query"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_created_id",
+                      "can_resolve_order": false,
+                      "cause": "order can not be resolved by key"
+                    },
+                    {
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "can_resolve_order": false,
+                      "cause": "not usable index for the query"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_retry",
+                      "can_resolve_order": true,
+                      "direction": 1,
+                      "rows_to_examine": 1,
+                      "range_scan": true,
+                      "scan_cost": 0.001064271,
+                      "chosen": true
+                    }
+                  ]
+                }
+              },
+              {
+                "table": "o",
+                "range_analysis": {
+                  "potential_range_indexes": [
+                    {
+                      "index": "PRIMARY",
+                      "usable": false,
+                      "cause": "not applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_created_id",
+                      "usable": false,
+                      "cause": "not applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "usable": false,
+                      "cause": "not applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_retry",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "completed_at",
+                        "next_retry_at",
+                        "partition_no",
+                        "id"
+                      ]
+                    }
+                  ],
+                  "setup_range_conditions": [],
+                  "analyzing_range_alternatives": {
+                    "range_scan_alternatives": [
+                      {
+                        "index": "idx_outbox_record_status_completed_retry",
+                        "ranges": [
+                          "(NEW,NULL) <= (status,completed_at,next_retry_at,partition_no) <= (NEW,NULL,2026-01-01 12:00:00,252)"
+                        ],
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "rows": 1997739,
+                        "cost": 2126.137363,
+                        "cost_with_limit": 8.71466168,
+                        "chosen": true
+                      }
+                    ],
+                    "analyzing_roworder_intersect": {
+                      "cause": "too few roworder scans"
+                    }
+                  },
+                  "group_index_range": {
+                    "chosen": false,
+                    "cause": "no group by or distinct"
+                  },
+                  "chosen_range_access_summary": {
+                    "range_access_plan": {
+                      "type": "range_scan",
+                      "index": "idx_outbox_record_status_completed_retry",
+                      "rows": 1997739,
+                      "ranges": [
+                        "(NEW,NULL) <= (status,completed_at,next_retry_at,partition_no) <= (NEW,NULL,2026-01-01 12:00:00,252)"
+                      ]
+                    },
+                    "rows_for_plan": 1997739,
+                    "cost_for_plan": 2126.137363,
+                    "chosen": true
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

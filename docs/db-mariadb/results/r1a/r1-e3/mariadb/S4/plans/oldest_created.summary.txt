@@ -1,0 +1,5 @@
+id: oldest_created   mode: EXPLAIN (not executed)   sql_select_limit: none   rows_returned: n/a
+r_total_time_ms: -   cost: 109.833
+select#1 table=outbox_record access=range key=idx_outbox_record_status_partition key_parts=[status,partition_no] key_len=86 loops=1 rows_est=60416 r_rows=- r_index_rows=- examined=- filtered_est=100 r_filtered=- index_condition=yes attached_condition=yes using_index=no rowid_filter=no
+filesort: no   temporary_table: no   duplicates_removal: no   strategies: -
+rows_examined_total: n/a (not executed)   rows_returned: n/a

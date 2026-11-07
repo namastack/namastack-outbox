@@ -9,6 +9,9 @@ import java.sql.Types
 /** Marker for a typed SQL NULL. */
 class Null(val sqlType: Int)
 
+/** Round 1b (M5): a collection that expands to one parenthesized row per element, `(?),(?),...` (for `VALUES :recordKeysRows`). */
+class RowList(val items: List<String>)
+
 /**
  * One catalog entry = one file `<id>.sql`: header lines `-- key: value` and the SQL text with named parameters
  * (`:name`), exactly the text the repository builds (whitespace collapsed).
@@ -81,7 +84,8 @@ object NamedSql {
     }
 
     /** Expand collection parameters to `?,?,...` like Spring's NamedParameterUtils and return flat values. */
-    fun expand(sql: String, params: Map<String, Any?>): Pair<String, List<Any?>> {
+    fun expand(sqlIn: String, params: Map<String, Any?>): Pair<String, List<Any?>> {
+        val sql = perKeyUnion(sqlIn, params)
         val sb = StringBuilder(); val values = mutableListOf<Any?>()
         var i = 0; var quote = false
         while (i < sql.length) {
@@ -91,14 +95,30 @@ object NamedSql {
             if (!quote && ch == ':' && i + 1 < sql.length && (sql[i + 1].isLetter() || sql[i + 1] == '_')) {
                 var j = i + 1; while (j < sql.length && (sql[j].isLetterOrDigit() || sql[j] == '_')) j++
                 val name = sql.substring(i + 1, j)
-                require(params.containsKey(name)) { "missing parameter :$name" }
-                val v = params[name]
-                if (v is Collection<*>) { sb.append(v.joinToString(",") { "?" }); values.addAll(v) } else { sb.append('?'); values.add(v) }
+                val perKey = Regex("recordKey([0-9]+)").matchEntire(name)
+                require(params.containsKey(name) || perKey != null) { "missing parameter :$name" }
+                val v = if (perKey != null && !params.containsKey(name)) (params["recordKeys"] as List<*>)[perKey.groupValues[1].toInt() - 1] else params[name]
+                if (v is RowList) { sb.append(v.items.joinToString(",") { "(?)" }); values.addAll(v.items) }
+                else if (v is Collection<*>) { sb.append(v.joinToString(",") { "?" }); values.addAll(v) } else { sb.append('?'); values.add(v) }
                 i = j; continue
             }
             sb.append(ch); i++
         }
         return sb.toString() to values
+    }
+
+    /**
+     * Round 1b (M5): a statement written for the keys `:recordKey1`, `:recordKey2` (`(SELECT ... :recordKey1 ...) UNION ALL (SELECT ... :recordKey2 ...)`)
+     * is rebuilt with one arm per element of `recordKeys`, like a repository that builds the statement per key count.
+     */
+    fun perKeyUnion(sql: String, params: Map<String, Any?>): String {
+        if (!sql.contains(":recordKey1")) return sql
+        val keys = params["recordKeys"] as? List<*> ?: return sql
+        val re = Regex("(\\(SELECT[^()]*:recordKey1(?![0-9])[^()]*\\))( UNION ALL \\(SELECT[^()]*:recordKey[0-9]+[^()]*\\))+")
+        val m = re.find(sql) ?: return sql
+        val arm = m.groupValues[1]
+        val arms = keys.indices.joinToString(" UNION ALL ") { arm.replace(":recordKey1", ":recordKey${it + 1}") }
+        return sql.replaceRange(m.range, arms)
     }
 
     fun bind(ps: PreparedStatement, values: List<Any?>) {

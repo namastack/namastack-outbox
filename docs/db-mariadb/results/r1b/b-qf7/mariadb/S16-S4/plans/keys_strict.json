@@ -1,0 +1,105 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.080345729
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 583.4359089,
+    "r_loops": 1,
+    "r_total_time_ms": 714.4005738,
+    "nested_loop": [
+      {
+        "read_sorted_file": {
+          "r_rows": 10,
+          "filesort": {
+            "sort_key": "t.created_at, t.`id`",
+            "r_loops": 1,
+            "r_total_time_ms": 16.25530459,
+            "r_limit": 10,
+            "r_used_priority_queue": true,
+            "r_output_rows": 11,
+            "r_sort_mode": "sort_key,rowid",
+            "table": {
+              "table_name": "<derived3>",
+              "access_type": "ALL",
+              "loops": 1,
+              "r_loops": 1,
+              "rows": 1844686,
+              "r_rows": 62536,
+              "cost": 583.4359089,
+              "r_table_time_ms": 0.831322915,
+              "r_other_time_ms": 36.48515895,
+              "filtered": 100,
+              "r_total_filtered": 100,
+              "attached_condition": "t.rn = 1 and t.`status` = 'NEW' and t.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000'",
+              "r_filtered": 100,
+              "materialized": {
+                "query_block": {
+                  "select_id": 3,
+                  "cost": 285.2226042,
+                  "r_loops": 1,
+                  "r_total_time_ms": 698.1297258,
+                  "window_functions_computation": {
+                    "sorts": [
+                      {
+                        "filesort": {
+                          "sort_key": "o.record_key, o.created_at, o.`id`",
+                          "r_loops": 1,
+                          "r_total_time_ms": 41.0389365,
+                          "r_used_priority_queue": false,
+                          "r_output_rows": 62536,
+                          "r_sort_passes": 1,
+                          "r_buffer_size": "2046KiB",
+                          "r_sort_mode": "packed_sort_key,rowid"
+                        }
+                      }
+                    ],
+                    "temporary_table": {
+                      "nested_loop": [
+                        {
+                          "table": {
+                            "table_name": "o",
+                            "access_type": "index",
+                            "key": "idx_outbox_record_status_completed_created_id",
+                            "key_length": "2143",
+                            "used_key_parts": [
+                              "status",
+                              "completed_at",
+                              "created_at",
+                              "id",
+                              "partition_no",
+                              "next_retry_at",
+                              "record_key"
+                            ],
+                            "loops": 1,
+                            "r_loops": 1,
+                            "rows": 1844686,
+                            "r_rows": 2000000,
+                            "cost": 285.2226042,
+                            "r_table_time_ms": 510.9741397,
+                            "r_other_time_ms": 65.11956564,
+                            "r_engine_stats": {
+                              "pages_accessed": 12534,
+                              "pages_read_count": 4375,
+                              "pages_read_time_ms": 269.3142165,
+                              "pages_prefetch_read_count": 3682
+                            },
+                            "filtered": 100,
+                            "r_total_filtered": 3.1268,
+                            "attached_condition": "o.completed_at is null and o.partition_no in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240)",
+                            "r_filtered": 3.1268,
+                            "using_index": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

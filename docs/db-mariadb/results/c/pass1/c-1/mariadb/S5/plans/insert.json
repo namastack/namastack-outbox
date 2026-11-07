@@ -1,0 +1,11 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.00694383
+  },
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "outbox_record"
+    }
+  }
+}

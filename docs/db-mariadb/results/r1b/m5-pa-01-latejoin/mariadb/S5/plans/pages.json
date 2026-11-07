@@ -1,0 +1,74 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 1.049832793
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 101.4702568,
+    "r_loops": 1,
+    "r_total_time_ms": 1415.0423,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "outbox_record",
+          "access_type": "range",
+          "possible_keys": [
+            "PRIMARY",
+            "idx_outbox_record_key_completed_created_id"
+          ],
+          "key": "idx_outbox_record_key_completed_created_id",
+          "key_length": "1027",
+          "used_key_parts": ["record_key", "completed_at"],
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 40012,
+          "r_rows": 20000,
+          "cost": 6.14285054,
+          "r_table_time_ms": 2.923151606,
+          "r_other_time_ms": 3.533636655,
+          "r_engine_stats": {
+            "pages_accessed": 266,
+            "pages_read_count": 6,
+            "pages_read_time_ms": 0.524028349
+          },
+          "filtered": 100,
+          "r_total_filtered": 100,
+          "attached_condition": "outbox_record.record_key in ('order-000000000000000000000000000086','order-000000000000000000000000000098','order-000000000000000000000000000069','order-000000000000000000000000000045','order-000000000000000000000000000056','order-000000000000000000000000000090','order-000000000000000000000000000041','order-000000000000000000000000000057','order-000000000000000000000000000096','order-000000000000000000000000000079') and outbox_record.completed_at is null",
+          "r_filtered": 100,
+          "using_index": true
+        }
+      },
+      {
+        "table": {
+          "table_name": "r",
+          "access_type": "eq_ref",
+          "possible_keys": [
+            "PRIMARY",
+            "idx_outbox_record_status_completed_created_id",
+            "idx_outbox_record_status_completed_retry"
+          ],
+          "key": "PRIMARY",
+          "key_length": "1022",
+          "used_key_parts": ["id"],
+          "ref": ["run.outbox_record.id"],
+          "loops": 40012,
+          "r_loops": 20000,
+          "rows": 1,
+          "r_rows": 1,
+          "cost": 68.56616368,
+          "r_table_time_ms": 1405.647359,
+          "r_other_time_ms": 2.935062481,
+          "r_engine_stats": {
+            "pages_accessed": 60502,
+            "pages_read_count": 18326,
+            "pages_read_time_ms": 1361.41109
+          },
+          "filtered": 84.73416901,
+          "r_total_filtered": 100,
+          "attached_condition": "r.`status` = 'NEW'",
+          "r_filtered": 100
+        }
+      }
+    ]
+  }
+}

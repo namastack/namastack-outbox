@@ -1,0 +1,37 @@
+optimizer_trace range analysis (outer table of the query; per variant: usable potential indexes | range alternatives: index=#ranges(rows est) )
+
+## plantime-S4-mod4
+keys_strict            c-1      usable=3 alternatives=3 total_ranges=66 | status_completed_created_id=1(1764132), status_completed_retry=1(1764132), status_partition_created=64(507690)
+keys_strict            c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(1997739), status_completed_retry=1(1997739)
+keys_nonstrict         c-1      usable=3 alternatives=3 total_ranges=66 | status_completed_created_id=1(1764132), status_completed_retry=1(1764132), status_partition_created=64(507690)
+keys_nonstrict         c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(1997739), status_completed_retry=1(1997739)
+oldest_created         c-1      usable=3 alternatives=3 total_ranges=66 | status_completed_created_id=1(1764132), status_completed_retry=1(1764132), status_partition_created=64(507690)
+oldest_created         c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(1997739), status_completed_retry=1(1997739)
+oldest_due_strict      c-1      usable=3 alternatives=3 total_ranges=66 | status_completed_created_id=1(1764132), status_completed_retry=1(1764132), status_partition_created=64(507690)
+oldest_due_strict      c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(1997739), status_completed_retry=1(1997739)
+oldest_due_nonstrict   c-1      usable=3 alternatives=3 total_ranges=66 | status_completed_created_id=1(1764132), status_completed_retry=1(1764132), status_partition_created=64(507690)
+oldest_due_nonstrict   c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(1997739), status_completed_retry=1(1997739)
+
+## plantime-S4-all
+keys_strict            c-1      usable=3 alternatives=3 total_ranges=258 | status_completed_created_id=1(1764132), status_completed_retry=1(1764132), status_partition_created=256(67072)
+keys_strict            c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(1997739), status_completed_retry=1(1997739)
+keys_nonstrict         c-1      usable=3 alternatives=3 total_ranges=258 | status_completed_created_id=1(1764132), status_completed_retry=1(1764132), status_partition_created=256(67072)
+keys_nonstrict         c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(1997739), status_completed_retry=1(1997739)
+oldest_created         c-1      usable=3 alternatives=3 total_ranges=258 | status_completed_created_id=1(1764132), status_completed_retry=1(1764132), status_partition_created=256(67072)
+oldest_created         c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(1997739), status_completed_retry=1(1997739)
+oldest_due_strict      c-1      usable=3 alternatives=3 total_ranges=258 | status_completed_created_id=1(1764132), status_completed_retry=1(1764132), status_partition_created=256(67072)
+oldest_due_strict      c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(1997739), status_completed_retry=1(1997739)
+oldest_due_nonstrict   c-1      usable=3 alternatives=3 total_ranges=258 | status_completed_created_id=1(1764132), status_completed_retry=1(1764132), status_partition_created=256(67072)
+oldest_due_nonstrict   c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(1997739), status_completed_retry=1(1997739)
+
+## plantime-S5-mod4
+keys_strict            c-1      usable=3 alternatives=3 total_ranges=66 | status_completed_created_id=1(408356), status_completed_retry=1(410718), status_partition_created=64(38179)
+keys_strict            c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(408356), status_completed_retry=1(410718)
+keys_nonstrict         c-1      usable=3 alternatives=3 total_ranges=66 | status_completed_created_id=1(408356), status_completed_retry=1(410718), status_partition_created=64(38179)
+keys_nonstrict         c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(408356), status_completed_retry=1(410718)
+oldest_created         c-1      usable=3 alternatives=3 total_ranges=66 | status_completed_created_id=1(408356), status_completed_retry=1(410758), status_partition_created=64(38179)
+oldest_created         c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(408356), status_completed_retry=1(410758)
+oldest_due_strict      c-1      usable=3 alternatives=3 total_ranges=66 | status_completed_created_id=1(408356), status_completed_retry=1(410718), status_partition_created=64(38179)
+oldest_due_strict      c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(408356), status_completed_retry=1(410718)
+oldest_due_nonstrict   c-1      usable=3 alternatives=3 total_ranges=66 | status_completed_created_id=1(408356), status_completed_retry=1(410718), status_partition_created=64(38179)
+oldest_due_nonstrict   c-1-no4  usable=2 alternatives=2 total_ranges=2 | status_completed_created_id=1(408356), status_completed_retry=1(410718)

@@ -149,6 +149,8 @@ object CatalogExtractor {
                 val s = source(e) ?: continue
                 // Repository-field variants whose key query binds :limit in SQL (GH-551) do not call setMaxRows.
                 val maxrows = when {
+                    // oldest_created binds :limit only in variants whose repository calls setMaxRows(1) with it (mdb-final).
+                    (queriesClass != null || factoryClass != null) && e.id == "oldest_created" && s.first.contains(":limit") -> "one"
                     queriesClass != null || factoryClass != null -> e.maxNew
                     e.maxOld == "batchSize" && s.first.contains(":limit") -> "none"
                     else -> e.maxOld

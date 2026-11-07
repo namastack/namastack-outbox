@@ -130,3 +130,22 @@ Syntax check on MariaDB 12 (throw-away container, literals): Q-indep pages/value
 
 None.
 
+
+## User idea E5 — no `completed_at IS NULL` on the outer row (added 2026-11-05 by the orchestrator)
+
+All five repository calls bind `status = NEW` (`JdbcOutboxRecordRepository` at 2a2663de), so the outer `completed_at IS NULL` is redundant
+under the invariant `completed_at IS NULL <=> status IN (NEW, FAILED)` (not schema-enforced). The strict probes keep
+`earlier.completed_at IS NULL`: it is the incompleteness test there (no status condition) and the seek column of the key index.
+
+| merged id | idea | class | access path needed |
+|---|---|---|---|
+| ks-10-no-outer-completed | branch SQL minus outer `completed_at IS NULL` | status-conditional | `(status, created_at, id, partition_no, next_retry_at, record_key)` ordered; key index probes |
+| kn-12-no-outer-completed | branch SQL minus outer `completed_at IS NULL` | status-conditional | as ks-10 |
+| kn-13-no-completed | also minus inner `completed_at IS NULL` (control) | status-conditional | key index without completed_at equality: reads COMPLETED rows of the key |
+| oc-07-no-completed-min | MIN form | status-conditional | full status range (no MIN shortcut: partition filter after created_at) |
+| oc-08-no-completed-order | ORDER BY created_at, id LIMIT 1 | status-conditional | ordered scan, stops at first owned partition |
+| ods-09-no-outer-completed | branch SQL minus outer `completed_at IS NULL` | status-conditional | `(status, next_retry_at, partition_no)` ordered; key index probes |
+| odn-05-no-completed-min | MIN form | status-conditional | full due range |
+| odn-06-no-completed-order | ORDER BY next_retry_at LIMIT 1 | status-conditional | ordered scan, stops at first owned partition |
+| ks-11-head-no-outer-completed | ks-05-head minus outer `completed_at IS NULL` (user idea, 2026-11-06) | status-conditional | `(status, created_at, id, partition_no, next_retry_at, record_key)` ordered; key index head probe |
+| kn-14-head-no-outer-completed | kn-05-head minus outer `completed_at IS NULL` (user idea, 2026-11-06) | status-conditional | as ks-11; head probe with status/due lookup |

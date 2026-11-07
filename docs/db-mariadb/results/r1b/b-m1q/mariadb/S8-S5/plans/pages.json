@@ -1,0 +1,53 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.600179683
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 166.5185963,
+    "r_loops": 1,
+    "r_total_time_ms": 4338.655279,
+    "nested_loop": [
+      {
+        "read_sorted_file": {
+          "r_rows": 18000,
+          "filesort": {
+            "sort_key": "outbox_record.record_key, outbox_record.created_at, outbox_record.`id`",
+            "r_loops": 1,
+            "r_total_time_ms": 3096.326714,
+            "r_used_priority_queue": false,
+            "r_output_rows": 18000,
+            "r_sort_passes": 1,
+            "r_buffer_size": "2046KiB",
+            "r_sort_mode": "packed_sort_key,rowid",
+            "table": {
+              "table_name": "outbox_record",
+              "access_type": "ALL",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry"
+              ],
+              "loops": 1,
+              "r_loops": 1,
+              "rows": 427253,
+              "r_rows": 500000,
+              "cost": 104.707587,
+              "r_table_time_ms": 4213.176785,
+              "r_other_time_ms": 125.4575323,
+              "r_engine_stats": {
+                "pages_accessed": 95084,
+                "pages_read_count": 56049,
+                "pages_read_time_ms": 4073.811163
+              },
+              "filtered": 21.52589035,
+              "r_total_filtered": 3.6,
+              "attached_condition": "outbox_record.record_key in ('order-000000000000000000000000000056','order-000000000000000000000000000057','order-000000000000000000000000000066','order-000000000000000000000000000087','order-000000000000000000000000000085','order-000000000000000000000000000089','order-000000000000000000000000000097','order-000000000000000000000000000094','order-000000000000000000000000000081') and outbox_record.`status` = 'NEW'",
+              "r_filtered": 3.6
+            }
+          }
+        }
+      }
+    ]
+  }
+}

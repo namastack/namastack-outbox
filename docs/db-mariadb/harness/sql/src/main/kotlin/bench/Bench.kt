@@ -260,7 +260,7 @@ object Bench {
                     csv.appendLine("$id,,,,,,0,skipped (unbounded; S1/S3 only)"); continue
                 }
                 try {
-                    if (id == "pages") ctx.pageKeys = strictKeys(c, cat, ctx)
+                    if (id == "pages") ctx.pageKeys = o.opt("pages-keys-file")?.let { f -> File(f).readLines().map { it.trim() }.filter { it.isNotEmpty() } } ?: strictKeys(c, cat, ctx)
                     val pg = cm.dialect == Dialect.POSTGRES
                     var pre: Pair<Long, Long>? = null
                     val (times, rows, note) = timeQuery(c, q, ctx, cm.warmup, cm.reps, if (pg) ({ pre = planCounts(c, q, ctx.paramsFor(q, 0)) }) else null)

@@ -1,0 +1,5 @@
+id: count_statuses_all   mode: ANALYZE (executed)   sql_select_limit: none   rows_returned: 3
+r_total_time_ms: 65.907   cost: 386.678
+select#1 table=outbox_record access=range key=idx_outbox_record_status_completed_retry key_parts=[status] key_len=82 loops=1 rows_est=465580 r_rows=500000 r_index_rows=- examined=500000 filtered_est=100 r_filtered=100 index_condition=no attached_condition=yes using_index=yes rowid_filter=no
+filesort: no   temporary_table: no   duplicates_removal: no   strategies: -
+rows_examined_total: 500000   rows_returned: 3

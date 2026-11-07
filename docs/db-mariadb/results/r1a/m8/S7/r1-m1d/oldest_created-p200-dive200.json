@@ -1,0 +1,42 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.145529425
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 3.41452046,
+    "r_loops": 1,
+    "r_total_time_ms": 2.001920144,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "outbox_record",
+          "access_type": "ref",
+          "possible_keys": [
+            "idx_outbox_record_status_completed_created_id",
+            "idx_outbox_record_status_completed_retry"
+          ],
+          "key": "idx_outbox_record_status_completed_created_id",
+          "key_length": "87",
+          "used_key_parts": ["status", "completed_at"],
+          "ref": ["const", "const"],
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 21804,
+          "r_rows": 10000,
+          "cost": 3.41452046,
+          "r_table_time_ms": 1.14336377,
+          "r_other_time_ms": 0.856298626,
+          "r_engine_stats": {
+            "pages_accessed": 88
+          },
+          "filtered": 96.72537231,
+          "r_total_filtered": 78.06,
+          "attached_condition": "outbox_record.partition_no in (0,1,2,3,5,6,7,8,10,11,12,14,15,16,17,19,20,21,23,24,25,26,28,29,30,32,33,34,35,37,38,39,40,42,43,44,46,47,48,49,51,52,53,55,56,57,58,60,61,62,64,65,66,67,69,70,71,72,74,75,76,78,79,80,81,83,84,85,87,88,89,90,92,93,94,96,97,98,99,101,102,103,104,106,107,108,110,111,112,113,115,116,117,119,120,121,122,124,125,126,128,129,130,131,133,134,135,136,138,139,140,142,143,144,145,147,148,149,151,152,153,154,156,157,158,160,161,162,163,165,166,167,168,170,171,172,174,175,176,177,179,180,181,183,184,185,186,188,189,190,192,193,194,195,197,198,199,200,202,203,204,206,207,208,209,211,212,213,215,216,217,218,220,221,222,224,225,226,227,229,230,231,232,234,235,236,238,239,240,241,243,244,245,247,248,249,250,252,253,254) and outbox_record.`status` = 'NEW' and outbox_record.completed_at is null",
+          "r_filtered": 78.06,
+          "using_index": true
+        }
+      }
+    ]
+  }
+}

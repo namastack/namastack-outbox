@@ -1,0 +1,76 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.549897125
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 0.165394641,
+    "r_loops": 1,
+    "r_total_time_ms": 1398.051712,
+    "filesort": {
+      "sort_key": "r.record_key, r.created_at, r.`id`",
+      "r_loops": 1,
+      "r_total_time_ms": 11.55705123,
+      "r_used_priority_queue": false,
+      "r_output_rows": 20000,
+      "r_buffer_size": "2047KiB",
+      "r_sort_mode": "packed_sort_key,rowid",
+      "temporary_table": {
+        "nested_loop": [
+          {
+            "table": {
+              "table_name": "j",
+              "access_type": "ALL",
+              "loops": 1,
+              "r_loops": 1,
+              "rows": 40,
+              "r_rows": 10,
+              "cost": 0.00137336,
+              "r_table_time_ms": 0.047071539,
+              "r_other_time_ms": 0.019968528,
+              "filtered": 100,
+              "r_total_filtered": 100,
+              "attached_condition": "j.k is not null",
+              "r_filtered": 100,
+              "table_function": "json_table"
+            }
+          },
+          {
+            "table": {
+              "table_name": "r",
+              "access_type": "ref",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_key_completed_created_id",
+                "idx_outbox_record_status_completed_retry"
+              ],
+              "key": "idx_outbox_record_key_completed_created_id",
+              "key_length": "1027",
+              "used_key_parts": ["record_key", "completed_at"],
+              "ref": ["*any*.j.k", "const"],
+              "loops": 40,
+              "r_loops": 10,
+              "rows": 1,
+              "r_index_rows": 2000,
+              "r_rows": 2000,
+              "cost": 0.1383424,
+              "r_table_time_ms": 1370.453321,
+              "r_other_time_ms": 11.325326,
+              "r_engine_stats": {
+                "pages_accessed": 60170,
+                "pages_read_count": 17809,
+                "pages_read_time_ms": 1321.637235
+              },
+              "filtered": 84.73416901,
+              "r_total_filtered": 100,
+              "index_condition": "r.completed_at is null",
+              "r_icp_filtered": 100,
+              "attached_condition": "r.`status` = 'NEW'",
+              "r_filtered": 100
+            }
+          }
+        ]
+      }
+    }
+  }
+}

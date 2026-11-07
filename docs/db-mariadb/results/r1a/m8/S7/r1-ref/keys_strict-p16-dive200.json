@@ -1,0 +1,106 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 3.929695842
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 1.09904488,
+    "r_loops": 1,
+    "r_total_time_ms": 96.46798666,
+    "nested_loop": [
+      {
+        "read_sorted_file": {
+          "r_rows": 10,
+          "filesort": {
+            "sort_key": "o.created_at, o.`id`",
+            "r_loops": 1,
+            "r_total_time_ms": 96.25710296,
+            "r_limit": 10,
+            "r_used_priority_queue": true,
+            "r_output_rows": 11,
+            "r_sort_mode": "sort_key,rowid",
+            "table": {
+              "table_name": "o",
+              "access_type": "range",
+              "possible_keys": [
+                "idx_outbox_record_status_completed_created_id",
+                "idx_outbox_record_status_completed_retry",
+                "idx_outbox_record_status_completed_partition"
+              ],
+              "key": "idx_outbox_record_status_completed_partition",
+              "key_length": "91",
+              "used_key_parts": ["status", "completed_at", "partition_no"],
+              "loops": 1,
+              "r_loops": 1,
+              "rows": 604,
+              "r_index_rows": 604,
+              "r_rows": 604,
+              "cost": 1.09904488,
+              "r_table_time_ms": 82.40691218,
+              "r_other_time_ms": 0.510291206,
+              "r_engine_stats": {
+                "pages_accessed": 2579,
+                "pages_read_count": 899,
+                "pages_read_time_ms": 83.7214534
+              },
+              "filtered": 100,
+              "r_total_filtered": 1.821192053,
+              "index_condition": "o.partition_no in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240) and o.`status` = 'NEW' and o.completed_at is null",
+              "r_icp_filtered": 100,
+              "attached_condition": "o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00' and !<in_optimizer>(1,exists(subquery#4))",
+              "r_filtered": 100
+            }
+          }
+        }
+      }
+    ],
+    "subqueries": [
+      {
+        "subquery_cache": {
+          "state": "disabled",
+          "r_loops": 200,
+          "r_hit_ratio": 0,
+          "query_block": {
+            "select_id": 4,
+            "cost": 0.001792605,
+            "r_loops": 604,
+            "r_total_time_ms": 13.18016138,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "earlier",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "PRIMARY",
+                    "idx_outbox_record_key_completed_created_id"
+                  ],
+                  "key": "idx_outbox_record_key_completed_created_id",
+                  "key_length": "1027",
+                  "used_key_parts": ["record_key", "completed_at"],
+                  "ref": ["m8.o.record_key", "const"],
+                  "loops": 1,
+                  "r_loops": 604,
+                  "rows": 1,
+                  "r_rows": 1,
+                  "cost": 0.001792605,
+                  "r_table_time_ms": 12.7899322,
+                  "r_other_time_ms": 0.206378244,
+                  "r_engine_stats": {
+                    "pages_accessed": 1822,
+                    "pages_read_count": 133,
+                    "pages_read_time_ms": 11.6092905
+                  },
+                  "filtered": 100,
+                  "r_total_filtered": 0,
+                  "attached_condition": "earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)",
+                  "r_filtered": 0,
+                  "using_index": true
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

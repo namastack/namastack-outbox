@@ -1,0 +1,419 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.837203095
+  },
+  "query_block": {
+    "union_result": {
+      "table_name": "<union1,2,3,4,5,6,7,8,9>",
+      "access_type": "ALL",
+      "r_loops": 1,
+      "r_rows": 18000,
+      "query_specifications": [
+        {
+          "query_block": {
+            "select_id": 1,
+            "cost": 7.27422464,
+            "r_loops": 1,
+            "r_total_time_ms": 139.3923736,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "outbox_record",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "idx_outbox_record_status_completed_created_id",
+                    "idx_outbox_record_key_completed_created_id",
+                    "idx_outbox_record_status_completed_retry"
+                  ],
+                  "key": "idx_outbox_record_key_completed_created_id",
+                  "key_length": "1027",
+                  "used_key_parts": ["record_key", "completed_at"],
+                  "ref": ["const", "const"],
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 3998,
+                  "r_index_rows": 2000,
+                  "r_rows": 2000,
+                  "cost": 7.27422464,
+                  "r_table_time_ms": 137.5117397,
+                  "r_other_time_ms": 1.877523242,
+                  "r_engine_stats": {
+                    "pages_accessed": 6061,
+                    "pages_read_count": 1804,
+                    "pages_read_time_ms": 132.1702991
+                  },
+                  "filtered": 84.73416901,
+                  "r_total_filtered": 100,
+                  "index_condition": "outbox_record.record_key = 'order-000000000000000000000000000056' and outbox_record.completed_at is null",
+                  "r_icp_filtered": 100,
+                  "attached_condition": "outbox_record.`status` = 'NEW'",
+                  "r_filtered": 100
+                }
+              }
+            ]
+          }
+        },
+        {
+          "query_block": {
+            "select_id": 2,
+            "operation": "UNION",
+            "cost": 7.27422464,
+            "r_loops": 1,
+            "r_total_time_ms": 135.9428356,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "outbox_record",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "idx_outbox_record_status_completed_created_id",
+                    "idx_outbox_record_key_completed_created_id",
+                    "idx_outbox_record_status_completed_retry"
+                  ],
+                  "key": "idx_outbox_record_key_completed_created_id",
+                  "key_length": "1027",
+                  "used_key_parts": ["record_key", "completed_at"],
+                  "ref": ["const", "const"],
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 3998,
+                  "r_index_rows": 2000,
+                  "r_rows": 2000,
+                  "cost": 7.27422464,
+                  "r_table_time_ms": 134.1275258,
+                  "r_other_time_ms": 1.811295965,
+                  "r_engine_stats": {
+                    "pages_accessed": 6061,
+                    "pages_read_count": 1772,
+                    "pages_read_time_ms": 129.2034876
+                  },
+                  "filtered": 84.73416901,
+                  "r_total_filtered": 100,
+                  "index_condition": "outbox_record.record_key = 'order-000000000000000000000000000057' and outbox_record.completed_at is null",
+                  "r_icp_filtered": 100,
+                  "attached_condition": "outbox_record.`status` = 'NEW'",
+                  "r_filtered": 100
+                }
+              }
+            ]
+          }
+        },
+        {
+          "query_block": {
+            "select_id": 3,
+            "operation": "UNION",
+            "cost": 7.27422464,
+            "r_loops": 1,
+            "r_total_time_ms": 138.9587254,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "outbox_record",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "idx_outbox_record_status_completed_created_id",
+                    "idx_outbox_record_key_completed_created_id",
+                    "idx_outbox_record_status_completed_retry"
+                  ],
+                  "key": "idx_outbox_record_key_completed_created_id",
+                  "key_length": "1027",
+                  "used_key_parts": ["record_key", "completed_at"],
+                  "ref": ["const", "const"],
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 3998,
+                  "r_index_rows": 2000,
+                  "r_rows": 2000,
+                  "cost": 7.27422464,
+                  "r_table_time_ms": 137.1148878,
+                  "r_other_time_ms": 1.841549789,
+                  "r_engine_stats": {
+                    "pages_accessed": 6061,
+                    "pages_read_count": 1812,
+                    "pages_read_time_ms": 132.7247618
+                  },
+                  "filtered": 84.73416901,
+                  "r_total_filtered": 100,
+                  "index_condition": "outbox_record.record_key = 'order-000000000000000000000000000066' and outbox_record.completed_at is null",
+                  "r_icp_filtered": 100,
+                  "attached_condition": "outbox_record.`status` = 'NEW'",
+                  "r_filtered": 100
+                }
+              }
+            ]
+          }
+        },
+        {
+          "query_block": {
+            "select_id": 4,
+            "operation": "UNION",
+            "cost": 7.27422464,
+            "r_loops": 1,
+            "r_total_time_ms": 137.6922191,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "outbox_record",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "idx_outbox_record_status_completed_created_id",
+                    "idx_outbox_record_key_completed_created_id",
+                    "idx_outbox_record_status_completed_retry"
+                  ],
+                  "key": "idx_outbox_record_key_completed_created_id",
+                  "key_length": "1027",
+                  "used_key_parts": ["record_key", "completed_at"],
+                  "ref": ["const", "const"],
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 3998,
+                  "r_index_rows": 2000,
+                  "r_rows": 2000,
+                  "cost": 7.27422464,
+                  "r_table_time_ms": 135.8756851,
+                  "r_other_time_ms": 1.813904918,
+                  "r_engine_stats": {
+                    "pages_accessed": 6061,
+                    "pages_read_count": 1797,
+                    "pages_read_time_ms": 131.0914366
+                  },
+                  "filtered": 84.73416901,
+                  "r_total_filtered": 100,
+                  "index_condition": "outbox_record.record_key = 'order-000000000000000000000000000087' and outbox_record.completed_at is null",
+                  "r_icp_filtered": 100,
+                  "attached_condition": "outbox_record.`status` = 'NEW'",
+                  "r_filtered": 100
+                }
+              }
+            ]
+          }
+        },
+        {
+          "query_block": {
+            "select_id": 5,
+            "operation": "UNION",
+            "cost": 7.28510048,
+            "r_loops": 1,
+            "r_total_time_ms": 137.2680935,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "outbox_record",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "idx_outbox_record_status_completed_created_id",
+                    "idx_outbox_record_key_completed_created_id",
+                    "idx_outbox_record_status_completed_retry"
+                  ],
+                  "key": "idx_outbox_record_key_completed_created_id",
+                  "key_length": "1027",
+                  "used_key_parts": ["record_key", "completed_at"],
+                  "ref": ["const", "const"],
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 4004,
+                  "r_index_rows": 2000,
+                  "r_rows": 2000,
+                  "cost": 7.28510048,
+                  "r_table_time_ms": 135.4636812,
+                  "r_other_time_ms": 1.801442149,
+                  "r_engine_stats": {
+                    "pages_accessed": 6062,
+                    "pages_read_count": 1786,
+                    "pages_read_time_ms": 130.6972639
+                  },
+                  "filtered": 84.73416901,
+                  "r_total_filtered": 100,
+                  "index_condition": "outbox_record.record_key = 'order-000000000000000000000000000085' and outbox_record.completed_at is null",
+                  "r_icp_filtered": 100,
+                  "attached_condition": "outbox_record.`status` = 'NEW'",
+                  "r_filtered": 100
+                }
+              }
+            ]
+          }
+        },
+        {
+          "query_block": {
+            "select_id": 6,
+            "operation": "UNION",
+            "cost": 7.27422464,
+            "r_loops": 1,
+            "r_total_time_ms": 138.6120758,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "outbox_record",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "idx_outbox_record_status_completed_created_id",
+                    "idx_outbox_record_key_completed_created_id",
+                    "idx_outbox_record_status_completed_retry"
+                  ],
+                  "key": "idx_outbox_record_key_completed_created_id",
+                  "key_length": "1027",
+                  "used_key_parts": ["record_key", "completed_at"],
+                  "ref": ["const", "const"],
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 3998,
+                  "r_index_rows": 2000,
+                  "r_rows": 2000,
+                  "cost": 7.27422464,
+                  "r_table_time_ms": 136.7883472,
+                  "r_other_time_ms": 1.820918989,
+                  "r_engine_stats": {
+                    "pages_accessed": 6061,
+                    "pages_read_count": 1810,
+                    "pages_read_time_ms": 131.9399285
+                  },
+                  "filtered": 84.73416901,
+                  "r_total_filtered": 100,
+                  "index_condition": "outbox_record.record_key = 'order-000000000000000000000000000089' and outbox_record.completed_at is null",
+                  "r_icp_filtered": 100,
+                  "attached_condition": "outbox_record.`status` = 'NEW'",
+                  "r_filtered": 100
+                }
+              }
+            ]
+          }
+        },
+        {
+          "query_block": {
+            "select_id": 7,
+            "operation": "UNION",
+            "cost": 7.27422464,
+            "r_loops": 1,
+            "r_total_time_ms": 138.3675868,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "outbox_record",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "idx_outbox_record_status_completed_created_id",
+                    "idx_outbox_record_key_completed_created_id",
+                    "idx_outbox_record_status_completed_retry"
+                  ],
+                  "key": "idx_outbox_record_key_completed_created_id",
+                  "key_length": "1027",
+                  "used_key_parts": ["record_key", "completed_at"],
+                  "ref": ["const", "const"],
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 3998,
+                  "r_index_rows": 2000,
+                  "r_rows": 2000,
+                  "cost": 7.27422464,
+                  "r_table_time_ms": 136.4766675,
+                  "r_other_time_ms": 1.888029296,
+                  "r_engine_stats": {
+                    "pages_accessed": 6061,
+                    "pages_read_count": 1797,
+                    "pages_read_time_ms": 131.6782505
+                  },
+                  "filtered": 84.73416901,
+                  "r_total_filtered": 100,
+                  "index_condition": "outbox_record.record_key = 'order-000000000000000000000000000097' and outbox_record.completed_at is null",
+                  "r_icp_filtered": 100,
+                  "attached_condition": "outbox_record.`status` = 'NEW'",
+                  "r_filtered": 100
+                }
+              }
+            ]
+          }
+        },
+        {
+          "query_block": {
+            "select_id": 8,
+            "operation": "UNION",
+            "cost": 7.27422464,
+            "r_loops": 1,
+            "r_total_time_ms": 138.7848186,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "outbox_record",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "idx_outbox_record_status_completed_created_id",
+                    "idx_outbox_record_key_completed_created_id",
+                    "idx_outbox_record_status_completed_retry"
+                  ],
+                  "key": "idx_outbox_record_key_completed_created_id",
+                  "key_length": "1027",
+                  "used_key_parts": ["record_key", "completed_at"],
+                  "ref": ["const", "const"],
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 3998,
+                  "r_index_rows": 2000,
+                  "r_rows": 2000,
+                  "cost": 7.27422464,
+                  "r_table_time_ms": 136.8869857,
+                  "r_other_time_ms": 1.89464199,
+                  "r_engine_stats": {
+                    "pages_accessed": 6061,
+                    "pages_read_count": 1806,
+                    "pages_read_time_ms": 132.0471665
+                  },
+                  "filtered": 84.73416901,
+                  "r_total_filtered": 100,
+                  "index_condition": "outbox_record.record_key = 'order-000000000000000000000000000094' and outbox_record.completed_at is null",
+                  "r_icp_filtered": 100,
+                  "attached_condition": "outbox_record.`status` = 'NEW'",
+                  "r_filtered": 100
+                }
+              }
+            ]
+          }
+        },
+        {
+          "query_block": {
+            "select_id": 9,
+            "operation": "UNION",
+            "cost": 7.30322688,
+            "r_loops": 1,
+            "r_total_time_ms": 138.2231411,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "outbox_record",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "idx_outbox_record_status_completed_created_id",
+                    "idx_outbox_record_key_completed_created_id",
+                    "idx_outbox_record_status_completed_retry"
+                  ],
+                  "key": "idx_outbox_record_key_completed_created_id",
+                  "key_length": "1027",
+                  "used_key_parts": ["record_key", "completed_at"],
+                  "ref": ["const", "const"],
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 4014,
+                  "r_index_rows": 2000,
+                  "r_rows": 2000,
+                  "cost": 7.30322688,
+                  "r_table_time_ms": 136.2206088,
+                  "r_other_time_ms": 1.998608781,
+                  "r_engine_stats": {
+                    "pages_accessed": 6062,
+                    "pages_read_count": 1771,
+                    "pages_read_time_ms": 131.3608211
+                  },
+                  "filtered": 84.73416901,
+                  "r_total_filtered": 100,
+                  "index_condition": "outbox_record.record_key = 'order-000000000000000000000000000081' and outbox_record.completed_at is null",
+                  "r_icp_filtered": 100,
+                  "attached_condition": "outbox_record.`status` = 'NEW'",
+                  "r_filtered": 100
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

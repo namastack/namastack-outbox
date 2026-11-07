@@ -1,0 +1,2 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_nonstrict,6632.609,6763.912,6623.456,6763.912,10,5,slow(>2s): warmup 1, reps 5

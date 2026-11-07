@@ -1,0 +1,5 @@
+id: upd_retry   mode: ANALYZE (executed)   sql_select_limit: none   rows_returned: 1
+r_total_time_ms: 0.146   cost: -
+select#1 table=outbox_record access=range key=PRIMARY key_parts=[id] key_len=1022 loops=1 rows_est=1 r_rows=1 r_index_rows=- examined=1 filtered_est=- r_filtered=100 index_condition=no attached_condition=yes using_index=no rowid_filter=no
+filesort: no   temporary_table: no   duplicates_removal: no   strategies: -
+rows_examined_total: 1   rows_returned: 1

@@ -1,0 +1,30 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "cost": 7.27507944,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "outbox_record",
+          "access_type": "ref",
+          "possible_keys": [
+            "idx_outbox_record_status_completed_created_id",
+            "idx_outbox_record_key_completed_created_id",
+            "idx_outbox_record_status_completed_retry",
+            "idx_outbox_record_status_completed_partition"
+          ],
+          "key": "idx_outbox_record_key_completed_created_id",
+          "key_length": "1027",
+          "used_key_parts": ["record_key", "completed_at"],
+          "ref": ["const", "const"],
+          "loops": 1,
+          "rows": 3998,
+          "cost": 7.27507944,
+          "filtered": 80.38773346,
+          "index_condition": "outbox_record.record_key = 'order-000000000000000000000000000000' and outbox_record.completed_at is null",
+          "attached_condition": "outbox_record.record_key <=> 'order-000000000000000000000000000000' and outbox_record.completed_at <=> NULL and outbox_record.`status` = 'NEW'"
+        }
+      }
+    ]
+  }
+}

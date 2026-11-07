@@ -1,0 +1,2 @@
+driver: restarted Fri Nov  6 16:57:10 CET 2026 PID 330532; log results/r2/logs/r2.log. Part B keys_nonstrict only (user decision).
+driver finished 2026-11-06 (run-r2.sh all DONE); no driver running.

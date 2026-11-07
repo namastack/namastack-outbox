@@ -1,0 +1,6 @@
+id: pages   mode: ANALYZE (executed)   sql_select_limit: none   rows_returned: 20000
+r_total_time_ms: 1398.052   cost: 0.165
+select#1 table=j access=ALL key=- key_parts=[-] key_len=- loops=1 rows_est=40 r_rows=10 r_index_rows=- examined=10 filtered_est=100 r_filtered=100 index_condition=no attached_condition=yes using_index=no rowid_filter=no
+select#1 table=r access=ref key=idx_outbox_record_key_completed_created_id key_parts=[record_key,completed_at] key_len=1027 loops=10 rows_est=1 r_rows=2000 r_index_rows=2000 examined=20000 filtered_est=84.734 r_filtered=100 index_condition=yes attached_condition=yes using_index=no rowid_filter=no
+filesort: yes   temporary_table: yes   duplicates_removal: no   strategies: -
+rows_examined_total: 20010   rows_returned: 20000

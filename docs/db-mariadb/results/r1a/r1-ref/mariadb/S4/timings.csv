@@ -1,0 +1,19 @@
+query_id,median_ms,p95_ms,min_ms,max_ms,rows,reps,note
+keys_strict,,,,,,0,ERROR stopped at limit 10 s (keys_strict)
+keys_nonstrict,,,,,,0,ERROR stopped at limit 10 s (keys_nonstrict)
+pages,0.327,0.453,0.303,0.473,10,20,
+insert,0.567,0.625,0.419,0.629,1,20,
+upd_complete,0.689,0.828,0.586,0.922,1,20,
+upd_retry,0.355,0.399,0.328,0.451,1,20,
+upd_fail,0.258,0.277,0.186,0.286,1,20,
+delete_by_id,0.545,0.762,0.324,0.922,1,20,
+count_new,93.399,94.837,92.858,97.533,1,20,
+count_failed,0.075,0.083,0.069,0.088,1,20,
+count_completed,100.740,101.587,100.505,101.624,1,20,
+count_statuses,111.501,111.790,111.113,112.014,1,20,
+count_statuses_all,245.903,246.543,240.308,246.846,2,20,
+count_partitions,109.349,109.647,109.077,109.686,1,20,
+count_partition_single,86.104,86.371,85.514,86.406,1,20,
+oldest_created,,,,,,0,ERROR stopped at limit 10 s (oldest_created)
+oldest_due_strict,,,,,,0,ERROR stopped at limit 10 s (oldest_due_strict)
+oldest_due_nonstrict,,,,,,0,ERROR stopped at limit 10 s (oldest_due_nonstrict)

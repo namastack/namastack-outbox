@@ -1,0 +1,5 @@
+id: pages   mode: ANALYZE (executed)   sql_select_limit: none   rows_returned: 18000
+r_total_time_ms: 1282.514   cost: 86.947
+select#1 table=outbox_record access=range key=idx_outbox_record_completed_key_created_id key_parts=[completed_at,record_key] key_len=1027 loops=1 rows_est=36002 r_rows=18000 r_index_rows=18000 examined=18000 filtered_est=89.132 r_filtered=100 index_condition=yes attached_condition=yes using_index=no rowid_filter=no
+filesort: no   temporary_table: no   duplicates_removal: no   strategies: -
+rows_examined_total: 18000   rows_returned: 18000

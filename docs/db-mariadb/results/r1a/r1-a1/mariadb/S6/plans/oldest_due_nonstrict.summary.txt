@@ -1,0 +1,5 @@
+id: oldest_due_nonstrict   mode: ANALYZE (executed)   sql_select_limit: 1   rows_returned: 1
+r_total_time_ms: 39.393   cost: 67.514
+select#1 table=o access=ref key=idx_outbox_record_status_completed_created_id key_parts=[status,completed_at] key_len=87 loops=1 rows_est=436708 r_rows=200000 r_index_rows=- examined=200000 filtered_est=100 r_filtered=2.500 index_condition=no attached_condition=yes using_index=yes rowid_filter=no
+filesort: no   temporary_table: no   duplicates_removal: no   strategies: -
+rows_examined_total: 200000   rows_returned: 1

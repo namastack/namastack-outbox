@@ -1,0 +1,837 @@
+{
+  "steps": [
+    {
+      "join_preparation": {
+        "select_id": 1,
+        "steps": [
+          {
+            "join_preparation": {
+              "select_id": 3,
+              "steps": [
+                {
+                  "expanded_query": "/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)"
+                }
+              ]
+            }
+          },
+          {
+            "expanded_query": "/* select#1 */ select o.next_retry_at AS next_retry_at from outbox_record o where o.partition_no in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1)) order by o.next_retry_at limit 1"
+          }
+        ]
+      }
+    },
+    {
+      "join_optimization": {
+        "select_id": 1,
+        "steps": [
+          {
+            "condition_processing": {
+              "condition": "WHERE",
+              "original_condition": "o.partition_no in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1))",
+              "steps": [
+                {
+                  "transformation": "equality_propagation",
+                  "resulting_condition": "o.partition_no in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1))"
+                },
+                {
+                  "transformation": "constant_propagation",
+                  "resulting_condition": "o.partition_no in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1))"
+                },
+                {
+                  "transformation": "trivial_condition_removal",
+                  "resulting_condition": "o.partition_no in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1))"
+                }
+              ]
+            }
+          },
+          {
+            "ref_optimizer_key_uses": [
+              {
+                "table": "o",
+                "index": "idx_outbox_record_status_completed_created_id",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": false
+              },
+              {
+                "table": "o",
+                "index": "idx_outbox_record_status_completed_created_id",
+                "field": "completed_at",
+                "equals": "NULL",
+                "null_rejecting": false
+              },
+              {
+                "table": "o",
+                "index": "idx_outbox_record_status_completed_retry",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": false
+              },
+              {
+                "table": "o",
+                "index": "idx_outbox_record_status_completed_retry",
+                "field": "completed_at",
+                "equals": "NULL",
+                "null_rejecting": false
+              },
+              {
+                "table": "o",
+                "index": "idx_outbox_record_status_partition_created",
+                "field": "status",
+                "equals": "'NEW'",
+                "null_rejecting": false
+              }
+            ]
+          },
+          {
+            "rows_estimation": [
+              {
+                "table": "o",
+                "range_analysis": {
+                  "table_scan": {
+                    "rows": 445478,
+                    "cost": 107.678262
+                  },
+                  "potential_range_indexes": [
+                    {
+                      "index": "PRIMARY",
+                      "usable": false,
+                      "cause": "not applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_created_id",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "completed_at",
+                        "created_at",
+                        "id",
+                        "partition_no",
+                        "next_retry_at",
+                        "record_key"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "usable": false,
+                      "cause": "not applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_retry",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "completed_at",
+                        "next_retry_at",
+                        "partition_no",
+                        "id"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_status_partition_created",
+                      "usable": true,
+                      "key_parts": ["status", "partition_no", "created_at", "id"]
+                    }
+                  ],
+                  "best_covering_index_scan": {
+                    "index": "idx_outbox_record_status_completed_created_id",
+                    "cost": 69.25545795,
+                    "chosen": true
+                  },
+                  "setup_range_conditions": [],
+                  "analyzing_range_alternatives": {
+                    "range_scan_alternatives": [
+                      {
+                        "index": "idx_outbox_record_status_completed_created_id",
+                        "ranges": [
+                          "(NEW,NULL) <= (status,completed_at) <= (NEW,NULL)"
+                        ],
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": true,
+                        "rows": 408356,
+                        "cost": 63.4615241,
+                        "chosen": true
+                      },
+                      {
+                        "index": "idx_outbox_record_status_completed_retry",
+                        "ranges": [
+                          "(NEW,NULL) <= (status,completed_at,next_retry_at,partition_no) <= (NEW,NULL,2026-01-01 12:00:00,255)"
+                        ],
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "rows": 410718,
+                        "cost": 443.929479,
+                        "chosen": false,
+                        "cause": "cost"
+                      },
+                      {
+                        "index": "idx_outbox_record_status_partition_created",
+                        "ranges": [
+                          "(NEW,0) <= (status,partition_no) <= (NEW,0)",
+                          "(NEW,1) <= (status,partition_no) <= (NEW,1)",
+                          "(NEW,2) <= (status,partition_no) <= (NEW,2)",
+                          "(NEW,3) <= (status,partition_no) <= (NEW,3)",
+                          "(NEW,4) <= (status,partition_no) <= (NEW,4)",
+                          "(NEW,5) <= (status,partition_no) <= (NEW,5)",
+                          "(NEW,6) <= (status,partition_no) <= (NEW,6)",
+                          "(NEW,7) <= (status,partition_no) <= (NEW,7)",
+                          "(NEW,8) <= (status,partition_no) <= (NEW,8)",
+                          "(NEW,9) <= (status,partition_no) <= (NEW,9)",
+                          "(NEW,10) <= (status,partition_no) <= (NEW,10)",
+                          "(NEW,11) <= (status,partition_no) <= (NEW,11)",
+                          "(NEW,12) <= (status,partition_no) <= (NEW,12)",
+                          "(NEW,13) <= (status,partition_no) <= (NEW,13)",
+                          "(NEW,14) <= (status,partition_no) <= (NEW,14)",
+                          "(NEW,15) <= (status,partition_no) <= (NEW,15)",
+                          "(NEW,16) <= (status,partition_no) <= (NEW,16)",
+                          "(NEW,17) <= (status,partition_no) <= (NEW,17)",
+                          "(NEW,18) <= (status,partition_no) <= (NEW,18)",
+                          "(NEW,19) <= (status,partition_no) <= (NEW,19)",
+                          "(NEW,20) <= (status,partition_no) <= (NEW,20)",
+                          "(NEW,21) <= (status,partition_no) <= (NEW,21)",
+                          "(NEW,22) <= (status,partition_no) <= (NEW,22)",
+                          "(NEW,23) <= (status,partition_no) <= (NEW,23)",
+                          "(NEW,24) <= (status,partition_no) <= (NEW,24)",
+                          "(NEW,25) <= (status,partition_no) <= (NEW,25)",
+                          "(NEW,26) <= (status,partition_no) <= (NEW,26)",
+                          "(NEW,27) <= (status,partition_no) <= (NEW,27)",
+                          "(NEW,28) <= (status,partition_no) <= (NEW,28)",
+                          "(NEW,29) <= (status,partition_no) <= (NEW,29)",
+                          "(NEW,30) <= (status,partition_no) <= (NEW,30)",
+                          "(NEW,31) <= (status,partition_no) <= (NEW,31)",
+                          "(NEW,32) <= (status,partition_no) <= (NEW,32)",
+                          "(NEW,33) <= (status,partition_no) <= (NEW,33)",
+                          "(NEW,34) <= (status,partition_no) <= (NEW,34)",
+                          "(NEW,35) <= (status,partition_no) <= (NEW,35)",
+                          "(NEW,36) <= (status,partition_no) <= (NEW,36)",
+                          "(NEW,37) <= (status,partition_no) <= (NEW,37)",
+                          "(NEW,38) <= (status,partition_no) <= (NEW,38)",
+                          "(NEW,39) <= (status,partition_no) <= (NEW,39)",
+                          "(NEW,40) <= (status,partition_no) <= (NEW,40)",
+                          "(NEW,41) <= (status,partition_no) <= (NEW,41)",
+                          "(NEW,42) <= (status,partition_no) <= (NEW,42)",
+                          "(NEW,43) <= (status,partition_no) <= (NEW,43)",
+                          "(NEW,44) <= (status,partition_no) <= (NEW,44)",
+                          "(NEW,45) <= (status,partition_no) <= (NEW,45)",
+                          "(NEW,46) <= (status,partition_no) <= (NEW,46)",
+                          "(NEW,47) <= (status,partition_no) <= (NEW,47)",
+                          "(NEW,48) <= (status,partition_no) <= (NEW,48)",
+                          "(NEW,49) <= (status,partition_no) <= (NEW,49)",
+                          "(NEW,50) <= (status,partition_no) <= (NEW,50)",
+                          "(NEW,51) <= (status,partition_no) <= (NEW,51)",
+                          "(NEW,52) <= (status,partition_no) <= (NEW,52)",
+                          "(NEW,53) <= (status,partition_no) <= (NEW,53)",
+                          "(NEW,54) <= (status,partition_no) <= (NEW,54)",
+                          "(NEW,55) <= (status,partition_no) <= (NEW,55)",
+                          "(NEW,56) <= (status,partition_no) <= (NEW,56)",
+                          "(NEW,57) <= (status,partition_no) <= (NEW,57)",
+                          "(NEW,58) <= (status,partition_no) <= (NEW,58)",
+                          "(NEW,59) <= (status,partition_no) <= (NEW,59)",
+                          "(NEW,60) <= (status,partition_no) <= (NEW,60)",
+                          "(NEW,61) <= (status,partition_no) <= (NEW,61)",
+                          "(NEW,62) <= (status,partition_no) <= (NEW,62)",
+                          "(NEW,63) <= (status,partition_no) <= (NEW,63)",
+                          "(NEW,64) <= (status,partition_no) <= (NEW,64)",
+                          "(NEW,65) <= (status,partition_no) <= (NEW,65)",
+                          "(NEW,66) <= (status,partition_no) <= (NEW,66)",
+                          "(NEW,67) <= (status,partition_no) <= (NEW,67)",
+                          "(NEW,68) <= (status,partition_no) <= (NEW,68)",
+                          "(NEW,69) <= (status,partition_no) <= (NEW,69)",
+                          "(NEW,70) <= (status,partition_no) <= (NEW,70)",
+                          "(NEW,71) <= (status,partition_no) <= (NEW,71)",
+                          "(NEW,72) <= (status,partition_no) <= (NEW,72)",
+                          "(NEW,73) <= (status,partition_no) <= (NEW,73)",
+                          "(NEW,74) <= (status,partition_no) <= (NEW,74)",
+                          "(NEW,75) <= (status,partition_no) <= (NEW,75)",
+                          "(NEW,76) <= (status,partition_no) <= (NEW,76)",
+                          "(NEW,77) <= (status,partition_no) <= (NEW,77)",
+                          "(NEW,78) <= (status,partition_no) <= (NEW,78)",
+                          "(NEW,79) <= (status,partition_no) <= (NEW,79)",
+                          "(NEW,80) <= (status,partition_no) <= (NEW,80)",
+                          "(NEW,81) <= (status,partition_no) <= (NEW,81)",
+                          "(NEW,82) <= (status,partition_no) <= (NEW,82)",
+                          "(NEW,83) <= (status,partition_no) <= (NEW,83)",
+                          "(NEW,84) <= (status,partition_no) <= (NEW,84)",
+                          "(NEW,85) <= (status,partition_no) <= (NEW,85)",
+                          "(NEW,86) <= (status,partition_no) <= (NEW,86)",
+                          "(NEW,87) <= (status,partition_no) <= (NEW,87)",
+                          "(NEW,88) <= (status,partition_no) <= (NEW,88)",
+                          "(NEW,89) <= (status,partition_no) <= (NEW,89)",
+                          "(NEW,90) <= (status,partition_no) <= (NEW,90)",
+                          "(NEW,91) <= (status,partition_no) <= (NEW,91)",
+                          "(NEW,92) <= (status,partition_no) <= (NEW,92)",
+                          "(NEW,93) <= (status,partition_no) <= (NEW,93)",
+                          "(NEW,94) <= (status,partition_no) <= (NEW,94)",
+                          "(NEW,95) <= (status,partition_no) <= (NEW,95)",
+                          "(NEW,96) <= (status,partition_no) <= (NEW,96)",
+                          "(NEW,97) <= (status,partition_no) <= (NEW,97)",
+                          "(NEW,98) <= (status,partition_no) <= (NEW,98)",
+                          "(NEW,99) <= (status,partition_no) <= (NEW,99)",
+                          "(NEW,100) <= (status,partition_no) <= (NEW,100)",
+                          "(NEW,101) <= (status,partition_no) <= (NEW,101)",
+                          "(NEW,102) <= (status,partition_no) <= (NEW,102)",
+                          "(NEW,103) <= (status,partition_no) <= (NEW,103)",
+                          "(NEW,104) <= (status,partition_no) <= (NEW,104)",
+                          "(NEW,105) <= (status,partition_no) <= (NEW,105)",
+                          "(NEW,106) <= (status,partition_no) <= (NEW,106)",
+                          "(NEW,107) <= (status,partition_no) <= (NEW,107)",
+                          "(NEW,108) <= (status,partition_no) <= (NEW,108)",
+                          "(NEW,109) <= (status,partition_no) <= (NEW,109)",
+                          "(NEW,110) <= (status,partition_no) <= (NEW,110)",
+                          "(NEW,111) <= (status,partition_no) <= (NEW,111)",
+                          "(NEW,112) <= (status,partition_no) <= (NEW,112)",
+                          "(NEW,113) <= (status,partition_no) <= (NEW,113)",
+                          "(NEW,114) <= (status,partition_no) <= (NEW,114)",
+                          "(NEW,115) <= (status,partition_no) <= (NEW,115)",
+                          "(NEW,116) <= (status,partition_no) <= (NEW,116)",
+                          "(NEW,117) <= (status,partition_no) <= (NEW,117)",
+                          "(NEW,118) <= (status,partition_no) <= (NEW,118)",
+                          "(NEW,119) <= (status,partition_no) <= (NEW,119)",
+                          "(NEW,120) <= (status,partition_no) <= (NEW,120)",
+                          "(NEW,121) <= (status,partition_no) <= (NEW,121)",
+                          "(NEW,122) <= (status,partition_no) <= (NEW,122)",
+                          "(NEW,123) <= (status,partition_no) <= (NEW,123)",
+                          "(NEW,124) <= (status,partition_no) <= (NEW,124)",
+                          "(NEW,125) <= (status,partition_no) <= (NEW,125)",
+                          "(NEW,126) <= (status,partition_no) <= (NEW,126)",
+                          "(NEW,127) <= (status,partition_no) <= (NEW,127)",
+                          "(NEW,128) <= (status,partition_no) <= (NEW,128)",
+                          "(NEW,129) <= (status,partition_no) <= (NEW,129)",
+                          "(NEW,130) <= (status,partition_no) <= (NEW,130)",
+                          "(NEW,131) <= (status,partition_no) <= (NEW,131)",
+                          "(NEW,132) <= (status,partition_no) <= (NEW,132)",
+                          "(NEW,133) <= (status,partition_no) <= (NEW,133)",
+                          "(NEW,134) <= (status,partition_no) <= (NEW,134)",
+                          "(NEW,135) <= (status,partition_no) <= (NEW,135)",
+                          "(NEW,136) <= (status,partition_no) <= (NEW,136)",
+                          "(NEW,137) <= (status,partition_no) <= (NEW,137)",
+                          "(NEW,138) <= (status,partition_no) <= (NEW,138)",
+                          "(NEW,139) <= (status,partition_no) <= (NEW,139)",
+                          "(NEW,140) <= (status,partition_no) <= (NEW,140)",
+                          "(NEW,141) <= (status,partition_no) <= (NEW,141)",
+                          "(NEW,142) <= (status,partition_no) <= (NEW,142)",
+                          "(NEW,143) <= (status,partition_no) <= (NEW,143)",
+                          "(NEW,144) <= (status,partition_no) <= (NEW,144)",
+                          "(NEW,145) <= (status,partition_no) <= (NEW,145)",
+                          "(NEW,146) <= (status,partition_no) <= (NEW,146)",
+                          "(NEW,147) <= (status,partition_no) <= (NEW,147)",
+                          "(NEW,148) <= (status,partition_no) <= (NEW,148)",
+                          "(NEW,149) <= (status,partition_no) <= (NEW,149)",
+                          "(NEW,150) <= (status,partition_no) <= (NEW,150)",
+                          "(NEW,151) <= (status,partition_no) <= (NEW,151)",
+                          "(NEW,152) <= (status,partition_no) <= (NEW,152)",
+                          "(NEW,153) <= (status,partition_no) <= (NEW,153)",
+                          "(NEW,154) <= (status,partition_no) <= (NEW,154)",
+                          "(NEW,155) <= (status,partition_no) <= (NEW,155)",
+                          "(NEW,156) <= (status,partition_no) <= (NEW,156)",
+                          "(NEW,157) <= (status,partition_no) <= (NEW,157)",
+                          "(NEW,158) <= (status,partition_no) <= (NEW,158)",
+                          "(NEW,159) <= (status,partition_no) <= (NEW,159)",
+                          "(NEW,160) <= (status,partition_no) <= (NEW,160)",
+                          "(NEW,161) <= (status,partition_no) <= (NEW,161)",
+                          "(NEW,162) <= (status,partition_no) <= (NEW,162)",
+                          "(NEW,163) <= (status,partition_no) <= (NEW,163)",
+                          "(NEW,164) <= (status,partition_no) <= (NEW,164)",
+                          "(NEW,165) <= (status,partition_no) <= (NEW,165)",
+                          "(NEW,166) <= (status,partition_no) <= (NEW,166)",
+                          "(NEW,167) <= (status,partition_no) <= (NEW,167)",
+                          "(NEW,168) <= (status,partition_no) <= (NEW,168)",
+                          "(NEW,169) <= (status,partition_no) <= (NEW,169)",
+                          "(NEW,170) <= (status,partition_no) <= (NEW,170)",
+                          "(NEW,171) <= (status,partition_no) <= (NEW,171)",
+                          "(NEW,172) <= (status,partition_no) <= (NEW,172)",
+                          "(NEW,173) <= (status,partition_no) <= (NEW,173)",
+                          "(NEW,174) <= (status,partition_no) <= (NEW,174)",
+                          "(NEW,175) <= (status,partition_no) <= (NEW,175)",
+                          "(NEW,176) <= (status,partition_no) <= (NEW,176)",
+                          "(NEW,177) <= (status,partition_no) <= (NEW,177)",
+                          "(NEW,178) <= (status,partition_no) <= (NEW,178)",
+                          "(NEW,179) <= (status,partition_no) <= (NEW,179)",
+                          "(NEW,180) <= (status,partition_no) <= (NEW,180)",
+                          "(NEW,181) <= (status,partition_no) <= (NEW,181)",
+                          "(NEW,182) <= (status,partition_no) <= (NEW,182)",
+                          "(NEW,183) <= (status,partition_no) <= (NEW,183)",
+                          "(NEW,184) <= (status,partition_no) <= (NEW,184)",
+                          "(NEW,185) <= (status,partition_no) <= (NEW,185)",
+                          "(NEW,186) <= (status,partition_no) <= (NEW,186)",
+                          "(NEW,187) <= (status,partition_no) <= (NEW,187)",
+                          "(NEW,188) <= (status,partition_no) <= (NEW,188)",
+                          "(NEW,189) <= (status,partition_no) <= (NEW,189)",
+                          "(NEW,190) <= (status,partition_no) <= (NEW,190)",
+                          "(NEW,191) <= (status,partition_no) <= (NEW,191)",
+                          "(NEW,192) <= (status,partition_no) <= (NEW,192)",
+                          "(NEW,193) <= (status,partition_no) <= (NEW,193)",
+                          "(NEW,194) <= (status,partition_no) <= (NEW,194)",
+                          "(NEW,195) <= (status,partition_no) <= (NEW,195)",
+                          "(NEW,196) <= (status,partition_no) <= (NEW,196)",
+                          "(NEW,197) <= (status,partition_no) <= (NEW,197)",
+                          "(NEW,198) <= (status,partition_no) <= (NEW,198)",
+                          "(NEW,199) <= (status,partition_no) <= (NEW,199)",
+                          "(NEW,200) <= (status,partition_no) <= (NEW,200)",
+                          "(NEW,201) <= (status,partition_no) <= (NEW,201)",
+                          "(NEW,202) <= (status,partition_no) <= (NEW,202)",
+                          "(NEW,203) <= (status,partition_no) <= (NEW,203)",
+                          "(NEW,204) <= (status,partition_no) <= (NEW,204)",
+                          "(NEW,205) <= (status,partition_no) <= (NEW,205)",
+                          "(NEW,206) <= (status,partition_no) <= (NEW,206)",
+                          "(NEW,207) <= (status,partition_no) <= (NEW,207)",
+                          "(NEW,208) <= (status,partition_no) <= (NEW,208)",
+                          "(NEW,209) <= (status,partition_no) <= (NEW,209)",
+                          "(NEW,210) <= (status,partition_no) <= (NEW,210)",
+                          "(NEW,211) <= (status,partition_no) <= (NEW,211)",
+                          "(NEW,212) <= (status,partition_no) <= (NEW,212)",
+                          "(NEW,213) <= (status,partition_no) <= (NEW,213)",
+                          "(NEW,214) <= (status,partition_no) <= (NEW,214)",
+                          "(NEW,215) <= (status,partition_no) <= (NEW,215)",
+                          "(NEW,216) <= (status,partition_no) <= (NEW,216)",
+                          "(NEW,217) <= (status,partition_no) <= (NEW,217)",
+                          "(NEW,218) <= (status,partition_no) <= (NEW,218)",
+                          "(NEW,219) <= (status,partition_no) <= (NEW,219)",
+                          "(NEW,220) <= (status,partition_no) <= (NEW,220)",
+                          "(NEW,221) <= (status,partition_no) <= (NEW,221)",
+                          "(NEW,222) <= (status,partition_no) <= (NEW,222)",
+                          "(NEW,223) <= (status,partition_no) <= (NEW,223)",
+                          "(NEW,224) <= (status,partition_no) <= (NEW,224)",
+                          "(NEW,225) <= (status,partition_no) <= (NEW,225)",
+                          "(NEW,226) <= (status,partition_no) <= (NEW,226)",
+                          "(NEW,227) <= (status,partition_no) <= (NEW,227)",
+                          "(NEW,228) <= (status,partition_no) <= (NEW,228)",
+                          "(NEW,229) <= (status,partition_no) <= (NEW,229)",
+                          "(NEW,230) <= (status,partition_no) <= (NEW,230)",
+                          "(NEW,231) <= (status,partition_no) <= (NEW,231)",
+                          "(NEW,232) <= (status,partition_no) <= (NEW,232)",
+                          "(NEW,233) <= (status,partition_no) <= (NEW,233)",
+                          "(NEW,234) <= (status,partition_no) <= (NEW,234)",
+                          "(NEW,235) <= (status,partition_no) <= (NEW,235)",
+                          "(NEW,236) <= (status,partition_no) <= (NEW,236)",
+                          "(NEW,237) <= (status,partition_no) <= (NEW,237)",
+                          "(NEW,238) <= (status,partition_no) <= (NEW,238)",
+                          "(NEW,239) <= (status,partition_no) <= (NEW,239)",
+                          "(NEW,240) <= (status,partition_no) <= (NEW,240)",
+                          "(NEW,241) <= (status,partition_no) <= (NEW,241)",
+                          "(NEW,242) <= (status,partition_no) <= (NEW,242)",
+                          "(NEW,243) <= (status,partition_no) <= (NEW,243)",
+                          "(NEW,244) <= (status,partition_no) <= (NEW,244)",
+                          "(NEW,245) <= (status,partition_no) <= (NEW,245)",
+                          "(NEW,246) <= (status,partition_no) <= (NEW,246)",
+                          "(NEW,247) <= (status,partition_no) <= (NEW,247)",
+                          "(NEW,248) <= (status,partition_no) <= (NEW,248)",
+                          "(NEW,249) <= (status,partition_no) <= (NEW,249)",
+                          "(NEW,250) <= (status,partition_no) <= (NEW,250)",
+                          "(NEW,251) <= (status,partition_no) <= (NEW,251)",
+                          "(NEW,252) <= (status,partition_no) <= (NEW,252)",
+                          "(NEW,253) <= (status,partition_no) <= (NEW,253)",
+                          "(NEW,254) <= (status,partition_no) <= (NEW,254)",
+                          "(NEW,255) <= (status,partition_no) <= (NEW,255)"
+                        ],
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "rows": 445478,
+                        "cost": 478.7670206,
+                        "chosen": false,
+                        "cause": "cost"
+                      }
+                    ],
+                    "analyzing_roworder_intersect": {
+                      "cause": "too few roworder scans"
+                    }
+                  },
+                  "group_index_range": {
+                    "chosen": false,
+                    "cause": "no group by or distinct"
+                  },
+                  "chosen_range_access_summary": {
+                    "range_access_plan": {
+                      "type": "range_scan",
+                      "index": "idx_outbox_record_status_completed_created_id",
+                      "rows": 408356,
+                      "ranges": [
+                        "(NEW,NULL) <= (status,completed_at) <= (NEW,NULL)"
+                      ]
+                    },
+                    "rows_for_plan": 408356,
+                    "cost_for_plan": 63.4615241,
+                    "chosen": true
+                  }
+                }
+              },
+              {
+                "selectivity_for_indexes": [
+                  {
+                    "index_name": "idx_outbox_record_status_completed_created_id",
+                    "selectivity_from_index": 0.916669286
+                  }
+                ],
+                "selectivity_for_columns": [],
+                "cond_selectivity": 0.916669286
+              }
+            ]
+          },
+          {
+            "table_dependencies": [
+              {
+                "table": "o",
+                "row_may_be_null": false,
+                "map_bit": 0,
+                "depends_on_map_bits": []
+              }
+            ]
+          },
+          {
+            "considered_execution_plans": [
+              {
+                "plan_prefix": "",
+                "get_costs_for_tables": [
+                  {
+                    "best_access_path": {
+                      "table": "o",
+                      "plan_details": {
+                        "record_count": 1
+                      },
+                      "considered_access_paths": [
+                        {
+                          "access_type": "ref",
+                          "index": "idx_outbox_record_status_completed_created_id",
+                          "used_range_estimates": true,
+                          "rows": 408356,
+                          "cost": 63.46073298,
+                          "chosen": true
+                        },
+                        {
+                          "access_type": "ref",
+                          "index": "idx_outbox_record_status_completed_retry",
+                          "chosen": false,
+                          "cause": "range is simple and more selective"
+                        },
+                        {
+                          "access_type": "ref",
+                          "index": "idx_outbox_record_status_partition_created",
+                          "used_range_estimates": "clipped up",
+                          "rows": 445478,
+                          "cost": 478.5076762,
+                          "chosen": false,
+                          "cause": "cost"
+                        },
+                        {
+                          "type": "scan",
+                          "chosen": false,
+                          "cause": "cost"
+                        }
+                      ],
+                      "chosen_access_method": {
+                        "type": "ref",
+                        "index": "idx_outbox_record_status_completed_created_id",
+                        "rows_read": 408356,
+                        "rows_out": 408356,
+                        "cost": 63.46073298,
+                        "uses_join_buffering": false
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "plan_prefix": "",
+                "table": "o",
+                "rows_for_plan": 408356,
+                "cost_for_plan": 63.46073298
+              }
+            ]
+          },
+          {
+            "best_join_order": ["o"],
+            "rows": 408356,
+            "cost": 63.46073298
+          },
+          {
+            "substitute_best_equal": {
+              "condition": "WHERE",
+              "resulting_condition": "o.partition_no in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1))"
+            }
+          },
+          {
+            "attaching_conditions_to_tables": {
+              "attached_conditions_computation": [],
+              "attached_conditions_summary": [
+                {
+                  "table": "o",
+                  "attached_condition": "o.partition_no in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255) and o.`status` = 'NEW' and o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000' and o.completed_at is null and !<in_optimizer>(1,exists(/* select#3 */ select 1 from outbox_record earlier where earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`) limit 1))"
+                }
+              ]
+            }
+          },
+          {
+            "make_join_readinfo": []
+          },
+          {
+            "join_optimization": {
+              "select_id": 3,
+              "steps": [
+                {
+                  "condition_processing": {
+                    "condition": "WHERE",
+                    "original_condition": "earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)",
+                    "steps": [
+                      {
+                        "transformation": "equality_propagation",
+                        "resulting_condition": "earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)"
+                      },
+                      {
+                        "transformation": "constant_propagation",
+                        "resulting_condition": "earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)"
+                      },
+                      {
+                        "transformation": "trivial_condition_removal",
+                        "resulting_condition": "earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "ref_optimizer_key_uses": [
+                    {
+                      "table": "earlier",
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "field": "record_key",
+                      "equals": "o.record_key",
+                      "null_rejecting": false
+                    },
+                    {
+                      "table": "earlier",
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "field": "completed_at",
+                      "equals": "NULL",
+                      "null_rejecting": false
+                    }
+                  ]
+                },
+                {
+                  "rows_estimation": [
+                    {
+                      "selectivity_for_indexes": [],
+                      "selectivity_for_columns": [],
+                      "cond_selectivity": 1
+                    },
+                    {
+                      "table": "earlier",
+                      "table_scan": {
+                        "rows": 445478,
+                        "read_cost": 54.50437795,
+                        "read_and_compare_cost": 68.75967395
+                      }
+                    }
+                  ]
+                },
+                {
+                  "table_dependencies": [
+                    {
+                      "table": "earlier",
+                      "row_may_be_null": false,
+                      "map_bit": 0,
+                      "depends_on_map_bits": []
+                    }
+                  ]
+                },
+                {
+                  "considered_execution_plans": [
+                    {
+                      "plan_prefix": "",
+                      "get_costs_for_tables": [
+                        {
+                          "best_access_path": {
+                            "table": "earlier",
+                            "plan_details": {
+                              "record_count": 1
+                            },
+                            "considered_access_paths": [
+                              {
+                                "access_type": "ref",
+                                "index": "idx_outbox_record_key_completed_created_id",
+                                "rows": 1,
+                                "cost": 0.001792605,
+                                "chosen": true
+                              },
+                              {
+                                "type": "scan",
+                                "chosen": false,
+                                "cause": "cost"
+                              }
+                            ],
+                            "chosen_access_method": {
+                              "type": "ref",
+                              "index": "idx_outbox_record_key_completed_created_id",
+                              "rows_read": 1,
+                              "rows_out": 1,
+                              "cost": 0.001792605,
+                              "uses_join_buffering": false
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "plan_prefix": "",
+                      "table": "earlier",
+                      "rows_for_plan": 1,
+                      "cost_for_plan": 0.001792605
+                    }
+                  ]
+                },
+                {
+                  "best_join_order": ["earlier"],
+                  "rows": 1,
+                  "cost": 0.001792605
+                },
+                {
+                  "substitute_best_equal": {
+                    "condition": "WHERE",
+                    "resulting_condition": "earlier.record_key = o.record_key and earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)"
+                  }
+                },
+                {
+                  "attaching_conditions_to_tables": {
+                    "attached_conditions_computation": [],
+                    "attached_conditions_summary": [
+                      {
+                        "table": "earlier",
+                        "attached_condition": "earlier.completed_at is null and earlier.created_at <= o.created_at and (earlier.created_at < o.created_at or earlier.created_at = o.created_at and earlier.`id` < o.`id`)"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "make_join_readinfo": []
+                }
+              ]
+            }
+          },
+          {
+            "test_if_skip_sort_order": [
+              {
+                "reconsidering_access_paths_for_index_ordering": {
+                  "clause": "ORDER BY",
+                  "table": "o",
+                  "rows_estimation": 408356,
+                  "filesort_cost": 3.50267246,
+                  "read_cost": 66.96340544,
+                  "filesort_type": "priority_queue with row lookup",
+                  "fanout": 1,
+                  "possible_keys": [
+                    {
+                      "index": "PRIMARY",
+                      "can_resolve_order": false,
+                      "cause": "not usable index for the query"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_created_id",
+                      "can_resolve_order": false,
+                      "cause": "order can not be resolved by key"
+                    },
+                    {
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "can_resolve_order": false,
+                      "cause": "not usable index for the query"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_retry",
+                      "can_resolve_order": true,
+                      "direction": 1,
+                      "rows_to_examine": 1.005784169,
+                      "range_scan": true,
+                      "scan_cost": 0.001093214,
+                      "chosen": true
+                    },
+                    {
+                      "index": "idx_outbox_record_status_partition_created",
+                      "can_resolve_order": false,
+                      "cause": "not usable index for the query"
+                    }
+                  ]
+                }
+              },
+              {
+                "table": "o",
+                "range_analysis": {
+                  "potential_range_indexes": [
+                    {
+                      "index": "PRIMARY",
+                      "usable": false,
+                      "cause": "not applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_created_id",
+                      "usable": false,
+                      "cause": "not applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_key_completed_created_id",
+                      "usable": false,
+                      "cause": "not applicable"
+                    },
+                    {
+                      "index": "idx_outbox_record_status_completed_retry",
+                      "usable": true,
+                      "key_parts": [
+                        "status",
+                        "completed_at",
+                        "next_retry_at",
+                        "partition_no",
+                        "id"
+                      ]
+                    },
+                    {
+                      "index": "idx_outbox_record_status_partition_created",
+                      "usable": false,
+                      "cause": "not applicable"
+                    }
+                  ],
+                  "setup_range_conditions": [],
+                  "analyzing_range_alternatives": {
+                    "range_scan_alternatives": [
+                      {
+                        "index": "idx_outbox_record_status_completed_retry",
+                        "ranges": [
+                          "(NEW,NULL) <= (status,completed_at,next_retry_at,partition_no) <= (NEW,NULL,2026-01-01 12:00:00,255)"
+                        ],
+                        "rowid_ordered": false,
+                        "using_mrr": false,
+                        "index_only": false,
+                        "rows": 410718,
+                        "cost": 443.929479,
+                        "cost_with_limit": 2.31220968,
+                        "chosen": true
+                      }
+                    ],
+                    "analyzing_roworder_intersect": {
+                      "cause": "too few roworder scans"
+                    }
+                  },
+                  "group_index_range": {
+                    "chosen": false,
+                    "cause": "no group by or distinct"
+                  },
+                  "chosen_range_access_summary": {
+                    "range_access_plan": {
+                      "type": "range_scan",
+                      "index": "idx_outbox_record_status_completed_retry",
+                      "rows": 410718,
+                      "ranges": [
+                        "(NEW,NULL) <= (status,completed_at,next_retry_at,partition_no) <= (NEW,NULL,2026-01-01 12:00:00,255)"
+                      ]
+                    },
+                    "rows_for_plan": 410718,
+                    "cost_for_plan": 443.929479,
+                    "chosen": true
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

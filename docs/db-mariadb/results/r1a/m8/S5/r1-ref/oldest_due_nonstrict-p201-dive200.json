@@ -1,0 +1,46 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.22220255
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 0.36684136,
+    "r_loops": 1,
+    "r_total_time_ms": 9933.109812,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "o",
+          "access_type": "range",
+          "possible_keys": [
+            "idx_outbox_record_status_completed_created_id",
+            "idx_outbox_record_status_completed_retry",
+            "idx_outbox_record_status_completed_partition"
+          ],
+          "key": "idx_outbox_record_status_completed_partition",
+          "key_length": "91",
+          "used_key_parts": ["status", "completed_at", "partition_no"],
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 201,
+          "r_index_rows": 143982,
+          "r_rows": 143982,
+          "cost": 0.36684136,
+          "r_table_time_ms": 9919.111152,
+          "r_other_time_ms": 13.99405469,
+          "r_engine_stats": {
+            "pages_accessed": 433038,
+            "pages_read_count": 130482,
+            "pages_read_time_ms": 9581.899356
+          },
+          "filtered": 100,
+          "r_total_filtered": 99.99236016,
+          "index_condition": "o.partition_no in (0,1,2,3,5,6,7,8,10,11,12,14,15,16,17,19,20,21,22,24,25,26,28,29,30,31,33,34,35,36,38,39,40,42,43,44,45,47,48,49,50,52,53,54,56,57,58,59,61,62,63,64,66,67,68,70,71,72,73,75,76,77,78,80,81,82,84,85,86,87,89,90,91,92,94,95,96,98,99,100,101,103,104,105,106,108,109,110,112,113,114,115,117,118,119,120,122,123,124,126,127,128,129,131,132,133,135,136,137,138,140,141,142,143,145,146,147,149,150,151,152,154,155,156,157,159,160,161,163,164,165,166,168,169,170,171,173,174,175,177,178,179,180,182,183,184,185,187,188,189,191,192,193,194,196,197,198,199,201,202,203,205,206,207,208,210,211,212,213,215,216,217,219,220,221,222,224,225,226,227,229,230,231,233,234,235,236,238,239,240,241,243,244,245,247,248,249,250,252,253,254) and o.`status` = 'NEW' and o.completed_at is null",
+          "r_icp_filtered": 100,
+          "attached_condition": "o.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00'",
+          "r_filtered": 99.99236016
+        }
+      }
+    ]
+  }
+}

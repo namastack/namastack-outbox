@@ -310,12 +310,14 @@ object Churn {
             var removed = 0
             val pr = hashMapOf<String, Any?>("status" to "COMPLETED", "cutoff" to tsOfMicros(T0_MICROS - 1 * SEC), "limit" to 1000)
             c.autoCommit = true
+            val retCapS = o.int("retention-max-s", 0); val tRet = System.nanoTime(); var retCapped = false
             while (removed < n) {
+                if (retCapS > 0 && (System.nanoTime() - tRet) / 1_000_000_000 >= retCapS) { retCapped = true; break }
                 val ids = Bench.exec(c, idsQ, pr, 1000, collect = true).data!!.map { it[0]!! }
                 if (ids.isEmpty()) break
                 c.autoCommit = false; removed += Bench.exec(c, delIds, mapOf("ids" to ids), 0).rows; c.commit(); c.autoCommit = true
             }
-            rep.appendLine("removed_by_retention: $removed").appendLine("churn_seconds: ${(System.nanoTime() - t0) / 1_000_000_000}")
+            rep.appendLine("removed_by_retention: $removed").appendLine("retention_capped_at_s: ${if (retCapped) retCapS else "no"}").appendLine("churn_seconds: ${(System.nanoTime() - t0) / 1_000_000_000}")
             rep.appendLine("== after churn (no manual VACUUM/ANALYZE/OPTIMIZE) ==").append(cm.dialect.sizeReport(c))
             if (maria) {
                 rep.appendLine("history_list_length_after: ${Maria.historyListLength(c)}")

@@ -1,0 +1,29 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.010372822
+  },
+  "query_block": {
+    "select_id": 1,
+    "r_total_time_ms": 0.042485392,
+    "table": {
+      "update": 1,
+      "table_name": "outbox_record",
+      "access_type": "range",
+      "possible_keys": ["PRIMARY"],
+      "key": "PRIMARY",
+      "key_length": "1022",
+      "used_key_parts": ["id"],
+      "rows": 1,
+      "r_rows": 1,
+      "r_total_filtered": 100,
+      "r_table_time_ms": 0.038870469,
+      "r_other_time_ms": 0.002229203,
+      "r_engine_stats": {
+        "pages_accessed": 44,
+        "pages_updated": 19
+      },
+      "attached_condition": "outbox_record.`id` = '000169be-2246-4177-8a03-6f4a0fb37db5'",
+      "r_filtered": 100
+    }
+  }
+}

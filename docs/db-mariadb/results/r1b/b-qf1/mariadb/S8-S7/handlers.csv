@@ -1,0 +1,9 @@
+query_id,Handler_read_key,Handler_read_next,Handler_read_prev,Handler_read_first,Handler_read_rnd,Handler_read_rnd_next,Handler_read_last,bp_read_requests,bp_reads
+keys_strict,41,49,0,0,0,0,0,89,0
+keys_nonstrict,41,39,0,0,0,0,0,141,0
+pages,20,10,0,0,0,0,0,128,0
+count_statuses,6,400000,0,0,2,6,0,1533,0
+count_partitions,2,10000,0,0,0,0,0,72,0
+oldest_created,1,2,0,0,0,0,0,29,0
+oldest_due_strict,2711,12510,0,0,0,0,0,7654,0
+oldest_due_nonstrict,1,2,0,0,0,0,0,55,0

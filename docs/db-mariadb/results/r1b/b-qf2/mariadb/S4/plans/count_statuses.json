@@ -1,0 +1,125 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.116961385
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 1637.875945,
+    "r_loops": 1,
+    "r_total_time_ms": 438.6012418,
+    "filesort": {
+      "sort_key": "u.`status`",
+      "r_loops": 1,
+      "r_total_time_ms": 0.00488677,
+      "r_used_priority_queue": false,
+      "r_output_rows": 1,
+      "r_buffer_size": "4KiB",
+      "r_sort_mode": "sort_key,rowid",
+      "temporary_table": {
+        "nested_loop": [
+          {
+            "table": {
+              "table_name": "<derived2>",
+              "access_type": "ALL",
+              "loops": 1,
+              "r_loops": 1,
+              "rows": 1844688,
+              "r_rows": 1000000,
+              "cost": 376.518683,
+              "r_table_time_ms": 3.590834434,
+              "r_other_time_ms": 27.98585335,
+              "filtered": 100,
+              "r_total_filtered": 100,
+              "r_filtered": 100,
+              "materialized": {
+                "query_block": {
+                  "union_result": {
+                    "query_specifications": [
+                      {
+                        "query_block": {
+                          "select_id": 2,
+                          "cost": 279.3014061,
+                          "r_loops": 1,
+                          "r_total_time_ms": 320.0441403,
+                          "nested_loop": [
+                            {
+                              "table": {
+                                "table_name": "outbox_record",
+                                "access_type": "range",
+                                "possible_keys": [
+                                  "idx_outbox_record_status_completed_created_id",
+                                  "idx_outbox_record_status_completed_retry"
+                                ],
+                                "key": "idx_outbox_record_status_completed_retry",
+                                "key_length": "87",
+                                "used_key_parts": ["status", "completed_at"],
+                                "loops": 1,
+                                "r_loops": 1,
+                                "rows": 1844686,
+                                "r_rows": 1000000,
+                                "cost": 279.3014061,
+                                "r_table_time_ms": 99.84056699,
+                                "r_other_time_ms": 188.624698,
+                                "r_engine_stats": {
+                                  "pages_accessed": 3482
+                                },
+                                "filtered": 100,
+                                "r_total_filtered": 100,
+                                "attached_condition": "outbox_record.`status` in ('NEW','FAILED') and outbox_record.completed_at is null",
+                                "r_filtered": 100,
+                                "using_index": true
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "query_block": {
+                          "select_id": 3,
+                          "operation": "UNION",
+                          "cost": 0.00437633,
+                          "r_loops": 1,
+                          "r_total_time_ms": 0.016175511,
+                          "nested_loop": [
+                            {
+                              "table": {
+                                "table_name": "outbox_record",
+                                "access_type": "range",
+                                "possible_keys": [
+                                  "idx_outbox_record_status_completed_created_id",
+                                  "idx_outbox_record_status_completed_retry"
+                                ],
+                                "key": "idx_outbox_record_status_completed_created_id",
+                                "key_length": "87",
+                                "used_key_parts": ["status", "completed_at"],
+                                "loops": 1,
+                                "r_loops": 1,
+                                "rows": 2,
+                                "r_rows": 0,
+                                "cost": 0.00437633,
+                                "r_table_time_ms": 0.008870441,
+                                "r_other_time_ms": 0.00142489,
+                                "r_engine_stats": {
+                                  "pages_accessed": 18
+                                },
+                                "filtered": 100,
+                                "r_total_filtered": 100,
+                                "attached_condition": "outbox_record.`status` in ('NEW','FAILED') and outbox_record.completed_at is not null",
+                                "r_filtered": 100,
+                                "using_index": true
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

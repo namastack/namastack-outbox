@@ -4,7 +4,7 @@ Maintained by the orchestrator. Update after every step.
 
 ## Current phase
 
-Phase 2 done; phase 3 waits for a user decision on host load. Phases 0-1 and phase 2 port/validation done 2026-11-05.
+Phase 6 (final comparison main / branch / final). Phase 5 done 2026-11-07 (`05-final-candidate.md`, `exp/mdb-final` `f31bc505`). Phase 4 done 2026-11-07 (`04-exploration.md`; final set = `c-1`). Rounds 1a, 1b, 2 done 2026-11-06. Phase 3 done 2026-11-06 (`03-main-vs-branch.md`). Phases 0-2 done 2026-11-05. Phases 0-1 and phase 2 port/validation done 2026-11-05.
 
 ## Environment
 
@@ -107,9 +107,147 @@ From `01-usage-map.md` §7 (branch `a06a74c0` vs main `f4446c8c`):
 
 ## User decisions
 
+- **2026-11-05 — host load, relaxed rule (user).** Proceed despite outside load (11-13). Rerun a step only if load at step start > 18
+  (1.5x calibration level) or a cell's pass-to-pass spread > 2x the noise threshold; record load for every step.
+  A "no difference" result (or a cell that cannot be measured reliably here, e.g. small HOT deltas, S10 throughput, WRITE latency) may be
+  **deferred** to a later run: on this host when the load drops (evening/night — check `/proc/loadavg` with nothing running, and retest
+  if it is < 4), or on the user's previous, quiet machine (the PostgreSQL study host) at the end. Deferred tests are kept in the
+  ledger below and re-evaluated after every round: a deferred test is **dropped** when a later candidate beats its baseline so it is
+  no longer a contender (e.g. B ~ A deferred, then C beats A -> B is closed as superseded, unless B is still relevant against C).
+  At the end, hand the user a minimal, current list of tests for the quiet machine.
+
+- 2026-11-05 user idea: `completed_at`-leading index set -> round 1 `r1-e1` (orchestrator expects no P1 change, `count_statuses` worse).
+  Orchestrator follow-up `r1-e2` + pack `r1-qf12`: `partition_no` before the MIN/range column + per-partition `GROUP BY` MIN (loose index scan)
+  for `oldest_*`, aimed at the `S16-S2` P2 regressions of cmp pass 1 (`keys_nonstrict` 0.65 -> 1.04, `count_partitions` 0.23 -> 0.45,
+  `oldest_due_nonstrict` 0.29 -> 0.42 ms, main -> branch; pass 1 only).
+
+- 2026-11-05 user idea: replace the 4th index by `(status, partition_no)` (P3 does not matter) -> `r1-e1b` (completed_at-leading set +
+  `(status, partition_no)`) and `r1-e3` (branch with i4 -> `(status, partition_no)`). Orchestrator expectation: `count_partitions` gets an
+  exact multi-range seek with the unchanged branch SQL; `count_statuses` unchanged; write cost as i4.
+
+- 2026-11-05 user idea E4: `(status, created_at, id, partition_no, next_retry_at, record_key, completed_at)`, i2,
+  `(status, next_retry_at, partition_no, completed_at)`, `(status, partition_no)` with `ORDER BY ... LIMIT 1` forms for `oldest_created`
+  (`oc-03-order-id`) and `oldest_due_nonstrict` (`odn-01-order`) -> round 1 `r1-e4` (branch SQL and pack `r1-qf13`).
+
+- 2026-11-05 user idea E5: drop the outer `completed_at IS NULL` in keys_strict/nonstrict, oldest_created, oldest_due_* (valid: all five
+  bind `status = NEW` in code) with indexes `(status, created_at, id, partition_no, next_retry_at, record_key)`, i2,
+  `(status, next_retry_at, partition_no)`, `(status, partition_no)` -> round 1 `r1-e5`, packs `r1-qf14`/`r1-qf15` (`Q-merged` E5 forms).
+  Inner `earlier.completed_at IS NULL` kept in the strict probes (it is the incompleteness test); dropping it in nonstrict is a control.
+
+- **2026-11-07 — phase 5 done (`05-final-candidate.md`).**
+  - `exp/mdb-final` in `../outbox-wt-mdb-final`: `76c51fdb` (sub-agent) + `f31bc505` (orchestrator review: KDoc named the wrong index
+    — plans show i1 for `keys_*`/`oldest_created` and i3 for `oldest_due_nonstrict`; a garbled sentence in `upgrading-to-1-12.md`;
+    a wrong claim in `database.md`). jdbc tests 537/0 failures, `*MariaDb*` integration 2/0, ktlint OK; after the review fix the
+    MariaDB tests and ktlint were rerun (pass).
+  - Change outside the MariaDB class: `JdbcOutboxRecordRepository.findOldestCreatedAtByPartitions` binds `limit` 1 and `withMaxRows(1)`
+    (all dialects; their SQL has no `:limit`, catalog equal to `mdb-opt`).
+  - Harness fix (orchestrator): `CatalogExtractor` wrote `maxrows: none` for `oldest_created`, so `bench` would bind `:limit` = batch
+    (10) instead of 1. Now `one` when the query-package SQL contains `:limit`; `:repo` rebuilt, `mdb-final` re-extracted.
+  - **Open (report, phase 7):** the JPA entity `OutboxRecordEntity` still declares `idx_outbox_record_status_completed_partition`
+    (dialect-independent). Hibernate-generated DDL on MariaDB therefore gets the index behind the 256-partition collapse (R1).
+
+- **2026-11-07 — confirm stage done (`experiments/confirm.md`); phase 4 closed (`04-exploration.md`).**
+  - Equivalence PASS for `c-1` and `c-2` on S1, S2, S5, S7. No failures, no reruns, no `SPREAD>2x`.
+  - Both: win against the branch, net win against main. `c-1` = `c-2` within noise on P1/P2, S10, write cost.
+  - **Final set = `c-1`** (`experiments/r2/spc/ddl.sql` + `experiments/r2/forms-a/queries/`). Reason: `c-2` `oldest_created` +0.1 ms,
+    `count_statuses` +6-19 %, retention without a `completed_at` index (S9: 26,000 of 500,000 removed in 2700 s). Invariant not used.
+  - Isolation test: the 4th index read penalty (0.03-0.24 ms) is planning (one dive per owned partition), not execution.
+  - Stop criterion met (every P1/P2 query has a justified recommendation); no round 3. Accepted differences against main: section 4
+    of `04-exploration.md` (incl. S16-S2 `keys_nonstrict` 0.39 -> 0.68 ms at 62 NEW rows).
+  - Next: phase 5 sub-agent (brief 07), worktree `../outbox-wt-mdb-final`, branch `exp/mdb-final` from `2a2663de`.
+
+- **2026-11-06 — confirm stage started (user go).**
+  - Spec `experiments/confirm-spec.md`: UUIDv4 only (user), runs `c-ref` / `c-1` / `c-2`, every label, two passes, S9, S10, equivalence,
+    and the isolation test of the 4th-index read penalty.
+  - **User: after the confirm stage, proceed automatically with the next round or phase without waiting for a decision.** The study's
+    standing rules still apply: no commits or pushes to existing branches; ask the user before applying changes to the branch (phase 7);
+    user decisions are needed only for hints, generated columns, schema changes and server settings.
+
+- **2026-11-06 — round 2 done (`experiments/r2-fourth-index.md`).**
+  - **Winner `spc` = `(status, partition_no, created_at)`** with both id versions.
+  - **`count_partitions`:** S16-S4 7.4 ms (main 7.5, reference 106), S8-S4 29.5 (main 61), S8-S5 4.3 (main 8.7); no gain at full ownership.
+  - **Write-cost price against the reference:**
+    - S4 insert redo about +10-12 % and S4 completion: no difference;
+    - S2 completion redo +60-95 % and S2 delete 3.1-3.7x;
+    - latency and throughput: no difference;
+    - index bytes +66 MB (S2) and +122 MB (S4).
+  - **`sp` loses:** v4 insert redo +144 %, S10 -14 % (v4) / -8 % (v7).
+  - **v7:**
+    - PK -28 %, insert redo -30 %, S10 2.1x (about 915 rec/s);
+    - S2 completion/retry/fail redo +45-140 % on the reference (cause not isolated);
+    - the ranking does not change.
+  - **Plans:** the 4th index is used only by `count_partitions` / `count_statuses`; no false estimate at 16-256 partitions.
+  - **Open:**
+    - HOT/MON reads +0.05-0.25 ms with either 4th index, with plans unchanged. Likely planning or dive cost for the extra index; to isolate.
+    - Part B: `kn-05-head` beats `kn-00-base` at K = 10/100/1000 (0.63x / 0.80x at K = 1000; both about 0.5-0.9 s there, linear in K).
+    - Part C: `forms-e5h` passes equivalence on S1, S5 and S7.
+  - **Next:** the confirm stage (proposal in the report section 11), pending the user's go.
+
+- **2026-11-06 — user decisions for round 2 and confirm.**
+  - Base (a) = i1, i2, i3 + `ks-05-head`, `kn-05-head`, `oc-03-order-id`, `odn-01-order`.
+  - **A 4th index is kept**: P2 reads matter, and slow `count_partitions` is not accepted. Round 2 picks the cheapest of
+    `(status, partition_no)` and `(status, partition_no, created_at)`, with v4 and v7 ids.
+  - **The NEW <=> `completed_at IS NULL` invariant is accepted as a known rule.** Forms that rely on it get no penalty, and "safe"
+    does not break ties.
+  - `kn-05-head` with non-due heads is tested (round 2 part B).
+  - Next round = confirm stage with two candidates:
+    - (a) + the round-2 winner;
+    - `b-e5l` DDL + `forms-e5h` (`ks-11`, `kn-14`, `oc-08`, `odn-06`, `ods-09`) + the same 4th index.
+  - Spec: `experiments/round2-spec.md`.
+
+- **2026-11-06 — round 1b done (`experiments/r1b-forms.md`).** On `r1-m1d` (i1, i2, i3):
+  - `oc-03-order-id` and `odn-01-order` give 0.15-0.40 ms at every label, below main everywhere, with no write cost.
+  - `ks-05-head` / `kn-05-head` win at hot keys (S8-S5 0.50x / 0.11x, S5 0.18x / 0.24x) and show no difference elsewhere.
+  - No better form for `oldest_due_strict`, `pages`, `count_statuses` or `count_partitions`.
+  - M1 query reverts: loss. M4 (`b-m4`): identical. M5: no difference (cost is row transfer). M7: i1, i2, i3 is minimal.
+  - `b-e5l` is equal to `b-base` + forms within noise (index size -3.8 %), but invariant-dependent.
+  - Equivalence of the survivors: PASS on S1, S5, S7.
+  - Zero-row results of the ORDER BY forms map to null via `list().firstOrNull()` in `JdbcOutboxRecordRepository` (checked).
+  - Confirm list: `b-base` + `oc-03` + `odn-01` + `ks-05` + `kn-05`.
+  - Open user question: base of the round-2 grid (`b-base` + confirm forms vs `b-e5l`).
+  - Snapshots are one per lane and replaced by `gen`, so round 2 must regenerate per id version and check the `ids=uuidv7` marker.
+
+- **2026-11-06 — round 2 plan (user, discussed; spec after round 1b).** `(status, partition_no)` is kept as a candidate: the
+  user values P2 metrics (`count_partitions`). Hypothesis: its write cost comes from random UUIDv4 ids, because within
+  `(status, partition_no, id)` inserts and completions land at random positions. Adding `created_at`
+  (`(status, partition_no, created_at[, id])`) makes them per-partition appends. The upcoming release switches id generation to UUIDv7
+  (column type unchanged), so **UUIDv7 is now in scope**, overriding the earlier non-goal for round 2 and the final comparison. Round 2 grid: `b-e5l` (3 idx),
+  `b-e5l` + `(status, partition_no)`, `b-e5l` + `(status, partition_no, created_at)`, each with v4 and v7 ids (`HARNESS_ID_VERSION=7`).
+  Cells: S2-wc, S4-wc, S10-S2-p1-unthr, `count_partitions` and P1/P2 reads on S16-S4, S8-S5, S4, S5. Separate v7 snapshots (gen must
+  not overwrite the v4 snapshots in use by round 1b).
+
+- **2026-11-06 — round 1a done (`experiments/r1a-index-sets.md`).** Collapse fixed by every set without
+  `(status, completed_at, partition_no[, x])`. Winner `r1-m1d` (i1, i2, i3): P1 at/better than main everywhere, S10 450 rec/s, S4 insert
+  redo at main level. `(status, partition_no)` (e3/e1b/e4/e5q) fixes `count_partitions` but costs +120 % S4 insert redo and 2-4x S2
+  completion/delete redo -> not carried forward (P1 write cost > P2 benefit). ORDER BY ... LIMIT 1 forms (e4q/e5q) solve `oldest_*`
+  (0.2-0.6 ms); MIN forms do not (e5c control). `r1-a1` loses `oldest_due_strict`; `r1-e2q` keeps the collapse. M8: flip at n >= 200.
+  Next: round 1b on `r1-m1d` (`experiments/round1b-spec.md`).
+
+- **2026-11-06 — phase 3 done (orchestrator).** `03-main-vs-branch.md`: branch wins at partial ownership but collapses at 256 partitions
+  with a large NEW backlog (R1: B-1d `(status, completed_at, partition_no)` gets a 256-row estimate above `eq_range_index_dive_limit`;
+  S5 `keys_strict` 4.7 ms -> 15 s, S4 > 60 s; S10-S2-p1-unthr 2 rec/s). Round 1 split: 1a = index sets incl. user ideas + M8 on the
+  problem cells; 1b = query packs and M5 on the 1a winner DDL.
+
+- **2026-11-05 — skip S9 in phase 3 pass 2 (user).** S9 runs in `cmp` pass 1 only; phase 6 repeats it. Pass 1 finding: main's churn hit
+  the 2700 s retention cap (28 000 of 500 000 removed, 2950 s) vs the branch (500 000 removed, 311 s); main's post-churn table is larger
+  (1.30M vs 0.83M COMPLETED), so its S9 P1 timings are not like-for-like. Rule confirmed: P3 is never timed (equivalence only); screen =
+  P1/P2 on S8 labels, S9/S10 only at confirm/final.
+
+## Deferred tests (quiet host / quiet time)
+
+| Id | What | Why deferred | Relevant against | Status |
+|---|---|---|---|---|
+
 ## Running sub-agents
 
-Nothing is running (waiting for a user decision on host load).
+- Phase 3 measure sub-agent (`cmp`): **done 2026-11-06**, `results/cmp/SUMMARY.md` (+ `rerun1/`); harness additions: `run-cells.sh`
+  label mapping for S16-*/S10-*, `bench churn --retention-max-s`. Report `03-main-vs-branch.md` (orchestrator).
+- Round 1a experiment sub-agent: done 2026-11-06 (harness: `bench --pages-keys-file`).
+- Round 1b experiment sub-agent: done 2026-11-06 (harness: `:recordKeysJson`, `:recordKeysRows`, UNION ALL expansion).
+- Round 2 experiment sub-agent: done 2026-11-06 (no harness code change).
+- Confirm sub-agent: done 2026-11-07, `experiments/confirm.md` (harness: `bench plantime`).
+- Phase 5 finalize sub-agent: done 2026-11-07.
+- Phase 6 final-comparison sub-agent: running, `results/final/`.
 - Phase 4a query proposers started early (no measuring, no results access): `Q-indep` (independent), `Q-pgx` (PostgreSQL transfer).
   - `Q-pgx` done: 40 forms in `experiments/Q-pgx/` (all parse on 12.3.3, toy-table result check). Merge notes: `cs_incomplete`/`cp_incomplete`
     add `completed_at IS NULL` to queries whose status parameter may be COMPLETED -> contract-invalid unless restricted (check callers at merge);
@@ -131,4 +269,4 @@ Nothing is running (waiting for a user decision on host load).
 
 ## Next step
 
-Review the harness (warmup, reps, identical data, setMaxRows/SQL_SELECT_LIMIT for main, LIMIT binding for opt, plans, handlers outside timing, repo-level sql.txt), then calibration.
+Phase 6 running (`results/final/SUMMARY.md`). Then phase 7 report; ask the user before applying changes to `feature/db-jdbc-optimization`.

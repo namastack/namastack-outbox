@@ -1,0 +1,41 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.032712261
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 314.504656,
+    "r_loops": 1,
+    "r_total_time_ms": 22.46712216,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "outbox_record",
+          "access_type": "range",
+          "possible_keys": [
+            "idx_outbox_record_status_created_id_partition_retry_key",
+            "idx_outbox_record_status_retry_partition"
+          ],
+          "key": "idx_outbox_record_status_retry_partition",
+          "key_length": "82",
+          "used_key_parts": ["status"],
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 379088,
+          "r_rows": 200000,
+          "cost": 57.63306304,
+          "r_table_time_ms": 15.19053052,
+          "r_other_time_ms": 7.275026271,
+          "r_engine_stats": {
+            "pages_accessed": 721
+          },
+          "filtered": 100,
+          "r_total_filtered": 100,
+          "attached_condition": "outbox_record.`status` in ('NEW','FAILED')",
+          "r_filtered": 100,
+          "using_index": true
+        }
+      }
+    ]
+  }
+}

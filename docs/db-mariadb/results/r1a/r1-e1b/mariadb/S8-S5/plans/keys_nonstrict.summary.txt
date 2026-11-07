@@ -1,0 +1,6 @@
+id: keys_nonstrict   mode: ANALYZE (executed)   sql_select_limit: 10   rows_returned: 10
+r_total_time_ms: 4.287   cost: 67.817
+select#1 table=o access=ref key=idx_outbox_record_completed_status_created_id key_parts=[completed_at,status] key_len=87 loops=1 rows_est=438242 r_rows=126 r_index_rows=- examined=126 filtered_est=7.944 r_filtered=7.937 index_condition=no attached_condition=yes using_index=yes rowid_filter=no
+select#3 table=earlier access=ref key=idx_outbox_record_completed_key_created_id key_parts=[completed_at,record_key] key_len=1027 loops=20 rows_est=1 r_rows=1 r_index_rows=2000 examined=40000 filtered_est=88.024 r_filtered=50 index_condition=yes attached_condition=yes using_index=no rowid_filter=no
+filesort: no   temporary_table: no   duplicates_removal: no   strategies: dependent-subquery,subquery-cache
+rows_examined_total: 40126   rows_returned: 10
