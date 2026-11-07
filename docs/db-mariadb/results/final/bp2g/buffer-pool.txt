@@ -1,0 +1,1 @@
+innodb_buffer_pool_size=2147483648 (Sat Nov  7 18:14:46 CET 2026)

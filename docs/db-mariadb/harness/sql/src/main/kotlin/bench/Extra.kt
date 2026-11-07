@@ -182,7 +182,7 @@ object Concurrency {
                         var t = System.nanoTime(); val keys = Bench.exec(c, keysQ, pk, Bench.maxRowsFor(keysQ, ctx), collect = true).data!!.map { it[0]!! }
                         latKeys.add((System.nanoTime() - t) / 1e6)
                         if (keys.isEmpty()) { Thread.sleep(idle.toLong()); continue }
-                        val pp = ctx.paramsFor(pagesQ, 0).toMutableMap(); pp["recordKeys"] = keys
+                        val pp = ctx.paramsFor(pagesQ, 0).toMutableMap(); pp["recordKeys"] = keys; ctx.bindKeyForms(pp)   // M5: key-form parameters follow the poller's keys
                         t = System.nanoTime(); val res = Bench.exec(c, pagesQ, pp, 0, collect = true)
                         latPagesDb.add((System.nanoTime() - t) / 1e6)
                         // --pages-client-sort: group by key + sort by (created_at, id) in the JVM, inside the timed section; processing then sees per-key sorted rows

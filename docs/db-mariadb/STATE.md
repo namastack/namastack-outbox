@@ -233,6 +233,39 @@ From `01-usage-map.md` §7 (branch `a06a74c0` vs main `f4446c8c`):
   (1.30M vs 0.83M COMPLETED), so its S9 P1 timings are not like-for-like. Rule confirmed: P3 is never timed (equivalence only); screen =
   P1/P2 on S8 labels, S9/S10 only at confirm/final.
 
+- **2026-11-07 — M5 `pages` forms under S10 (user).** Round 1b timed the `pages` forms only alone, not under S10 (orchestrator M5
+  gap). Short follow-up after phase 6: `experiments/m5-s10-spec.md` (`IN` vs `JSON_TABLE` vs `VALUES` on `mdb-final`, S10-S2-p4,
+  S10-S4-p4). Then phase 7 regardless of the result; the gap is reported as a deviation in `99-final-report.md`.
+
+- **2026-11-07 — after phase 7 (user).**
+  1. Commit in the primary tree (`feature/db-optimalization`): everything `git add .` selects (raw phase-6 results included).
+  2. `git pull -r`. If it fails (network), rebase on the already fetched `origin/feature/db-optimalization`; resolve conflicts myself.
+  3. Short MySQL experiment (mysql:9.2, UUIDv7 `HARNESS_ID_VERSION=7`, code of the latest `origin/feature/db-jdbc-optimization`,
+     sonnet sub-agents): `oldest_created` MIN vs `ORDER BY created_at LIMIT 1`; `oldest_due_strict` / `oldest_due_nonstrict` MIN vs
+     `ORDER BY ... LIMIT 1`; key selection `NOT EXISTS` vs head form `o.id = (SELECT e.id ... ORDER BY e.created_at, e.id LIMIT 1)`.
+     Question: do the MariaDB results carry over to MySQL?
+  **User 2026-11-07: from here on, decide every open question myself (also rebase conflicts: resolve them); never push.** Applying the
+  final changes to `feature/db-jdbc-optimization`: done by me after phase 7 as uncommitted changes in a worktree of that branch (no
+  commit, no push); every such decision is logged here and in the final report.
+
+- **2026-11-07 — phase 6 done (`results/final/SUMMARY.md`).** 0 FAIL, 1 WARN (S5 `keys_nonstrict` final vs main, created_at tie
+  permutation, equal key sets). One spread rerun (`mdb-main` `oldest_due_nonstrict` S4/S4-b100: 75-82 s, one pass 411 ms, plan flip
+  unexplained). All conclusions hold at 2G. New observation: S4-wc `upd_retry` redo +293 % vs main for both `mdb-opt` and `mdb-final`
+  (i1 and i3 contain `next_retry_at`), S2-wc retry +15 %. M5/S10 follow-up started.
+- **2026-11-07 — the branch moved (orchestrator decision).** `origin/feature/db-jdbc-optimization` is now `4037faa5` (was `2a2663de`).
+  MariaDB/MySQL there: c-2-like DDL with `(status, partition_no)` as 4th index, head forms and `ORDER BY ... LIMIT` without
+  `completed_at`; JPA entity uses the same indexes (the `status_completed_partition` finding is gone); MySQL class has the same
+  overrides as MariaDB (the dialect-detection finding is now harmless for `keys_*`). Decision (user delegated decisions): measure
+  `mdb-final` against `mdb-opt2` = `4037faa5` once before phase 7 (`experiments/opt2-spec.md`), after the M5/S10 follow-up.
+
+- **2026-11-07 — `mdb-opt2` vs final done (`experiments/opt2-vs-final.md`).** Reads equal; final lower redo (S4-wc insert -53 %, S2-wc
+  completion -20 %, retry -14 %, delete -25 %); retention: opt2 18,000 of 500,000 in 2700 s, final all in 358 s. Verdict: final.
+- **2026-11-07 — phase 7 done (`99-final-report.md`).** Final changes applied (orchestrator decision, user delegated) as uncommitted
+  changes in `/home/azamojski/outbox-wt-jdbc-opt` (`feature/db-jdbc-optimization` at `4037faa5`, local tracking branch created):
+  MariaDB DDL, `MariaDbJdbcOutboxRecordQueries` (5 statements), tests, docs. jdbc tests 538/0, `*MariaDb*` 2/0, ktlint clean. Orchestrator
+  review fixed the MariaDB snapshot upgrade step (same-name indexes, `status_completed_partition`) and the retention sentence in
+  `database.md`. Quiet-machine list: report section 5.
+
 ## Deferred tests (quiet host / quiet time)
 
 | Id | What | Why deferred | Relevant against | Status |
@@ -247,7 +280,10 @@ From `01-usage-map.md` §7 (branch `a06a74c0` vs main `f4446c8c`):
 - Round 2 experiment sub-agent: done 2026-11-06 (no harness code change).
 - Confirm sub-agent: done 2026-11-07, `experiments/confirm.md` (harness: `bench plantime`).
 - Phase 5 finalize sub-agent: done 2026-11-07.
-- Phase 6 final-comparison sub-agent: running, `results/final/`.
+- Phase 6 final-comparison sub-agent: done 2026-11-07, `results/final/SUMMARY.md`.
+- M5/S10 follow-up sub-agent: done 2026-11-07, `experiments/m5-s10.md` (harness: `Ctx.bindKeyForms` refreshes JSON/VALUES key params per poll). Verdict: `IN` stays; JSON_TABLE / VALUES no throughput difference, `pages` p50 +0.1-0.16 ms.
+- `mdb-opt2` vs final sub-agent: done 2026-11-07.
+- Apply sub-agent: done 2026-11-07 (`/home/azamojski/outbox-wt-jdbc-opt`).
 - Phase 4a query proposers started early (no measuring, no results access): `Q-indep` (independent), `Q-pgx` (PostgreSQL transfer).
   - `Q-pgx` done: 40 forms in `experiments/Q-pgx/` (all parse on 12.3.3, toy-table result check). Merge notes: `cs_incomplete`/`cp_incomplete`
     add `completed_at IS NULL` to queries whose status parameter may be COMPLETED -> contract-invalid unless restricted (check callers at merge);
@@ -269,4 +305,4 @@ From `01-usage-map.md` §7 (branch `a06a74c0` vs main `f4446c8c`):
 
 ## Next step
 
-Phase 6 running (`results/final/SUMMARY.md`). Then phase 7 report; ask the user before applying changes to `feature/db-jdbc-optimization`.
+Phases 0-7 done. Commit the study (`git add .`) + `git pull -r`, then the MySQL experiment (see 2026-11-07 'after phase 7'). Never push.

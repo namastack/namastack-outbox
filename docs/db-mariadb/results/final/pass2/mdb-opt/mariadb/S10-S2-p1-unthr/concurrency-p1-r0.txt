@@ -1,0 +1,14 @@
+tag: p1-r0  pollers=1 producers=4 rate=unthrottled seconds=65.8
+processed_per_s: 2.4   (total 160)
+inserted_per_s: 2018.5   (total 132849)
+errors: 0
+keys_query_ms: n=16 p50=0.56 p95=45647.72
+pages_query_ms: n=16 p50=3.58 p95=18.27
+pages_db_only_ms: n=16 p50=3.58 p95=18.26
+client_sort: false  session_init: []
+
+update_ms: n=160 p50=1.10 p95=1.84
+insert_ms: n=132849 p50=1.20 p95=2.48
+innodb_history_list_length: start 0 (threshold < 1000, waited 0.0 s); before run 0; end 132750
+innodb_global_deltas: os_log_written=335232664 pages_written=166170 data_written=5106941952 buffer_pool_read_requests=3879476 buffer_pool_reads=293160 row_lock_waits=0 row_lock_time=0 deadlocks=0
+lock_waits=0 deadlocks=0 row_lock_time_ms=0

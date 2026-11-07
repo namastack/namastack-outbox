@@ -1,0 +1,2 @@
+final driver PID 453072 started Sat Nov  7 06:59:08 CET 2026; log /home/azamojski/namastack-outbox/docs/db-mariadb/results/final/logs/driver.log (harness logs results/final/logs/*-L*.log); restart: setsid nohup /home/azamojski/namastack-outbox/docs/db-mariadb/experiments/final-run.sh all > /home/azamojski/namastack-outbox/docs/db-mariadb/results/final/driver.out 2>&1 < /dev/null & (resumable, never start while PID alive)
+rerun (main S4,S4-b100 spread) started Sat Nov  7 18:33:47 CET 2026: experiments/final-rerun.sh

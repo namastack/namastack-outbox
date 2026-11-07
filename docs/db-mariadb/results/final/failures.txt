@@ -1,0 +1,3 @@
+EQUIV (final-run.sh doequiv): 0 FAIL, 1 WARN
+WARN S5 mdb-final-vs-mdb-main keys_nonstrict: limited lists differ only by created_at ties (full key sets equal, both sorted by MIN(created_at), identical created_at sequences); expected tie permutation (main orders by MIN(created_at) only).
+No FAIL/WARN in final-vs-opt (S1,S2,S5,S7) or in final-vs-main S1,S2,S7.

@@ -1,0 +1,5 @@
+id: oldest_due_nonstrict   mode: ANALYZE (executed)   sql_select_limit: 1   rows_returned: 1
+r_total_time_ms: 0.008   cost: 0.140
+select#1 table=outbox_record access=range key=idx_outbox_record_status_retry_partition key_parts=[status,next_retry_at,partition_no] key_len=90 loops=1 rows_est=1000 r_rows=11 r_index_rows=- examined=11 filtered_est=6.200 r_filtered=9.091 index_condition=no attached_condition=yes using_index=yes rowid_filter=no
+filesort: no   temporary_table: no   duplicates_removal: no   strategies: -
+rows_examined_total: 11   rows_returned: 1

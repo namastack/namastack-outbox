@@ -221,3 +221,4 @@ The default credentials are throw-away (`bench`).
 - `--pages-client-sort`, `--pg-*`, `--capture-plans`, `analyze`: PostgreSQL-oriented options of the inherited runner.
 - New in this copy: lanes (`HARNESS_LANE`, `HARNESS_CPUSET`, `HARNESS_CLIENT_CPUSET`, `HARNESS_EXTRA_ARGS` for server options), lane,
   container and cpuset recorded in `env.txt`.
+- M5 follow-up (`experiments/m5-s10.md`): `concurrency` pollers replace `recordKeys` with the keys of the keys query for every `pages` call; `Ctx.bindKeyForms` (`Params.kt`) now re-derives `recordKeysJson` / `recordKeysRows` from them, so `JSON_TABLE` / `VALUES` forms of `pages` run with the poller's keys (before the change those two parameters held the static sample).

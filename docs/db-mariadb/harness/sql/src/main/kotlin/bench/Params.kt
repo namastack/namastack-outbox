@@ -50,6 +50,12 @@ class Ctx(
 
     fun limitFor(q: CatalogQuery): Int = when (q.maxRows) { "one" -> 1; "retention" -> 1000; else -> batch }
 
+    /** Round 1b (M5): derives `recordKeysJson` / `recordKeysRows` from `p["recordKeys"]`. Call again after replacing `recordKeys` (concurrency pollers). */
+    fun bindKeyForms(p: MutableMap<String, Any?>) {
+        p["recordKeysJson"] = (p["recordKeys"] as List<*>).joinToString(",", "[", "]") { "\"" + it.toString().replace("\\", "\\\\").replace("\"", "\\\"") + "\"" }
+        p["recordKeysRows"] = RowList((p["recordKeys"] as List<*>).map { it.toString() })
+    }
+
     fun paramsFor(q: CatalogQuery, rep: Int): Map<String, Any?> {
         val p = hashMapOf<String, Any?>()
         p["partitions"] = owned
@@ -61,8 +67,7 @@ class Ctx(
         p["partitionNo"] = samplePartition
         p["recordKey"] = sampleKey
         p["recordKeys"] = pageKeys.ifEmpty { dueKeys.take(batch) }
-        p["recordKeysJson"] = (p["recordKeys"] as List<*>).joinToString(",", "[", "]") { "\"" + it.toString().replace("\\", "\\\\").replace("\"", "\\\"") + "\"" }   // round 1b (M5)
-        p["recordKeysRows"] = RowList((p["recordKeys"] as List<*>).map { it.toString() })
+        bindKeyForms(p)
         when (q.id) {
             "delete_by_ids" -> p["ids"] = retentionIds
             "upd_complete", "upd_retry", "upd_fail" -> {

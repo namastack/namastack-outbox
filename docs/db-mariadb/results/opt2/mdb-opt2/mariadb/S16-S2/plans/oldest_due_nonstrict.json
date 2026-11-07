@@ -1,0 +1,42 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.082927507
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 0.13950952,
+    "r_loops": 1,
+    "r_total_time_ms": 0.007860094,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "outbox_record",
+          "access_type": "range",
+          "possible_keys": [
+            "idx_outbox_record_status_created_id",
+            "idx_outbox_record_status_retry_partition",
+            "idx_outbox_record_status_partition"
+          ],
+          "key": "idx_outbox_record_status_retry_partition",
+          "key_length": "90",
+          "used_key_parts": ["status", "next_retry_at", "partition_no"],
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 1000,
+          "r_rows": 11,
+          "cost": 0.13950952,
+          "r_table_time_ms": 0.003453221,
+          "r_other_time_ms": 0.0029513,
+          "r_engine_stats": {
+            "pages_accessed": 143
+          },
+          "filtered": 6.199999809,
+          "r_total_filtered": 9.090909091,
+          "attached_condition": "outbox_record.partition_no in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240) and outbox_record.`status` = 'NEW' and outbox_record.next_retry_at <= TIMESTAMP/*WITH LOCAL TIME ZONE*/'2026-01-01 12:00:00.000000'",
+          "r_filtered": 9.090909091,
+          "using_index": true
+        }
+      }
+    ]
+  }
+}

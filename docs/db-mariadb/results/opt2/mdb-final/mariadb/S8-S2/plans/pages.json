@@ -1,0 +1,45 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.060622106
+  },
+  "query_block": {
+    "select_id": 1,
+    "cost": 0.035419695,
+    "r_loops": 1,
+    "r_total_time_ms": 0.029181729,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "outbox_record",
+          "access_type": "range",
+          "possible_keys": [
+            "idx_outbox_record_status_completed_created_id",
+            "idx_outbox_record_key_completed_created_id",
+            "idx_outbox_record_status_completed_retry",
+            "idx_outbox_record_status_partition_created"
+          ],
+          "key": "idx_outbox_record_key_completed_created_id",
+          "key_length": "1027",
+          "used_key_parts": ["record_key", "completed_at"],
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 10,
+          "r_index_rows": 10,
+          "r_rows": 10,
+          "cost": 0.03537672,
+          "r_table_time_ms": 0.024654395,
+          "r_other_time_ms": 0.0028208,
+          "r_engine_stats": {
+            "pages_accessed": 114
+          },
+          "filtered": 0.684873402,
+          "r_total_filtered": 100,
+          "index_condition": "outbox_record.record_key in ('order-000000000000000000000000000289','order-000000000000000000000000000926','order-000000000000000000000000000277','order-000000000000000000000000000371','order-000000000000000000000000000513','order-000000000000000000000000000319','order-000000000000000000000000000751','order-000000000000000000000000000327','order-000000000000000000000000000085','order-000000000000000000000000000311') and outbox_record.completed_at is null",
+          "r_icp_filtered": 100,
+          "attached_condition": "outbox_record.`status` = 'NEW'",
+          "r_filtered": 100
+        }
+      }
+    ]
+  }
+}

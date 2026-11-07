@@ -1,0 +1,5 @@
+id: oldest_due_nonstrict   mode: ANALYZE (executed)   sql_select_limit: none   rows_returned: 1
+r_total_time_ms: 37.058   cost: 39.658
+select#1 table=o access=range key=idx_outbox_record_partition_status_retry key_parts=[partition_no,status,next_retry_at] key_len=90 loops=1 rows_est=260806 r_rows=199960 r_index_rows=- examined=199960 filtered_est=100 r_filtered=100 index_condition=no attached_condition=yes using_index=yes rowid_filter=no
+filesort: no   temporary_table: no   duplicates_removal: no   strategies: -
+rows_examined_total: 199960   rows_returned: 1
