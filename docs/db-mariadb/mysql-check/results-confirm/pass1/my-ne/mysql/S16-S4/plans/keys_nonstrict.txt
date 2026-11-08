@@ -1,0 +1,7 @@
+-> Limit: 10 row(s)  (cost=706556 rows=10) (actual time=0.0219..0.158 rows=10 loops=1)
+    -> Nested loop antijoin  (cost=706556 rows=170920) (actual time=0.0216..0.157 rows=10 loops=1)
+        -> Filter: ((o.`status` = 'NEW') and (o.partition_no in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240)) and (o.next_retry_at <= TIMESTAMP'2026-01-01 12:00:00'))  (cost=651457 rows=167980) (actual time=0.0104..0.0706 rows=10 loops=1)
+            -> Covering index range scan on o using idx_outbox_record_status_created_id over (status = 'NEW')  (cost=651457 rows=1.01e+6) (actual time=0.00843..0.0551 rows=216 loops=1)
+        -> Filter: ((earlier.`status` = 'NEW') and (earlier.completed_at is null) and (earlier.next_retry_at <= '2026-01-01 12:00:00.000000') and (earlier.created_at <= o.created_at) and ((earlier.created_at < o.created_at) or ((earlier.created_at = o.created_at) and (earlier.id < o.id))))  (cost=1.01 rows=1.02) (actual time=0.00856..0.00856 rows=0 loops=10)
+            -> Index lookup on earlier using idx_outbox_record_key_completed_created_id (record_key = o.record_key, completed_at = NULL)  (cost=1.01 rows=1.02) (actual time=0.00769..0.00805 rows=1 loops=10)
+

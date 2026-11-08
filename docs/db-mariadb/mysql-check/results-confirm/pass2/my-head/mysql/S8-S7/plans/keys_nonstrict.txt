@@ -1,0 +1,10 @@
+-> Limit: 10 row(s)  (cost=3056 rows=10) (actual time=25.8..25.8 rows=10 loops=1)
+    -> Sort: o.created_at, o.id, limit input to 10 row(s) per chunk  (cost=3056 rows=2510) (actual time=25.8..25.8 rows=10 loops=1)
+        -> Filter: ((o.next_retry_at <= TIMESTAMP'2026-01-01 12:00:00') and (o.id = (select #2)))  (cost=3056 rows=2510) (actual time=0.065..25.4 rows=2510 loops=1)
+            -> Index range scan on o using idx_outbox_record_status_partition over (status = 'NEW' AND partition_no = 0) OR (status = 'NEW' AND partition_no = 4) OR (62 more), with index condition: ((o.`status` = 'NEW') and (o.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)))  (cost=3056 rows=2510) (actual time=0.0503..5.81 rows=2510 loops=1)
+            -> Select #2 (subquery in condition; dependent)
+                -> Limit: 1 row(s)  (cost=1.24 rows=1) (actual time=0.00732..0.00734 rows=1 loops=2510)
+                    -> Sort: e.created_at, e.id, limit input to 1 row(s) per chunk  (cost=1.24 rows=1.25) (actual time=0.00726..0.00726 rows=1 loops=2510)
+                        -> Filter: ((e.`status` = 'NEW') and (e.next_retry_at <= TIMESTAMP'2026-01-01 12:00:00'))  (cost=1.24 rows=1.25) (actual time=0.0065..0.00685 rows=1 loops=2510)
+                            -> Index lookup on e using idx_outbox_record_key_completed_created_id (record_key = o.record_key, completed_at = NULL), with index condition: (e.completed_at is null)  (cost=1.24 rows=1.25) (actual time=0.00635..0.00667 rows=1 loops=2510)
+

@@ -1,0 +1,3 @@
+-> Insert into outbox_record
+    -> Rows fetched before execution
+

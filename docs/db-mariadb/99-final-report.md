@@ -131,8 +131,12 @@ write-cost deltas are unchanged.
   - Head form beats `NOT EXISTS` for `keys_*`: **does not carry over; it reverses.** MySQL runs the head subquery as a ref lookup on
     `(record_key, completed_at = NULL)` followed by a sort of all unfinished rows of the key, instead of reading the first index entry:
     S8-S5 `keys_strict` 31.8 s (head) vs 227 ms (`NOT EXISTS`), `keys_nonstrict` 1.6 vs 1.0 s, S8-S2 3.0 vs 1.8 ms; equal elsewhere.
-    `4037faa5` uses the head form in `MySqlJdbcOutboxRecordQueries`, so **MySQL at hot keys regresses with it**; a MySQL-specific
-    decision (keep `NOT EXISTS` on MySQL) needs a confirm run and belongs to the separate MySQL study.
+    `4037faa5` uses the head form in `MySqlJdbcOutboxRecordQueries`, so **MySQL at hot keys regresses with it**.
+    **Confirmed** (`mysql-check/CONFIRM.md`: all bench labels, two passes reversed with restart, S10, 2 GB pass; equivalence PASS on
+    S1, S2, S5, S7): `NOT EXISTS` wins or ties everywhere. S8-S5 `keys_strict` 31.6-31.8 s vs 227 ms (2 GB: 32 s vs 229 ms), S8-S7
+    `keys_strict` / `keys_nonstrict` 20.7 / 26.0 ms vs 0.88 ms, S8-S2 3.0-3.6 vs 1.8 ms, S5 `keys_strict` 14 vs 8.5 ms; S10-S2-p4-unthr
+    +9-19 % processed/s. **Recommendation: `MySqlJdbcOutboxRecordQueries` should use the default `NOT EXISTS` statements for `keys_*`**
+    (drop its two overrides); MariaDB keeps the head form. Not applied to the branch (MySQL is outside this study's changes).
   - The harness now runs MySQL (`DIALECT` in `run-cells.sh`, InnoDB parts of `bench`), MariaDB behaviour unchanged.
 - **UUIDv7 (observation, round 2).** With time-ordered ids: PRIMARY -28 %, insert redo -30 %, S10-S2-p1-unthr 2.1x; S2 completion/retry/
   fail redo +45-140 % (cause not isolated). The index ranking does not change. The library generates UUIDv4 today.

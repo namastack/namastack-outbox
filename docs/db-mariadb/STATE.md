@@ -278,6 +278,13 @@ From `01-usage-map.md` §7 (branch `a06a74c0` vs main `f4446c8c`):
   `keys_strict` 31.8 s head vs 227 ms `NOT EXISTS`): `4037faa5`'s MySQL head forms regress at hot keys. Added to `99-final-report.md`
   section 5. MySQL container stopped (volume kept). Harness: MySQL support (`DIALECT`), binlog purge needed once (disk).
 
+- **2026-11-08 — MySQL confirm started (user).** `mysql-check/confirm-spec.md`: `keys_*` head form vs `NOT EXISTS` on MySQL 9.2, v7,
+  `4037faa5`, all bench labels + S10, two passes reversed with restart, then a 2 GB pass; report `mysql-check/CONFIRM.md`.
+
+- **2026-11-08 — MySQL confirm done (`mysql-check/CONFIRM.md`).** `NOT EXISTS` beats the head form for `keys_*` on MySQL 9.2 in both
+  passes and at 2 GB (S8-S5 `keys_strict` 31.7 s vs 227 ms; S8-S7 21-26 vs 0.9 ms; S10-S2-p4-unthr +9-19 %); never worse beyond noise.
+  Recommendation for `MySqlJdbcOutboxRecordQueries`: drop the head-form overrides. Not applied (MySQL outside this study's changes).
+
 ## Deferred tests (quiet host / quiet time)
 
 | Id | What | Why deferred | Relevant against | Status |
@@ -317,5 +324,4 @@ From `01-usage-map.md` §7 (branch `a06a74c0` vs main `f4446c8c`):
 
 ## Next step
 
-All done (phases 0-7, M5/S10, `mdb-opt2`, MySQL check). Final changes wait uncommitted in `/home/azamojski/outbox-wt-jdbc-opt` for the
-user. Never push.
+All done. Final MariaDB changes wait uncommitted in `/home/azamojski/outbox-wt-jdbc-opt`. Never push.

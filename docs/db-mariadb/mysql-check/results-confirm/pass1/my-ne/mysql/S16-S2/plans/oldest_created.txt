@@ -1,0 +1,4 @@
+-> Limit: 1 row(s)  (cost=84.6 rows=1) (actual time=0.216..0.216 rows=1 loops=1)
+    -> Sort: outbox_record.created_at, limit input to 1 row(s) per chunk  (cost=84.6 rows=62) (actual time=0.216..0.216 rows=1 loops=1)
+        -> Index range scan (Multi-Range Read) on outbox_record using idx_outbox_record_status_partition over (status = 'NEW' AND partition_no = 0) OR (status = 'NEW' AND partition_no = 16) OR (14 more), with index condition: ((outbox_record.`status` = 'NEW') and (outbox_record.partition_no in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240)))  (cost=84.6 rows=62) (actual time=0.0724..0.208 rows=62 loops=1)
+

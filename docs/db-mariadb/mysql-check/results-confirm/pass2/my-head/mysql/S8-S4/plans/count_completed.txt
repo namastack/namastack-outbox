@@ -1,0 +1,3 @@
+-> Aggregate: count(0)  (cost=402260 rows=1) (actual time=400..400 rows=1 loops=1)
+    -> Covering index lookup on outbox_record using idx_outbox_record_status_retry_partition (status = 'COMPLETED')  (cost=198739 rows=883281) (actual time=0.0171..381 rows=1e+6 loops=1)
+

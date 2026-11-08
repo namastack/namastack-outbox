@@ -1,0 +1,4 @@
+-> Limit: 1 row(s)  (cost=167323 rows=1) (actual time=0.00916..0.0092 rows=1 loops=1)
+    -> Filter: ((outbox_record.`status` = 'NEW') and (outbox_record.partition_no in (0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,132,136,140,144,148,152,156,160,164,168,172,176,180,184,188,192,196,200,204,208,212,216,220,224,228,232,236,240,244,248,252)))  (cost=167323 rows=121507) (actual time=0.00903..0.00903 rows=1 loops=1)
+        -> Covering index range scan on outbox_record using idx_outbox_record_status_created_id over (status = 'NEW')  (cost=167323 rows=243014) (actual time=0.00754..0.00799 rows=4 loops=1)
+

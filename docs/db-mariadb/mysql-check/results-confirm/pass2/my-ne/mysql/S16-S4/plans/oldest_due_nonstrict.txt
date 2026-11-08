@@ -1,0 +1,4 @@
+-> Limit: 1 row(s)  (cost=2.12e+6 rows=1) (actual time=0.0103..0.0103 rows=1 loops=1)
+    -> Filter: ((outbox_record.`status` = 'NEW') and (outbox_record.partition_no in (0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240)) and (outbox_record.next_retry_at <= TIMESTAMP'2026-01-01 12:00:00'))  (cost=2.12e+6 rows=455496) (actual time=0.0101..0.0101 rows=1 loops=1)
+        -> Covering index range scan on outbox_record using idx_outbox_record_status_retry_partition over (status = 'NEW' AND next_retry_at <= '2026-01-01 12:00:00' AND partition_no <= 240)  (cost=2.12e+6 rows=910992) (actual time=0.0072..0.00829 rows=15 loops=1)
+

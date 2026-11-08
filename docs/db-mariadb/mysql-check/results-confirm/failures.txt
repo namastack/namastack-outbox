@@ -1,0 +1,1 @@
+bp2g: buffer pool is 2415919104, not 2G
