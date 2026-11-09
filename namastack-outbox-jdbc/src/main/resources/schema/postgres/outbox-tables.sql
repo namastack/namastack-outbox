@@ -36,24 +36,17 @@ CREATE TABLE IF NOT EXISTS outbox_partition
     updated_at       TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status_created_id_incomplete
-    ON outbox_record (status, created_at, id) INCLUDE (partition_no, next_retry_at, record_key)
-    WHERE completed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status_created_id
+    ON outbox_record (status, created_at, id) INCLUDE (partition_no, next_retry_at, record_key);
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_key_created_id_incomplete
-    ON outbox_record (record_key, created_at, id)
-    WHERE completed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_outbox_record_key_completed_created_id
+    ON outbox_record (record_key, completed_at, created_at, id);
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry_incomplete
-    ON outbox_record (status, next_retry_at) INCLUDE (partition_no)
-    WHERE completed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry_partition
+    ON outbox_record (status, next_retry_at) INCLUDE (partition_no);
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status_partition_incomplete
-    ON outbox_record (status, partition_no)
-    WHERE completed_at IS NULL;
-
-CREATE STATISTICS IF NOT EXISTS outbox_record_status_completed_stx (mcv)
-    ON status, completed_at FROM outbox_record;
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status_partition
+    ON outbox_record (status, partition_no);
 
 CREATE INDEX IF NOT EXISTS idx_outbox_instance_status_heartbeat
     ON outbox_instance (status, last_heartbeat);

@@ -33,8 +33,8 @@ indexes that have not been measured. Compare your own query latency before and a
     below the new queries run against the old indexes.
 - **Custom names:** if you use a table prefix or a custom schema, adapt the table names.
 - **Disk space:** the old and new indexes exist together during the migration.
-- **JPA on PostgreSQL or SQL Server:** the JPA queries select incomplete records by status alone, which
-  the partial and filtered indexes of these schema scripts do not serve. Create the indexes from the
+- **JPA on SQL Server:** the JPA queries select incomplete records by status alone, which the filtered
+  indexes of this schema script do not serve. Create the indexes from the
   [MySQL and MariaDB](#mysql-and-mariadb) section instead. See [JPA Module](database.md#jpa-module--no-automatic-schema-creation).
 
 ## Migration Order
@@ -50,27 +50,20 @@ record loading between steps 2 and 3. Keep this period short.
 
 ## PostgreSQL
 
-Create the indexes and statistics. Run each `CONCURRENTLY` statement outside a transaction block:
+Create the indexes. Run each `CONCURRENTLY` statement outside a transaction block:
 
 ```sql
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_outbox_record_status_created_id_incomplete
-    ON outbox_record (status, created_at, id) INCLUDE (partition_no, next_retry_at, record_key)
-    WHERE completed_at IS NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_outbox_record_status_created_id
+    ON outbox_record (status, created_at, id) INCLUDE (partition_no, next_retry_at, record_key);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_outbox_record_key_created_id_incomplete
-    ON outbox_record (record_key, created_at, id)
-    WHERE completed_at IS NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_outbox_record_key_completed_created_id
+    ON outbox_record (record_key, completed_at, created_at, id);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_outbox_record_status_retry_incomplete
-    ON outbox_record (status, next_retry_at) INCLUDE (partition_no)
-    WHERE completed_at IS NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_outbox_record_status_retry_partition
+    ON outbox_record (status, next_retry_at) INCLUDE (partition_no);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_outbox_record_status_partition_incomplete
-    ON outbox_record (status, partition_no)
-    WHERE completed_at IS NULL;
-
-CREATE STATISTICS IF NOT EXISTS outbox_record_status_completed_stx (mcv)
-    ON status, completed_at FROM outbox_record;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_outbox_record_status_partition
+    ON outbox_record (status, partition_no);
 ```
 
 Check that every index is valid. A failed `CONCURRENTLY` build leaves an invalid index, and
@@ -95,7 +88,7 @@ DROP INDEX CONCURRENTLY IF EXISTS idx_outbox_record_record_key_completed_created
 DROP INDEX CONCURRENTLY IF EXISTS idx_outbox_record_key_completed_created;
 ```
 
-The extended statistics have no effect until the table is analyzed:
+Update the statistics of the table:
 
 ```sql
 ANALYZE outbox_record;

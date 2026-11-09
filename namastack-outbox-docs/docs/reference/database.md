@@ -99,12 +99,12 @@ database, and H2 creates only the first two; see the [schema files](https://gith
 | status, next retry time | The oldest due record metric |
 | status, partition | Record count metrics per partition |
 
-PostgreSQL and SQL Server index only incomplete records, with partial and filtered indexes on
-`completed_at IS NULL`. The other databases use composite indexes that lead with the status.
+SQL Server indexes only incomplete records, with filtered indexes on `completed_at IS NULL`. The other
+databases, including PostgreSQL, use composite indexes that lead with the status.
 
-The JPA module selects incomplete records by status alone, so the partial and filtered indexes do not
-serve its queries. With JPA on PostgreSQL or SQL Server, create the status-leading composite indexes of
-the MySQL schema file instead.
+The JPA module selects incomplete records by status alone, so the filtered indexes do not serve its
+queries. With JPA on SQL Server, create the status-leading composite indexes of the MySQL schema file
+instead.
 
 Retention queries have no dedicated index and can be slow on large tables. See
 [Record Retention](retention.md#indexes).
