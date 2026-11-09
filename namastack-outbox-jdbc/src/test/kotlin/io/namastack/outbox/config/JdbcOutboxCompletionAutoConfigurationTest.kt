@@ -9,8 +9,12 @@ import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.completion.OutboxCompletionPersistence
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.boot.autoconfigure.AutoConfigurations
+import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
+import org.springframework.core.task.SimpleAsyncTaskExecutor
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.jdbc.datasource.DataSourceTransactionManager
@@ -29,7 +33,13 @@ import javax.sql.DataSource
 class JdbcOutboxCompletionAutoConfigurationTest {
     private val contextRunner =
         ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(JdbcOutboxCompletionAutoConfiguration::class.java))
+            .withConfiguration(
+                AutoConfigurations.of(
+                    TaskExecutionAutoConfiguration::class.java,
+                    JdbcOutboxCompletionAutoConfiguration::class.java,
+                    OutboxCompletionAutoConfiguration::class.java,
+                ),
+            )
 
     @Test
     fun `completion executor is absent by default`() {
@@ -39,8 +49,9 @@ class JdbcOutboxCompletionAutoConfigurationTest {
         }
     }
 
-    @Test
-    fun `enabled batching uses the configured table and replaces repository completion`() {
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `enabled batching uses the configured table and replaces repository completion`(virtualThreads: Boolean) {
         val dataSource =
             DriverManagerDataSource("jdbc:h2:mem:batch-config-${UUID.randomUUID()};DB_CLOSE_DELAY=-1", "sa", "")
         val jdbc = JdbcTemplate(dataSource)
@@ -57,19 +68,24 @@ class JdbcOutboxCompletionAutoConfigurationTest {
             .withBean(JdbcTableNameResolver::class.java, {
                 DefaultJdbcTableNameResolver(recordTableName = "custom_records")
             })
-            .withBean(OutboxProperties::class.java, { OutboxProperties() })
             .withBean(JdbcOutboxRecordRepository::class.java, { repository })
             .withPropertyValues(
-                "namastack.outbox.jdbc.completion-batching.enabled=true",
-                "namastack.outbox.jdbc.completion-batching.writer-count=3",
-                "namastack.outbox.jdbc.completion-batching.max-batch-size=512",
-                "namastack.outbox.jdbc.completion-batching.max-wait=2ms",
+                "namastack.outbox.completion-batching.enabled=true",
+                "spring.threads.virtual.enabled=$virtualThreads",
+                "namastack.outbox.completion-batching.writer-count=3",
+                "namastack.outbox.completion-batching.max-batch-size=512",
+                "namastack.outbox.completion-batching.max-wait=2ms",
             ).run { context ->
                 assertThat(context).hasNotFailed()
-                val executor = context.getBean("outboxCompletionExecutor", ThreadPoolTaskExecutor::class.java)
-                assertThat(executor.corePoolSize).isEqualTo(3)
-                assertThat(executor.maxPoolSize).isEqualTo(3)
-                val settings = context.getBean(JdbcOutboxConfigurationProperties::class.java).completionBatching
+                if (virtualThreads && Runtime.version().feature() >= 21) {
+                    val executor = context.getBean("outboxCompletionExecutor", SimpleAsyncTaskExecutor::class.java)
+                    assertThat(executor.concurrencyLimit).isEqualTo(3)
+                } else {
+                    val executor = context.getBean("outboxCompletionExecutor", ThreadPoolTaskExecutor::class.java)
+                    assertThat(executor.corePoolSize).isEqualTo(3)
+                    assertThat(executor.maxPoolSize).isEqualTo(3)
+                }
+                val settings = context.getBean(OutboxProperties::class.java).completionBatching
                 assertThat(settings.maxBatchSize).isEqualTo(512)
                 assertThat(settings.maxWait).isEqualTo(Duration.ofMillis(2))
                 context.getBean(OutboxCompletionPersistence::class.java).deleteCompleted("record")
@@ -98,9 +114,8 @@ class JdbcOutboxCompletionAutoConfigurationTest {
                 TransactionTemplate(DataSourceTransactionManager(outboxDataSource))
             })
             .withBean(JdbcTableNameResolver::class.java, { DefaultJdbcTableNameResolver() })
-            .withBean(OutboxProperties::class.java, { OutboxProperties() })
             .withBean(JdbcOutboxRecordRepository::class.java, { mockk() })
-            .withPropertyValues("namastack.outbox.jdbc.completion-batching.enabled=true")
+            .withPropertyValues("namastack.outbox.completion-batching.enabled=true")
             .run { context ->
                 assertThat(context).hasNotFailed()
                 context.getBean(OutboxCompletionPersistence::class.java).deleteCompleted("record")
@@ -116,7 +131,7 @@ class JdbcOutboxCompletionAutoConfigurationTest {
         contextRunner
             .withPropertyValues(
                 "namastack.outbox.enabled=false",
-                "namastack.outbox.jdbc.completion-batching.enabled=true",
+                "namastack.outbox.completion-batching.enabled=true",
             ).run { context ->
                 assertThat(context).hasNotFailed()
                 assertThat(context.containsBean("outboxCompletionExecutor")).isFalse()
@@ -128,7 +143,7 @@ class JdbcOutboxCompletionAutoConfigurationTest {
         contextRunner
             .withPropertyValues(
                 "namastack.outbox.mode=channels",
-                "namastack.outbox.jdbc.completion-batching.enabled=true",
+                "namastack.outbox.completion-batching.enabled=true",
             ).run { context ->
                 assertThat(context).hasNotFailed()
                 assertThat(context.containsBean("outboxCompletionExecutor")).isFalse()

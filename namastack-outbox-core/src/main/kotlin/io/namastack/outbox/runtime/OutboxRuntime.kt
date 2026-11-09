@@ -52,7 +52,7 @@ class OutboxRuntime internal constructor(
             started = true
         } catch (failure: Throwable) {
             closed = true
-            stopStartedComponents()
+            stopStartedComponents()?.let(failure::addSuppressed)
             throw failure
         }
     }
@@ -72,7 +72,8 @@ class OutboxRuntime internal constructor(
      * Stops this runtime once in reverse dependency order.
      *
      * Repeated calls are ignored. If stopping a component fails, the remaining components are still
-     * stopped and the first failure is rethrown.
+     * stopped and the first failure is rethrown. Work that exceeds a component's shutdown timeout
+     * may continue after this method returns.
      *
      * @throws Throwable if a lifecycle component fails while stopping
      */

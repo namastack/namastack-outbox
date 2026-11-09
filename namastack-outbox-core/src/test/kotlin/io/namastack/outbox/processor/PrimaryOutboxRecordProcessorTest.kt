@@ -9,7 +9,7 @@ import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
-import io.namastack.outbox.completion.DefaultOutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxCompletionDirectPersistence
 import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
@@ -48,7 +48,7 @@ class PrimaryOutboxRecordProcessorTest {
         PrimaryOutboxRecordProcessor(
             handlerInvoker,
             OutboxRecordCompleter(
-                DefaultOutboxCompletionPersistence(recordRepository),
+                OutboxCompletionDirectPersistence(recordRepository),
                 properties.toRuntimeSettings().processing,
                 clock,
             ),
@@ -171,7 +171,7 @@ class PrimaryOutboxRecordProcessorTest {
             PrimaryOutboxRecordProcessor(
                 handlerInvoker,
                 OutboxRecordCompleter(
-                    DefaultOutboxCompletionPersistence(recordRepository),
+                    OutboxCompletionDirectPersistence(recordRepository),
                     properties.toRuntimeSettings().processing,
                     clock,
                 ),

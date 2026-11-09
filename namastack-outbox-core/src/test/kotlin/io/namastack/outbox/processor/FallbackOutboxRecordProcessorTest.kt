@@ -8,7 +8,7 @@ import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
-import io.namastack.outbox.completion.DefaultOutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxCompletionDirectPersistence
 import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.handler.OutboxFallbackDisposition
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
@@ -50,7 +50,7 @@ class FallbackOutboxRecordProcessorTest {
             fallbackHandlerRegistry,
             fallbackHandlerInvoker,
             OutboxRecordCompleter(
-                DefaultOutboxCompletionPersistence(recordRepository),
+                OutboxCompletionDirectPersistence(recordRepository),
                 properties.toRuntimeSettings().processing,
                 clock,
             ),
@@ -242,7 +242,7 @@ class FallbackOutboxRecordProcessorTest {
                 fallbackHandlerRegistry,
                 fallbackHandlerInvoker,
                 OutboxRecordCompleter(
-                    DefaultOutboxCompletionPersistence(recordRepository),
+                    OutboxCompletionDirectPersistence(recordRepository),
                     properties.toRuntimeSettings().processing,
                     clock,
                 ),

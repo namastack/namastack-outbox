@@ -16,9 +16,9 @@ import java.util.concurrent.TimeUnit
  * @author Roland Beisel
  * @since 1.12.0
  */
-internal class JdbcOutboxCompletionWorker(
-    private val queue: JdbcOutboxCompletionQueue,
-    private val writer: JdbcOutboxCompletionWriter,
+internal class OutboxCompletionWorker(
+    private val queue: OutboxCompletionQueue,
+    private val writer: OutboxCompletionWriter,
     private val maxBatchSize: Int,
     private val maxWait: Duration,
 ) {
@@ -33,7 +33,7 @@ internal class JdbcOutboxCompletionWorker(
     fun run() {
         while (queue.isAccepting() || queue.hasPending()) {
             val first = queue.poll(POLL_NANOS) ?: continue
-            val batch = ArrayList<JdbcOutboxCompletionSubmission>(maxBatchSize)
+            val batch = ArrayList<OutboxCompletionSubmission>(maxBatchSize)
             batch.add(first)
 
             val deadline = System.nanoTime() + maxWait.toNanos()
@@ -56,10 +56,10 @@ internal class JdbcOutboxCompletionWorker(
         }
     }
 
-    private fun write(batch: List<JdbcOutboxCompletionSubmission>) {
+    private fun write(batch: List<OutboxCompletionSubmission>) {
         try {
             val (updateSubmissions, deletionSubmissions) =
-                batch.partition { it.completion is JdbcOutboxCompletion.Update }
+                batch.partition { it.completion is OutboxCompletion.Update }
 
             writeUpdates(updateSubmissions)
             writeDeletions(deletionSubmissions)
@@ -68,22 +68,22 @@ internal class JdbcOutboxCompletionWorker(
         }
     }
 
-    private fun writeUpdates(submissions: List<JdbcOutboxCompletionSubmission>) {
+    private fun writeUpdates(submissions: List<OutboxCompletionSubmission>) {
         if (submissions.isEmpty()) return
 
-        val updates = submissions.map { it.completion as JdbcOutboxCompletion.Update }
+        val updates = submissions.map { it.completion as OutboxCompletion.Update }
         publishResults(submissions, writer.writeUpdates(updates))
     }
 
-    private fun writeDeletions(submissions: List<JdbcOutboxCompletionSubmission>) {
+    private fun writeDeletions(submissions: List<OutboxCompletionSubmission>) {
         if (submissions.isEmpty()) return
 
-        val deletions = submissions.map { it.completion as JdbcOutboxCompletion.Delete }
+        val deletions = submissions.map { it.completion as OutboxCompletion.Delete }
         publishResults(submissions, writer.writeDeletions(deletions))
     }
 
     private fun publishResults(
-        submissions: List<JdbcOutboxCompletionSubmission>,
+        submissions: List<OutboxCompletionSubmission>,
         results: List<Result<Unit>>,
     ) {
         check(submissions.size == results.size) { "Completion writer returned the wrong number of results" }

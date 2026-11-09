@@ -86,8 +86,8 @@ class JdbcOutboxCompletionBatchWriterTest {
         val results =
             writer.writeDeletions(
                 listOf(
-                    JdbcOutboxCompletion.Delete("deleted-1"),
-                    JdbcOutboxCompletion.Delete("deleted-2"),
+                    OutboxCompletion.Delete("deleted-1"),
+                    OutboxCompletion.Delete("deleted-2"),
                 ),
             )
 
@@ -162,7 +162,7 @@ class JdbcOutboxCompletionBatchWriterTest {
     private fun update(
         id: String,
         failureCount: Int = 0,
-    ) = JdbcOutboxCompletion.Update(id, COMPLETED, now, failureCount, null, now)
+    ) = OutboxCompletion.Update(id, COMPLETED, now, failureCount, null, now)
 
     private fun insert(id: String) {
         jdbc.update(

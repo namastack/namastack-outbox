@@ -11,7 +11,7 @@ import io.namastack.outbox.OutboxRecordRepository
  * @author Roland Beisel
  * @since 1.12.0
  */
-class DefaultOutboxCompletionPersistence(
+class OutboxCompletionDirectPersistence(
     private val repository: OutboxRecordRepository,
 ) : OutboxCompletionPersistence {
     override fun updateCompleted(record: OutboxRecord<*>) {

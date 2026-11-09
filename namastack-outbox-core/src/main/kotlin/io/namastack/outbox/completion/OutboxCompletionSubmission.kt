@@ -9,8 +9,8 @@ import java.util.concurrent.CompletableFuture
  * @author Roland Beisel
  * @since 1.12.0
  */
-internal class JdbcOutboxCompletionSubmission(
-    val completion: JdbcOutboxCompletion,
+internal class OutboxCompletionSubmission(
+    val completion: OutboxCompletion,
 ) {
     /** Future completed after the write finishes. */
     val resultFuture = CompletableFuture<Unit>()

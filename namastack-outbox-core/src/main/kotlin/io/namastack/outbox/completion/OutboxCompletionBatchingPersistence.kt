@@ -18,14 +18,14 @@ import java.util.concurrent.CompletionException
  * @author Roland Beisel
  * @since 1.12.0
  */
-internal class JdbcOutboxCompletionBatchingPersistence(
+internal class OutboxCompletionBatchingPersistence(
     private val repository: OutboxRecordRepository,
-    private val batcher: JdbcOutboxCompletionBatcher,
+    private val batcher: OutboxCompletionBatcher,
 ) : OutboxCompletionPersistence {
     override fun updateCompleted(record: OutboxRecord<*>) {
         requireNoCallerTransaction()
 
-        val pendingCommit = batcher.submit(JdbcOutboxCompletion.Update.from(record))
+        val pendingCommit = batcher.submit(OutboxCompletion.Update.from(record))
         if (pendingCommit == null) {
             // A handler may finish after shutdown stops the batcher; persist its completion directly.
             repository.updateProcessingState(record)
@@ -38,7 +38,7 @@ internal class JdbcOutboxCompletionBatchingPersistence(
     override fun deleteCompleted(id: String) {
         requireNoCallerTransaction()
 
-        val pendingCommit = batcher.submit(JdbcOutboxCompletion.Delete(id))
+        val pendingCommit = batcher.submit(OutboxCompletion.Delete(id))
         if (pendingCommit == null) {
             // A handler may finish after shutdown stops the batcher; persist its completion directly.
             repository.deleteById(id)
@@ -50,7 +50,7 @@ internal class JdbcOutboxCompletionBatchingPersistence(
 
     private fun requireNoCallerTransaction() {
         check(!TransactionSynchronizationManager.isActualTransactionActive()) {
-            "JDBC completion batching cannot complete records inside an active transaction"
+            "Completion batching cannot complete records inside an active transaction"
         }
     }
 

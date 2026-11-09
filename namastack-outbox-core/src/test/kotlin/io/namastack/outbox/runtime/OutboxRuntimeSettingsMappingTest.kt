@@ -10,6 +10,39 @@ import java.time.Duration
 
 class OutboxRuntimeSettingsMappingTest {
     @Test
+    fun `completion batching stays disabled by default when outbox is enabled`() {
+        val settings = OutboxProperties(enabled = true).toRuntimeSettings()
+
+        assertThat(settings.completionBatching.enabled).isFalse()
+    }
+
+    @Test
+    fun `captures completion batching properties in runtime settings`() {
+        val properties =
+            OutboxProperties(
+                enabled = false,
+                completionBatching =
+                    OutboxProperties.CompletionBatching(
+                        enabled = true,
+                        writerCount = 3,
+                        maxBatchSize = 128,
+                        maxWait = Duration.ofMillis(5),
+                    ),
+            )
+        val settings = properties.toRuntimeSettings()
+        properties.completionBatching.writerCount = 7
+
+        assertThat(settings.completionBatching).isEqualTo(
+            OutboxRuntimeSettings.CompletionBatching(
+                enabled = true,
+                writerCount = 3,
+                maxBatchSize = 128,
+                maxWait = Duration.ofMillis(5),
+            ),
+        )
+    }
+
+    @Test
     fun `binds supported property names and duration units before mapping`() {
         val source =
             MapConfigurationPropertySource(

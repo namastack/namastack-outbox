@@ -42,6 +42,13 @@ internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
                 enabled = multicaster.enabled,
                 publishAfterSave = multicaster.publishAfterSave,
             ),
+        completionBatching =
+            OutboxRuntimeSettings.CompletionBatching(
+                enabled = completionBatching.enabled,
+                writerCount = completionBatching.writerCount,
+                maxBatchSize = completionBatching.maxBatchSize,
+                maxWait = completionBatching.maxWait,
+            ),
     )
 
 internal fun OutboxProperties.Retry.toRuntimeSettings(): OutboxRuntimeSettings.Retry =

@@ -5,7 +5,7 @@ import io.namastack.outbox.OutboxRecordStatus
 import java.time.Instant
 
 /**
- * Data needed to persist the completion of one outbox record through JDBC.
+ * Data needed to persist the completion of one outbox record through a batch writer.
  *
  * [Update] captures the record's processing fields; [Delete] identifies the record to remove.
  * Neither action retains the payload, context, or mutable [OutboxRecord].
@@ -13,7 +13,7 @@ import java.time.Instant
  * @author Roland Beisel
  * @since 1.12.0
  */
-internal sealed interface JdbcOutboxCompletion {
+sealed interface OutboxCompletion {
     /** ID of the record affected by this action. */
     val recordId: String
 
@@ -35,7 +35,7 @@ internal sealed interface JdbcOutboxCompletion {
         val failureCount: Int,
         val failureReason: String?,
         val nextRetryAt: Instant,
-    ) : JdbcOutboxCompletion {
+    ) : OutboxCompletion {
         companion object {
             /**
              * Creates an update from the record's current processing state.
@@ -63,5 +63,5 @@ internal sealed interface JdbcOutboxCompletion {
      */
     data class Delete(
         override val recordId: String,
-    ) : JdbcOutboxCompletion
+    ) : OutboxCompletion
 }

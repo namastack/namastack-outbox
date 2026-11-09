@@ -3,7 +3,9 @@ package io.namastack.outbox
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.NEW
+import io.namastack.outbox.completion.OutboxCompletion
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
 import io.namastack.outbox.partition.PartitionAssignment
@@ -24,6 +26,30 @@ import java.time.ZoneOffset.UTC
 import javax.sql.DataSource
 
 class JdbcOutboxPersistenceFactoryTest {
+    @Test
+    fun `completion writers update and delete only their own namespace`() {
+        val dataSource = createDataSource()
+        val jdbc = JdbcClient.create(dataSource)
+        createTables(jdbc, "completion_orders_")
+        createTables(jdbc, "completion_billing_")
+        val manager = DataSourceTransactionManager(dataSource)
+        val serializer = JacksonOutboxPayloadSerializer(JsonMapper.builder().build())
+        val clock = Clock.systemUTC()
+        val orders = createPersistence(dataSource, manager, serializer, clock, "completion_orders_")
+        val billing = createPersistence(dataSource, manager, serializer, clock, "completion_billing_")
+        val record = createRecord("key", clock)
+        orders.recordRepository.save(record)
+        billing.recordRepository.save(record)
+        val writer = requireNotNull(orders.completionWriter)
+        val update = OutboxCompletion.Update.from(record).copy(status = COMPLETED, completedAt = clock.instant())
+        assertThat(writer.writeUpdates(listOf(update)).single().isSuccess).isTrue()
+        assertThat(orders.recordRepository.countByStatus(COMPLETED)).isEqualTo(1)
+        assertThat(billing.recordRepository.countByStatus(NEW)).isEqualTo(1)
+        assertThat(writer.writeDeletions(listOf(OutboxCompletion.Delete(record.id))).single().isSuccess).isTrue()
+        assertThat(orders.recordRepository.countByStatus(COMPLETED)).isZero()
+        assertThat(billing.recordRepository.countByStatus(NEW)).isEqualTo(1)
+    }
+
     @Test
     fun `creates isolated programmatic repositories for two namespaces on one datasource`() {
         val dataSource = createDataSource()

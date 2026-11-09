@@ -5,7 +5,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.mockk.verifyOrder
-import io.namastack.outbox.completion.DefaultOutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxCompletionDirectPersistence
 import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
@@ -167,7 +167,7 @@ class OutboxBulkLoadingTest {
                     handlerInvoker = handlers,
                     completer =
                         OutboxRecordCompleter(
-                            DefaultOutboxCompletionPersistence(repository),
+                            OutboxCompletionDirectPersistence(repository),
                             OutboxRuntimeSettings.Processing(deleteCompletedRecords = false),
                             clock,
                         ),

@@ -1,9 +1,9 @@
 package io.namastack.outbox.completion
 
-import io.namastack.outbox.config.JdbcOutboxConfigurationProperties.CompletionBatching
+import io.namastack.outbox.runtime.OutboxRuntimeSettings.CompletionBatching
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
+import org.springframework.core.task.TaskExecutor
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
@@ -14,26 +14,27 @@ import java.util.concurrent.TimeUnit
  *
  * The queue opens before workers are scheduled, but callers can submit only after every worker
  * has been scheduled. Shutdown closes the queue so workers can drain pending submissions.
+ * The executor is borrowed; its owner initializes and shuts it down.
  * [shutdownTimeout] limits how long shutdown waits for workers; it does not cancel their writes.
  *
  * @param writer Persists the batches collected by workers
- * @param executor Schedules the configured number of workers
+ * @param executor Initialized asynchronous executor with capacity for all long-running workers
  * @param settings Number of workers, batch size, and maximum batch wait
  * @param shutdownTimeout Maximum time [stop] waits for workers to exit
  * @author Roland Beisel
  * @since 1.12.0
  */
-internal class JdbcOutboxCompletionBatcher(
-    private val executor: ThreadPoolTaskExecutor,
+internal class OutboxCompletionBatcher(
+    private val executor: TaskExecutor,
     private val shutdownTimeout: Duration,
-    writer: JdbcOutboxCompletionWriter,
+    writer: OutboxCompletionWriter,
     settings: CompletionBatching,
 ) : SmartLifecycle {
-    private val log = LoggerFactory.getLogger(JdbcOutboxCompletionBatcher::class.java)
+    private val log = LoggerFactory.getLogger(OutboxCompletionBatcher::class.java)
     private val writerCount = settings.writerCount
 
-    private val queue: JdbcOutboxCompletionQueue
-    private val worker: JdbcOutboxCompletionWorker
+    private val queue: OutboxCompletionQueue
+    private val worker: OutboxCompletionWorker
 
     private val lifecycleLock = Any()
     private var workerExitLatch = CountDownLatch(0)
@@ -42,13 +43,10 @@ internal class JdbcOutboxCompletionBatcher(
     private var acceptingSubmissions = false
 
     init {
-        require(writerCount > 0) { "writerCount must be positive" }
-        require(settings.maxBatchSize > 0) { "maxBatchSize must be positive" }
-        require(settings.maxWait > Duration.ZERO && settings.maxWait.toNanos() > 0) { "maxWait must be positive" }
         require(shutdownTimeout >= Duration.ZERO) { "shutdownTimeout must not be negative" }
 
-        queue = JdbcOutboxCompletionQueue(Math.multiplyExact(writerCount, settings.maxBatchSize))
-        worker = JdbcOutboxCompletionWorker(queue, writer, settings.maxBatchSize, settings.maxWait)
+        queue = OutboxCompletionQueue(writerCount * settings.maxBatchSize)
+        worker = OutboxCompletionWorker(queue, writer, settings.maxBatchSize, settings.maxWait)
     }
 
     /**
@@ -87,7 +85,6 @@ internal class JdbcOutboxCompletionBatcher(
     override fun stop() {
         val exitLatch =
             synchronized(lifecycleLock) {
-                if (!acceptingSubmissions) return
                 acceptingSubmissions = false
                 queue.stopAccepting()
                 workerExitLatch
@@ -126,7 +123,7 @@ internal class JdbcOutboxCompletionBatcher(
      * @param completion Update or deletion to write
      * @return future for this write, or null if the batcher has not started or closes before enqueueing
      */
-    fun submit(completion: JdbcOutboxCompletion): CompletableFuture<Unit>? =
+    fun submit(completion: OutboxCompletion): CompletableFuture<Unit>? =
         if (acceptingSubmissions) queue.submit(completion) else null
 
     /**

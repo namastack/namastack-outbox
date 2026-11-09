@@ -1,7 +1,6 @@
 package io.namastack.outbox.config
 
 import org.springframework.boot.context.properties.ConfigurationProperties
-import java.time.Duration
 
 /**
  * Configuration properties for the JDBC outbox module.
@@ -12,7 +11,6 @@ import java.time.Duration
  *                       Defaults to empty string (no prefix).
  * @property tableNames Base table names to use for the outbox tables. Defaults preserve the built-in names.
  * @property schemaInitialization Configuration for automatic schema initialization.
- * @property completionBatching Settings for optional JDBC completion batching.
  *
  * @author Roland Beisel
  * @since 1.0.0
@@ -23,26 +21,7 @@ data class JdbcOutboxConfigurationProperties(
     var tablePrefix: String = "",
     var tableNames: TableNames = TableNames(),
     var schemaInitialization: SchemaInitialization = SchemaInitialization(),
-    var completionBatching: CompletionBatching = CompletionBatching(),
 ) {
-    /**
-     * Settings for collecting completed records into JDBC write batches.
-     *
-     * @property enabled Whether completion batching is enabled. Defaults to false.
-     * @property writerCount Number of concurrent completion writers. Defaults to one.
-     * @property maxBatchSize Maximum number of completions in one batch. Defaults to 1024.
-     * @property maxWait Maximum time to collect a batch after a writer takes its first completion.
-     *                   Defaults to one millisecond.
-     * @author Roland Beisel
-     * @since 1.12.0
-     */
-    data class CompletionBatching(
-        var enabled: Boolean = false,
-        var writerCount: Int = 1,
-        var maxBatchSize: Int = 1024,
-        var maxWait: Duration = Duration.ofMillis(1),
-    )
-
     /**
      * Base table names for the outbox tables.
      *

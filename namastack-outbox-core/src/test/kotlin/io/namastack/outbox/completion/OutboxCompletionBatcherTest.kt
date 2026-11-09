@@ -7,19 +7,17 @@ import io.mockk.verify
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
-import io.namastack.outbox.config.JdbcOutboxConfigurationProperties.CompletionBatching
+import io.namastack.outbox.runtime.OutboxRuntimeSettings.CompletionBatching
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Test
-import org.springframework.jdbc.datasource.DataSourceTransactionManager
-import org.springframework.jdbc.datasource.DriverManagerDataSource
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
-import org.springframework.transaction.support.TransactionTemplate
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Duration
 import java.time.Instant
-import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -31,14 +29,93 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * @author Roland Beisel
  */
-class JdbcOutboxCompletionBatcherTest {
+class OutboxCompletionBatcherTest {
     private lateinit var executor: ThreadPoolTaskExecutor
-    private lateinit var batcher: JdbcOutboxCompletionBatcher
+    private lateinit var batcher: OutboxCompletionBatcher
 
     @AfterEach
     fun tearDown() {
         if (::batcher.isInitialized) batcher.stop()
         if (::executor.isInitialized) executor.shutdown()
+    }
+
+    @Test
+    fun `borrowed executor drains accepted writes after the shutdown wait expires`() {
+        val writing = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        executor =
+            ThreadPoolTaskExecutor().apply {
+                corePoolSize = 1
+                maxPoolSize = 1
+                initialize()
+            }
+        batcher =
+            OutboxCompletionBatcher(
+                executor = executor,
+                shutdownTimeout = Duration.ZERO,
+                writer =
+                    writer { deletions ->
+                        writing.countDown()
+                        release.await()
+                        deletions.map { Result.success(Unit) }
+                    },
+                settings = CompletionBatching(),
+            )
+        batcher.start()
+        val pending = batcher.submit(OutboxCompletion.Delete("record"))!!
+        try {
+            assertThat(writing.await(2, TimeUnit.SECONDS)).isTrue()
+            batcher.stop()
+            assertThat(pending.isDone).isFalse()
+            assertThat(executor.threadPoolExecutor.isTerminated).isFalse()
+            assertThat(executor.threadPoolExecutor.isShutdown).isFalse()
+            assertThatThrownBy { batcher.start() }.hasMessage("Previous completion writers are still stopping")
+        } finally {
+            release.countDown()
+        }
+        pending.get(2, TimeUnit.SECONDS)
+        await().atMost(Duration.ofSeconds(2)).untilAsserted { assertThat(executor.activeCount).isZero() }
+    }
+
+    @Test
+    fun `batcher can restart using the same borrowed executor`() {
+        start(writer { deletions -> deletions.map { Result.success(Unit) } })
+        batcher.submit(OutboxCompletion.Delete("first"))!!.get(2, TimeUnit.SECONDS)
+        val previousExecutor = executor.threadPoolExecutor
+
+        batcher.stop()
+        assertThat(previousExecutor.isShutdown).isFalse()
+        batcher.start()
+
+        assertThat(executor.threadPoolExecutor).isSameAs(previousExecutor)
+        batcher.submit(OutboxCompletion.Delete("second"))!!.get(2, TimeUnit.SECONDS)
+    }
+
+    @Test
+    fun `partial worker startup stops accepted workers without closing the borrowed executor`() {
+        executor =
+            object : ThreadPoolTaskExecutor() {
+                private var submissions = 0
+
+                override fun execute(task: Runnable) {
+                    if (++submissions == 2) throw IllegalStateException("second worker rejected")
+                    super.execute(task)
+                }
+            }.apply {
+                corePoolSize = 2
+                maxPoolSize = 2
+                initialize()
+            }
+        batcher =
+            OutboxCompletionBatcher(
+                executor = executor,
+                shutdownTimeout = Duration.ofSeconds(2),
+                writer = writer { emptyList() },
+                settings = CompletionBatching(writerCount = 2),
+            )
+        assertThatThrownBy { batcher.start() }.hasMessage("second worker rejected")
+        assertThat(executor.threadPoolExecutor.isShutdown).isFalse()
+        await().atMost(Duration.ofSeconds(2)).untilAsserted { assertThat(executor.activeCount).isZero() }
     }
 
     @Test
@@ -51,7 +128,7 @@ class JdbcOutboxCompletionBatcherTest {
             }
         start(writer, maxBatchSize = 3)
 
-        val results = (1..3).map { batcher.submit(JdbcOutboxCompletion.Delete("record-$it"))!! }
+        val results = (1..3).map { batcher.submit(OutboxCompletion.Delete("record-$it"))!! }
         results.forEach { it.get(2, TimeUnit.SECONDS) }
 
         assertThat(written).containsExactly(listOf("record-1", "record-2", "record-3"))
@@ -59,20 +136,20 @@ class JdbcOutboxCompletionBatcherTest {
 
     @Test
     fun `routes processing-state completions to the update writer`() {
-        val written = mutableListOf<JdbcOutboxCompletion.Update>()
+        val written = mutableListOf<OutboxCompletion.Update>()
         val writer =
-            object : JdbcOutboxCompletionWriter {
-                override fun writeUpdates(updates: List<JdbcOutboxCompletion.Update>): List<Result<Unit>> {
+            object : OutboxCompletionWriter {
+                override fun writeUpdates(updates: List<OutboxCompletion.Update>): List<Result<Unit>> {
                     written.addAll(updates)
                     return updates.map { Result.success(Unit) }
                 }
 
-                override fun writeDeletions(deletions: List<JdbcOutboxCompletion.Delete>): List<Result<Unit>> =
+                override fun writeDeletions(deletions: List<OutboxCompletion.Delete>): List<Result<Unit>> =
                     deletions.map { Result.success(Unit) }
             }
         start(writer)
         val now = Instant.parse("2026-01-01T12:00:00Z")
-        val update = JdbcOutboxCompletion.Update("record", COMPLETED, now, 0, null, now)
+        val update = OutboxCompletion.Update("record", COMPLETED, now, 0, null, now)
 
         batcher.submit(update)!!.get(2, TimeUnit.SECONDS)
 
@@ -85,13 +162,13 @@ class JdbcOutboxCompletionBatcherTest {
         val writtenDeletions = mutableListOf<String>()
         val deleteFailure = IllegalStateException("Delete failed")
         val writer =
-            object : JdbcOutboxCompletionWriter {
-                override fun writeUpdates(updates: List<JdbcOutboxCompletion.Update>): List<Result<Unit>> {
+            object : OutboxCompletionWriter {
+                override fun writeUpdates(updates: List<OutboxCompletion.Update>): List<Result<Unit>> {
                     writtenUpdates.addAll(updates.map { it.recordId })
                     return updates.map { Result.success(Unit) }
                 }
 
-                override fun writeDeletions(deletions: List<JdbcOutboxCompletion.Delete>): List<Result<Unit>> {
+                override fun writeDeletions(deletions: List<OutboxCompletion.Delete>): List<Result<Unit>> {
                     writtenDeletions.addAll(deletions.map { it.recordId })
                     return deletions.map { Result.failure(deleteFailure) }
                 }
@@ -99,9 +176,9 @@ class JdbcOutboxCompletionBatcherTest {
         start(writer, maxBatchSize = 3, maxWait = Duration.ofSeconds(1))
         val now = Instant.parse("2026-01-01T12:00:00Z")
 
-        val first = batcher.submit(JdbcOutboxCompletion.Update("first", COMPLETED, now, 0, null, now))!!
-        val deleted = batcher.submit(JdbcOutboxCompletion.Delete("deleted"))!!
-        val last = batcher.submit(JdbcOutboxCompletion.Update("last", COMPLETED, now, 0, null, now))!!
+        val first = batcher.submit(OutboxCompletion.Update("first", COMPLETED, now, 0, null, now))!!
+        val deleted = batcher.submit(OutboxCompletion.Delete("deleted"))!!
+        val last = batcher.submit(OutboxCompletion.Update("last", COMPLETED, now, 0, null, now))!!
 
         first.get(2, TimeUnit.SECONDS)
         last.get(2, TimeUnit.SECONDS)
@@ -124,9 +201,9 @@ class JdbcOutboxCompletionBatcherTest {
             }
         start(writer, writerCount = 2)
 
-        val slow = batcher.submit(JdbcOutboxCompletion.Delete("slow"))!!
+        val slow = batcher.submit(OutboxCompletion.Delete("slow"))!!
         assertThat(slowWriting.await(2, TimeUnit.SECONDS)).isTrue()
-        val fast = batcher.submit(JdbcOutboxCompletion.Delete("fast"))!!
+        val fast = batcher.submit(OutboxCompletion.Delete("fast"))!!
 
         try {
             fast.get(2, TimeUnit.SECONDS)
@@ -150,7 +227,7 @@ class JdbcOutboxCompletionBatcherTest {
                 }
             }
         batcher =
-            JdbcOutboxCompletionBatcher(
+            OutboxCompletionBatcher(
                 writer = writer { deletions -> deletions.map { Result.success(Unit) } },
                 executor = rejectingExecutor,
                 settings = CompletionBatching(writerCount = 1, maxBatchSize = 1),
@@ -161,7 +238,7 @@ class JdbcOutboxCompletionBatcherTest {
         assertThat(scheduling.await(2, TimeUnit.SECONDS)).isTrue()
         try {
             assertThat(batcher.isRunning()).isFalse()
-            assertThat(batcher.submit(JdbcOutboxCompletion.Delete("record"))).isNull()
+            assertThat(batcher.submit(OutboxCompletion.Delete("record"))).isNull()
         } finally {
             reject.countDown()
         }
@@ -183,11 +260,11 @@ class JdbcOutboxCompletionBatcherTest {
             }
         start(writer, maxBatchSize = 1)
 
-        val first = batcher.submit(JdbcOutboxCompletion.Delete("first"))!!
+        val first = batcher.submit(OutboxCompletion.Delete("first"))!!
         assertThat(writing.await(2, TimeUnit.SECONDS)).isTrue()
-        val second = batcher.submit(JdbcOutboxCompletion.Delete("second"))!!
+        val second = batcher.submit(OutboxCompletion.Delete("second"))!!
         val thirdSubmission =
-            CompletableFuture.supplyAsync { batcher.submit(JdbcOutboxCompletion.Delete("third")) }
+            CompletableFuture.supplyAsync { batcher.submit(OutboxCompletion.Delete("third")) }
 
         try {
             assertThatThrownBy { thirdSubmission.get(100, TimeUnit.MILLISECONDS) }
@@ -205,26 +282,26 @@ class JdbcOutboxCompletionBatcherTest {
         val writer = writer { deletions -> deletions.map { Result.success(Unit) } }
         start(writer, maxBatchSize = 10, maxWait = Duration.ofSeconds(10))
 
-        val result = batcher.submit(JdbcOutboxCompletion.Delete("record"))!!
+        val result = batcher.submit(OutboxCompletion.Delete("record"))!!
         val stopping = CompletableFuture.runAsync { batcher.stop() }
 
         result.get(2, TimeUnit.SECONDS)
         stopping.get(2, TimeUnit.SECONDS)
-        assertThat(batcher.submit(JdbcOutboxCompletion.Delete("late"))).isNull()
+        assertThat(batcher.submit(OutboxCompletion.Delete("late"))).isNull()
     }
 
     @Test
     fun `shutdown drains queued completions in bounded batches without waiting to fill the last batch`() {
-        val queue = JdbcOutboxCompletionQueue(7)
+        val queue = OutboxCompletionQueue(7)
         val written = mutableListOf<List<String>>()
         val writer =
             writer { deletions ->
                 written.add(deletions.map { it.recordId })
                 deletions.map { Result.success(Unit) }
             }
-        val worker = JdbcOutboxCompletionWorker(queue, writer, 3, Duration.ofSeconds(10))
+        val worker = OutboxCompletionWorker(queue, writer, 3, Duration.ofSeconds(10))
         queue.startAccepting()
-        val results = (1..7).map { queue.submit(JdbcOutboxCompletion.Delete("record-$it"))!! }
+        val results = (1..7).map { queue.submit(OutboxCompletion.Delete("record-$it"))!! }
         queue.stopAccepting()
 
         assertTimeoutPreemptively(Duration.ofSeconds(2)) { worker.run() }
@@ -248,7 +325,7 @@ class JdbcOutboxCompletionBatcherTest {
                 deletions.map { Result.success(Unit) }
             }
         start(writer, shutdownTimeout = Duration.ofMillis(50))
-        val result = batcher.submit(JdbcOutboxCompletion.Delete("record"))!!
+        val result = batcher.submit(OutboxCompletion.Delete("record"))!!
         assertThat(writing.await(2, TimeUnit.SECONDS)).isTrue()
 
         try {
@@ -272,7 +349,7 @@ class JdbcOutboxCompletionBatcherTest {
                 deletions.map { Result.success(Unit) }
             }
         start(writer)
-        val result = batcher.submit(JdbcOutboxCompletion.Delete("record"))!!
+        val result = batcher.submit(OutboxCompletion.Delete("record"))!!
         assertThat(writing.await(2, TimeUnit.SECONDS)).isTrue()
         val stopped = CompletableFuture<Boolean>()
         val stoppingThread =
@@ -307,11 +384,11 @@ class JdbcOutboxCompletionBatcherTest {
             }
         start(writer, maxBatchSize = 1, shutdownTimeout = Duration.ofMillis(50))
 
-        val first = batcher.submit(JdbcOutboxCompletion.Delete("first"))!!
+        val first = batcher.submit(OutboxCompletion.Delete("first"))!!
         assertThat(writing.await(2, TimeUnit.SECONDS)).isTrue()
-        val second = batcher.submit(JdbcOutboxCompletion.Delete("second"))!!
+        val second = batcher.submit(OutboxCompletion.Delete("second"))!!
         val blockedSubmission =
-            CompletableFuture.supplyAsync { batcher.submit(JdbcOutboxCompletion.Delete("third")) }
+            CompletableFuture.supplyAsync { batcher.submit(OutboxCompletion.Delete("third")) }
 
         try {
             assertThatThrownBy { blockedSubmission.get(100, TimeUnit.MILLISECONDS) }
@@ -332,17 +409,20 @@ class JdbcOutboxCompletionBatcherTest {
         val repository = mockk<OutboxRecordRepository>()
         val writer = writer { deletions -> deletions.map { Result.success(Unit) } }
         start(writer)
-        val persistence = JdbcOutboxCompletionBatchingPersistence(repository, batcher)
-        val dataSource = DriverManagerDataSource("jdbc:h2:mem:completion-${UUID.randomUUID()}", "sa", "")
-        val transactions = TransactionTemplate(DataSourceTransactionManager(dataSource))
+        val persistence = OutboxCompletionBatchingPersistence(repository, batcher)
         val record = mockk<OutboxRecord<*>>()
 
-        assertThatThrownBy { transactions.executeWithoutResult { persistence.deleteCompleted("record") } }
-            .isInstanceOf(IllegalStateException::class.java)
-            .hasMessage("JDBC completion batching cannot complete records inside an active transaction")
-        assertThatThrownBy { transactions.executeWithoutResult { persistence.updateCompleted(record) } }
-            .isInstanceOf(IllegalStateException::class.java)
-            .hasMessage("JDBC completion batching cannot complete records inside an active transaction")
+        TransactionSynchronizationManager.setActualTransactionActive(true)
+        try {
+            assertThatThrownBy { persistence.deleteCompleted("record") }
+                .isInstanceOf(IllegalStateException::class.java)
+                .hasMessage("Completion batching cannot complete records inside an active transaction")
+            assertThatThrownBy { persistence.updateCompleted(record) }
+                .isInstanceOf(IllegalStateException::class.java)
+                .hasMessage("Completion batching cannot complete records inside an active transaction")
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false)
+        }
         verify(exactly = 0) { repository.deleteById(any()) }
         verify(exactly = 0) { repository.updateProcessingState(record) }
     }
@@ -358,7 +438,7 @@ class JdbcOutboxCompletionBatcherTest {
                 deletions.map { Result.success(Unit) }
             }
         start(writer, maxBatchSize = 1)
-        val persistence = JdbcOutboxCompletionBatchingPersistence(mockk(), batcher)
+        val persistence = OutboxCompletionBatchingPersistence(mockk(), batcher)
 
         val processing = CompletableFuture.runAsync { persistence.deleteCompleted("record") }
         assertThat(writing.await(2, TimeUnit.SECONDS)).isTrue()
@@ -371,23 +451,23 @@ class JdbcOutboxCompletionBatcherTest {
     fun `update completion snapshots metadata and waits for the committed result`() {
         val writing = CountDownLatch(1)
         val release = CountDownLatch(1)
-        var captured: JdbcOutboxCompletion.Update? = null
+        var captured: OutboxCompletion.Update? = null
         val writer =
-            object : JdbcOutboxCompletionWriter {
-                override fun writeUpdates(updates: List<JdbcOutboxCompletion.Update>): List<Result<Unit>> {
+            object : OutboxCompletionWriter {
+                override fun writeUpdates(updates: List<OutboxCompletion.Update>): List<Result<Unit>> {
                     captured = updates.single()
                     writing.countDown()
                     check(release.await(2, TimeUnit.SECONDS))
                     return listOf(Result.success(Unit))
                 }
 
-                override fun writeDeletions(deletions: List<JdbcOutboxCompletion.Delete>): List<Result<Unit>> =
+                override fun writeDeletions(deletions: List<OutboxCompletion.Delete>): List<Result<Unit>> =
                     deletions.map { Result.success(Unit) }
             }
         start(writer, maxBatchSize = 1)
         val record = completedRecord()
         val repository = mockk<OutboxRecordRepository>()
-        val persistence = JdbcOutboxCompletionBatchingPersistence(repository, batcher)
+        val persistence = OutboxCompletionBatchingPersistence(repository, batcher)
 
         val processing = CompletableFuture.runAsync { persistence.updateCompleted(record) }
         assertThat(writing.await(2, TimeUnit.SECONDS)).isTrue()
@@ -400,7 +480,7 @@ class JdbcOutboxCompletionBatcherTest {
 
         assertThat(captured)
             .isEqualTo(
-                JdbcOutboxCompletion.Update(
+                OutboxCompletion.Update(
                     record.id,
                     COMPLETED,
                     record.completedAt,
@@ -416,17 +496,17 @@ class JdbcOutboxCompletionBatcherTest {
     fun `failed batched update propagates the database failure without repository fallback`() {
         val failure = IllegalStateException("Database rejected the update")
         val writer =
-            object : JdbcOutboxCompletionWriter {
-                override fun writeUpdates(updates: List<JdbcOutboxCompletion.Update>): List<Result<Unit>> =
+            object : OutboxCompletionWriter {
+                override fun writeUpdates(updates: List<OutboxCompletion.Update>): List<Result<Unit>> =
                     updates.map { Result.failure(failure) }
 
-                override fun writeDeletions(deletions: List<JdbcOutboxCompletion.Delete>): List<Result<Unit>> =
+                override fun writeDeletions(deletions: List<OutboxCompletion.Delete>): List<Result<Unit>> =
                     deletions.map { Result.success(Unit) }
             }
         start(writer)
         val record = completedRecord()
         val repository = mockk<OutboxRecordRepository>()
-        val persistence = JdbcOutboxCompletionBatchingPersistence(repository, batcher)
+        val persistence = OutboxCompletionBatchingPersistence(repository, batcher)
 
         assertThatThrownBy { persistence.updateCompleted(record) }.isSameAs(failure)
         verify(exactly = 0) { repository.updateProcessingState(record) }
@@ -438,7 +518,7 @@ class JdbcOutboxCompletionBatcherTest {
         val writer =
             writer { deletions -> deletions.map { Result.failure(failure) } }
         start(writer)
-        val persistence = JdbcOutboxCompletionBatchingPersistence(mockk(), batcher)
+        val persistence = OutboxCompletionBatchingPersistence(mockk(), batcher)
 
         assertThatThrownBy { persistence.deleteCompleted("record") }
             .isInstanceOf(IllegalStateException::class.java)
@@ -457,8 +537,8 @@ class JdbcOutboxCompletionBatcherTest {
             }
         start(writer, maxBatchSize = 2)
 
-        val first = batcher.submit(JdbcOutboxCompletion.Delete("first"))!!
-        val second = batcher.submit(JdbcOutboxCompletion.Delete("second"))!!
+        val first = batcher.submit(OutboxCompletion.Delete("first"))!!
+        val second = batcher.submit(OutboxCompletion.Delete("second"))!!
 
         first.get(2, TimeUnit.SECONDS)
         assertThatThrownBy { second.join() }.hasCause(failure)
@@ -475,9 +555,9 @@ class JdbcOutboxCompletionBatcherTest {
             }
         start(writer, maxBatchSize = 1)
 
-        val first = batcher.submit(JdbcOutboxCompletion.Delete("first"))!!
+        val first = batcher.submit(OutboxCompletion.Delete("first"))!!
         assertThatThrownBy { first.join() }.hasCause(failure)
-        batcher.submit(JdbcOutboxCompletion.Delete("second"))!!.get(2, TimeUnit.SECONDS)
+        batcher.submit(OutboxCompletion.Delete("second"))!!.get(2, TimeUnit.SECONDS)
         assertThat(attempts.get()).isEqualTo(2)
     }
 
@@ -487,7 +567,7 @@ class JdbcOutboxCompletionBatcherTest {
         justRun { repository.deleteById("late") }
         val writer = writer { deletions -> deletions.map { Result.success(Unit) } }
         start(writer)
-        val persistence = JdbcOutboxCompletionBatchingPersistence(repository, batcher)
+        val persistence = OutboxCompletionBatchingPersistence(repository, batcher)
         batcher.stop()
 
         persistence.deleteCompleted("late")
@@ -501,7 +581,7 @@ class JdbcOutboxCompletionBatcherTest {
         val repository = mockk<OutboxRecordRepository>()
         every { repository.updateProcessingState(record) } returns true
         start(writer { deletions -> deletions.map { Result.success(Unit) } })
-        val persistence = JdbcOutboxCompletionBatchingPersistence(repository, batcher)
+        val persistence = OutboxCompletionBatchingPersistence(repository, batcher)
         batcher.stop()
 
         persistence.updateCompleted(record)
@@ -529,7 +609,7 @@ class JdbcOutboxCompletionBatcherTest {
     }
 
     private fun start(
-        writer: JdbcOutboxCompletionWriter,
+        writer: OutboxCompletionWriter,
         writerCount: Int = 1,
         maxBatchSize: Int = 1,
         maxWait: Duration = Duration.ofMillis(20),
@@ -539,11 +619,10 @@ class JdbcOutboxCompletionBatcherTest {
             ThreadPoolTaskExecutor().apply {
                 corePoolSize = writerCount
                 maxPoolSize = writerCount
-                queueCapacity = 0
                 initialize()
             }
         batcher =
-            JdbcOutboxCompletionBatcher(
+            OutboxCompletionBatcher(
                 writer = writer,
                 executor = executor,
                 settings =
@@ -557,12 +636,12 @@ class JdbcOutboxCompletionBatcherTest {
         batcher.start()
     }
 
-    private fun writer(writeDeletes: (List<JdbcOutboxCompletion.Delete>) -> List<Result<Unit>>) =
-        object : JdbcOutboxCompletionWriter {
-            override fun writeUpdates(updates: List<JdbcOutboxCompletion.Update>): List<Result<Unit>> =
+    private fun writer(writeDeletes: (List<OutboxCompletion.Delete>) -> List<Result<Unit>>) =
+        object : OutboxCompletionWriter {
+            override fun writeUpdates(updates: List<OutboxCompletion.Update>): List<Result<Unit>> =
                 updates.map { Result.success(Unit) }
 
-            override fun writeDeletions(deletions: List<JdbcOutboxCompletion.Delete>): List<Result<Unit>> =
+            override fun writeDeletions(deletions: List<OutboxCompletion.Delete>): List<Result<Unit>> =
                 writeDeletes(deletions)
         }
 }

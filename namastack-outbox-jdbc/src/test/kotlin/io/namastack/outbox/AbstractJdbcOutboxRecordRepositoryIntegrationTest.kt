@@ -3,8 +3,8 @@ package io.namastack.outbox
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
-import io.namastack.outbox.completion.JdbcOutboxCompletion
 import io.namastack.outbox.completion.JdbcOutboxCompletionBatchWriter
+import io.namastack.outbox.completion.OutboxCompletion
 import io.namastack.outbox.config.JdbcDatabaseType
 import io.namastack.outbox.config.JdbcOutboxAutoConfiguration
 import io.namastack.outbox.config.JdbcOutboxSchemaAutoConfiguration
@@ -543,9 +543,9 @@ abstract class AbstractJdbcOutboxRecordRepositoryIntegrationTest {
                 }
             val updates =
                 ids.take(2).map { id ->
-                    JdbcOutboxCompletion.Update(id, COMPLETED, now, 0, null, now)
+                    OutboxCompletion.Update(id, COMPLETED, now, 0, null, now)
                 }
-            val deletions = ids.drop(2).map(JdbcOutboxCompletion::Delete)
+            val deletions = ids.drop(2).map(OutboxCompletion::Delete)
 
             assertThat(writer.writeUpdates(updates)).allMatch { it.isSuccess }
             assertThat(writer.writeDeletions(deletions)).allMatch { it.isSuccess }

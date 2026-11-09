@@ -16,12 +16,12 @@ import java.util.concurrent.atomic.AtomicBoolean
  * @author Roland Beisel
  * @since 1.12.0
  */
-internal class JdbcOutboxCompletionQueue(
+internal class OutboxCompletionQueue(
     capacity: Int,
 ) {
     private val submissionLock = Any()
     private val accepting = AtomicBoolean(false)
-    private val queue = ArrayBlockingQueue<JdbcOutboxCompletionSubmission>(capacity)
+    private val queue = ArrayBlockingQueue<OutboxCompletionSubmission>(capacity)
     private val slots = Semaphore(capacity, true)
 
     /** Opens the queue to submissions. */
@@ -30,11 +30,13 @@ internal class JdbcOutboxCompletionQueue(
     }
 
     /**
-     * Closes the queue to new submissions without discarding queued work.
+     * Stops accepting new submissions. Queued completions remain available to workers.
      *
-     * @return true if the queue was accepting submissions
+     * This method does not drain the queue or wait for writes to finish.
      */
-    fun stopAccepting(): Boolean = synchronized(submissionLock) { accepting.getAndSet(false) }
+    fun stopAccepting() {
+        synchronized(submissionLock) { accepting.set(false) }
+    }
 
     /**
      * Reports whether submissions are currently accepted.
@@ -59,7 +61,7 @@ internal class JdbcOutboxCompletionQueue(
      * @param completion Immutable completion action
      * @return Future completed by a worker, or null if the queue closes before submission
      */
-    fun submit(completion: JdbcOutboxCompletion): CompletableFuture<Unit>? {
+    fun submit(completion: OutboxCompletion): CompletableFuture<Unit>? {
         var interrupted = false
         try {
             while (true) {
@@ -74,7 +76,7 @@ internal class JdbcOutboxCompletionQueue(
             if (interrupted) Thread.currentThread().interrupt()
         }
 
-        val submission = JdbcOutboxCompletionSubmission(completion)
+        val submission = OutboxCompletionSubmission(completion)
 
         synchronized(submissionLock) {
             if (!accepting.get()) {
@@ -93,7 +95,7 @@ internal class JdbcOutboxCompletionQueue(
      * @param waitNanos Maximum time to wait for a completion
      * @return Next submission, or null when the wait expires or the worker is interrupted
      */
-    fun poll(waitNanos: Long): JdbcOutboxCompletionSubmission? {
+    fun poll(waitNanos: Long): OutboxCompletionSubmission? {
         val submission =
             try {
                 queue.poll(waitNanos, TimeUnit.NANOSECONDS)

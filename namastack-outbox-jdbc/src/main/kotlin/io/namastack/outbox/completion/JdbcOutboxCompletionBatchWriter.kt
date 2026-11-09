@@ -26,10 +26,10 @@ internal class JdbcOutboxCompletionBatchWriter(
     private val jdbc: NamedParameterJdbcTemplate,
     private val transactions: TransactionTemplate,
     queries: () -> JdbcOutboxRecordQueries,
-) : JdbcOutboxCompletionWriter {
+) : OutboxCompletionWriter {
     private val sql by lazy(queries)
 
-    override fun writeUpdates(updates: List<JdbcOutboxCompletion.Update>): List<Result<Unit>> =
+    override fun writeUpdates(updates: List<OutboxCompletion.Update>): List<Result<Unit>> =
         writeBatch(updates) { batch ->
             jdbc.batchUpdate(
                 sql.updateProcessingState,
@@ -37,7 +37,7 @@ internal class JdbcOutboxCompletionBatchWriter(
             )
         }
 
-    override fun writeDeletions(deletions: List<JdbcOutboxCompletion.Delete>): List<Result<Unit>> =
+    override fun writeDeletions(deletions: List<OutboxCompletion.Delete>): List<Result<Unit>> =
         writeBatch(deletions) { batch ->
             jdbc.batchUpdate(
                 sql.deleteById,
@@ -84,7 +84,7 @@ internal class JdbcOutboxCompletionBatchWriter(
         }
     }
 
-    private fun JdbcOutboxCompletion.Update.parameters(): SqlParameterSource =
+    private fun OutboxCompletion.Update.parameters(): SqlParameterSource =
         MapSqlParameterSource()
             .addValue("id", recordId)
             .addValue("status", status.name)

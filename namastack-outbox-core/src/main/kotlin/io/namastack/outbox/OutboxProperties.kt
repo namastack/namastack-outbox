@@ -19,6 +19,7 @@ import java.time.Duration
  * @param multicaster Configuration for the custom application event multicaster
  * @param mode Runtime implementation selected during application bootstrap
  * @param processingGroups Opt-in processing group scheduling
+ * @param completionBatching Configuration for batching successful completion writes
  *
  * @author Roland Beisel
  * @since 0.1.0
@@ -33,7 +34,23 @@ data class OutboxProperties(
     var multicaster: Multicaster = Multicaster(),
     var mode: OutboxRuntimeMode = OutboxRuntimeMode.SINGLE,
     var processingGroups: OutboxProcessingGroupSettings = OutboxProcessingGroupSettings(),
+    var completionBatching: CompletionBatching = CompletionBatching(),
 ) {
+    /**
+     * Settings for collecting successful record completions into persistence batches.
+     *
+     * @param enabled Whether batching is enabled; requires a completion writer
+     * @param writerCount Number of concurrent writers
+     * @param maxBatchSize Maximum completions collected per batch
+     * @param maxWait Maximum collection time after the first completion arrives
+     */
+    data class CompletionBatching(
+        var enabled: Boolean = false,
+        var writerCount: Int = 1,
+        var maxBatchSize: Int = 1024,
+        var maxWait: Duration = Duration.ofMillis(1),
+    )
+
     /**
      * Configuration for polling behavior.
      *

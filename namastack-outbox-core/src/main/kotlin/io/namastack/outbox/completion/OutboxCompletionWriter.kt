@@ -1,7 +1,7 @@
 package io.namastack.outbox.completion
 
 /**
- * Writes JDBC completion updates and deletions in separate batches.
+ * Writes completion updates and deletions in separate batches.
  *
  * Successful results represent writes whose transactions committed. On a failed result, the
  * database operation either rolled back or its outcome could not be confirmed (for example, if
@@ -11,7 +11,7 @@ package io.namastack.outbox.completion
  * @author Roland Beisel
  * @since 1.12.0
  */
-internal interface JdbcOutboxCompletionWriter {
+interface OutboxCompletionWriter {
     /**
      * Writes processing-state updates for completed records.
      *
@@ -22,7 +22,7 @@ internal interface JdbcOutboxCompletionWriter {
      * @return Confirmed committed success or failure for each update
      * @throws Exception if individual outcomes cannot be determined
      */
-    fun writeUpdates(updates: List<JdbcOutboxCompletion.Update>): List<Result<Unit>>
+    fun writeUpdates(updates: List<OutboxCompletion.Update>): List<Result<Unit>>
 
     /**
      * Deletes completed records.
@@ -34,5 +34,5 @@ internal interface JdbcOutboxCompletionWriter {
      * @return Confirmed committed success or failure for each deletion
      * @throws Exception if individual outcomes cannot be determined
      */
-    fun writeDeletions(deletions: List<JdbcOutboxCompletion.Delete>): List<Result<Unit>>
+    fun writeDeletions(deletions: List<OutboxCompletion.Delete>): List<Result<Unit>>
 }

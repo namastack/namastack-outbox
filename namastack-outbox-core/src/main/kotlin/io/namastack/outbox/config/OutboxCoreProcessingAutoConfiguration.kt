@@ -3,7 +3,7 @@ package io.namastack.outbox.config
 import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
-import io.namastack.outbox.completion.DefaultOutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxCompletionDirectPersistence
 import io.namastack.outbox.completion.OutboxCompletionPersistence
 import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
@@ -32,7 +32,7 @@ class OutboxCoreProcessingAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun outboxCompletionPersistence(recordRepository: OutboxRecordRepository): OutboxCompletionPersistence =
-        DefaultOutboxCompletionPersistence(recordRepository)
+        OutboxCompletionDirectPersistence(recordRepository)
 
     @Bean
     @ConditionalOnMissingBean
