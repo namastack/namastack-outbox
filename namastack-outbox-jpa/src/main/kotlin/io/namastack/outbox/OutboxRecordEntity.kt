@@ -19,8 +19,7 @@ import java.time.Instant
  * and partition assignment.
  *
  * The declared indexes are status-leading composite indexes. The queries select incomplete records through
- * the status alone, so these indexes serve them on every database; the partial and filtered indexes of the
- * shipped PostgreSQL and SQL Server schema scripts do not, because they require `completed_at IS NULL`.
+ * the status alone, so these indexes serve them on every database.
  *
  * @author Roland Beisel
  * @since 0.1.0

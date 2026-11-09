@@ -253,7 +253,7 @@ internal open class JdbcOutboxRecordRepository(
 
         val counts =
             jdbcClient
-                .sql(sql.countByStatuses(statuses))
+                .sql(sql.countByStatuses)
                 .param("statuses", statuses.map { it.name })
                 .query { rs, _ -> OutboxRecordStatus.valueOf(rs.getString(1)) to rs.getLong(2) }
                 .list()
@@ -293,7 +293,7 @@ internal open class JdbcOutboxRecordRepository(
         if (partitions.isEmpty()) return 0L
 
         return jdbcClient
-            .sql(sql.countByPartitionsStatus(status))
+            .sql(sql.countByPartitionsStatus)
             .param("partitions", partitions)
             .param("status", status.name)
             .query(Long::class.java)

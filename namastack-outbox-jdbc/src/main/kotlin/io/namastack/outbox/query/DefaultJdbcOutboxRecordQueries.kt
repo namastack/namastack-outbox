@@ -1,6 +1,5 @@
 package io.namastack.outbox.query
 
-import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.toSingleLine
 
 /**
@@ -12,9 +11,8 @@ import io.namastack.outbox.toSingleLine
  *
  * The statements that read `NEW` records by status select incomplete records through the status alone,
  * because `completed_at` is `NULL` exactly for `NEW` and `FAILED` records. This lets status-leading composite
- * indexes without `completed_at` serve them. Dialects with partial or filtered indexes on
- * `completed_at IS NULL` override them to repeat that condition. The predecessor checks keep
- * `completed_at IS NULL`, because an earlier `FAILED` record also blocks its key.
+ * indexes without `completed_at` serve them. The predecessor checks keep `completed_at IS NULL`, because an
+ * earlier `FAILED` record also blocks its key.
  *
  * @param tableName Resolved name of the record table
  * @param rowLimitClause Clause appended after `ORDER BY` to cap the result at the `:limit` parameter, or an
@@ -214,15 +212,13 @@ internal open class DefaultJdbcOutboxRecordQueries(
         WHERE status = :status
         """.toSingleLine()
 
-    private val countByStatuses: String =
+    override val countByStatuses: String =
         """
         SELECT status, COUNT(*)
         FROM $tableName
         WHERE status IN (:statuses)
         GROUP BY status
         """.toSingleLine()
-
-    override fun countByStatuses(statuses: Set<OutboxRecordStatus>): String = countByStatuses
 
     override val countByPartitionStatus: String =
         """
@@ -232,15 +228,13 @@ internal open class DefaultJdbcOutboxRecordQueries(
           AND status = :status
         """.toSingleLine()
 
-    private val countByPartitionsStatus: String =
+    override val countByPartitionsStatus: String =
         """
         SELECT COUNT(*)
         FROM $tableName
         WHERE partition_no IN (:partitions)
           AND status = :status
         """.toSingleLine()
-
-    override fun countByPartitionsStatus(status: OutboxRecordStatus): String = countByPartitionsStatus
 
     override val oldestCreatedAtByPartitionsStatus: String =
         """

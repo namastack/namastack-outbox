@@ -19,42 +19,35 @@ CREATE TABLE outbox_record
         PRIMARY KEY (id)
 );
 
--- Filtered indexes: sessions that write outbox_record need QUOTED_IDENTIFIER ON (the JDBC default).
 IF NOT EXISTS(SELECT *
               FROM sys.indexes
-              WHERE name = 'idx_outbox_record_status_created_id_incomplete'
+              WHERE name = 'idx_outbox_record_status_created_id'
                 AND object_id = OBJECT_ID('outbox_record'))
-CREATE INDEX idx_outbox_record_status_created_id_incomplete
+CREATE INDEX idx_outbox_record_status_created_id
     ON outbox_record (status, created_at, id)
-    INCLUDE (partition_no, next_retry_at, record_key, completed_at)
-    WHERE completed_at IS NULL;
+    INCLUDE (partition_no, next_retry_at, record_key);
 
 IF NOT EXISTS(SELECT *
               FROM sys.indexes
-              WHERE name = 'idx_outbox_record_key_created_id_incomplete'
+              WHERE name = 'idx_outbox_record_key_completed_created_id'
                 AND object_id = OBJECT_ID('outbox_record'))
-CREATE INDEX idx_outbox_record_key_created_id_incomplete
-    ON outbox_record (record_key, created_at, id)
-    INCLUDE (completed_at)
-    WHERE completed_at IS NULL;
+CREATE INDEX idx_outbox_record_key_completed_created_id
+    ON outbox_record (record_key, completed_at, created_at, id);
 
 IF NOT EXISTS(SELECT *
               FROM sys.indexes
-              WHERE name = 'idx_outbox_record_status_retry_incomplete'
+              WHERE name = 'idx_outbox_record_status_retry_partition'
                 AND object_id = OBJECT_ID('outbox_record'))
-CREATE INDEX idx_outbox_record_status_retry_incomplete
+CREATE INDEX idx_outbox_record_status_retry_partition
     ON outbox_record (status, next_retry_at)
-    INCLUDE (partition_no, completed_at)
-    WHERE completed_at IS NULL;
+    INCLUDE (partition_no);
 
 IF NOT EXISTS(SELECT *
               FROM sys.indexes
-              WHERE name = 'idx_outbox_record_status_partition_incomplete'
+              WHERE name = 'idx_outbox_record_status_partition'
                 AND object_id = OBJECT_ID('outbox_record'))
-CREATE INDEX idx_outbox_record_status_partition_incomplete
-    ON outbox_record (status, partition_no)
-    INCLUDE (completed_at)
-    WHERE completed_at IS NULL;
+CREATE INDEX idx_outbox_record_status_partition
+    ON outbox_record (status, partition_no);
 
 IF NOT EXISTS(SELECT *
               FROM INFORMATION_SCHEMA.TABLES

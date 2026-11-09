@@ -1,7 +1,5 @@
 package io.namastack.outbox.query
 
-import io.namastack.outbox.OutboxRecordStatus
-
 /**
  * SQL statements used by the JDBC record repository for one resolved record table.
  *
@@ -65,24 +63,14 @@ internal interface JdbcOutboxRecordQueries {
     /** Counts records of a status. */
     val countByStatus: String
 
-    /**
-     * Returns the statement that counts records grouped by status.
-     *
-     * @param statuses The statuses the statement will be bound to as `statuses`
-     * @return A statement returning one status and count row per requested status that has records
-     */
-    fun countByStatuses(statuses: Set<OutboxRecordStatus>): String
+    /** Counts records grouped by status; binds `statuses`. Returns one status and count row per status that has records. */
+    val countByStatuses: String
 
     /** Counts records of one partition and a status. */
     val countByPartitionStatus: String
 
-    /**
-     * Returns the statement that counts the records of one status across several partitions.
-     *
-     * @param status The status the statement will be bound to as `status`
-     * @return A statement returning one row with the count
-     */
-    fun countByPartitionsStatus(status: OutboxRecordStatus): String
+    /** Counts the records of one status across several partitions; binds `partitions` and `status`. Returns one row. */
+    val countByPartitionsStatus: String
 
     /**
      * Selects the earliest creation time of incomplete records of a status in several partitions; at most `limit`
