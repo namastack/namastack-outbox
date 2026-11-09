@@ -255,8 +255,7 @@ this implementation must be updated; its former constructor is not binary-compat
 outbox API and `OutboxInstrumentation` interface are unchanged. The repository SPI gains
 `countByStatuses`, which has a default implementation.
 
-`outbox.records` is published for `new` and `failed` by default. See
-[Upgrading to 1.12](upgrading-to-1-12.md) for dashboards that read the `completed` series.
+`outbox.records` is published for `new` and `failed` by default.
 
 :::
 

@@ -110,7 +110,7 @@ Retention queries have no dedicated index and can be slow on large tables. See
 [Record Retention](retention.md#indexes).
 
 On PostgreSQL, H2 and SQL Server, automatic schema initialization creates missing indexes at startup,
-which can block writes on a large table. See [Upgrading to 1.12](upgrading-to-1-12.md) for the steps.
+which can block writes on a large table.
 
 ---
 
