@@ -3,7 +3,6 @@ package io.namastack.outbox
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
-import io.namastack.outbox.completion.JdbcOutboxCompletionBatchWriter
 import io.namastack.outbox.completion.OutboxCompletion
 import io.namastack.outbox.config.JdbcDatabaseType
 import io.namastack.outbox.config.JdbcOutboxAutoConfiguration

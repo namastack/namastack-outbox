@@ -1,6 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.completion.JdbcOutboxCompletionBatchWriter
 import io.namastack.outbox.config.JdbcDatabaseType
 import io.namastack.outbox.query.JdbcOutboxRecordQueriesFactory
 import io.namastack.outbox.runtime.OutboxRuntimePersistence

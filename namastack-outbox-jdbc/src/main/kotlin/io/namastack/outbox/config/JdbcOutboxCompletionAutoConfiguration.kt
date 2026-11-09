@@ -1,7 +1,7 @@
 package io.namastack.outbox.config
 
+import io.namastack.outbox.JdbcOutboxCompletionBatchWriter
 import io.namastack.outbox.JdbcTableNameResolver
-import io.namastack.outbox.completion.JdbcOutboxCompletionBatchWriter
 import io.namastack.outbox.completion.OutboxCompletionWriter
 import io.namastack.outbox.query.JdbcOutboxRecordQueriesFactory
 import org.springframework.beans.factory.BeanFactory

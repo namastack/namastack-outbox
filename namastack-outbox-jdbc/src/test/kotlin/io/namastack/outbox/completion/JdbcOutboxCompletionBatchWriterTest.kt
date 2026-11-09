@@ -2,6 +2,7 @@ package io.namastack.outbox.completion
 
 import io.mockk.every
 import io.mockk.mockk
+import io.namastack.outbox.JdbcOutboxCompletionBatchWriter
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.query.H2JdbcOutboxRecordQueries
 import org.assertj.core.api.Assertions.assertThat

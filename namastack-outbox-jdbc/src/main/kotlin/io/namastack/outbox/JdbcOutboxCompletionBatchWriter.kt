@@ -1,7 +1,8 @@
-package io.namastack.outbox.completion
+package io.namastack.outbox
 
+import io.namastack.outbox.completion.OutboxCompletion
+import io.namastack.outbox.completion.OutboxCompletionWriter
 import io.namastack.outbox.query.JdbcOutboxRecordQueries
-import io.namastack.outbox.toTimestamp
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.jdbc.core.namedparam.SqlParameterSource
