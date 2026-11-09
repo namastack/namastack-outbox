@@ -3,8 +3,8 @@ package io.namastack.outbox.query
 import io.namastack.outbox.toSingleLine
 
 /**
- * MariaDB statements: the portable statements with `LIMIT`, and the record key statements shaped for the
- * MariaDB planner.
+ * MariaDB statements: the portable statements with `LIMIT`, and the record key and oldest due statements shaped
+ * for the MariaDB planner.
  *
  * The record key statements read the records of the owned partitions in `(created_at, id)` order and stop
  * at the row limit. The predecessor check is a scalar subquery that returns the first incomplete record of
@@ -65,6 +65,30 @@ internal class MariaDbJdbcOutboxRecordQueries(
             LIMIT 1
           )
         ORDER BY o.created_at, o.id
+        $rowLimitClause
+        """.toSingleLine()
+
+    /**
+     * Keeps a record `o` only if it is the first incomplete record of its key, like [findStrictRecordKeys].
+     * The subquery reads one index entry of the key, where `NOT EXISTS` reads every earlier incomplete record
+     * of the key to prove that there is none, which is slow for keys with a long backlog.
+     */
+    override val oldestDueStrict: String =
+        """
+        SELECT o.next_retry_at
+        FROM $tableName o
+        WHERE o.partition_no IN (:partitions)
+          AND o.status = :status
+          AND o.next_retry_at <= :now
+          AND o.id = (
+            SELECT e.id
+            FROM $tableName e
+            WHERE e.record_key = o.record_key
+              AND e.completed_at IS NULL
+            ORDER BY e.created_at, e.id
+            LIMIT 1
+          )
+        ORDER BY o.next_retry_at
         $rowLimitClause
         """.toSingleLine()
 }
