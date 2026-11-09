@@ -22,7 +22,7 @@ import javax.sql.DataSource
  */
 object JdbcOutboxPersistenceFactory {
     /**
-     * Creates the three JDBC repository implementations required by one outbox runtime.
+     * Creates the JDBC repositories and matching completion writer for one outbox runtime.
      *
      * @param dataSource Datasource used by all repositories
      * @param transactionManager Transaction manager used for repository transactions

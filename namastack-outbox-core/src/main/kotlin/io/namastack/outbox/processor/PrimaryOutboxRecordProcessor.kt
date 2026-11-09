@@ -32,7 +32,7 @@ class PrimaryOutboxRecordProcessor(
      * @param record Record to process
      * @return [OutboxRecordProcessingOutcome.COMPLETED] if the handler and completion succeed, otherwise the
      * outcome returned by the downstream chain.
-     * @throws Exception if handler lookup or completion persistence fails
+     * @throws Exception if handler lookup, completion persistence, or downstream processing fails
      */
     override fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome {
         if (record.payload != null) {

@@ -37,6 +37,8 @@ data class OutboxRuntimeSettings(
      * @property writerCount Number of dedicated completion workers
      * @property maxBatchSize Maximum number of completions collected per batch
      * @property maxWait Maximum collection time after the first completion arrives
+     * @throws IllegalArgumentException if the writer count, batch size, or batch wait is not positive
+     * @throws ArithmeticException if the completion queue capacity or batch wait in nanoseconds overflows
      * @author Roland Beisel
      * @since 1.12.0
      */

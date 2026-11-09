@@ -33,6 +33,7 @@ abstract class OutboxRecordProcessor(
      * @param record Record to pass to the next processor
      * @return Outcome returned by the next processor.
      * @throws IllegalStateException if the chain has no next processor.
+     * @throws Exception if downstream processing fails
      */
     protected fun handleNext(record: OutboxRecord<*>): OutboxRecordProcessingOutcome =
         next?.handle(record)
@@ -43,6 +44,7 @@ abstract class OutboxRecordProcessor(
      *
      * @param record Record to handle or pass to the next processor
      * @return Final outcome produced by this processor or a downstream processor.
+     * @throws Exception if processing fails
      */
     abstract fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome
 }

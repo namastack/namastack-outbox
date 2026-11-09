@@ -96,6 +96,8 @@ class OutboxProcessingScheduler(
      *
      * Automatically invoked after dependency injection. Schedules [process] to run
      * according to the configured [trigger]. Idempotent - duplicate registrations are ignored.
+     *
+     * @throws RuntimeException if registering the processing job fails
      */
     override fun start() {
         lifecycle.scheduleJob {
@@ -111,6 +113,8 @@ class OutboxProcessingScheduler(
      * Automatically invoked during application shutdown. Cancels future scheduling and,
      * if a cycle is currently running, blocks until completion, timeout, or interruption
      * (up to [OutboxRuntimeSettings.Processing.shutdownTimeout]).
+     *
+     * @throws RuntimeException if cancelling the scheduled job fails
      */
     override fun stop() {
         log.info("Initiating OutboxProcessingScheduler shutdown...")

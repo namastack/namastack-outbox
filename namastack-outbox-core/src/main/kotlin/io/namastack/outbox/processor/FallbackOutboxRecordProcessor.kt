@@ -41,7 +41,7 @@ class FallbackOutboxRecordProcessor(
      * @param record Record whose primary handler failed
      * @return [OutboxRecordProcessingOutcome.COMPLETED] if the fallback succeeds with
      * [OutboxFallbackDisposition.COMPLETE], otherwise the outcome returned by the downstream chain.
-     * @throws Exception if completion persistence fails
+     * @throws Exception if completion persistence or downstream processing fails
      */
     override fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome {
         val fallback = fallbackHandlerRegistry.getByHandlerId(record.handlerId)

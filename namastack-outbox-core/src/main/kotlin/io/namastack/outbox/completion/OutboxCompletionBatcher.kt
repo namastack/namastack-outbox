@@ -56,6 +56,7 @@ internal class OutboxCompletionBatcher(
      * If the executor throws an exception while scheduling, the queue closes and the exception propagates.
      *
      * @throws IllegalStateException if workers from a previous run are still active
+     * @throws RuntimeException if the executor cannot schedule a worker
      */
     override fun start() {
         synchronized(lifecycleLock) {

@@ -43,6 +43,8 @@ data class OutboxProperties(
      * @param writerCount Number of concurrent writers
      * @param maxBatchSize Maximum completions collected per batch
      * @param maxWait Maximum collection time after the first completion arrives
+     * @author Roland Beisel
+     * @since 1.12.0
      */
     data class CompletionBatching(
         var enabled: Boolean = false,
