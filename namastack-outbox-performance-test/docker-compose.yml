@@ -1,65 +1,162 @@
 services:
+  build:
+    profiles: [build]
+    image: namastack-outbox-performance-build:local
+    build:
+      context: ..
+      dockerfile: namastack-outbox-performance-test/Dockerfile.build
+    user: "${PERF_UID:-1000}:${PERF_GID:-1000}"
+    environment:
+      GRADLE_USER_HOME: /gradle-cache
+    volumes:
+      - ..:/workspace
+      - gradle-cache:/gradle-cache
+
+  benchmark:
+    profiles: [benchmark]
+    image: eclipse-temurin:25-jre
+    user: "${PERF_UID:-1000}:${PERF_GID:-1000}"
+    working_dir: /benchmark
+    command: [sleep, infinity]
+    environment:
+      PERF_DB_URL: ${PERF_INTERNAL_DB_URL:-}
+      PERF_DB_USER: ${PERF_DB_USER:-username}
+      PERF_DB_PASSWORD: ${PERF_DB_PASSWORD:-password}
+      PERF_DB_POOL_SIZE: ${PERF_DB_POOL_SIZE:-12}
+      PERF_DB_MIN_IDLE: ${PERF_DB_MIN_IDLE:-5}
+      PERF_VIRTUAL_THREADS: ${PERF_VIRTUAL_THREADS:-true}
+      PERF_STRICT_ORDERING: ${PERF_STRICT_ORDERING:-true}
+      PERF_BATCH_SIZE: ${PERF_BATCH_SIZE:-1000}
+      PERF_POLL_INTERVAL: ${PERF_POLL_INTERVAL:-10ms}
+      PERF_EXECUTOR_CONCURRENCY_LIMIT: ${PERF_EXECUTOR_CONCURRENCY_LIMIT:-2048}
+      PERF_CONSUMER_JAVA_OPTIONS: ${PERF_CONSUMER_JAVA_OPTIONS:--Xms128m -Xmx512m -XX:ActiveProcessorCount=2}
+      PERF_TOOL_JAVA_OPTIONS: ${PERF_TOOL_JAVA_OPTIONS:--Xms128m -Xmx1g}
+      NAMASTACK_OUTBOX_PROCESSING_DELETECOMPLETEDRECORDS: ${PERF_DELETE_COMPLETED:-true}
+      PERF_GIT_COMMIT: ${PERF_GIT_COMMIT:-unknown}
+      PERF_GIT_DIRTY: ${PERF_GIT_DIRTY:-unknown}
+    volumes:
+      - .:/benchmark:ro
+      - ./reports:/benchmark/reports
+
   postgres:
-    image: postgres:17-alpine
-    command: ["postgres", "-c", "max_connections=250"]
+    profiles: [postgres]
+    image: postgres:18-alpine
+    shm_size: 1gb
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/benchmark.conf
+      - -c
+      - shared_buffers=${PERF_PG_SHARED_BUFFERS:-2GB}
+      - -c
+      - effective_cache_size=${PERF_PG_EFFECTIVE_CACHE_SIZE:-4GB}
     environment:
       POSTGRES_DB: outbox_performance_test
       POSTGRES_USER: username
       POSTGRES_PASSWORD: password
-    ports:
-      - "${PERF_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./postgresql.conf:/etc/postgresql/benchmark.conf:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U username -d outbox_performance_test"]
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U username -d outbox_performance_test']
       interval: 2s
       timeout: 5s
       retries: 60
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./sql:/sql:ro
 
-  postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:v0.17.1
-    environment:
-      DATA_SOURCE_NAME: postgresql://username:password@postgres:5432/outbox_performance_test?sslmode=disable
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "${PERF_POSTGRES_EXPORTER_PORT:-9187}:9187"
-
-  prometheus:
-    image: prom/prometheus:v3.5.0
+  mysql:
+    profiles: [mysql]
+    image: mysql:9.5
     command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--web.enable-lifecycle"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "${PERF_PROMETHEUS_PORT:-9090}:9090"
-    volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring/prometheus/targets:/etc/prometheus/targets:ro
-      - prometheus-data:/prometheus
-
-  grafana:
-    image: grafana/grafana:12.1.0
+      - --innodb-buffer-pool-size=${PERF_MYSQL_BUFFER_POOL_SIZE:-2G}
+      - --innodb-redo-log-capacity=2G
+      - --max-connections=128
+      - --innodb-purge-threads=4
+      - --innodb-max-purge-lag=1000
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
-    depends_on:
-      - prometheus
-    ports:
-      - "${PERF_GRAFANA_PORT:-3000}:3000"
+      MYSQL_DATABASE: outbox_performance_test
+      MYSQL_USER: username
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: benchmark-root-password
     volumes:
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - grafana-data:/var/lib/grafana
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: [CMD-SHELL, 'mysql -h 127.0.0.1 -uusername -ppassword -D outbox_performance_test -e "SELECT 1" >/dev/null']
+      interval: 2s
+      timeout: 5s
+      retries: 90
+
+  mariadb:
+    profiles: [mariadb]
+    image: mariadb:12
+    command:
+      - --innodb-buffer-pool-size=${PERF_MARIADB_BUFFER_POOL_SIZE:-2G}
+      - --innodb-log-file-size=2G
+      - --max-connections=128
+    environment:
+      MARIADB_DATABASE: outbox_performance_test
+      MARIADB_USER: username
+      MARIADB_PASSWORD: password
+      MARIADB_ROOT_PASSWORD: benchmark-root-password
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 2s
+      timeout: 5s
+      retries: 90
+
+  sqlserver:
+    profiles: [sqlserver]
+    platform: linux/amd64
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: 'Y'
+      MSSQL_SA_PASSWORD: Benchmark-Password-42!
+      MSSQL_PID: Developer
+      MSSQL_MEMORY_LIMIT_MB: ${PERF_SQLSERVER_MEMORY_MB:-4096}
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: [CMD-SHELL, '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b >/dev/null']
+      interval: 5s
+      timeout: 10s
+      retries: 90
+
+  oracle:
+    profiles: [oracle]
+    image: gvenzl/oracle-free:23-slim-faststart
+    environment:
+      ORACLE_PASSWORD: benchmark-admin-password
+      APP_USER: username
+      APP_USER_PASSWORD: password
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: [CMD, healthcheck.sh]
+      interval: 5s
+      timeout: 10s
+      retries: 90
+
+  h2:
+    profiles: [h2]
+    image: eclipse-temurin:25-jre
+    command: [java, '-Xmx${PERF_H2_HEAP:-2g}', -cp, '/tooling/lib/*', org.h2.tools.Server, -tcp, -tcpAllowOthers, -ifNotExists, -baseDir, /data]
+    volumes:
+      - ./tooling/build/install/tooling/lib:/tooling/lib:ro
+      - h2-data:/data
+    healthcheck:
+      test: [CMD, bash, -c, 'exec 3<>/dev/tcp/127.0.0.1/9092']
+      interval: 2s
+      timeout: 5s
+      retries: 60
 
 volumes:
+  gradle-cache:
+    external: true
+    name: namastack-outbox-perf-gradle-cache
   postgres-data:
-  prometheus-data:
-  grafana-data:
-
+  mysql-data:
+  mariadb-data:
+  sqlserver-data:
+  oracle-data:
+  h2-data:
