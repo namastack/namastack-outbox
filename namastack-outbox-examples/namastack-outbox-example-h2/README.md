@@ -46,3 +46,12 @@ renames:
 
 - `customers.send-registration-email` for the typed customer-registration handler
 - `events.publish-to-external-broker` for the generic event publisher
+
+## Spring Data JPA business entities with JDBC outbox
+
+This example keeps Spring Data JPA for Customer entities and uses the JDBC outbox starter.
+`CustomerService.register` writes the customer and calls `outbox.schedule` within one
+`@Transactional` method. Spring Boot's JpaTransactionManager exposes the shared DataSource
+connection to JDBC, so both writes commit or roll back together. Hibernate creates the business
+tables; JDBC initializes outbox tables. For migrations in production, disable outbox schema
+initialization and use the shipped SQL scripts. No JPA outbox module is needed.

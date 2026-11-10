@@ -93,7 +93,6 @@ Our goal is to ensure that our documentation, as well as issue tracker and discu
 namastack-outbox/
 ├── namastack-outbox-api/               # Public API interfaces and annotations
 ├── namastack-outbox-core/              # Core implementation
-├── namastack-outbox-jpa/               # JPA/Hibernate persistence module
 ├── namastack-outbox-jdbc/              # JDBC persistence module
 ├── namastack-outbox-jackson/           # Jackson serialization support
 ├── namastack-outbox-kafka/             # Apache Kafka integration
@@ -101,7 +100,6 @@ namastack-outbox/
 ├── namastack-outbox-actuator/          # Spring Boot Actuator endpoints
 ├── namastack-outbox-observability-api/ # Micrometer Observation documentation
 ├── namastack-outbox-observability/     # Micrometer metrics and tracing support
-├── namastack-outbox-starter-jpa/       # JPA starter (convenience dependency)
 ├── namastack-outbox-starter-jdbc/      # JDBC starter (convenience dependency)
 ├── namastack-outbox-integration-tests/ # Integration tests
 ├── namastack-outbox-examples/          # Example applications

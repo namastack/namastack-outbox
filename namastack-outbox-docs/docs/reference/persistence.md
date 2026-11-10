@@ -3,67 +3,24 @@ custom_edit_url: null
 pagination_prev: null
 pagination_next: null
 title: Persistence Modules
-description: Choose between JPA, JDBC, and MongoDB persistence modules.
+description: Choose JDBC for relational databases or MongoDB for document persistence.
 sidebar_position: 2
 ---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import VersionedCode from '@site/src/components/VersionedCode';
+import Admonition from '@theme/Admonition';
 
 # Persistence Modules
 
-Namastack Outbox provides three persistence modules to choose from based on your needs.
-
-## JPA Module
-
-The JPA module uses Hibernate/JPA for database operations. Best for projects already using Spring Data JPA.
-
-<Tabs>
-<TabItem value="Gradle" label="Gradle">
-
-<VersionedCode language="kotlin" template= {`dependencies {
-      implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
-      implementation("io.namastack:namastack-outbox-starter-jpa")
-}`} />
-
-</TabItem>
-<TabItem value="Maven" label="Maven">
-
-<VersionedCode language="xml" template= {`<dependencyManagement>
-    <dependencies>
-        <dependency>
-            <groupId>io.namastack</groupId>
-            <artifactId>namastack-outbox-bom</artifactId>
-            <version>{{versionLabel}}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-    </dependencies>
-</dependencyManagement>
-
-<dependency>
-    <groupId>io.namastack</groupId>
-    <artifactId>namastack-outbox-starter-jpa</artifactId>
-</dependency>`} />
-
-</TabItem>
-</Tabs>
-
-import Admonition from '@theme/Admonition';
-
-<Admonition type="warning" title="Schema Management">
-The JPA module does <strong>not</strong> support automatic schema creation. You must manage schemas using:
-
-- <strong>Flyway/Liquibase</strong> (recommended for production) - Use the <a href="https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema">SQL schema files</a>
-- <strong>Hibernate DDL Auto</strong> (<code>ddl-auto: create</code>) for development
-</Admonition>
-
----
+Namastack Outbox provides JDBC and MongoDB persistence modules. Applications using Spring Data
+JPA for business entities use the JDBC outbox module.
 
 ## JDBC Module
 
-The JDBC module uses Spring's `JdbcClient` for database operations. Best for projects that don't use JPA or want lower overhead.
+The JDBC module uses Spring's `JdbcClient` for database operations. Recommended for all relational applications,
+including Spring Data JPA projects using a shared DataSource and JpaTransactionManager.
 
 <Tabs>
 <TabItem value="Gradle" label="Gradle">
@@ -225,6 +182,7 @@ Use the SQL schema files as templates and adjust table names:
 👉 [Schema Files on GitHub](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema)
 
 ---
+
 
 ## MongoDB Module
 

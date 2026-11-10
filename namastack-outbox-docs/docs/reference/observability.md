@@ -32,7 +32,7 @@ metrics, also add the Prometheus Micrometer registry.
 
 <VersionedCode language="kotlin" template= {`dependencies {
       implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
-      implementation("io.namastack:namastack-outbox-starter-jpa")
+      implementation("io.namastack:namastack-outbox-starter-jdbc")
       implementation("io.namastack:namastack-outbox-observability")
 
       // For Prometheus endpoint (optional)
@@ -59,7 +59,7 @@ metrics, also add the Prometheus Micrometer registry.
 
 <dependency>
       <groupId>io.namastack</groupId>
-      <artifactId>namastack-outbox-starter-jpa</artifactId>
+      <artifactId>namastack-outbox-starter-jdbc</artifactId>
 </dependency>
 
 <dependency>

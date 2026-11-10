@@ -39,22 +39,6 @@ class OutboxPollingTriggerFactoryTest {
             val next = trigger.nextExecution(triggerContext)
             assertThat(next).isEqualTo(instant.plusMillis(3000))
         }
-
-        @Test
-        fun `fixed trigger using deprecated pollInterval`() {
-            val prop =
-                properties(
-                    pollInterval = Duration.ofSeconds(3),
-                    pollingTrigger = "fixed",
-                )
-            every { triggerContext.lastCompletion() } returns instant
-
-            val trigger = OutboxPollingTriggerFactory.create(prop.toRuntimeSettings().polling, clock)
-            assertThat(trigger).isInstanceOf(FixedPollingTrigger::class.java)
-
-            val next = trigger.nextExecution(triggerContext)
-            assertThat(next).isEqualTo(instant.plusMillis(3000))
-        }
     }
 
     @Test
@@ -92,8 +76,6 @@ class OutboxPollingTriggerFactoryTest {
     }
 
     private fun properties(
-        pollInterval: Duration? = null,
-        batchSize: Int? = null,
         pollingBatchSize: Int? = null,
         pollingTrigger: String? = null,
         fixedInterval: Duration? = null,
@@ -102,8 +84,6 @@ class OutboxPollingTriggerFactoryTest {
     ): OutboxProperties {
         val properties = OutboxProperties()
 
-        pollInterval?.let { properties.pollInterval = it }
-        batchSize?.let { properties.batchSize = it }
         pollingBatchSize?.let { properties.polling.batchSize = it }
         pollingTrigger?.let { properties.polling.trigger = it }
         fixedInterval?.let { properties.polling.fixed.interval = it }

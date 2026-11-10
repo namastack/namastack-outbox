@@ -10,7 +10,7 @@ This example demonstrates Spring Modulith event externalization to Apache Kafka.
 - `PaymentRequestedEvent` is marked with Spring Modulith's `@Externalized`
 - Spring Modulith `2.1.0-RC1` publishes the externalized event to Kafka via `spring-modulith-events-kafka`
 - A local mock payment provider consumes the Kafka message and marks the payment as captured
-- H2 and JPA provide a self-contained persistence setup
+- H2, JDBC outbox persistence and JPA business entities provide a self-contained persistence setup
 
 ## Key Components
 

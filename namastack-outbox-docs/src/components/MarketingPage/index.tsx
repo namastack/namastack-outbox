@@ -43,16 +43,15 @@ export function SectionHeader({eyebrow, title, description, align = 'left'}: Sec
   );
 }
 
-type InstallTarget = 'jpa' | 'jdbc' | 'mongodb';
+type InstallTarget = 'jdbc' | 'mongodb';
 
 const installArtifacts: Record<InstallTarget, string> = {
-  jpa: 'namastack-outbox-starter-jpa',
   jdbc: 'namastack-outbox-starter-jdbc',
   mongodb: 'namastack-outbox-starter-mongodb',
 };
 
 export function InstallTabs() {
-  const [target, setTarget] = useState<InstallTarget>('jpa');
+  const [target, setTarget] = useState<InstallTarget>('jdbc');
   const [copied, setCopied] = useState(false);
   const snippet = `dependencies {\n    implementation(platform("io.namastack:namastack-outbox-bom:${latestVersion}"))\n    implementation("io.namastack:${installArtifacts[target]}")\n}`;
 
@@ -303,7 +302,7 @@ const capabilities: Array<{title: string; description: string; icon: IconCompone
   },
   {
     title: 'Flexible persistence',
-    description: 'Choose JPA, JDBC, or MongoDB to fit the persistence model already used by the application.',
+    description: 'Choose JDBC for relational databases or MongoDB for document persistence.',
     icon: IconDatabase,
   },
   {
@@ -385,7 +384,7 @@ export function IntegrationSection() {
             <code>spring-modulith-starter-namastack</code>
             <div aria-hidden="true">↓</div>
             <span>Namastack Outbox</span>
-            <small>JPA · JDBC · MongoDB</small>
+            <small>JDBC · MongoDB</small>
           </div>
         </div>
       </div>
@@ -397,7 +396,7 @@ const trustSignals = [
   ['Apache 2.0', 'Open-source license'],
   ['Spring Boot', 'Native application integration'],
   ['Java & Kotlin', 'JVM language support'],
-  ['JPA · JDBC · MongoDB', 'Persistence choices'],
+  ['JDBC · MongoDB', 'Persistence choices'],
   ['Micrometer', 'Metrics and observations'],
   ['Public development', 'Issues and discussions on GitHub'],
 ];

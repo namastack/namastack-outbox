@@ -6,7 +6,6 @@ import io.namastack.outbox.handler.OutboxFailureContext
 import io.namastack.outbox.handler.OutboxFallbackDisposition
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandlerWithFallback
-import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
@@ -15,6 +14,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.context.annotation.Import
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Component
 import org.springframework.test.context.TestPropertySource
 import org.springframework.transaction.annotation.Propagation
@@ -44,7 +44,7 @@ class FallbackDispositionIntegrationTest {
     private lateinit var transactionTemplate: TransactionTemplate
 
     @Autowired
-    private lateinit var entityManager: EntityManager
+    private lateinit var jdbcClient: JdbcClient
 
     @Autowired
     private lateinit var recordRepository: OutboxRecordRepository
@@ -112,11 +112,9 @@ class FallbackDispositionIntegrationTest {
 
     private fun cleanupTables() {
         transactionTemplate.executeWithoutResult {
-            entityManager.createQuery("DELETE FROM OutboxRecordEntity").executeUpdate()
-            entityManager.createQuery("DELETE FROM OutboxInstanceEntity").executeUpdate()
-            entityManager.createQuery("DELETE FROM OutboxPartitionAssignmentEntity ").executeUpdate()
-            entityManager.flush()
-            entityManager.clear()
+            jdbcClient.sql("DELETE FROM outbox_record").update()
+            jdbcClient.sql("DELETE FROM outbox_instance").update()
+            jdbcClient.sql("DELETE FROM outbox_partition").update()
         }
     }
 

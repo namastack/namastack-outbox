@@ -220,7 +220,7 @@ redelivery. Processing groups provide no inbox or deduplication mechanism.
 ## Storage and Operational Queries
 
 The group is stored as part of the record key; there is no separate group column or index.
-This works the same way for JDBC, JPA, and MongoDB.
+This works the same way for JDBC and MongoDB.
 
 | Group     | Business key | Stored key                 |
 |-----------|--------------|----------------------------|

@@ -1,0 +1,137 @@
+name: Publish Existing Tag
+run-name: ${{ inputs.dry_run && 'Validate' || 'Publish' }} v${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version without v (for example 1.11.1 or 2.0.0-RC1)
+        required: true
+        type: string
+      dry_run:
+        description: Validate the tagged release without publishing
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  actions: read
+  contents: write
+
+# Serialize with Publish Release for the same version.
+concurrency:
+  group: publish-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_TAG: v${{ inputs.version }}
+
+    steps:
+      - name: Checkout release tooling
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Validate release tooling and version input
+        run: |
+          node --test scripts/*.test.mjs
+          node scripts/release-version.mjs validate "$RELEASE_VERSION"
+          # Older tags may not contain this helper. Keep the workflow tooling available.
+          cp scripts/release-version.mjs "$RUNNER_TEMP/release-version.mjs"
+
+      - name: Checkout existing release tag
+        uses: actions/checkout@v6
+        with:
+          ref: refs/tags/v${{ inputs.version }}
+          fetch-depth: 0
+
+      - name: Validate tagged version and release state
+        shell: bash
+        run: |
+          node "$RUNNER_TEMP/release-version.mjs" check "$RELEASE_VERSION" build.gradle.kts
+
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[].tag_name' > "$RUNNER_TEMP/existing-release-tags"
+          if grep -Fxq "$RELEASE_TAG" "$RUNNER_TEMP/existing-release-tags"; then
+            echo "A GitHub Release already exists for $RELEASE_TAG; investigate before retrying" >&2
+            exit 1
+          fi
+
+          echo "RELEASE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Require successful CI and smoke tests for the tagged commit
+        shell: bash
+        run: |
+          for workflow in gradle-test.yml example-smoke-tests.yml; do
+            result="$(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?head_sha=$RELEASE_COMMIT&per_page=1" \
+              --jq '.workflow_runs[0] | if .status == "completed" then .conclusion else .status end')"
+            if [[ "$result" != "success" ]]; then
+              echo "$workflow has not passed for $RELEASE_COMMIT (status: $result)" >&2
+              exit 1
+            fi
+          done
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: 17
+          distribution: oracle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build and run tests
+        run: ./gradlew clean build -Prelease=true
+
+      - name: Verify release tag is unchanged
+        shell: bash
+        run: |
+          git fetch --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          if [[ "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" != "$RELEASE_COMMIT" ]]; then
+            echo "$RELEASE_TAG changed during validation; refusing to publish" >&2
+            exit 1
+          fi
+
+      - name: Publish to Maven Central
+        if: ${{ !inputs.dry_run }}
+        env:
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKey }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKeyId }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKeyPassword }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralUsername }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralPassword }}
+        run: ./gradlew publishToMavenCentral -Prelease=true --no-configuration-cache --no-daemon
+
+      - name: Create GitHub Release
+        if: ${{ !inputs.dry_run }}
+        run: |
+          release_args=(
+            --repo "$GITHUB_REPOSITORY"
+            --title "Namastack Outbox $RELEASE_TAG"
+            --generate-notes
+            --verify-tag
+            --fail-on-no-commits
+          )
+          if [[ "$RELEASE_VERSION" == *-* ]]; then
+            release_args+=(--prerelease --latest=false)
+          fi
+          gh release create "$RELEASE_TAG" "${release_args[@]}"
+
+      - name: Summarize result
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "Validated $RELEASE_TAG ($RELEASE_COMMIT). Publication was skipped." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Published $RELEASE_TAG ($RELEASE_COMMIT)." >> "$GITHUB_STEP_SUMMARY"
+          fi

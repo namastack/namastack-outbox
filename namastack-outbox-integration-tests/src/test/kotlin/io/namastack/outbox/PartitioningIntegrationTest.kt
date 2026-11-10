@@ -8,7 +8,6 @@ import io.namastack.outbox.partition.PartitionAssignmentCache
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.runtime.OutboxRuntimeSettings
-import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
@@ -17,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.context.annotation.Import
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.transaction.annotation.Propagation
@@ -47,7 +47,7 @@ class PartitioningIntegrationTest {
     private lateinit var transactionTemplate: TransactionTemplate
 
     @Autowired
-    private lateinit var entityManager: EntityManager
+    private lateinit var jdbcClient: JdbcClient
 
     @Autowired
     private lateinit var outboxProperties: OutboxProperties
@@ -148,9 +148,9 @@ class PartitioningIntegrationTest {
                 settings =
                     OutboxRuntimeSettings.Instance(
                         rebalanceInterval = outboxProperties.instance.rebalanceInterval,
-                        heartbeatInterval = outboxProperties.instance.effectiveHeartbeatInterval,
-                        staleInstanceTimeout = outboxProperties.instance.effectiveStaleInstanceTimeout,
-                        gracefulShutdownTimeout = outboxProperties.instance.effectiveGracefulShutdownTimeout,
+                        heartbeatInterval = outboxProperties.instance.heartbeatInterval,
+                        staleInstanceTimeout = outboxProperties.instance.staleInstanceTimeout,
+                        gracefulShutdownTimeout = outboxProperties.instance.gracefulShutdownTimeout,
                     ),
                 clock = clock,
                 taskScheduler = taskScheduler,
@@ -170,18 +170,16 @@ class PartitioningIntegrationTest {
             partitionAssignmentCache = partitionAssignmentCache,
             clock = Clock.systemDefaultZone(),
             taskScheduler = taskScheduler,
-            rebalanceInterval = outboxProperties.effectiveRebalanceInterval,
+            rebalanceInterval = outboxProperties.instance.rebalanceInterval,
             observationRegistry = { ObservationRegistry.NOOP },
         )
     }
 
     private fun cleanupTables() {
         transactionTemplate.executeWithoutResult {
-            entityManager.createQuery("DELETE FROM OutboxRecordEntity").executeUpdate()
-            entityManager.createQuery("DELETE FROM OutboxInstanceEntity").executeUpdate()
-            entityManager.createQuery("DELETE FROM OutboxPartitionAssignmentEntity ").executeUpdate()
-            entityManager.flush()
-            entityManager.clear()
+            jdbcClient.sql("DELETE FROM outbox_record").update()
+            jdbcClient.sql("DELETE FROM outbox_instance").update()
+            jdbcClient.sql("DELETE FROM outbox_partition").update()
         }
     }
 

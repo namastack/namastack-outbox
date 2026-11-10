@@ -20,9 +20,9 @@ dependencies {
 
     compileOnly(libs.micrometer.tracing)
 
-    testImplementation(project(":namastack-outbox-starter-jpa"))
+    testImplementation(project(":namastack-outbox-starter-jdbc"))
     testImplementation(libs.spring.boot.starter.test)
-    testImplementation(libs.spring.boot.starter.data.jpa.test)
+    testImplementation(libs.spring.boot.starter.data.jdbc.test)
     testImplementation(libs.jackson.module.kotlin)
     testImplementation(libs.h2)
     testImplementation(libs.mockk)

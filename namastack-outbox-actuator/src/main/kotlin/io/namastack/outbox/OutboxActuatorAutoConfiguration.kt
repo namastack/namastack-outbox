@@ -35,7 +35,7 @@ internal class OutboxActuatorAutoConfiguration {
         val repository =
             outboxRecordRepository.getIfAvailable()
                 ?: throw IllegalStateException(
-                    "OutboxRecordRepository bean is missing! The Outbox actuator endpoints cannot be registered because no persistence module (e.g. namastack-outbox-jpa) is included. Please add a persistence module to your dependencies to enable Outbox actuator endpoints.",
+                    "OutboxRecordRepository bean is missing! The Outbox actuator endpoints cannot be registered because no persistence module (e.g. namastack-outbox-jdbc) is included. Please add a persistence module to your dependencies to enable Outbox actuator endpoints.",
                 )
 
         return OutboxActuatorEndpoint(repository)

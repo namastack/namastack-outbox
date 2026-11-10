@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
-    alias(libs.plugins.kotlin.jpa)
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.spring)
 }
@@ -34,12 +33,6 @@ dependencies {
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
-
-allOpen {
-    annotation("jakarta.persistence.Entity")
-    annotation("jakarta.persistence.MappedSuperclass")
-    annotation("jakarta.persistence.Embeddable")
 }
 
 tasks.withType<Test> {

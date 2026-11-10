@@ -2,7 +2,6 @@ package io.namastack.outbox
 
 import io.namastack.outbox.annotation.OutboxHandler
 import io.namastack.outbox.partition.PartitionHasher
-import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.BeforeEach
@@ -10,6 +9,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.context.annotation.Import
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Component
 import org.springframework.test.context.TestPropertySource
 import org.springframework.transaction.annotation.Propagation
@@ -34,7 +34,7 @@ class CompatibilityFailureIntegrationTest {
     private lateinit var transactionTemplate: TransactionTemplate
 
     @Autowired
-    private lateinit var entityManager: EntityManager
+    private lateinit var jdbcClient: JdbcClient
 
     @BeforeEach
     fun clearInvocations() {
@@ -133,20 +133,38 @@ class CompatibilityFailureIntegrationTest {
             .isEqualTo("""{"value":"handler-successor"}""")
     }
 
-    private fun persistRecords(vararg records: OutboxRecordEntity) {
+    private fun persistRecords(vararg records: JdbcOutboxRecordEntity) {
         transactionTemplate.executeWithoutResult {
-            records.forEach(entityManager::persist)
-            entityManager.flush()
+            records.forEach { record ->
+                jdbcClient
+                    .sql(
+                        """
+                        INSERT INTO outbox_record
+                        (id, status, record_key, record_type, payload, context, partition_no, created_at,
+                         completed_at, failure_count, failure_reason, next_retry_at, handler_id)
+                        VALUES (:id, :status, :key, :type, :payload, NULL, :partition, :created,
+                                NULL, 0, NULL, :created, :handler)
+                        """.trimIndent(),
+                    ).param("id", record.id)
+                    .param("status", record.status.name)
+                    .param("key", record.recordKey)
+                    .param("type", record.recordType)
+                    .param("payload", record.payload)
+                    .param("partition", record.partitionNo)
+                    .param("created", java.sql.Timestamp.from(record.createdAt))
+                    .param("handler", record.handlerId)
+                    .update()
+            }
         }
     }
 
-    private fun loadRecords(): Map<String, OutboxRecordEntity> =
+    private fun loadRecords(): Map<String, JdbcOutboxRecordEntity> =
         transactionTemplate.execute {
-            entityManager.clear()
-            entityManager
-                .createQuery("SELECT o FROM OutboxRecordEntity o", OutboxRecordEntity::class.java)
-                .resultList
-                .associateBy(OutboxRecordEntity::id)
+            jdbcClient
+                .sql("SELECT * FROM outbox_record")
+                .query(JdbcOutboxRecordEntityRowMapper())
+                .list()
+                .associateBy(JdbcOutboxRecordEntity::id)
         }
 
     private fun record(
@@ -156,7 +174,7 @@ class CompatibilityFailureIntegrationTest {
         handlerId: String,
         createdAt: Instant,
         recordType: String = CompatiblePayload::class.java.name,
-    ) = OutboxRecordEntity(
+    ) = JdbcOutboxRecordEntity(
         id = id,
         status = OutboxRecordStatus.NEW,
         recordKey = key,

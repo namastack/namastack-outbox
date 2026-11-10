@@ -324,7 +324,7 @@ See the [Spring Modulith Outbox Example](https://github.com/namastack/namastack-
 
 This example demonstrates:
 - Outbox-backed event externalization with Spring Modulith
-- JPA persistence
+- JDBC outbox persistence with JPA business entities
 - Kafka integration
 - End-to-end event flow and configuration
 

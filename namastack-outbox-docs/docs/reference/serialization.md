@@ -21,7 +21,7 @@ breaking payload changes therefore require a compatibility rollout. See
 
 ## Jackson Module (Default)
 
-The `namastack-outbox-jackson` module is the default for JSON serialization, leveraging Jackson 3.x. It is automatically included when you use either the JDBC or JPA starter.
+The `namastack-outbox-jackson` module is the default for JSON serialization, leveraging Jackson 3.x. It is automatically included when you use either the JDBC or MongoDB starter.
 
 **Supported Features:**
 

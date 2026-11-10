@@ -12,9 +12,6 @@ import java.time.Duration
  *
  * @param enabled Whether the outbox functionality is enabled. Defaults to true.
  *                Set to false to disable outbox auto-configuration entirely.
- * @param pollInterval Interval at which the outbox is polled (deprecated)
- * @param rebalanceInterval Interval at which partition rebalancing is performed (deprecated)
- * @param batchSize Maximum number of record keys to process in a single batch (deprecated)
  * @param polling Configuration for polling behavior
  * @param retry Configuration for retry mechanisms
  * @param processing Configuration for record processing behavior
@@ -29,12 +26,6 @@ import java.time.Duration
 @ConfigurationProperties(prefix = "namastack.outbox")
 data class OutboxProperties(
     var enabled: Boolean = true,
-    @Deprecated("Use polling.fixed.interval or polling.adaptive.minInterval/maxInterval instead")
-    var pollInterval: Duration? = null,
-    @Deprecated("Use instance.rebalanceInterval instead")
-    var rebalanceInterval: Duration? = null,
-    @Deprecated("Use polling.batchsize instead")
-    var batchSize: Int? = null,
     var polling: Polling = Polling(),
     var retry: Retry = Retry(),
     var processing: Processing = Processing(),
@@ -43,12 +34,6 @@ data class OutboxProperties(
     var mode: OutboxRuntimeMode = OutboxRuntimeMode.SINGLE,
     var processingGroups: OutboxProcessingGroupSettings = OutboxProcessingGroupSettings(),
 ) {
-    /**
-     * Returns the effective partition rebalance interval, using the deprecated root property when set.
-     */
-    val effectiveRebalanceInterval: Duration
-        get() = rebalanceInterval ?: instance.rebalanceInterval
-
     /**
      * Configuration for polling behavior.
      *
@@ -90,39 +75,24 @@ data class OutboxProperties(
      * Configuration for outbox record processing behavior.
      *
      * @param stopOnFirstFailure Whether to stop processing on the first failure
-     * @param publishAfterSave Whether to publish events to listeners after saving to outbox (deprecated)
      * @param deleteCompletedRecords Whether to delete completed records after processing
      * @param executorCorePoolSize Core pool size for the processing executor
      * @param executorMaxPoolSize Maximum pool size for the processing executor
      * @param executorConcurrencyLimit Concurrency limit for the virtual thread executor (-1 for no limit)
-     * @param shutdownTimeoutSeconds Maximum time in seconds to wait for processing to complete during shutdown (default: 30)
      * @param shutdownTimeout Maximum time to wait for processing to complete during shutdown (default: 30s)
      */
     data class Processing(
         var stopOnFirstFailure: Boolean = true,
-        @Deprecated("Use multicaster.publishAfterSave instead")
-        var publishAfterSave: Boolean? = null,
         var deleteCompletedRecords: Boolean = false,
         var executorCorePoolSize: Int = 4,
         var executorMaxPoolSize: Int = 8,
         var executorConcurrencyLimit: Int = -1,
-        @Deprecated("Use shutdownTimeout instead")
-        var shutdownTimeoutSeconds: Long? = null,
         var shutdownTimeout: Duration = Duration.ofSeconds(30),
-    ) {
-        /**
-         * Returns the effective shutdown timeout, using the deprecated seconds property if set, otherwise the duration property.
-         */
-        val effectiveShutdownTimeout: Duration
-            get() = shutdownTimeoutSeconds?.let(Duration::ofSeconds) ?: shutdownTimeout
-    }
+    )
 
     /**
      * Configuration for instance management and coordination.
      *
-     * @param heartbeatIntervalSeconds Interval in seconds between heartbeats
-     * @param staleInstanceTimeoutSeconds Timeout in seconds to consider an instance stale
-     * @param gracefulShutdownTimeoutSeconds Optional propagation window (in seconds) after marking an instance
      * @param heartbeatInterval Interval between heartbeats
      * @param staleInstanceTimeout Timeout to consider an instance stale
      * @param gracefulShutdownTimeout Optional propagation window after marking an instance
@@ -130,35 +100,11 @@ data class OutboxProperties(
      * @param rebalanceInterval Interval at which partition rebalancing is performed
      */
     data class Instance(
-        @Deprecated("Use heartbeatInterval instead")
-        var heartbeatIntervalSeconds: Long? = null,
-        @Deprecated("Use staleInstanceTimeout instead")
-        var staleInstanceTimeoutSeconds: Long? = null,
-        @Deprecated("Use gracefulShutdownTimeout instead")
-        var gracefulShutdownTimeoutSeconds: Long? = null,
         var heartbeatInterval: Duration = Duration.ofSeconds(5),
         var staleInstanceTimeout: Duration = Duration.ofSeconds(30),
         var gracefulShutdownTimeout: Duration = Duration.ofSeconds(0),
         var rebalanceInterval: Duration = Duration.ofSeconds(10),
-    ) {
-        /**
-         * Returns the effective heartbeat interval, using the deprecated seconds property if set, otherwise the duration property.
-         */
-        val effectiveHeartbeatInterval: Duration
-            get() = heartbeatIntervalSeconds?.let(Duration::ofSeconds) ?: heartbeatInterval
-
-        /**
-         * Returns the effective stale instance timeout, using the deprecated seconds property if set, otherwise the duration property.
-         */
-        val effectiveStaleInstanceTimeout: Duration
-            get() = staleInstanceTimeoutSeconds?.let(Duration::ofSeconds) ?: staleInstanceTimeout
-
-        /**
-         * Returns the effective graceful shutdown timeout, using the deprecated seconds property if set, otherwise the duration property.
-         */
-        val effectiveGracefulShutdownTimeout: Duration
-            get() = gracefulShutdownTimeoutSeconds?.let(Duration::ofSeconds) ?: gracefulShutdownTimeout
-    }
+    )
 
     /**
      * Configuration for the custom application event multicaster.

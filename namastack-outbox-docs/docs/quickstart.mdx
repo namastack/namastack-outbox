@@ -53,10 +53,6 @@ This guide will get you up and running in 5 minutes with minimal configuration.
 </TabItem>
 </Tabs>
 
-:::note JDBC vs JPA vs MongoDB
-We recommend the JDBC starter for quick start as it supports automatic schema creation. For JPA/Hibernate projects, see [JPA Setup](#jpa-setup) below. For MongoDB projects, see [MongoDB Setup](#mongodb-setup) below.
-:::
-
 :::tip Scheduling is automatic
 Spring's `@EnableScheduling` is activated automatically by the library — no manual setup required. See [Configuration → Automatic Scheduling](reference/configuration.md#automatic-scheduling) for details.
 :::
@@ -278,8 +274,10 @@ Both approaches work equally well. Choose based on your preference:
 ```yaml
 namastack:
   outbox:
-    poll-interval: 2s
-    batch-size: 10
+    polling:
+      fixed:
+        interval: 2s
+      batch-size: 10
     retry:
       policy: "exponential"
       max-retries: 3
@@ -292,8 +290,8 @@ namastack:
 <TabItem value="Properties" label="Properties">
 
 ```properties
-namastack.outbox.poll-interval=2s
-namastack.outbox.batch-size=10
+namastack.outbox.polling.fixed.interval=2s
+namastack.outbox.polling.batch-size=10
 namastack.outbox.retry.policy=exponential
 namastack.outbox.retry.max-retries=3
 namastack.outbox.retry.exponential.initial-delay=1s
@@ -324,7 +322,7 @@ removal, and rollback procedures.
 
 ## Supported Databases
 
-Any JPA/JDBC-compatible database is supported. Automatic schema creation is available in the JDBC module for:
+Any JDBC-compatible database is supported. Automatic schema creation is available in the JDBC module for:
 
 - H2 (development)
 - MySQL / MariaDB
@@ -341,60 +339,12 @@ If you manage your database schema manually, you can find the SQL schema files h
 
 ---
 
-## JPA Setup
+## Spring Data JPA business entities
 
-<Tabs>
-<TabItem value="Gradle" label="Gradle">
-
-<VersionedCode language="kotlin" template= {`dependencies {
-      implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
-      implementation("io.namastack:namastack-outbox-starter-jpa")
-}`} />
-
-</TabItem>
-<TabItem value="Maven" label="Maven">
-
-<VersionedCode language="xml" template= {`<dependencyManagement>
-  <dependencies>
-    <dependency>
-      <groupId>io.namastack</groupId>
-      <artifactId>namastack-outbox-bom</artifactId>
-      <version>{{versionLabel}}</version>
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-  </dependencies>
-</dependencyManagement>
-
-<dependency>
-      <groupId>io.namastack</groupId>
-      <artifactId>namastack-outbox-starter-jpa</artifactId>
-</dependency>`} />
-
-</TabItem>
-</Tabs>
-
-:::warning Schema Management Required
-The JPA module does **not** support automatic schema creation. Choose one of these options:
-
-**Option 1: Hibernate DDL Auto (Development only)**
-```yaml
-spring:
-  jpa:
-    hibernate:
-      ddl-auto: create  # or create-drop
-```
-
-**Option 2: Flyway/Liquibase (Recommended for Production)**
-
-Use the [SQL schema files](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema) from our repository and configure Hibernate to validate:
-```yaml
-spring:
-  jpa:
-    hibernate:
-      ddl-auto: validate
-```
-:::
+Use the JDBC outbox starter shown above alongside `spring-boot-starter-data-jpa`. Keep business
+entity writes and `outbox.schedule()` inside the same `@Transactional` method, sharing one
+DataSource and JpaTransactionManager. Hibernate manages business tables; JDBC initialization or
+migrations manage outbox tables. See the [H2 example](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-examples/namastack-outbox-example-h2).
 
 ---
 
