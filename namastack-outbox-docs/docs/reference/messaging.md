@@ -523,19 +523,5 @@ public class RabbitOutboxConfig {
 </TabItem>
 </Tabs>
 
-### Migration Note
-
-Applications using `namastack-outbox-rabbit` must configure correlated publisher confirms:
-
-```yaml
-spring:
-  rabbitmq:
-    publisher-confirm-type: correlated
-```
-
-Earlier versions used fire-and-forget publishing. That meant a record could be marked completed
-even when RabbitMQ rejected the publish asynchronously, for example because the exchange did not
-exist. The new behavior fails fast at startup if the required confirm setting is missing.
-
 All modules are optional and can be included as needed. They provide a fast path to production-ready
 messaging integration with minimal configuration.

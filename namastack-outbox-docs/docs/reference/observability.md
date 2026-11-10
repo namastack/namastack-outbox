@@ -22,16 +22,6 @@ Namastack Outbox. It provides:
 - instance and cluster gauges for operational state
 - one shared tag schema for metrics and traces
 
-:::warning Removed modules
-
-The deprecated `namastack-outbox-metrics` and `namastack-outbox-tracing` modules have been removed
-from the current release and its BOM. Replace either dependency with
-`namastack-outbox-observability`. Applications using both old modules need only one observability
-dependency. See [Migrating from the Removed Modules](#migrating-from-the-removed-modules) for
-metric names and tracing customization changes.
-
-:::
-
 ## Setup
 
 Add the observability module together with your outbox starter. If you want to export Prometheus
@@ -240,24 +230,6 @@ Once gauges are bound, a `MeterFilter` or `management.metrics.enable.*` setting 
 publication only and does not prevent background queries. To disable all state gauges and their
 database collection, set `namastack.outbox.observability.metrics.enabled=false`.
 Observation-based timers remain enabled.
-
-:::note Changed in 1.12.0
-
-State gauges previously queried the database during metric observation and returned zero on
-failure. They now expose background readings, which can lag behind the database, and report
-unknown values on failure or expiry. Existing metric names and tags are unchanged. Review
-alerts and dashboards that relied on immediate updates or zero values during database outages.
-Observation-based timers are unchanged.
-
-The infrastructure class `OutboxInstanceMetricsMeterBinder` has a new constructor. Applications
-using Spring Boot auto-configuration require no wiring changes. Code that directly instantiated
-this implementation must be updated; its former constructor is not binary-compatible. The
-outbox API and `OutboxInstrumentation` interface are unchanged. The repository SPI gains
-`countByStatuses`, which has a default implementation.
-
-`outbox.records` is published for `new` and `failed` by default.
-
-:::
 
 :::info Actuator endpoints
 
@@ -581,43 +553,3 @@ class CustomOutboxScheduleObservationConfig {
 
 Keep high-cardinality values out of low-cardinality tags to avoid excessive time series in metrics
 backends.
-
-## Migrating from the Removed Modules
-
-Replace `io.namastack:namastack-outbox-metrics` and/or `io.namastack:namastack-outbox-tracing`
-with `io.namastack:namastack-outbox-observability`, using the current BOM as shown in
-[Setup](#setup). The old artifacts are no longer built, published, or managed by the current BOM.
-Previously published versions of the old artifacts remain available.
-
-### Metrics
-
-Update dashboards, alerts, and queries to use the observability meter names and tags:
-
-| Removed meter | Observability replacement |
-|---------------|---------------------------|
-| `outbox.records.count` with `status=new\|failed\|completed` | `outbox.records` with `outbox.record.status=new\|failed\|completed` |
-| `outbox.partitions.assigned.count` | `outbox.instance.partitions.assigned` |
-| `outbox.partitions.pending.records.total` | `outbox.instance.records.pending` |
-| `outbox.cluster.instances.total` | `outbox.cluster.instances.active` |
-| `outbox.cluster.partitions.unassigned.count` | `outbox.cluster.partitions.unassigned` |
-
-All replacement gauges also carry an `outbox.channel` tag. Record gauges include only `new` and
-`failed` by default; add `completed` to `namastack.outbox.observability.metrics.record-statuses`
-if you need the retained completed-record count. Gauge values are now collected in the background
-rather than queried during each scrape; see [Background Gauge Collection](#background-gauge-collection)
-for refresh, expiry, and failure behavior.
-
-The old `outbox.partitions.pending.records.max`, `outbox.partitions.pending.records.avg`,
-`outbox.cluster.partitions.total`, `outbox.cluster.partitions.avg_per_instance`, and
-`outbox.cluster.partitions.unassigned.flag` meters have no direct replacements. Revise alerts that
-use them around the supported instance backlog, delivery age, and cluster health gauges described
-in [Gauge Metrics](#gauge-metrics).
-
-### Tracing
-
-Keep your Micrometer tracing bridge and exporter configuration. The observability module captures
-and restores trace context automatically when `Tracer` and `Propagator` beans are present.
-
-The old `outboxTracingContextProvider` bean name no longer disables the auto-configured provider.
-To override it, provide an `OutboxObservabilityTracingContextProvider` bean or a custom
-`OutboxContextProvider` bean named `outboxObservabilityTracingContextProvider`.
