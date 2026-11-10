@@ -50,6 +50,8 @@ sequenceDiagram
 New outbox records use time-ordered UUIDv7 IDs stored as standard 36-character strings.
 The existing ID column type is unchanged, and no schema migration is required. Existing
 records retain their IDs and remain readable alongside new records.
+Auto-generated scheduling keys, processor instance IDs, and RabbitMQ publisher correlation
+IDs also use UUIDv7. Explicitly supplied keys and instance IDs are preserved.
 
 Records with the same key are processed sequentially, ordered by `createdAt` and then by `id`.
 Records with different keys are processed in parallel, so there is no global ordering bottleneck.

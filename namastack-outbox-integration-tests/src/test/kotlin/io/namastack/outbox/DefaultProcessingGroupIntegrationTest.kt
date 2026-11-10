@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+
 package io.namastack.outbox
 
 import io.namastack.outbox.annotation.OutboxHandler
@@ -15,10 +17,10 @@ import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
-import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.concurrent.TimeUnit.SECONDS
+import kotlin.uuid.Uuid
 
 /** Old plain keys and new default-group deliveries must continue to share one ordering boundary. */
 @OutboxIntegrationTest
@@ -81,7 +83,7 @@ class DefaultProcessingGroupIntegrationTest {
         val createdAt = clock.instant().minusSeconds(60)
         repository.save(
             OutboxRecord.restore(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.generateV7().toString(),
                 recordKey = "order:42",
                 payload = Event("legacy"),
                 context = emptyMap(),

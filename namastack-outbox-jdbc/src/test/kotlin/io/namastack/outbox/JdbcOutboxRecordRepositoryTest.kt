@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+
 package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
@@ -26,7 +28,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit.MILLIS
 import java.time.temporal.ChronoUnit.MINUTES
 import java.time.temporal.ChronoUnit.SECONDS
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 @JdbcTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -251,7 +253,7 @@ class JdbcOutboxRecordRepositoryTest {
     inner class SaveTests {
         @Test
         fun `saves an entity`() {
-            val recordKey = UUID.randomUUID().toString()
+            val recordKey = Uuid.generateV7().toString()
             val record =
                 OutboxRecord
                     .Builder<String>()
@@ -276,7 +278,7 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `updates an entity`() {
-            val recordKey = UUID.randomUUID().toString()
+            val recordKey = Uuid.generateV7().toString()
             val record =
                 OutboxRecord
                     .Builder<String>()
@@ -451,7 +453,7 @@ class JdbcOutboxRecordRepositoryTest {
         private fun newRecordWithContext(): OutboxRecord<String> =
             OutboxRecord
                 .Builder<String>()
-                .key(UUID.randomUUID().toString())
+                .key(Uuid.generateV7().toString())
                 .payload("payload")
                 .context(mapOf("tenant" to "acme"))
                 .handlerId("handlerId")
@@ -502,7 +504,7 @@ class JdbcOutboxRecordRepositoryTest {
         @Test
         fun `returns pending records ordered by createdAt asc`() {
             val now = Instant.now(clock)
-            val recordKey = UUID.randomUUID().toString()
+            val recordKey = Uuid.generateV7().toString()
 
             createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(1, MINUTES))
             createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(2, MINUTES))
@@ -709,7 +711,7 @@ class JdbcOutboxRecordRepositoryTest {
     inner class FindIncompleteRecordsByRecordKeyTests {
         @Test
         fun `finds all incomplete records by record key ordered by created date`() {
-            val recordKey = UUID.randomUUID().toString()
+            val recordKey = Uuid.generateV7().toString()
             val now = Instant.now(clock)
 
             createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(3, MINUTES))
@@ -730,7 +732,7 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `finds incomplete records by record key returns empty when none exist`() {
-            val recordKey = UUID.randomUUID().toString()
+            val recordKey = Uuid.generateV7().toString()
             createCompletedRecordsForRecordKey(2, recordKey)
 
             val records = jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey)
@@ -744,8 +746,8 @@ class JdbcOutboxRecordRepositoryTest {
     inner class FindRecordKeysInPartitionsTests {
         @Test
         fun `finds record keys in partitions`() {
-            val partition1RecordKey = UUID.randomUUID().toString()
-            val partition2RecordKey = UUID.randomUUID().toString()
+            val partition1RecordKey = Uuid.generateV7().toString()
+            val partition2RecordKey = Uuid.generateV7().toString()
 
             createRecordWithPartition(partition1RecordKey, NEW, 1)
             createRecordWithPartition(partition2RecordKey, NEW, 2)
@@ -770,9 +772,9 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `finds record keys in multiple partitions`() {
-            val recordKey1 = UUID.randomUUID().toString()
-            val recordKey2 = UUID.randomUUID().toString()
-            val recordKey3 = UUID.randomUUID().toString()
+            val recordKey1 = Uuid.generateV7().toString()
+            val recordKey2 = Uuid.generateV7().toString()
+            val recordKey3 = Uuid.generateV7().toString()
 
             createRecordWithPartition(recordKey1, NEW, 1)
             createRecordWithPartition(recordKey2, NEW, 2)
@@ -791,7 +793,7 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `processes oldest record when multiple NEW records exist`() {
-            val recordKey = UUID.randomUUID().toString()
+            val recordKey = Uuid.generateV7().toString()
             val now = Instant.now(clock)
 
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES).truncatedTo(MILLIS))
@@ -805,7 +807,7 @@ class JdbcOutboxRecordRepositoryTest {
         @Test
         fun `returns at most batch size record keys oldest first`() {
             val now = Instant.now(clock)
-            val recordKeys = List(3) { UUID.randomUUID().toString() }
+            val recordKeys = List(3) { Uuid.generateV7().toString() }
 
             recordKeys.forEachIndexed { index, recordKey ->
                 createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3L - index, MINUTES).truncatedTo(MILLIS))
@@ -833,7 +835,7 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `allows processing when oldest record is ready`() {
-            val recordKey = UUID.randomUUID().toString()
+            val recordKey = Uuid.generateV7().toString()
             val now = Instant.now(clock)
 
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES).truncatedTo(MILLIS))
@@ -847,9 +849,9 @@ class JdbcOutboxRecordRepositoryTest {
         fun `orders by oldest record creation time across partitions`() {
             val now = Instant.now(clock)
 
-            val recordKey1 = UUID.randomUUID().toString()
-            val recordKey2 = UUID.randomUUID().toString()
-            val recordKey3 = UUID.randomUUID().toString()
+            val recordKey1 = Uuid.generateV7().toString()
+            val recordKey2 = Uuid.generateV7().toString()
+            val recordKey3 = Uuid.generateV7().toString()
 
             createRecordWithPartitionAndTime(recordKey2, NEW, 1, now.minus(2, MINUTES).truncatedTo(MILLIS))
             createRecordWithPartitionAndTime(recordKey1, NEW, 2, now.minus(3, MINUTES).truncatedTo(MILLIS))
@@ -866,10 +868,10 @@ class JdbcOutboxRecordRepositoryTest {
     inner class CountRecordsByPartitionTests {
         @Test
         fun `counts records by partition and status`() {
-            createRecordWithPartition(UUID.randomUUID().toString(), NEW, 1)
-            createRecordWithPartition(UUID.randomUUID().toString(), NEW, 1)
-            createRecordWithPartition(UUID.randomUUID().toString(), FAILED, 1)
-            createRecordWithPartition(UUID.randomUUID().toString(), NEW, 2)
+            createRecordWithPartition(Uuid.generateV7().toString(), NEW, 1)
+            createRecordWithPartition(Uuid.generateV7().toString(), NEW, 1)
+            createRecordWithPartition(Uuid.generateV7().toString(), FAILED, 1)
+            createRecordWithPartition(Uuid.generateV7().toString(), NEW, 2)
 
             val newRecordsPartition1 = jdbcOutboxRecordRepository.countRecordsByPartition(1, NEW)
             val failedRecordsPartition1 = jdbcOutboxRecordRepository.countRecordsByPartition(1, FAILED)
@@ -886,12 +888,12 @@ class JdbcOutboxRecordRepositoryTest {
     inner class CountRecordsByPartitionsTests {
         @Test
         fun `counts records across selected partitions and status including future retries`() {
-            createRecordWithPartition(UUID.randomUUID().toString(), NEW, 1)
-            createRecordWithPartition(UUID.randomUUID().toString(), NEW, 1)
-            createRecordWithPartition(UUID.randomUUID().toString(), NEW, 2, Instant.now(clock).plus(10, MINUTES))
-            createRecordWithPartition(UUID.randomUUID().toString(), FAILED, 1)
-            createRecordWithPartition(UUID.randomUUID().toString(), COMPLETED, 2)
-            createRecordWithPartition(UUID.randomUUID().toString(), NEW, 3)
+            createRecordWithPartition(Uuid.generateV7().toString(), NEW, 1)
+            createRecordWithPartition(Uuid.generateV7().toString(), NEW, 1)
+            createRecordWithPartition(Uuid.generateV7().toString(), NEW, 2, Instant.now(clock).plus(10, MINUTES))
+            createRecordWithPartition(Uuid.generateV7().toString(), FAILED, 1)
+            createRecordWithPartition(Uuid.generateV7().toString(), COMPLETED, 2)
+            createRecordWithPartition(Uuid.generateV7().toString(), NEW, 3)
 
             assertThat(jdbcOutboxRecordRepository.countRecordsByPartitions(setOf(1, 2), NEW)).isEqualTo(3)
             assertThat(jdbcOutboxRecordRepository.countRecordsByPartitions(setOf(1, 2), FAILED)).isEqualTo(1)
@@ -902,7 +904,7 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `counts zero records for empty partitions`() {
-            createRecordWithPartition(UUID.randomUUID().toString(), NEW, 1)
+            createRecordWithPartition(Uuid.generateV7().toString(), NEW, 1)
 
             assertThat(jdbcOutboxRecordRepository.countRecordsByPartitions(emptySet(), NEW)).isZero()
         }
@@ -983,8 +985,8 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `excludes keys blocked by an earlier failed record only when previous failure filter is enabled`() {
-            val blockedKey = UUID.randomUUID().toString()
-            val readyKey = UUID.randomUUID().toString()
+            val blockedKey = Uuid.generateV7().toString()
+            val readyKey = Uuid.generateV7().toString()
             saveRetentionRecord(FAILED, recordKey = blockedKey, createdAt = now.minusSeconds(7200))
             saveRetentionRecord(NEW, recordKey = blockedKey, createdAt = now.minusSeconds(3600))
             saveRetentionRecord(NEW, recordKey = readyKey, createdAt = now.minusSeconds(600))
@@ -998,7 +1000,7 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `excludes keys blocked by an earlier record awaiting retry only when previous failure filter is enabled`() {
-            val recordKey = UUID.randomUUID().toString()
+            val recordKey = Uuid.generateV7().toString()
             saveRetentionRecord(
                 NEW,
                 recordKey = recordKey,
@@ -1016,7 +1018,7 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `does not treat earlier completed records as blocking`() {
-            val recordKey = UUID.randomUUID().toString()
+            val recordKey = Uuid.generateV7().toString()
             saveRetentionRecord(
                 COMPLETED,
                 recordKey = recordKey,
@@ -1111,8 +1113,8 @@ class JdbcOutboxRecordRepositoryTest {
     inner class DeleteByRecordKeyAndStatusTests {
         @Test
         fun `deletes records by status and recordKey`() {
-            val recordKey1 = UUID.randomUUID().toString()
-            val recordKey2 = UUID.randomUUID().toString()
+            val recordKey1 = Uuid.generateV7().toString()
+            val recordKey2 = Uuid.generateV7().toString()
             createNewRecordsForRecordKey(1, recordKey1, NEW)
             createNewRecordsForRecordKey(1, recordKey1, FAILED)
             createNewRecordsForRecordKey(1, recordKey2, NEW)
@@ -1126,8 +1128,8 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `deletes records by record key and status only affects specified combination`() {
-            val targetRecordKey = UUID.randomUUID().toString()
-            val otherRecordKey = UUID.randomUUID().toString()
+            val targetRecordKey = Uuid.generateV7().toString()
+            val otherRecordKey = Uuid.generateV7().toString()
 
             createNewRecordsForRecordKey(2, targetRecordKey, NEW)
             createNewRecordsForRecordKey(1, targetRecordKey, FAILED)
@@ -1148,7 +1150,7 @@ class JdbcOutboxRecordRepositoryTest {
     inner class DeleteByIdTests {
         @Test
         fun `deletes record by id`() {
-            val recordKey = UUID.randomUUID().toString()
+            val recordKey = Uuid.generateV7().toString()
             val record =
                 OutboxRecord
                     .Builder<String>()
@@ -1308,7 +1310,7 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `releases record key barrier for later records`() {
-            val recordKey = UUID.randomUUID().toString()
+            val recordKey = Uuid.generateV7().toString()
             saveRetentionRecord(
                 FAILED,
                 recordKey = recordKey,
@@ -1337,7 +1339,7 @@ class JdbcOutboxRecordRepositoryTest {
     private fun newRecord(): OutboxRecord<String> =
         OutboxRecord
             .Builder<String>()
-            .key(UUID.randomUUID().toString())
+            .key(Uuid.generateV7().toString())
             .payload("payload")
             .handlerId("handlerId")
             .build(clock)
@@ -1364,8 +1366,8 @@ class JdbcOutboxRecordRepositoryTest {
         (0 until count).forEach { _ ->
             jdbcOutboxRecordRepository.save(
                 OutboxRecord.restore(
-                    id = UUID.randomUUID().toString(),
-                    recordKey = UUID.randomUUID().toString(),
+                    id = Uuid.generateV7().toString(),
+                    recordKey = Uuid.generateV7().toString(),
                     payload = "payload",
                     context = mapOf("key1" to "value1", "key2" to "value2"),
                     partition = 1,
@@ -1387,8 +1389,8 @@ class JdbcOutboxRecordRepositoryTest {
         (0 until count).forEach { _ ->
             jdbcOutboxRecordRepository.save(
                 OutboxRecord.restore(
-                    id = UUID.randomUUID().toString(),
-                    recordKey = UUID.randomUUID().toString(),
+                    id = Uuid.generateV7().toString(),
+                    recordKey = Uuid.generateV7().toString(),
                     payload = "payload",
                     context = mapOf("key1" to "value1", "key2" to "value2"),
                     partition = 1,
@@ -1410,8 +1412,8 @@ class JdbcOutboxRecordRepositoryTest {
         (0 until count).forEach { _ ->
             jdbcOutboxRecordRepository.save(
                 OutboxRecord.restore(
-                    id = UUID.randomUUID().toString(),
-                    recordKey = UUID.randomUUID().toString(),
+                    id = Uuid.generateV7().toString(),
+                    recordKey = Uuid.generateV7().toString(),
                     payload = "payload",
                     context = mapOf("key1" to "value1", "key2" to "value2"),
                     partition = 1,
@@ -1437,7 +1439,7 @@ class JdbcOutboxRecordRepositoryTest {
         (0 until count).forEach { _ ->
             jdbcOutboxRecordRepository.save(
                 OutboxRecord.restore(
-                    id = UUID.randomUUID().toString(),
+                    id = Uuid.generateV7().toString(),
                     recordKey = recordKey,
                     payload = "payload",
                     context = mapOf("key1" to "value1", "key2" to "value2"),
@@ -1463,7 +1465,7 @@ class JdbcOutboxRecordRepositoryTest {
     ) {
         jdbcOutboxRecordRepository.save(
             OutboxRecord.restore(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.generateV7().toString(),
                 recordKey = recordKey,
                 payload = "test-payload",
                 context = mapOf("key1" to "value1", "key2" to "value2"),
@@ -1488,7 +1490,7 @@ class JdbcOutboxRecordRepositoryTest {
         (0 until count).forEach { _ ->
             jdbcOutboxRecordRepository.save(
                 OutboxRecord.restore(
-                    id = UUID.randomUUID().toString(),
+                    id = Uuid.generateV7().toString(),
                     recordKey = recordKey,
                     payload = "test-payload",
                     context = mapOf("key1" to "value1", "key2" to "value2"),
@@ -1511,7 +1513,7 @@ class JdbcOutboxRecordRepositoryTest {
         status: OutboxRecordStatus,
         partition: Int,
         createdAt: Instant,
-        id: String = UUID.randomUUID().toString(),
+        id: String = Uuid.generateV7().toString(),
     ): OutboxRecord<String> {
         val record =
             OutboxRecord.restore(
@@ -1536,7 +1538,7 @@ class JdbcOutboxRecordRepositoryTest {
 
     private fun saveRetentionRecord(
         status: OutboxRecordStatus,
-        recordKey: String = UUID.randomUUID().toString(),
+        recordKey: String = Uuid.generateV7().toString(),
         createdAt: Instant = retentionBase.minusSeconds(7200),
         completedAt: Instant? = null,
         nextRetryAt: Instant = createdAt,
@@ -1544,7 +1546,7 @@ class JdbcOutboxRecordRepositoryTest {
     ): String {
         val record =
             OutboxRecord.restore(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.generateV7().toString(),
                 recordKey = recordKey,
                 payload = "payload",
                 context = emptyMap(),

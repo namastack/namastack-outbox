@@ -1,12 +1,15 @@
+@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+
 package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import java.time.Instant
 import java.util.UUID
+import kotlin.uuid.Uuid
 
 object OutboxRecordTestFactory {
     fun outboxRecord(
-        id: String = UUID.randomUUID().toString(),
+        id: String = Uuid.generateV7().toString(),
         recordKey: String = "test-record-key",
         payload: CreatedEvent = CreatedEvent(),
         context: Map<String, String> = emptyMap(),

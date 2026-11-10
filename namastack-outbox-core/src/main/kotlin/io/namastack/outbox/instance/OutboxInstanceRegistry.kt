@@ -12,9 +12,10 @@ import java.lang.reflect.Method
 import java.net.InetAddress
 import java.time.Clock
 import java.time.Instant
-import java.util.UUID
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Registry service for managing outbox processor instances in a distributed system.
@@ -41,13 +42,14 @@ import java.util.concurrent.atomic.AtomicBoolean
  * @since 0.2.0
  */
 @OpenForProxy
+@OptIn(ExperimentalUuidApi::class)
 class OutboxInstanceRegistry(
     private val instanceRepository: OutboxInstanceRepository,
     private val settings: OutboxRuntimeSettings.Instance,
     private val clock: Clock,
     private val taskScheduler: TaskScheduler,
     private val observationRegistry: () -> ObservationRegistry,
-    private val currentInstanceId: String = UUID.randomUUID().toString(),
+    private val currentInstanceId: String = Uuid.generateV7().toString(),
 ) : SmartLifecycle {
     companion object {
         const val SCHEDULER_NAME: String = "outboxHeartbeatScheduler"
