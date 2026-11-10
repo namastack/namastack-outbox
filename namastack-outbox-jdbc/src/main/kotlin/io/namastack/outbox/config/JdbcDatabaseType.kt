@@ -18,8 +18,6 @@ import javax.sql.DataSource
  * - **SQL Server**: Microsoft's enterprise relational database
  *
  * @param schemaLocation Classpath location of the database-specific schema script
- * @param rowLimitClause Clause appended after ORDER BY to cap the result at the `:limit` parameter,
- * so the optimizer can stop after the first rows instead of sorting the whole result
  *
  * @author Roland Beisel, Khalid Alharisi
  * @since 1.0.0
@@ -27,7 +25,6 @@ import javax.sql.DataSource
 sealed class JdbcDatabaseType(
     val schemaLocation: String,
     val statementSeparator: String = ";",
-    val rowLimitClause: String = "FETCH FIRST :limit ROWS ONLY",
 ) {
     /**
      * PostgreSQL database type.
@@ -47,7 +44,6 @@ sealed class JdbcDatabaseType(
      */
     data object MySQL : JdbcDatabaseType(
         schemaLocation = "classpath:schema/mysql/outbox-tables.sql",
-        rowLimitClause = "LIMIT :limit",
     )
 
     /**
@@ -68,7 +64,6 @@ sealed class JdbcDatabaseType(
      */
     data object MariaDB : JdbcDatabaseType(
         schemaLocation = "classpath:schema/mariadb/outbox-tables.sql",
-        rowLimitClause = "LIMIT :limit",
     )
 
     /**
@@ -79,7 +74,6 @@ sealed class JdbcDatabaseType(
      */
     data object SQLServer : JdbcDatabaseType(
         schemaLocation = "classpath:schema/sqlserver/outbox-tables.sql",
-        rowLimitClause = "OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY",
     )
 
     /**
@@ -135,6 +129,23 @@ sealed class JdbcDatabaseType(
                     throw RuntimeException("Could not detect database name", e)
                 }
             return from(databaseName)
+        }
+
+        /**
+         * Resolves the database type of a data source, or `null` if the product is not supported.
+         *
+         * Opens one connection, or reuses the connection bound to the current transaction.
+         *
+         * @param dataSource The data source to inspect
+         * @return Corresponding JdbcDatabaseType, or `null` if the product is not supported
+         * @throws org.springframework.jdbc.support.MetaDataAccessException if the metadata cannot be read
+         * @since 1.12.0
+         */
+        internal fun detect(dataSource: DataSource): JdbcDatabaseType? {
+            val productName = JdbcUtils.extractDatabaseMetaData(dataSource, DatabaseMetaData::getDatabaseProductName)
+            val databaseName = JdbcUtils.commonDatabaseName(productName) ?: return null
+
+            return runCatching { from(databaseName) }.getOrNull()
         }
     }
 }

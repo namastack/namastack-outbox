@@ -155,7 +155,7 @@ Micrometer converts dotted meter names to Prometheus naming conventions. For exa
 
 | Metric | Description | Tags |
 |--------|-------------|------|
-| `outbox.records` | Count of outbox records by status | `outbox.channel`, `outbox.record.status=new\|failed\|completed` |
+| `outbox.records` | Count of outbox records by status, for the statuses in `record-statuses` (default `new` and `failed`) | `outbox.channel`, `outbox.record.status=new\|failed\|completed` |
 | `outbox.instance.partitions.assigned` | Number of partitions assigned to this application instance | `outbox.channel` |
 | `outbox.instance.records.pending` | Total pending records across partitions assigned to this instance | `outbox.channel` |
 | `outbox.instance.records.oldest.age` | Age in seconds of the oldest pending record across partitions assigned to this instance | `outbox.channel` |
@@ -200,9 +200,22 @@ namastack:
         enabled: true
         refresh-interval: 15s
         max-age: 60s
+        record-statuses: new, failed  # statuses with an outbox.records gauge (since 1.12.0)
 ```
 
 `refresh-interval` must be at least 1ms. `max-age` must be at least `refresh-interval`.
+
+`record-statuses` selects the statuses that get an `outbox.records` gauge. All selected statuses are
+counted with one grouped query per collection. An empty list registers no `outbox.records` gauges.
+Adding `completed` publishes the number of retained `COMPLETED` records, but it needs a slower query:
+the indexes cover incomplete records only, so its cost grows with the retained history.
+
+For completion throughput, use the `outbox.record.attempt` timer instead. It needs no database query:
+
+```promql
+sum(rate(outbox_record_attempt_seconds_count{outbox_processing_outcome="completed"}[5m]))
+```
+
 The maximum age applies independently to each reading, including while a collection is blocked.
 
 Before the first reading, after a failed query, or once a reading reaches `max-age`, the affected
@@ -239,7 +252,10 @@ Observation-based timers are unchanged.
 The infrastructure class `OutboxInstanceMetricsMeterBinder` has a new constructor. Applications
 using Spring Boot auto-configuration require no wiring changes. Code that directly instantiated
 this implementation must be updated; its former constructor is not binary-compatible. The
-outbox API, repository SPI, and `OutboxInstrumentation` interface are unchanged.
+outbox API and `OutboxInstrumentation` interface are unchanged. The repository SPI gains
+`countByStatuses`, which has a default implementation.
+
+`outbox.records` is published for `new` and `failed` by default.
 
 :::
 

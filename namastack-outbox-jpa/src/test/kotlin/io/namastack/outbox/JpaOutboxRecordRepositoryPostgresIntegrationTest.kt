@@ -7,7 +7,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
 
 @Testcontainers
-class JpaBulkRecordLoadingPostgresIntegrationTest : AbstractJpaBulkRecordLoadingTest() {
+class JpaOutboxRecordRepositoryPostgresIntegrationTest : AbstractJpaOutboxRecordRepositoryIntegrationTest() {
     companion object {
         @Container
         @JvmStatic

@@ -87,6 +87,34 @@ the desired behavior for production deployments.
 
 ---
 
+## Indexes
+
+The schema files create these secondary indexes on `outbox_record`. Their exact definitions differ per
+database, and H2 creates only the first two; see the [schema files](https://github.com/namastack/namastack-outbox/tree/main/namastack-outbox-jdbc/src/main/resources/schema).
+
+| Index on | Used for |
+|----------|----------|
+| status, creation time, id | Selecting the record keys to process |
+| record key, creation time, id | Loading the records of a key, and checking for earlier records of a key |
+| status, next retry time | The oldest due record metric |
+| status, partition | Record count metrics per partition |
+
+Retention queries have no dedicated index and can be slow on large tables. See
+[Record Retention](retention.md#indexes).
+
+On PostgreSQL, H2 and SQL Server, automatic schema initialization creates missing indexes at startup,
+which can block writes on a large table.
+
+---
+
+## Other Databases
+
+Other databases receive portable SQL without a row-limit clause. The driver applies the row limit, so
+the database can read and sort more rows than on a supported database. Automatic schema initialization
+does not support them, so disable it and create the schema yourself.
+
+---
+
 ## Migration Strategies
 
 ### Flyway

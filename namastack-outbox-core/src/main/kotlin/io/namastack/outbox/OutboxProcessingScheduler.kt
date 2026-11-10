@@ -2,7 +2,6 @@ package io.namastack.outbox
 
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OutboxRecordRepository.Companion.MAX_RECORD_KEYS_PER_FETCH
-import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
@@ -164,7 +163,6 @@ class OutboxProcessingScheduler(
     private fun loadRecordKeys(partitions: Set<Int>): List<String> =
         recordRepository.findRecordKeysInPartitions(
             partitions = partitions,
-            status = NEW,
             batchSize = settings.polling.batchSize,
             ignoreRecordKeysWithPreviousFailure = settings.processing.stopOnFirstFailure,
         )

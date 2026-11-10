@@ -38,20 +38,11 @@ CREATE TABLE IF NOT EXISTS myschema.prefix_outbox_partition
     updated_at       TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_record_key_created
-    ON myschema.prefix_outbox_record (record_key, created_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status_created_id
+    ON myschema.prefix_outbox_record (status, created_at, id);
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_partition_status_retry
-    ON myschema.prefix_outbox_record (partition_no, status, next_retry_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry
-    ON myschema.prefix_outbox_record (status, next_retry_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status_created
-    ON myschema.prefix_outbox_record (status, created_at);
-
-CREATE INDEX IF NOT EXISTS idx_outbox_record_record_key_completed_created
-    ON myschema.prefix_outbox_record (record_key, completed_at, created_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_record_key_completed_created_id
+    ON myschema.prefix_outbox_record (record_key, completed_at, created_at, id);
 
 CREATE INDEX IF NOT EXISTS idx_outbox_instance_status_heartbeat
     ON myschema.prefix_outbox_instance (status, last_heartbeat);
