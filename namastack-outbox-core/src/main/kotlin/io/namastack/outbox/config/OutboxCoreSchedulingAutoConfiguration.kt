@@ -14,6 +14,7 @@ import io.namastack.outbox.trigger.OutboxPollingTrigger
 import io.namastack.outbox.trigger.OutboxPollingTriggerFactory
 import org.springframework.beans.factory.BeanFactory
 import org.springframework.beans.factory.ObjectProvider
+import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -81,7 +82,7 @@ class OutboxCoreSchedulingAutoConfiguration {
         beanFactory: BeanFactory,
     ): OutboxProcessingScheduler {
         val taskScheduler = beanFactory.getBean(OutboxProcessingScheduler.SCHEDULER_NAME) as TaskScheduler
-        val taskExecutor = beanFactory.getBean("outboxTaskExecutor") as TaskExecutor
+        val taskExecutor = beanFactory.getBean<TaskExecutor>("outboxTaskExecutor")
 
         return OutboxProcessingScheduler(
             trigger = trigger,

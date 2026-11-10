@@ -77,6 +77,24 @@ class OutboxCoreAutoConfigurationTest {
                 ),
             )
 
+    @Test
+    fun `supports cycle batch sizes larger than the portable record fetch limit`() {
+        contextRunner
+            .withUserConfiguration(ConfigWithProcessingGroupHandler::class.java)
+            .withPropertyValues("namastack.outbox.polling.batch-size=2500")
+            .run { context ->
+                assertThat(context).hasNotFailed()
+                assertThat(context.getBean<OutboxProperties>().polling.batchSize).isEqualTo(2500)
+                val scheduler = context.getBean<OutboxProcessingScheduler>()
+                val settings =
+                    ReflectionTestUtils.getField(
+                        scheduler,
+                        "settings",
+                    ) as io.namastack.outbox.runtime.OutboxRuntimeSettings
+                assertThat(settings.polling.batchSize).isEqualTo(2500)
+            }
+    }
+
     @Nested
     @DisplayName("Processing Groups")
     inner class ProcessingGroups {
@@ -103,7 +121,7 @@ class OutboxCoreAutoConfigurationTest {
                     verify(exactly = 1) {
                         context
                             .getBean<OutboxRecordRepository>()
-                            .save(match<OutboxRecord<Any>> { it.key == "order-42" })
+                            .create(match<OutboxRecord<Any>> { it.key == "order-42" })
                     }
                 }
         }
@@ -124,7 +142,7 @@ class OutboxCoreAutoConfigurationTest {
                     verify(exactly = 1) {
                         context
                             .getBean<OutboxRecordRepository>()
-                            .save(match<OutboxRecord<Any>> { it.key == "~ns.pg1~billing:order-42" })
+                            .create(match<OutboxRecord<Any>> { it.key == "~ns.pg1~billing:order-42" })
                     }
                 }
         }
@@ -678,6 +696,21 @@ class OutboxCoreAutoConfigurationTest {
                     assertThat(context).hasSingleBean(OutboxPollingTrigger::class.java)
                     assertThat(context.getBean<OutboxPollingTrigger>())
                         .isInstanceOf(AdaptivePollingTrigger::class.java)
+                }
+        }
+
+        @Test
+        fun `fails when adaptive min interval is below one millisecond`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues(
+                    "namastack.outbox.polling.trigger=adaptive",
+                    "namastack.outbox.polling.adaptive.min-interval=500us",
+                ).run { context ->
+                    assertThat(context).hasFailed()
+                    assertThat(context.startupFailure)
+                        .rootCause()
+                        .hasMessageContaining("min-interval must be at least 1ms")
                 }
         }
 

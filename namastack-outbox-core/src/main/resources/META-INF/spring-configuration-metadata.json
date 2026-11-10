@@ -92,7 +92,7 @@
       "type": "java.lang.Boolean",
       "sourceType": "io.namastack.outbox.processing.OutboxProcessingGroupSettings",
       "defaultValue": false,
-      "description": "Enable processing groups for newly scheduled records. Upgrade all workers before enabling. Non-default groups change the stored record_key format."
+      "description": "Schedule records in the processing groups declared by their handlers. All workers must support processing groups before enabling. Non-default groups are encoded into record_key."
     },
     {
       "name": "namastack.outbox.poll-interval",
@@ -153,7 +153,7 @@
       "type": "java.time.Duration",
       "sourceType": "io.namastack.outbox.OutboxProperties$Polling$AdaptivePolling",
       "defaultValue": "1s",
-      "description": "Minimum interval between polling cycles for adaptive polling"
+      "description": "Minimum interval between polling cycles for adaptive polling. Must be at least 1ms"
     },
     {
       "name": "namastack.outbox.polling.adaptive.max-interval",

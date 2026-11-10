@@ -27,20 +27,21 @@ before any delivery attempt begins.
 
 ### Ordering Per Key
 
-For each stored key, the scheduler processes available records sequentially by ascending
-`createdAt`, then `id`. With `stop-on-first-failure=true` (the default), a failed record or a
-pending retry prevents subsequent records for that key from advancing. A successful fallback
-with disposition `COMPLETE` also completes the predecessor.
+Records with the same key are processed sequentially, ordered by `createdAt` and then by `id`.
+With `stop-on-first-failure=true` (the default), a failed record or a pending retry prevents
+later records with that key from being processed. A successful fallback with disposition
+`COMPLETE` completes the failed record and unblocks the key.
 
-With [Processing Groups](processing-groups.md) enabled, this boundary is `(processing group,
-business key)` within one source outbox. All matching handlers still receive a delivery;
-handlers sharing that boundary are serialized together. Different keys within a partition can
-run concurrently, and different groups share worker and database capacity.
+With [Processing Groups](processing-groups.md) enabled, the ordering boundary is
+`(processing group, business key)` within one outbox. Every matching handler receives its own
+delivery; deliveries of handlers in the same group are processed sequentially. Different keys
+within a partition are processed concurrently, and all groups share worker and database capacity.
 
-Timestamp and UUID ordering is not insertion order, transaction commit order, or business-event
+The order follows record timestamps and IDs, not transaction commit order or business-event
 causality. Records from one scheduling call share a timestamp. A concurrent producer can commit
-an earlier timestamp after another record has already been processed. Disabling
-`stop-on-first-failure` allows later records to advance despite failed or not-yet-due predecessors.
+a record with an earlier timestamp after another record has already been processed. With
+`stop-on-first-failure=false`, later records are processed even when earlier ones failed or are
+waiting for a retry.
 
 ### Failure Recovery
 
@@ -55,9 +56,9 @@ processed again.
 ### Horizontal Scalability
 
 Multiple application instances share work through database-backed partition coordination.
-Ownership determines which instance processes a key during normal operation. Failures and
-ownership changes still require at-least-once delivery semantics; duplicate processing remains
-possible. Throughput depends on available workers, independent keys, and database capacity.
+Partition ownership determines which instance processes a key during normal operation. After
+failures or ownership changes a record can be processed more than once, so delivery is
+at least once. Throughput depends on available workers, independent keys, and database capacity.
 
 ### Transactional Consistency
 
@@ -108,9 +109,10 @@ There is no guaranteed ordering across records with different keys. Two records 
 keys may be processed in any order relative to each other, even if one was inserted before the
 other.
 
-Using one group and one key serializes available deliveries, but still does not establish
-producer commit order or business-event causality. Different processing groups have no ordering
-relationship even when their business keys are identical.
+Using a single key (and a single processing group) for all records processes them
+sequentially, at the cost of parallelism. The order is still based on record timestamps, not on
+commit order or business-event causality. Different processing groups have no ordering
+relationship, even for the same business key.
 
 ### Real-Time Processing
 

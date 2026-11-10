@@ -1,5 +1,9 @@
 package io.namastack.outbox
 
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
+import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceStatus.ACTIVE
 import io.namastack.outbox.partition.PartitionAssignment
@@ -12,6 +16,8 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.jdbc.datasource.DataSourceTransactionManager
 import org.springframework.transaction.PlatformTransactionManager
 import tools.jackson.databind.json.JsonMapper
+import java.sql.Connection
+import java.sql.DatabaseMetaData
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset.UTC
@@ -43,6 +49,12 @@ class JdbcOutboxPersistenceFactoryTest {
         assertThat(orders.recordRepository.findIncompleteRecordsByRecordKey("billing")).isEmpty()
         assertThat(billing.recordRepository.findIncompleteRecordsByRecordKey("billing")).hasSize(1)
         assertThat(billing.recordRepository.findIncompleteRecordsByRecordKey("orders")).isEmpty()
+        val ordersPages = orders.recordRepository.findIncompleteRecordPages(setOf("orders", "billing"))
+        val billingPages = billing.recordRepository.findIncompleteRecordPages(setOf("orders", "billing"))
+        assertThat(ordersPages.getValue("orders").size).isEqualTo(1)
+        assertThat(ordersPages.getValue("billing").isEmpty()).isTrue()
+        assertThat(billingPages.getValue("billing").size).isEqualTo(1)
+        assertThat(billingPages.getValue("orders").isEmpty()).isTrue()
         assertThat(orders.instanceRepository.findAll().map(OutboxInstance::instanceId)).containsExactly("orders")
         assertThat(billing.instanceRepository.findAll().map(OutboxInstance::instanceId)).containsExactly("billing")
         assertThat(orders.partitionAssignmentRepository.findAll().map(PartitionAssignment::partitionNumber))
@@ -76,6 +88,57 @@ class JdbcOutboxPersistenceFactoryTest {
         assertThat(persistence.instanceRepository).isNotNull()
         assertThat(persistence.partitionAssignmentRepository).isNotNull()
         verifyNoInteractions(dataSource, transactionManager, serializer)
+    }
+
+    @Test
+    fun `record repository opens no connection at construction and detects the database once on first use`() {
+        val metadata = mockk<DatabaseMetaData> { every { databaseProductName } returns "SQLite" }
+        val connection = mockk<Connection>(relaxed = true) { every { metaData } returns metadata }
+        val dataSource = mockk<DataSource> { every { getConnection() } returns connection }
+        val persistence =
+            JdbcOutboxPersistenceFactory.create(
+                dataSource = dataSource,
+                transactionManager = DataSourceTransactionManager(dataSource),
+                payloadSerializer = JacksonOutboxPayloadSerializer(JsonMapper.builder().build()),
+                clock = Clock.systemUTC(),
+            )
+        verify(exactly = 0) { dataSource.connection }
+
+        repeat(2) { persistence.recordRepository.countByStatuses(emptySet()) }
+        verify(exactly = 0) { dataSource.connection }
+
+        runCatching { persistence.recordRepository.countByStatus(NEW) }
+        runCatching { persistence.recordRepository.countByStatus(NEW) }
+        verify(exactly = 1) { metadata.databaseProductName }
+    }
+
+    @Test
+    fun `record selection counts and ages read only the table of their namespace`() {
+        val dataSource = createDataSource()
+        val jdbcClient = JdbcClient.create(dataSource)
+        createTables(jdbcClient, "sales_")
+        createTables(jdbcClient, "audit_")
+        val transactionManager = DataSourceTransactionManager(dataSource)
+        val serializer = JacksonOutboxPayloadSerializer(JsonMapper.builder().build())
+        val clock = Clock.fixed(Instant.parse("2026-09-01T08:00:00Z"), UTC)
+        val sales = createPersistence(dataSource, transactionManager, serializer, clock, "sales_").recordRepository
+        val audit = createPersistence(dataSource, transactionManager, serializer, clock, "audit_").recordRepository
+        val record = sales.save(createRecord("sales", clock))
+        val partitions = setOf(record.partition)
+        val now = Instant.now(clock)
+
+        listOf(true, false).forEach { strict ->
+            assertThat(sales.findRecordKeysInPartitions(partitions, 10, strict)).containsExactly("sales")
+            assertThat(audit.findRecordKeysInPartitions(partitions, 10, strict)).isEmpty()
+            assertThat(sales.findOldestDueNextRetryAtByPartitions(partitions, now, strict)).isNotNull()
+            assertThat(audit.findOldestDueNextRetryAtByPartitions(partitions, now, strict)).isNull()
+        }
+        assertThat(sales.findOldestCreatedAtByPartitions(partitions)).isEqualTo(record.createdAt)
+        assertThat(audit.findOldestCreatedAtByPartitions(partitions)).isNull()
+        assertThat(sales.countByStatuses(setOf(NEW))).containsExactlyEntriesOf(mapOf(NEW to 1L))
+        assertThat(audit.countByStatuses(setOf(NEW))).containsExactlyEntriesOf(mapOf(NEW to 0L))
+        assertThat(sales.countRecordsByPartitions(partitions, NEW)).isEqualTo(1)
+        assertThat(audit.countRecordsByPartitions(partitions, NEW)).isZero()
     }
 
     private fun createPersistence(

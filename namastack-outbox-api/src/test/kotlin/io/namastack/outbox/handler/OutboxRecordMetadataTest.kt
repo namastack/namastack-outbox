@@ -49,7 +49,7 @@ class OutboxRecordMetadataTest {
     }
 
     @Test
-    fun `defaults to first attempt for existing constructor`() {
+    fun `defaults to the first attempt without a persisted record ID`() {
         val metadata =
             OutboxRecordMetadata(
                 key = "test-key",

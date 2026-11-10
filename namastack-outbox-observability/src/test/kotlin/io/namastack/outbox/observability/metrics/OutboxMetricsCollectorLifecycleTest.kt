@@ -23,7 +23,6 @@ class OutboxMetricsCollectorLifecycleTest {
     private val collector =
         OutboxMetricsCollector(
             recordRepository = mockk(),
-            recordStatusRepository = mockk(),
             partitionCoordinator = mockk(),
             instanceRegistry = mockk(),
             properties = OutboxMetricsProperties(),

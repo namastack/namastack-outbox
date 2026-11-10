@@ -117,6 +117,7 @@ namastack:
 
 <Admonition type="note" title="Database Detection">
 The JDBC module automatically detects your database type and uses the appropriate schema. Supported databases: PostgreSQL, MySQL, MariaDB, H2, SQL Server, Oracle.
+The record queries are chosen from the same detection on first use, including when schema initialization is disabled. See [Other Databases](database.md#other-databases).
 </Admonition>
 
 ### Custom Schema Name and Table Prefix

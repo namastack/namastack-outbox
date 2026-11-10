@@ -21,14 +21,17 @@ complete behavior and the required deployment sequence.
 
 ## Processing Groups
 
-Each delivery runs through this chain independently. With grouped scheduling enabled, strict
-failure blocking applies to `(processing group, business key)` within the outbox. A retry or
-permanent failure blocks other handlers sharing that boundary. A successful fallback with
-`COMPLETE` releases it; disposition `FAIL` keeps it blocked.
+:::info Available since 1.12.0
+Processing groups are available since version 1.12.0.
+:::
 
-Groups share worker and database capacity. The scheduler waits for its current batch before
-polling again, so a slow handler can delay new work in other groups. See
-[Processing Groups](processing-groups.md) for configuration and ordering limits.
+Each delivery runs through this chain independently. With grouped scheduling enabled, failure
+blocking applies to `(processing group, business key)`: a pending retry or permanent failure
+blocks the deliveries of all handlers in the same group for that key. A successful fallback
+with disposition `COMPLETE` unblocks it; disposition `FAIL` keeps it blocked.
+
+All groups share worker and database capacity. See [Processing Groups](processing-groups.md)
+for configuration and ordering details.
 
 ## Chain Architecture
 
@@ -69,6 +72,17 @@ flowchart LR
 3. **Fallback Processor** - Invokes registered fallback handler if available. On success, marks record as `COMPLETED`, unless the fallback declares the `FAIL` [disposition](handlers.md#fallback-behavior), in which case the record keeps its original failure and is passed to the Permanent Failure Processor. On failure or if no fallback exists, passes to Permanent Failure Processor.
 
 4. **Permanent Failure Processor** - Marks the record as permanently `FAILED`. Final state - no further processing.
+
+### Persisted Processing State
+
+:::info Available since 1.12.0
+Payload and context are fixed after scheduling since version 1.12.0.
+:::
+
+Completion, retry scheduling and permanent failure store only the record's processing state: status,
+completion time, failure count and reason, and next retry time. The payload and context keep the values
+they had when the record was scheduled. Changes a handler or fallback handler makes to the payload or
+context objects are not persisted, and every retry receives the payload and context as they were scheduled.
 
 ---
 

@@ -3,7 +3,6 @@ package io.namastack.outbox.observability.metrics
 import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
-import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.OutboxService
 import io.namastack.outbox.config.ConditionalOnSingleRuntimeMode
 import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
@@ -66,7 +65,6 @@ internal class OutboxInstanceMetricsAutoConfiguration {
     @ConditionalOnMissingBean(value = [OutboxMetricsCollector::class, OutboxInstanceMetricsMeterBinder::class])
     fun outboxMetricsCollector(
         recordRepository: OutboxRecordRepository,
-        recordStatusRepository: ObjectProvider<OutboxRecordStatusRepository>,
         partitionCoordinator: PartitionCoordinator,
         instanceRegistry: OutboxInstanceRegistry,
         properties: OutboxMetricsProperties,
@@ -76,7 +74,6 @@ internal class OutboxInstanceMetricsAutoConfiguration {
     ): OutboxMetricsCollector =
         OutboxMetricsCollector(
             recordRepository = recordRepository,
-            recordStatusRepository = recordStatusRepository.getIfAvailable(),
             partitionCoordinator = partitionCoordinator,
             instanceRegistry = instanceRegistry,
             properties = properties,

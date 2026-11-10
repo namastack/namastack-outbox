@@ -3,7 +3,6 @@ package io.namastack.outbox.observability.metrics
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.OutboxRecordStatus.NEW
-import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionCoordinator
 import org.slf4j.LoggerFactory
@@ -21,10 +20,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Uses a dedicated scheduler to keep collection off metric scrape threads and the processing and
  * heartbeat schedulers. Collection still shares database connections and partition-cache resources
  * with the outbox runtime, so resource contention can affect processing.
- * Each metric is updated independently, retaining fresh readings when another query fails.
+ * Each metric is updated independently, retaining fresh readings when another query fails. Record
+ * counts are collected only for the configured statuses, with one grouped query.
  *
- * @param recordRepository Repository for pending record counts and ages
- * @param recordStatusRepository Optional repository for record counts by status
+ * @param recordRepository Repository for record counts by status, pending record counts and ages
  * @param partitionCoordinator Coordinator for partition assignments and cluster state
  * @param instanceRegistry Registry for active instance counts
  * @param properties Background collection interval and maximum reading age
@@ -37,7 +36,6 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 internal class OutboxMetricsCollector(
     private val recordRepository: OutboxRecordRepository,
-    private val recordStatusRepository: OutboxRecordStatusRepository?,
     private val partitionCoordinator: PartitionCoordinator,
     private val instanceRegistry: OutboxInstanceRegistry,
     private val properties: OutboxMetricsProperties,
@@ -52,7 +50,10 @@ internal class OutboxMetricsCollector(
     private val log = LoggerFactory.getLogger(OutboxMetricsCollector::class.java)
     private val collecting = AtomicBoolean(false)
 
-    private val recordCounts: Map<OutboxRecordStatus, OutboxMetricValue> = createRecordCounts()
+    private val recordCounts: Map<OutboxRecordStatus, OutboxMetricValue> =
+        OutboxRecordStatus.entries
+            .filter { it in properties.recordStatuses }
+            .associateWith { OutboxMetricValue(properties.maxAge, clock) }
     private val assignedPartitions = OutboxMetricValue(properties.maxAge, clock)
     private val pendingRecords = OutboxMetricValue(properties.maxAge, clock)
     private val oldestRecordAge = OutboxMetricValue(properties.maxAge, clock)
@@ -64,7 +65,6 @@ internal class OutboxMetricsCollector(
     var lastSuccessTimestamp: Double = Double.NaN
         private set
 
-    /** Status gauges are available only when the optional status repository is present. */
     val recordStatuses: Set<OutboxRecordStatus> get() = recordCounts.keys
 
     fun recordCount(status: OutboxRecordStatus): Double = recordCounts.getValue(status).value()
@@ -144,22 +144,19 @@ internal class OutboxMetricsCollector(
         }
     }
 
-    private fun createRecordCounts(): Map<OutboxRecordStatus, OutboxMetricValue> {
-        if (recordStatusRepository == null) return emptyMap()
-
-        return OutboxRecordStatus.entries.associateWith { OutboxMetricValue(properties.maxAge, clock) }
-    }
-
     private fun collectRecordCounts(): Boolean {
-        val repository = recordStatusRepository ?: return true
-        var successful = true
+        if (recordCounts.isEmpty()) return true
+        if (Thread.currentThread().isInterrupted) return false
 
-        recordCounts.forEach { (status, metric) ->
-            val collected = collectMetric(metric) { repository.countByStatus(status).toDouble() }
-            if (!collected) successful = false
+        return try {
+            val counts = recordRepository.countByStatuses(recordCounts.keys)
+            recordCounts.forEach { (status, metric) -> metric.update((counts[status] ?: 0L).toDouble()) }
+            true
+        } catch (ex: Exception) {
+            recordCounts.values.forEach { it.invalidate() }
+            handleCollectionFailure(ex)
+            false
         }
-
-        return successful
     }
 
     private fun collectPartitionMetrics(): Boolean {
@@ -189,7 +186,7 @@ internal class OutboxMetricsCollector(
                     0.0
                 } else {
                     val now = clock.instant()
-                    secondsSince(recordRepository.findOldestCreatedAtByPartitions(partitions, NEW), now)
+                    secondsSince(recordRepository.findOldestCreatedAtByPartitions(partitions), now)
                 }
             }
         val overdueCollected =
@@ -201,7 +198,6 @@ internal class OutboxMetricsCollector(
                     val oldestDueAt =
                         recordRepository.findOldestDueNextRetryAtByPartitions(
                             partitions,
-                            NEW,
                             now,
                             stopOnFirstFailure,
                         )

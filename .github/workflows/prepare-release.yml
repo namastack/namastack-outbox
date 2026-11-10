@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Stable release version without the v prefix (for example 1.10.0)
+        description: Version without v (for example 1.11.1 or 2.0.0-RC1)
         required: true
         type: string
 
@@ -37,6 +37,9 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: namastack-outbox-docs/package-lock.json
+
+      - name: Test release tooling
+        run: node --test scripts/*.test.mjs
 
       - name: Install documentation dependencies
         working-directory: namastack-outbox-docs
@@ -95,7 +98,8 @@ jobs:
 
           This pull request updates the Gradle project version, example and performance-test dependencies, and the versioned documentation where required.
 
-          After this pull request is merged and the main-branch checks pass, run the Publish Release workflow with version $RELEASE_VERSION.
+          Once the release commit is validated, create the annotated tag v$RELEASE_VERSION.
+          Run Publish Existing Tag with version $RELEASE_VERSION in dry-run mode before publishing.
           EOF
 
           existing_pr_url="$(

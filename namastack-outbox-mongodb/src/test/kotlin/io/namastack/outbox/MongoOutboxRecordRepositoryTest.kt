@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.dropCollection
 import org.springframework.data.mongodb.core.query.Criteria
@@ -33,7 +34,7 @@ class MongoOutboxRecordRepositoryTest {
     companion object {
         @JvmStatic
         val mongodb: MongoDBContainer =
-            MongoDBContainer("mongo:8.0")
+            MongoDBContainer("mongo:9.0.4")
                 .withReuse(true)
                 .withReplicaSet()
                 .apply { start() }
@@ -126,7 +127,7 @@ class MongoOutboxRecordRepositoryTest {
             saveDelivery(5, defaultKey)
         }
 
-        private fun readyKeys(): List<String> = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+        private fun readyKeys(): List<String> = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
         private fun saveDelivery(
             number: Int,
@@ -222,15 +223,15 @@ class MongoOutboxRecordRepositoryTest {
             saveRecord(2)
             saveRecord(1, status = FAILED)
 
-            assertThat(repository.findRecordKeysInPartitions(setOf(1), NEW, 10, false))
+            assertThat(repository.findRecordKeysInPartitions(setOf(1), 10, false))
                 .containsExactly(recordKey)
             assertThat(oldestDueAt(false)).isEqualTo(retentionBase)
         }
 
         private fun oldestDueAt(strict: Boolean): Instant? =
-            repository.findOldestDueNextRetryAtByPartitions(setOf(1), NEW, Instant.now(clock), strict)
+            repository.findOldestDueNextRetryAtByPartitions(setOf(1), Instant.now(clock), strict)
 
-        private fun readyKeys(): List<String> = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+        private fun readyKeys(): List<String> = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
         private fun saveRecord(
             number: Int,
@@ -322,6 +323,178 @@ class MongoOutboxRecordRepositoryTest {
             assertThat(persistedUpdatedRecord.failureCount).isEqualTo(updatedRecord.failureCount)
             assertThat(persistedUpdatedRecord.failureReason).isEqualTo("some failure")
         }
+    }
+
+    @Nested
+    @DisplayName("create()")
+    inner class CreateTests {
+        @Test
+        fun `creates an entity`() {
+            val record = newRecord()
+
+            repository.create(record)
+
+            val persistedRecord = repository.findIncompleteRecordsByRecordKey(record.key).single()
+
+            assertThat(persistedRecord.id).isEqualTo(record.id)
+            assertThat(persistedRecord.payload).isEqualTo(record.payload)
+            assertThat(persistedRecord.status).isEqualTo(NEW)
+            assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
+        }
+
+        @Test
+        fun `fails to create an entity with an existing id`() {
+            val record = newRecord()
+            repository.create(record)
+
+            assertThatThrownBy { repository.create(record) }
+                .isInstanceOf(DataIntegrityViolationException::class.java)
+        }
+    }
+
+    @Nested
+    @DisplayName("update()")
+    inner class UpdateTests {
+        @Test
+        fun `updates an existing entity`() {
+            val record = newRecord()
+            repository.create(record)
+
+            assertThat(repository.update(failedOnce(record))).isTrue()
+
+            val persistedRecord = repository.findIncompleteRecordsByRecordKey(record.key).single()
+
+            assertThat(persistedRecord.failureCount).isEqualTo(1)
+            assertThat(persistedRecord.failureReason).isEqualTo("boom")
+        }
+
+        @Test
+        fun `does not insert when updating a missing entity`() {
+            val record = newRecord()
+
+            assertThat(repository.update(record)).isFalse()
+
+            assertThat(repository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
+        }
+    }
+
+    @Nested
+    @DisplayName("updateProcessingState()")
+    inner class UpdateProcessingStateTests {
+        @Test
+        fun `persists processing state without payload and context`() {
+            val record = newRecordWithContext()
+            repository.create(record)
+            val completedAt = Instant.now(clock).truncatedTo(MILLIS)
+            val nextRetryAt = record.nextRetryAt.plus(1, MINUTES)
+
+            val updated =
+                repository.updateProcessingState(
+                    processingState(
+                        record = record,
+                        payload = "changed",
+                        context = mapOf("changed" to "true"),
+                        status = COMPLETED,
+                        completedAt = completedAt,
+                        failureCount = 2,
+                        failureReason = "boom",
+                        nextRetryAt = nextRetryAt,
+                    ),
+                )
+
+            assertThat(updated).isTrue()
+            val persistedRecord = repository.findCompletedRecords().single { it.id == record.id }
+            assertThat(persistedRecord.status).isEqualTo(COMPLETED)
+            assertThat(persistedRecord.completedAt).isCloseTo(completedAt, within(1, MILLIS))
+            assertThat(persistedRecord.failureCount).isEqualTo(2)
+            assertThat(persistedRecord.failureReason).isEqualTo("boom")
+            assertThat(persistedRecord.nextRetryAt).isCloseTo(nextRetryAt, within(1, MILLIS))
+            assertThat(persistedRecord.payload).isEqualTo(record.payload)
+            assertThat(persistedRecord.context).isEqualTo(record.context)
+            assertThat(persistedRecord.key).isEqualTo(record.key)
+            assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
+            assertThat(persistedRecord.partition).isEqualTo(record.partition)
+            assertThat(persistedRecord.createdAt).isCloseTo(record.createdAt, within(1, MILLIS))
+        }
+
+        @Test
+        fun `clears completion time and failure reason`() {
+            val record = newRecord()
+            repository.create(
+                processingState(
+                    record = record,
+                    payload = record.payload,
+                    completedAt = Instant.now(clock),
+                    failureReason = "boom",
+                ),
+            )
+
+            assertThat(repository.updateProcessingState(record)).isTrue()
+
+            val persistedRecord = repository.findIncompleteRecordsByRecordKey(record.key).single()
+            assertThat(persistedRecord.completedAt).isNull()
+            assertThat(persistedRecord.failureReason).isNull()
+        }
+
+        @Test
+        fun `persists processing state of a record without loaded payload`() {
+            val record = newRecord()
+            repository.create(record)
+
+            val updated =
+                repository.updateProcessingState(
+                    processingState(record = record, payload = null, status = FAILED, failureCount = 1),
+                )
+
+            assertThat(updated).isTrue()
+            val persistedRecord = repository.findFailedRecords().single { it.id == record.id }
+            assertThat(persistedRecord.failureCount).isEqualTo(1)
+            assertThat(persistedRecord.payload).isEqualTo(record.payload)
+        }
+
+        @Test
+        fun `does not insert when updating the processing state of a missing entity`() {
+            val record = newRecord()
+
+            assertThat(repository.updateProcessingState(record)).isFalse()
+
+            assertThat(repository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
+        }
+
+        private fun newRecordWithContext(): OutboxRecord<String> =
+            OutboxRecord
+                .Builder<String>()
+                .key(UUID.randomUUID().toString())
+                .payload("payload")
+                .context(mapOf("tenant" to "acme"))
+                .handlerId("handlerId")
+                .build(clock)
+
+        private fun <T> processingState(
+            record: OutboxRecord<String>,
+            payload: T,
+            context: Map<String, String> = record.context,
+            status: OutboxRecordStatus = record.status,
+            completedAt: Instant? = record.completedAt,
+            failureCount: Int = record.failureCount,
+            failureReason: String? = record.failureReason,
+            nextRetryAt: Instant = record.nextRetryAt,
+        ): OutboxRecord<T> =
+            OutboxRecord.restore(
+                id = record.id,
+                recordKey = record.key,
+                payload = payload,
+                context = context,
+                partition = record.partition,
+                createdAt = record.createdAt,
+                status = status,
+                completedAt = completedAt,
+                failureCount = failureCount,
+                failureReason = failureReason,
+                nextRetryAt = nextRetryAt,
+                handlerId = record.handlerId,
+                failureException = null,
+            )
     }
 
     @Nested
@@ -586,8 +759,8 @@ class MongoOutboxRecordRepositoryTest {
             createRecordWithPartition(partition1RecordKey, NEW, 1)
             createRecordWithPartition(partition2RecordKey, NEW, 2)
 
-            val partition1RecordKeys = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
-            val partition2RecordKeys = repository.findRecordKeysInPartitions(setOf(2), NEW, 10, true)
+            val partition1RecordKeys = repository.findRecordKeysInPartitions(setOf(1), 10, true)
+            val partition2RecordKeys = repository.findRecordKeysInPartitions(setOf(2), 10, true)
 
             assertThat(partition1RecordKeys).containsExactly(partition1RecordKey)
             assertThat(partition2RecordKeys).containsExactly(partition2RecordKey)
@@ -603,7 +776,7 @@ class MongoOutboxRecordRepositoryTest {
             createRecordWithPartition(recordKey2, NEW, 2)
             createRecordWithPartition(recordKey3, NEW, 3)
 
-            val recordKeys = repository.findRecordKeysInPartitions(setOf(1, 2), NEW, 10, true)
+            val recordKeys = repository.findRecordKeysInPartitions(setOf(1, 2), 10, true)
 
             assertThat(recordKeys).containsExactlyInAnyOrder(recordKey1, recordKey2)
             assertThat(recordKeys).doesNotContain(recordKey3)
@@ -617,7 +790,7 @@ class MongoOutboxRecordRepositoryTest {
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(5, MINUTES))
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(2, MINUTES))
 
-            val result = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val result = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(result).containsExactly(recordKey)
         }
@@ -630,7 +803,7 @@ class MongoOutboxRecordRepositoryTest {
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES))
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(1, MINUTES))
 
-            val result = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val result = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(result).contains(recordKey)
         }
@@ -642,7 +815,7 @@ class MongoOutboxRecordRepositoryTest {
 
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES))
 
-            val result = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val result = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(result).contains(recordKey)
         }
@@ -659,7 +832,7 @@ class MongoOutboxRecordRepositoryTest {
             createRecordWithPartitionAndTime(recordKey1, NEW, 2, now.minus(3, MINUTES))
             createRecordWithPartitionAndTime(recordKey3, NEW, 1, now.minus(1, MINUTES))
 
-            val result = repository.findRecordKeysInPartitions(setOf(1, 2), NEW, 10, true)
+            val result = repository.findRecordKeysInPartitions(setOf(1, 2), 10, true)
 
             assertThat(result).containsExactly(recordKey1, recordKey2, recordKey3)
         }
@@ -677,7 +850,7 @@ class MongoOutboxRecordRepositoryTest {
             // ready-key: r3 is the oldest for this key and is ready
             createRecord(keyReadyToProcess, NEW, 1, now.minus(8, MINUTES), nextRetryAt = now.minus(1, MINUTES))
 
-            val result = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val result = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(result).containsExactly(keyReadyToProcess)
         }
@@ -748,9 +921,8 @@ class MongoOutboxRecordRepositoryTest {
             saveRetentionRecord(COMPLETED, partition = 2, createdAt = now.minusSeconds(400), completedAt = now)
             saveRetentionRecord(NEW, partition = 3, createdAt = now.minusSeconds(500))
 
-            assertThat(oldestCreatedAt(setOf(1, 2), NEW)).isEqualTo(now.minusSeconds(120))
-            assertThat(oldestCreatedAt(setOf(1), NEW)).isEqualTo(now.minusSeconds(60))
-            assertThat(oldestCreatedAt(setOf(1, 2), FAILED)).isEqualTo(now.minusSeconds(300))
+            assertThat(oldestCreatedAt(setOf(1, 2))).isEqualTo(now.minusSeconds(120))
+            assertThat(oldestCreatedAt(setOf(1))).isEqualTo(now.minusSeconds(60))
         }
 
         @Test
@@ -758,20 +930,18 @@ class MongoOutboxRecordRepositoryTest {
             saveRetentionRecord(COMPLETED, partition = 1, completedAt = retentionBase)
             saveRetentionRecord(NEW, partition = 3)
 
-            assertThat(oldestCreatedAt(setOf(1, 2), NEW)).isNull()
+            assertThat(oldestCreatedAt(setOf(1, 2))).isNull()
         }
 
         @Test
         fun `returns null for empty partitions`() {
             saveRetentionRecord(NEW, partition = 1)
 
-            assertThat(oldestCreatedAt(emptySet(), NEW)).isNull()
+            assertThat(oldestCreatedAt(emptySet())).isNull()
         }
 
-        private fun oldestCreatedAt(
-            partitions: Set<Int>,
-            status: OutboxRecordStatus,
-        ): Instant? = repository.findOldestCreatedAtByPartitions(partitions, status)
+        private fun oldestCreatedAt(partitions: Set<Int>): Instant? =
+            repository.findOldestCreatedAtByPartitions(partitions)
     }
 
     @Nested
@@ -877,7 +1047,6 @@ class MongoOutboxRecordRepositoryTest {
         ): Instant? =
             repository.findOldestDueNextRetryAtByPartitions(
                 partitions = partitions,
-                status = NEW,
                 now = now,
                 ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
             )
@@ -885,7 +1054,6 @@ class MongoOutboxRecordRepositoryTest {
         private fun recordKeys(ignoreRecordKeysWithPreviousFailure: Boolean): List<String> =
             repository.findRecordKeysInPartitions(
                 partitions = setOf(1),
-                status = NEW,
                 batchSize = 10,
                 ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
             )
@@ -1144,9 +1312,9 @@ class MongoOutboxRecordRepositoryTest {
             )
             saveRetentionRecord(NEW, recordKey = recordKey, createdAt = retentionBase.minusSeconds(30))
 
-            val keysBeforeDelete = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val keysBeforeDelete = repository.findRecordKeysInPartitions(setOf(1), 10, true)
             assertThat(repository.deleteFailedRecords(retentionBase, 10)).isEqualTo(1)
-            val keysAfterDelete = repository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val keysAfterDelete = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(keysBeforeDelete).doesNotContain(recordKey)
             assertThat(keysAfterDelete).containsExactly(recordKey)
@@ -1160,6 +1328,31 @@ class MongoOutboxRecordRepositoryTest {
                 .isInstanceOf(IllegalArgumentException::class.java)
         }
     }
+
+    private fun newRecord(): OutboxRecord<String> =
+        OutboxRecord
+            .Builder<String>()
+            .key(UUID.randomUUID().toString())
+            .payload("payload")
+            .handlerId("handlerId")
+            .build(clock)
+
+    private fun failedOnce(record: OutboxRecord<String>): OutboxRecord<String> =
+        OutboxRecord.restore(
+            id = record.id,
+            recordKey = record.key,
+            payload = record.payload,
+            context = record.context,
+            partition = record.partition,
+            createdAt = record.createdAt,
+            status = record.status,
+            completedAt = record.completedAt,
+            failureCount = 1,
+            failureReason = "boom",
+            nextRetryAt = record.nextRetryAt,
+            handlerId = record.handlerId,
+            failureException = null,
+        )
 
     private fun createFailedRecords(count: Int = 3) {
         val now = Instant.now(clock)

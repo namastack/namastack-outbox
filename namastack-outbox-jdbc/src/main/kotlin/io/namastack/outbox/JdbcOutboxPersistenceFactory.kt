@@ -1,5 +1,7 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.JdbcDatabaseType
+import io.namastack.outbox.query.JdbcOutboxRecordQueriesFactory
 import io.namastack.outbox.runtime.OutboxRuntimePersistence
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.PlatformTransactionManager
@@ -45,7 +47,12 @@ object JdbcOutboxPersistenceFactory {
                     transactionTemplate = transactionTemplate,
                     entityMapper = JdbcOutboxRecordEntityMapper(payloadSerializer),
                     clock = clock,
-                    tableNameResolver = tableNameResolver,
+                    queries = {
+                        JdbcOutboxRecordQueriesFactory.create(
+                            JdbcDatabaseType.detect(dataSource),
+                            tableNameResolver.outboxRecord,
+                        )
+                    },
                 ),
             instanceRepository =
                 JdbcOutboxInstanceRepository(

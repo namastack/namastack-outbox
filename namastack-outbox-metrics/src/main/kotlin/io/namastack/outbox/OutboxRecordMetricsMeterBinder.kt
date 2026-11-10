@@ -13,13 +13,13 @@ import io.namastack.outbox.OutboxRecordStatus.NEW
  * This binder registers gauges for tracking the count of outbox records
  * by their status (NEW, FAILED, COMPLETED).
  *
- * @param outboxRecordStatusRepository Repository for querying record counts
+ * @param outboxRecordRepository Repository for querying record counts
  *
  * @author Roland Beisel
  * @since 0.1.0
  */
 class OutboxRecordMetricsMeterBinder(
-    private val outboxRecordStatusRepository: OutboxRecordStatusRepository,
+    private val outboxRecordRepository: OutboxRecordRepository,
 ) : MeterBinder {
     /**
      * Binds outbox record metrics to the provided meter registry.
@@ -33,7 +33,7 @@ class OutboxRecordMetricsMeterBinder(
 
         statuses.forEach { status ->
             Gauge
-                .builder("outbox.records.count") { outboxRecordStatusRepository.countByStatus(status) }
+                .builder("outbox.records.count") { outboxRecordRepository.countByStatus(status) }
                 .description("Count of outbox records by status")
                 .tag("status", status.name.lowercase())
                 .register(meterRegistry)

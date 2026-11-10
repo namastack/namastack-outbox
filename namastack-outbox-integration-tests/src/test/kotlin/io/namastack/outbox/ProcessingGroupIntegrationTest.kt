@@ -54,6 +54,9 @@ class ProcessingGroupIntegrationTest {
     @Autowired
     private lateinit var probe: Probe
 
+    @Autowired
+    private lateinit var scheduler: OutboxProcessingScheduler
+
     @AfterEach
     fun releaseBlockedHandler() {
         probe.release.countDown()
@@ -62,12 +65,15 @@ class ProcessingGroupIntegrationTest {
     @Test
     fun `same group and key serialize across handlers while other groups and keys progress`() {
         probe.holdPrimary = true
-        // All keys are committed before the worker loads its batch. A blocked batch does not poll new keys.
+        // A poll can capture its retry cutoff during this transaction and omit later keys.
+        // Stop polling until all keys are committed: a blocked batch cannot poll the omitted keys.
+        scheduler.stop()
         transactions.executeWithoutResult {
             outbox.schedule(Event("first"), "order:42", mapOf("traceId" to "trace-1"))
             outbox.schedule(Event("second"), "order:42", mapOf("traceId" to "trace-1"))
             outbox.schedule(Event("independent"), "order:99", mapOf("traceId" to "trace-1"))
         }
+        scheduler.start()
 
         try {
             assertThat(probe.entered.await(10, SECONDS)).isTrue()

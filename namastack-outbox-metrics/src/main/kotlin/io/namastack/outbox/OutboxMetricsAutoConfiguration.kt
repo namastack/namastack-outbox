@@ -40,21 +40,21 @@ internal class OutboxMetricsAutoConfiguration {
     /**
      * Creates the outbox record metrics meter binder.
      *
-     * @param outboxRecordStatusRepository Provider for the outbox record status repository
+     * @param outboxRecordRepository Provider for the outbox record repository
      * @return Configured meter binder for record metrics
      * @throws IllegalStateException if no persistence module (JPA) is available
      */
     @Bean
     fun outboxMetricsMeterBinder(
-        outboxRecordStatusRepository: ObjectProvider<OutboxRecordStatusRepository>,
+        outboxRecordRepository: ObjectProvider<OutboxRecordRepository>,
     ): OutboxRecordMetricsMeterBinder {
-        val statusRepository =
-            outboxRecordStatusRepository.getIfAvailable()
+        val recordRepository =
+            outboxRecordRepository.getIfAvailable()
                 ?: throw IllegalStateException(
-                    "OutboxRecordStatusRepository bean is missing! The Outbox metrics cannot be registered because no persistence module (e.g. namastack-outbox-jpa) is included. Please add a persistence module to your dependencies to enable Outbox metrics.",
+                    "OutboxRecordRepository bean is missing! The Outbox metrics cannot be registered because no persistence module (e.g. namastack-outbox-jpa) is included. Please add a persistence module to your dependencies to enable Outbox metrics.",
                 )
 
-        return OutboxRecordMetricsMeterBinder(statusRepository)
+        return OutboxRecordMetricsMeterBinder(recordRepository)
     }
 
     /**

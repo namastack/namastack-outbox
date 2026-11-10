@@ -12,6 +12,16 @@ import java.time.Instant
  * @since 0.1.0
  */
 interface OutboxRecordRepository {
+    companion object {
+        /**
+         * Maximum number of keys per [findIncompleteRecordPages] request. Bounds bulk reads and
+         * keeps SQL IN lists within the limit supported by all databases, including Oracle.
+         *
+         * @since 1.12.0
+         */
+        const val MAX_RECORD_KEYS_PER_FETCH = 1000
+    }
+
     /**
      * Saves an outbox record to the repository.
      *
@@ -19,6 +29,38 @@ interface OutboxRecordRepository {
      * @return The saved outbox record
      */
     fun <T> save(record: OutboxRecord<T>): OutboxRecord<T>
+
+    /**
+     * Creates a new outbox record.
+     *
+     * @param record The new outbox record
+     * @return The created outbox record
+     * @since 1.12.0
+     */
+    fun <T> create(record: OutboxRecord<T>): OutboxRecord<T>
+
+    /**
+     * Updates an existing outbox record. If the record no longer exists, nothing is written.
+     *
+     * @param record The outbox record to update
+     * @return `true` if the record was updated, `false` if it no longer exists
+     * @since 1.12.0
+     */
+    fun <T> update(record: OutboxRecord<T>): Boolean
+
+    /**
+     * Persists the processing state of an existing record: status, completedAt, failureCount,
+     * failureReason and nextRetryAt. Payload, context, record key, type, handler, partition and
+     * creation time are not written, so changes to the in-memory payload or context are not stored.
+     * If the record no longer exists, nothing is written.
+     *
+     * Implementations **must** write only these fields and must not serialize the payload or context.
+     *
+     * @param record The outbox record whose processing state changed
+     * @return `true` if the record was updated, `false` if it no longer exists
+     * @since 1.12.0
+     */
+    fun <T> updateProcessingState(record: OutboxRecord<T>): Boolean
 
     /**
      * Finds all pending outbox records that are ready for processing.
@@ -86,17 +128,33 @@ interface OutboxRecordRepository {
     ): List<OutboxRecord<*>>
 
     /**
-     * Finds all incomplete records for a specific record key.
+     * Finds the `NEW` records of a specific record key, including records whose retry is not yet due.
      * Implementations **must** return records sorted by creation time ascending, then by record ID
      * ascending, consistently with the predecessor check in [findRecordKeysInPartitions].
      *
      * @param recordKey The record key to search for
-     * @return List of incomplete outbox records for the given record key
+     * @return List of `NEW` outbox records for the given record key
      */
     fun findIncompleteRecordsByRecordKey(recordKey: String): List<OutboxRecord<*>>
 
     /**
-     * Finds record keys that have pending records in specific partitions.
+     * Loads the same records as [findIncompleteRecordsByRecordKey] for several selected keys.
+     *
+     * Returns one page for every requested key, including an empty page when no records remain.
+     * Each page retains ascending creation-time and record-ID order. Future retries must remain
+     * in the page so the worker can stop or continue according to its failure-handling settings.
+     *
+     * Records are grouped using exact string equality. Applications must use a consistent
+     * representation for each record key.
+     *
+     * @param recordKeys Selected storage keys, at most [MAX_RECORD_KEYS_PER_FETCH] per call
+     * @return An ordered record page for every requested key
+     * @since 1.12.0
+     */
+    fun findIncompleteRecordPages(recordKeys: Set<String>): Map<String, OutboxRecordPage>
+
+    /**
+     * Finds record keys that have due `NEW` records in specific partitions.
      *
      * The query logic depends on the ignoreRecordKeysWithPreviousFailure flag:
      * - If true: only record keys with no previous open/failed record (older.completedAt is null) are returned.
@@ -105,17 +163,38 @@ interface OutboxRecordRepository {
      * [findIncompleteRecordsByRecordKey].
      *
      * @param partitions List of partition numbers to search in
-     * @param status The status to filter by
      * @param batchSize Maximum number of record keys to return
      * @param ignoreRecordKeysWithPreviousFailure Whether to exclude record keys with previous open/failed records
      * @return List of record keys with pending records in the specified partitions
      */
     fun findRecordKeysInPartitions(
         partitions: Set<Int>,
-        status: OutboxRecordStatus,
         batchSize: Int,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): List<String>
+
+    /**
+     * Counts all outbox records with the specified status.
+     *
+     * @param status The status to count records for
+     * @return The number of records with the given status
+     */
+    fun countByStatus(status: OutboxRecordStatus): Long
+
+    /**
+     * Counts records grouped by status.
+     *
+     * The returned map contains an entry for every requested status, with zero when no record has
+     * that status. Returns an empty map without querying the data store when [statuses] is empty.
+     * The default implementation calls [countByStatus] once per status for compatibility with custom
+     * repositories. Persistence implementations should override this method with a single grouped query.
+     *
+     * @param statuses The statuses to count
+     * @return Number of records per requested status
+     * @since 1.12.0
+     */
+    fun countByStatuses(statuses: Set<OutboxRecordStatus>): Map<OutboxRecordStatus, Long> =
+        statuses.associateWith { countByStatus(it) }
 
     /**
      * Counts records in a specific partition by status.
@@ -147,24 +226,20 @@ interface OutboxRecordRepository {
     ): Long = partitions.sumOf { countRecordsByPartition(it, status) }
 
     /**
-     * Finds the earliest creation time of records across the specified partitions by status,
-     * regardless of their next retry time.
+     * Finds the earliest creation time of `NEW` records across the specified partitions, regardless of
+     * their next retry time.
      *
      * Returns `null` without querying the data store when [partitions] is empty.
-     * Persistence implementations must provide this method using a single aggregate query.
+     * Persistence implementations must provide this method using a single query.
      *
      * @param partitions The partition numbers to search in
-     * @param status The status to filter by
      * @return Earliest `createdAt` of the matching records, or `null` if the set is empty or no records match
      * @since 1.12.0
      */
-    fun findOldestCreatedAtByPartitions(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-    ): Instant?
+    fun findOldestCreatedAtByPartitions(partitions: Set<Int>): Instant?
 
     /**
-     * Finds the earliest next retry time of records across the specified partitions that are due
+     * Finds the earliest next retry time of `NEW` records across the specified partitions that are due
      * for processing at [now].
      *
      * Uses the same eligibility predicate as [findRecordKeysInPartitions]:
@@ -175,10 +250,9 @@ interface OutboxRecordRepository {
      * The result can include records that are currently being processed.
      *
      * Returns `null` without querying the data store when [partitions] is empty.
-     * Persistence implementations must provide this method using a single aggregate query.
+     * Persistence implementations must provide this method using a single query.
      *
      * @param partitions The partition numbers to search in
-     * @param status The status to filter by
      * @param now Inclusive upper bound for `nextRetryAt`
      * @param ignoreRecordKeysWithPreviousFailure Whether to exclude records blocked by earlier incomplete records
      * @return Earliest `nextRetryAt` of the matching records, or `null` if the set is empty or no records match
@@ -186,7 +260,6 @@ interface OutboxRecordRepository {
      */
     fun findOldestDueNextRetryAtByPartitions(
         partitions: Set<Int>,
-        status: OutboxRecordStatus,
         now: Instant,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): Instant?

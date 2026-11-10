@@ -15,7 +15,6 @@ import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.OutboxRecordStatus.FAILED
 import io.namastack.outbox.OutboxRecordStatus.NEW
-import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.observability.OutboxMetricKeyNames
 import io.namastack.outbox.observability.OutboxMetricNames
@@ -39,7 +38,6 @@ import java.util.concurrent.atomic.AtomicReference
 
 class OutboxInstanceMetricsMeterBinderTest {
     private val recordRepository = mockk<OutboxRecordRepository>()
-    private val statusRepository = mockk<OutboxRecordStatusRepository>()
     private val coordinator = mockk<PartitionCoordinator>(relaxed = true)
     private val instanceRegistry = mockk<OutboxInstanceRegistry>()
     private val now = AtomicReference(Instant.parse("2026-10-22T12:00:00Z"))
@@ -50,19 +48,16 @@ class OutboxInstanceMetricsMeterBinderTest {
     private val binder = OutboxInstanceMetricsMeterBinder(collector) { "orders" }
     private val registry = SimpleMeterRegistry()
 
-    private fun createCollector(
-        statuses: OutboxRecordStatusRepository? = statusRepository,
-        stopOnFirstFailure: Boolean = true,
-    ) = OutboxMetricsCollector(
-        recordRepository,
-        statuses,
-        coordinator,
-        instanceRegistry,
-        properties,
-        clock,
-        taskScheduler,
-        stopOnFirstFailure,
-    )
+    private fun createCollector(stopOnFirstFailure: Boolean = true) =
+        OutboxMetricsCollector(
+            recordRepository,
+            coordinator,
+            instanceRegistry,
+            properties,
+            clock,
+            taskScheduler,
+            stopOnFirstFailure,
+        )
 
     @AfterEach
     fun tearDown() {
@@ -73,12 +68,15 @@ class OutboxInstanceMetricsMeterBinderTest {
 
     @BeforeEach
     fun setUp() {
-        every { statusRepository.countByStatus(NEW) } returns 15
-        every { statusRepository.countByStatus(FAILED) } returns 3
-        every { statusRepository.countByStatus(COMPLETED) } returns 42
+        every { recordRepository.countByStatus(NEW) } returns 15
+        every { recordRepository.countByStatus(FAILED) } returns 3
+        every { recordRepository.countByStatus(COMPLETED) } returns 42
+        every { recordRepository.countByStatuses(any()) } answers {
+            firstArg<Set<OutboxRecordStatus>>().associateWith { recordRepository.countByStatus(it) }
+        }
         every { coordinator.getAssignedPartitionNumbers() } returns setOf(1, 2)
-        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } returns null
-        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } returns null
+        every { recordRepository.findOldestCreatedAtByPartitions(any()) } returns null
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any()) } returns null
         every { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) } returns 10
         every { instanceRegistry.getActiveInstanceCount() } returns 2
         every { coordinator.getPartitionContext().getPartitionStats().unassignedPartitionsCount } returns 5
@@ -88,15 +86,16 @@ class OutboxInstanceMetricsMeterBinderTest {
     @Test
     fun `binding and reading uninitialized gauges never queries infrastructure`() {
         registry.meters.filterIsInstance<Gauge>().forEach { assertThat(it.value()).isNaN() }
-        verify { listOf(recordRepository, statusRepository, coordinator, instanceRegistry) wasNot Called }
+        verify { listOf(recordRepository, coordinator, instanceRegistry) wasNot Called }
     }
 
     @Test
     fun `publishes collected values with existing names and channel and status tags`() {
         collector.refresh()
-        mapOf(NEW to 15.0, FAILED to 3.0, COMPLETED to 42.0).forEach { (status, count) ->
+        mapOf(NEW to 15.0, FAILED to 3.0).forEach { (status, count) ->
             assertThat(recordGauge(status)).isEqualTo(count)
         }
+        assertThat(registry.find(OutboxMetricNames.RECORDS).gauges()).hasSize(2)
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isEqualTo(10.0)
         assertThat(value(OutboxMetricNames.INSTANCE_PARTITIONS_ASSIGNED)).isEqualTo(2.0)
         assertThat(value(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE)).isEqualTo(2.0)
@@ -104,7 +103,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         assertThat(
             value(OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP),
         ).isEqualTo(now.get().epochSecond.toDouble())
-        assertThat(registry.meters).hasSize(10)
+        assertThat(registry.meters).hasSize(9)
         assertThat(registry.meters.map { it.id.name }).doesNotContain(
             "outbox.records.count",
             "outbox.instance.records.pending.max",
@@ -127,10 +126,11 @@ class OutboxInstanceMetricsMeterBinderTest {
                 other.meters.filterIsInstance<Gauge>().forEach { it.value() }
             }
         }
-        OutboxRecordStatus.entries.forEach { verify(exactly = 1) { statusRepository.countByStatus(it) } }
+        verify(exactly = 1) { recordRepository.countByStatuses(setOf(NEW, FAILED)) }
+        verify(exactly = 0) { recordRepository.countByStatus(COMPLETED) }
         verify(exactly = 1) { coordinator.getAssignedPartitionNumbers() }
-        verify(exactly = 1) { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2), NEW) }
-        verify(exactly = 1) { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), NEW, now.get(), true) }
+        verify(exactly = 1) { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2)) }
+        verify(exactly = 1) { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), now.get(), true) }
         verify(exactly = 1) { recordRepository.countRecordsByPartitions(setOf(1, 2), NEW) }
         verify(exactly = 1) { instanceRegistry.getActiveInstanceCount() }
         verify(exactly = 1) { coordinator.getPartitionContext() }
@@ -156,18 +156,18 @@ class OutboxInstanceMetricsMeterBinderTest {
         collector.refresh()
         val lastSuccess = value(OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP)
         now.set(now.get().plusSeconds(15))
-        every { statusRepository.countByStatus(FAILED) } throws IllegalStateException("database unavailable")
+        every { recordRepository.countByStatus(FAILED) } throws IllegalStateException("database unavailable")
         every { recordRepository.countRecordsByPartitions(any(), any()) } throws IllegalStateException("count failed")
         every { instanceRegistry.getActiveInstanceCount() } throws IllegalStateException("instance count failed")
         collector.refresh()
         assertThat(recordGauge(FAILED)).isNaN()
-        assertThat(recordGauge(NEW)).isEqualTo(15.0)
+        assertThat(recordGauge(NEW)).isNaN()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isNaN()
         assertThat(value(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE)).isNaN()
         assertThat(value(OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED)).isEqualTo(5.0)
         assertThat(value(OutboxMetricNames.METRICS_COLLECTION_LAST_SUCCESS_TIMESTAMP)).isEqualTo(lastSuccess)
 
-        every { statusRepository.countByStatus(FAILED) } returns 0
+        every { recordRepository.countByStatus(FAILED) } returns 0
         every { recordRepository.countRecordsByPartitions(any(), any()) } returns 0
         every { instanceRegistry.getActiveInstanceCount() } returns 1
         collector.refresh()
@@ -190,7 +190,11 @@ class OutboxInstanceMetricsMeterBinderTest {
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isNaN()
         assertThat(value(OutboxMetricNames.CLUSTER_PARTITIONS_UNASSIGNED)).isNaN()
         assertThat(value(OutboxMetricNames.CLUSTER_INSTANCES_ACTIVE)).isEqualTo(2.0)
-        verify { recordRepository wasNot Called }
+        verify(exactly = 0) {
+            recordRepository.countRecordsByPartitions(any(), any())
+            recordRepository.findOldestCreatedAtByPartitions(any())
+            recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any())
+        }
     }
 
     @Test
@@ -210,17 +214,6 @@ class OutboxInstanceMetricsMeterBinderTest {
     }
 
     @Test
-    fun `omits status gauges when optional status repository is absent`() {
-        SimpleMeterRegistry().useRegistry { other ->
-            val withoutStatuses = createCollector(null)
-            OutboxInstanceMetricsMeterBinder(withoutStatuses, OutboxChannelNameProvider.DEFAULT).bindTo(other)
-            withoutStatuses.refresh()
-            assertThat(other.find(OutboxMetricNames.RECORDS).gauges()).isEmpty()
-            assertThat(other.get(OutboxMetricNames.INSTANCE_RECORDS_PENDING).gauge().value()).isEqualTo(10.0)
-        }
-    }
-
-    @Test
     fun `prometheus scrape remains available while database collection is blocked`() {
         val entered = CountDownLatch(1)
         val release = CountDownLatch(1)
@@ -229,7 +222,7 @@ class OutboxInstanceMetricsMeterBinderTest {
             binder.bindTo(prometheus)
             prometheus.counter("unrelated.requests").increment()
             collector.refresh()
-            every { statusRepository.countByStatus(NEW) } answers {
+            every { recordRepository.countByStatus(NEW) } answers {
                 entered.countDown()
                 check(release.await(10, TimeUnit.SECONDS))
                 20L
@@ -262,7 +255,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         val entered = CountDownLatch(1)
         val interrupted = CountDownLatch(1)
         val release = CountDownLatch(1)
-        every { statusRepository.countByStatus(NEW) } answers {
+        every { recordRepository.countByStatus(NEW) } answers {
             entered.countDown()
             try {
                 release.await()
@@ -282,7 +275,7 @@ class OutboxInstanceMetricsMeterBinderTest {
             assertTimeoutPreemptively(Duration.ofSeconds(2)) { collector.stop() }
             assertThat(interrupted.await(5, TimeUnit.SECONDS)).isTrue()
             assertThat(collector.isRunning).isFalse()
-            verify(exactly = 1) { statusRepository.countByStatus(NEW) }
+            verify(exactly = 1) { recordRepository.countByStatus(NEW) }
         } finally {
             release.countDown()
             collector.stop()
@@ -294,7 +287,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         val entered = CountDownLatch(1)
         val release = CountDownLatch(1)
         val worker = Executors.newSingleThreadExecutor()
-        every { statusRepository.countByStatus(NEW) } answers {
+        every { recordRepository.countByStatus(NEW) } answers {
             entered.countDown()
             check(release.await(10, TimeUnit.SECONDS))
             15L
@@ -304,7 +297,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         try {
             assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue()
             assertTimeoutPreemptively(Duration.ofSeconds(2)) { collector.refresh() }
-            verify(exactly = 1) { statusRepository.countByStatus(NEW) }
+            verify(exactly = 1) { recordRepository.countByStatus(NEW) }
         } finally {
             release.countDown()
             firstRefresh.get(5, TimeUnit.SECONDS)
@@ -313,25 +306,25 @@ class OutboxInstanceMetricsMeterBinderTest {
 
         collector.refresh()
         assertThat(recordGauge(NEW)).isEqualTo(15.0)
-        verify(exactly = 2) { statusRepository.countByStatus(NEW) }
+        verify(exactly = 2) { recordRepository.countByStatus(NEW) }
     }
 
     @Test
     fun `scheduled collection recovers automatically after a failed query`() {
         val attempts = AtomicInteger()
         val recovered = CountDownLatch(1)
-        every { statusRepository.countByStatus(NEW) } answers {
+        every { recordRepository.countByStatus(NEW) } answers {
             if (attempts.incrementAndGet() == 1) throw IllegalStateException("temporary database failure")
             20L
         }
-        every { statusRepository.countByStatus(FAILED) } answers {
+        // Instance counts are collected after the grouped record counts are published.
+        every { instanceRegistry.getActiveInstanceCount() } answers {
             if (attempts.get() >= 2) recovered.countDown()
-            3L
+            2L
         }
         val scheduledCollector =
             OutboxMetricsCollector(
                 recordRepository,
-                statusRepository,
                 coordinator,
                 instanceRegistry,
                 OutboxMetricsProperties(refreshInterval = Duration.ofMillis(10)),
@@ -350,10 +343,83 @@ class OutboxInstanceMetricsMeterBinderTest {
     }
 
     @Test
+    fun `record gauges cover new and failed by default without a completed gauge`() {
+        collector.refresh()
+
+        assertThat(collector.recordStatuses).containsExactly(NEW, FAILED)
+        assertThat(
+            registry
+                .find(OutboxMetricNames.RECORDS)
+                .tag(OutboxMetricKeyNames.LowCardinality.RECORD_STATUS, "completed")
+                .gauge(),
+        ).isNull()
+        verify(exactly = 0) { recordRepository.countByStatus(COMPLETED) }
+    }
+
+    @Test
+    fun `configured record statuses opt in to the completed gauge`() {
+        val completedCollector =
+            OutboxMetricsCollector(
+                recordRepository,
+                coordinator,
+                instanceRegistry,
+                OutboxMetricsProperties(recordStatuses = setOf(NEW, FAILED, COMPLETED)),
+                clock,
+                taskScheduler,
+            )
+        SimpleMeterRegistry().useRegistry { other ->
+            OutboxInstanceMetricsMeterBinder(completedCollector) { "orders" }.bindTo(other)
+            completedCollector.refresh()
+
+            assertThat(
+                other
+                    .get(OutboxMetricNames.RECORDS)
+                    .tag(OutboxMetricKeyNames.LowCardinality.RECORD_STATUS, "completed")
+                    .gauge()
+                    .value(),
+            ).isEqualTo(42.0)
+            assertThat(other.find(OutboxMetricNames.RECORDS).gauges()).hasSize(3)
+        }
+    }
+
+    @Test
+    fun `record counts are collected with one grouped query for the configured statuses`() {
+        every { recordRepository.countByStatuses(setOf(NEW, FAILED)) } returns mapOf(NEW to 7L, FAILED to 1L)
+
+        collector.refresh()
+
+        assertThat(recordGauge(NEW)).isEqualTo(7.0)
+        assertThat(recordGauge(FAILED)).isEqualTo(1.0)
+        verify(exactly = 1) { recordRepository.countByStatuses(setOf(NEW, FAILED)) }
+        verify(exactly = 0) { recordRepository.countByStatus(any()) }
+    }
+
+    @Test
+    fun `no record statuses register no record gauges and run no count query`() {
+        val emptyCollector =
+            OutboxMetricsCollector(
+                recordRepository,
+                coordinator,
+                instanceRegistry,
+                OutboxMetricsProperties(recordStatuses = emptySet()),
+                clock,
+                taskScheduler,
+            )
+        SimpleMeterRegistry().useRegistry { other ->
+            OutboxInstanceMetricsMeterBinder(emptyCollector) { "orders" }.bindTo(other)
+            emptyCollector.refresh()
+
+            assertThat(other.find(OutboxMetricNames.RECORDS).gauges()).isEmpty()
+            assertThat(emptyCollector.lastSuccessTimestamp).isEqualTo(now.get().epochSecond.toDouble())
+        }
+        verify(exactly = 0) { recordRepository.countByStatuses(any()) }
+    }
+
+    @Test
     fun `age gauges cache fractional seconds with only the channel tag`() {
-        every { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2), NEW) } returns
+        every { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2)) } returns
             now.get().minusMillis(90_500)
-        every { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), NEW, now.get(), true) } returns
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), now.get(), true) } returns
             now.get().minusSeconds(30)
         collector.refresh()
         now.set(now.get().plusSeconds(10))
@@ -377,28 +443,28 @@ class OutboxInstanceMetricsMeterBinderTest {
         createCollector(stopOnFirstFailure = stopOnFirstFailure).refresh()
 
         verify(exactly = 1) {
-            recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), NEW, now.get(), stopOnFirstFailure)
+            recordRepository.findOldestDueNextRetryAtByPartitions(setOf(1, 2), now.get(), stopOnFirstFailure)
         }
     }
 
     @Test
     fun `age collection refreshes assignments and skips all record queries when no partitions are assigned`() {
-        every { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2), NEW) } returns now.get().minusSeconds(90)
+        every { recordRepository.findOldestCreatedAtByPartitions(setOf(1, 2)) } returns now.get().minusSeconds(90)
         collector.refresh()
         every { coordinator.getAssignedPartitionNumbers() } returns setOf(3)
         every { recordRepository.countRecordsByPartitions(setOf(3), NEW) } returns 1
-        every { recordRepository.findOldestCreatedAtByPartitions(setOf(3), NEW) } returns now.get().minusSeconds(20)
+        every { recordRepository.findOldestCreatedAtByPartitions(setOf(3)) } returns now.get().minusSeconds(20)
         collector.refresh()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isEqualTo(20.0)
-        verify(exactly = 1) { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(3), NEW, now.get(), true) }
+        verify(exactly = 1) { recordRepository.findOldestDueNextRetryAtByPartitions(setOf(3), now.get(), true) }
 
         every { coordinator.getAssignedPartitionNumbers() } returns emptySet()
         collector.refresh()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isZero()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isZero()
         verify(exactly = 2) { recordRepository.countRecordsByPartitions(any(), any()) }
-        verify(exactly = 2) { recordRepository.findOldestCreatedAtByPartitions(any(), any()) }
-        verify(exactly = 2) { recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any(), any()) }
+        verify(exactly = 2) { recordRepository.findOldestCreatedAtByPartitions(any()) }
+        verify(exactly = 2) { recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any()) }
     }
 
     @Test
@@ -407,7 +473,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isZero()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isZero()
 
-        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } returns now.get().plusSeconds(5)
+        every { recordRepository.findOldestCreatedAtByPartitions(any()) } returns now.get().plusSeconds(5)
         collector.refresh()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isZero()
     }
@@ -417,9 +483,9 @@ class OutboxInstanceMetricsMeterBinderTest {
         collector.refresh()
         val lastSuccess = collector.lastSuccessTimestamp
         now.set(now.get().plusSeconds(15))
-        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } throws
+        every { recordRepository.findOldestCreatedAtByPartitions(any()) } throws
             IllegalStateException("database unavailable")
-        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } returns
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any()) } returns
             now.get().minusSeconds(30)
         collector.refresh()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isNaN()
@@ -427,15 +493,15 @@ class OutboxInstanceMetricsMeterBinderTest {
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_PENDING)).isEqualTo(10.0)
         assertThat(collector.lastSuccessTimestamp).isEqualTo(lastSuccess)
 
-        every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } returns now.get().minusSeconds(90)
-        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } throws
+        every { recordRepository.findOldestCreatedAtByPartitions(any()) } returns now.get().minusSeconds(90)
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any()) } throws
             IllegalStateException()
         collector.refresh()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OLDEST_AGE)).isEqualTo(90.0)
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isNaN()
         assertThat(collector.lastSuccessTimestamp).isEqualTo(lastSuccess)
 
-        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), NEW, any(), any()) } returns null
+        every { recordRepository.findOldestDueNextRetryAtByPartitions(any(), any(), any()) } returns null
         collector.refresh()
         assertThat(value(OutboxMetricNames.INSTANCE_RECORDS_OVERDUE_AGE)).isZero()
         assertThat(collector.lastSuccessTimestamp).isEqualTo(now.get().epochSecond.toDouble())
@@ -449,7 +515,7 @@ class OutboxInstanceMetricsMeterBinderTest {
         PrometheusMeterRegistry(PrometheusConfig.DEFAULT).useRegistry { prometheus ->
             binder.bindTo(prometheus)
             collector.refresh()
-            every { recordRepository.findOldestCreatedAtByPartitions(any(), NEW) } answers {
+            every { recordRepository.findOldestCreatedAtByPartitions(any()) } answers {
                 entered.countDown()
                 check(release.await(10, TimeUnit.SECONDS))
                 null

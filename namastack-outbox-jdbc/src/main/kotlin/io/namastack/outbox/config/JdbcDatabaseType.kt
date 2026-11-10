@@ -1,5 +1,9 @@
 package io.namastack.outbox.config
 
+import org.springframework.jdbc.support.JdbcUtils
+import java.sql.DatabaseMetaData
+import javax.sql.DataSource
+
 /**
  * Sealed class representing supported database types.
  *
@@ -106,5 +110,42 @@ sealed class JdbcDatabaseType(
                 "oracle" -> Oracle
                 else -> throw IllegalArgumentException("Unsupported database type: $databaseName")
             }
+
+        /**
+         * Resolves the database type of a data source from its JDBC metadata.
+         *
+         * @param dataSource The data source to inspect
+         * @return Corresponding JdbcDatabaseType
+         * @throws RuntimeException if the database name cannot be detected
+         * @throws IllegalArgumentException if database type is not supported
+         */
+        fun from(dataSource: DataSource): JdbcDatabaseType {
+            val databaseName =
+                try {
+                    val metadata =
+                        JdbcUtils.extractDatabaseMetaData(dataSource, DatabaseMetaData::getDatabaseProductName)
+                    JdbcUtils.commonDatabaseName(metadata) ?: throw RuntimeException("Could not detect database name")
+                } catch (e: Exception) {
+                    throw RuntimeException("Could not detect database name", e)
+                }
+            return from(databaseName)
+        }
+
+        /**
+         * Resolves the database type of a data source, or `null` if the product is not supported.
+         *
+         * Opens one connection, or reuses the connection bound to the current transaction.
+         *
+         * @param dataSource The data source to inspect
+         * @return Corresponding JdbcDatabaseType, or `null` if the product is not supported
+         * @throws org.springframework.jdbc.support.MetaDataAccessException if the metadata cannot be read
+         * @since 1.12.0
+         */
+        internal fun detect(dataSource: DataSource): JdbcDatabaseType? {
+            val productName = JdbcUtils.extractDatabaseMetaData(dataSource, DatabaseMetaData::getDatabaseProductName)
+            val databaseName = JdbcUtils.commonDatabaseName(productName) ?: return null
+
+            return runCatching { from(databaseName) }.getOrNull()
+        }
     }
 }

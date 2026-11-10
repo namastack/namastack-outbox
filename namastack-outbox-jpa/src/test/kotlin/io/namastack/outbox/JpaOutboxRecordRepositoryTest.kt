@@ -22,6 +22,7 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.time.temporal.ChronoUnit.MILLIS
 import java.time.temporal.ChronoUnit.MINUTES
 import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
@@ -105,8 +106,7 @@ class JpaOutboxRecordRepositoryTest {
             saveDelivery(5, defaultKey)
         }
 
-        private fun readyKeys(): List<String> =
-            jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+        private fun readyKeys(): List<String> = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
 
         private fun saveDelivery(
             number: Int,
@@ -202,16 +202,15 @@ class JpaOutboxRecordRepositoryTest {
             saveRecord(2)
             saveRecord(1, status = FAILED)
 
-            assertThat(jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, false))
+            assertThat(jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, false))
                 .containsExactly(recordKey)
             assertThat(oldestDueAt(false)).isEqualTo(retentionBase)
         }
 
         private fun oldestDueAt(strict: Boolean): Instant? =
-            jpaOutboxRecordRepository.findOldestDueNextRetryAtByPartitions(setOf(1), NEW, Instant.now(clock), strict)
+            jpaOutboxRecordRepository.findOldestDueNextRetryAtByPartitions(setOf(1), Instant.now(clock), strict)
 
-        private fun readyKeys(): List<String> =
-            jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+        private fun readyKeys(): List<String> = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
 
         private fun saveRecord(
             number: Int,
@@ -302,6 +301,202 @@ class JpaOutboxRecordRepositoryTest {
 
             assertThat(persistedUpdatedRecord.failureCount).isEqualTo(updatedRecord.failureCount)
         }
+    }
+
+    @Nested
+    @DisplayName("create()")
+    inner class CreateTests {
+        @Test
+        fun `creates an entity`() {
+            val record = newRecord()
+
+            jpaOutboxRecordRepository.create(record)
+            flushAndClear()
+
+            val persistedRecord = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
+
+            assertThat(persistedRecord.id).isEqualTo(record.id)
+            assertThat(persistedRecord.payload).isEqualTo(record.payload)
+            assertThat(persistedRecord.status).isEqualTo(NEW)
+            assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
+        }
+
+        @Test
+        fun `fails to create an entity with an existing id`() {
+            val record = newRecord()
+            jpaOutboxRecordRepository.create(record)
+            flushAndClear()
+
+            assertThatThrownBy {
+                jpaOutboxRecordRepository.create(record)
+                entityManager.flush()
+            }.isInstanceOf(RuntimeException::class.java)
+        }
+    }
+
+    @Nested
+    @DisplayName("update()")
+    inner class UpdateTests {
+        @Test
+        fun `updates an existing entity`() {
+            val record = newRecord()
+            jpaOutboxRecordRepository.create(record)
+            flushAndClear()
+
+            assertThat(jpaOutboxRecordRepository.update(failedOnce(record))).isTrue()
+            flushAndClear()
+
+            val persistedRecord = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
+
+            assertThat(persistedRecord.failureCount).isEqualTo(1)
+            assertThat(persistedRecord.failureReason).isEqualTo("boom")
+        }
+
+        @Test
+        fun `updates an entity already loaded in the same transaction`() {
+            val record = newRecord()
+            jpaOutboxRecordRepository.create(record)
+            flushAndClear()
+            jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
+
+            assertThat(jpaOutboxRecordRepository.update(failedOnce(record))).isTrue()
+
+            val reloadedRecord = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
+            assertThat(reloadedRecord.failureCount).isEqualTo(1)
+            assertThat(reloadedRecord.failureReason).isEqualTo("boom")
+        }
+
+        @Test
+        fun `does not insert when updating a missing entity`() {
+            val record = newRecord()
+
+            assertThat(jpaOutboxRecordRepository.update(record)).isFalse()
+            flushAndClear()
+
+            assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
+        }
+    }
+
+    @Nested
+    @DisplayName("updateProcessingState()")
+    inner class UpdateProcessingStateTests {
+        @Test
+        fun `persists processing state without payload and context`() {
+            val record = newRecordWithContext()
+            jpaOutboxRecordRepository.create(record)
+            val completedAt = Instant.now(clock).truncatedTo(MILLIS)
+            val nextRetryAt = record.nextRetryAt.plus(1, MINUTES)
+
+            val updated =
+                jpaOutboxRecordRepository.updateProcessingState(
+                    processingState(
+                        record = record,
+                        payload = "changed",
+                        context = mapOf("changed" to "true"),
+                        status = COMPLETED,
+                        completedAt = completedAt,
+                        failureCount = 2,
+                        failureReason = "boom",
+                        nextRetryAt = nextRetryAt,
+                    ),
+                )
+
+            assertThat(updated).isTrue()
+            entityManager.clear()
+            val persistedRecord = jpaOutboxRecordRepository.findCompletedRecords().single { it.id == record.id }
+            assertThat(persistedRecord.status).isEqualTo(COMPLETED)
+            assertThat(persistedRecord.completedAt).isCloseTo(completedAt, within(1, MILLIS))
+            assertThat(persistedRecord.failureCount).isEqualTo(2)
+            assertThat(persistedRecord.failureReason).isEqualTo("boom")
+            assertThat(persistedRecord.nextRetryAt).isCloseTo(nextRetryAt, within(1, MILLIS))
+            assertThat(persistedRecord.payload).isEqualTo(record.payload)
+            assertThat(persistedRecord.context).isEqualTo(record.context)
+            assertThat(persistedRecord.key).isEqualTo(record.key)
+            assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
+            assertThat(persistedRecord.partition).isEqualTo(record.partition)
+            assertThat(persistedRecord.createdAt).isCloseTo(record.createdAt, within(1, MILLIS))
+        }
+
+        @Test
+        fun `clears completion time and failure reason`() {
+            val record = newRecord()
+            jpaOutboxRecordRepository.create(
+                processingState(
+                    record = record,
+                    payload = record.payload,
+                    completedAt = Instant.now(clock),
+                    failureReason = "boom",
+                ),
+            )
+
+            assertThat(jpaOutboxRecordRepository.updateProcessingState(record)).isTrue()
+
+            entityManager.clear()
+            val persistedRecord = jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
+            assertThat(persistedRecord.completedAt).isNull()
+            assertThat(persistedRecord.failureReason).isNull()
+        }
+
+        @Test
+        fun `persists processing state of a record without loaded payload`() {
+            val record = newRecord()
+            jpaOutboxRecordRepository.create(record)
+
+            val updated =
+                jpaOutboxRecordRepository.updateProcessingState(
+                    processingState(record = record, payload = null, status = FAILED, failureCount = 1),
+                )
+
+            assertThat(updated).isTrue()
+            entityManager.clear()
+            val persistedRecord = jpaOutboxRecordRepository.findFailedRecords().single { it.id == record.id }
+            assertThat(persistedRecord.failureCount).isEqualTo(1)
+            assertThat(persistedRecord.payload).isEqualTo(record.payload)
+        }
+
+        @Test
+        fun `does not insert when updating the processing state of a missing entity`() {
+            val record = newRecord()
+
+            assertThat(jpaOutboxRecordRepository.updateProcessingState(record)).isFalse()
+
+            assertThat(jpaOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
+        }
+
+        private fun newRecordWithContext(): OutboxRecord<String> =
+            OutboxRecord
+                .Builder<String>()
+                .key(UUID.randomUUID().toString())
+                .payload("payload")
+                .context(mapOf("tenant" to "acme"))
+                .handlerId("handlerId")
+                .build(clock)
+
+        private fun <T> processingState(
+            record: OutboxRecord<String>,
+            payload: T,
+            context: Map<String, String> = record.context,
+            status: OutboxRecordStatus = record.status,
+            completedAt: Instant? = record.completedAt,
+            failureCount: Int = record.failureCount,
+            failureReason: String? = record.failureReason,
+            nextRetryAt: Instant = record.nextRetryAt,
+        ): OutboxRecord<T> =
+            OutboxRecord.restore(
+                id = record.id,
+                recordKey = record.key,
+                payload = payload,
+                context = context,
+                partition = record.partition,
+                createdAt = record.createdAt,
+                status = status,
+                completedAt = completedAt,
+                failureCount = failureCount,
+                failureReason = failureReason,
+                nextRetryAt = nextRetryAt,
+                handlerId = record.handlerId,
+                failureException = null,
+            )
     }
 
     @Nested
@@ -569,7 +764,6 @@ class JpaOutboxRecordRepositoryTest {
             val partition1RecordKeys =
                 jpaOutboxRecordRepository.findRecordKeysInPartitions(
                     setOf(1),
-                    NEW,
                     10,
                     true,
                 )
@@ -577,7 +771,6 @@ class JpaOutboxRecordRepositoryTest {
             val partition2RecordKeys =
                 jpaOutboxRecordRepository.findRecordKeysInPartitions(
                     setOf(2),
-                    NEW,
                     10,
                     true,
                 )
@@ -599,7 +792,6 @@ class JpaOutboxRecordRepositoryTest {
             val recordKeys =
                 jpaOutboxRecordRepository.findRecordKeysInPartitions(
                     setOf(1, 2),
-                    NEW,
                     10,
                     true,
                 )
@@ -616,9 +808,38 @@ class JpaOutboxRecordRepositoryTest {
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES))
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(1, MINUTES))
 
-            val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
 
-            assertThat(result).contains(recordKey)
+            assertThat(result).containsExactly(recordKey)
+        }
+
+        @Test
+        fun `returns at most batch size record keys oldest first`() {
+            val now = Instant.now(clock)
+            val recordKeys = List(3) { UUID.randomUUID().toString() }
+
+            recordKeys.forEachIndexed { index, recordKey ->
+                createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3L - index, MINUTES))
+            }
+
+            assertThat(jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 2, true))
+                .containsExactly(recordKeys[0], recordKeys[1])
+            assertThat(jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 2, false))
+                .containsExactly(recordKeys[0], recordKeys[1])
+        }
+
+        @Test
+        fun `strict key selection uses record ids to break equal creation times before applying the batch limit`() {
+            val createdAt = Instant.now(clock).minus(1, MINUTES).truncatedTo(MILLIS)
+            createRecordWithPartitionAndTime("key-a", NEW, 1, createdAt, id = "003")
+            createRecordWithPartitionAndTime("key-c", NEW, 1, createdAt, id = "004")
+            createRecordWithPartitionAndTime("key-c", NEW, 1, createdAt, id = "001")
+            createRecordWithPartitionAndTime("key-b", NEW, 1, createdAt, id = "002")
+
+            assertThat(jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 2, true))
+                .containsExactly("key-c", "key-b")
+            assertThat(jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 3, true))
+                .containsExactly("key-c", "key-b", "key-a")
         }
 
         @Test
@@ -628,7 +849,7 @@ class JpaOutboxRecordRepositoryTest {
 
             createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES))
 
-            val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(result).contains(recordKey)
         }
@@ -645,7 +866,7 @@ class JpaOutboxRecordRepositoryTest {
             createRecordWithPartitionAndTime(recordKey1, NEW, 2, now.minus(3, MINUTES))
             createRecordWithPartitionAndTime(recordKey3, NEW, 1, now.minus(1, MINUTES))
 
-            val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1, 2), NEW, 10, true)
+            val result = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1, 2), 10, true)
 
             assertThat(result).containsExactly(recordKey1, recordKey2, recordKey3)
         }
@@ -716,9 +937,8 @@ class JpaOutboxRecordRepositoryTest {
             saveRetentionRecord(COMPLETED, partition = 2, createdAt = now.minusSeconds(400), completedAt = now)
             saveRetentionRecord(NEW, partition = 3, createdAt = now.minusSeconds(500))
 
-            assertThat(oldestCreatedAt(setOf(1, 2), NEW)).isEqualTo(now.minusSeconds(120))
-            assertThat(oldestCreatedAt(setOf(1), NEW)).isEqualTo(now.minusSeconds(60))
-            assertThat(oldestCreatedAt(setOf(1, 2), FAILED)).isEqualTo(now.minusSeconds(300))
+            assertThat(oldestCreatedAt(setOf(1, 2))).isEqualTo(now.minusSeconds(120))
+            assertThat(oldestCreatedAt(setOf(1))).isEqualTo(now.minusSeconds(60))
         }
 
         @Test
@@ -726,20 +946,18 @@ class JpaOutboxRecordRepositoryTest {
             saveRetentionRecord(COMPLETED, partition = 1, completedAt = retentionBase)
             saveRetentionRecord(NEW, partition = 3)
 
-            assertThat(oldestCreatedAt(setOf(1, 2), NEW)).isNull()
+            assertThat(oldestCreatedAt(setOf(1, 2))).isNull()
         }
 
         @Test
         fun `returns null for empty partitions`() {
             saveRetentionRecord(NEW, partition = 1)
 
-            assertThat(oldestCreatedAt(emptySet(), NEW)).isNull()
+            assertThat(oldestCreatedAt(emptySet())).isNull()
         }
 
-        private fun oldestCreatedAt(
-            partitions: Set<Int>,
-            status: OutboxRecordStatus,
-        ): Instant? = jpaOutboxRecordRepository.findOldestCreatedAtByPartitions(partitions, status)
+        private fun oldestCreatedAt(partitions: Set<Int>): Instant? =
+            jpaOutboxRecordRepository.findOldestCreatedAtByPartitions(partitions)
     }
 
     @Nested
@@ -845,7 +1063,6 @@ class JpaOutboxRecordRepositoryTest {
         ): Instant? =
             jpaOutboxRecordRepository.findOldestDueNextRetryAtByPartitions(
                 partitions = partitions,
-                status = NEW,
                 now = now,
                 ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
             )
@@ -853,7 +1070,6 @@ class JpaOutboxRecordRepositoryTest {
         private fun recordKeys(ignoreRecordKeysWithPreviousFailure: Boolean): List<String> =
             jpaOutboxRecordRepository.findRecordKeysInPartitions(
                 partitions = setOf(1),
-                status = NEW,
                 batchSize = 10,
                 ignoreRecordKeysWithPreviousFailure = ignoreRecordKeysWithPreviousFailure,
             )
@@ -1125,9 +1341,9 @@ class JpaOutboxRecordRepositoryTest {
             )
             saveRetentionRecord(NEW, recordKey = recordKey, createdAt = retentionBase.minusSeconds(30))
 
-            val keysBeforeDelete = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val keysBeforeDelete = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
             assertThat(jpaOutboxRecordRepository.deleteFailedRecords(retentionBase, 10)).isEqualTo(1)
-            val keysAfterDelete = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), NEW, 10, true)
+            val keysAfterDelete = jpaOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(keysBeforeDelete).doesNotContain(recordKey)
             assertThat(keysAfterDelete).containsExactly(recordKey)
@@ -1141,6 +1357,36 @@ class JpaOutboxRecordRepositoryTest {
                 .isInstanceOf(IllegalArgumentException::class.java)
         }
     }
+
+    private fun flushAndClear() {
+        entityManager.flush()
+        entityManager.clear()
+    }
+
+    private fun newRecord(): OutboxRecord<String> =
+        OutboxRecord
+            .Builder<String>()
+            .key(UUID.randomUUID().toString())
+            .payload("payload")
+            .handlerId("handlerId")
+            .build(clock)
+
+    private fun failedOnce(record: OutboxRecord<String>): OutboxRecord<String> =
+        OutboxRecord.restore(
+            id = record.id,
+            recordKey = record.key,
+            payload = record.payload,
+            context = record.context,
+            partition = record.partition,
+            createdAt = record.createdAt,
+            status = record.status,
+            completedAt = record.completedAt,
+            failureCount = 1,
+            failureReason = "boom",
+            nextRetryAt = record.nextRetryAt,
+            handlerId = record.handlerId,
+            failureException = null,
+        )
 
     private fun createFailedRecords(count: Int = 3) {
         val now = Instant.now(clock)
@@ -1294,10 +1540,11 @@ class JpaOutboxRecordRepositoryTest {
         status: OutboxRecordStatus,
         partition: Int,
         createdAt: Instant,
+        id: String = UUID.randomUUID().toString(),
     ): OutboxRecord<String> {
         val record =
             OutboxRecord.restore(
-                id = UUID.randomUUID().toString(),
+                id = id,
                 recordKey = recordKey,
                 payload = "payload",
                 context = mapOf("key1" to "value1", "key2" to "value2"),

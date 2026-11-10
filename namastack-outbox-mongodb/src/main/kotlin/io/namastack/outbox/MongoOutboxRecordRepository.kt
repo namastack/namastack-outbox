@@ -7,11 +7,12 @@ import org.springframework.data.mongodb.core.aggregation.Aggregation
 import org.springframework.data.mongodb.core.aggregation.AggregationOperation
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
+import org.springframework.data.mongodb.core.query.Update
 import java.time.Clock
 import java.time.Instant
 
 /**
- * MongoDB implementation of the OutboxRecordRepository and OutboxRecordStatusRepository interfaces.
+ * MongoDB implementation of [OutboxRecordRepository].
  *
  * @author Stellar Hold
  * @since 1.5.0
@@ -21,8 +22,7 @@ internal open class MongoOutboxRecordRepository(
     private val entityMapper: MongoOutboxRecordEntityMapper,
     private val clock: Clock,
     private val collectionNameResolver: MongoCollectionNameResolver,
-) : OutboxRecordRepository,
-    OutboxRecordStatusRepository {
+) : OutboxRecordRepository {
     /**
      * Saves an outbox record. Inserts or updates the record document.
      *
@@ -36,6 +36,51 @@ internal open class MongoOutboxRecordRepository(
         val entity = entityMapper.map(record)
         mongoTemplate.save(entity, collectionNameResolver.outboxRecords)
         return record
+    }
+
+    /**
+     * Creates a new outbox record.
+     *
+     * @param record The outbox record to create
+     * @return The created outbox record
+     */
+    override fun <T> create(record: OutboxRecord<T>): OutboxRecord<T> {
+        val entity = entityMapper.map(record)
+        mongoTemplate.insert(entity, collectionNameResolver.outboxRecords)
+        return record
+    }
+
+    /**
+     * Updates an existing outbox record. Does nothing if the record no longer exists.
+     *
+     * @param record The outbox record to update
+     * @return True if the record was updated, false if it no longer exists
+     */
+    override fun <T> update(record: OutboxRecord<T>): Boolean {
+        val entity = entityMapper.map(record)
+        val query = Query(Criteria.where("_id").`is`(entity.id))
+        val result = mongoTemplate.replace(query, entity, collectionNameResolver.outboxRecords)
+        return result.matchedCount == 1L
+    }
+
+    /**
+     * Updates only the processing state of an existing record. Does nothing if the record no longer exists.
+     * The payload and context are neither serialized nor written.
+     *
+     * @param record The outbox record whose processing state changed
+     * @return True if the record was updated, false if it no longer exists
+     */
+    override fun <T> updateProcessingState(record: OutboxRecord<T>): Boolean {
+        val query = Query(Criteria.where("_id").`is`(record.id))
+        val update =
+            Update()
+                .set("status", record.status)
+                .set("completedAt", record.completedAt)
+                .set("failureCount", record.failureCount)
+                .set("failureReason", record.failureReason)
+                .set("nextRetryAt", record.nextRetryAt)
+        val result = mongoTemplate.updateFirst(query, update, collectionNameResolver.outboxRecords)
+        return result.matchedCount == 1L
     }
 
     /**
@@ -137,6 +182,41 @@ internal open class MongoOutboxRecordRepository(
     }
 
     /**
+     * Loads NEW records for selected storage keys using bulk reads.
+     *
+     * The configured collection name is resolved before reading. Payload and context decoding
+     * is deferred until a worker accesses a record. Future retries remain in each page, and one
+     * loading predicate serves strict and non-strict processing. Missing keys receive empty pages.
+     *
+     * Records are loaded in one bulk read and grouped by their exact record key.
+     *
+     * @param recordKeys Selected storage keys, at most [OutboxRecordRepository.MAX_RECORD_KEYS_PER_FETCH] per call
+     * @return An ordered, lazily decoded page for every requested key
+     * @throws IllegalArgumentException if the portable key limit is exceeded
+     */
+    override fun findIncompleteRecordPages(recordKeys: Set<String>): Map<String, OutboxRecordPage> {
+        require(recordKeys.size <= OutboxRecordRepository.MAX_RECORD_KEYS_PER_FETCH) {
+            "A record fetch can contain at most ${OutboxRecordRepository.MAX_RECORD_KEYS_PER_FETCH} keys"
+        }
+        if (recordKeys.isEmpty()) return emptyMap()
+
+        val query =
+            Query(
+                Criteria
+                    .where("recordKey")
+                    .`in`(recordKeys)
+                    .and("status")
+                    .`is`(OutboxRecordStatus.NEW),
+            ).with(Sort.by(Sort.Direction.ASC, "recordKey", "createdAt", "_id"))
+        val rowsByKey =
+            mongoTemplate
+                .find(query, MongoOutboxRecordEntity::class.java, collectionNameResolver.outboxRecords)
+                .groupBy { it.recordKey }
+
+        return recordKeys.associateWith { key -> LazyOutboxRecordPage(rowsByKey[key].orEmpty(), entityMapper::map) }
+    }
+
+    /**
      * Finds record keys in specified partitions that are ready for processing.
      *
      * When [ignoreRecordKeysWithPreviousFailure] is true, uses a strict FIFO aggregation
@@ -147,14 +227,12 @@ internal open class MongoOutboxRecordRepository(
      * ready record, regardless of older incomplete records.
      *
      * @param partitions the set of partition numbers to query
-     * @param status the record status to match
      * @param batchSize the maximum number of record keys to return
      * @param ignoreRecordKeysWithPreviousFailure whether to enforce strict FIFO ordering
      * @return list of record keys ready for processing
      */
     override fun findRecordKeysInPartitions(
         partitions: Set<Int>,
-        status: OutboxRecordStatus,
         batchSize: Int,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): List<String> {
@@ -162,9 +240,9 @@ internal open class MongoOutboxRecordRepository(
 
         val aggregation =
             if (ignoreRecordKeysWithPreviousFailure) {
-                buildStrictFifoAggregation(partitions, status, now, batchSize)
+                buildStrictFifoAggregation(partitions, OutboxRecordStatus.NEW, now, batchSize)
             } else {
-                buildStandardAggregation(partitions, status, now, batchSize)
+                buildStandardAggregation(partitions, OutboxRecordStatus.NEW, now, batchSize)
             }
 
         return mongoTemplate
@@ -237,12 +315,9 @@ internal open class MongoOutboxRecordRepository(
     }
 
     /**
-     * Finds the earliest creation time of outbox records across the specified partitions by status.
+     * Finds the earliest creation time of `NEW` records across the specified partitions.
      */
-    override fun findOldestCreatedAtByPartitions(
-        partitions: Set<Int>,
-        status: OutboxRecordStatus,
-    ): Instant? {
+    override fun findOldestCreatedAtByPartitions(partitions: Set<Int>): Instant? {
         if (partitions.isEmpty()) return null
 
         val match =
@@ -251,29 +326,28 @@ internal open class MongoOutboxRecordRepository(
                     .where("partitionNo")
                     .`in`(partitions)
                     .and("status")
-                    .`is`(status.name),
+                    .`is`(OutboxRecordStatus.NEW.name),
             )
         return aggregateMin(listOf(match), "createdAt")
     }
 
     /**
-     * Finds the earliest next retry time of due outbox records across the specified partitions.
+     * Finds the earliest next retry time of due `NEW` records across the specified partitions.
      *
      * With [ignoreRecordKeysWithPreviousFailure], only the oldest incomplete record of each key is
      * considered, as in [buildStrictFifoAggregation].
      */
     override fun findOldestDueNextRetryAtByPartitions(
         partitions: Set<Int>,
-        status: OutboxRecordStatus,
         now: Instant,
         ignoreRecordKeysWithPreviousFailure: Boolean,
     ): Instant? {
         if (partitions.isEmpty()) return null
 
         return if (ignoreRecordKeysWithPreviousFailure) {
-            aggregateMin(strictFifoReadyKeyStages(partitions, status, now), "oldestDoc.nextRetryAt")
+            aggregateMin(strictFifoReadyKeyStages(partitions, OutboxRecordStatus.NEW, now), "oldestDoc.nextRetryAt")
         } else {
-            aggregateMin(listOf(readyRecordsMatchStage(partitions, status, now)), "nextRetryAt")
+            aggregateMin(listOf(readyRecordsMatchStage(partitions, OutboxRecordStatus.NEW, now)), "nextRetryAt")
         }
     }
 

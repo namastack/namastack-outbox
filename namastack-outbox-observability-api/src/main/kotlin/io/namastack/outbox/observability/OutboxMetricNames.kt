@@ -45,6 +45,7 @@ object OutboxMetricKeyNames {
     object HighCardinality {
         const val RECORD_ID: String = "outbox.record.id"
         const val RECORD_KEY: String = "outbox.record.key"
+        const val PROCESSING_GROUP: String = "outbox.processing.group"
         const val DELIVERY_ATTEMPT: String = "outbox.delivery.attempt"
         const val SCHEDULE_RECORD_KEY: String = "outbox.schedule.record.key"
         const val SCHEDULE_PAYLOAD_TYPE: String = "outbox.schedule.payload.type"

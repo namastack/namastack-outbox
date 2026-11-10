@@ -1,0 +1,3 @@
+package io.namastack.outbox
+
+class JpaOutboxRecordRepositoryH2IntegrationTest : AbstractJpaOutboxRecordRepositoryIntegrationTest()

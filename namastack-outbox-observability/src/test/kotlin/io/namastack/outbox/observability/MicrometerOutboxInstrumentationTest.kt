@@ -17,6 +17,8 @@ import io.namastack.outbox.observability.OutboxRecordProcessingObservationContex
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -97,6 +99,39 @@ class MicrometerOutboxInstrumentationTest {
             .containsExactly(HandlerKind.PRIMARY, HandlerKind.FALLBACK)
         assertThat(handlerContexts.map { it.getChannel() }).containsOnly("orders")
         assertThat(handlerContexts.map { it.name }).containsOnly(OutboxMetricNames.RECORD_PROCESS)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["order-42", "~ns.pg1~billing:order-42"])
+    fun `processing observations retain business keys and expose persisted groups`(storedKey: String) {
+        val instrumentation = MicrometerOutboxInstrumentation(observationRegistry)
+        val record = outboxRecord(recordKey = storedKey)
+        val expectedGroup = if (storedKey == "order-42") "default" else "billing"
+
+        instrumentation.schedule(OutboxScheduleInvocation(Any(), "order-42", "orders")) {}
+        instrumentation.processRecord(OutboxRecordProcessingInvocation(record, "orders")) {
+            instrumentation.invokeHandler(OutboxHandlerInvocation(record, PRIMARY, "orders")) {}
+            instrumentation.invokeHandler(OutboxHandlerInvocation(record, FALLBACK, "orders")) {}
+            OutboxRecordProcessingOutcome.COMPLETED
+        }
+
+        assertThat(scheduleContexts.single().recordKey).isEqualTo("order-42")
+        assertThat(recordProcessingContexts.single().getRecordKey()).isEqualTo("order-42")
+        assertThat(recordProcessingContexts.single().getProcessingGroup()).isEqualTo(expectedGroup)
+        assertThat(handlerContexts.map { it.getRecordKey() }).containsOnly("order-42")
+        assertThat(handlerContexts.map { it.getProcessingGroup() }).containsOnly(expectedGroup)
+
+        val processingContexts: List<Observation.Context> = recordProcessingContexts + handlerContexts
+        processingContexts.forEach { context ->
+            assertThat(context.getHighCardinalityKeyValue(OutboxMetricKeyNames.HighCardinality.RECORD_KEY)?.value)
+                .isEqualTo("order-42")
+            assertThat(context.getHighCardinalityKeyValue(OutboxMetricKeyNames.HighCardinality.PROCESSING_GROUP)?.value)
+                .isEqualTo(expectedGroup)
+            assertThat(
+                context.getLowCardinalityKeyValue(OutboxMetricKeyNames.HighCardinality.PROCESSING_GROUP),
+            ).isNull()
+        }
+        assertThat(record.key).isEqualTo(storedKey)
     }
 
     @Test
@@ -363,11 +398,12 @@ class MicrometerOutboxInstrumentationTest {
     private fun outboxRecord(
         context: Map<String, String> = emptyMap(),
         failureCount: Int = 0,
+        recordKey: String = "order-42",
     ): OutboxRecord<Any> {
         val now = Instant.parse("2025-01-01T00:00:00Z")
         return OutboxRecord.restore(
             id = "record-1",
-            recordKey = "order-42",
+            recordKey = recordKey,
             payload = Any(),
             context = context,
             createdAt = now,

@@ -2,6 +2,7 @@ package io.namastack.outbox
 
 import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.partition.PartitionHasher
+import io.namastack.outbox.processing.OutboxRecordKey
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -16,7 +17,7 @@ import java.util.UUID
  *
  * @param T Type of the payload
  * @param id Unique identifier for the outbox record
- * @param key Logical group identifier for this record
+ * @param key Stored key used for partitioning and ordering, including an encoded processing group
  * @param payload Payload data
  * @param createdAt Timestamp when the record was created
  * @param status Current processing status of the record
@@ -42,6 +43,26 @@ class OutboxRecord<T> internal constructor(
     failureReason: String?,
     nextRetryAt: Instant,
 ) {
+    /**
+     * Original business key, decoded once from [key] when this record is constructed.
+     *
+     * @since 1.12.0
+     */
+    val businessKey: String
+
+    /**
+     * Persisted processing group, independent of current handler declarations and scheduling settings.
+     *
+     * @since 1.12.0
+     */
+    val processingGroup: String
+
+    init {
+        val decodedKey = OutboxRecordKey.decode(key)
+        businessKey = decodedKey.businessKey
+        processingGroup = decodedKey.processingGroup
+    }
+
     /**
      * Current processing status of this outbox record.
      */

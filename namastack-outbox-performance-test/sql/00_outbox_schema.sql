@@ -36,20 +36,27 @@ CREATE TABLE IF NOT EXISTS outbox_partition
     updated_at       TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_record_key_created
-    ON outbox_record (record_key, created_at);
+-- The key index and the status_partition index must keep the same predicate. A status index with a
+-- non-matching predicate makes the planner use a BitmapAnd that doubled bulk record loading on hot keys.
+-- For the same reason, do not create a full (status, partition_no) index on PostgreSQL.
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status_created_id_incomplete
+    ON outbox_record (status, created_at, id) INCLUDE (partition_no, next_retry_at, record_key)
+    WHERE completed_at IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_partition_status_retry
-    ON outbox_record (partition_no, status, next_retry_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_record_key_created_id_incomplete
+    ON outbox_record (record_key, created_at, id)
+    WHERE completed_at IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry
-    ON outbox_record (status, next_retry_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status_retry_incomplete
+    ON outbox_record (status, next_retry_at) INCLUDE (partition_no)
+    WHERE completed_at IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_status
-    ON outbox_record (status);
+CREATE INDEX IF NOT EXISTS idx_outbox_record_status_partition_incomplete
+    ON outbox_record (status, partition_no)
+    WHERE completed_at IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_outbox_record_record_key_completed_created
-    ON outbox_record (record_key, completed_at, created_at);
+CREATE STATISTICS IF NOT EXISTS outbox_record_status_completed_stx (mcv)
+    ON status, completed_at FROM outbox_record;
 
 CREATE INDEX IF NOT EXISTS idx_outbox_instance_status_heartbeat
     ON outbox_instance (status, last_heartbeat);

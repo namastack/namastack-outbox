@@ -7,7 +7,6 @@ import io.namastack.outbox.MongoOutboxRecordEntityMapper
 import io.namastack.outbox.MongoOutboxRecordRepository
 import io.namastack.outbox.OutboxPayloadSerializer
 import io.namastack.outbox.OutboxRecordRepository
-import io.namastack.outbox.OutboxRecordStatusRepository
 import io.namastack.outbox.instance.OutboxInstanceRepository
 import io.namastack.outbox.partition.PartitionAssignmentRepository
 import org.springframework.beans.factory.BeanFactory
@@ -116,8 +115,8 @@ class MongoOutboxAutoConfiguration {
      * @param clock Clock for time-based operations
      * @return MongoDB outbox record repository implementation
      */
-    @Bean(name = ["outboxRecordRepository", "outboxRecordStatusRepository"])
-    @ConditionalOnMissingBean(OutboxRecordRepository::class, OutboxRecordStatusRepository::class)
+    @Bean
+    @ConditionalOnMissingBean(OutboxRecordRepository::class)
     internal fun outboxRecordRepository(
         mongoTemplate: MongoTemplate,
         entityMapper: MongoOutboxRecordEntityMapper,

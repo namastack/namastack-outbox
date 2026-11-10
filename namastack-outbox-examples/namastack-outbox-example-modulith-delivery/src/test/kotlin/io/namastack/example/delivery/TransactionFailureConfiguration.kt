@@ -78,7 +78,7 @@ class TransactionFailureConfiguration {
                 override fun matches(
                     method: Method,
                     targetClass: Class<*>,
-                ): Boolean = OutboxRecordRepository::class.java.isAssignableFrom(targetClass) && method.name == "save"
+                ): Boolean = OutboxRecordRepository::class.java.isAssignableFrom(targetClass) && method.name == "updateProcessingState"
             }
         return DefaultPointcutAdvisor(
             pointcut,

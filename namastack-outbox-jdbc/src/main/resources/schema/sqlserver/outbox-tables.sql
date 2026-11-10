@@ -16,13 +16,38 @@ CREATE TABLE outbox_record
     next_retry_at  DATETIME2(6)  NOT NULL,
     partition_no   INT           NOT NULL,
     handler_id     VARCHAR(1000) NOT NULL
-        PRIMARY KEY (id),
-    INDEX idx_outbox_record_record_key_created (record_key, created_at),
-    INDEX idx_outbox_record_partition_status_retry (partition_no, status, next_retry_at),
-    INDEX idx_outbox_record_status_retry (status, next_retry_at),
-    INDEX idx_outbox_record_status (status),
-    INDEX idx_outbox_record_record_key_completed_created (record_key, completed_at, created_at)
+        PRIMARY KEY (id)
 );
+
+IF NOT EXISTS(SELECT *
+              FROM sys.indexes
+              WHERE name = 'idx_outbox_record_status_created_id'
+                AND object_id = OBJECT_ID('outbox_record'))
+CREATE INDEX idx_outbox_record_status_created_id
+    ON outbox_record (status, created_at, id)
+    INCLUDE (partition_no, next_retry_at, record_key);
+
+IF NOT EXISTS(SELECT *
+              FROM sys.indexes
+              WHERE name = 'idx_outbox_record_key_completed_created_id'
+                AND object_id = OBJECT_ID('outbox_record'))
+CREATE INDEX idx_outbox_record_key_completed_created_id
+    ON outbox_record (record_key, completed_at, created_at, id);
+
+IF NOT EXISTS(SELECT *
+              FROM sys.indexes
+              WHERE name = 'idx_outbox_record_status_retry_partition'
+                AND object_id = OBJECT_ID('outbox_record'))
+CREATE INDEX idx_outbox_record_status_retry_partition
+    ON outbox_record (status, next_retry_at)
+    INCLUDE (partition_no);
+
+IF NOT EXISTS(SELECT *
+              FROM sys.indexes
+              WHERE name = 'idx_outbox_record_status_partition'
+                AND object_id = OBJECT_ID('outbox_record'))
+CREATE INDEX idx_outbox_record_status_partition
+    ON outbox_record (status, partition_no);
 
 IF NOT EXISTS(SELECT *
               FROM INFORMATION_SCHEMA.TABLES

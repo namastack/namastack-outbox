@@ -36,7 +36,10 @@ class OutboxRecordProcessingObservationContext(
     fun getRecordId(): String = record.id
 
     /** Returns the business key used for ordering the record. */
-    fun getRecordKey(): String = record.key
+    fun getRecordKey(): String = record.businessKey
+
+    /** Returns the persisted processing group sharing this business key's ordering boundary. */
+    fun getProcessingGroup(): String = record.processingGroup
 
     /**
      * Returns the current delivery attempt number, calculated as `failureCount + 1`.
