@@ -190,8 +190,8 @@ class OutboxEventMulticasterTest {
         }
 
         @Test
-        fun `should not publish to delegate when deprecated publishAfterSave is false`() {
-            val localProperties = OutboxProperties(processing = OutboxProperties.Processing(publishAfterSave = false))
+        fun `should not publish to delegate when multicaster publishAfterSave is false`() {
+            val localProperties = OutboxProperties(multicaster = OutboxProperties.Multicaster(publishAfterSave = false))
             val localMulticaster =
                 OutboxEventMulticaster(
                     outboxProvider = outboxProvider,

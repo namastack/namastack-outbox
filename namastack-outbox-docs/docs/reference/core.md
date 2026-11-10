@@ -167,10 +167,10 @@ records that require new payload classes or handlers.
 namastack:
   outbox:
     instance:
-      heartbeat-interval-seconds: 5            # How often each instance sends a heartbeat
-      stale-instance-timeout-seconds: 30       # When an instance is considered stale and removed
-      graceful-shutdown-timeout-seconds: 0     # Optional: propagation window on shutdown (default: 0)
-      rebalance-interval: 10000                # How often partitions are recalculated
+      heartbeat-interval: 5s            # How often each instance sends a heartbeat
+      stale-instance-timeout: 30s       # When an instance is considered stale and removed
+      graceful-shutdown-timeout: 0s     # Optional: propagation window on shutdown (default: 0)
+      rebalance-interval: 10s                # How often partitions are recalculated
 ```
 
 <Tabs>

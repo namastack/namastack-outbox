@@ -26,14 +26,14 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Verifies that:
  * - Shutdown waits for the current processing cycle to complete
  * - Records being processed are fully handled before shutdown completes
- * - The shutdownTimeoutSeconds property is respected
+ * - The shutdownTimeout property is respected
  */
 @OutboxIntegrationTest
 @Import(GracefulShutdownIntegrationTest.SlowTestHandler::class)
 @TestPropertySource(
     properties = [
         "namastack.outbox.polling.fixed.interval=100",
-        "namastack.outbox.processing.shutdown-timeout-seconds=10",
+        "namastack.outbox.processing.shutdown-timeout=10s",
     ],
 )
 class GracefulShutdownIntegrationTest {

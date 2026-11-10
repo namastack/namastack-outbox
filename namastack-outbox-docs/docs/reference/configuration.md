@@ -25,14 +25,10 @@ namastack:
       adaptive:
         min-interval: 1s                       # Minimum interval between cycles, at least 1ms (default: 1s)
         max-interval: 8s                       # Maximum ms between cycles (default: 8s)
-    # Legacy (deprecated)
-    poll-interval: 2s                          # (deprecated) Use polling.fixed.interval
-    rebalance-interval: 10s                    # (deprecated) Use instance.rebalance-interval
-    batch-size: 10                             # (deprecated) Use polling.batch-size
 
     # Processing Groups (since 1.12.0)
     processing-groups:
-      enabled: false                          # Use declared groups for new deliveries (default: false)
+      enabled: false                           # Use declared groups for new deliveries (default: false)
 
     # Processing Configuration
     processing:
@@ -41,7 +37,6 @@ namastack:
       executor-core-pool-size: 4               # Core threads for processing (default: 4, platform threads)
       executor-max-pool-size: 8                # Maximum threads for processing (default: 8, platform threads)
       executor-concurrency-limit: -1           # Concurrency limit for virtual threads (default: -1 unlimited)
-      shutdown-timeout-seconds: 30             # (deprecated) Use shutdown-timeout
       shutdown-timeout: 30s                    # Maximum time to wait for processing to complete during shutdown (default: 30s)
 
     # Event Multicaster Configuration
@@ -51,9 +46,6 @@ namastack:
 
     # Instance Coordination Configuration
     instance:
-      graceful-shutdown-timeout-seconds: 0     # (deprecated) Use graceful-shutdown-timeout
-      stale-instance-timeout-seconds: 30       # (deprecated) Use stale-instance-timeout
-      heartbeat-interval-seconds: 5            # (deprecated) Use heartbeat-interval
       graceful-shutdown-timeout: 0s            # Graceful shutdown propagation window (default: 0s)
       stale-instance-timeout: 30s              # When an instance is considered stale and removed (default: 30s)
       heartbeat-interval: 5s                   # How often each instance sends a heartbeat (default: 5s)

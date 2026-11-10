@@ -186,8 +186,6 @@ The following options control how records are processed:
 | `namastack.outbox.processing.executor-core-pool-size`    | `4`     | Core threads for processing (platform threads)                  |
 | `namastack.outbox.processing.executor-max-pool-size`     | `8`     | Maximum threads for processing (platform threads)               |
 | `namastack.outbox.processing.executor-concurrency-limit` | `-1`    | Concurrency limit for virtual threads (`-1` unlimited)          |
-| `namastack.outbox.processing.shutdown-timeout-seconds`   | `30`    | (deprecated) Use `shutdown-timeout`                             |
 | `namastack.outbox.processing.shutdown-timeout`           | `30s`   | Maximum time to wait for processing to complete during shutdown |
 
-- `shutdown-timeout-seconds` is deprecated and will be removed in a future release. Use `shutdown-timeout` instead.
 - Both options control the maximum time the system will wait for in-flight processing to complete during a graceful shutdown.

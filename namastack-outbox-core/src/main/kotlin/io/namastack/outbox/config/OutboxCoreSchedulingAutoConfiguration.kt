@@ -53,7 +53,7 @@ class OutboxCoreSchedulingAutoConfiguration {
             partitionAssignmentCache = partitionAssignmentCache,
             clock = clock,
             taskScheduler = taskScheduler,
-            rebalanceInterval = properties.effectiveRebalanceInterval,
+            rebalanceInterval = properties.instance.rebalanceInterval,
             observationRegistry = { observationRegistry.getIfAvailable { ObservationRegistry.NOOP } },
         )
     }

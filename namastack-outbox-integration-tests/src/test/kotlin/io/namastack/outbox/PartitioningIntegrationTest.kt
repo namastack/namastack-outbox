@@ -148,9 +148,9 @@ class PartitioningIntegrationTest {
                 settings =
                     OutboxRuntimeSettings.Instance(
                         rebalanceInterval = outboxProperties.instance.rebalanceInterval,
-                        heartbeatInterval = outboxProperties.instance.effectiveHeartbeatInterval,
-                        staleInstanceTimeout = outboxProperties.instance.effectiveStaleInstanceTimeout,
-                        gracefulShutdownTimeout = outboxProperties.instance.effectiveGracefulShutdownTimeout,
+                        heartbeatInterval = outboxProperties.instance.heartbeatInterval,
+                        staleInstanceTimeout = outboxProperties.instance.staleInstanceTimeout,
+                        gracefulShutdownTimeout = outboxProperties.instance.gracefulShutdownTimeout,
                     ),
                 clock = clock,
                 taskScheduler = taskScheduler,
@@ -170,7 +170,7 @@ class PartitioningIntegrationTest {
             partitionAssignmentCache = partitionAssignmentCache,
             clock = Clock.systemDefaultZone(),
             taskScheduler = taskScheduler,
-            rebalanceInterval = outboxProperties.effectiveRebalanceInterval,
+            rebalanceInterval = outboxProperties.instance.rebalanceInterval,
             observationRegistry = { ObservationRegistry.NOOP },
         )
     }
