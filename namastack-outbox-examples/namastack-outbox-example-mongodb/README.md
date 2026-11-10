@@ -28,7 +28,7 @@ This configuration results in collection names like:
 You can start one with Docker:
 
 ```bash
-docker run -d --name mongodb -p 27017:27017 mongo:8
+docker run -d --name mongodb -p 27017:27017 mongo:9.0.4
 ```
 
 ## Running the Example
