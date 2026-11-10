@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version of an existing release tag, without v (for example 1.11.1)
+        description: Version without v (for example 1.11.1 or 2.0.0-RC1)
         required: true
         type: string
       dry_run:
@@ -35,8 +35,11 @@ jobs:
       - name: Validate version input
         shell: bash
         run: |
-          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "Expected a stable release version such as 1.11.1" >&2
+          numeric_id='(0|[1-9][0-9]*)'
+          prerelease_id='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+          version_pattern="^$numeric_id\.$numeric_id\.$numeric_id(-$prerelease_id(\.$prerelease_id)*)?$"
+          if [[ ! "$RELEASE_VERSION" =~ $version_pattern || "$RELEASE_VERSION" == *-SNAPSHOT ]]; then
+            echo "Expected a release version such as 1.11.1 or 2.0.0-RC1" >&2
             exit 1
           fi
 
@@ -111,12 +114,17 @@ jobs:
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
         run: |
-          gh release create "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "Namastack Outbox $RELEASE_TAG" \
-            --generate-notes \
-            --verify-tag \
+          release_args=(
+            --repo "$GITHUB_REPOSITORY"
+            --title "Namastack Outbox $RELEASE_TAG"
+            --generate-notes
+            --verify-tag
             --fail-on-no-commits
+          )
+          if [[ "$RELEASE_VERSION" == *-* ]]; then
+            release_args+=(--prerelease --latest=false)
+          fi
+          gh release create "$RELEASE_TAG" "${release_args[@]}"
 
       - name: Summarize result
         env:
