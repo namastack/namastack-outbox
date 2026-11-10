@@ -14,7 +14,6 @@ updates:
       - "/namastack-outbox-examples/namastack-outbox-example-annotation"
       - "/namastack-outbox-examples/namastack-outbox-example-fallback"
       - "/namastack-outbox-examples/namastack-outbox-example-flyway-jdbc"
-      - "/namastack-outbox-examples/namastack-outbox-example-flyway-jpa"
       - "/namastack-outbox-examples/namastack-outbox-example-h2"
       - "/namastack-outbox-examples/namastack-outbox-example-java"
       - "/namastack-outbox-examples/namastack-outbox-example-jdbc"
@@ -33,7 +32,6 @@ updates:
       - "/namastack-outbox-examples/namastack-outbox-example-sns-java"
       - "/namastack-outbox-examples/namastack-outbox-example-sqlserver"
       - "/namastack-outbox-examples/namastack-outbox-example-table-prefix-jdbc"
-      - "/namastack-outbox-examples/namastack-outbox-example-table-prefix-jpa"
       - "/namastack-outbox-examples/namastack-outbox-example-tracing"
     schedule:
       interval: "daily"

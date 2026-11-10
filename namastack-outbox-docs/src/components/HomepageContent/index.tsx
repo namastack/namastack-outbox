@@ -52,7 +52,7 @@ export default function HomepageContent(): ReactNode {
             </div>
             <Heading as="h3">Built for Spring Boot</Heading>
             <p>
-              Use Java or Kotlin with JPA, JDBC, or MongoDB starters. Publish through ready-made
+              Use Java or Kotlin with JDBC or MongoDB starters. Publish through ready-made
               Kafka, RabbitMQ, and Amazon SNS integrations, or write a custom handler. Per-key
               ordering, partition-aware horizontal scaling, configurable retries, fallback handling,
               Micrometer metrics, and trace propagation cover the operational path from persistence

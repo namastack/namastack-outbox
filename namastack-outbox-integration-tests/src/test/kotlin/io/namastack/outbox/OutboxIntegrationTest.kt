@@ -1,5 +1,7 @@
 package io.namastack.outbox
 
+import io.namastack.outbox.config.JdbcOutboxAutoConfiguration
+import io.namastack.outbox.config.JdbcOutboxSchemaAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
@@ -9,21 +11,21 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration
 import org.springframework.boot.autoconfigure.task.TaskSchedulingAutoConfiguration
 import org.springframework.boot.context.properties.EnableConfigurationProperties
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
+import org.springframework.boot.jdbc.test.autoconfigure.JdbcTest
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD
 
 /**
- * Annotation for integration tests that use JPA with the Outbox framework.
+ * Annotation for integration tests that use JDBC persistence and transactions with the Outbox framework.
  *
  * Provides common test configuration:
- * - JPA testing with DataJpaTest
+ * - JDBC testing with JdbcTest
  * - Automatic context reloading with DirtiesContext
- * - Auto-configuration for Jackson, Outbox Core, JPA, and Jackson modules
+ * - Auto-configuration for Outbox Core, JDBC persistence, and Jackson serialization
  * - Test processor component for handling records
  * - Outbox properties configuration
- * - Real database usage (not in-memory)
+ * - Configured DataSource usage (H2 by default)
  *
  * Apply this annotation to your integration test classes to inherit all configurations.
  *
@@ -32,7 +34,7 @@ import org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_EACH_T
  */
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
-@DataJpaTest(showSql = false)
+@JdbcTest
 @DirtiesContext(classMode = AFTER_EACH_TEST_METHOD)
 @ImportAutoConfiguration(
     TaskExecutionAutoConfiguration::class,
@@ -42,7 +44,8 @@ import org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_EACH_T
     OutboxCoreProcessingAutoConfiguration::class,
     OutboxCoreSchedulingAutoConfiguration::class,
     OutboxCoreMulticasterAutoConfiguration::class,
-    JpaOutboxAutoConfiguration::class,
+    JdbcOutboxAutoConfiguration::class,
+    JdbcOutboxSchemaAutoConfiguration::class,
     OutboxJacksonAutoConfiguration::class,
 )
 @EnableConfigurationProperties(OutboxProperties::class)

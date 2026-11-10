@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.concurrent.TimeUnit.SECONDS
 import io.namastack.outbox.handler.OutboxHandler as GenericOutboxHandler
 
-/** Exercises grouped fan-out through the real JPA repository, scheduler, and Spring handler proxies. */
+/** Exercises grouped fan-out through the real JDBC repository, scheduler, and Spring handler proxies. */
 @OutboxIntegrationTest
 @Import(
     ProcessingGroupIntegrationTest.InvoiceHandler::class,

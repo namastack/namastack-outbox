@@ -4,7 +4,6 @@ import io.namastack.outbox.handler.JavaLambdaOutboxHandlerFactory
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.registry.OutboxHandlerRegistry
-import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
@@ -16,6 +15,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
@@ -30,7 +30,7 @@ class JavaLambdaHandlerIntegrationTest {
     private lateinit var transactionTemplate: TransactionTemplate
 
     @Autowired
-    private lateinit var entityManager: EntityManager
+    private lateinit var jdbcClient: JdbcClient
 
     @Autowired
     private lateinit var recordRepository: OutboxRecordRepository
@@ -53,11 +53,9 @@ class JavaLambdaHandlerIntegrationTest {
     @AfterEach
     fun cleanup() {
         transactionTemplate.executeWithoutResult {
-            entityManager.createQuery("DELETE FROM OutboxRecordEntity").executeUpdate()
-            entityManager.createQuery("DELETE FROM OutboxInstanceEntity").executeUpdate()
-            entityManager.createQuery("DELETE FROM OutboxPartitionAssignmentEntity").executeUpdate()
-            entityManager.flush()
-            entityManager.clear()
+            jdbcClient.sql("DELETE FROM outbox_record").update()
+            jdbcClient.sql("DELETE FROM outbox_instance").update()
+            jdbcClient.sql("DELETE FROM outbox_partition").update()
         }
     }
 

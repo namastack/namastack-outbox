@@ -59,7 +59,7 @@ Namastack Outbox handles these concerns as part of your Spring Boot application.
 * **Horizontal scaling** — automatic partitioning and rebalancing across application instances
 * **Observability** — metrics, Actuator integration and distributed tracing
 * **Context propagation** — preserve tracing, tenant and correlation information
-* **Flexible persistence** — JDBC, JPA/Hibernate and MongoDB
+* **Flexible persistence** — JDBC for relational databases and MongoDB
 * **Messaging integrations** — Kafka, RabbitMQ and AWS SNS
 * **Spring Modulith integration** — production-grade event externalization using the transactional outbox pattern
 
@@ -146,3 +146,6 @@ and documentation.
 ## License
 
 Namastack Outbox is licensed under the [Apache License 2.0](LICENSE).
+
+Applications using Spring Data JPA use the JDBC outbox starter with their existing JPA transaction
+manager and DataSource.

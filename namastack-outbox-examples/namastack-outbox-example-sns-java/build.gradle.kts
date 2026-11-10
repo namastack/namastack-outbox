@@ -23,9 +23,8 @@ dependencies {
     implementation(platform(libs.namastack.outbox.bom))
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.springframework.boot:spring-boot-flyway")
     implementation("io.awspring.cloud:spring-cloud-aws-starter-sns:4.2.1")
-    implementation("io.namastack:namastack-outbox-starter-jpa")
+    implementation("io.namastack:namastack-outbox-starter-jdbc")
     implementation("io.namastack:namastack-outbox-sns")
     runtimeOnly("com.h2database:h2")
 
@@ -33,7 +32,6 @@ dependencies {
     testImplementation(platform(libs.testcontainers.bom))
     testImplementation("org.testcontainers:testcontainers-localstack")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
-    testImplementation("org.awaitility:awaitility:4.3.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

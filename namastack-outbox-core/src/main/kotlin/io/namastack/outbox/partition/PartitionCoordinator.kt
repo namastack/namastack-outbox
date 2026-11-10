@@ -174,8 +174,7 @@ class PartitionCoordinator(
      * If another instance bootstraps concurrently, failures are silently ignored.
      *
      * Note: If a DataIntegrityViolationException occurs (e.g. due to unique constraint violation),
-     * this is expected behavior and will be handled silently. However, Hibernate's SqlExceptionHelper
-     * will log an error statement in this case, which cannot be suppressed.
+     * this is expected behavior and will be handled silently.
      */
     private fun bootstrapPartitions() {
         val partitionAssignments = createInitialPartitionAssignments()

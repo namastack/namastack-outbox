@@ -3,13 +3,13 @@ package io.namastack.outbox
 import io.namastack.outbox.annotation.OutboxHandler
 import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxRecordMetadata
-import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.context.annotation.Import
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Component
 import org.springframework.test.context.TestPropertySource
 import org.springframework.transaction.annotation.Propagation
@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.concurrent.TimeUnit.SECONDS
 import io.namastack.outbox.handler.OutboxHandler as GenericOutboxHandler
 
-/** Different payload types share one persisted group/key boundary through real workers and JPA. */
+/** Different payload types share one persisted group/key boundary through real workers and JDBC. */
 @OutboxIntegrationTest
 @Import(
     ProcessingGroupEventTypesIntegrationTest.BillingHandlers::class,
@@ -47,7 +47,7 @@ class ProcessingGroupEventTypesIntegrationTest {
     private lateinit var transactions: TransactionTemplate
 
     @Autowired
-    private lateinit var entityManager: EntityManager
+    private lateinit var jdbcClient: JdbcClient
 
     @Autowired
     private lateinit var probe: Probe
@@ -104,10 +104,10 @@ class ProcessingGroupEventTypesIntegrationTest {
 
     private fun makeRetryDue(recordId: String) {
         transactions.executeWithoutResult {
-            entityManager
-                .createNativeQuery("UPDATE outbox_record SET next_retry_at = created_at WHERE id = :id")
-                .setParameter("id", recordId)
-                .executeUpdate()
+            jdbcClient
+                .sql("UPDATE outbox_record SET next_retry_at = created_at WHERE id = :id")
+                .param("id", recordId)
+                .update()
         }
     }
 
