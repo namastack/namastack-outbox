@@ -553,25 +553,6 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
-        fun `process respects batch size deprecated configuration`() {
-            properties.polling.batchSize = 100
-            properties.batchSize = 50
-            recreateStartedScheduler()
-
-            prepareFindRecordKeysInPartitions(emptyList())
-
-            scheduler.process()
-
-            verify {
-                recordRepository.findRecordKeysInPartitions(
-                    partitions = any(),
-                    batchSize = 50,
-                    ignoreRecordKeysWithPreviousFailure = any(),
-                )
-            }
-        }
-
-        @Test
         fun `process passes stopOnFirstFailure flag to repository`() {
             properties.processing.stopOnFirstFailure = true
             recreateStartedScheduler()

@@ -440,27 +440,9 @@ class OutboxCoreAutoConfigurationTest {
                     assertThat(context).hasNotFailed()
                     assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
                     val properties = context.getBean<OutboxProperties>()
-                    assertThat(properties.instance.effectiveStaleInstanceTimeout.seconds).isEqualTo(60)
-                    assertThat(properties.instance.effectiveHeartbeatInterval.toMinutes()).isEqualTo(60)
-                    assertThat(properties.instance.effectiveGracefulShutdownTimeout.toMillis()).isEqualTo(500)
-                }
-        }
-
-        @Test
-        fun `applies deprecated instance configuration properties`() {
-            contextRunner
-                .withUserConfiguration(MinimalTestConfig::class.java)
-                .withPropertyValues(
-                    "namastack.outbox.instance.stale-instance-timeout-seconds=1",
-                    "namastack.outbox.instance.heartbeat-interval-seconds=1",
-                    "namastack.outbox.instance.graceful-shutdown-timeout-seconds=1",
-                ).run { context ->
-                    assertThat(context).hasNotFailed()
-                    assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
-                    val properties = context.getBean<OutboxProperties>()
-                    assertThat(properties.instance.effectiveStaleInstanceTimeout.seconds).isEqualTo(1)
-                    assertThat(properties.instance.effectiveHeartbeatInterval.seconds).isEqualTo(1)
-                    assertThat(properties.instance.effectiveGracefulShutdownTimeout.seconds).isEqualTo(1)
+                    assertThat(properties.instance.staleInstanceTimeout.seconds).isEqualTo(60)
+                    assertThat(properties.instance.heartbeatInterval.toMinutes()).isEqualTo(60)
+                    assertThat(properties.instance.gracefulShutdownTimeout.toMillis()).isEqualTo(500)
                 }
         }
 
@@ -474,21 +456,7 @@ class OutboxCoreAutoConfigurationTest {
                     assertThat(context).hasNotFailed()
                     assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
                     val properties = context.getBean<OutboxProperties>()
-                    assertThat(properties.processing.effectiveShutdownTimeout.toMillis()).isEqualTo(500)
-                }
-        }
-
-        @Test
-        fun `applies deprecated shutdown timeout configuration property`() {
-            contextRunner
-                .withUserConfiguration(MinimalTestConfig::class.java)
-                .withPropertyValues(
-                    "namastack.outbox.processing.shutdown-timeout-seconds=1",
-                ).run { context ->
-                    assertThat(context).hasNotFailed()
-                    assertThat(context).hasSingleBean(OutboxInstanceRegistry::class.java)
-                    val properties = context.getBean<OutboxProperties>()
-                    assertThat(properties.processing.effectiveShutdownTimeout.seconds).isEqualTo(1)
+                    assertThat(properties.processing.shutdownTimeout.toMillis()).isEqualTo(500)
                 }
         }
     }
@@ -668,7 +636,7 @@ class OutboxCoreAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .withPropertyValues(
-                    "namastack.outbox.poll-interval=4000",
+                    "namastack.outbox.polling.fixed.interval=4000ms",
                 ).run { context ->
                     assertThat(context).hasSingleBean(OutboxPollingTrigger::class.java)
                     val trigger = context.getBean<OutboxPollingTrigger>()

@@ -3,16 +3,15 @@ package io.namastack.outbox.runtime
 import io.namastack.outbox.OutboxProperties
 
 /** Converts Spring-bound properties into effective immutable runtime settings. */
-@Suppress("DEPRECATION")
 internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
     OutboxRuntimeSettings(
         polling =
             OutboxRuntimeSettings.Polling(
-                batchSize = batchSize ?: polling.batchSize,
+                batchSize = polling.batchSize,
                 trigger = polling.trigger.toPollingTrigger(),
                 fixed =
                     OutboxRuntimeSettings.FixedPolling(
-                        interval = pollInterval ?: polling.fixed.interval,
+                        interval = polling.fixed.interval,
                     ),
                 adaptive =
                     OutboxRuntimeSettings.AdaptivePolling(
@@ -29,19 +28,19 @@ internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
                 executorCorePoolSize = processing.executorCorePoolSize,
                 executorMaxPoolSize = processing.executorMaxPoolSize,
                 executorConcurrencyLimit = processing.executorConcurrencyLimit,
-                shutdownTimeout = processing.effectiveShutdownTimeout,
+                shutdownTimeout = processing.shutdownTimeout,
             ),
         instance =
             OutboxRuntimeSettings.Instance(
-                heartbeatInterval = instance.effectiveHeartbeatInterval,
-                staleInstanceTimeout = instance.effectiveStaleInstanceTimeout,
-                gracefulShutdownTimeout = instance.effectiveGracefulShutdownTimeout,
-                rebalanceInterval = rebalanceInterval ?: instance.rebalanceInterval,
+                heartbeatInterval = instance.heartbeatInterval,
+                staleInstanceTimeout = instance.staleInstanceTimeout,
+                gracefulShutdownTimeout = instance.gracefulShutdownTimeout,
+                rebalanceInterval = instance.rebalanceInterval,
             ),
         multicaster =
             OutboxRuntimeSettings.Multicaster(
                 enabled = multicaster.enabled,
-                publishAfterSave = processing.publishAfterSave ?: multicaster.publishAfterSave,
+                publishAfterSave = multicaster.publishAfterSave,
             ),
     )
 
