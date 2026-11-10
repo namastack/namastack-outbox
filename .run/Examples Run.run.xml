@@ -3,7 +3,6 @@
     <toRun name="DemoApplication Annotation" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Fallback" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Flyway JDBC" type="SpringBootApplicationConfigurationType" />
-    <toRun name="DemoApplication Flyway JPA" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication H2" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication JDBC" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Java" type="SpringBootApplicationConfigurationType" />
@@ -21,7 +20,6 @@
     <toRun name="DemoApplication SNS" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication SNS &amp; Java" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Table Prefix JDBC" type="SpringBootApplicationConfigurationType" />
-    <toRun name="DemoApplication Table Prefix JPA" type="SpringBootApplicationConfigurationType" />
     <toRun name="DemoApplication Tracing" type="SpringBootApplicationConfigurationType" />
     <method v="2" />
   </configuration>

@@ -52,7 +52,6 @@ jobs:
           - namastack-outbox-example-annotation
           - namastack-outbox-example-fallback
           - namastack-outbox-example-flyway-jdbc
-          - namastack-outbox-example-flyway-jpa
           - namastack-outbox-example-h2
           - namastack-outbox-example-java
           - namastack-outbox-example-jdbc
@@ -72,7 +71,6 @@ jobs:
           - namastack-outbox-example-sns-java
           - namastack-outbox-example-sqlserver
           - namastack-outbox-example-table-prefix-jdbc
-          - namastack-outbox-example-table-prefix-jpa
           - namastack-outbox-example-tracing
 
     steps:

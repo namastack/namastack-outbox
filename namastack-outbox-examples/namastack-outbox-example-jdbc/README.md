@@ -20,9 +20,9 @@ This example demonstrates the basic usage of the Namastack Outbox pattern with t
 - **GenericOutboxHandler**: Generic handler that processes any payload type
 - **H2 Database**: In-memory database for quick setup without external dependencies
 
-## Key Differences from JPA Example
+## Key Differences from the H2 JPA Business Entity Example
 
-- Uses `namastack-outbox-starter-jdbc` instead of `namastack-outbox-starter-jpa`
+- Both examples use `namastack-outbox-starter-jdbc`; this example also uses JDBC for business data
 - No JPA entities - plain Kotlin data classes
 - Custom JDBC repository using `JdbcTemplate`
 - Uses `@Transactional` from Spring's transaction support

@@ -33,7 +33,7 @@ dependencies {
     implementation("org.springframework.modulith:spring-modulith-events-kafka")
     implementation("org.springframework.modulith:spring-modulith-starter-insight")
     implementation("org.springframework.modulith:spring-modulith-starter-namastack")
-    implementation("io.namastack:namastack-outbox-starter-jpa")
+    implementation("io.namastack:namastack-outbox-starter-jdbc")
     implementation("io.namastack:namastack-outbox-observability")
     runtimeOnly("com.h2database:h2")
     testImplementation("org.springframework.boot:spring-boot-starter-test")

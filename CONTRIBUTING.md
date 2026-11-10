@@ -72,7 +72,6 @@ By participating in this project, you agree to maintain a respectful and inclusi
 namastack-outbox/
 ├── namastack-outbox-api/               # Public API interfaces and annotations
 ├── namastack-outbox-core/              # Core implementation
-├── namastack-outbox-jpa/               # JPA/Hibernate persistence module
 ├── namastack-outbox-jdbc/              # JDBC persistence module
 ├── namastack-outbox-jackson/           # Jackson serialization support
 ├── namastack-outbox-kafka/             # Apache Kafka integration
@@ -81,7 +80,6 @@ namastack-outbox/
 ├── namastack-outbox-observability-api/ # Micrometer Observation documentation
 ├── namastack-outbox-metrics/           # Micrometer metrics support
 ├── namastack-outbox-tracing/           # Micrometer tracing support
-├── namastack-outbox-starter-jpa/       # JPA starter (convenience dependency)
 ├── namastack-outbox-starter-jdbc/      # JDBC starter (convenience dependency)
 ├── namastack-outbox-integration-tests/ # Integration tests
 ├── namastack-outbox-examples/          # Example applications
