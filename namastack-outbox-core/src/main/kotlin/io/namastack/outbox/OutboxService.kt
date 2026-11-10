@@ -12,8 +12,9 @@ import io.namastack.outbox.processing.OutboxRecordKey
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 import java.time.Instant
-import java.util.UUID
 import kotlin.reflect.KClass
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Service for scheduling outbox records with intelligent handler discovery.
@@ -284,7 +285,7 @@ class OutboxService(
      *
      * ## Processing Behavior
      *
-     * 1. Generates UUID key via `UUID.randomUUID().toString()`
+     * 1. Generates UUID key via `Uuid.generateV7().toString()`
      * 2. Collects global context from all registered providers
      * 3. Merges global context with additional context
      * 4. Creates separate record for each applicable handler
@@ -344,13 +345,14 @@ class OutboxService(
      *
      * @see schedule(payload: Any, key: String, additionalContext: Map<String, String>)
      */
+    @OptIn(ExperimentalUuidApi::class)
     override fun schedule(
         payload: Any,
         additionalContext: Map<String, String>,
     ) {
         scheduleInstrumented(
             payload = payload,
-            key = UUID.randomUUID().toString(),
+            key = Uuid.generateV7().toString(),
             additionalContext = additionalContext,
             instrumentationKey = "auto-generated",
         )
@@ -382,7 +384,7 @@ class OutboxService(
      *
      * ## Processing Behavior
      *
-     * 1. Generates UUID key via `UUID.randomUUID().toString()`
+     * 1. Generates UUID key via `Uuid.generateV7().toString()`
      * 2. Collects global context from all registered providers
      * 3. Merges global context with additional context
      * 4. Creates separate record for each applicable handler

@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+
 package io.namastack.outbox.scheduling
 
 import io.namastack.outbox.Outbox
@@ -18,13 +20,13 @@ import org.springframework.context.annotation.Import
 import org.springframework.stereotype.Component
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.transaction.support.TransactionTemplate
-import java.util.UUID
 import java.util.concurrent.BrokenBarrierException
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import kotlin.uuid.Uuid
 
 @DirtiesContext
 @TestInstance(PER_CLASS)
@@ -48,7 +50,7 @@ abstract class AbstractJdbcConcurrentSchedulingTest {
 
     @Test
     fun `concurrent scheduling in open transactions does not deadlock`() {
-        val keys = List(CONCURRENT_TRANSACTIONS) { UUID.randomUUID().toString() }
+        val keys = List(CONCURRENT_TRANSACTIONS) { Uuid.generateV7().toString() }
         val start = CyclicBarrier(CONCURRENT_TRANSACTIONS)
         val scheduled = CyclicBarrier(CONCURRENT_TRANSACTIONS)
         val executor = Executors.newFixedThreadPool(CONCURRENT_TRANSACTIONS)

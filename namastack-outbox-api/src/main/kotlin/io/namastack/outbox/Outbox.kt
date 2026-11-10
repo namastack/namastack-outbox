@@ -259,7 +259,7 @@ interface Outbox {
      *
      * ## Processing Behavior
      *
-     * 1. Generates UUID key via `UUID.randomUUID().toString()`
+     * 1. Generates UUID key via `Uuid.generateV7().toString()`
      * 2. Collects global context from all registered providers
      * 3. Merges global context with additional context
      * 4. Creates separate record for each applicable handler
@@ -343,7 +343,7 @@ interface Outbox {
      *
      * ## Processing Behavior
      *
-     * 1. Generates UUID key via `UUID.randomUUID().toString()`
+     * 1. Generates UUID key via `Uuid.generateV7().toString()`
      * 2. Collects global context from all registered providers
      * 3. Creates separate record for each applicable handler
      * 4. Persists atomically within the current transaction

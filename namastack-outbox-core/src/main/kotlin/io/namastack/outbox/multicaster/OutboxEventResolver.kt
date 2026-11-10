@@ -8,8 +8,9 @@ import org.springframework.expression.Expression
 import org.springframework.expression.spel.standard.SpelExpressionParser
 import org.springframework.expression.spel.support.StandardEvaluationContext
 import org.springframework.transaction.support.TransactionSynchronizationManager
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Resolves Spring application events into the scheduling values defined by [OutboxEvent].
@@ -36,6 +37,7 @@ object OutboxEventResolver {
      * @throws IllegalStateException if an outbox event is published without an active transaction
      * @throws IllegalArgumentException if a key or context expression cannot be resolved to a string
      */
+    @OptIn(ExperimentalUuidApi::class)
     fun resolve(event: ApplicationEvent): ResolvedOutboxEvent? {
         if (event !is PayloadApplicationEvent<*>) return null
 
@@ -47,7 +49,7 @@ object OutboxEventResolver {
 
         return ResolvedOutboxEvent(
             payload = event.payload,
-            key = resolveEventKey(event.payload, annotation) ?: UUID.randomUUID().toString(),
+            key = resolveEventKey(event.payload, annotation) ?: Uuid.generateV7().toString(),
             context = resolveContext(event.payload, annotation) ?: emptyMap(),
         )
     }

@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+
 package io.namastack.outbox
 
 import io.mockk.every
@@ -8,7 +10,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.time.Clock
 import java.time.Instant
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 class MongoOutboxRecordEntityMapperTest {
     @Test
@@ -151,7 +153,7 @@ class MongoOutboxRecordEntityMapperTest {
         val context = mapOf("traceId" to "123")
         val record =
             OutboxRecord.restore(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.generateV7().toString(),
                 recordKey = "key",
                 payload = payload,
                 context = context,
@@ -182,7 +184,7 @@ class MongoOutboxRecordEntityMapperTest {
     fun `maps entity to domain record`() {
         val entity =
             MongoOutboxRecordEntity(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.generateV7().toString(),
                 status = OutboxRecordStatus.NEW,
                 recordKey = "key",
                 recordType = String::class.java.name,

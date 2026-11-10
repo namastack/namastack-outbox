@@ -265,7 +265,7 @@ class OutboxEventMulticasterTest {
         }
 
         @Test
-        fun `should generate UUID when key annotation is empty`() {
+        fun `should generate UUIDv7 when key annotation is empty`() {
             val event = PayloadApplicationEvent(this, EmptyKeyEvent(id = "agg-1"))
 
             eventMulticaster.multicastEvent(event)
@@ -273,8 +273,9 @@ class OutboxEventMulticasterTest {
             val keySlot = slot<String>()
             verify(exactly = 1) { outbox.schedule(any(), capture(keySlot), any()) }
 
-            // Verify it's a UUID format (simple check)
-            assertThat(keySlot.captured).matches("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+            // Verify the UUIDv7 version and IETF variant.
+            assertThat(keySlot.captured)
+                .matches("^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
         }
 
         @Test

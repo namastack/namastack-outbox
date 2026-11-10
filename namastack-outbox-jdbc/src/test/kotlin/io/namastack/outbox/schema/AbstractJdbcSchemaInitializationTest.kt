@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+
 package io.namastack.outbox.schema
 
 import io.namastack.outbox.Outbox
@@ -22,9 +24,9 @@ import org.springframework.test.annotation.DirtiesContext
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 import java.time.temporal.ChronoUnit.SECONDS
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
+import kotlin.uuid.Uuid
 
 @DirtiesContext
 @TestInstance(PER_CLASS)
@@ -69,8 +71,8 @@ abstract class AbstractJdbcSchemaInitializationTest {
         transactionTemplate.executeWithoutResult {
             outboxRecordRepository.save(
                 OutboxRecord.restore(
-                    id = UUID.randomUUID().toString(),
-                    recordKey = UUID.randomUUID().toString(),
+                    id = Uuid.generateV7().toString(),
+                    recordKey = Uuid.generateV7().toString(),
                     payload = "payload",
                     context = emptyMap(),
                     partition = AGE_QUERY_PARTITION,

@@ -21,6 +21,7 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.UUID
 
 @DisplayName("OutboxInstanceRegistry")
 class OutboxInstanceRegistryTest {
@@ -69,7 +70,7 @@ class OutboxInstanceRegistryTest {
 
             verify(exactly = 1) { instanceRepository.save(any()) }
             assertThat(registry.isRunning()).isTrue()
-            assertThat(registry.getCurrentInstanceId()).isNotNull()
+            assertThat(UUID.fromString(registry.getCurrentInstanceId()).version()).isEqualTo(7)
         }
 
         @Test
@@ -113,7 +114,7 @@ class OutboxInstanceRegistryTest {
             registry.registerInstance()
 
             verify(exactly = 1) { instanceRepository.save(any()) }
-            assertThat(registry.getCurrentInstanceId()).isNotNull()
+            assertThat(UUID.fromString(registry.getCurrentInstanceId()).version()).isEqualTo(7)
         }
 
         @Test

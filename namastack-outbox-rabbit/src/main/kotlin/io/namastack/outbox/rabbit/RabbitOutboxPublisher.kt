@@ -7,10 +7,11 @@ import org.springframework.amqp.core.ReturnedMessage
 import org.springframework.amqp.rabbit.connection.CorrelationData
 import org.springframework.amqp.rabbit.core.RabbitOperations
 import java.time.Duration
-import java.util.UUID
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Publishes prepared outbox messages to RabbitMQ and waits for broker confirmation.
@@ -40,8 +41,9 @@ class RabbitOutboxPublisher(
      * not arrive before [confirmTimeout], sending fails, waiting is interrupted, or the message
      * is returned while [failOnUnroutable] is enabled
      */
+    @OptIn(ExperimentalUuidApi::class)
     fun publish(message: RabbitOutboxMessage) {
-        val correlationData = CorrelationData(UUID.randomUUID().toString())
+        val correlationData = CorrelationData(Uuid.generateV7().toString())
 
         try {
             send(message, correlationData)
