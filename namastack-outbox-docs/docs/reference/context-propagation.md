@@ -18,13 +18,13 @@ Context propagation preserves important metadata (trace IDs, tenant info, correl
 
 ## Tracing Context Propagation
 
-The `namastack-outbox-tracing` module provides **automatic, zero-configuration** trace propagation.
+The `namastack-outbox-observability` module provides **automatic, zero-configuration** trace propagation.
 No custom `OutboxContextProvider` bean is needed.
 
 :::info
 **See the Observability guide for full details.**
 
-For observations, tracing, and the zero-configuration tracing module, see the
+For observations, tracing, and automatic trace propagation, see the
 [Observability](observability.md#tracing) section.
 :::
 

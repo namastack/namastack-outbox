@@ -364,10 +364,8 @@ after a handler accepts the payload. When the framework invokes a handler to pro
 `recordId` is always populated. Route selectors and filters used during scheduling must therefore
 work without a record ID.
 
-Existing metadata constructors remain available and leave `recordId` unset. When manually invoking
-handlers in tests, pass `recordId` explicitly if the test needs the automatic idempotency fallback.
-Existing `copy()` calls retain the ID, and previously compiled Java and Kotlin constructor and copy
-calls remain supported.
+When manually invoking handlers in tests, pass `recordId` explicitly if the test needs the automatic
+idempotency fallback. Metadata `copy()` calls retain the ID.
 
 <Tabs>
 <TabItem value="kotlin" label="Kotlin">

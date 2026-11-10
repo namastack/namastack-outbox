@@ -31,13 +31,13 @@ internal class OutboxObservabilityTracingAutoConfiguration {
      * into outbox record context maps at scheduling time.
      *
      * Only activated when no other [OutboxContextProvider] of type
-     * [OutboxObservabilityTracingContextProvider] or the legacy
-     * `OutboxTracingContextProvider` is already present.
+     * [OutboxObservabilityTracingContextProvider] or named
+     * `outboxObservabilityTracingContextProvider` is already present.
      */
     @Bean
     @ConditionalOnMissingBean(
         value = [OutboxObservabilityTracingContextProvider::class],
-        name = ["outboxTracingContextProvider", "outboxObservabilityTracingContextProvider"],
+        name = ["outboxObservabilityTracingContextProvider"],
     )
     fun outboxObservabilityTracingContextProvider(
         tracer: Tracer,

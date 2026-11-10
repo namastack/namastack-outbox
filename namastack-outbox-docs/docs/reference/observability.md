@@ -22,16 +22,6 @@ Namastack Outbox. It provides:
 - instance and cluster gauges for operational state
 - one shared tag schema for metrics and traces
 
-:::warning Deprecated modules
-
-The old `namastack-outbox-metrics` and `namastack-outbox-tracing` modules are deprecated.
-Use `namastack-outbox-observability` for new applications.
-
-The legacy modules remain available for users who need the old metric names or tracing setup, but
-new features and metric naming improvements are provided by the observability module.
-
-:::
-
 ## Setup
 
 Add the observability module together with your outbox starter. If you want to export Prometheus
@@ -240,24 +230,6 @@ Once gauges are bound, a `MeterFilter` or `management.metrics.enable.*` setting 
 publication only and does not prevent background queries. To disable all state gauges and their
 database collection, set `namastack.outbox.observability.metrics.enabled=false`.
 Observation-based timers remain enabled.
-
-:::note Changed in 1.12.0
-
-State gauges previously queried the database during metric observation and returned zero on
-failure. They now expose background readings, which can lag behind the database, and report
-unknown values on failure or expiry. Existing metric names and tags are unchanged. Review
-alerts and dashboards that relied on immediate updates or zero values during database outages.
-Observation-based timers are unchanged.
-
-The infrastructure class `OutboxInstanceMetricsMeterBinder` has a new constructor. Applications
-using Spring Boot auto-configuration require no wiring changes. Code that directly instantiated
-this implementation must be updated; its former constructor is not binary-compatible. The
-outbox API and `OutboxInstrumentation` interface are unchanged. The repository SPI gains
-`countByStatuses`, which has a default implementation.
-
-`outbox.records` is published for `new` and `failed` by default.
-
-:::
 
 :::info Actuator endpoints
 
@@ -581,15 +553,3 @@ class CustomOutboxScheduleObservationConfig {
 
 Keep high-cardinality values out of low-cardinality tags to avoid excessive time series in metrics
 backends.
-
-## Legacy Metric Names
-
-The deprecated `namastack-outbox-metrics` module used older metric names such as:
-
-- `outbox.records.count`
-- `outbox.partitions.assigned.count`
-- `outbox.partitions.pending.records.total`
-- `outbox.partitions.pending.records.max`
-- `outbox.cluster.instances.total`
-
-New applications should use the canonical names from `namastack-outbox-observability` instead.
