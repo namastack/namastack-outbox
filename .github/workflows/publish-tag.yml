@@ -1,12 +1,18 @@
 name: Publish Existing Tag
+run-name: ${{ inputs.dry_run && 'Validate' || 'Publish' }} v${{ inputs.version }}
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version of an existing release tag, without v (for example 1.11.1)
+        description: Version without v (for example 1.11.1 or 2.0.0-RC1)
         required: true
         type: string
+      dry_run:
+        description: Validate the tagged release without publishing
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   actions: read
@@ -26,13 +32,20 @@ jobs:
       RELEASE_TAG: v${{ inputs.version }}
 
     steps:
-      - name: Validate version input
-        shell: bash
+      - name: Checkout release tooling
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Validate release tooling and version input
         run: |
-          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "Expected a stable release version such as 1.11.1" >&2
-            exit 1
-          fi
+          node --test scripts/*.test.mjs
+          node scripts/release-version.mjs validate "$RELEASE_VERSION"
+          # Older tags may not contain this helper. Keep the workflow tooling available.
+          cp scripts/release-version.mjs "$RUNNER_TEMP/release-version.mjs"
 
       - name: Checkout existing release tag
         uses: actions/checkout@v6
@@ -43,11 +56,7 @@ jobs:
       - name: Validate tagged version and release state
         shell: bash
         run: |
-          expected_version="$(scripts/current-version.sh)"
-          if [[ "$RELEASE_VERSION" != "$expected_version" ]]; then
-            echo "Tag version $RELEASE_VERSION does not match project version $expected_version" >&2
-            exit 1
-          fi
+          node "$RUNNER_TEMP/release-version.mjs" check "$RELEASE_VERSION" build.gradle.kts
 
           gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
             --jq '.[].tag_name' > "$RUNNER_TEMP/existing-release-tags"
@@ -93,6 +102,7 @@ jobs:
           fi
 
       - name: Publish to Maven Central
+        if: ${{ !inputs.dry_run }}
         env:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKey }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKeyId }}
@@ -102,10 +112,26 @@ jobs:
         run: ./gradlew publishToMavenCentral -Prelease=true --no-configuration-cache --no-daemon
 
       - name: Create GitHub Release
+        if: ${{ !inputs.dry_run }}
         run: |
-          gh release create "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "Namastack Outbox $RELEASE_TAG" \
-            --generate-notes \
-            --verify-tag \
+          release_args=(
+            --repo "$GITHUB_REPOSITORY"
+            --title "Namastack Outbox $RELEASE_TAG"
+            --generate-notes
+            --verify-tag
             --fail-on-no-commits
+          )
+          if [[ "$RELEASE_VERSION" == *-* ]]; then
+            release_args+=(--prerelease --latest=false)
+          fi
+          gh release create "$RELEASE_TAG" "${release_args[@]}"
+
+      - name: Summarize result
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "Validated $RELEASE_TAG ($RELEASE_COMMIT). Publication was skipped." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Published $RELEASE_TAG ($RELEASE_COMMIT)." >> "$GITHUB_STEP_SUMMARY"
+          fi
