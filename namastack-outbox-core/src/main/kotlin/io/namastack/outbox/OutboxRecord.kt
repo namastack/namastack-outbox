@@ -6,7 +6,8 @@ import io.namastack.outbox.processing.OutboxRecordKey
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.UUID
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Represents an outbox record for implementing the transactional outbox pattern.
@@ -234,11 +235,15 @@ class OutboxRecord<T> internal constructor(
         /**
          * Builds the OutboxRecord with the configured values.
          *
+         * Generates a UUIDv7 ID in the standard 36-character string format using system time.
+         * The supplied clock controls record timestamps independently of ID generation.
+         *
          * @param clock Clock to use for timestamps (defaults to system UTC)
          * @return A new OutboxRecord instance
          */
+        @OptIn(ExperimentalUuidApi::class)
         fun build(clock: Clock): OutboxRecord<T> {
-            val id = UUID.randomUUID().toString()
+            val id = Uuid.generateV7().toString()
             val rk = key ?: id
             val pl = payload ?: error("payload must be set")
             val ctx = context ?: emptyMap()

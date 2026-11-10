@@ -13,6 +13,7 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import java.time.temporal.ChronoUnit.MINUTES
+import java.util.UUID
 
 class OutboxRecordTest {
     private val clock = Clock.fixed(Instant.parse("2025-09-25T10:00:00Z"), ZoneOffset.UTC)
@@ -457,7 +458,7 @@ class OutboxRecordTest {
         }
 
         @Test
-        fun `should generate UUID as id on build`() {
+        fun `should generate UUIDv7 as id on build`() {
             val record =
                 OutboxRecord
                     .Builder<String>()
@@ -466,8 +467,36 @@ class OutboxRecordTest {
                     .handlerId("TestHandler#handle(java.lang.String)")
                     .build(clock)
 
-            assertThat(record.id).isNotEmpty()
+            val uuid = UUID.fromString(record.id)
+            assertThat(uuid.version()).isEqualTo(7)
+            assertThat(uuid.variant()).isEqualTo(2)
+            assertThat(record.id).hasSize(36).isEqualTo(uuid.toString())
             assertThat(record.id).isNotEqualTo("test-key")
+        }
+
+        @Test
+        fun `should generate unique ids in ascending order when record timestamps are equal`() {
+            val records =
+                List(1000) {
+                    OutboxRecord
+                        .Builder<String>()
+                        .key("test-key")
+                        .payload("test-payload")
+                        .handlerId("TestHandler#handle(java.lang.String)")
+                        .build(clock)
+                }
+
+            assertThat(records.map { it.createdAt }).containsOnly(now)
+            assertThat(records.map { it.id }).doesNotHaveDuplicates().isSorted()
+        }
+
+        @Test
+        fun `should preserve existing UUIDv4 ids when restoring records`() {
+            val existingId = "e6cbf036-bb7a-41fd-af56-5bfda75cc41b"
+
+            val record = outboxRecord(id = existingId)
+
+            assertThat(record.id).isEqualTo(existingId)
         }
 
         @Test
@@ -493,7 +522,7 @@ class OutboxRecordTest {
                     .handlerId("TestHandler#handle(java.lang.String)")
                     .build(clock)
 
-            assertThat(record.key).isNotEmpty()
+            assertThat(record.key).isEqualTo(record.id)
         }
 
         @Test
