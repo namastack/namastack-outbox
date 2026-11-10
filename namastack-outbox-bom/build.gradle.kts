@@ -13,7 +13,6 @@ dependencies {
         api(project(":namastack-outbox-jdbc"))
         api(project(":namastack-outbox-jpa"))
         api(project(":namastack-outbox-kafka"))
-        api(project(":namastack-outbox-metrics"))
         api(project(":namastack-outbox-mongodb"))
         api(project(":namastack-outbox-observability-api"))
         api(project(":namastack-outbox-observability"))
@@ -22,6 +21,5 @@ dependencies {
         api(project(":namastack-outbox-starter-jdbc"))
         api(project(":namastack-outbox-starter-jpa"))
         api(project(":namastack-outbox-starter-mongodb"))
-        api(project(":namastack-outbox-tracing"))
     }
 }

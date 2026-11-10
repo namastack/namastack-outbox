@@ -100,8 +100,7 @@ namastack-outbox/
 ├── namastack-outbox-rabbit/            # RabbitMQ integration
 ├── namastack-outbox-actuator/          # Spring Boot Actuator endpoints
 ├── namastack-outbox-observability-api/ # Micrometer Observation documentation
-├── namastack-outbox-metrics/           # Micrometer metrics support
-├── namastack-outbox-tracing/           # Micrometer tracing support
+├── namastack-outbox-observability/     # Micrometer metrics and tracing support
 ├── namastack-outbox-starter-jpa/       # JPA starter (convenience dependency)
 ├── namastack-outbox-starter-jdbc/      # JDBC starter (convenience dependency)
 ├── namastack-outbox-integration-tests/ # Integration tests

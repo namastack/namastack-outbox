@@ -3,6 +3,7 @@ package io.namastack.outbox.observability.tracing
 import io.micrometer.tracing.Tracer
 import io.micrometer.tracing.propagation.Propagator
 import io.mockk.mockk
+import io.namastack.outbox.context.OutboxContextProvider
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -42,12 +43,13 @@ class OutboxObservabilityTracingAutoConfigurationTest {
         }
 
         @Test
-        fun `backs off when legacy tracing context provider bean exists`() {
+        fun `creates provider when an unrelated context provider uses the old bean name`() {
             contextRunner
-                .withUserConfiguration(TracingBeansConfig::class.java, ExistingLegacyProviderConfig::class.java)
+                .withUserConfiguration(TracingBeansConfig::class.java, UnrelatedProviderConfig::class.java)
                 .run { context ->
                     assertThat(context).hasBean("outboxTracingContextProvider")
-                    assertThat(context).doesNotHaveBean("outboxObservabilityTracingContextProvider")
+                    assertThat(context).hasSingleBean(OutboxObservabilityTracingContextProvider::class.java)
+                    assertThat(context).hasBean("outboxObservabilityTracingContextProvider")
                 }
         }
     }
@@ -102,8 +104,8 @@ class OutboxObservabilityTracingAutoConfigurationTest {
     }
 
     @Configuration
-    class ExistingLegacyProviderConfig {
+    class UnrelatedProviderConfig {
         @Bean("outboxTracingContextProvider")
-        fun outboxTracingContextProvider(): OutboxObservabilityTracingContextProvider = mockk()
+        fun outboxTracingContextProvider(): OutboxContextProvider = mockk()
     }
 }

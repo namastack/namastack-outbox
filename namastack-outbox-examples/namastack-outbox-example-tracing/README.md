@@ -13,7 +13,7 @@ using OpenTelemetry and Micrometer Tracing.
 
 ## Key Components
 
-- **`namastack-outbox-tracing`**: Auto-configures everything — captures trace context at
+- **`namastack-outbox-observability`**: Auto-configures everything — captures trace context at
   scheduling time and restores it as a child span at processing time
 - **Grafana LGTM Stack**: For trace visualization (Loki, Grafana, Tempo, Mimir)
 
@@ -26,14 +26,14 @@ When scheduling an outbox record:
 outbox.schedule(payload, key)
 ```
 
-`OutboxTracingContextProvider` (auto-registered by `namastack-outbox-tracing`) automatically:
+`OutboxObservabilityTracingContextProvider` (auto-registered by `namastack-outbox-observability`) automatically:
 - Reads the current span context from the active Micrometer `Tracer`
 - Serializes it to W3C Trace Context format (`traceparent`, `tracestate`, `baggage`)
 - Stores it in the record's `context` map, which is persisted to the database
 
 ### 2. Trace Context Restoration (Consumer Side)
 
-When processing an outbox record, `namastack-outbox-tracing` automatically:
+When processing an outbox record, `namastack-outbox-observability` automatically:
 - Reads the W3C trace headers stored in `record.context`
 - Creates a child span linked to the original producer span via a Micrometer Observation
 - Attaches outbox-specific tags (`outbox.handler.kind`, `outbox.handler.id`, `outbox.record.id`,
@@ -96,7 +96,7 @@ A complete trace showing:
 3. **Database Transaction Span**: JPA/Hibernate operations
 4. **Outbox Schedule Span**: Record creation and context serialization
 5. **Async Barrier**: Trace headers stored in the database alongside the record
-6. **Outbox Process Span**: Child span restored automatically by `namastack-outbox-tracing`
+6. **Outbox Process Span**: Child span restored automatically by `namastack-outbox-observability`
 
 The trace demonstrates that despite the async boundary, the entire flow is connected.
 
