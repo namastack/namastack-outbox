@@ -23,7 +23,7 @@ namastack:
       fixed:
         interval: 2s                           # interval between polling cycles (default: 2s)
       adaptive:
-        min-interval: 1s                       # Minimum ms between cycles (default: 1s)
+        min-interval: 1s                       # Minimum interval between cycles, at least 1ms (default: 1s)
         max-interval: 8s                       # Maximum ms between cycles (default: 8s)
     # Legacy (deprecated)
     poll-interval: 2s                          # (deprecated) Use polling.fixed.interval

@@ -214,7 +214,7 @@ publication only and does not prevent background queries. To disable all state g
 database collection, set `namastack.outbox.observability.metrics.enabled=false`.
 Observation-based timers remain enabled.
 
-:::note Changed in 1.12.0
+:::note Changed in 1.11.1
 
 State gauges previously queried the database during metric observation and returned zero on
 failure. They now expose background readings, which can lag behind the database, and report

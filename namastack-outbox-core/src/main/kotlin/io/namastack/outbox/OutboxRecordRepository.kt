@@ -25,7 +25,7 @@ interface OutboxRecordRepository {
      *
      * @param record The new outbox record
      * @return The created outbox record
-     * @since 1.12.0
+     * @since 1.11.1
      */
     fun <T> create(record: OutboxRecord<T>): OutboxRecord<T>
 
@@ -34,7 +34,7 @@ interface OutboxRecordRepository {
      *
      * @param record The outbox record to update
      * @return `true` if the record was updated, `false` if it no longer exists
-     * @since 1.12.0
+     * @since 1.11.1
      */
     fun <T> update(record: OutboxRecord<T>): Boolean
 
