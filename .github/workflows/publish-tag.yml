@@ -1,4 +1,5 @@
 name: Publish Existing Tag
+run-name: ${{ inputs.dry_run && 'Validate' || 'Publish' }} v${{ inputs.version }}
 
 on:
   workflow_dispatch:
@@ -7,6 +8,11 @@ on:
         description: Version of an existing release tag, without v (for example 1.11.1)
         required: true
         type: string
+      dry_run:
+        description: Validate the tagged release without publishing
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   actions: read
@@ -93,6 +99,7 @@ jobs:
           fi
 
       - name: Publish to Maven Central
+        if: ${{ !inputs.dry_run }}
         env:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKey }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKeyId }}
@@ -102,6 +109,7 @@ jobs:
         run: ./gradlew publishToMavenCentral -Prelease=true --no-configuration-cache --no-daemon
 
       - name: Create GitHub Release
+        if: ${{ !inputs.dry_run }}
         run: |
           gh release create "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
@@ -109,3 +117,13 @@ jobs:
             --generate-notes \
             --verify-tag \
             --fail-on-no-commits
+
+      - name: Summarize result
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "Validated $RELEASE_TAG ($RELEASE_COMMIT). Publication was skipped." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Published $RELEASE_TAG ($RELEASE_COMMIT)." >> "$GITHUB_STEP_SUMMARY"
+          fi
