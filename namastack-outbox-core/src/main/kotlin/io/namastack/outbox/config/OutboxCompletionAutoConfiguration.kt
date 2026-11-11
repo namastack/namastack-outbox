@@ -81,7 +81,7 @@ class OutboxCompletionAutoConfiguration {
     ): OutboxCompletionBatcher =
         OutboxCompletionBatcher(
             executor = beanFactory.getBean<TaskExecutor>("outboxCompletionExecutor"),
-            shutdownTimeout = properties.processing.effectiveShutdownTimeout,
+            shutdownTimeout = properties.processing.shutdownTimeout,
             writer = writer,
             settings = properties.toRuntimeSettings().completionBatching,
         )
