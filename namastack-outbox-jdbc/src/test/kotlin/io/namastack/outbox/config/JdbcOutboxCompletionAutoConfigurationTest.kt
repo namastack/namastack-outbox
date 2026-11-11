@@ -1,5 +1,6 @@
 package io.namastack.outbox.config
 
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.DefaultJdbcTableNameResolver
@@ -20,6 +21,8 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.jdbc.datasource.DataSourceTransactionManager
 import org.springframework.jdbc.datasource.DriverManagerDataSource
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.SimpleTransactionStatus
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Duration
 import java.util.UUID
@@ -123,6 +126,33 @@ class JdbcOutboxCompletionAutoConfigurationTest {
                 assertThat(
                     applicationJdbc.queryForObject("SELECT COUNT(*) FROM outbox_record", Int::class.java),
                 ).isOne()
+            }
+    }
+
+    @Test
+    fun `completion writes fall back to the application datasource for a non JDBC transaction manager`() {
+        val dataSource =
+            DriverManagerDataSource("jdbc:h2:mem:completion-fallback-${UUID.randomUUID()};DB_CLOSE_DELAY=-1", "sa", "")
+        val jdbc = JdbcTemplate(dataSource)
+        jdbc.execute("CREATE TABLE outbox_record (id VARCHAR(255) PRIMARY KEY)")
+        jdbc.update("INSERT INTO outbox_record (id) VALUES (?)", "record")
+        val transactionStatus = SimpleTransactionStatus()
+        val manager = mockk<PlatformTransactionManager>(relaxed = true)
+        every { manager.getTransaction(any()) } returns transactionStatus
+
+        contextRunner
+            .withBean(DataSource::class.java, { dataSource })
+            .withBean("outboxTransactionTemplate", TransactionTemplate::class.java, { TransactionTemplate(manager) })
+            .withBean(JdbcTableNameResolver::class.java, { DefaultJdbcTableNameResolver() })
+            .withBean(JdbcOutboxRecordRepository::class.java, { mockk() })
+            .withPropertyValues("namastack.outbox.completion-batching.enabled=true")
+            .run { context ->
+                assertThat(context).hasNotFailed()
+                context.getBean(OutboxCompletionPersistence::class.java).deleteCompleted("record")
+
+                assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM outbox_record", Int::class.java)).isZero()
+                verify(exactly = 1) { manager.commit(transactionStatus) }
+                verify(exactly = 0) { manager.rollback(any()) }
             }
     }
 

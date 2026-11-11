@@ -14,6 +14,8 @@ import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Duration
@@ -37,6 +39,73 @@ class OutboxCompletionBatcherTest {
     fun tearDown() {
         if (::batcher.isInitialized) batcher.stop()
         if (::executor.isInitialized) executor.shutdown()
+    }
+
+    @Test
+    fun `rejects a negative shutdown timeout`() {
+        assertThatThrownBy {
+            OutboxCompletionBatcher(
+                executor = mockk(),
+                shutdownTimeout = Duration.ofNanos(-1),
+                writer = mockk(),
+                settings = CompletionBatching(),
+            )
+        }.isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessage("shutdownTimeout must not be negative")
+    }
+
+    @Test
+    fun `starting a running batcher does not schedule extra workers`() {
+        start(writer { deletions -> deletions.map { Result.success(Unit) } }, writerCount = 2)
+
+        batcher.start()
+
+        assertThat(executor.threadPoolExecutor.taskCount).isEqualTo(2)
+        batcher.submit(OutboxCompletion.Delete("record"))!!.get(2, TimeUnit.SECONDS)
+        assertThat(batcher.isRunning).isTrue()
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = [0, 2])
+    fun `a wrong result count fails the completion and the worker remains usable`(resultCount: Int) {
+        val attempts = AtomicInteger()
+        start(
+            writer { deletions ->
+                if (attempts.incrementAndGet() == 1) {
+                    List(resultCount) { Result.success(Unit) }
+                } else {
+                    deletions.map { Result.success(Unit) }
+                }
+            },
+        )
+
+        val first = batcher.submit(OutboxCompletion.Delete("first"))!!
+        assertThatThrownBy { first.get(2, TimeUnit.SECONDS) }
+            .hasCauseInstanceOf(IllegalStateException::class.java)
+            .hasRootCauseMessage("Completion writer returned the wrong number of results")
+        batcher.submit(OutboxCompletion.Delete("second"))!!.get(2, TimeUnit.SECONDS)
+        assertThat(attempts.get()).isEqualTo(2)
+    }
+
+    @Test
+    fun `a writer error reaches the processor unchanged and later completions still run`() {
+        val failure = AssertionError("Writer invariant failed")
+        val attempts = AtomicInteger()
+        start(
+            writer { deletions ->
+                if (attempts.incrementAndGet() == 1) throw failure
+                deletions.map { Result.success(Unit) }
+            },
+        )
+        val repository = mockk<OutboxRecordRepository>()
+        val persistence = OutboxCompletionBatchingPersistence(repository, batcher)
+
+        assertTimeoutPreemptively(Duration.ofSeconds(2)) {
+            assertThatThrownBy { persistence.deleteCompleted("first") }.isSameAs(failure)
+            persistence.deleteCompleted("second")
+        }
+        verify(exactly = 0) { repository.deleteById(any()) }
+        assertThat(attempts.get()).isEqualTo(2)
     }
 
     @Test

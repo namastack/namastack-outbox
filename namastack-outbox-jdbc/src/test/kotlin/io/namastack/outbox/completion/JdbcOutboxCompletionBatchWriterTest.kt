@@ -1,7 +1,9 @@
 package io.namastack.outbox.completion
 
+import io.mockk.Called
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import io.namastack.outbox.JdbcOutboxCompletionBatchWriter
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.query.H2JdbcOutboxRecordQueries
@@ -9,6 +11,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
@@ -59,6 +63,51 @@ class JdbcOutboxCompletionBatchWriterTest {
                 NamedParameterJdbcTemplate(dataSource),
                 transactions,
             ) { H2JdbcOutboxRecordQueries("outbox_record") }
+    }
+
+    @Test
+    fun `empty batches do not open transactions or access the database`() {
+        val batchJdbc = mockk<NamedParameterJdbcTemplate>()
+        val batchTransactions = mockk<TransactionTemplate>()
+        val batchWriter =
+            JdbcOutboxCompletionBatchWriter(batchJdbc, batchTransactions) {
+                error("Empty batches must not resolve SQL")
+            }
+
+        assertThat(batchWriter.writeUpdates(emptyList())).isEmpty()
+        assertThat(batchWriter.writeDeletions(emptyList())).isEmpty()
+
+        verify { batchJdbc wasNot Called }
+        verify { batchTransactions wasNot Called }
+    }
+
+    @Test
+    fun `writes a null completion timestamp without retaining the previous value`() {
+        insert("record")
+        writer.writeUpdates(listOf(update("record")))
+        assertThat(jdbc.queryForObject("SELECT completed_at FROM outbox_record", Timestamp::class.java)).isNotNull()
+
+        val results = writer.writeUpdates(listOf(update("record").copy(completedAt = null)))
+
+        assertThat(results.single().isSuccess).isTrue()
+        assertThat(jdbc.queryForObject("SELECT completed_at FROM outbox_record", Timestamp::class.java)).isNull()
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = [0, 2])
+    fun `retries individually when JDBC returns the wrong number of batch counts`(count: Int) {
+        val batchJdbc = mockk<NamedParameterJdbcTemplate>()
+        every { batchJdbc.batchUpdate(any(), any<Array<SqlParameterSource>>()) } returnsMany
+            listOf(IntArray(count) { 1 }, intArrayOf(1))
+        val batchWriter =
+            JdbcOutboxCompletionBatchWriter(batchJdbc, transactions) {
+                H2JdbcOutboxRecordQueries("outbox_record")
+            }
+
+        val result = batchWriter.writeUpdates(listOf(update("record")))
+
+        assertThat(result.single().isSuccess).isTrue()
+        verify(exactly = 2) { batchJdbc.batchUpdate(any(), any<Array<SqlParameterSource>>()) }
     }
 
     @Test
