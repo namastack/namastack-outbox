@@ -210,7 +210,7 @@ class StableHandlerRoutingIntegrationTest {
         handlerId: String,
     ) {
         transactionTemplate.executeWithoutResult {
-            recordRepository.save(
+            recordRepository.create(
                 OutboxRecord
                     .Builder<Any>()
                     .key(key)

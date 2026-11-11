@@ -67,7 +67,12 @@ class JdbcOutboxRecordRepositoryTest {
             val unicodeKey = "~ns.pg1~billing:订单:ä:😀"
             val keys = listOf(billingKey, auditKey, otherOrderKey, defaultKey, maximumLengthKey, unicodeKey)
 
-            val saved = keys.mapIndexed { index, key -> saveDelivery(index + 1, key) }
+            val saved =
+                keys.mapIndexed { index, key ->
+                    jdbcOutboxRecordRepository.create(
+                        deliveryRecord(index + 1, key),
+                    )
+                }
 
             saved.forEach { record ->
                 assertThat(jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key))
@@ -83,8 +88,8 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `permanent failure blocks its group and key but leaves other keys ready`() {
-            saveDelivery(1, billingKey, status = FAILED)
-            val blockedSibling = saveDelivery(2, billingKey)
+            jdbcOutboxRecordRepository.create(deliveryRecord(1, billingKey, status = FAILED))
+            val blockedSibling = jdbcOutboxRecordRepository.create(deliveryRecord(2, billingKey))
             saveIndependentDeliveries()
 
             assertThat(readyKeys()).containsExactlyInAnyOrder(auditKey, otherOrderKey, defaultKey)
@@ -92,55 +97,59 @@ class JdbcOutboxRecordRepositoryTest {
                 .contains(blockedSibling.id)
 
             // Completing the predecessor releases this group's sibling as well.
-            saveDelivery(1, billingKey, status = COMPLETED)
+            assertThat(
+                jdbcOutboxRecordRepository.updateProcessingState(deliveryRecord(1, billingKey, status = COMPLETED)),
+            ).isTrue()
             assertThat(readyKeys()).containsExactlyInAnyOrder(billingKey, auditKey, otherOrderKey, defaultKey)
         }
 
         @Test
         fun `future retry blocks only its group and key even when the sibling is ready`() {
             val retryAt = clock.instant().plusSeconds(3600)
-            saveDelivery(1, billingKey, nextRetryAt = retryAt)
-            saveDelivery(2, billingKey)
+            jdbcOutboxRecordRepository.create(deliveryRecord(1, billingKey, nextRetryAt = retryAt))
+            jdbcOutboxRecordRepository.create(deliveryRecord(2, billingKey))
             saveIndependentDeliveries()
 
             assertThat(readyKeys()).containsExactlyInAnyOrder(auditKey, otherOrderKey, defaultKey)
 
-            saveDelivery(1, billingKey, nextRetryAt = createdAt)
+            assertThat(
+                jdbcOutboxRecordRepository.updateProcessingState(
+                    deliveryRecord(1, billingKey, nextRetryAt = createdAt),
+                ),
+            ).isTrue()
             assertThat(readyKeys()).containsExactlyInAnyOrder(billingKey, auditKey, otherOrderKey, defaultKey)
         }
 
         private fun saveIndependentDeliveries() {
-            saveDelivery(3, auditKey)
-            saveDelivery(4, otherOrderKey)
-            saveDelivery(5, defaultKey)
+            jdbcOutboxRecordRepository.create(deliveryRecord(3, auditKey))
+            jdbcOutboxRecordRepository.create(deliveryRecord(4, otherOrderKey))
+            jdbcOutboxRecordRepository.create(deliveryRecord(5, defaultKey))
         }
 
         private fun readyKeys(): List<String> =
             jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
 
-        private fun saveDelivery(
+        private fun deliveryRecord(
             number: Int,
             key: String,
             status: OutboxRecordStatus = NEW,
             nextRetryAt: Instant = createdAt,
         ): OutboxRecord<String> =
-            jdbcOutboxRecordRepository.save(
-                OutboxRecord.restore(
-                    id = "00000000-0000-4000-8000-${number.toString().padStart(12, '0')}",
-                    recordKey = key,
-                    payload = "payload",
-                    context = emptyMap(),
-                    // Deliberately share one partition: isolation must come from the complete key.
-                    partition = 1,
-                    createdAt = createdAt,
-                    status = status,
-                    completedAt = if (status == COMPLETED) createdAt else null,
-                    failureCount = if (status == FAILED) 1 else 0,
-                    failureReason = null,
-                    nextRetryAt = nextRetryAt,
-                    handlerId = "handler-$number",
-                    failureException = null,
-                ),
+            OutboxRecord.restore(
+                id = "00000000-0000-4000-8000-${number.toString().padStart(12, '0')}",
+                recordKey = key,
+                payload = "payload",
+                context = emptyMap(),
+                // Deliberately share one partition: isolation must come from the complete key.
+                partition = 1,
+                createdAt = createdAt,
+                status = status,
+                completedAt = if (status == COMPLETED) createdAt else null,
+                failureCount = if (status == FAILED) 1 else 0,
+                failureReason = null,
+                nextRetryAt = nextRetryAt,
+                handlerId = "handler-$number",
+                failureException = null,
             )
     }
 
@@ -151,10 +160,10 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `loads tied records by ID regardless of insertion order`() {
-            val third = saveRecord(3)
-            val second = saveRecord(2)
-            val first = saveRecord(1)
-            val earlier = saveRecord(4, createdAt = retentionBase.minusSeconds(1))
+            val third = jdbcOutboxRecordRepository.create(orderedRecord(3))
+            val second = jdbcOutboxRecordRepository.create(orderedRecord(2))
+            val first = jdbcOutboxRecordRepository.create(orderedRecord(1))
+            val earlier = jdbcOutboxRecordRepository.create(orderedRecord(4, createdAt = retentionBase.minusSeconds(1)))
 
             assertThat(jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey).map { it.id })
                 .containsExactly(earlier.id, first.id, second.id, third.id)
@@ -162,9 +171,9 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `failed tied predecessor blocks siblings and later events across polls`() {
-            saveRecord(3, createdAt = retentionBase.plusSeconds(1))
-            val sibling = saveRecord(2)
-            val first = saveRecord(1)
+            jdbcOutboxRecordRepository.create(orderedRecord(3, createdAt = retentionBase.plusSeconds(1)))
+            val sibling = jdbcOutboxRecordRepository.create(orderedRecord(2))
+            val first = jdbcOutboxRecordRepository.create(orderedRecord(1))
 
             // The first record must not block itself, and loading must choose the same head.
             assertThat(readyKeys()).containsExactly(recordKey)
@@ -172,7 +181,7 @@ class JdbcOutboxRecordRepositoryTest {
             assertThat(jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey).first().id)
                 .isEqualTo(first.id)
 
-            saveRecord(1, status = FAILED)
+            assertThat(jdbcOutboxRecordRepository.updateProcessingState(orderedRecord(1, status = FAILED))).isTrue()
 
             repeat(3) {
                 assertThat(readyKeys()).isEmpty()
@@ -184,13 +193,13 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `future retry of tied predecessor blocks a ready sibling`() {
-            saveRecord(2)
-            saveRecord(1, nextRetryAt = Instant.now(clock).plusSeconds(3600))
+            jdbcOutboxRecordRepository.create(orderedRecord(2))
+            jdbcOutboxRecordRepository.create(orderedRecord(1, nextRetryAt = Instant.now(clock).plusSeconds(3600)))
 
             assertThat(readyKeys()).isEmpty()
             assertThat(oldestDueAt(true)).isNull()
 
-            saveRecord(1)
+            assertThat(jdbcOutboxRecordRepository.updateProcessingState(orderedRecord(1))).isTrue()
 
             assertThat(readyKeys()).containsExactly(recordKey)
             assertThat(oldestDueAt(true)).isEqualTo(retentionBase)
@@ -198,8 +207,8 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `completed tied predecessor releases the next record`() {
-            val sibling = saveRecord(2)
-            saveRecord(1, status = COMPLETED)
+            val sibling = jdbcOutboxRecordRepository.create(orderedRecord(2))
+            jdbcOutboxRecordRepository.create(orderedRecord(1, status = COMPLETED))
 
             assertThat(readyKeys()).containsExactly(recordKey)
             assertThat(oldestDueAt(true)).isEqualTo(retentionBase)
@@ -209,8 +218,8 @@ class JdbcOutboxRecordRepositoryTest {
 
         @Test
         fun `unordered mode still allows a sibling of a failed tied record`() {
-            saveRecord(2)
-            saveRecord(1, status = FAILED)
+            jdbcOutboxRecordRepository.create(orderedRecord(2))
+            jdbcOutboxRecordRepository.create(orderedRecord(1, status = FAILED))
 
             assertThat(jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, false))
                 .containsExactly(recordKey)
@@ -223,95 +232,27 @@ class JdbcOutboxRecordRepositoryTest {
         private fun readyKeys(): List<String> =
             jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
 
-        private fun saveRecord(
+        private fun orderedRecord(
             number: Int,
             status: OutboxRecordStatus = NEW,
             createdAt: Instant = retentionBase,
             nextRetryAt: Instant = createdAt,
         ): OutboxRecord<String> =
-            jdbcOutboxRecordRepository.save(
-                OutboxRecord.restore(
-                    id = "00000000-0000-4000-8000-${number.toString().padStart(12, '0')}",
-                    recordKey = recordKey,
-                    payload = "payload",
-                    context = emptyMap(),
-                    partition = 1,
-                    createdAt = createdAt,
-                    status = status,
-                    completedAt = if (status == COMPLETED) createdAt else null,
-                    failureCount = if (status == FAILED) 1 else 0,
-                    failureReason = null,
-                    nextRetryAt = nextRetryAt,
-                    handlerId = "handler-$number",
-                    failureException = null,
-                ),
+            OutboxRecord.restore(
+                id = "00000000-0000-4000-8000-${number.toString().padStart(12, '0')}",
+                recordKey = recordKey,
+                payload = "payload",
+                context = emptyMap(),
+                partition = 1,
+                createdAt = createdAt,
+                status = status,
+                completedAt = if (status == COMPLETED) createdAt else null,
+                failureCount = if (status == FAILED) 1 else 0,
+                failureReason = null,
+                nextRetryAt = nextRetryAt,
+                handlerId = "handler-$number",
+                failureException = null,
             )
-    }
-
-    @Nested
-    @DisplayName("save()")
-    inner class SaveTests {
-        @Test
-        fun `saves an entity`() {
-            val recordKey = Uuid.generateV7().toString()
-            val record =
-                OutboxRecord
-                    .Builder<String>()
-                    .key(recordKey)
-                    .payload("payload")
-                    .handlerId("handlerId")
-                    .build(clock)
-
-            jdbcOutboxRecordRepository.save(record)
-
-            val persistedRecord = jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey).first()
-
-            assertThat(persistedRecord.key).isEqualTo(record.key)
-            assertThat(persistedRecord.payload).isEqualTo(record.payload)
-            assertThat(persistedRecord.status).isEqualTo(record.status)
-            assertThat(persistedRecord.failureCount).isEqualTo(record.failureCount)
-            assertThat(persistedRecord.completedAt).isNull()
-            assertThat(persistedRecord.createdAt).isCloseTo(record.createdAt, within(1, MILLIS))
-            assertThat(persistedRecord.nextRetryAt).isCloseTo(record.nextRetryAt, within(1, MILLIS))
-            assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
-        }
-
-        @Test
-        fun `updates an entity`() {
-            val recordKey = Uuid.generateV7().toString()
-            val record =
-                OutboxRecord
-                    .Builder<String>()
-                    .key(recordKey)
-                    .payload("payload")
-                    .handlerId("handlerId")
-                    .build(clock)
-
-            jdbcOutboxRecordRepository.save(record)
-
-            val updatedRecord =
-                OutboxRecord.restore(
-                    id = record.id,
-                    recordKey = record.key,
-                    payload = record.payload,
-                    context = record.context,
-                    partition = 1,
-                    createdAt = record.createdAt,
-                    status = record.status,
-                    completedAt = record.completedAt,
-                    failureCount = record.failureCount + 1,
-                    failureReason = record.failureReason,
-                    nextRetryAt = record.nextRetryAt,
-                    handlerId = record.handlerId,
-                    failureException = null,
-                )
-
-            jdbcOutboxRecordRepository.save(updatedRecord)
-
-            val persistedUpdatedRecord = jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey).first()
-
-            assertThat(persistedUpdatedRecord.failureCount).isEqualTo(updatedRecord.failureCount)
-        }
     }
 
     @Nested
@@ -329,6 +270,14 @@ class JdbcOutboxRecordRepositoryTest {
             assertThat(persistedRecord.payload).isEqualTo(record.payload)
             assertThat(persistedRecord.status).isEqualTo(NEW)
             assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
+            assertThat(persistedRecord.key).isEqualTo(record.key)
+            assertThat(persistedRecord.context).isEqualTo(record.context)
+            assertThat(persistedRecord.partition).isEqualTo(record.partition)
+            assertThat(persistedRecord.failureCount).isZero()
+            assertThat(persistedRecord.failureReason).isNull()
+            assertThat(persistedRecord.completedAt).isNull()
+            assertThat(persistedRecord.createdAt).isCloseTo(record.createdAt, within(1, MILLIS))
+            assertThat(persistedRecord.nextRetryAt).isCloseTo(record.nextRetryAt, within(1, MILLIS))
         }
 
         @Test
@@ -342,70 +291,8 @@ class JdbcOutboxRecordRepositoryTest {
     }
 
     @Nested
-    @DisplayName("update()")
-    inner class UpdateTests {
-        @Test
-        fun `updates an existing entity`() {
-            val record = newRecord()
-            jdbcOutboxRecordRepository.create(record)
-
-            assertThat(jdbcOutboxRecordRepository.update(failedOnce(record))).isTrue()
-
-            val persistedRecord = jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key).single()
-
-            assertThat(persistedRecord.failureCount).isEqualTo(1)
-            assertThat(persistedRecord.failureReason).isEqualTo("boom")
-        }
-
-        @Test
-        fun `does not insert when updating a missing entity`() {
-            val record = newRecord()
-
-            assertThat(jdbcOutboxRecordRepository.update(record)).isFalse()
-
-            assertThat(jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
-        }
-    }
-
-    @Nested
     @DisplayName("updateProcessingState()")
     inner class UpdateProcessingStateTests {
-        @Test
-        fun `persists processing state without payload and context`() {
-            val record = newRecordWithContext()
-            jdbcOutboxRecordRepository.create(record)
-            val completedAt = Instant.now(clock).truncatedTo(MILLIS)
-            val nextRetryAt = record.nextRetryAt.plus(1, MINUTES)
-
-            val updated =
-                jdbcOutboxRecordRepository.updateProcessingState(
-                    processingState(
-                        record = record,
-                        payload = "changed",
-                        context = mapOf("changed" to "true"),
-                        status = COMPLETED,
-                        completedAt = completedAt,
-                        failureCount = 2,
-                        failureReason = "boom",
-                        nextRetryAt = nextRetryAt,
-                    ),
-                )
-
-            assertThat(updated).isTrue()
-            val persistedRecord = jdbcOutboxRecordRepository.findCompletedRecords().single { it.id == record.id }
-            assertThat(persistedRecord.status).isEqualTo(COMPLETED)
-            assertThat(persistedRecord.completedAt).isCloseTo(completedAt, within(1, MILLIS))
-            assertThat(persistedRecord.failureCount).isEqualTo(2)
-            assertThat(persistedRecord.failureReason).isEqualTo("boom")
-            assertThat(persistedRecord.nextRetryAt).isCloseTo(nextRetryAt, within(1, MILLIS))
-            assertThat(persistedRecord.payload).isEqualTo(record.payload)
-            assertThat(persistedRecord.context).isEqualTo(record.context)
-            assertThat(persistedRecord.key).isEqualTo(record.key)
-            assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
-            assertThat(persistedRecord.partition).isEqualTo(record.partition)
-            assertThat(persistedRecord.createdAt).isCloseTo(record.createdAt, within(1, MILLIS))
-        }
-
         @Test
         fun `clears completion time and failure reason`() {
             val record = newRecord()
@@ -450,37 +337,26 @@ class JdbcOutboxRecordRepositoryTest {
             assertThat(jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
         }
 
-        private fun newRecordWithContext(): OutboxRecord<String> =
-            OutboxRecord
-                .Builder<String>()
-                .key(Uuid.generateV7().toString())
-                .payload("payload")
-                .context(mapOf("tenant" to "acme"))
-                .handlerId("handlerId")
-                .build(clock)
-
         private fun <T> processingState(
             record: OutboxRecord<String>,
             payload: T,
-            context: Map<String, String> = record.context,
             status: OutboxRecordStatus = record.status,
             completedAt: Instant? = record.completedAt,
             failureCount: Int = record.failureCount,
             failureReason: String? = record.failureReason,
-            nextRetryAt: Instant = record.nextRetryAt,
         ): OutboxRecord<T> =
             OutboxRecord.restore(
                 id = record.id,
                 recordKey = record.key,
                 payload = payload,
-                context = context,
+                context = record.context,
                 partition = record.partition,
                 createdAt = record.createdAt,
                 status = status,
                 completedAt = completedAt,
                 failureCount = failureCount,
                 failureReason = failureReason,
-                nextRetryAt = nextRetryAt,
+                nextRetryAt = record.nextRetryAt,
                 handlerId = record.handlerId,
                 failureException = null,
             )
@@ -490,29 +366,19 @@ class JdbcOutboxRecordRepositoryTest {
     @DisplayName("findPendingRecords()")
     inner class FindPendingRecordsTests {
         @Test
-        fun `finds pending records`() {
-            createNewRecords(3)
-
-            val records = jdbcOutboxRecordRepository.findPendingRecords()
-
-            assertThat(records).hasSize(3)
-            records.map { it.status }.forEach { status ->
-                assertThat(status).isEqualTo(NEW)
-            }
-        }
-
-        @Test
-        fun `returns pending records ordered by createdAt asc`() {
+        fun `returns all pending records across keys ordered by createdAt asc`() {
             val now = Instant.now(clock)
-            val recordKey = Uuid.generateV7().toString()
+            val recordKeys = List(2) { Uuid.generateV7().toString() }
 
-            createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(1, MINUTES))
-            createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(2, MINUTES))
-            createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(3, MINUTES))
+            createNewRecordsForRecordKey(1, recordKeys[0], NEW, now.minus(1, MINUTES))
+            createNewRecordsForRecordKey(1, recordKeys[1], NEW, now.minus(2, MINUTES))
+            createNewRecordsForRecordKey(1, recordKeys[0], NEW, now.minus(3, MINUTES))
 
             val records = jdbcOutboxRecordRepository.findPendingRecords()
 
             assertThat(records).hasSize(3)
+            assertThat(records.map { it.status }).containsOnly(NEW)
+            assertThat(records.map { it.key }).containsExactly(recordKeys[0], recordKeys[1], recordKeys[0])
 
             val actualTimes = records.map { it.createdAt.truncatedTo(MILLIS) }
             val expectedTimes =
@@ -834,18 +700,6 @@ class JdbcOutboxRecordRepositoryTest {
         }
 
         @Test
-        fun `allows processing when oldest record is ready`() {
-            val recordKey = Uuid.generateV7().toString()
-            val now = Instant.now(clock)
-
-            createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES).truncatedTo(MILLIS))
-
-            val result = jdbcOutboxRecordRepository.findRecordKeysInPartitions(setOf(1), 10, true)
-
-            assertThat(result).contains(recordKey)
-        }
-
-        @Test
         fun `orders by oldest record creation time across partitions`() {
             val now = Instant.now(clock)
 
@@ -1159,7 +1013,7 @@ class JdbcOutboxRecordRepositoryTest {
                     .handlerId("handlerId")
                     .build(clock)
 
-            jdbcOutboxRecordRepository.save(record)
+            jdbcOutboxRecordRepository.create(record)
             assertThat(jdbcOutboxRecordRepository.findIncompleteRecordsByRecordKey(recordKey)).hasSize(1)
 
             jdbcOutboxRecordRepository.deleteById(record.id)
@@ -1344,27 +1198,10 @@ class JdbcOutboxRecordRepositoryTest {
             .handlerId("handlerId")
             .build(clock)
 
-    private fun failedOnce(record: OutboxRecord<String>): OutboxRecord<String> =
-        OutboxRecord.restore(
-            id = record.id,
-            recordKey = record.key,
-            payload = record.payload,
-            context = record.context,
-            partition = record.partition,
-            createdAt = record.createdAt,
-            status = record.status,
-            completedAt = record.completedAt,
-            failureCount = 1,
-            failureReason = "boom",
-            nextRetryAt = record.nextRetryAt,
-            handlerId = record.handlerId,
-            failureException = null,
-        )
-
     private fun createFailedRecords(count: Int = 3) {
         val now = Instant.now(clock)
         (0 until count).forEach { _ ->
-            jdbcOutboxRecordRepository.save(
+            jdbcOutboxRecordRepository.create(
                 OutboxRecord.restore(
                     id = Uuid.generateV7().toString(),
                     recordKey = Uuid.generateV7().toString(),
@@ -1387,7 +1224,7 @@ class JdbcOutboxRecordRepositoryTest {
     private fun createCompletedRecords(count: Int = 3) {
         val now = Instant.now(clock)
         (0 until count).forEach { _ ->
-            jdbcOutboxRecordRepository.save(
+            jdbcOutboxRecordRepository.create(
                 OutboxRecord.restore(
                     id = Uuid.generateV7().toString(),
                     recordKey = Uuid.generateV7().toString(),
@@ -1410,7 +1247,7 @@ class JdbcOutboxRecordRepositoryTest {
     private fun createNewRecords(count: Int = 3) {
         val now = Instant.now(clock)
         (0 until count).forEach { _ ->
-            jdbcOutboxRecordRepository.save(
+            jdbcOutboxRecordRepository.create(
                 OutboxRecord.restore(
                     id = Uuid.generateV7().toString(),
                     recordKey = Uuid.generateV7().toString(),
@@ -1437,7 +1274,7 @@ class JdbcOutboxRecordRepositoryTest {
         createdAt: Instant = Instant.now(clock),
     ) {
         (0 until count).forEach { _ ->
-            jdbcOutboxRecordRepository.save(
+            jdbcOutboxRecordRepository.create(
                 OutboxRecord.restore(
                     id = Uuid.generateV7().toString(),
                     recordKey = recordKey,
@@ -1463,7 +1300,7 @@ class JdbcOutboxRecordRepositoryTest {
         partition: Int,
         createdAt: Instant = Instant.now(clock),
     ) {
-        jdbcOutboxRecordRepository.save(
+        jdbcOutboxRecordRepository.create(
             OutboxRecord.restore(
                 id = Uuid.generateV7().toString(),
                 recordKey = recordKey,
@@ -1488,7 +1325,7 @@ class JdbcOutboxRecordRepositoryTest {
         createdAt: Instant = Instant.now(clock),
     ) {
         (0 until count).forEach { _ ->
-            jdbcOutboxRecordRepository.save(
+            jdbcOutboxRecordRepository.create(
                 OutboxRecord.restore(
                     id = Uuid.generateV7().toString(),
                     recordKey = recordKey,
@@ -1532,7 +1369,7 @@ class JdbcOutboxRecordRepositoryTest {
                 failureException = null,
             )
 
-        jdbcOutboxRecordRepository.save(record)
+        jdbcOutboxRecordRepository.create(record)
         return record
     }
 
@@ -1560,7 +1397,7 @@ class JdbcOutboxRecordRepositoryTest {
                 handlerId = "handlerId",
                 failureException = null,
             )
-        jdbcOutboxRecordRepository.save(record)
+        jdbcOutboxRecordRepository.create(record)
         return record.id
     }
 

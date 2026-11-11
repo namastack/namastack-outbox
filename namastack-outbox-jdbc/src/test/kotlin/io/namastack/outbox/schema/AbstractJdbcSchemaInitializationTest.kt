@@ -69,7 +69,7 @@ abstract class AbstractJdbcSchemaInitializationTest {
         val createdAt = Instant.now().truncatedTo(SECONDS).minusSeconds(60)
         val nextRetryAt = createdAt.plusSeconds(3600)
         transactionTemplate.executeWithoutResult {
-            outboxRecordRepository.save(
+            outboxRecordRepository.create(
                 OutboxRecord.restore(
                     id = Uuid.generateV7().toString(),
                     recordKey = Uuid.generateV7().toString(),

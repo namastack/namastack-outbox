@@ -53,7 +53,7 @@ class ProcessingGroupMessagingIntegrationTest {
     fun `pending grouped record reaches Kafka with its business key even when group scheduling is disabled`() {
         transactions.executeWithoutResult {
             // Persisted fixture from an earlier deployment: old handler alias and old group assignment.
-            repository.save(
+            repository.create(
                 OutboxRecord
                     .Builder<Event>()
                     .key("~ns.pg1~shipping:order:42")

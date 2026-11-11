@@ -476,6 +476,7 @@ abstract class AbstractJdbcOutboxRecordRepositoryIntegrationTest {
     @Test
     fun `updateProcessingState persists the state without changing payload or context`() {
         val record = create("a1", "a")
+        serializer.reset()
 
         val updated =
             repository.updateProcessingState(
@@ -496,14 +497,20 @@ abstract class AbstractJdbcOutboxRecordRepositoryIntegrationTest {
                 ),
             )
 
-        val stored = repository.findCompletedRecords().single()
         assertThat(updated).isTrue()
+        assertThat(serializer.serializations).isZero()
+        val stored = repository.findCompletedRecords().single()
+        assertThat(stored.status).isEqualTo(COMPLETED)
         assertThat(stored.completedAt).isEqualTo(now)
         assertThat(stored.failureCount).isEqualTo(2)
         assertThat(stored.failureReason).isEqualTo("boom")
         assertThat(stored.nextRetryAt).isEqualTo(now.plusSeconds(60))
         assertThat(stored.payload).isEqualTo("payload-a1")
-        assertThat(stored.context).containsEntry("trace", "original")
+        assertThat(stored.context).isEqualTo(record.context)
+        assertThat(stored.key).isEqualTo(record.key)
+        assertThat(stored.handlerId).isEqualTo(record.handlerId)
+        assertThat(stored.partition).isEqualTo(record.partition)
+        assertThat(stored.createdAt).isEqualTo(record.createdAt)
     }
 
     @Test

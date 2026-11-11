@@ -67,24 +67,6 @@ internal open class DefaultJdbcOutboxRecordQueries(
         )
         """.toSingleLine()
 
-    override val updateRecord: String =
-        """
-        UPDATE $tableName
-        SET status = :status,
-            record_key = :recordKey,
-            record_type = :recordType,
-            payload = :payload,
-            context = :context,
-            partition_no = :partitionNo,
-            created_at = :createdAt,
-            completed_at = :completedAt,
-            failure_count = :failureCount,
-            failure_reason = :failureReason,
-            next_retry_at = :nextRetryAt,
-            handler_id = :handlerId
-        WHERE id = :id
-        """.toSingleLine()
-
     override val updateProcessingState: String =
         """
         UPDATE $tableName

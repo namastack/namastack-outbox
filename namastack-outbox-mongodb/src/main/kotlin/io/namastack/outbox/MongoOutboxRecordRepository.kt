@@ -24,21 +24,6 @@ internal open class MongoOutboxRecordRepository(
     private val collectionNameResolver: MongoCollectionNameResolver,
 ) : OutboxRecordRepository {
     /**
-     * Saves an outbox record. Inserts or updates the record document.
-     *
-     * Unlike the JDBC implementation which uses a try-update-then-insert pattern,
-     * MongoDB's save operation is a native atomic upsert on the _id field.
-     *
-     * @param record the outbox record to save
-     * @return the saved outbox record
-     */
-    override fun <T> save(record: OutboxRecord<T>): OutboxRecord<T> {
-        val entity = entityMapper.map(record)
-        mongoTemplate.save(entity, collectionNameResolver.outboxRecords)
-        return record
-    }
-
-    /**
      * Creates a new outbox record.
      *
      * @param record The outbox record to create
@@ -48,19 +33,6 @@ internal open class MongoOutboxRecordRepository(
         val entity = entityMapper.map(record)
         mongoTemplate.insert(entity, collectionNameResolver.outboxRecords)
         return record
-    }
-
-    /**
-     * Updates an existing outbox record. Does nothing if the record no longer exists.
-     *
-     * @param record The outbox record to update
-     * @return True if the record was updated, false if it no longer exists
-     */
-    override fun <T> update(record: OutboxRecord<T>): Boolean {
-        val entity = entityMapper.map(record)
-        val query = Query(Criteria.where("_id").`is`(entity.id))
-        val result = mongoTemplate.replace(query, entity, collectionNameResolver.outboxRecords)
-        return result.matchedCount == 1L
     }
 
     /**

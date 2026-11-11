@@ -81,7 +81,7 @@ class MongoOutboxRecordRepositoryTest {
             val unicodeKey = "~ns.pg1~billing:订单:ä:😀"
             val keys = listOf(billingKey, auditKey, otherOrderKey, defaultKey, maximumLengthKey, unicodeKey)
 
-            val saved = keys.mapIndexed { index, key -> saveDelivery(index + 1, key) }
+            val saved = keys.mapIndexed { index, key -> repository.create(deliveryRecord(index + 1, key)) }
 
             saved.forEach { record ->
                 assertThat(repository.findIncompleteRecordsByRecordKey(record.key))
@@ -97,8 +97,8 @@ class MongoOutboxRecordRepositoryTest {
 
         @Test
         fun `permanent failure blocks its group and key but leaves other keys ready`() {
-            saveDelivery(1, billingKey, status = FAILED)
-            val blockedSibling = saveDelivery(2, billingKey)
+            repository.create(deliveryRecord(1, billingKey, status = FAILED))
+            val blockedSibling = repository.create(deliveryRecord(2, billingKey))
             saveIndependentDeliveries()
 
             assertThat(readyKeys()).containsExactlyInAnyOrder(auditKey, otherOrderKey, defaultKey)
@@ -106,54 +106,54 @@ class MongoOutboxRecordRepositoryTest {
                 .contains(blockedSibling.id)
 
             // Completing the predecessor releases this group's sibling as well.
-            saveDelivery(1, billingKey, status = COMPLETED)
+            assertThat(repository.updateProcessingState(deliveryRecord(1, billingKey, status = COMPLETED))).isTrue()
             assertThat(readyKeys()).containsExactlyInAnyOrder(billingKey, auditKey, otherOrderKey, defaultKey)
         }
 
         @Test
         fun `future retry blocks only its group and key even when the sibling is ready`() {
             val retryAt = clock.instant().plusSeconds(3600)
-            saveDelivery(1, billingKey, nextRetryAt = retryAt)
-            saveDelivery(2, billingKey)
+            repository.create(deliveryRecord(1, billingKey, nextRetryAt = retryAt))
+            repository.create(deliveryRecord(2, billingKey))
             saveIndependentDeliveries()
 
             assertThat(readyKeys()).containsExactlyInAnyOrder(auditKey, otherOrderKey, defaultKey)
 
-            saveDelivery(1, billingKey, nextRetryAt = createdAt)
+            assertThat(
+                repository.updateProcessingState(deliveryRecord(1, billingKey, nextRetryAt = createdAt)),
+            ).isTrue()
             assertThat(readyKeys()).containsExactlyInAnyOrder(billingKey, auditKey, otherOrderKey, defaultKey)
         }
 
         private fun saveIndependentDeliveries() {
-            saveDelivery(3, auditKey)
-            saveDelivery(4, otherOrderKey)
-            saveDelivery(5, defaultKey)
+            repository.create(deliveryRecord(3, auditKey))
+            repository.create(deliveryRecord(4, otherOrderKey))
+            repository.create(deliveryRecord(5, defaultKey))
         }
 
         private fun readyKeys(): List<String> = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
-        private fun saveDelivery(
+        private fun deliveryRecord(
             number: Int,
             key: String,
             status: OutboxRecordStatus = NEW,
             nextRetryAt: Instant = createdAt,
         ): OutboxRecord<String> =
-            repository.save(
-                OutboxRecord.restore(
-                    id = "00000000-0000-4000-8000-${number.toString().padStart(12, '0')}",
-                    recordKey = key,
-                    payload = "payload",
-                    context = emptyMap(),
-                    // Deliberately share one partition: isolation must come from the complete key.
-                    partition = 1,
-                    createdAt = createdAt,
-                    status = status,
-                    completedAt = if (status == COMPLETED) createdAt else null,
-                    failureCount = if (status == FAILED) 1 else 0,
-                    failureReason = null,
-                    nextRetryAt = nextRetryAt,
-                    handlerId = "handler-$number",
-                    failureException = null,
-                ),
+            OutboxRecord.restore(
+                id = "00000000-0000-4000-8000-${number.toString().padStart(12, '0')}",
+                recordKey = key,
+                payload = "payload",
+                context = emptyMap(),
+                // Deliberately share one partition: isolation must come from the complete key.
+                partition = 1,
+                createdAt = createdAt,
+                status = status,
+                completedAt = if (status == COMPLETED) createdAt else null,
+                failureCount = if (status == FAILED) 1 else 0,
+                failureReason = null,
+                nextRetryAt = nextRetryAt,
+                handlerId = "handler-$number",
+                failureException = null,
             )
     }
 
@@ -164,10 +164,10 @@ class MongoOutboxRecordRepositoryTest {
 
         @Test
         fun `loads tied records by ID regardless of insertion order`() {
-            val third = saveRecord(3)
-            val second = saveRecord(2)
-            val first = saveRecord(1)
-            val earlier = saveRecord(4, createdAt = retentionBase.minusSeconds(1))
+            val third = repository.create(orderedRecord(3))
+            val second = repository.create(orderedRecord(2))
+            val first = repository.create(orderedRecord(1))
+            val earlier = repository.create(orderedRecord(4, createdAt = retentionBase.minusSeconds(1)))
 
             assertThat(repository.findIncompleteRecordsByRecordKey(recordKey).map { it.id })
                 .containsExactly(earlier.id, first.id, second.id, third.id)
@@ -175,9 +175,9 @@ class MongoOutboxRecordRepositoryTest {
 
         @Test
         fun `failed tied predecessor blocks siblings and later events across polls`() {
-            saveRecord(3, createdAt = retentionBase.plusSeconds(1))
-            val sibling = saveRecord(2)
-            val first = saveRecord(1)
+            repository.create(orderedRecord(3, createdAt = retentionBase.plusSeconds(1)))
+            val sibling = repository.create(orderedRecord(2))
+            val first = repository.create(orderedRecord(1))
 
             // The first record must not block itself, and loading must choose the same head.
             assertThat(readyKeys()).containsExactly(recordKey)
@@ -185,7 +185,7 @@ class MongoOutboxRecordRepositoryTest {
             assertThat(repository.findIncompleteRecordsByRecordKey(recordKey).first().id)
                 .isEqualTo(first.id)
 
-            saveRecord(1, status = FAILED)
+            assertThat(repository.updateProcessingState(orderedRecord(1, status = FAILED))).isTrue()
 
             repeat(3) {
                 assertThat(readyKeys()).isEmpty()
@@ -197,13 +197,13 @@ class MongoOutboxRecordRepositoryTest {
 
         @Test
         fun `future retry of tied predecessor blocks a ready sibling`() {
-            saveRecord(2)
-            saveRecord(1, nextRetryAt = Instant.now(clock).plusSeconds(3600))
+            repository.create(orderedRecord(2))
+            repository.create(orderedRecord(1, nextRetryAt = Instant.now(clock).plusSeconds(3600)))
 
             assertThat(readyKeys()).isEmpty()
             assertThat(oldestDueAt(true)).isNull()
 
-            saveRecord(1)
+            assertThat(repository.updateProcessingState(orderedRecord(1))).isTrue()
 
             assertThat(readyKeys()).containsExactly(recordKey)
             assertThat(oldestDueAt(true)).isEqualTo(retentionBase)
@@ -211,8 +211,8 @@ class MongoOutboxRecordRepositoryTest {
 
         @Test
         fun `completed tied predecessor releases the next record`() {
-            val sibling = saveRecord(2)
-            saveRecord(1, status = COMPLETED)
+            val sibling = repository.create(orderedRecord(2))
+            repository.create(orderedRecord(1, status = COMPLETED))
 
             assertThat(readyKeys()).containsExactly(recordKey)
             assertThat(oldestDueAt(true)).isEqualTo(retentionBase)
@@ -222,8 +222,8 @@ class MongoOutboxRecordRepositoryTest {
 
         @Test
         fun `unordered mode still allows a sibling of a failed tied record`() {
-            saveRecord(2)
-            saveRecord(1, status = FAILED)
+            repository.create(orderedRecord(2))
+            repository.create(orderedRecord(1, status = FAILED))
 
             assertThat(repository.findRecordKeysInPartitions(setOf(1), 10, false))
                 .containsExactly(recordKey)
@@ -235,96 +235,27 @@ class MongoOutboxRecordRepositoryTest {
 
         private fun readyKeys(): List<String> = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
-        private fun saveRecord(
+        private fun orderedRecord(
             number: Int,
             status: OutboxRecordStatus = NEW,
             createdAt: Instant = retentionBase,
             nextRetryAt: Instant = createdAt,
         ): OutboxRecord<String> =
-            repository.save(
-                OutboxRecord.restore(
-                    id = "00000000-0000-4000-8000-${number.toString().padStart(12, '0')}",
-                    recordKey = recordKey,
-                    payload = "payload",
-                    context = emptyMap(),
-                    partition = 1,
-                    createdAt = createdAt,
-                    status = status,
-                    completedAt = if (status == COMPLETED) createdAt else null,
-                    failureCount = if (status == FAILED) 1 else 0,
-                    failureReason = null,
-                    nextRetryAt = nextRetryAt,
-                    handlerId = "handler-$number",
-                    failureException = null,
-                ),
+            OutboxRecord.restore(
+                id = "00000000-0000-4000-8000-${number.toString().padStart(12, '0')}",
+                recordKey = recordKey,
+                payload = "payload",
+                context = emptyMap(),
+                partition = 1,
+                createdAt = createdAt,
+                status = status,
+                completedAt = if (status == COMPLETED) createdAt else null,
+                failureCount = if (status == FAILED) 1 else 0,
+                failureReason = null,
+                nextRetryAt = nextRetryAt,
+                handlerId = "handler-$number",
+                failureException = null,
             )
-    }
-
-    @Nested
-    @DisplayName("save()")
-    inner class SaveTests {
-        @Test
-        fun `saves an entity`() {
-            val recordKey = Uuid.generateV7().toString()
-            val record =
-                OutboxRecord
-                    .Builder<String>()
-                    .key(recordKey)
-                    .payload("payload")
-                    .handlerId("handlerId")
-                    .build(clock)
-
-            repository.save(record)
-
-            val persistedRecord = repository.findIncompleteRecordsByRecordKey(recordKey).first()
-
-            assertThat(persistedRecord.key).isEqualTo(record.key)
-            assertThat(persistedRecord.payload).isEqualTo(record.payload)
-            assertThat(persistedRecord.status).isEqualTo(record.status)
-            assertThat(persistedRecord.failureCount).isEqualTo(record.failureCount)
-            assertThat(persistedRecord.completedAt).isNull()
-            assertThat(persistedRecord.createdAt).isCloseTo(record.createdAt, within(1, MILLIS))
-            assertThat(persistedRecord.nextRetryAt).isCloseTo(record.nextRetryAt, within(1, MILLIS))
-            assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
-        }
-
-        @Test
-        fun `updates an entity`() {
-            val recordKey = Uuid.generateV7().toString()
-            val record =
-                OutboxRecord
-                    .Builder<String>()
-                    .key(recordKey)
-                    .payload("payload")
-                    .handlerId("handlerId")
-                    .build(clock)
-
-            repository.save(record)
-
-            val updatedRecord =
-                OutboxRecord.restore(
-                    id = record.id,
-                    recordKey = record.key,
-                    payload = record.payload,
-                    context = record.context,
-                    partition = 1,
-                    createdAt = record.createdAt,
-                    status = record.status,
-                    completedAt = record.completedAt,
-                    failureCount = record.failureCount + 1,
-                    failureReason = "some failure",
-                    nextRetryAt = record.nextRetryAt,
-                    handlerId = record.handlerId,
-                    failureException = null,
-                )
-
-            repository.save(updatedRecord)
-
-            val persistedUpdatedRecord = repository.findIncompleteRecordsByRecordKey(recordKey).first()
-
-            assertThat(persistedUpdatedRecord.failureCount).isEqualTo(updatedRecord.failureCount)
-            assertThat(persistedUpdatedRecord.failureReason).isEqualTo("some failure")
-        }
     }
 
     @Nested
@@ -342,6 +273,14 @@ class MongoOutboxRecordRepositoryTest {
             assertThat(persistedRecord.payload).isEqualTo(record.payload)
             assertThat(persistedRecord.status).isEqualTo(NEW)
             assertThat(persistedRecord.handlerId).isEqualTo(record.handlerId)
+            assertThat(persistedRecord.key).isEqualTo(record.key)
+            assertThat(persistedRecord.context).isEqualTo(record.context)
+            assertThat(persistedRecord.partition).isEqualTo(record.partition)
+            assertThat(persistedRecord.failureCount).isZero()
+            assertThat(persistedRecord.failureReason).isNull()
+            assertThat(persistedRecord.completedAt).isNull()
+            assertThat(persistedRecord.createdAt).isCloseTo(record.createdAt, within(1, MILLIS))
+            assertThat(persistedRecord.nextRetryAt).isCloseTo(record.nextRetryAt, within(1, MILLIS))
         }
 
         @Test
@@ -351,32 +290,6 @@ class MongoOutboxRecordRepositoryTest {
 
             assertThatThrownBy { repository.create(record) }
                 .isInstanceOf(DataIntegrityViolationException::class.java)
-        }
-    }
-
-    @Nested
-    @DisplayName("update()")
-    inner class UpdateTests {
-        @Test
-        fun `updates an existing entity`() {
-            val record = newRecord()
-            repository.create(record)
-
-            assertThat(repository.update(failedOnce(record))).isTrue()
-
-            val persistedRecord = repository.findIncompleteRecordsByRecordKey(record.key).single()
-
-            assertThat(persistedRecord.failureCount).isEqualTo(1)
-            assertThat(persistedRecord.failureReason).isEqualTo("boom")
-        }
-
-        @Test
-        fun `does not insert when updating a missing entity`() {
-            val record = newRecord()
-
-            assertThat(repository.update(record)).isFalse()
-
-            assertThat(repository.findIncompleteRecordsByRecordKey(record.key)).isEmpty()
         }
     }
 
@@ -503,29 +416,19 @@ class MongoOutboxRecordRepositoryTest {
     @DisplayName("findPendingRecords()")
     inner class FindPendingRecordsTests {
         @Test
-        fun `finds pending records`() {
-            createNewRecords(3)
-
-            val records = repository.findPendingRecords()
-
-            assertThat(records).hasSize(3)
-            records.map { it.status }.forEach { status ->
-                assertThat(status).isEqualTo(NEW)
-            }
-        }
-
-        @Test
-        fun `returns pending records ordered by createdAt asc`() {
+        fun `returns all pending records across keys ordered by createdAt asc`() {
             val now = Instant.now(clock).truncatedTo(MILLIS)
-            val recordKey = Uuid.generateV7().toString()
+            val recordKeys = List(2) { Uuid.generateV7().toString() }
 
-            createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(1, MINUTES))
-            createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(2, MINUTES))
-            createNewRecordsForRecordKey(1, recordKey, NEW, now.minus(3, MINUTES))
+            createNewRecordsForRecordKey(1, recordKeys[0], NEW, now.minus(1, MINUTES))
+            createNewRecordsForRecordKey(1, recordKeys[1], NEW, now.minus(2, MINUTES))
+            createNewRecordsForRecordKey(1, recordKeys[0], NEW, now.minus(3, MINUTES))
 
             val records = repository.findPendingRecords()
 
             assertThat(records).hasSize(3)
+            assertThat(records.map { it.status }).containsOnly(NEW)
+            assertThat(records.map { it.key }).containsExactly(recordKeys[0], recordKeys[1], recordKeys[0])
             assertThat(records.map { it.createdAt })
                 .containsExactly(
                     now.minus(3, MINUTES),
@@ -795,31 +698,6 @@ class MongoOutboxRecordRepositoryTest {
             val result = repository.findRecordKeysInPartitions(setOf(1), 10, true)
 
             assertThat(result).containsExactly(recordKey)
-        }
-
-        @Test
-        fun `processes oldest record when multiple NEW records exist`() {
-            val recordKey = Uuid.generateV7().toString()
-            val now = Instant.now(clock)
-
-            createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES))
-            createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(1, MINUTES))
-
-            val result = repository.findRecordKeysInPartitions(setOf(1), 10, true)
-
-            assertThat(result).contains(recordKey)
-        }
-
-        @Test
-        fun `allows processing when oldest record is ready`() {
-            val recordKey = Uuid.generateV7().toString()
-            val now = Instant.now(clock)
-
-            createRecordWithPartitionAndTime(recordKey, NEW, 1, now.minus(3, MINUTES))
-
-            val result = repository.findRecordKeysInPartitions(setOf(1), 10, true)
-
-            assertThat(result).contains(recordKey)
         }
 
         @Test
@@ -1154,7 +1032,7 @@ class MongoOutboxRecordRepositoryTest {
                     .handlerId("handlerId")
                     .build(clock)
 
-            repository.save(record)
+            repository.create(record)
             assertThat(repository.findIncompleteRecordsByRecordKey(recordKey)).hasSize(1)
 
             repository.deleteById(record.id)
@@ -1339,27 +1217,10 @@ class MongoOutboxRecordRepositoryTest {
             .handlerId("handlerId")
             .build(clock)
 
-    private fun failedOnce(record: OutboxRecord<String>): OutboxRecord<String> =
-        OutboxRecord.restore(
-            id = record.id,
-            recordKey = record.key,
-            payload = record.payload,
-            context = record.context,
-            partition = record.partition,
-            createdAt = record.createdAt,
-            status = record.status,
-            completedAt = record.completedAt,
-            failureCount = 1,
-            failureReason = "boom",
-            nextRetryAt = record.nextRetryAt,
-            handlerId = record.handlerId,
-            failureException = null,
-        )
-
     private fun createFailedRecords(count: Int = 3) {
         val now = Instant.now(clock)
         (0 until count).forEach { _ ->
-            repository.save(
+            repository.create(
                 OutboxRecord.restore(
                     id = Uuid.generateV7().toString(),
                     recordKey = Uuid.generateV7().toString(),
@@ -1382,7 +1243,7 @@ class MongoOutboxRecordRepositoryTest {
     private fun createCompletedRecords(count: Int = 3) {
         val now = Instant.now(clock)
         (0 until count).forEach { _ ->
-            repository.save(
+            repository.create(
                 OutboxRecord.restore(
                     id = Uuid.generateV7().toString(),
                     recordKey = Uuid.generateV7().toString(),
@@ -1405,7 +1266,7 @@ class MongoOutboxRecordRepositoryTest {
     private fun createNewRecords(count: Int = 3) {
         val now = Instant.now(clock)
         (0 until count).forEach { _ ->
-            repository.save(
+            repository.create(
                 OutboxRecord.restore(
                     id = Uuid.generateV7().toString(),
                     recordKey = Uuid.generateV7().toString(),
@@ -1432,7 +1293,7 @@ class MongoOutboxRecordRepositoryTest {
         createdAt: Instant = Instant.now(clock),
     ) {
         (0 until count).forEach { _ ->
-            repository.save(
+            repository.create(
                 OutboxRecord.restore(
                     id = Uuid.generateV7().toString(),
                     recordKey = recordKey,
@@ -1458,7 +1319,7 @@ class MongoOutboxRecordRepositoryTest {
         partition: Int,
         createdAt: Instant = Instant.now(clock),
     ) {
-        repository.save(
+        repository.create(
             OutboxRecord.restore(
                 id = Uuid.generateV7().toString(),
                 recordKey = recordKey,
@@ -1483,7 +1344,7 @@ class MongoOutboxRecordRepositoryTest {
         createdAt: Instant = Instant.now(clock),
     ) {
         (0 until count).forEach { _ ->
-            repository.save(
+            repository.create(
                 OutboxRecord.restore(
                     id = Uuid.generateV7().toString(),
                     recordKey = recordKey,
@@ -1526,7 +1387,7 @@ class MongoOutboxRecordRepositoryTest {
                 failureException = null,
             )
 
-        repository.save(record)
+        repository.create(record)
         return record
     }
 
@@ -1553,7 +1414,7 @@ class MongoOutboxRecordRepositoryTest {
                 handlerId = "handler",
                 failureException = null,
             )
-        repository.save(record)
+        repository.create(record)
     }
 
     private fun saveRetentionRecord(
@@ -1580,7 +1441,7 @@ class MongoOutboxRecordRepositoryTest {
                 handlerId = "handlerId",
                 failureException = null,
             )
-        repository.save(record)
+        repository.create(record)
         return record.id
     }
 
