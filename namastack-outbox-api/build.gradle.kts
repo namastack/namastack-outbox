@@ -9,8 +9,7 @@ dependencies {
     implementation(platform(libs.spring.boot.bom))
     implementation(libs.spring.core)
 
-    testImplementation(platform(libs.spring.boot.bom))
-    testImplementation(libs.spring.boot.starter.test)
-    testImplementation(libs.mockk)
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.assertj.core)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

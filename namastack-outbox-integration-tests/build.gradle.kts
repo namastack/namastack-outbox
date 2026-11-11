@@ -14,8 +14,7 @@ dependencies {
     testImplementation(platform(libs.spring.boot.bom))
     testImplementation(libs.jackson.module.kotlin)
     testImplementation(libs.kotlin.reflect)
-    testImplementation(libs.spring.boot.starter.test)
-    testImplementation(libs.spring.boot.starter.data.jdbc.test)
+    testImplementation(libs.spring.boot.starter.jdbc.test)
     testImplementation(libs.mockk)
     testImplementation(libs.h2)
 

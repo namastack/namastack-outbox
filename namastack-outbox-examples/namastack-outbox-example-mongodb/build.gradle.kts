@@ -26,7 +26,6 @@ kotlin {
 dependencies {
     implementation(platform(libs.namastack.outbox.bom))
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
     implementation("io.namastack:namastack-outbox-starter-mongodb")
     testImplementation("org.springframework.boot:spring-boot-starter-test")

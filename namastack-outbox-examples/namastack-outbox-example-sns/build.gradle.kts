@@ -24,7 +24,6 @@ repositories {
 dependencies {
     implementation(platform(libs.namastack.outbox.bom))
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("io.awspring.cloud:spring-cloud-aws-starter-sns:4.2.1")
     implementation("io.namastack:namastack-outbox-starter-jdbc")

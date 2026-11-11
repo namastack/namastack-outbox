@@ -16,7 +16,6 @@ dependencies {
     implementation(libs.spring.boot.amqp)
     implementation(libs.jackson.databind)
     implementation(libs.slf4j.api)
-    compileOnly(libs.jackson.module.kotlin)
 
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.mockk)

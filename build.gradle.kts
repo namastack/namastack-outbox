@@ -6,8 +6,6 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     alias(libs.plugins.kotlin.spring) apply false
-    alias(libs.plugins.spring.boot) apply false
-    alias(libs.plugins.spring.dependency.management) apply false
     alias(libs.plugins.ktlint) apply false
     alias(libs.plugins.dokka.javadoc)
     alias(libs.plugins.kotlin.jvm)
@@ -36,7 +34,7 @@ val isCi = providers.environmentVariable("CI").getOrElse("false").toBoolean()
 
 allprojects {
     group = "io.namastack"
-    version = "1.11.0" + if (!isRelease) "-SNAPSHOT" else ""
+    version = "1.11.1" + if (!isRelease) "-SNAPSHOT" else ""
 
     repositories {
         mavenLocal()

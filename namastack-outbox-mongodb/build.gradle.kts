@@ -7,7 +7,6 @@ plugins {
 description = "namastack-outbox-mongodb"
 
 dependencies {
-    implementation(project(":namastack-outbox-api"))
     implementation(project(":namastack-outbox-core"))
 
     implementation(platform(libs.spring.boot.bom))

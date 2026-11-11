@@ -20,7 +20,6 @@ dependencies {
     implementation(libs.commons.codec)
     implementation(libs.kotlin.reflect)
 
-    compileOnly(libs.jakarta.annotation.api)
     compileOnly(libs.slf4j.api)
 
     testImplementation(libs.spring.boot.starter.test)
