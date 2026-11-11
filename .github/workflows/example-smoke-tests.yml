@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: example-smoke-tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   publish-snapshot:
     runs-on: ubuntu-latest
@@ -40,6 +44,7 @@ jobs:
           name: namastack-maven-local
           path: namastack-maven-local.tgz
           if-no-files-found: error
+          compression-level: 0
 
   example-smoke-tests:
     runs-on: ubuntu-latest
@@ -98,4 +103,5 @@ jobs:
 
       - name: Run example smoke test
         working-directory: namastack-outbox-examples/${{ matrix.example }}
-        run: ./gradlew test --no-daemon --refresh-dependencies
+        # Cache compilation, but always execute the smoke test against this run's Maven local snapshot.
+        run: ./gradlew test --rerun --build-cache --no-daemon

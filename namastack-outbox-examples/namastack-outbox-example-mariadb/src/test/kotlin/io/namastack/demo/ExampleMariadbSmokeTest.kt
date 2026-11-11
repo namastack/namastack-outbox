@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.system.CapturedOutput
 import org.springframework.boot.test.system.OutputCaptureExtension
+import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.MariaDBContainer
@@ -18,6 +19,8 @@ import java.util.concurrent.TimeUnit.SECONDS
 @SpringBootTest
 @ExtendWith(OutputCaptureExtension::class)
 @Testcontainers
+// Close Spring while the database is still running, before Testcontainers stops it after the class.
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class ExampleMariadbSmokeTest {
     companion object {
         @Container
