@@ -11,6 +11,10 @@ HISTORY=1000000
 RECORDS=80000
 RECORDS_PER_KEY=10
 BATCH_SIZE=1000
+POLL_TRIGGER=fixed
+POLL_INTERVAL=10ms
+POLL_MIN_INTERVAL=1ms
+POLL_MAX_INTERVAL=10ms
 READERS=4
 PRODUCER_WORKERS=16
 PRODUCER_BATCH_SIZE=1000
@@ -33,6 +37,10 @@ Usage: ./run-performance-test.sh [--option=value]
   --records=80000             Mixed-state fixture size (read mode only)
   --records-per-key=10        Records sharing an ordering key
   --batch-size=1000           Maximum keys per consumer poll/read query
+  --poll-trigger=fixed        Consumer polling trigger: fixed or adaptive
+  --poll-interval=10ms        Fixed trigger: interval between polls
+  --poll-min-interval=1ms     Adaptive trigger: shortest delay, approached while polls fill a batch
+  --poll-max-interval=10ms    Adaptive trigger: longest delay, approached while polls are mostly empty
   --readers=4                 Parallel readers (read mode only)
   --producer-workers=16       Parallel producer connections, at most 16
   --producer-batch-size=1000  Records per producer transaction; multiple of records-per-key
@@ -60,6 +68,10 @@ for argument in "$@"; do
     --records=*) RECORDS="${argument#*=}" ;;
     --records-per-key=*) RECORDS_PER_KEY="${argument#*=}" ;;
     --batch-size=*) BATCH_SIZE="${argument#*=}" ;;
+    --poll-trigger=*) POLL_TRIGGER="${argument#*=}" ;;
+    --poll-interval=*) POLL_INTERVAL="${argument#*=}" ;;
+    --poll-min-interval=*) POLL_MIN_INTERVAL="${argument#*=}" ;;
+    --poll-max-interval=*) POLL_MAX_INTERVAL="${argument#*=}" ;;
     --readers=*) READERS="${argument#*=}" ;;
     --producer-workers=*) PRODUCER_WORKERS="${argument#*=}" ;;
     --producer-batch-size=*) PRODUCER_BATCH_SIZE="${argument#*=}" ;;
@@ -74,6 +86,7 @@ for argument in "$@"; do
 done
 case "$DATABASE" in postgres|mysql|mariadb|sqlserver|oracle|h2) ;; *) fail 'Unsupported database. Use --help.' ;; esac
 case "$MODE" in processing|read|producer) ;; *) fail 'Expected processing, read or producer mode.' ;; esac
+case "$POLL_TRIGGER" in fixed|adaptive) ;; *) fail 'Poll trigger must be fixed or adaptive.' ;; esac
 for value in "$STRICT" "$DELETE" "$SKIP_BUILD" "$KEEP_DATABASE"; do
   [[ "$value" == true || "$value" == false ]] || fail 'Boolean options must be true or false.'
 done
@@ -82,6 +95,18 @@ for value in "$RATE" "$INSTANCES" "$RECORDS" "$RECORDS_PER_KEY" "$BATCH_SIZE" "$
 done
 [[ "$HISTORY" =~ ^(0|[1-9][0-9]*)$ ]] || fail 'History must be a non-negative decimal integer.'
 [[ "$DURATION" =~ ^[1-9][0-9]*(ms|s|m|h)$ ]] || fail 'Duration must be positive, for example 30s or 5m.'
+duration_millis() {
+  [[ "$1" =~ ^([1-9][0-9]*)(ms|s|m|h)$ ]] || return 1
+  case "${BASH_REMATCH[2]}" in
+    ms) echo "${BASH_REMATCH[1]}" ;; s) echo $(( BASH_REMATCH[1] * 1000 )) ;;
+    m) echo $(( BASH_REMATCH[1] * 60000 )) ;; h) echo $(( BASH_REMATCH[1] * 3600000 )) ;;
+  esac
+}
+for value in "$POLL_INTERVAL" "$POLL_MIN_INTERVAL" "$POLL_MAX_INTERVAL"; do
+  duration_millis "$value" >/dev/null || fail 'Poll intervals must be positive, for example 1ms or 10ms.'
+done
+(( $(duration_millis "$POLL_MIN_INTERVAL") <= $(duration_millis "$POLL_MAX_INTERVAL") )) ||
+  fail 'Poll min interval must not exceed poll max interval.'
 [[ "$RUN_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || fail 'Invalid run ID.'
 (( INSTANCES <= 256 && READERS <= 256 )) || fail 'At most 256 consumers/readers are supported.'
 (( PRODUCER_WORKERS <= 16 )) || fail 'At most 16 producer workers are supported.'
@@ -128,6 +153,8 @@ export PERF_GIT_DIRTY="$([[ -n "$(git -C "$ROOT_DIR/.." status --porcelain)" ]] 
 git -C "$ROOT_DIR/.." status --short > "$REPORT_DIR/source-status.txt"
 git -C "$ROOT_DIR/.." diff HEAD --binary > "$REPORT_DIR/source.patch"
 export PERF_BATCH_SIZE="$BATCH_SIZE" PERF_STRICT_ORDERING="$STRICT" PERF_DELETE_COMPLETED="$DELETE"
+export PERF_POLL_TRIGGER="$POLL_TRIGGER" PERF_POLL_INTERVAL="$POLL_INTERVAL"
+export PERF_POLL_MIN_INTERVAL="$POLL_MIN_INTERVAL" PERF_POLL_MAX_INTERVAL="$POLL_MAX_INTERVAL"
 export PERF_CONSUMER_JAVA_OPTIONS="${PERF_CONSUMER_JAVA_OPTIONS:--Xms128m -Xmx512m -XX:ActiveProcessorCount=2}"
 export PERF_TOOL_JAVA_OPTIONS="${PERF_TOOL_JAVA_OPTIONS:--Xms128m -Xmx1g}"
 export PERF_DB_USER=username PERF_DB_PASSWORD=password

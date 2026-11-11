@@ -22,9 +22,12 @@ namastack:
         enabled: false
     polling:
       batch-size: ${PERF_BATCH_SIZE:1000}
-      trigger: fixed
+      trigger: ${PERF_POLL_TRIGGER:fixed}
       fixed:
         interval: ${PERF_POLL_INTERVAL:10ms}
+      adaptive:
+        min-interval: ${PERF_POLL_MIN_INTERVAL:1ms}
+        max-interval: ${PERF_POLL_MAX_INTERVAL:10ms}
     processing:
       delete-completed-records: ${NAMASTACK_OUTBOX_PROCESSING_DELETECOMPLETEDRECORDS:true}
       stop-on-first-failure: ${PERF_STRICT_ORDERING:true}

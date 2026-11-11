@@ -53,6 +53,15 @@ repeat a fixed corpus and are **not completed-record throughput**. To vary backl
   --records-per-key=2 --readers=1 --batch-size=200 --duration=10s
 ```
 
+Consumers poll with the fixed trigger every 10 ms by default. The adaptive trigger halves its delay
+(down to the minimum) after a poll that fills the whole batch, and doubles it (up to the maximum)
+after a poll that returns at most a quarter of the batch:
+
+```bash
+./run-performance-test.sh --poll-trigger=adaptive --poll-min-interval=1ms --poll-max-interval=10ms
+./run-performance-test.sh --poll-trigger=fixed --poll-interval=5ms
+```
+
 Use `--help` for all options. `--batch-size` limits keys per poll, not records within a key.
 Producer transactions always contain whole keys; `--producer-batch-size` must be a multiple of
 `--records-per-key`. `--strict=false` exercises non-strict processing. `--delete=false` retains
