@@ -7,7 +7,6 @@ plugins {
 description = "namastack-outbox-jdbc"
 
 dependencies {
-    api(project(":namastack-outbox-api"))
     api(project(":namastack-outbox-core"))
 
     api(platform(libs.spring.boot.bom))
@@ -17,13 +16,11 @@ dependencies {
     implementation(libs.spring.boot.jdbc)
 
     testImplementation(project(":namastack-outbox-jackson"))
-    testImplementation(libs.spring.boot.starter.test)
-    testImplementation(libs.spring.boot.starter.data.jdbc.test)
+    testImplementation(libs.spring.boot.starter.jdbc.test)
     testImplementation(libs.mockk)
     testImplementation(libs.h2)
     testImplementation(libs.jackson.module.kotlin)
 
-    testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.testcontainers.mysql)
     testImplementation(libs.testcontainers.mariadb)

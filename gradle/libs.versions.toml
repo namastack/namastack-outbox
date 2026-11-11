@@ -3,7 +3,6 @@
 kotlin = "2.4.21"
 springBoot = "4.1.2"
 springCloudAws = "4.2.1"
-dependencyManagement = "1.1.7"
 ktlint = "14.2.0"
 dokka = "2.3.0"
 publish = "0.37.0"
@@ -24,7 +23,7 @@ spring-boot-jdbc = { module = "org.springframework.boot:spring-boot-jdbc" }
 spring-boot-kafka = { module = "org.springframework.boot:spring-boot-kafka" }
 spring-boot-data-mongodb = { module = "org.springframework.boot:spring-boot-data-mongodb" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
-spring-boot-starter-data-jdbc-test = { module = "org.springframework.boot:spring-boot-starter-data-jdbc-test" }
+spring-boot-starter-jdbc-test = { module = "org.springframework.boot:spring-boot-starter-jdbc-test" }
 spring-boot-starter-data-mongodb-test = { module = "org.springframework.boot:spring-boot-starter-data-mongodb-test" }
 spring-amqp = { module = "org.springframework.amqp:spring-amqp" }
 spring-core = { module = "org.springframework:spring-core" }
@@ -37,9 +36,6 @@ spring-tx = { module = "org.springframework:spring-tx" }
 spring-cloud-aws-bom = { module = "io.awspring.cloud:spring-cloud-aws-dependencies", version.ref = "springCloudAws" }
 spring-cloud-aws-sns = { module = "io.awspring.cloud:spring-cloud-aws-sns" }
 spring-cloud-aws-autoconfigure = { module = "io.awspring.cloud:spring-cloud-aws-autoconfigure" }
-
-# Jakarta dependencies
-jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api" }
 
 # Kotlin dependencies
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
@@ -92,7 +88,6 @@ kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotl
 
 # Spring plugins
 spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
-spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "dependencyManagement" }
 
 # Code quality plugins
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }

@@ -8,7 +8,6 @@ description = "namastack-outbox-observability"
 
 dependencies {
     api(project(":namastack-outbox-observability-api"))
-    implementation(project(":namastack-outbox-api"))
     implementation(project(":namastack-outbox-core"))
 
     implementation(platform(libs.spring.boot.bom))
@@ -21,8 +20,7 @@ dependencies {
     compileOnly(libs.micrometer.tracing)
 
     testImplementation(project(":namastack-outbox-starter-jdbc"))
-    testImplementation(libs.spring.boot.starter.test)
-    testImplementation(libs.spring.boot.starter.data.jdbc.test)
+    testImplementation(libs.spring.boot.starter.jdbc.test)
     testImplementation(libs.jackson.module.kotlin)
     testImplementation(libs.h2)
     testImplementation(libs.mockk)

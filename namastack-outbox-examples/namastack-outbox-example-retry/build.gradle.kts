@@ -27,7 +27,6 @@ kotlin {
 dependencies {
     implementation(platform(libs.namastack.outbox.bom))
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("io.namastack:namastack-outbox-starter-jdbc")
     runtimeOnly("com.h2database:h2")

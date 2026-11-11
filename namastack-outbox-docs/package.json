@@ -18,10 +18,8 @@
     "@docusaurus/core": "^3.10.2",
     "@docusaurus/plugin-content-docs": "^3.10.2",
     "@docusaurus/preset-classic": "^3.10.2",
-    "@docusaurus/theme-live-codeblock": "^3.10.2",
-    "@docusaurus/theme-mermaid": "^3.10.2",
     "@docusaurus/theme-common": "^3.10.2",
-    "@docusaurus/theme-search-algolia": "^3.10.2",
+    "@docusaurus/theme-mermaid": "^3.10.2",
     "@easyops-cn/docusaurus-search-local": "^0.55.1",
     "@mdx-js/react": "^3.0.0",
     "@tabler/icons-react": "^3.37.1",
@@ -29,7 +27,6 @@
     "prism-react-renderer": "^2.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "unist-util-visit": "^5.1.0",
     "vanilla-cookieconsent": "^3.1.0"
   },
   "devDependencies": {
