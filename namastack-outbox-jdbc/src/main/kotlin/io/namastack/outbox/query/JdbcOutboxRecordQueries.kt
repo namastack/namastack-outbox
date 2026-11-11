@@ -18,9 +18,6 @@ package io.namastack.outbox.query
  * @since 1.12.0
  */
 internal interface JdbcOutboxRecordQueries {
-    /** Updates every column of a record by id. */
-    val updateRecord: String
-
     /** Updates the processing state of a record by id without writing payload or context. */
     val updateProcessingState: String
 

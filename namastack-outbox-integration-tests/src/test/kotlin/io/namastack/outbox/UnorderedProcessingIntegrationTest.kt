@@ -71,7 +71,7 @@ class UnorderedProcessingIntegrationTest {
         recordKey: String,
         payload: String,
     ): OutboxRecord<String> =
-        outboxRecordRepository.save(
+        outboxRecordRepository.create(
             OutboxRecord
                 .Builder<String>()
                 .key(recordKey)

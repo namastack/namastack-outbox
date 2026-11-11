@@ -32,23 +32,6 @@ internal open class JdbcOutboxRecordRepository(
     private val sql by lazy(queries)
 
     /**
-     * Saves an outbox record.
-     * Updates existing record or inserts new one.
-     */
-    override fun <T> save(record: OutboxRecord<T>): OutboxRecord<T> =
-        transactionTemplate.execute {
-            val entity = entityMapper.map(record)
-
-            val updated = tryUpdate(entity)
-
-            if (updated == 0) {
-                insert(entity)
-            }
-
-            record
-        }
-
-    /**
      * Creates a new outbox record.
      *
      * @param record The outbox record to create
@@ -59,19 +42,6 @@ internal open class JdbcOutboxRecordRepository(
             val entity = entityMapper.map(record)
             insert(entity)
             record
-        }
-
-    /**
-     * Updates an existing outbox record. Does nothing if the record no longer exists.
-     *
-     * @param record The outbox record to update
-     * @return True if the record was updated, false if it no longer exists
-     */
-    override fun <T> update(record: OutboxRecord<T>): Boolean =
-        transactionTemplate.execute {
-            val entity = entityMapper.map(record)
-            val updatedRows = tryUpdate(entity)
-            updatedRows == 1
         }
 
     /**
@@ -449,27 +419,6 @@ internal open class JdbcOutboxRecordRepository(
             deleteByIds(ids)
         } ?: 0
     }
-
-    /**
-     * Attempts to update an existing record. Returns number of rows updated.
-     */
-    private fun tryUpdate(entity: JdbcOutboxRecordEntity): Int =
-        jdbcClient
-            .sql(sql.updateRecord)
-            .param("status", entity.status.name)
-            .param("recordKey", entity.recordKey)
-            .param("recordType", entity.recordType)
-            .param("payload", entity.payload)
-            .param("context", entity.context)
-            .param("partitionNo", entity.partitionNo)
-            .param("createdAt", entity.createdAt.toTimestamp())
-            .param("completedAt", entity.completedAt?.toTimestamp())
-            .param("failureCount", entity.failureCount)
-            .param("failureReason", entity.failureReason)
-            .param("nextRetryAt", entity.nextRetryAt.toTimestamp())
-            .param("handlerId", entity.handlerId)
-            .param("id", entity.id)
-            .update()
 
     /**
      * Inserts a new record into the database.

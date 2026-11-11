@@ -23,30 +23,14 @@ interface OutboxRecordRepository {
     }
 
     /**
-     * Saves an outbox record to the repository.
-     *
-     * @param record The outbox record to save
-     * @return The saved outbox record
-     */
-    fun <T> save(record: OutboxRecord<T>): OutboxRecord<T>
-
-    /**
      * Creates a new outbox record.
+     * An existing record with the same ID must cause a duplicate-key error; it must not be overwritten.
      *
      * @param record The new outbox record
      * @return The created outbox record
      * @since 1.12.0
      */
     fun <T> create(record: OutboxRecord<T>): OutboxRecord<T>
-
-    /**
-     * Updates an existing outbox record. If the record no longer exists, nothing is written.
-     *
-     * @param record The outbox record to update
-     * @return `true` if the record was updated, `false` if it no longer exists
-     * @since 1.12.0
-     */
-    fun <T> update(record: OutboxRecord<T>): Boolean
 
     /**
      * Persists the processing state of an existing record: status, completedAt, failureCount,

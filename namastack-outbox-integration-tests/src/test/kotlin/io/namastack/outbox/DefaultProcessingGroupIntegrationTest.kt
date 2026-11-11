@@ -81,7 +81,7 @@ class DefaultProcessingGroupIntegrationTest {
 
     private fun saveLegacyRecord(status: OutboxRecordStatus) {
         val createdAt = clock.instant().minusSeconds(60)
-        repository.save(
+        repository.create(
             OutboxRecord.restore(
                 id = Uuid.generateV7().toString(),
                 recordKey = "order:42",

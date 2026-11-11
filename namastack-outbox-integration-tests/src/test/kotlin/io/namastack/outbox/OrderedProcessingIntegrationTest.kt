@@ -97,7 +97,7 @@ class OrderedProcessingIntegrationTest {
         handlerId: String,
         createdAt: Instant,
     ) {
-        outboxRecordRepository.save(
+        outboxRecordRepository.create(
             OutboxRecord.restore(
                 id = id,
                 recordKey = "tied-handler-key",
@@ -128,7 +128,7 @@ class OrderedProcessingIntegrationTest {
         recordKey: String,
         payload: String,
     ): OutboxRecord<String> =
-        outboxRecordRepository.save(
+        outboxRecordRepository.create(
             OutboxRecord
                 .Builder<String>()
                 .key(recordKey)

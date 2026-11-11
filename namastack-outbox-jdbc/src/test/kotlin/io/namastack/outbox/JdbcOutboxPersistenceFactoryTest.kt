@@ -38,8 +38,8 @@ class JdbcOutboxPersistenceFactoryTest {
         val orders = createPersistence(dataSource, transactionManager, serializer, clock, "orders_")
         val billing = createPersistence(dataSource, transactionManager, serializer, clock, "billing_")
 
-        orders.recordRepository.save(createRecord("orders", clock))
-        billing.recordRepository.save(createRecord("billing", clock))
+        orders.recordRepository.create(createRecord("orders", clock))
+        billing.recordRepository.create(createRecord("billing", clock))
         orders.instanceRepository.save(OutboxInstance.create("orders", "localhost", 8080, ACTIVE, clock))
         billing.instanceRepository.save(OutboxInstance.create("billing", "localhost", 8081, ACTIVE, clock))
         orders.partitionAssignmentRepository.saveAll(setOf(PartitionAssignment.create(1, "orders", clock, null)))
@@ -123,7 +123,7 @@ class JdbcOutboxPersistenceFactoryTest {
         val clock = Clock.fixed(Instant.parse("2026-09-01T08:00:00Z"), UTC)
         val sales = createPersistence(dataSource, transactionManager, serializer, clock, "sales_").recordRepository
         val audit = createPersistence(dataSource, transactionManager, serializer, clock, "audit_").recordRepository
-        val record = sales.save(createRecord("sales", clock))
+        val record = sales.create(createRecord("sales", clock))
         val partitions = setOf(record.partition)
         val now = Instant.now(clock)
 
