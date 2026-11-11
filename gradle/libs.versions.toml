@@ -9,7 +9,7 @@ dokka = "2.3.0"
 publish = "0.37.0"
 
 # Dependency versions
-mockk = "1.14.11"
+mockk = "1.14.12"
 testcontainers = "2.0.5"
 
 [libraries]
