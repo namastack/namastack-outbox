@@ -110,10 +110,10 @@ continuous database queries and warnings while keeping the safeguard small and p
 does not replace the expand-and-contract deployment sequence.
 
 :::note Materialization of Records for One Key
-The built-in repositories currently materialize all selected records for a key before processing
-starts. If a later record uses an unavailable payload class, compatible predecessors loaded with it
-may remain pending until a compatible instance owns the partition. The records are not lost or
-processed out of order.
+In 2.x, the built-in repositories fetch serialized rows in bulk and decode each record when the
+scheduler reaches it. Compatible predecessors can complete before a later record with an unavailable
+payload type stops that key. The page still retains all fetched rows; it does not limit records or
+payload bytes per key.
 :::
 
 ## Adding a Payload Type or Handler
@@ -172,8 +172,9 @@ state and include delayed retries when checking for remaining records.
 
 ## Upgrading the Compatibility Behavior
 
-An instance running an older Namastack Outbox version does not have the compatibility handling
-described on this page. In particular, it may treat a missing handler as a delivery failure.
+Check whether every library version participating in the rollout supports the compatibility
+handling described above. Versions without it may treat a missing handler as a delivery failure.
+Version 1.11.1 already supports compatibility deferral; 2.x additionally decodes records lazily.
 
 When introducing this behavior into an existing deployment:
 

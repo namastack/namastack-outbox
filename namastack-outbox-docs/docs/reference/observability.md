@@ -24,16 +24,17 @@ Namastack Outbox. It provides:
 
 ## Setup
 
-Add the observability module together with your outbox starter. If you want to export Prometheus
+Add the observability module and Spring Boot Actuator together with your outbox starter. If you want to export Prometheus
 metrics, also add the Prometheus Micrometer registry.
 
 <Tabs>
 <TabItem value="gradle" label="Gradle">
 
-<VersionedCode language="kotlin" template= {`dependencies {
+<VersionedCode version="2.0.0" language="kotlin" template= {`dependencies {
       implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
       implementation("io.namastack:namastack-outbox-starter-jdbc")
       implementation("io.namastack:namastack-outbox-observability")
+      implementation("org.springframework.boot:spring-boot-starter-actuator")
 
       // For Prometheus endpoint (optional)
       implementation("io.micrometer:micrometer-registry-prometheus")
@@ -45,7 +46,7 @@ metrics, also add the Prometheus Micrometer registry.
 </TabItem>
 <TabItem value="maven" label="Maven">
 
-<VersionedCode language="xml" template= {`<dependencyManagement>
+<VersionedCode version="2.0.0" language="xml" template= {`<dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>io.namastack</groupId>
@@ -65,6 +66,11 @@ metrics, also add the Prometheus Micrometer registry.
 <dependency>
       <groupId>io.namastack</groupId>
       <artifactId>namastack-outbox-observability</artifactId>
+</dependency>
+
+<dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
 </dependency>
 
 <!-- For Prometheus endpoint (optional) -->
@@ -190,15 +196,15 @@ namastack:
         enabled: true
         refresh-interval: 15s
         max-age: 60s
-        record-statuses: new, failed  # statuses with an outbox.records gauge (since 1.12.0)
+        record-statuses: new, failed  # statuses with an outbox.records gauge (since 2.0.0)
 ```
 
 `refresh-interval` must be at least 1ms. `max-age` must be at least `refresh-interval`.
 
 `record-statuses` selects the statuses that get an `outbox.records` gauge. All selected statuses are
 counted with one grouped query per collection. An empty list registers no `outbox.records` gauges.
-Adding `completed` publishes the number of retained `COMPLETED` records, but it needs a slower query:
-the indexes cover incomplete records only, so its cost grows with the retained history.
+Adding `completed` also counts retained `COMPLETED` records. That can make collection more expensive
+as the retained history grows, even when the database uses a status index.
 
 For completion throughput, use the `outbox.record.attempt` timer instead. It needs no database query:
 
@@ -232,6 +238,16 @@ database collection, set `namastack.outbox.observability.metrics.enabled=false`.
 Observation-based timers remain enabled.
 
 :::info Actuator endpoints
+
+Expose the endpoints you need, for example:
+
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+```
 
 Common Spring Boot Actuator endpoints:
 

@@ -18,8 +18,8 @@ Context propagation preserves important metadata (trace IDs, tenant info, correl
 
 ## Tracing Context Propagation
 
-The `namastack-outbox-observability` module provides **automatic, zero-configuration** trace propagation.
-No custom `OutboxContextProvider` bean is needed.
+The `namastack-outbox-observability` module propagates tracing automatically when Micrometer
+`Tracer` and `Propagator` beans are configured. No custom `OutboxContextProvider` bean is needed.
 
 :::info
 **See the Observability guide for full details.**
@@ -56,6 +56,9 @@ sequenceDiagram
 ---
 
 ## OutboxContextProvider Interface
+
+Use providers for application metadata. The trace-ID provider below is optional: it adds IDs for
+logging, while the observability module handles trace propagation through its own headers.
 
 <Tabs>
 <TabItem value="kotlin" label="Kotlin">
@@ -145,14 +148,11 @@ class OrderHandler {
     fun handle(payload: OrderEvent, metadata: OutboxRecordMetadata) {
         // Access context via metadata.context
         val traceId = metadata.context["traceId"]
-        val spanId = metadata.context["spanId"]
         val tenantId = metadata.context["tenantId"]
         
-        // Restore tracing context for downstream calls
-        tracer.withSpan(traceId, spanId) {
-            logger.info("Processing order ${payload.orderId} [trace: $traceId]")
-            orderService.process(payload)
-        }
+        // The observability module restores the trace before invoking this handler.
+        logger.info("Processing order ${payload.orderId} [tenant: $tenantId, trace: $traceId]")
+        orderService.process(payload)
     }
     
     @OutboxFallbackHandler
@@ -162,12 +162,12 @@ class OrderHandler {
         
         logger.error(
             "Order ${payload.orderId} failed permanently [trace: $traceId]",
-            context.lastException
+            context.lastFailure
         )
         
         deadLetterQueue.publish(
             payload = payload,
-            context = mapOf("traceId" to traceId)
+            context = context.context
         )
     }
 }
@@ -183,14 +183,11 @@ public class OrderHandler {
     public void handle(OrderEvent payload, OutboxRecordMetadata metadata) {
         // Access context via metadata.context
         String traceId = metadata.getContext().get("traceId");
-        String spanId = metadata.getContext().get("spanId");
         String tenantId = metadata.getContext().get("tenantId");
         
-        // Restore tracing context for downstream calls
-        tracer.withSpan(traceId, spanId, () -> {
-            logger.info("Processing order {} [trace: {}]", payload.getOrderId(), traceId);
-            orderService.process(payload);
-        });
+        // The observability module restores the trace before invoking this handler.
+        logger.info("Processing order {} [tenant: {}, trace: {}]", payload.getOrderId(), tenantId, traceId);
+        orderService.process(payload);
     }
     
     @OutboxFallbackHandler
@@ -202,10 +199,10 @@ public class OrderHandler {
             "Order {} failed permanently [trace: {}]",
             payload.getOrderId(),
             traceId,
-            context.getLastException()
+            context.getLastFailure()
         );
         
-        deadLetterQueue.publish(payload, Map.of("traceId", traceId));
+        deadLetterQueue.publish(payload, context.getContext());
     }
 }
 ```
@@ -222,7 +219,10 @@ public class OrderHandler {
 
 ```kotlin
 @Service
-class OrderService(private val outbox: Outbox) {
+class OrderService(
+    private val outbox: Outbox,
+    private val orderRepository: OrderRepository
+) {
     @Transactional
     fun createOrder(command: CreateOrderCommand) {
         val order = Order.create(command)
@@ -249,6 +249,13 @@ class OrderService(private val outbox: Outbox) {
 @Service
 public class OrderService {
     private final Outbox outbox;
+    private final OrderRepository orderRepository;
+
+    public OrderService(Outbox outbox, OrderRepository orderRepository) {
+        this.outbox = outbox;
+        this.orderRepository = orderRepository;
+    }
+
     @Transactional
     public void createOrder(CreateOrderCommand command) {
         Order order = Order.create(command);

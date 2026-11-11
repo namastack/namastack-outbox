@@ -14,8 +14,8 @@ import VersionedCode from '@site/src/components/VersionedCode';
 
 # Spring Modulith Integration
 
-Spring Modulith (2.1+) integrates with Namastack Outbox as an outbox-backed event externalization
-solution.
+Spring Modulith (2.1+) supports outbox-backed event externalization for relational databases through
+its [Namastack integration](https://docs.spring.io/spring-modulith/reference/events.html#namastack-outbox-support).
 
 This integration lets Spring Modulith applications publish externalized application events through
 Namastack Outbox instead of relying only on Spring Modulith's Event Publication Registry.
@@ -88,7 +88,7 @@ Use Namastack Outbox with Spring Modulith when:
 - your application runs with multiple instances
 - events are sent to an external broker
 - failed event publication must be retried automatically
-- duplicate concurrent dispatching must be avoided
+- you need coordinated dispatch across instances
 - event ordering matters
 - you want outbox behavior without building your own dispatcher
 
@@ -96,12 +96,11 @@ Use Namastack Outbox with Spring Modulith when:
 
 ### Step 1: Add Dependencies
 
-Add Spring Modulith's Namastack starter. Spring Modulith brings the required Namastack Outbox
-runtime support for outbox-backed event externalization.
+Add Spring Modulith's Namastack starter and import the Namastack BOM to select **2.0.0** for its
+transitive outbox dependencies. The Modulith starter alone may select an older Namastack version.
 
-The examples below use Spring Modulith `2.1.0-RC1`, where Namastack Outbox support is available.
-Use the current Spring Modulith `2.1.x` version for your project and configure the matching Spring
-milestone or snapshot repository if you are not using a GA release.
+The examples use Spring Modulith `2.1.2`. Keep Spring Modulith aligned with your Spring Boot version
+and rebuild and test the integration when changing either dependency.
 
 **Choose your persistence layer:**
 
@@ -110,9 +109,10 @@ milestone or snapshot repository if you are not using a GA release.
 <Tabs>
 <TabItem value="Gradle" label="Gradle">
 
-<VersionedCode language="kotlin" template= {`dependencyManagement {
+<VersionedCode version="2.0.0" language="kotlin" template= {`dependencyManagement {
     imports {
-        mavenBom("org.springframework.modulith:spring-modulith-bom:2.1.0-RC1")
+        mavenBom("org.springframework.modulith:spring-modulith-bom:2.1.2")
+        mavenBom("io.namastack:namastack-outbox-bom:{{versionLabel}}")
     }
 }
 
@@ -128,12 +128,19 @@ dependencies {
 </TabItem>
 <TabItem value="Maven" label="Maven">
 
-<VersionedCode language="xml" template= {`<dependencyManagement>
+<VersionedCode version="2.0.0" language="xml" template= {`<dependencyManagement>
     <dependencies>
+        <dependency>
+            <groupId>io.namastack</groupId>
+            <artifactId>namastack-outbox-bom</artifactId>
+            <version>{{versionLabel}}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.modulith</groupId>
             <artifactId>spring-modulith-bom</artifactId>
-            <version>2.1.0-RC1</version>
+            <version>2.1.2</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -168,9 +175,10 @@ dependencies {
 <Tabs>
 <TabItem value="Gradle" label="Gradle">
 
-<VersionedCode language="kotlin" template= {`dependencyManagement {
+<VersionedCode version="2.0.0" language="kotlin" template= {`dependencyManagement {
     imports {
-        mavenBom("org.springframework.modulith:spring-modulith-bom:2.1.0-RC1")
+        mavenBom("org.springframework.modulith:spring-modulith-bom:2.1.2")
+        mavenBom("io.namastack:namastack-outbox-bom:{{versionLabel}}")
     }
 }
 
@@ -186,12 +194,19 @@ dependencies {
 </TabItem>
 <TabItem value="Maven" label="Maven">
 
-<VersionedCode language="xml" template= {`<dependencyManagement>
+<VersionedCode version="2.0.0" language="xml" template= {`<dependencyManagement>
     <dependencies>
+        <dependency>
+            <groupId>io.namastack</groupId>
+            <artifactId>namastack-outbox-bom</artifactId>
+            <version>{{versionLabel}}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.modulith</groupId>
             <artifactId>spring-modulith-bom</artifactId>
-            <version>2.1.0-RC1</version>
+            <version>2.1.2</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -332,14 +347,13 @@ This example demonstrates:
 
 ## Full Namastack Outbox Feature Set
 
-All other features of Namastack Outbox are available and can be used seamlessly with the Spring
-Modulith integration. This includes:
+The integration uses Namastack's processing runtime, including:
 
 - Advanced retry and backoff strategies
 - Partitioning and multi-instance coordination
 - Observability, metrics, and tracing
-- Dead letter queue support
-- Custom transports and delivery handlers
+- Fallback handling through application-defined handlers
+- Transport integration through Spring Modulith
 - Operational tooling and health endpoints
 
 For details, see the [Namastack Outbox documentation](index.md) and the linked advanced
@@ -356,7 +370,7 @@ properties to fit your requirements.
 
 :::info Multicaster precedence
 
-The `modulith-namastack` module disables Namastack Outbox's `OutboxEventMulticaster`. Spring
+The `spring-modulith-events-namastack` module disables Namastack Outbox's `OutboxEventMulticaster`. Spring
 Modulith's event multicaster takes precedence and is responsible for routing externalized events
 through the outbox integration.
 
@@ -377,7 +391,7 @@ Namastack API types, such as defining an `OutboxRetryPolicy` bean or a custom `O
 <Tabs>
 <TabItem value="Gradle" label="Gradle">
 
-<VersionedCode language="kotlin" template= {`dependencies {
+<VersionedCode version="2.0.0" language="kotlin" template= {`dependencies {
     implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
     implementation("io.namastack:namastack-outbox-api")
     // Add other Namastack modules only when you configure them directly
@@ -386,7 +400,7 @@ Namastack API types, such as defining an `OutboxRetryPolicy` bean or a custom `O
 </TabItem>
 <TabItem value="Maven" label="Maven">
 
-<VersionedCode language="xml" template= {`<dependencyManagement>
+<VersionedCode version="2.0.0" language="xml" template= {`<dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>io.namastack</groupId>

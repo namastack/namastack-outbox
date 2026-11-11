@@ -24,8 +24,9 @@ spring:
       enabled: true
 ```
 
-Spring Boot 3.2+ automatically configures a virtual-thread-based executor when this property is
-set. Namastack Outbox detects the presence of this executor and uses it for outbox processing.
+On Java 21+, Namastack Outbox uses Spring Boot's threading configuration to create its own
+virtual-thread executor, `outboxTaskExecutor`. An explicitly supplied executor with that name
+takes precedence.
 
 ---
 
@@ -88,7 +89,7 @@ namastack:
 
 The platform thread pool is appropriate when:
 
-- You are running on Java 17 or earlier (virtual threads require Java 21+)
+- You are running on Java 17–20 (virtual threads require Java 21+)
 - Your handlers are CPU-bound rather than I/O-bound
 - You need precise control over OS thread resource usage
 
@@ -117,6 +118,6 @@ enabling virtual threads.
 ---
 
 :::tip Java Version Requirement
-Virtual threads require **Java 21 or later** and **Spring Boot 3.2 or later**. On earlier
-versions, `spring.threads.virtual.enabled` is ignored and platform thread pools are used.
+Namastack Outbox 2.x targets **Spring Boot 4.x** and **Java 17 or later**. Virtual threads require
+**Java 21 or later**; use platform threads on Java 17–20.
 :::

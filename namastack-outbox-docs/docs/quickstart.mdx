@@ -18,6 +18,9 @@ with handler-based processing and partition-aware horizontal scaling.
 
 This guide will get you up and running in 5 minutes with minimal configuration.
 
+Use Spring Boot 4.x and Java 17 or later. For an existing 1.x application, follow the
+[Upgrade to 2.0 guide](migrations/2-0-0.md).
+
 ---
 
 ## Add Dependency
@@ -25,15 +28,17 @@ This guide will get you up and running in 5 minutes with minimal configuration.
 <Tabs>
 <TabItem value="Gradle" label="Gradle">
 
-<VersionedCode language="kotlin" template= {`dependencies {
+<VersionedCode version="2.0.0" language="kotlin" template= {`dependencies {
       implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
       implementation("io.namastack:namastack-outbox-starter-jdbc")
+      implementation("org.springframework.boot:spring-boot-starter-jdbc")
+      runtimeOnly("com.h2database:h2") // Local demo; replace with your production driver
 }`} />
 
 </TabItem>
 <TabItem value="Maven" label="Maven">
 
-<VersionedCode language="xml" template= {`<dependencyManagement>
+<VersionedCode version="2.0.0" language="xml" template= {`<dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>io.namastack</groupId>
@@ -48,10 +53,25 @@ This guide will get you up and running in 5 minutes with minimal configuration.
 <dependency>
       <groupId>io.namastack</groupId>
       <artifactId>namastack-outbox-starter-jdbc</artifactId>
+</dependency>
+<dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jdbc</artifactId>
+</dependency>
+<!-- Local demo; replace with your production driver -->
+<dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>runtime</scope>
 </dependency>`} />
 
 </TabItem>
 </Tabs>
+
+The example uses an embedded H2 database. For your production database, replace H2 with its JDBC
+driver and configure `spring.datasource.*`. An existing Spring Data JPA application already supplies
+the JDBC infrastructure. Production setup is covered in
+[Database Support](reference/database.md).
 
 :::tip Scheduling is automatic
 Spring's `@EnableScheduling` is activated automatically by the library — no manual setup required. See [Configuration → Automatic Scheduling](reference/configuration.md#automatic-scheduling) for details.
@@ -350,18 +370,23 @@ migrations manage outbox tables. See the [H2 example](https://github.com/namasta
 
 ## MongoDB Setup
 
+Use the MongoDB starter instead of the JDBC starter. MongoDB requires a replica set or sharded
+cluster with transaction support. Keep business writes and scheduling in the same MongoDB
+transaction; see [MongoDB transactions](reference/persistence.md#transactions).
+
 <Tabs>
 <TabItem value="Gradle" label="Gradle">
 
-<VersionedCode language="kotlin" template= {`dependencies {
+<VersionedCode version="2.0.0" language="kotlin" template= {`dependencies {
       implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
       implementation("io.namastack:namastack-outbox-starter-mongodb")
+      implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
 }`} />
 
 </TabItem>
 <TabItem value="Maven" label="Maven">
 
-<VersionedCode language="xml" template= {`<dependencyManagement>
+<VersionedCode version="2.0.0" language="xml" template= {`<dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>io.namastack</groupId>
@@ -376,6 +401,10 @@ migrations manage outbox tables. See the [H2 example](https://github.com/namasta
 <dependency>
       <groupId>io.namastack</groupId>
       <artifactId>namastack-outbox-starter-mongodb</artifactId>
+</dependency>
+<dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-mongodb</artifactId>
 </dependency>`} />
 
 </TabItem>

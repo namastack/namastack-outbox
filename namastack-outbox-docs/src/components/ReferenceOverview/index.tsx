@@ -39,7 +39,7 @@ const referenceGroups: ReferenceGroup[] = [
       {title: 'Record Scheduling', link: 'scheduling/'},
       {title: 'Handlers', link: 'handlers/'},
       {title: 'Processing Chain', link: 'processing/'},
-      {title: 'Processing Groups', link: 'processing-groups/', sinceVersion: '1.12.x'},
+      {title: 'Processing Groups', link: 'processing-groups/', sinceVersion: '2.0.x'},
     ],
   },
   {

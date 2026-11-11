@@ -22,8 +22,8 @@ automatic schema creation for the following databases:
 
 ### MongoDB
 
-MongoDB is supported via the dedicated `namastack-outbox-starter-mongodb` module. Collections
-and indexes are created automatically via Spring Data MongoDB on application startup. For manual
+MongoDB is supported via the dedicated `namastack-outbox-starter-mongodb` module. Automatic index
+creation requires `spring.data.mongodb.auto-index-creation=true`. For manual
 index management and index definitions, see [MongoDB Schema](#mongodb-schema). For module
 setup and configuration, see [Persistence Modules → MongoDB](persistence.md#mongodb-module).
 
@@ -66,7 +66,7 @@ database, and H2 creates only the first two; see the [schema files](https://gith
 | Index on | Used for |
 |----------|----------|
 | status, creation time, id | Selecting the record keys to process |
-| record key, creation time, id | Loading the records of a key, and checking for earlier records of a key |
+| record key, completion time, creation time, id | Loading the records of a key, and checking for earlier records of a key |
 | status, next retry time | The oldest due record metric |
 | status, partition | Record count metrics per partition |
 
@@ -75,6 +75,9 @@ Retention queries have no dedicated index and can be slow on large tables. See
 
 On PostgreSQL, H2 and SQL Server, automatic schema initialization creates missing indexes at startup,
 which can block writes on a large table.
+
+For an existing 1.x database, apply the [2.0 index migration](../migrations/2-0-0-indexes.md).
+Startup initialization is not a replacement for versioned schema migrations.
 
 ---
 
@@ -110,14 +113,10 @@ above as the source for the `sql` changeset type, or translate to Liquibase XML/
 The schema has not been initialized. Either enable automatic initialization (JDBC module) or
 apply the migration scripts before starting the application.
 
-**`Could not obtain lock on outbox partition`** (PostgreSQL)
-This is a normal advisory lock contention message logged at DEBUG level when multiple instances
-compete for the same partition. It is not an error — the second instance will retry on the next
-poll cycle.
-
 **Oracle: `ORA-00955: name is already used by an existing object`**
-Automatic schema initialization tried to create tables that already exist. Disable automatic
-initialization and manage the schema manually.
+The initialization script skips tables already present in `USER_TABLES`. This error can indicate
+a conflicting object name, an existing index with the same name, or concurrent schema creation.
+Inspect the conflicting object and apply the schema through one migration process.
 
 ---
 
@@ -148,7 +147,7 @@ When using a custom collection prefix (e.g. `myapp_`), all collection names are 
 | `record_key_created_idx`           | `{ recordKey: 1, createdAt: 1 }`                 | Ordered lookup by record key                     |
 | `partition_status_retry_idx`       | `{ partitionNo: 1, status: 1, nextRetryAt: 1 }`  | Partition-scoped polling query                   |
 | `status_retry_idx`                 | `{ status: 1, nextRetryAt: 1 }`                  | Global retry scheduling                          |
-| `record_key_completed_created_idx` | `{ recordKey: 1, completedAt: 1, createdAt: 1 }` | Completed record cleanup                         |
+| `record_key_completed_created_idx` | `{ recordKey: 1, completedAt: 1, createdAt: 1 }` | Earlier incomplete records for the same key       |
 | `fifo_pipeline_idx`                | `{ partitionNo: 1, recordKey: 1, createdAt: 1 }` | FIFO aggregation pipeline for ordered processing |
 
 For time-based retention of completed records, an additional `{ status: 1, completedAt: 1 }` index is
@@ -167,6 +166,9 @@ recommended but not created automatically. See [Record Retention](retention.md#i
 | Index Name       | Fields              | Purpose                           |
 |------------------|---------------------|-----------------------------------|
 | `instanceId_idx` | `{ instanceId: 1 }` | Lookup partitions by instance     |
+
+Names above match the manual setup script. Spring Data may generate different names for
+single-field indexes; compare index fields and options when checking an existing database.
 
 ---
 

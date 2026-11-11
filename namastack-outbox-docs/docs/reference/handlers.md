@@ -327,8 +327,8 @@ removal, and rollback procedures.
 
 ## Processing Groups
 
-:::info Available since 1.12.0
-Processing groups are available since version 1.12.0.
+:::info Available since 2.0.0
+Processing groups are available since version 2.0.0.
 :::
 
 Handlers declare a group with `@OutboxHandler(processingGroup = "billing")`,
@@ -343,7 +343,7 @@ handler invocation:
 
 - `key` - Business key
 - `recordId` - Nullable persisted record ID, populated during processing and stable across retries
-- `processingGroup` - Processing group of this delivery (since 1.12.0)
+- `processingGroup` - Processing group of this delivery (since 2.0.0)
 - `handlerId` - Handler assigned to the record
 - `createdAt` - Time when the outbox record was created
 - `context` - Propagated context such as trace IDs or tenant IDs
@@ -563,42 +563,41 @@ public class OrderHandlers {
 
 ### OutboxFailureContext
 
-The `OutboxFailureContext` provides comprehensive failure information:
+`OutboxFailureContext` is a Kotlin data class supplied to fallback handlers:
 
 <Tabs>
 <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-interface OutboxFailureContext {
-    val handlerId: String              // Handler that failed
-    val recordId: String               // Unique identifier of the record
-    val recordKey: String              // Business key
-    val processingGroup: String        // Processing group (since 1.12.0)
-    val createdAt: Instant             // When record was created
-    val failureCount: Int              // Number of failed attempts
-    val lastFailure: Throwable?        // Last exception thrown
-    val retriesExhausted: Boolean      // True if retry limit was reached
-    val nonRetryableException: Boolean // True if failure was due to non-retryable exception
-    val context: Map<String, String>   // Propagated context (traceId, tenantId, etc.)
-}
+data class OutboxFailureContext(
+    val recordId: String,
+    val recordKey: String,
+    val createdAt: Instant,
+    val failureCount: Int,
+    val lastFailure: Throwable?,
+    val handlerId: String,
+    val retriesExhausted: Boolean,
+    val nonRetryableException: Boolean,
+    val context: Map<String, String>,
+    val processingGroup: String = OutboxProcessingGroup.DEFAULT,
+)
 ```
 
 </TabItem>
 <TabItem value="java" label="Java">
 
 ```java
-public interface OutboxFailureContext {
-    String getHandlerId();             // Handler that failed
-    String getRecordId();              // Unique identifier of the record
-    String getRecordKey();             // Business key
-    String getProcessingGroup();       // Processing group (since 1.12.0)
-    Instant getCreatedAt();            // When record was created
-    int getFailureCount();             // Number of failed attempts
-    Throwable getLastFailure();        // Last exception thrown
-    boolean isRetriesExhausted();      // True if retry limit was reached
-    boolean isNonRetryableException(); // True if failure was due to non-retryable exception
-    Map<String, String> getContext();  // Propagated context (traceId, tenantId, etc.)
-}
+// Accessors on the supplied context:
+String handlerId = context.getHandlerId();
+String recordId = context.getRecordId();
+String recordKey = context.getRecordKey();
+String processingGroup = context.getProcessingGroup();
+Instant createdAt = context.getCreatedAt();
+int failureCount = context.getFailureCount();
+Throwable lastFailure = context.getLastFailure(); // May be null
+boolean retriesExhausted = context.getRetriesExhausted();
+boolean nonRetryableException = context.getNonRetryableException();
+Map<String, String> propagatedContext = context.getContext();
 ```
 
 </TabItem>

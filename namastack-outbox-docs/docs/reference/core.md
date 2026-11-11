@@ -152,7 +152,7 @@ graph TB
 256 fixed partitions provide fine-grained load distribution. Partitions are automatically distributed among active instances. Each key always maps to the same partition.
 
 ```kotlin
-val partition = PartitionHasher.getPartitionForAggregate("order-123")
+val partition = PartitionHasher.getPartitionForRecordKey("order-123")
 ```
 
 ### Instance Coordination

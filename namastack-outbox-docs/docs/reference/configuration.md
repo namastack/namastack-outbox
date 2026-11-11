@@ -24,9 +24,9 @@ namastack:
         interval: 2s                           # interval between polling cycles (default: 2s)
       adaptive:
         min-interval: 1s                       # Minimum interval between cycles, at least 1ms (default: 1s)
-        max-interval: 8s                       # Maximum ms between cycles (default: 8s)
+        max-interval: 8s                       # Maximum interval between cycles (default: 8s)
 
-    # Processing Groups (since 1.12.0)
+    # Processing Groups (since 2.0.0)
     processing-groups:
       enabled: false                           # Use declared groups for new deliveries (default: false)
 
@@ -73,7 +73,7 @@ namastack:
         - org.springframework.web.client.ResourceAccessException
       exclude-exceptions:                      # Never retry these exceptions (optional)
         - java.lang.IllegalArgumentException
-        - javax.validation.ValidationException
+        - jakarta.validation.ValidationException
       
       # Fixed Delay Policy
       fixed:
@@ -116,7 +116,20 @@ namastack:
       idempotency-header-enabled: false        # Add Idempotency-Key attribute (default: false)
       fifo-deduplication-id-enabled: false     # Set native FIFO deduplication ID (default: false)
       default-topic-arn: arn:aws:sns:us-east-1:000000000000:outbox-events   # Default SNS topic ARN (default: arn:aws:sns:us-east-1:000000000000:outbox-events)
+
+    # State gauges (requires namastack-outbox-observability)
+    observability:
+      metrics:
+        enabled: true                          # Register state gauges and collect values (default: true)
+        refresh-interval: 15s                   # Delay after each collection (default: 15s)
+        max-age: 60s                            # Report NaN when a reading expires (default: 60s)
+        record-statuses: [new, failed]          # Add completed to count retained successes
 ```
+
+Exception class names must be available on the application classpath. Include/exclude lists above
+are examples; both lists are empty by default.
+
+For gauge collection semantics and validation, see [Observability](observability.md#background-gauge-collection).
 
 :::info RabbitMQ publisher confirms
 Rabbit outbox publishing requires Spring AMQP correlated publisher confirms:

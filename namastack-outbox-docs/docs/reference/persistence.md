@@ -20,12 +20,14 @@ JPA for business entities use the JDBC outbox module.
 ## JDBC Module
 
 The JDBC module uses Spring's `JdbcClient` for database operations. Recommended for all relational applications,
-including Spring Data JPA projects using a shared DataSource and JpaTransactionManager.
+including Spring Data JPA projects using a shared DataSource and JpaTransactionManager. Your application
+must provide a DataSource and JDBC driver, typically through `spring-boot-starter-jdbc` or
+`spring-boot-starter-data-jpa`.
 
 <Tabs>
 <TabItem value="Gradle" label="Gradle">
 
-<VersionedCode language="kotlin" template= {`dependencies {
+<VersionedCode version="2.0.0" language="kotlin" template= {`dependencies {
       implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
       implementation("io.namastack:namastack-outbox-starter-jdbc")
 }`} />
@@ -33,7 +35,7 @@ including Spring Data JPA projects using a shared DataSource and JpaTransactionM
 </TabItem>
 <TabItem value="Maven" label="Maven">
 
-<VersionedCode language="xml" template= {`<dependencyManagement>
+<VersionedCode version="2.0.0" language="xml" template= {`<dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>io.namastack</groupId>
@@ -186,12 +188,13 @@ Use the SQL schema files as templates and adjust table names:
 
 ## MongoDB Module
 
-The MongoDB module uses Spring Data MongoDB for document-based persistence. Best for projects already using MongoDB.
+The MongoDB module uses Spring Data MongoDB for document-based persistence. Use it alongside
+`spring-boot-starter-data-mongodb`, which supplies the MongoDB client and connection configuration.
 
 <Tabs>
 <TabItem value="Gradle" label="Gradle">
 
-<VersionedCode language="kotlin" template= {`dependencies {
+<VersionedCode version="2.0.0" language="kotlin" template= {`dependencies {
       implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
       implementation("io.namastack:namastack-outbox-starter-mongodb")
 }`} />
@@ -199,7 +202,7 @@ The MongoDB module uses Spring Data MongoDB for document-based persistence. Best
 </TabItem>
 <TabItem value="Maven" label="Maven">
 
-<VersionedCode language="xml" template= {`<dependencyManagement>
+<VersionedCode version="2.0.0" language="xml" template= {`<dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>io.namastack</groupId>
@@ -222,9 +225,22 @@ The MongoDB module uses Spring Data MongoDB for document-based persistence. Best
 **Benefits:**
 
 - No SQL or relational database required
-- Automatic collection and index creation via Spring Data MongoDB
+- Collection and index setup via Spring Data MongoDB or the supplied script
 - Support for custom collection prefixes
-- Single-document atomicity for most operations
+- Transactional persistence of business documents and outbox records
+
+### Transactions
+
+Use a replica set or sharded cluster that supports MongoDB transactions, including for local
+development. A standalone MongoDB server is insufficient. Schedule records in a Spring-managed
+MongoDB transaction using the same `MongoDatabaseFactory` as your business writes.
+
+The module supplies a manager named `outboxMongoTransactionManager`. If multiple transaction
+managers are present, select the MongoDB manager explicitly, for example
+`@Transactional("outboxMongoTransactionManager")`.
+
+Create collections and indexes before accepting transactional writes. See
+[Spring Data MongoDB transaction setup](https://docs.spring.io/spring-data/mongodb/reference/mongodb/client-session-transactions.html).
 
 ### Custom Collection Prefix
 

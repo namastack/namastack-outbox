@@ -89,8 +89,8 @@ public class OrderService {
 
 ### Processing Groups
 
-:::info Available since 1.12.0
-Processing groups are available since version 1.12.0.
+:::info Available since 2.0.0
+Processing groups are available since version 2.0.0.
 :::
 
 `schedule()` always takes the business key. When [Processing Groups](processing-groups.md) are
@@ -104,7 +104,7 @@ Records go through the following states:
 
 - **NEW**: Freshly scheduled, waiting for processing
 - **COMPLETED**: This delivery completed through its handler or a successful `COMPLETE` fallback
-- **FAILED**: Exhausted all retries, requires manual intervention
+- **FAILED**: Processing ended permanently after retry and fallback handling; requires manual intervention
 
 ---
 

@@ -27,7 +27,10 @@ The `namastack-outbox-jackson` module is the default for JSON serialization, lev
 
 - JSON serialization/deserialization
 - Custom Jackson modules and mixins
-- Standard Jackson configuration via `spring.jackson.*` properties
+- Standard Jackson configuration via `spring.jackson.*` when using Spring Boot's `JsonMapper` bean
+
+The module uses an existing Jackson 3 `JsonMapper` bean when available. Otherwise it creates its
+own mapper; that fallback does not apply Spring Boot's `spring.jackson.*` settings.
 
 **Example Jackson Configuration:**
 
@@ -35,8 +38,10 @@ The `namastack-outbox-jackson` module is the default for JSON serialization, lev
 spring:
   jackson:
     default-property-inclusion: NON_NULL
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false
     serialization:
-      write-dates-as-timestamps: false
       indent-output: true
     deserialization:
       fail-on-unknown-properties: false

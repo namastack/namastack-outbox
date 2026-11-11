@@ -21,8 +21,8 @@ Outbox project. It is independent of the documentation version selected on this 
 
 | Release                                 | What to expect                                                                                                                                                                                 |
 |-----------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Patch**, such as `1.12.0` to `1.12.1` | Bug fixes, security fixes, and maintenance. We aim to preserve existing APIs and configuration. A correction can still change observable behavior; any required migration is documented.       |
-| **Minor**, such as `1.11.0` to `1.12.0` | New features and improvements, with compatibility as the goal. Occasional targeted changes to APIs, configuration, dependency requirements, or persistence may require a documented migration. |
+| **Patch**, such as `2.0.0` to `2.0.1` | Bug fixes, security fixes, and maintenance. We aim to preserve existing APIs and configuration. A correction can still change observable behavior; any required migration is documented.       |
+| **Minor**, such as `2.0.0` to `2.1.0` | New features and improvements, with compatibility as the goal. Occasional targeted changes to APIs, configuration, dependency requirements, or persistence may require a documented migration. |
 | **Major**, such as `1.x` to `2.x`       | Substantial changes to the architecture, programming model, or supported platform. Expect a broader migration.                                                                                 |
 | **Snapshot or prerelease**              | Builds for evaluation and feedback. APIs and behavior can change before the stable release; snapshots can be replaced without changing their version number.                                   |
 
@@ -90,7 +90,7 @@ a path to migrate. The timing depends on the impact and maintenance cost of the 
 define a fixed minimum deprecation period.
 
 For compatibility changes, release notes describe who is affected and what action is needed.
-Larger migrations are documented in the reference documentation. Consult the
+Larger migrations have dedicated [migration guides](/docs/next/migrations/). Consult the
 [GitHub releases](https://github.com/namastack/namastack-outbox/releases) for each release between
 your current and target versions.
 

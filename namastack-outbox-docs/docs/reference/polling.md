@@ -23,9 +23,9 @@ cycle found work to do.
 
 **How it works:**
 
-The polling loop wakes up every `interval` milliseconds, queries the database for pending
-records, and processes up to `batch-size` record keys. It then sleeps for the configured
-interval before repeating — whether the batch was empty or full.
+Each cycle queries the database for pending records and processes up to `batch-size` record keys.
+After all key tasks finish, the scheduler waits for the configured interval before starting the
+next cycle. Processing time therefore adds to the time between polls.
 
 **Best for:**
 
@@ -33,9 +33,8 @@ interval before repeating — whether the batch was empty or full.
 - Systems where latency consistency is more important than minimizing database queries
 - Development and testing environments where simplicity is preferred
 
-**Trade-off:** During idle periods, Fixed polling issues the same number of database queries as
-during peak load. For workloads with significant idle time (nights, weekends), this generates
-unnecessary database traffic.
+**Trade-off:** Fixed polling keeps polling during idle periods instead of increasing the delay.
+For workloads with significant idle time, adaptive polling can reduce database traffic.
 
 **Configuration:**
 
@@ -69,10 +68,10 @@ reduce unnecessary database load.
 
 After each poll cycle, the adaptive strategy evaluates how full the batch was:
 
-- If **fewer than 25%** of `batch-size` keys were processed (low load), the interval doubles
+- If **at most 25%** of `batch-size` keys were processed (low load), the interval doubles
   (up to `max-interval`)
 - If a **full batch** was processed (high load), the interval halves (down to `min-interval`)
-- If load is **between 25% and 100%** of batch size, the interval stays the same
+- If load is **above 25% and below 100%** of batch size, the interval stays the same
 
 This means the system converges quickly on the minimum interval during bursts, and gradually
 backs off to the maximum interval during quiet periods.
@@ -90,7 +89,7 @@ on the minimum interval, adding a small amount of initial latency compared to Fi
 
 | Property                                         | Default    | Description                                                      |
 |--------------------------------------------------|------------|------------------------------------------------------------------|
-| `namastack.outbox.polling.trigger`               | `adaptive` | Selects the polling strategy                                     |
+| `namastack.outbox.polling.trigger`               | `fixed`    | Set to `adaptive` to enable adaptive polling                     |
 | `namastack.outbox.polling.adaptive.min-interval` | `1s`       | Minimum interval between polling cycles (floor during high load) |
 | `namastack.outbox.polling.adaptive.max-interval` | `8s`       | Maximum interval between polling cycles (ceiling during idle)    |
 | `namastack.outbox.polling.batch-size`            | `10`       | Maximum number of record keys to process per poll cycle          |
@@ -148,8 +147,9 @@ Keep the following in mind with this configuration:
 | Minimizing processing latency      | ✅ More consistent | Adds warmup latency |
 | Simplicity of configuration        | ✅ One parameter   | Two parameters      |
 
-As a general rule: use **Adaptive** for production deployments and **Fixed** for local
-development or when your SLA requires a guaranteed maximum processing delay.
+Choose **Adaptive** to reduce idle queries or **Fixed** for a predictable delay between cycles.
+Neither strategy guarantees a maximum delivery latency: processing time, backlog, retries, and
+database availability also affect it.
 
 :::tip Related Configuration
 The `batch-size` property affects how quickly the adaptive strategy reacts to load changes.

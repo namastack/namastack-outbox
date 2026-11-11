@@ -21,8 +21,8 @@ complete behavior and the required deployment sequence.
 
 ## Processing Groups
 
-:::info Available since 1.12.0
-Processing groups are available since version 1.12.0.
+:::info Available since 2.0.0
+Processing groups are available since version 2.0.0.
 :::
 
 Each delivery runs through this chain independently. With grouped scheduling enabled, failure
@@ -75,8 +75,8 @@ flowchart LR
 
 ### Persisted Processing State
 
-:::info Available since 1.12.0
-Payload and context are fixed after scheduling since version 1.12.0.
+:::info Available since 2.0.0
+Payload and context are fixed after scheduling since version 2.0.0.
 :::
 
 Completion, retry scheduling and permanent failure store only the record's processing state: status,
@@ -188,4 +188,6 @@ The following options control how records are processed:
 | `namastack.outbox.processing.executor-concurrency-limit` | `-1`    | Concurrency limit for virtual threads (`-1` unlimited)          |
 | `namastack.outbox.processing.shutdown-timeout`           | `30s`   | Maximum time to wait for processing to complete during shutdown |
 
-- Both options control the maximum time the system will wait for in-flight processing to complete during a graceful shutdown.
+`processing.shutdown-timeout` bounds the wait for in-flight processing. The separate
+`instance.graceful-shutdown-timeout` is a propagation window after marking an instance as shutting
+down; it defaults to `0s`.

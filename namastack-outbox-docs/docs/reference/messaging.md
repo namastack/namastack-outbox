@@ -14,8 +14,8 @@ AWS SNS. These modules offer ready-to-use handlers, flexible routing, and simple
 
 ## Processing Groups and Message Keys
 
-:::info Available since 1.12.0
-Processing groups are available since version 1.12.0.
+:::info Available since 2.0.0
+Processing groups are available since version 2.0.0.
 :::
 
 Default routing uses the business key from handler metadata as the Kafka key, RabbitMQ routing
@@ -34,7 +34,7 @@ import VersionedCode from '@site/src/components/VersionedCode';
 <Tabs>
 <TabItem value="gradle" label="Gradle (Kotlin DSL)">
 
-<VersionedCode language="kotlin" template= {`dependencies {
+<VersionedCode version="2.0.0" language="kotlin" template= {`dependencies {
       implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
       implementation("io.namastack:namastack-outbox-kafka")
       implementation("io.namastack:namastack-outbox-rabbit")
@@ -44,7 +44,7 @@ import VersionedCode from '@site/src/components/VersionedCode';
 </TabItem>
 <TabItem value="maven" label="Maven">
 
-<VersionedCode language="xml" template= {`<dependencyManagement>
+<VersionedCode version="2.0.0" language="xml" template= {`<dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>io.namastack</groupId>
@@ -103,7 +103,7 @@ class KafkaOutboxConfig {
             key { payload, _ -> (payload as OrderEvent).orderId }
             headers { payload, metadata -> mapOf(
                 "custom-header" to "value", 
-                "traceId" to metadata.context["traceId"]) 
+                "traceId" to (metadata.context["traceId"] ?: ""))
             }
             mapping { payload, _ -> (payload as OrderEvent).toPublicEvent() }
             filter { payload, _ -> (payload as OrderEvent).status != "CANCELLED" }
@@ -129,7 +129,7 @@ public class KafkaOutboxConfig {
                 route.key((payload, metadata) -> ((OrderEvent) payload).getOrderId());
                 route.headers((payload, metadata) -> Map.of(
                     "custom-header", "value",
-                    "traceId", metadata.getContext().get("traceId")
+                    "traceId", metadata.getContext().getOrDefault("traceId", "")
                 ));
                 route.mapping((payload, metadata) -> ((OrderEvent) payload).toPublicEvent());
                 route.filter((payload, metadata) -> !((OrderEvent) payload).getStatus().equals("CANCELLED"));
@@ -176,7 +176,9 @@ section covers required settings, routing, configuration, and failure semantics.
 - **Auto-configuration:** Enabled if Spring Cloud AWS SNS is present.
 
 :::info FIFO Topics & Ordering
-When using SNS FIFO topics, the `key` configurer sets the **message group ID**, which preserves ordering per key. Records with the same key are sent **synchronously**, so a failure on one record stops processing of subsequent records with the same key.
+When using SNS FIFO topics, the `key` configurer sets the **message group ID**. Within an outbox
+processing group, records with the same business key are sent synchronously. With the default
+`stop-on-first-failure=true`, a failure blocks later records in that ordering boundary.
 :::
 
 <Tabs>
@@ -246,7 +248,7 @@ public class SnsOutboxConfig {
 
 ## Idempotency Keys
 
-Since 1.12.0, each messaging integration can add an `Idempotency-Key` header or SNS message
+Since 2.0.0, each messaging integration can add an `Idempotency-Key` header or SNS message
 attribute. The feature is disabled by default. Enable it independently for each integration:
 
 ```yaml
@@ -327,7 +329,7 @@ SNS suppresses duplicate IDs within a five-minute window. An explicit native ID 
 SNS content-based deduplication. Consumers still need to handle duplicates outside that window.
 See [AWS SNS message deduplication](https://docs.aws.amazon.com/sns/latest/dg/fifo-message-dedup.html).
 
-### Direct Handler Construction in 1.12.0
+### Direct Handler Construction in 2.0.0
 
 The messaging handlers now accept the new Boolean settings in their constructors. Java callers
 constructing handlers directly must pass them explicitly, for example:
@@ -358,7 +360,7 @@ Rabbit outbox integration therefore requires correlated publisher confirms.
 <Tabs>
 <TabItem value="gradle" label="Gradle (Kotlin DSL)">
 
-<VersionedCode language="kotlin" template= {`dependencies {
+<VersionedCode version="2.0.0" language="kotlin" template= {`dependencies {
     implementation(platform("io.namastack:namastack-outbox-bom:{{versionLabel}}"))
     implementation("io.namastack:namastack-outbox-rabbit")
 }`} />
@@ -366,7 +368,7 @@ Rabbit outbox integration therefore requires correlated publisher confirms.
 </TabItem>
 <TabItem value="maven" label="Maven">
 
-<VersionedCode language="xml" template= {`<dependencyManagement>
+<VersionedCode version="2.0.0" language="xml" template= {`<dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>io.namastack</groupId>
@@ -440,7 +442,7 @@ valid state in your topology.
 With correlated publisher confirms enabled, `RabbitOutboxPublisher` blocks until RabbitMQ confirms
 the publish.
 
-The handler fails and the outbox record is retried when:
+The handler fails and the configured retry/fallback policy applies when:
 
 - RabbitMQ nacks the publisher confirm.
 - No publisher confirm arrives before `namastack.outbox.rabbit.publisher-confirm-timeout`.

@@ -165,6 +165,11 @@ const config: Config = {
               activeBaseRegex: '^/docs/(?:[^/]+/)?reference/?$',
             },
             {
+              label: 'Migrations',
+              to: '/docs/next/migrations/',
+              activeBaseRegex: '^/docs/(?:[^/]+/)?migrations(?:/|$)',
+            },
+            {
               label: 'Spring Modulith',
               to: '/docs/reference/spring-modulith/',
               activeBaseRegex: '^/docs/(?:[^/]+/)?reference/spring-modulith/?$',

@@ -111,19 +111,19 @@ namastack:
       policy: exponential
       max-retries: 3
       exponential:
-        initial-delay: 1000
-        max-delay: 60000
+        initial-delay: 1s
+        max-delay: 60s
         multiplier: 2.0
       # Only retry these exceptions
-    include-exceptions:
-      - java.net.SocketTimeoutException
-      - org.springframework.web.client.ResourceAccessException
-      - java.io.IOException
-    # Never retry these exceptions
-    exclude-exceptions:
-      - java.lang.IllegalArgumentException
-      - javax.validation.ValidationException
-      - com.example.BusinessException
+      include-exceptions:
+        - java.net.SocketTimeoutException
+        - org.springframework.web.client.ResourceAccessException
+        - java.io.IOException
+      # Never retry these exceptions (classes must be on your classpath)
+      exclude-exceptions:
+        - java.lang.IllegalArgumentException
+        - jakarta.validation.ValidationException
+        - com.example.BusinessException
 ```
 
 </TabItem>
@@ -174,7 +174,8 @@ class OutboxConfig {
             }
             override fun nextDelay(failureCount: Int): Duration {
                 // Exponential backoff: 1s → 2s → 4s → 8s (capped at 60s)
-                val delayMillis = 1000L * (1L shl failureCount)
+                val exponent = (failureCount - 1).coerceIn(0, 6)
+                val delayMillis = 1000L * (1L shl exponent)
                 return Duration.ofMillis(minOf(delayMillis, 60000L))
             }
             override fun maxRetries(): Int = 5
@@ -206,7 +207,8 @@ public class OutboxConfig {
             @Override
             public Duration nextDelay(int failureCount) {
                 // Exponential backoff: 1s → 2s → 4s → 8s (capped at 60s)
-                long delayMillis = 1000L * (1L << failureCount);
+                int exponent = Math.max(0, Math.min(failureCount - 1, 6));
+                long delayMillis = 1000L * (1L << exponent);
                 return Duration.ofMillis(Math.min(delayMillis, 60000L));
             }
             @Override
@@ -224,7 +226,7 @@ public class OutboxConfig {
 **Key Methods:**
 
 - `shouldRetry(exception: Throwable): Boolean` - Decide if this error should be retried
-- `nextDelay(failureCount: Int): Duration` - Calculate delay before next retry
+- `nextDelay(failureCount: Int): Duration` - Calculate delay before next retry; `failureCount` starts at 1
 - `maxRetries(): Int` - Maximum number of retry attempts
 
 **Important:** The bean must be named `outboxRetryPolicy` to override the default policy configured in `application.yml`.
@@ -433,9 +435,10 @@ public class PaymentHandler {
 3. **Global custom policy** (bean named `outboxRetryPolicy`)
 4. **Default policy** (from `application.yml`)
 
-!!! tip "Interface vs Annotation"
-    - **Interface (`OutboxRetryAware`)**: Best when handler class is dedicated to single payload type, and you want type safety
-    - **Annotation (`@OutboxRetryable`)**: Best for method-level handlers or multiple handlers in one class
+:::tip Interface vs Annotation
+- **Interface (`OutboxRetryAware`)**: Use for a handler class with one retry policy.
+- **Annotation (`@OutboxRetryable`)**: Use for method-level handlers or multiple policies in one class.
+:::
 
 ---
 
@@ -449,7 +452,7 @@ Use the fluent builder to compose robust retry policies without implementing the
 ```kotlin
 @Configuration
 class OutboxConfig {
-    @Bean
+    @Bean("outboxRetryPolicy")
     fun customRetryPolicy(): OutboxRetryPolicy {
         return OutboxRetryPolicy.builder()
             .maxRetries(5)
@@ -472,7 +475,7 @@ class OutboxConfig {
 ```java
 @Configuration
 public class OutboxConfig {
-    @Bean
+    @Bean("outboxRetryPolicy")
     public OutboxRetryPolicy customRetryPolicy() {
         return OutboxRetryPolicy.builder()
             .maxRetries(5)
@@ -509,7 +512,7 @@ A bean named `outboxRetryPolicyBuilder` is auto-configured from your `namastack.
 @Configuration
 class OutboxConfig {
     // Inject the autoconfigured builder from application.yml
-    @Bean
+    @Bean("outboxRetryPolicy")
     fun customRetryPolicy(
         builder: OutboxRetryPolicy.Builder
     ): OutboxRetryPolicy {
@@ -529,7 +532,7 @@ class OutboxConfig {
 @Configuration
 public class OutboxConfig {
     // Inject the autoconfigured builder from application.yml
-    @Bean
+    @Bean("outboxRetryPolicy")
     public OutboxRetryPolicy customRetryPolicy(
         OutboxRetryPolicy.Builder builder
     ) {

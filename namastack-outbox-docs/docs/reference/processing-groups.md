@@ -11,8 +11,8 @@ import TabItem from '@theme/TabItem';
 
 # Processing Groups
 
-:::info Available since 1.12.0
-Processing groups are available since version 1.12.0.
+:::info Available since 2.0.0
+Processing groups are available since version 2.0.0.
 :::
 
 Processing groups let handlers share one outbox while choosing which handlers must process a
@@ -253,7 +253,7 @@ The design and its tradeoffs are recorded in
 
 ## Rollout and Group Changes
 
-1. Deploy version 1.12.0 or newer to **all workers sharing the outbox**, leaving grouped scheduling disabled.
+1. Deploy version 2.0.0 or newer to **all workers sharing the outbox**, leaving grouped scheduling disabled.
 2. Verify the rollout through your deployment tooling. Namastack does not detect worker capabilities.
 3. Pause affected producers and drain their pending deliveries before moving a handler to a
    non-default group. Include delayed retries and resolve permanently failed records that block a key.
@@ -265,11 +265,11 @@ previous and the new group can be processed independently for the same business 
 aliases map handler IDs, not groups, and do not move records between groups.
 
 Apply the same pause-and-drain procedure when changing a handler's group or disabling grouped
-scheduling. Library versions before 1.12.0 cannot read grouped records, whatever the setting;
-keep workers on 1.12.0 or newer until all grouped records have drained.
+scheduling. Library versions before 2.0.0 cannot read grouped records, whatever the setting;
+keep workers on 2.0.0 or newer until all grouped records have drained.
 
 The missing-payload and missing-handler safeguards described in
-[Rolling Deployments](rolling-deployments.md) do not apply here: a worker before 1.12.0 finds the
+[Rolling Deployments](rolling-deployments.md) do not apply here: a worker before 2.0.0 finds the
 handler and passes the stored key to it as the business key.
 
 ## Transaction Boundaries

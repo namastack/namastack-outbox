@@ -17,13 +17,14 @@ apply regardless of the underlying database or messaging broker you use.
 
 ### At-Least-Once Delivery
 
-Every outbox record will be delivered to its handler at least once. Records are never silently
-dropped. If a handler throws an exception or the application crashes mid-processing, the record
-remains in the database and will be retried on the next polling cycle.
+Committed records remain available for delivery across restarts and crashes. Processing can invoke
+a handler more than once, for example if its side effect succeeds before completion is persisted.
+Handlers must therefore tolerate duplicates.
 
-This guarantee holds across application restarts, JVM crashes, and network failures — because
-the outbox record is always persisted to the same database transaction as your business data
-before any delivery attempt begins.
+Handler failures follow the configured retry policy and retry time. Exhausted or non-retryable
+failures enter fallback handling and can end as `FAILED`, requiring manual intervention. Pending
+records also need a compatible handler, readable payload, and an unblocked key before they can run;
+at-least-once delivery does not guarantee eventual business success.
 
 ### Ordering Per Key
 
@@ -62,10 +63,13 @@ at least once. Throughput depends on available workers, independent keys, and da
 
 ### Transactional Consistency
 
-Outbox records are written inside the same database transaction as your business data. Either
+When business writes and outbox scheduling share the same database transaction, either
 both the business operation and the outbox record are committed, or neither is. This eliminates
 the dual-write problem that affects systems relying on direct message broker writes alongside
 database operations.
+
+`schedule()` requires an active Spring-managed transaction. Configure its transaction manager
+and database resources as described in [Record Scheduling](scheduling.md#outbox-service-api).
 
 ### Automatic Retry
 
