@@ -23,6 +23,7 @@ namastack:
         delay: 10s
     observability:
       metrics:
+        record-statuses: [NEW, COMPLETED, FAILED]
         refresh-interval: 5s
         max-age: 15s
 
