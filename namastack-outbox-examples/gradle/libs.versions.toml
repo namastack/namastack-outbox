@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.4.10"
+kotlin = "2.4.21"
 namastackOutbox = "1.11.1-SNAPSHOT"
 springBoot = "4.1.1"
 dependencyManagement = "1.1.7"
