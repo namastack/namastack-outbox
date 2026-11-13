@@ -74,14 +74,14 @@ retries.
   <picture>
     <source
       media="(prefers-color-scheme: dark)"
-      srcset="./namastack-outbox-docs/static/img/landing/diagram_dark.svg"
+      srcset="./docs/images/diagram_dark.svg"
     >
     <source
       media="(prefers-color-scheme: light)"
-      srcset="./namastack-outbox-docs/static/img/landing/diagram_light.svg"
+      srcset="./docs/images/diagram_light.svg"
     >
     <img
-      src="./namastack-outbox-docs/static/img/landing/diagram_light.svg"
+      src="./docs/images/diagram_light.svg"
       alt="Namastack Outbox architecture and event delivery flow"
       width="600"
     >

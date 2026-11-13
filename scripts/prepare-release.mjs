@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
-import {execFileSync} from 'node:child_process';
-import {readFileSync, rmSync, writeFileSync} from 'node:fs';
+import {readFileSync, writeFileSync} from 'node:fs';
 import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {compareVersions, parseVersion, projectVersionPattern, readProjectVersion} from './release-version.mjs';
@@ -16,8 +15,6 @@ const files = {
   examples: resolve(repositoryRoot, 'namastack-outbox-examples/gradle/libs.versions.toml'),
   performance: resolve(repositoryRoot, 'namastack-outbox-performance-test/build.gradle.kts'),
   security: resolve(repositoryRoot, 'SECURITY.md'),
-  docsVersions: resolve(repositoryRoot, 'namastack-outbox-docs/versions.json'),
-  vercel: resolve(repositoryRoot, 'namastack-outbox-docs/vercel.json'),
 };
 
 const contents = Object.fromEntries(
@@ -31,83 +28,23 @@ if (compareVersions(version, currentVersion) <= 0) {
 }
 
 const releaseLine = targetVersion.releaseLine;
-const docsVersions = JSON.parse(contents.docsVersions);
-const createsDocumentationVersion = !docsVersions.includes(releaseLine);
-const versionedDocsPath = resolve(
-  repositoryRoot,
-  'namastack-outbox-docs/versioned_docs',
-  `version-${releaseLine}`,
-);
-const versionedSidebarPath = resolve(
-  repositoryRoot,
-  'namastack-outbox-docs/versioned_sidebars',
-  `version-${releaseLine}-sidebars.json`,
-);
-
 const exampleVersionPattern = /namastackOutbox = "([^"]+)-SNAPSHOT"/;
 const performanceVersionPattern = /version = "([^"]+)-SNAPSHOT"/;
 parseVersion(matchExactlyOnce(contents.examples, exampleVersionPattern, 'example dependency version')[1]);
 parseVersion(matchExactlyOnce(contents.performance, performanceVersionPattern, 'performance-test version')[1]);
 
 if (!targetVersion.isPrerelease) {
-  let security = contents.security;
-  let vercel = contents.vercel;
-  if (createsDocumentationVersion) {
-    const previousReleaseLine = docsVersions[0];
-    if (typeof previousReleaseLine !== 'string') {
-      throw new Error('Expected versions.json to contain the current documentation release line');
-    }
-
-    const currentSecurityLine =
-      /^\|\s*(\d+\.\d+\.x)\s*\|\s*Current release line \(starting with ([^\s)]+)\)\s*\|\s*:white_check_mark:\s*\|$/m;
-    const securityMatch = matchExactlyOnce(security, currentSecurityLine, 'current security release line');
-    if (securityMatch[1] !== previousReleaseLine) {
-      throw new Error(
-        `Current security line ${securityMatch[1]} does not match latest documentation line ${previousReleaseLine}`,
-      );
-    }
-    const currentStatus = `Current release line (starting with ${version})`;
-
-    security = security.replace(
+  const currentSecurityLine =
+    /^\|\s*(\d+\.\d+\.x)\s*\|\s*Current release line \(starting with ([^\s)]+)\)\s*\|\s*:white_check_mark:\s*\|$/m;
+  const securityMatch = matchExactlyOnce(contents.security, currentSecurityLine, 'current security release line');
+  const previousReleaseLine = securityMatch[1];
+  if (releaseLine !== previousReleaseLine) {
+    const security = contents.security.replace(
       currentSecurityLine,
-      `${securityRow(releaseLine, currentStatus, ':white_check_mark:')}\n` +
+      `${securityRow(releaseLine, `Current release line (starting with ${version})`, ':white_check_mark:')}\n` +
         securityRow(previousReleaseLine, 'End of security support', ':x:'),
     );
-
-    const latestRedirectPattern = new RegExp(
-      `^(\\s*)\\{"source": "/outbox/${escapeRegExp(previousReleaseLine)}/:path\\*", ` +
-        '"destination": "/docs/:path\\*", "permanent": false\\},$',
-      'm',
-    );
-    const latestRedirectMatch = matchExactlyOnce(
-      vercel,
-      latestRedirectPattern,
-      `latest documentation redirect for ${previousReleaseLine}`,
-    );
-    const redirectIndent = latestRedirectMatch[1];
-    vercel = vercel.replace(
-      latestRedirectPattern,
-      `${redirectIndent}{"source": "/outbox/${releaseLine}/:path*", "destination": "/docs/:path*", "permanent": false},\n` +
-        `${redirectIndent}{"source": "/outbox/${previousReleaseLine}/:path*", ` +
-        `"destination": "/docs/${previousReleaseLine}/:path*", "permanent": true},`,
-    );
-  } else {
-    rmSync(versionedDocsPath, {recursive: true});
-    rmSync(versionedSidebarPath);
-    writeFileSync(
-      files.docsVersions,
-      `${JSON.stringify(docsVersions.filter((existingLine) => existingLine !== releaseLine), null, 2)}\n`,
-    );
-  }
-
-  execFileSync('npm', ['run', 'docusaurus', '--', 'docs:version', releaseLine], {
-    cwd: resolve(repositoryRoot, 'namastack-outbox-docs'),
-    stdio: 'inherit',
-  });
-
-  if (createsDocumentationVersion) {
     writeFileSync(files.security, security);
-    writeFileSync(files.vercel, vercel);
   }
 }
 
@@ -132,13 +69,7 @@ writeFileSync(
   ),
 );
 console.log(`Prepared Namastack Outbox ${version}`);
-console.log(
-  targetVersion.isPrerelease
-    ? 'Prerelease: stable documentation and support policy unchanged'
-    : createsDocumentationVersion
-      ? `Created documentation version ${releaseLine}`
-      : `Refreshed documentation version ${releaseLine}`,
-);
+console.log('Website documentation is maintained and published independently in namastack/namastack-website');
 
 function matchExactlyOnce(content, pattern, description) {
   const globalPattern = new RegExp(pattern.source, `${pattern.flags.replace('g', '')}g`);
@@ -151,8 +82,4 @@ function matchExactlyOnce(content, pattern, description) {
 
 function securityRow(releaseLine, status, supported) {
   return `| ${releaseLine.padEnd(17)} | ${status.padEnd(42)} | ${supported.padEnd(18)} |`;
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

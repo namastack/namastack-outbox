@@ -81,8 +81,7 @@ namastack-outbox/
 ├── namastack-outbox-observability/     # Micrometer metrics and tracing support
 ├── namastack-outbox-starter-jdbc/      # JDBC starter (convenience dependency)
 ├── namastack-outbox-integration-tests/ # Integration tests
-├── namastack-outbox-examples/          # Example applications
-└── namastack-outbox-docs/              # Documentation site
+└── namastack-outbox-examples/          # Example applications
 ```
 
 ## How to Contribute
@@ -252,7 +251,7 @@ fun `does not process record before next retry time`() { ... }
 
 - **KDoc**: In-code documentation for APIs
 - **README.md**: Project overview and quick start
-- **namastack-outbox-docs/**: Full documentation site (MkDocs)
+- **Website documentation**: Maintained separately in [namastack-website](https://github.com/namastack/namastack-website).
 - **Example READMEs**: In each example project
 
 ## Issue Reporting
