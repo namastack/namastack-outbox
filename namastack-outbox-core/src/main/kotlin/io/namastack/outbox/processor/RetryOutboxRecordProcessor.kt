@@ -1,7 +1,7 @@
 package io.namastack.outbox.processor
 
 import io.namastack.outbox.OutboxRecord
-import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.completion.OutboxCompletionPersistence
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
@@ -15,7 +15,7 @@ import java.time.Clock
  * Otherwise, passes to next processor in chain.
  *
  * @param retryPolicyRegistry Registry for retry policies
- * @param recordRepository Repository for persisting scheduled retries
+ * @param persistence Persistence for scheduled retries
  * @param clock Clock for retry scheduling
  *
  * @author Roland Beisel
@@ -23,7 +23,7 @@ import java.time.Clock
  */
 class RetryOutboxRecordProcessor(
     private val retryPolicyRegistry: OutboxRetryPolicyRegistry,
-    private val recordRepository: OutboxRecordRepository,
+    private val persistence: OutboxCompletionPersistence,
     private val clock: Clock,
 ) : OutboxRecordProcessor() {
     private val log = LoggerFactory.getLogger(RetryOutboxRecordProcessor::class.java)
@@ -40,7 +40,7 @@ class RetryOutboxRecordProcessor(
         if (shouldRetry(record, retryPolicy)) {
             val delay = retryPolicy.nextDelay(record.failureCount)
             record.scheduleNextRetry(delay, clock)
-            recordRepository.updateProcessingState(record)
+            persistence.updateProcessingState(record)
 
             log.debug("Scheduled retry #{} for record {} in {}", record.failureCount, record.id, delay)
 

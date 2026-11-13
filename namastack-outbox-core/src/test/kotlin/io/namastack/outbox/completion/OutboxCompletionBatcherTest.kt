@@ -6,6 +6,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
 import io.namastack.outbox.runtime.OutboxRuntimeSettings.CompletionBatching
 import org.assertj.core.api.Assertions.assertThat
@@ -15,19 +16,20 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Tests completion batching, backpressure, and shutdown behavior.
+ * Tests completion batching, commit acknowledgement, and shutdown behavior.
  *
  * @author Roland Beisel
  */
@@ -187,15 +189,17 @@ class OutboxCompletionBatcherTest {
         await().atMost(Duration.ofSeconds(2)).untilAsserted { assertThat(executor.activeCount).isZero() }
     }
 
-    @Test
-    fun `writes a full batch and completes each result`() {
-        val written = mutableListOf<List<String>>()
+    @ParameterizedTest
+    @ValueSource(ints = [1, 8])
+    fun `writers collect a full batch without splitting submissions between them`(writerCount: Int) {
+        val written = ConcurrentLinkedQueue<List<String>>()
         val writer =
             writer { deletions ->
                 written.add(deletions.map { it.recordId })
                 deletions.map { Result.success(Unit) }
             }
-        start(writer, maxBatchSize = 3)
+        start(writer, writerCount = writerCount, maxBatchSize = 3, maxWait = Duration.ofSeconds(1))
+        await().atMost(Duration.ofSeconds(2)).untilAsserted { assertThat(executor.activeCount).isEqualTo(writerCount) }
 
         val results = (1..3).map { batcher.submit(OutboxCompletion.Delete("record-$it"))!! }
         results.forEach { it.get(2, TimeUnit.SECONDS) }
@@ -257,26 +261,29 @@ class OutboxCompletionBatcherTest {
     }
 
     @Test
-    fun `another writer processes a completion while one writer is blocked`() {
+    fun `another writer collects and writes a batch while one writer is blocked`() {
         val slowWriting = CountDownLatch(1)
         val releaseSlowWrite = CountDownLatch(1)
+        val written = ConcurrentLinkedQueue<List<String>>()
         val writer =
             writer { deletions ->
-                if (deletions.single().recordId == "slow") {
+                written.add(deletions.map { it.recordId })
+                if (deletions.first().recordId == "slow") {
                     slowWriting.countDown()
                     releaseSlowWrite.await(5, TimeUnit.SECONDS)
                 }
                 deletions.map { Result.success(Unit) }
             }
-        start(writer, writerCount = 2)
+        start(writer, writerCount = 2, maxBatchSize = 2, maxWait = Duration.ofSeconds(1))
 
         val slow = batcher.submit(OutboxCompletion.Delete("slow"))!!
         assertThat(slowWriting.await(2, TimeUnit.SECONDS)).isTrue()
-        val fast = batcher.submit(OutboxCompletion.Delete("fast"))!!
+        val fast = (1..2).map { batcher.submit(OutboxCompletion.Delete("fast-$it"))!! }
 
         try {
-            fast.get(2, TimeUnit.SECONDS)
+            fast.forEach { it.get(2, TimeUnit.SECONDS) }
             assertThat(slow.isDone).isFalse()
+            assertThat(written).containsExactly(listOf("slow"), listOf("fast-1", "fast-2"))
         } finally {
             releaseSlowWrite.countDown()
         }
@@ -316,7 +323,7 @@ class OutboxCompletionBatcherTest {
     }
 
     @Test
-    fun `a full queue blocks submission without failing a completed handler`() {
+    fun `submissions do not wait for queue capacity while a writer is busy`() {
         val writing = CountDownLatch(1)
         val release = CountDownLatch(1)
         val writer =
@@ -336,8 +343,7 @@ class OutboxCompletionBatcherTest {
             CompletableFuture.supplyAsync { batcher.submit(OutboxCompletion.Delete("third")) }
 
         try {
-            assertThatThrownBy { thirdSubmission.get(100, TimeUnit.MILLISECONDS) }
-                .isInstanceOf(TimeoutException::class.java)
+            assertThat(thirdSubmission.get(2, TimeUnit.SECONDS)!!.isDone).isFalse()
         } finally {
             release.countDown()
         }
@@ -346,10 +352,11 @@ class OutboxCompletionBatcherTest {
         listOf(first, second, third).forEach { it.get(2, TimeUnit.SECONDS) }
     }
 
-    @Test
-    fun `shutdown flushes a partial batch before its wait expires`() {
+    @ParameterizedTest
+    @ValueSource(ints = [1, 8])
+    fun `shutdown flushes a partial batch before its wait expires`(writerCount: Int) {
         val writer = writer { deletions -> deletions.map { Result.success(Unit) } }
-        start(writer, maxBatchSize = 10, maxWait = Duration.ofSeconds(10))
+        start(writer, writerCount = writerCount, maxBatchSize = 10, maxWait = Duration.ofSeconds(10))
 
         val result = batcher.submit(OutboxCompletion.Delete("record"))!!
         val stopping = CompletableFuture.runAsync { batcher.stop() }
@@ -359,10 +366,13 @@ class OutboxCompletionBatcherTest {
         assertThat(batcher.submit(OutboxCompletion.Delete("late"))).isNull()
     }
 
-    @Test
-    fun `shutdown drains queued completions in bounded batches without waiting to fill the last batch`() {
-        val queue = OutboxCompletionQueue(7)
-        val written = mutableListOf<List<String>>()
+    @ParameterizedTest
+    @ValueSource(ints = [1, 8])
+    fun `shutdown drains queued completions in bounded batches without waiting to fill the last batch`(
+        writerCount: Int,
+    ) {
+        val queue = OutboxCompletionQueue()
+        val written = ConcurrentLinkedQueue<List<String>>()
         val writer =
             writer { deletions ->
                 written.add(deletions.map { it.recordId })
@@ -373,10 +383,11 @@ class OutboxCompletionBatcherTest {
         val results = (1..7).map { queue.submit(OutboxCompletion.Delete("record-$it"))!! }
         queue.stopAccepting()
 
-        assertTimeoutPreemptively(Duration.ofSeconds(2)) { worker.run() }
+        val workers = List(writerCount) { CompletableFuture.runAsync { worker.run() } }
+        CompletableFuture.allOf(*workers.toTypedArray()).get(2, TimeUnit.SECONDS)
 
         results.forEach { it.get(2, TimeUnit.SECONDS) }
-        assertThat(written).containsExactly(
+        assertThat(written).containsExactlyInAnyOrder(
             listOf("record-1", "record-2", "record-3"),
             listOf("record-4", "record-5", "record-6"),
             listOf("record-7"),
@@ -440,7 +451,7 @@ class OutboxCompletionBatcherTest {
     }
 
     @Test
-    fun `shutdown rejects a blocked submission and drains already queued completions`() {
+    fun `shutdown rejects new submissions and drains all already queued completions`() {
         val writing = CountDownLatch(1)
         val release = CountDownLatch(1)
         val writer =
@@ -456,14 +467,13 @@ class OutboxCompletionBatcherTest {
         val first = batcher.submit(OutboxCompletion.Delete("first"))!!
         assertThat(writing.await(2, TimeUnit.SECONDS)).isTrue()
         val second = batcher.submit(OutboxCompletion.Delete("second"))!!
-        val blockedSubmission =
-            CompletableFuture.supplyAsync { batcher.submit(OutboxCompletion.Delete("third")) }
+        val third = batcher.submit(OutboxCompletion.Delete("third"))!!
 
         try {
-            assertThatThrownBy { blockedSubmission.get(100, TimeUnit.MILLISECONDS) }
-                .isInstanceOf(TimeoutException::class.java)
             batcher.stop()
-            assertThat(blockedSubmission.get(2, TimeUnit.SECONDS)).isNull()
+            assertThat(batcher.submit(OutboxCompletion.Delete("late"))).isNull()
+            assertThat(second.isDone).isFalse()
+            assertThat(third.isDone).isFalse()
             assertThat(first.isDone).isFalse()
         } finally {
             release.countDown()
@@ -471,6 +481,7 @@ class OutboxCompletionBatcherTest {
 
         first.get(2, TimeUnit.SECONDS)
         second.get(2, TimeUnit.SECONDS)
+        third.get(2, TimeUnit.SECONDS)
     }
 
     @Test
@@ -485,10 +496,10 @@ class OutboxCompletionBatcherTest {
         try {
             assertThatThrownBy { persistence.deleteCompleted("record") }
                 .isInstanceOf(IllegalStateException::class.java)
-                .hasMessage("Completion batching cannot complete records inside an active transaction")
-            assertThatThrownBy { persistence.updateCompleted(record) }
+                .hasMessage("Completion batching cannot persist processing results inside an active transaction")
+            assertThatThrownBy { persistence.updateProcessingState(record) }
                 .isInstanceOf(IllegalStateException::class.java)
-                .hasMessage("Completion batching cannot complete records inside an active transaction")
+                .hasMessage("Completion batching cannot persist processing results inside an active transaction")
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false)
         }
@@ -516,8 +527,9 @@ class OutboxCompletionBatcherTest {
         processing.get(2, TimeUnit.SECONDS)
     }
 
-    @Test
-    fun `update completion snapshots metadata and waits for the committed result`() {
+    @ParameterizedTest
+    @EnumSource(OutboxRecordStatus::class)
+    fun `update completion snapshots metadata and waits for the committed result`(status: OutboxRecordStatus) {
         val writing = CountDownLatch(1)
         val release = CountDownLatch(1)
         var captured: OutboxCompletion.Update? = null
@@ -534,11 +546,11 @@ class OutboxCompletionBatcherTest {
                     deletions.map { Result.success(Unit) }
             }
         start(writer, maxBatchSize = 1)
-        val record = completedRecord()
+        val record = recordWithStatus(status)
         val repository = mockk<OutboxRecordRepository>()
         val persistence = OutboxCompletionBatchingPersistence(repository, batcher)
 
-        val processing = CompletableFuture.runAsync { persistence.updateCompleted(record) }
+        val processing = CompletableFuture.runAsync { persistence.updateProcessingState(record) }
         assertThat(writing.await(2, TimeUnit.SECONDS)).isTrue()
         try {
             assertThat(processing.isDone).isFalse()
@@ -551,7 +563,7 @@ class OutboxCompletionBatcherTest {
             .isEqualTo(
                 OutboxCompletion.Update(
                     record.id,
-                    COMPLETED,
+                    status,
                     record.completedAt,
                     record.failureCount,
                     record.failureReason,
@@ -561,8 +573,11 @@ class OutboxCompletionBatcherTest {
         verify(exactly = 0) { repository.updateProcessingState(record) }
     }
 
-    @Test
-    fun `failed batched update propagates the database failure without repository fallback`() {
+    @ParameterizedTest
+    @EnumSource(OutboxRecordStatus::class)
+    fun `failed batched update propagates the database failure without repository fallback`(
+        status: OutboxRecordStatus,
+    ) {
         val failure = IllegalStateException("Database rejected the update")
         val writer =
             object : OutboxCompletionWriter {
@@ -573,11 +588,11 @@ class OutboxCompletionBatcherTest {
                     deletions.map { Result.success(Unit) }
             }
         start(writer)
-        val record = completedRecord()
+        val record = recordWithStatus(status)
         val repository = mockk<OutboxRecordRepository>()
         val persistence = OutboxCompletionBatchingPersistence(repository, batcher)
 
-        assertThatThrownBy { persistence.updateCompleted(record) }.isSameAs(failure)
+        assertThatThrownBy { persistence.updateProcessingState(record) }.isSameAs(failure)
         verify(exactly = 0) { repository.updateProcessingState(record) }
     }
 
@@ -644,21 +659,22 @@ class OutboxCompletionBatcherTest {
         verify(exactly = 1) { repository.deleteById("late") }
     }
 
-    @Test
-    fun `updates after shutdown use the synchronous repository`() {
-        val record = completedRecord()
+    @ParameterizedTest
+    @EnumSource(OutboxRecordStatus::class)
+    fun `updates after shutdown use the synchronous repository`(status: OutboxRecordStatus) {
+        val record = recordWithStatus(status)
         val repository = mockk<OutboxRecordRepository>()
         every { repository.updateProcessingState(record) } returns true
         start(writer { deletions -> deletions.map { Result.success(Unit) } })
         val persistence = OutboxCompletionBatchingPersistence(repository, batcher)
         batcher.stop()
 
-        persistence.updateCompleted(record)
+        persistence.updateProcessingState(record)
 
         verify(exactly = 1) { repository.updateProcessingState(record) }
     }
 
-    private fun completedRecord(): OutboxRecord<String> {
+    private fun recordWithStatus(status: OutboxRecordStatus): OutboxRecord<String> {
         val now = Instant.parse("2026-01-01T12:00:00Z")
         return OutboxRecord.restore(
             id = "record",
@@ -666,8 +682,8 @@ class OutboxCompletionBatcherTest {
             payload = "payload",
             context = emptyMap(),
             createdAt = now.minusSeconds(60),
-            status = COMPLETED,
-            completedAt = now,
+            status = status,
+            completedAt = if (status == COMPLETED) now else null,
             failureCount = 2,
             failureException = null,
             failureReason = "previous failure",

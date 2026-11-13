@@ -8,6 +8,7 @@ import io.namastack.outbox.JdbcOutboxRecordRepository
 import io.namastack.outbox.JdbcTableNameResolver
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.completion.OutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxCompletionWriter
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -17,7 +18,7 @@ import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguratio
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.core.task.SimpleAsyncTaskExecutor
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.jdbc.core.simple.JdbcClient
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.jdbc.datasource.DataSourceTransactionManager
 import org.springframework.jdbc.datasource.DriverManagerDataSource
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
@@ -64,8 +65,11 @@ class JdbcOutboxCompletionAutoConfigurationTest {
 
         contextRunner
             .withBean(DataSource::class.java, { dataSource })
-            .withBean("outboxJdbcClient", JdbcClient::class.java, { JdbcClient.create(dataSource) })
-            .withBean("outboxTransactionTemplate", TransactionTemplate::class.java, {
+            .withBean(
+                "outboxJdbcTemplate",
+                NamedParameterJdbcTemplate::class.java,
+                { NamedParameterJdbcTemplate(dataSource) },
+            ).withBean("outboxTransactionTemplate", TransactionTemplate::class.java, {
                 TransactionTemplate(DataSourceTransactionManager(dataSource))
             })
             .withBean(JdbcTableNameResolver::class.java, {
@@ -98,41 +102,29 @@ class JdbcOutboxCompletionAutoConfigurationTest {
     }
 
     @Test
-    fun `completion writes use the datasource of the outbox transaction manager`() {
-        val applicationDataSource =
-            DriverManagerDataSource("jdbc:h2:mem:application-${UUID.randomUUID()};DB_CLOSE_DELAY=-1", "sa", "")
-        val outboxDataSource =
-            DriverManagerDataSource("jdbc:h2:mem:outbox-${UUID.randomUUID()};DB_CLOSE_DELAY=-1", "sa", "")
-        val applicationJdbc = JdbcTemplate(applicationDataSource)
-        val outboxJdbc = JdbcTemplate(outboxDataSource)
-        listOf(applicationJdbc, outboxJdbc).forEach { jdbc ->
-            jdbc.execute("CREATE TABLE outbox_record (id VARCHAR(255) PRIMARY KEY)")
-            jdbc.update("INSERT INTO outbox_record (id) VALUES (?)", "record")
-        }
+    fun `custom repository and writer replace the default implementations`() {
+        val repository = mockk<JdbcOutboxRecordRepository>()
+        val writer = mockk<OutboxCompletionWriter>()
+        every { writer.writeDeletions(any()) } returns listOf(Result.success(Unit))
 
         contextRunner
-            .withBean(DataSource::class.java, { applicationDataSource })
-            .withBean("outboxJdbcClient", JdbcClient::class.java, { JdbcClient.create(outboxDataSource) })
-            .withBean("outboxTransactionTemplate", TransactionTemplate::class.java, {
-                TransactionTemplate(DataSourceTransactionManager(outboxDataSource))
-            })
-            .withBean(JdbcTableNameResolver::class.java, { DefaultJdbcTableNameResolver() })
-            .withBean(JdbcOutboxRecordRepository::class.java, { mockk() })
+            .withBean(JdbcOutboxRecordRepository::class.java, { repository })
+            .withBean(OutboxCompletionWriter::class.java, { writer })
             .withPropertyValues("namastack.outbox.completion-batching.enabled=true")
             .run { context ->
                 assertThat(context).hasNotFailed()
+                assertThat(context).hasSingleBean(OutboxCompletionWriter::class.java)
+                assertThat(context.getBean(OutboxCompletionWriter::class.java)).isSameAs(writer)
                 context.getBean(OutboxCompletionPersistence::class.java).deleteCompleted("record")
-                assertThat(outboxJdbc.queryForObject("SELECT COUNT(*) FROM outbox_record", Int::class.java)).isZero()
-                assertThat(
-                    applicationJdbc.queryForObject("SELECT COUNT(*) FROM outbox_record", Int::class.java),
-                ).isOne()
+                verify(exactly = 1) { writer.writeDeletions(match { it.single().recordId == "record" }) }
+                verify(exactly = 0) { repository.deleteById(any()) }
             }
     }
 
     @Test
-    fun `completion writes fall back to the application datasource for a non JDBC transaction manager`() {
+    fun `default writer uses the shared template with a non JDBC transaction manager`() {
         val dataSource =
-            DriverManagerDataSource("jdbc:h2:mem:completion-fallback-${UUID.randomUUID()};DB_CLOSE_DELAY=-1", "sa", "")
+            DriverManagerDataSource("jdbc:h2:mem:completion-shared-${UUID.randomUUID()};DB_CLOSE_DELAY=-1", "sa", "")
         val jdbc = JdbcTemplate(dataSource)
         jdbc.execute("CREATE TABLE outbox_record (id VARCHAR(255) PRIMARY KEY)")
         jdbc.update("INSERT INTO outbox_record (id) VALUES (?)", "record")
@@ -141,8 +133,11 @@ class JdbcOutboxCompletionAutoConfigurationTest {
         every { manager.getTransaction(any()) } returns transactionStatus
 
         contextRunner
-            .withBean(DataSource::class.java, { dataSource })
-            .withBean("outboxTransactionTemplate", TransactionTemplate::class.java, { TransactionTemplate(manager) })
+            .withBean(
+                "outboxJdbcTemplate",
+                NamedParameterJdbcTemplate::class.java,
+                { NamedParameterJdbcTemplate(dataSource) },
+            ).withBean("outboxTransactionTemplate", TransactionTemplate::class.java, { TransactionTemplate(manager) })
             .withBean(JdbcTableNameResolver::class.java, { DefaultJdbcTableNameResolver() })
             .withBean(JdbcOutboxRecordRepository::class.java, { mockk() })
             .withPropertyValues("namastack.outbox.completion-batching.enabled=true")

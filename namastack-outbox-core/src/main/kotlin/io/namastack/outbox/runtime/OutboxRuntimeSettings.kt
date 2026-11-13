@@ -33,12 +33,12 @@ data class OutboxRuntimeSettings(
     /**
      * Immutable batching settings for one runtime.
      *
-     * @property enabled Whether successful completions are batched
+     * @property enabled Whether processing-state updates and successful record deletions are batched
      * @property writerCount Number of dedicated completion workers
      * @property maxBatchSize Maximum number of completions collected per batch
      * @property maxWait Maximum collection time after the first completion arrives
      * @throws IllegalArgumentException if the writer count, batch size, or batch wait is not positive
-     * @throws ArithmeticException if the completion queue capacity or batch wait in nanoseconds overflows
+     * @throws ArithmeticException if the batch wait in nanoseconds overflows
      * @author Roland Beisel
      * @since 1.12.0
      */
@@ -52,7 +52,6 @@ data class OutboxRuntimeSettings(
             require(writerCount > 0) { "writerCount must be positive" }
             require(maxBatchSize > 0) { "maxBatchSize must be positive" }
             require(maxWait > Duration.ZERO && maxWait.toNanos() > 0) { "maxWait must be positive" }
-            Math.multiplyExact(writerCount, maxBatchSize)
         }
     }
 

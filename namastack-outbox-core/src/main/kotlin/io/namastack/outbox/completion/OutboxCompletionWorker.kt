@@ -2,12 +2,15 @@ package io.namastack.outbox.completion
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /**
  * Collects queued completions into batches and publishes their write results.
  *
- * Each executor thread collects its own batches from the shared queue. The writer supports
- * concurrent calls.
+ * Executor threads share this worker. Only one thread collects a batch at a time, so queued
+ * completions are not split across competing collectors. Writes run outside the collection lock
+ * and may execute concurrently.
  *
  * @param queue Supplies pending completions
  * @param writer Writes update and delete batches
@@ -22,6 +25,8 @@ internal class OutboxCompletionWorker(
     private val maxBatchSize: Int,
     private val maxWait: Duration,
 ) {
+    private val collectLock = ReentrantLock()
+
     /**
      * Takes submissions from the shared queue and writes them in batches.
      *
@@ -32,28 +37,36 @@ internal class OutboxCompletionWorker(
      */
     fun run() {
         while (queue.isAccepting() || queue.hasPending()) {
-            val first = queue.poll(POLL_NANOS) ?: continue
-            val batch = ArrayList<OutboxCompletionSubmission>(maxBatchSize)
-            batch.add(first)
-
-            val deadline = System.nanoTime() + maxWait.toNanos()
-
-            while (batch.size < maxBatchSize && queue.isAccepting()) {
-                val remainingWaitNanos = deadline - System.nanoTime()
-                if (remainingWaitNanos <= 0) break
-
-                val next = queue.poll(minOf(remainingWaitNanos, POLL_NANOS)) ?: continue
-                batch.add(next)
-            }
-
-            // Shutdown stops waiting for new work, but queued completions still share a batch.
-            while (batch.size < maxBatchSize && !queue.isAccepting()) {
-                val next = queue.poll(0) ?: break
-                batch.add(next)
-            }
-
+            val batch = collectLock.withLock { collectBatch() } ?: continue
             write(batch)
         }
+    }
+
+    private fun collectBatch(): List<OutboxCompletionSubmission>? {
+        // Another collector may have drained the queue while this thread waited for the lock.
+        if (!queue.isAccepting() && !queue.hasPending()) return null
+
+        val first = queue.poll(POLL_NANOS) ?: return null
+        val batch = ArrayList<OutboxCompletionSubmission>(maxBatchSize)
+        batch.add(first)
+
+        val deadline = System.nanoTime() + maxWait.toNanos()
+
+        while (batch.size < maxBatchSize && queue.isAccepting()) {
+            val remainingWaitNanos = deadline - System.nanoTime()
+            if (remainingWaitNanos <= 0) break
+
+            val next = queue.poll(minOf(remainingWaitNanos, POLL_NANOS)) ?: continue
+            batch.add(next)
+        }
+
+        // Shutdown stops waiting for new work, but queued completions still share a batch.
+        while (batch.size < maxBatchSize && !queue.isAccepting()) {
+            val next = queue.poll(0) ?: break
+            batch.add(next)
+        }
+
+        return batch
     }
 
     private fun write(batch: List<OutboxCompletionSubmission>) {

@@ -1,28 +1,23 @@
 package io.namastack.outbox.completion
 
-import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.Semaphore
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Bounds pending completions and coordinates submissions with shutdown.
+ * Queues processing results and coordinates submissions with shutdown.
  *
- * A slot becomes available when a worker removes a completion from the queue. The fair semaphore
- * lets waiting callers take available slots in arrival order.
+ * Processing tasks wait for each submitted write to commit before submitting another. The number
+ * of outstanding writes is therefore bounded by active processing tasks, without a separate queue limit.
  *
- * @param capacity Maximum number of completions waiting in the queue
  * @author Roland Beisel
  * @since 1.12.0
  */
-internal class OutboxCompletionQueue(
-    capacity: Int,
-) {
+internal class OutboxCompletionQueue {
     private val submissionLock = Any()
     private val accepting = AtomicBoolean(false)
-    private val queue = ArrayBlockingQueue<OutboxCompletionSubmission>(capacity)
-    private val slots = Semaphore(capacity, true)
+    private val queue = LinkedBlockingQueue<OutboxCompletionSubmission>()
 
     /** Opens the queue to submissions. */
     fun startAccepting() {
@@ -53,62 +48,33 @@ internal class OutboxCompletionQueue(
     fun hasPending(): Boolean = queue.isNotEmpty()
 
     /**
-     * Enqueues a completion, waiting for capacity while submissions are accepted.
+     * Enqueues a completion while submissions are accepted.
      *
-     * The caller's interrupted status is restored after waiting. A caller waiting for capacity
-     * checks whether the queue has closed after each permit wait and then returns null.
+     * Insertion and shutdown share a lock so accepted submissions remain available to draining workers.
      *
      * @param completion Immutable completion action
      * @return Future completed by a worker, or null if the queue closes before submission
      */
     fun submit(completion: OutboxCompletion): CompletableFuture<Unit>? {
-        var interrupted = false
-        try {
-            while (true) {
-                if (!accepting.get()) return null
-                try {
-                    if (slots.tryAcquire(POLL_MILLIS, TimeUnit.MILLISECONDS)) break
-                } catch (_: InterruptedException) {
-                    interrupted = true
-                }
-            }
-        } finally {
-            if (interrupted) Thread.currentThread().interrupt()
-        }
-
-        val submission = OutboxCompletionSubmission(completion)
-
         synchronized(submissionLock) {
-            if (!accepting.get()) {
-                slots.release()
-                return null
-            }
-            check(queue.offer(submission)) { "Completion queue capacity is inconsistent" }
-        }
+            if (!accepting.get()) return null
+            val submission = OutboxCompletionSubmission(completion)
+            queue.add(submission)
 
-        return submission.resultFuture
+            return submission.resultFuture
+        }
     }
 
     /**
-     * Takes a queued submission and releases its queue slot.
+     * Takes a queued submission.
      *
      * @param waitNanos Maximum time to wait for a completion
      * @return Next submission, or null when the wait expires or the worker is interrupted
      */
-    fun poll(waitNanos: Long): OutboxCompletionSubmission? {
-        val submission =
-            try {
-                queue.poll(waitNanos, TimeUnit.NANOSECONDS)
-            } catch (_: InterruptedException) {
-                null
-            }
-
-        if (submission != null) slots.release()
-
-        return submission
-    }
-
-    private companion object {
-        const val POLL_MILLIS = 25L
-    }
+    fun poll(waitNanos: Long): OutboxCompletionSubmission? =
+        try {
+            queue.poll(waitNanos, TimeUnit.NANOSECONDS)
+        } catch (_: InterruptedException) {
+            null
+        }
 }

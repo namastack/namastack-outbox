@@ -3,24 +3,24 @@ package io.namastack.outbox.processor
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import io.namastack.outbox.OutboxRecord
-import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.OutboxRecordTestFactory.outboxRecord
+import io.namastack.outbox.completion.OutboxCompletionPersistence
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class PermanentFailureOutboxRecordProcessorTest {
-    private lateinit var recordRepository: OutboxRecordRepository
+    private lateinit var persistence: OutboxCompletionPersistence
     private lateinit var processor: PermanentFailureOutboxRecordProcessor
 
     @BeforeEach
     fun setUp() {
-        recordRepository = mockk()
+        persistence = mockk()
 
-        processor = PermanentFailureOutboxRecordProcessor(recordRepository)
+        processor = PermanentFailureOutboxRecordProcessor(persistence)
     }
 
     @Test
@@ -34,14 +34,14 @@ class PermanentFailureOutboxRecordProcessorTest {
                 failureException = RuntimeException("Final error"),
             )
 
-        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
+        every { persistence.updateProcessingState(any()) } returns Unit
 
         val result = processor.handle(record)
 
         assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.FAILED)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
 
-        verify { recordRepository.updateProcessingState(record) }
+        verify { persistence.updateProcessingState(record) }
     }
 
     @Test
@@ -52,16 +52,16 @@ class PermanentFailureOutboxRecordProcessorTest {
                 failureCount = 10,
                 failureException = RuntimeException("Error"),
             )
-        val processorWithoutNext = PermanentFailureOutboxRecordProcessor(recordRepository)
+        val processorWithoutNext = PermanentFailureOutboxRecordProcessor(persistence)
 
-        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
+        every { persistence.updateProcessingState(any()) } returns Unit
 
         val result = processorWithoutNext.handle(record)
 
         assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.FAILED)
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
 
-        verify { recordRepository.updateProcessingState(record) }
+        verify { persistence.updateProcessingState(record) }
     }
 
     @Test
@@ -73,14 +73,14 @@ class PermanentFailureOutboxRecordProcessorTest {
                 failureException = RuntimeException("Many failures"),
             )
 
-        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
+        every { persistence.updateProcessingState(any()) } returns Unit
 
         processor.handle(record)
 
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
         assertThat(record.failureCount).isEqualTo(100)
 
-        verify { recordRepository.updateProcessingState(record) }
+        verify { persistence.updateProcessingState(record) }
     }
 
     @Test
@@ -93,13 +93,13 @@ class PermanentFailureOutboxRecordProcessorTest {
                 status = OutboxRecordStatus.FAILED,
             )
 
-        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
+        every { persistence.updateProcessingState(any()) } returns Unit
 
         processor.handle(record)
 
         assertThat(record.status).isEqualTo(OutboxRecordStatus.FAILED)
 
-        verify { recordRepository.updateProcessingState(record) }
+        verify { persistence.updateProcessingState(record) }
     }
 
     @Test
@@ -112,13 +112,13 @@ class PermanentFailureOutboxRecordProcessorTest {
                 failureException = exception,
             )
 
-        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
+        every { persistence.updateProcessingState(any()) } returns Unit
 
         processor.handle(record)
 
         assertThat(record.failureException).isEqualTo(exception)
 
-        verify { recordRepository.updateProcessingState(record) }
+        verify { persistence.updateProcessingState(record) }
     }
 
     @Test
@@ -131,13 +131,22 @@ class PermanentFailureOutboxRecordProcessorTest {
                 failureException = RuntimeException("Error"),
             )
 
-        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
+        every { persistence.updateProcessingState(any()) } returns Unit
 
         processor.handle(record)
 
         assertThat(record.key).isEqualTo("important-key")
         assertThat(record.handlerId).isEqualTo("criticalHandler")
 
-        verify { recordRepository.updateProcessingState(record) }
+        verify { persistence.updateProcessingState(record) }
+    }
+
+    @Test
+    fun `persistence failure propagates without reporting a processing outcome`() {
+        val record = outboxRecord(failureCount = 1, failureException = RuntimeException("Handler failed"))
+        val failure = IllegalStateException("Write failed")
+        every { persistence.updateProcessingState(record) } throws failure
+
+        assertThatThrownBy { processor.handle(record) }.isSameAs(failure)
     }
 }

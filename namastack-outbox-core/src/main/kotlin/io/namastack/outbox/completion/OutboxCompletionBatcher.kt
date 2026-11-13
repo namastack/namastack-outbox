@@ -45,7 +45,7 @@ internal class OutboxCompletionBatcher(
     init {
         require(shutdownTimeout >= Duration.ZERO) { "shutdownTimeout must not be negative" }
 
-        queue = OutboxCompletionQueue(writerCount * settings.maxBatchSize)
+        queue = OutboxCompletionQueue()
         worker = OutboxCompletionWorker(queue, writer, settings.maxBatchSize, settings.maxWait)
     }
 
@@ -116,10 +116,10 @@ internal class OutboxCompletionBatcher(
     override fun getPhase(): Int = 2
 
     /**
-     * Submits a completion, waiting for queue capacity while submissions are accepted.
+     * Submits a completion while submissions are accepted.
      *
-     * An interrupted wait restores the caller's interrupted status. A successful future means
-     * the write committed; a failed or uncertain write completes the future exceptionally.
+     * Callers must wait for the returned future before submitting their next processing result.
+     * A successful future means the write committed; a failed or uncertain write completes it exceptionally.
      *
      * @param completion Update or deletion to write
      * @return future for this write, or null if the batcher has not started or closes before enqueueing

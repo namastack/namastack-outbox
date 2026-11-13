@@ -1,24 +1,22 @@
 package io.namastack.outbox.completion
 
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import org.springframework.test.util.ReflectionTestUtils
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
 
 /**
- * Tests that queue backpressure preserves accepted completions and caller interruption status.
+ * Tests submission coordination with shutdown and caller interruption status.
  *
  * @author Roland Beisel
  */
 class OutboxCompletionQueueTest {
     @Test
-    fun `closing after a submitter acquires capacity rejects the submission and releases its slot`() {
-        val queue = OutboxCompletionQueue(1)
+    fun `closing before insertion rejects the submission and allows restarting`() {
+        val queue = OutboxCompletionQueue()
         queue.startAccepting()
         val submitted = CompletableFuture<CompletableFuture<Unit>?>()
         val submittingThread =
@@ -31,7 +29,7 @@ class OutboxCompletionQueueTest {
             }
 
         try {
-            // Hold the insertion lock so shutdown deterministically wins after the permit is acquired.
+            // Hold the insertion lock so shutdown deterministically wins before insertion.
             synchronized(checkNotNull(ReflectionTestUtils.getField(queue, "submissionLock"))) {
                 submittingThread.start()
                 await().atMost(Duration.ofSeconds(2)).until { submittingThread.state == Thread.State.BLOCKED }
@@ -53,7 +51,7 @@ class OutboxCompletionQueueTest {
 
     @Test
     fun `interrupted polling leaves the queue usable`() {
-        val queue = OutboxCompletionQueue(1)
+        val queue = OutboxCompletionQueue()
         queue.startAccepting()
         val polled = CompletableFuture<OutboxCompletionSubmission?>()
         val pollingThread =
@@ -75,8 +73,8 @@ class OutboxCompletionQueueTest {
     }
 
     @Test
-    fun `an interrupted waiter submits after capacity frees and restores its interrupt status`() {
-        val queue = OutboxCompletionQueue(1)
+    fun `submission preserves interruption and does not wait for pending writes`() {
+        val queue = OutboxCompletionQueue()
         queue.startAccepting()
         val first = queue.submit(OutboxCompletion.Delete("first"))
         val submission = CompletableFuture<Pair<CompletableFuture<Unit>?, Boolean>>()
@@ -93,12 +91,10 @@ class OutboxCompletionQueueTest {
         waitingThread.start()
 
         try {
-            assertThatThrownBy { submission.get(100, TimeUnit.MILLISECONDS) }
-                .isInstanceOf(TimeoutException::class.java)
-            assertThat((queue.poll(0L)?.completion as OutboxCompletion.Delete).recordId).isEqualTo("first")
             val (accepted, interrupted) = submission.get(2, TimeUnit.SECONDS)
             assertThat(accepted).isNotNull()
             assertThat(interrupted).isTrue()
+            assertThat((queue.poll(0L)?.completion as OutboxCompletion.Delete).recordId).isEqualTo("first")
             assertThat((queue.poll(0L)?.completion as OutboxCompletion.Delete).recordId).isEqualTo("second")
             assertThat(first).isNotNull()
         } finally {

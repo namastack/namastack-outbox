@@ -3,9 +3,8 @@ package io.namastack.outbox.processor
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import io.namastack.outbox.OutboxRecord
-import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordTestFactory.outboxRecord
+import io.namastack.outbox.completion.OutboxCompletionPersistence
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.retry.OutboxRetryPolicy
 import io.namastack.outbox.retry.OutboxRetryPolicyRegistry
@@ -21,7 +20,7 @@ import java.time.temporal.ChronoUnit
 
 class RetryOutboxRecordProcessorTest {
     private lateinit var retryPolicyRegistry: OutboxRetryPolicyRegistry
-    private lateinit var recordRepository: OutboxRecordRepository
+    private lateinit var persistence: OutboxCompletionPersistence
     private lateinit var clock: Clock
     private lateinit var processor: RetryOutboxRecordProcessor
     private lateinit var nextProcessor: OutboxRecordProcessor
@@ -30,12 +29,12 @@ class RetryOutboxRecordProcessorTest {
     @BeforeEach
     fun setUp() {
         retryPolicyRegistry = mockk()
-        recordRepository = mockk()
+        persistence = mockk()
         clock = Clock.fixed(Instant.parse("2024-01-01T10:00:00Z"), ZoneOffset.UTC)
         nextProcessor = mockk()
         retryPolicy = mockk()
 
-        processor = RetryOutboxRecordProcessor(retryPolicyRegistry, recordRepository, clock)
+        processor = RetryOutboxRecordProcessor(retryPolicyRegistry, persistence, clock)
         processor.setNext(nextProcessor)
 
         every { retryPolicyRegistry.getByHandlerId(any()) } returns retryPolicy
@@ -53,7 +52,7 @@ class RetryOutboxRecordProcessorTest {
         every { retryPolicy.maxRetries() } returns 5
         every { retryPolicy.shouldRetry(any()) } returns true
         every { retryPolicy.nextDelay(2) } returns Duration.ofMinutes(5)
-        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
+        every { persistence.updateProcessingState(any()) } returns Unit
 
         val result = processor.handle(record)
 
@@ -63,7 +62,7 @@ class RetryOutboxRecordProcessorTest {
         verify { retryPolicyRegistry.getByHandlerId("test-handler") }
         verify { retryPolicy.shouldRetry(any()) }
         verify { retryPolicy.nextDelay(2) }
-        verify { recordRepository.updateProcessingState(record) }
+        verify { persistence.updateProcessingState(record) }
         verify(exactly = 0) { nextProcessor.handle(any()) }
     }
 
@@ -85,7 +84,7 @@ class RetryOutboxRecordProcessorTest {
         assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.FAILED)
 
         verify { nextProcessor.handle(record) }
-        verify(exactly = 0) { recordRepository.updateProcessingState(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { persistence.updateProcessingState(any()) }
     }
 
     @Test
@@ -106,7 +105,7 @@ class RetryOutboxRecordProcessorTest {
         assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.COMPLETED)
 
         verify { nextProcessor.handle(record) }
-        verify(exactly = 0) { recordRepository.updateProcessingState(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { persistence.updateProcessingState(any()) }
     }
 
     @Test
@@ -117,7 +116,7 @@ class RetryOutboxRecordProcessorTest {
                 failureCount = 6,
                 failureException = RuntimeException("Error"),
             )
-        val processorWithoutNext = RetryOutboxRecordProcessor(retryPolicyRegistry, recordRepository, clock)
+        val processorWithoutNext = RetryOutboxRecordProcessor(retryPolicyRegistry, persistence, clock)
 
         every { retryPolicy.maxRetries() } returns 5
         every { retryPolicy.shouldRetry(any()) } returns true
@@ -125,7 +124,7 @@ class RetryOutboxRecordProcessorTest {
         assertThatThrownBy { processorWithoutNext.handle(record) }
             .isInstanceOf(IllegalStateException::class.java)
 
-        verify(exactly = 0) { recordRepository.updateProcessingState(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { persistence.updateProcessingState(any()) }
         verify(exactly = 0) { retryPolicy.nextDelay(any()) }
     }
 
@@ -141,7 +140,7 @@ class RetryOutboxRecordProcessorTest {
         every { retryPolicy.maxRetries() } returns 10
         every { retryPolicy.shouldRetry(any()) } returns true
         every { retryPolicy.nextDelay(3) } returns Duration.ofSeconds(30)
-        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
+        every { persistence.updateProcessingState(any()) } returns Unit
 
         processor.handle(record)
 
@@ -163,7 +162,7 @@ class RetryOutboxRecordProcessorTest {
         every { retryPolicy.maxRetries() } returns 5
         every { retryPolicy.shouldRetry(exception) } returns true
         every { retryPolicy.nextDelay(1) } returns Duration.ofMinutes(1)
-        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
+        every { persistence.updateProcessingState(any()) } returns Unit
 
         processor.handle(record)
 
@@ -200,7 +199,7 @@ class RetryOutboxRecordProcessorTest {
         every { retryPolicy.maxRetries() } returns 3
         every { retryPolicy.shouldRetry(any()) } returns true
         every { retryPolicy.nextDelay(1) } returns Duration.ofMinutes(2)
-        every { recordRepository.updateProcessingState(any() as OutboxRecord<*>) } returns true
+        every { persistence.updateProcessingState(any()) } returns Unit
 
         val result = processor.handle(record)
 
@@ -226,6 +225,19 @@ class RetryOutboxRecordProcessorTest {
         assertThat(result).isEqualTo(OutboxRecordProcessingOutcome.FAILED)
 
         verify { nextProcessor.handle(record) }
-        verify(exactly = 0) { recordRepository.updateProcessingState(any() as OutboxRecord<*>) }
+        verify(exactly = 0) { persistence.updateProcessingState(any()) }
+    }
+
+    @Test
+    fun `persistence failure propagates without reporting a processing outcome`() {
+        val record = outboxRecord(failureCount = 1, failureException = RuntimeException("Handler failed"))
+        val failure = IllegalStateException("Write failed")
+        every { retryPolicy.maxRetries() } returns 3
+        every { retryPolicy.shouldRetry(any()) } returns true
+        every { retryPolicy.nextDelay(1) } returns Duration.ofSeconds(30)
+        every { persistence.updateProcessingState(record) } throws failure
+
+        assertThatThrownBy { processor.handle(record) }.isSameAs(failure)
+        verify(exactly = 0) { nextProcessor.handle(any()) }
     }
 }

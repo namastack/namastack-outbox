@@ -8,7 +8,7 @@ import io.namastack.outbox.OutboxProperties
  * @return Runtime settings with batching settings validated
  * @throws IllegalStateException if a polling trigger or retry policy is unsupported
  * @throws IllegalArgumentException if the writer count, batch size, or batch wait is not positive
- * @throws ArithmeticException if the completion queue capacity or batch wait in nanoseconds overflows
+ * @throws ArithmeticException if the batch wait in nanoseconds overflows
  */
 internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
     OutboxRuntimeSettings(

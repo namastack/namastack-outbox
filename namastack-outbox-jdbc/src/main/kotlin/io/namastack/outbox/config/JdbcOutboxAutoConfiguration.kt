@@ -24,6 +24,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.jdbc.autoconfigure.JdbcClientAutoConfiguration
 import org.springframework.boot.transaction.autoconfigure.TransactionAutoConfiguration
 import org.springframework.context.annotation.Bean
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -73,16 +74,18 @@ class JdbcOutboxAutoConfiguration {
         DefaultJdbcTableNameResolver(properties)
 
     /**
-     * Creates a named JdbcClient for outbox operations.
+     * Creates the shared JDBC template for outbox repositories and completion batching.
      *
-     * Users can override this by providing their own "outboxJdbcClient" bean.
+     * Users can override the named outboxJdbcTemplate bean to configure both persistence paths.
+     * The outboxTransactionTemplate must manage transactions for the same datasource.
      *
-     * @param dataSource DataSource to use
-     * @return JdbcClient for outbox operations
+     * @param dataSource Default application datasource
+     * @return Shared template for outbox JDBC access
      */
-    @Bean("outboxJdbcClient", autowireCandidate = false)
-    @ConditionalOnMissingBean(name = ["outboxJdbcClient"])
-    internal fun outboxJdbcClient(dataSource: DataSource): JdbcClient = JdbcClient.create(dataSource)
+    @Bean("outboxJdbcTemplate", autowireCandidate = false)
+    @ConditionalOnMissingBean(name = ["outboxJdbcTemplate"])
+    internal fun outboxJdbcTemplate(dataSource: DataSource): NamedParameterJdbcTemplate =
+        NamedParameterJdbcTemplate(dataSource)
 
     /**
      * Creates a transaction template for outbox operations.
@@ -102,7 +105,6 @@ class JdbcOutboxAutoConfiguration {
      * @param jdbcOutboxRecordEntityMapper Mapper for converting between domain objects and entities
      * @param clock Clock for time-based operations
      * @param tableNameResolver Resolver for fully qualified table names
-     * @param dataSource DataSource whose database type selects the SQL dialect on first use
      * @return JDBC outbox record repository implementation
      */
     @Bean
@@ -112,20 +114,26 @@ class JdbcOutboxAutoConfiguration {
         jdbcOutboxRecordEntityMapper: JdbcOutboxRecordEntityMapper,
         clock: Clock,
         tableNameResolver: JdbcTableNameResolver,
-        dataSource: DataSource,
-    ): OutboxRecordRepository =
-        JdbcOutboxRecordRepository(
-            jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient"),
+    ): OutboxRecordRepository {
+        val jdbc = beanFactory.getBean<NamedParameterJdbcTemplate>("outboxJdbcTemplate")
+
+        return JdbcOutboxRecordRepository(
+            jdbcClient = JdbcClient.create(jdbc),
             transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
             entityMapper = jdbcOutboxRecordEntityMapper,
             clock = clock,
             queries = {
                 JdbcOutboxRecordQueriesFactory.create(
-                    JdbcDatabaseType.detect(dataSource),
+                    JdbcDatabaseType.detect(
+                        checkNotNull(jdbc.jdbcTemplate.dataSource) {
+                            "outboxJdbcTemplate must have a DataSource"
+                        },
+                    ),
                     tableNameResolver.outboxRecord,
                 )
             },
         )
+    }
 
     /**
      * Creates the entity mapper for outbox records.
@@ -152,7 +160,7 @@ class JdbcOutboxAutoConfiguration {
         tableNameResolver: JdbcTableNameResolver,
     ): OutboxInstanceRepository =
         JdbcOutboxInstanceRepository(
-            jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient"),
+            jdbcClient = createJdbcClient(beanFactory),
             transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
             tableNameResolver = tableNameResolver,
         )
@@ -171,8 +179,11 @@ class JdbcOutboxAutoConfiguration {
         tableNameResolver: JdbcTableNameResolver,
     ): PartitionAssignmentRepository =
         JdbcOutboxPartitionAssignmentRepository(
-            jdbcClient = beanFactory.getBean<JdbcClient>("outboxJdbcClient"),
+            jdbcClient = createJdbcClient(beanFactory),
             transactionTemplate = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
             tableNameResolver = tableNameResolver,
         )
+
+    private fun createJdbcClient(beanFactory: BeanFactory): JdbcClient =
+        JdbcClient.create(beanFactory.getBean<NamedParameterJdbcTemplate>("outboxJdbcTemplate"))
 }

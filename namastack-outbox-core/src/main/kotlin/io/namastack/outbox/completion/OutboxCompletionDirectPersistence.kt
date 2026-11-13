@@ -4,9 +4,9 @@ import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordRepository
 
 /**
- * Delegates completion writes to the configured [OutboxRecordRepository].
+ * Delegates processing-state updates and deletions to the configured [OutboxRecordRepository].
  *
- * @param repository Repository used to update or delete completed records
+ * @param repository Repository used to update processing state or delete completed records
  *
  * @author Roland Beisel
  * @since 1.12.0
@@ -14,7 +14,7 @@ import io.namastack.outbox.OutboxRecordRepository
 class OutboxCompletionDirectPersistence(
     private val repository: OutboxRecordRepository,
 ) : OutboxCompletionPersistence {
-    override fun updateCompleted(record: OutboxRecord<*>) {
+    override fun updateProcessingState(record: OutboxRecord<*>) {
         repository.updateProcessingState(record)
     }
 

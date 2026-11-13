@@ -9,7 +9,7 @@ import org.junit.jupiter.params.provider.ValueSource
 import java.time.Duration
 
 /**
- * Tests the bounds that keep completion queues and batch deadlines valid.
+ * Tests completion worker counts, batch sizes, and batch deadlines.
  *
  * @author Roland Beisel
  */
@@ -36,12 +36,6 @@ class OutboxRuntimeSettingsTest {
         assertThatThrownBy { CompletionBatching(maxWait = Duration.ofNanos(nanos)) }
             .isInstanceOf(IllegalArgumentException::class.java)
             .hasMessage("maxWait must be positive")
-    }
-
-    @Test
-    fun `rejects a queue capacity that overflows`() {
-        assertThatThrownBy { CompletionBatching(writerCount = 2, maxBatchSize = Int.MAX_VALUE) }
-            .isInstanceOf(ArithmeticException::class.java)
     }
 
     @Test

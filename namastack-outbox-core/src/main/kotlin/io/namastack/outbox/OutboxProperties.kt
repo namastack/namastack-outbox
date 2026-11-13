@@ -37,7 +37,7 @@ data class OutboxProperties(
     var completionBatching: CompletionBatching = CompletionBatching(),
 ) {
     /**
-     * Settings for collecting successful record completions into persistence batches.
+     * Settings for batching processing-state updates and successful record deletions.
      *
      * @param enabled Whether batching is enabled; requires a completion writer
      * @param writerCount Number of concurrent writers

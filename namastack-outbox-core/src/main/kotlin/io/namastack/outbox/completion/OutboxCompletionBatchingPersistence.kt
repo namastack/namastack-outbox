@@ -7,7 +7,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
 
 /**
- * Persists completions through the batcher outside caller transactions.
+ * Persists processing-state updates and deletions through the batcher outside caller transactions.
  *
  * An active caller transaction is rejected because a writer thread cannot participate in it.
  * The processing thread waits for a batched write to commit before returning to its record key.
@@ -22,12 +22,12 @@ internal class OutboxCompletionBatchingPersistence(
     private val repository: OutboxRecordRepository,
     private val batcher: OutboxCompletionBatcher,
 ) : OutboxCompletionPersistence {
-    override fun updateCompleted(record: OutboxRecord<*>) {
+    override fun updateProcessingState(record: OutboxRecord<*>) {
         requireNoCallerTransaction()
 
         val pendingCommit = batcher.submit(OutboxCompletion.Update.from(record))
         if (pendingCommit == null) {
-            // A handler may finish after shutdown stops the batcher; persist its completion directly.
+            // A handler may finish after shutdown stops the batcher; persist its processing state directly.
             repository.updateProcessingState(record)
             return
         }
@@ -50,7 +50,7 @@ internal class OutboxCompletionBatchingPersistence(
 
     private fun requireNoCallerTransaction() {
         check(!TransactionSynchronizationManager.isActualTransactionActive()) {
-            "Completion batching cannot complete records inside an active transaction"
+            "Completion batching cannot persist processing results inside an active transaction"
         }
     }
 

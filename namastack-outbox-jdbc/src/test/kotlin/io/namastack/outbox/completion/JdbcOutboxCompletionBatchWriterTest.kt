@@ -6,6 +6,8 @@ import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.JdbcOutboxCompletionBatchWriter
 import io.namastack.outbox.OutboxRecordStatus.COMPLETED
+import io.namastack.outbox.OutboxRecordStatus.FAILED
+import io.namastack.outbox.OutboxRecordStatus.NEW
 import io.namastack.outbox.query.H2JdbcOutboxRecordQueries
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -126,6 +128,40 @@ class JdbcOutboxCompletionBatchWriterTest {
         assertThat(results).allMatch { it.isSuccess }
         assertThat(status("updated-1")).isEqualTo("COMPLETED")
         assertThat(status("updated-2")).isEqualTo("COMPLETED")
+    }
+
+    @Test
+    fun `one update batch persists successes retries and permanent failures`() {
+        val updates =
+            listOf(
+                update("completed"),
+                OutboxCompletion.Update("retry", NEW, null, 1, "Try again", now.plusSeconds(30)),
+                OutboxCompletion.Update("failed", FAILED, null, 4, "Retries exhausted", now),
+            )
+        updates.forEach { insert(it.recordId) }
+
+        val results = writer.writeUpdates(updates)
+
+        assertThat(results).hasSize(3).allMatch { it.isSuccess }
+        updates.forEach { update ->
+            val saved =
+                jdbc.queryForObject(
+                    "SELECT * FROM outbox_record WHERE id = ?",
+                    { row, _ ->
+                        OutboxCompletion.Update(
+                            row.getString("id"),
+                            io.namastack.outbox.OutboxRecordStatus
+                                .valueOf(row.getString("status")),
+                            row.getTimestamp("completed_at")?.toInstant(),
+                            row.getInt("failure_count"),
+                            row.getString("failure_reason"),
+                            row.getTimestamp("next_retry_at").toInstant(),
+                        )
+                    },
+                    update.recordId,
+                )
+            assertThat(saved).isEqualTo(update)
+        }
     }
 
     @Test

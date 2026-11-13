@@ -1,7 +1,7 @@
 package io.namastack.outbox.processor
 
 import io.namastack.outbox.OutboxRecord
-import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.completion.OutboxCompletionPersistence
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import org.slf4j.LoggerFactory
 
@@ -11,13 +11,13 @@ import org.slf4j.LoggerFactory
  * This processor is invoked when all retry attempts are exhausted and no fallback
  * handler is available or the fallback handler has also failed.
  *
- * @param recordRepository Repository for persisting failed state
+ * @param persistence Persistence for failed state
  *
  * @author Roland Beisel
  * @since 1.0.0
  */
 class PermanentFailureOutboxRecordProcessor(
-    private val recordRepository: OutboxRecordRepository,
+    private val persistence: OutboxCompletionPersistence,
 ) : OutboxRecordProcessor() {
     private val log = LoggerFactory.getLogger(PermanentFailureOutboxRecordProcessor::class.java)
 
@@ -28,7 +28,7 @@ class PermanentFailureOutboxRecordProcessor(
      */
     override fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome {
         record.markFailed()
-        recordRepository.updateProcessingState(record)
+        persistence.updateProcessingState(record)
 
         log.warn(
             "Record {} (businessKey={}, processingGroup={}, storageKey={}) marked as FAILED permanently after {} failures",

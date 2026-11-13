@@ -3,8 +3,11 @@ package io.namastack.outbox
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.namastack.outbox.completion.OutboxCompletion
 import io.namastack.outbox.completion.OutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxCompletionWriter
 import io.namastack.outbox.completion.OutboxRecordCompleter
+import io.namastack.outbox.config.OutboxCompletionAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreInfrastructureAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
 import io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
@@ -17,6 +20,7 @@ import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxHandlerInfrastructureFactory
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
+import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instance.OutboxInstance
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.instance.OutboxInstanceRepository
@@ -40,6 +44,8 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledForJreRange
 import org.junit.jupiter.api.condition.JRE
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration
@@ -98,8 +104,59 @@ class OutboxCoreAutoConfigurationTest {
                         .build(context.getBean<Clock>())
                 context.getBean<OutboxRecordCompleter>().complete(record)
 
-                verify(exactly = 1) { completionPersistence.updateCompleted(record) }
+                verify(exactly = 1) { completionPersistence.updateProcessingState(record) }
                 verify(exactly = 0) { context.getBean<OutboxRecordRepository>().updateProcessingState(record) }
+            }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = [1, 3])
+    fun `retry and permanent failure use the configured batch writer`(maxRetries: Int) {
+        val handlerInvoker = mockk<OutboxHandlerInvoker>(relaxed = true)
+        every { handlerInvoker.dispatch(any()) } throws IllegalStateException("Handler failed")
+        val writer = mockk<OutboxCompletionWriter>()
+        every { writer.writeUpdates(any()) } answers {
+            firstArg<List<OutboxCompletion.Update>>().map { Result.success(Unit) }
+        }
+        contextRunner
+            .withConfiguration(AutoConfigurations.of(OutboxCompletionAutoConfiguration::class.java))
+            .withUserConfiguration(MinimalTestConfig::class.java)
+            .withBean(OutboxHandlerInvoker::class.java, { handlerInvoker })
+            .withBean(OutboxCompletionWriter::class.java, { writer })
+            .withPropertyValues(
+                "namastack.outbox.completion-batching.enabled=true",
+                "namastack.outbox.processing.delete-completed-records=true",
+                "namastack.outbox.retry.max-retries=$maxRetries",
+            ).run { context ->
+                assertThat(context).hasNotFailed()
+                val record = OutboxRecordTestFactory.outboxRecord(completedAt = null, failureCount = 1)
+
+                val outcome = context.getBean<OutboxRecordProcessorChainInvoker>().process(record)
+
+                val expectedStatus = if (maxRetries == 1) OutboxRecordStatus.FAILED else OutboxRecordStatus.NEW
+                val expectedOutcome =
+                    if (maxRetries == 1) {
+                        OutboxRecordProcessingOutcome.FAILED
+                    } else {
+                        OutboxRecordProcessingOutcome.RETRY_SCHEDULED
+                    }
+                assertThat(outcome).isEqualTo(expectedOutcome)
+                verify(exactly = 1) {
+                    writer.writeUpdates(
+                        match {
+                            it.single().recordId == record.id &&
+                                it.single().status == expectedStatus &&
+                                it.single().failureCount == 2 &&
+                                it.single().failureReason == "Handler failed" &&
+                                it.single().nextRetryAt == record.nextRetryAt &&
+                                it.single().completedAt == null
+                        },
+                    )
+                }
+                verify(exactly = 0) { writer.writeDeletions(any()) }
+                verify(
+                    exactly = 0,
+                ) { context.getBean<OutboxRecordRepository>().updateProcessingState(any<OutboxRecord<Any>>()) }
             }
     }
 

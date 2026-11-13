@@ -11,12 +11,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
-import org.springframework.jdbc.datasource.DataSourceTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
-import javax.sql.DataSource
 
 /**
  * Configures JDBC completion batching when enabled.
+ *
+ * The default writer shares outboxJdbcTemplate, outboxTransactionTemplate, and the table name resolver
+ * with the JDBC repositories. A custom [OutboxCompletionWriter] bean replaces the default writer;
+ * its implementation is responsible for using compatible persistence resources.
  *
  * @author Roland Beisel
  * @since 1.12.0
@@ -33,19 +35,19 @@ class JdbcOutboxCompletionAutoConfiguration {
     @ConditionalOnMissingBean(OutboxCompletionWriter::class)
     internal fun jdbcOutboxCompletionWriter(
         beanFactory: BeanFactory,
-        dataSource: DataSource,
         tableNameResolver: JdbcTableNameResolver,
     ): OutboxCompletionWriter {
-        val transactions = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate")
-        val completionDataSource =
-            (transactions.transactionManager as? DataSourceTransactionManager)?.dataSource ?: dataSource
+        val jdbc = beanFactory.getBean<NamedParameterJdbcTemplate>("outboxJdbcTemplate")
 
         return JdbcOutboxCompletionBatchWriter(
-            jdbc = NamedParameterJdbcTemplate(completionDataSource),
-            transactions = transactions,
+            jdbc = jdbc,
+            transactions = beanFactory.getBean<TransactionTemplate>("outboxTransactionTemplate"),
             queries = {
                 JdbcOutboxRecordQueriesFactory.create(
-                    databaseType = JdbcDatabaseType.detect(completionDataSource),
+                    databaseType =
+                        JdbcDatabaseType.detect(
+                            checkNotNull(jdbc.jdbcTemplate.dataSource) { "outboxJdbcTemplate must have a DataSource" },
+                        ),
                     tableName = tableNameResolver.outboxRecord,
                 )
             },

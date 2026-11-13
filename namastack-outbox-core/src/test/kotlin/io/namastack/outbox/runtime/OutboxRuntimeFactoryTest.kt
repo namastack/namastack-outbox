@@ -7,7 +7,9 @@ import io.mockk.verify
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordPage
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.OutboxRecordStatus
 import io.namastack.outbox.annotation.OutboxHandler
+import io.namastack.outbox.completion.OutboxCompletion
 import io.namastack.outbox.completion.OutboxCompletionWriter
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.handler.OutboxHandlerInfrastructure
@@ -25,6 +27,8 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.support.DefaultListableBeanFactory
 import org.springframework.core.task.SyncTaskExecutor
 import org.springframework.scheduling.TaskScheduler
@@ -32,6 +36,7 @@ import org.springframework.scheduling.Trigger
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
 
@@ -166,6 +171,50 @@ class OutboxRuntimeFactoryTest {
         ).isFalse()
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = [1, 3])
+    fun `runtime batches retry and permanent failure updates`(maxRetries: Int) {
+        val orders = fixture("orders", failHandler = true, maxRetries = maxRetries)
+        val writer = mockk<OutboxCompletionWriter>()
+        every { writer.writeUpdates(any()) } answers {
+            firstArg<List<OutboxCompletion.Update>>().map { Result.success(Unit) }
+        }
+        val spec =
+            orders.spec.copy(
+                persistence = orders.spec.persistence.copy(completionWriter = writer),
+                settings =
+                    orders.spec.settings.copy(
+                        processing = OutboxRuntimeSettings.Processing(deleteCompletedRecords = true),
+                        completionBatching = OutboxRuntimeSettings.CompletionBatching(enabled = true),
+                    ),
+            )
+        val poll = prepareProcessing(spec, previousFailures = 1)
+        val runtime = OutboxRuntimeFactory.create(spec)
+        try {
+            runtime.start()
+            TransactionSynchronizationManager.setActualTransactionActive(false)
+            poll.captured.run()
+
+            val expectedStatus = if (maxRetries == 1) OutboxRecordStatus.FAILED else OutboxRecordStatus.NEW
+            val expectedRetryAt = if (maxRetries == 1) CLOCK.instant() else CLOCK.instant().plusSeconds(30)
+            verify(exactly = 1) {
+                writer.writeUpdates(
+                    match {
+                        it.single().status == expectedStatus &&
+                            it.single().failureCount == 2 &&
+                            it.single().failureReason == "Handler failed" &&
+                            it.single().completedAt == null &&
+                            it.single().nextRetryAt == expectedRetryAt
+                    },
+                )
+            }
+            verify(exactly = 0) { writer.writeDeletions(any()) }
+            verify(exactly = 0) { orders.recordRepository.updateProcessingState(any<OutboxRecord<Any>>()) }
+        } finally {
+            runtime.close()
+        }
+    }
+
     @Test
     fun `copying a spec uses the replacement repository for completion`() {
         val orders = fixture("orders")
@@ -214,7 +263,10 @@ class OutboxRuntimeFactoryTest {
         runtime.close()
     }
 
-    private fun prepareProcessing(spec: OutboxRuntimeSpec): io.mockk.CapturingSlot<Runnable> {
+    private fun prepareProcessing(
+        spec: OutboxRuntimeSpec,
+        previousFailures: Int = 0,
+    ): io.mockk.CapturingSlot<Runnable> {
         val registered = slot<OutboxInstance>()
         every { spec.persistence.instanceRepository.save(capture(registered)) } answers { firstArg() }
         every { spec.persistence.instanceRepository.findActiveInstances() } answers { listOf(registered.captured) }
@@ -228,6 +280,7 @@ class OutboxRuntimeFactoryTest {
                 .payload(RuntimePayload("test"))
                 .handlerId("runtime-handler")
                 .build(CLOCK)
+        repeat(previousFailures) { record.incrementFailureCount() }
         val page = mockk<OutboxRecordPage>()
         every { page.isEmpty() } returns false
         every { page.size } returns 1
@@ -240,17 +293,26 @@ class OutboxRuntimeFactoryTest {
         return poll
     }
 
-    private fun fixture(channel: String): RuntimeFixture {
+    private fun fixture(
+        channel: String,
+        failHandler: Boolean = false,
+        maxRetries: Int = 3,
+    ): RuntimeFixture {
         val instrumentation = RecordingInstrumentation()
         val handlerInfrastructure =
             OutboxHandlerInfrastructureFactory(
                 beanFactory = DefaultListableBeanFactory(),
                 instrumentationsSupplier = { listOf(instrumentation) },
             ).create(
-                defaultRetryPolicy = OutboxRetryPolicy.builder().build(),
+                defaultRetryPolicy =
+                    OutboxRetryPolicy
+                        .builder()
+                        .maxRetries(maxRetries)
+                        .fixedBackOff(Duration.ofSeconds(30))
+                        .build(),
                 channelName = channel,
             )
-        handlerInfrastructure.register(RuntimeHandler(), "runtimeHandler")
+        handlerInfrastructure.register(RuntimeHandler(failHandler), "runtimeHandler")
 
         val recordRepository = mockk<OutboxRecordRepository>(relaxed = true)
         val instanceRepository = mockk<OutboxInstanceRepository>(relaxed = true)
@@ -309,9 +371,13 @@ class OutboxRuntimeFactoryTest {
     }
 
     @Suppress("UNUSED_PARAMETER")
-    private class RuntimeHandler {
+    private class RuntimeHandler(
+        private val fail: Boolean,
+    ) {
         @OutboxHandler(id = "runtime-handler", processingGroup = "billing")
-        fun handle(payload: RuntimePayload) = Unit
+        fun handle(payload: RuntimePayload) {
+            if (fail) throw IllegalStateException("Handler failed")
+        }
     }
 
     private data class RuntimePayload(

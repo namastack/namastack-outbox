@@ -49,20 +49,20 @@ class OutboxCoreProcessingAutoConfiguration {
         handlerInvoker: OutboxHandlerInvoker,
         fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
         fallbackHandlerInvoker: OutboxFallbackHandlerInvoker,
-        recordRepository: OutboxRecordRepository,
+        completionPersistence: OutboxCompletionPersistence,
         retryPolicyRegistry: OutboxRetryPolicyRegistry,
         completer: OutboxRecordCompleter,
         clock: Clock,
     ): OutboxRecordProcessor {
         val primary = PrimaryOutboxRecordProcessor(handlerInvoker, completer)
-        val retry = RetryOutboxRecordProcessor(retryPolicyRegistry, recordRepository, clock)
+        val retry = RetryOutboxRecordProcessor(retryPolicyRegistry, completionPersistence, clock)
         val fallback =
             FallbackOutboxRecordProcessor(
                 fallbackHandlerRegistry = fallbackHandlerRegistry,
                 fallbackHandlerInvoker = fallbackHandlerInvoker,
                 completer = completer,
             )
-        val permanentFailure = PermanentFailureOutboxRecordProcessor(recordRepository)
+        val permanentFailure = PermanentFailureOutboxRecordProcessor(completionPersistence)
 
         primary
             .setNext(retry)

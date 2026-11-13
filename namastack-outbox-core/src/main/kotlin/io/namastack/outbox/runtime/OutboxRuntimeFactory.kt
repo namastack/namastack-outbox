@@ -144,18 +144,17 @@ object OutboxRuntimeFactory {
         spec: OutboxRuntimeSpec,
         completionPersistence: OutboxCompletionPersistence,
     ): OutboxRecordProcessor {
-        val repository = spec.persistence.recordRepository
         val processing = spec.settings.processing
         val completer = OutboxRecordCompleter(completionPersistence, processing, spec.clock)
         val primary = PrimaryOutboxRecordProcessor(handlers.handlerInvoker, completer)
-        val retry = RetryOutboxRecordProcessor(handlers.retryPolicyRegistry, repository, spec.clock)
+        val retry = RetryOutboxRecordProcessor(handlers.retryPolicyRegistry, completionPersistence, spec.clock)
         val fallback =
             FallbackOutboxRecordProcessor(
                 fallbackHandlerRegistry = handlers.fallbackHandlerRegistry,
                 fallbackHandlerInvoker = handlers.fallbackHandlerInvoker,
                 completer = completer,
             )
-        val permanentFailure = PermanentFailureOutboxRecordProcessor(repository)
+        val permanentFailure = PermanentFailureOutboxRecordProcessor(completionPersistence)
 
         primary
             .setNext(retry)

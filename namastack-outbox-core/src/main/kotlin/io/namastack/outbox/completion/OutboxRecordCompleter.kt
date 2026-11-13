@@ -43,7 +43,7 @@ class OutboxRecordCompleter(
             val previousCompletedAt = record.completedAt
             try {
                 record.markCompleted(clock)
-                persistence.updateCompleted(record)
+                persistence.updateProcessingState(record)
             } catch (exception: Exception) {
                 record.status = previousStatus
                 record.completedAt = previousCompletedAt

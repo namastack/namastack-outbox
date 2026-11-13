@@ -5,9 +5,10 @@ import io.namastack.outbox.OutboxRecordStatus
 import java.time.Instant
 
 /**
- * Data needed to persist the completion of one outbox record through a batch writer.
+ * Data needed to persist the processing result of one outbox record through a batch writer.
  *
- * [Update] captures the record's processing fields; [Delete] identifies the record to remove.
+ * [Update] captures the record's processing fields after success, retry scheduling, or permanent
+ * failure; [Delete] identifies a successfully processed record to remove.
  * Neither action retains the payload, context, or mutable [OutboxRecord].
  *
  * @author Roland Beisel
