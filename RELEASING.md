@@ -6,11 +6,10 @@ The workflow creates a `release/<version>` pull request that:
 
 - updates the release version in the root Gradle build;
 - updates the example dependency catalog and performance-test snapshot version;
-- creates or refreshes the Docusaurus `major.minor.x` snapshot for the release line;
-- rotates the legacy `/outbox/<version>` redirects so each released line keeps pointing to its own documentation;
-- moves the current security-support line when a new documentation release line is created;
-- builds the documentation; and
+- moves the current security-support line for a new stable release line; and
 - dispatches the Gradle and example validation workflows for the release branch.
+
+The website and versioned documentation are maintained and published independently in [namastack-website](https://github.com/namastack/namastack-website). This workflow does not modify or publish documentation.
 
 Review and merge the pull request after both validation workflows pass. Wait for the resulting `main` checks, then run **Publish Release** manually with the same stable version. The workflow verifies that `main` contains that version, builds and tests the tagged commit, creates the corresponding `v<version>` tag, publishes the artifacts to Maven Central, and creates the GitHub release with generated release notes.
 

@@ -35,24 +35,12 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: namastack-outbox-docs/package-lock.json
 
       - name: Test release tooling
         run: node --test scripts/*.test.mjs
 
-      - name: Install documentation dependencies
-        working-directory: namastack-outbox-docs
-        run: npm ci
-
-      - name: Update versions and version the documentation
+      - name: Update release versions and support policy
         run: node scripts/prepare-release.mjs "$RELEASE_VERSION"
-
-      - name: Validate documentation
-        working-directory: namastack-outbox-docs
-        run: |
-          npm run typecheck
-          npm run build
 
       - name: Validate generated changes
         run: |
@@ -96,7 +84,7 @@ jobs:
           cat > "$body_file" <<EOF
           Prepares Namastack Outbox $RELEASE_VERSION.
 
-          This pull request updates the Gradle project version, example and performance-test dependencies, and the versioned documentation where required.
+          This pull request updates the Gradle project version, example and performance-test dependencies, and the security support policy where required. Website documentation is maintained and published independently in namastack/namastack-website.
 
           Once the release commit is validated, create the annotated tag v$RELEASE_VERSION.
           Run Publish Existing Tag with version $RELEASE_VERSION in dry-run mode before publishing.
