@@ -8,7 +8,7 @@ import io.namastack.outbox.toSingleLine
  * [DefaultJdbcOutboxRecordQueries], which the composite indexes of the PostgreSQL schema script serve.
  *
  * @author Aleksander Zamojski
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal class PostgresJdbcOutboxRecordQueries(
     tableName: String,

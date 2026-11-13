@@ -14,7 +14,7 @@ import kotlin.concurrent.withLock
  * of outstanding writes is therefore bounded by active processing tasks, without a separate queue limit.
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal class OutboxCompletionQueue {
     // Queue insertion can wait for its internal locks. Avoid pinning a Java 21 virtual thread.

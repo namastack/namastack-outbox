@@ -9,7 +9,7 @@ import java.time.Instant
  * @property collectedAt Time the measurement completed successfully
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal data class OutboxMetricSnapshot(
     val value: Double,

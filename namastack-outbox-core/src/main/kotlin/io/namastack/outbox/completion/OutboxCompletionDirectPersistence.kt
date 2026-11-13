@@ -9,7 +9,7 @@ import io.namastack.outbox.OutboxRecordRepository
  * @param repository Repository used to update processing state or delete completed records
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 class OutboxCompletionDirectPersistence(
     private val repository: OutboxRecordRepository,

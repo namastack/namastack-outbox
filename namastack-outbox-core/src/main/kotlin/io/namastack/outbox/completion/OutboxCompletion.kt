@@ -12,7 +12,7 @@ import java.time.Instant
  * Neither action retains the payload, context, or mutable [OutboxRecord].
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 sealed interface OutboxCompletion {
     /** ID of the record affected by this action. */
@@ -28,7 +28,7 @@ sealed interface OutboxCompletion {
      * @property failureReason Last failure reason to persist, if present
      * @property nextRetryAt Next retry time to persist
      * @author Roland Beisel
-     * @since 1.12.0
+     * @since 2.0.0
      */
     data class Update(
         override val recordId: String,
@@ -62,7 +62,7 @@ sealed interface OutboxCompletion {
      *
      * @property recordId ID of the record to delete
      * @author Roland Beisel
-     * @since 1.12.0
+     * @since 2.0.0
      */
     data class Delete(
         override val recordId: String,

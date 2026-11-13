@@ -4,7 +4,7 @@ package io.namastack.outbox.routing
  * Header names shared by outbox messaging integrations.
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 object OutboxHeaders {
     /**

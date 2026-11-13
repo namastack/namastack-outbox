@@ -13,10 +13,10 @@ import java.time.Duration
  * @property refreshInterval Delay after a collection finishes before the next one starts; at least 1ms
  * @property maxAge Maximum age of a reading before it reports NaN; at least [refreshInterval]
  * @property recordStatuses Record statuses that get an `outbox.records` gauge, counted with one grouped
- *   query per collection; counting `COMPLETED` grows with the retained history (since 1.12.0)
+ *   query per collection; counting `COMPLETED` grows with the retained history (since 2.0.0)
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 @ConfigurationProperties("namastack.outbox.observability.metrics")
 internal data class OutboxMetricsProperties(

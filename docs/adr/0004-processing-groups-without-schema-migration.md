@@ -114,6 +114,6 @@ messaging keys and trace correlation consistent.
 ## Follow-up Work
 
 - Define and publish the Namastack support and update policy separately after the feature merge.
-- Align artifact versions with the intended 1.12.0 release before publishing the feature.
+- Align artifact versions with the intended 2.0.0 release before publishing the feature.
 - A future group-aware administrative API can expose business-key and group filters while
   retaining explicit storage-key operations.

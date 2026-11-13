@@ -11,7 +11,7 @@ package io.namastack.outbox.handler
  * hyphens and start with a letter or digit.
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 object OutboxProcessingGroup {
     /** Group used by handlers without an explicit processing group declaration. */

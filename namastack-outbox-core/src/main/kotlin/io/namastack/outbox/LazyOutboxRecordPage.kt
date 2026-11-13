@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray
  * @param decode Converts a snapshot into a domain record when accessed
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 class LazyOutboxRecordPage<T>(
     private val rows: List<T>,

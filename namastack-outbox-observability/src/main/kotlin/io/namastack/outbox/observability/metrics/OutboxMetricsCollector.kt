@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * @param stopOnFirstFailure Whether overdue records must be the oldest incomplete record for their key
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal class OutboxMetricsCollector(
     private val recordRepository: OutboxRecordRepository,

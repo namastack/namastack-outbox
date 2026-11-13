@@ -30,7 +30,7 @@ import java.time.Duration
  * Enabling batching without a writer fails application startup.
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 @AutoConfiguration(before = [OutboxCoreProcessingAutoConfiguration::class])
 @ConditionalOnSingleRuntimeMode

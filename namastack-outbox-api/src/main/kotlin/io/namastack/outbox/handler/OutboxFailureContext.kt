@@ -39,7 +39,7 @@ import java.time.Instant
  * @property retriesExhausted True if retry limit was reached
  * @property nonRetryableException True if failure was due to non-retryable exception
  * @property context Custom context from the original record (tracing, tenancy, correlation)
- * @property processingGroup Processing group of this delivery; with [recordKey] it defines the ordering boundary (since 1.12.0)
+ * @property processingGroup Processing group of this delivery; with [recordKey] it defines the ordering boundary (since 2.0.0)
  *
  * @author Roland Beisel
  * @since 1.0.0

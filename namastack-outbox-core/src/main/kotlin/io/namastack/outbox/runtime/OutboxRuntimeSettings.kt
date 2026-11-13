@@ -16,7 +16,7 @@ import java.time.Duration
  * @property instance Instance coordination behavior
  * @property multicaster Spring event multicaster behavior
  * @property processingGroups Opt-in processing group scheduling
- * @property completionBatching Optional batching of successful completion writes
+ * @property completionBatching Optional batching of processing-state updates and successful record deletions
  *
  * @author Roland Beisel
  * @since 1.10.0
@@ -39,7 +39,7 @@ data class OutboxRuntimeSettings(
      * @throws IllegalArgumentException if the batch size or batch wait is not positive
      * @throws ArithmeticException if the batch wait in nanoseconds overflows
      * @author Roland Beisel
-     * @since 1.12.0
+     * @since 2.0.0
      */
     data class CompletionBatching(
         val enabled: Boolean = false,
