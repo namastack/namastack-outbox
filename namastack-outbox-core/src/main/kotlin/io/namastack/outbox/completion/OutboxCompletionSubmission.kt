@@ -7,7 +7,7 @@ import java.util.concurrent.CompletableFuture
  *
  * @param completion Immutable completion action
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal class OutboxCompletionSubmission(
     val completion: OutboxCompletion,

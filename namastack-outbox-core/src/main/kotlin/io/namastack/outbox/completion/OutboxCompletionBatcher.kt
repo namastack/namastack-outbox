@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
  * @param settings Batch size and maximum batch wait
  * @param shutdownTimeout Maximum time [stop] waits for the worker to exit
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal class OutboxCompletionBatcher(
     private val executor: TaskExecutor,

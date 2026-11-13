@@ -10,7 +10,7 @@ package io.namastack.outbox.processing
  * @property enabled Whether newly scheduled records use processing groups; disabled by default
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 data class OutboxProcessingGroupSettings(
     val enabled: Boolean = false,

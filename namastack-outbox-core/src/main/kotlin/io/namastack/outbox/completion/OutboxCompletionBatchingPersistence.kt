@@ -16,7 +16,7 @@ import java.util.concurrent.CompletionException
  * @param repository Repository used for shutdown fallback writes
  * @param batcher Collects completions for the writer threads
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal class OutboxCompletionBatchingPersistence(
     private val repository: OutboxRecordRepository,

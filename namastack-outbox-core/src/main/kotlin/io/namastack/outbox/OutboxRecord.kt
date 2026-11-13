@@ -47,14 +47,14 @@ class OutboxRecord<T> internal constructor(
     /**
      * Original business key, decoded once from [key] when this record is constructed.
      *
-     * @since 1.12.0
+     * @since 2.0.0
      */
     val businessKey: String
 
     /**
      * Persisted processing group, independent of current handler declarations and scheduling settings.
      *
-     * @since 1.12.0
+     * @since 2.0.0
      */
     val processingGroup: String
 

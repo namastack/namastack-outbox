@@ -13,7 +13,7 @@ import java.time.Duration
  * @param clock Clock for reading timestamps and expiry
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal class OutboxMetricValue(
     private val maxAge: Duration,

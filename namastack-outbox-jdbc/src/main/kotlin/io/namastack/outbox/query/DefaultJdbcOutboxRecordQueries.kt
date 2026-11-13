@@ -19,7 +19,7 @@ import io.namastack.outbox.toSingleLine
  * empty string for none
  *
  * @author Aleksander Zamojski
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal open class DefaultJdbcOutboxRecordQueries(
     protected val tableName: String,

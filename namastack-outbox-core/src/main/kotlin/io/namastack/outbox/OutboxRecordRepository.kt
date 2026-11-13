@@ -17,7 +17,7 @@ interface OutboxRecordRepository {
          * Maximum number of keys per [findIncompleteRecordPages] request. Bounds bulk reads and
          * keeps SQL IN lists within the limit supported by all databases, including Oracle.
          *
-         * @since 1.12.0
+         * @since 2.0.0
          */
         const val MAX_RECORD_KEYS_PER_FETCH = 1000
     }
@@ -28,7 +28,7 @@ interface OutboxRecordRepository {
      *
      * @param record The new outbox record
      * @return The created outbox record
-     * @since 1.12.0
+     * @since 2.0.0
      */
     fun <T> create(record: OutboxRecord<T>): OutboxRecord<T>
 
@@ -42,7 +42,7 @@ interface OutboxRecordRepository {
      *
      * @param record The outbox record whose processing state changed
      * @return `true` if the record was updated, `false` if it no longer exists
-     * @since 1.12.0
+     * @since 2.0.0
      */
     fun <T> updateProcessingState(record: OutboxRecord<T>): Boolean
 
@@ -133,7 +133,7 @@ interface OutboxRecordRepository {
      *
      * @param recordKeys Selected storage keys, at most [MAX_RECORD_KEYS_PER_FETCH] per call
      * @return An ordered record page for every requested key
-     * @since 1.12.0
+     * @since 2.0.0
      */
     fun findIncompleteRecordPages(recordKeys: Set<String>): Map<String, OutboxRecordPage>
 
@@ -175,7 +175,7 @@ interface OutboxRecordRepository {
      *
      * @param statuses The statuses to count
      * @return Number of records per requested status
-     * @since 1.12.0
+     * @since 2.0.0
      */
     fun countByStatuses(statuses: Set<OutboxRecordStatus>): Map<OutboxRecordStatus, Long> =
         statuses.associateWith { countByStatus(it) }
@@ -218,7 +218,7 @@ interface OutboxRecordRepository {
      *
      * @param partitions The partition numbers to search in
      * @return Earliest `createdAt` of the matching records, or `null` if the set is empty or no records match
-     * @since 1.12.0
+     * @since 2.0.0
      */
     fun findOldestCreatedAtByPartitions(partitions: Set<Int>): Instant?
 
@@ -240,7 +240,7 @@ interface OutboxRecordRepository {
      * @param now Inclusive upper bound for `nextRetryAt`
      * @param ignoreRecordKeysWithPreviousFailure Whether to exclude records blocked by earlier incomplete records
      * @return Earliest `nextRetryAt` of the matching records, or `null` if the set is empty or no records match
-     * @since 1.12.0
+     * @since 2.0.0
      */
     fun findOldestDueNextRetryAtByPartitions(
         partitions: Set<Int>,

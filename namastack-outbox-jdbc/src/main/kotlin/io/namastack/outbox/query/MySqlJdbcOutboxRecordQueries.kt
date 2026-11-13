@@ -4,7 +4,7 @@ package io.namastack.outbox.query
  * MySQL statements: the portable statements with `LIMIT`.
  *
  * @author Aleksander Zamojski
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal class MySqlJdbcOutboxRecordQueries(
     tableName: String,

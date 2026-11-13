@@ -7,7 +7,7 @@ import io.namastack.outbox.config.JdbcDatabaseType
  * when the database type is resolved.
  *
  * @author Aleksander Zamojski
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal object JdbcOutboxRecordQueriesFactory {
     /**

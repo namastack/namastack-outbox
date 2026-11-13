@@ -15,7 +15,7 @@ package io.namastack.outbox.query
  * read with `withMaxRows`. Binding `limit` to a statement that does not use it is safe.
  *
  * @author Aleksander Zamojski
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal interface JdbcOutboxRecordQueries {
     /** Updates the processing state of a record by id without writing payload or context. */

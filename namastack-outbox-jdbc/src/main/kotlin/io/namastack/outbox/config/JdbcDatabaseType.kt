@@ -139,7 +139,7 @@ sealed class JdbcDatabaseType(
          * @param dataSource The data source to inspect
          * @return Corresponding JdbcDatabaseType, or `null` if the product is not supported
          * @throws org.springframework.jdbc.support.MetaDataAccessException if the metadata cannot be read
-         * @since 1.12.0
+         * @since 2.0.0
          */
         internal fun detect(dataSource: DataSource): JdbcDatabaseType? {
             val productName = JdbcUtils.extractDatabaseMetaData(dataSource, DatabaseMetaData::getDatabaseProductName)

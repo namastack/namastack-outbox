@@ -21,7 +21,7 @@ import java.sql.Statement
  * @param transactions Transaction template used for each write attempt
  * @param queries Supplies the record statements on first use
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal class JdbcOutboxCompletionBatchWriter(
     private val jdbc: NamedParameterJdbcTemplate,

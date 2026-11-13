@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
  * @param maxBatchSize Maximum completions collected per batch
  * @param maxWait Maximum time to wait for a partially filled batch
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal class OutboxCompletionWorker(
     private val queue: OutboxCompletionQueue,

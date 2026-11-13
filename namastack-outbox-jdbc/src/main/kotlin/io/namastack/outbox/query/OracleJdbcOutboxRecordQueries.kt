@@ -9,7 +9,7 @@ import io.namastack.outbox.toSingleLine
  * index order serve the statement; the result order is the same instant order.
  *
  * @author Aleksander Zamojski
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal class OracleJdbcOutboxRecordQueries(
     tableName: String,

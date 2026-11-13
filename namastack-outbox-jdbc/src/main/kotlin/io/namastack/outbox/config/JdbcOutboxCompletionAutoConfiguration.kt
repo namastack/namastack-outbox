@@ -21,7 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate
  * its implementation is responsible for using compatible persistence resources.
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 @AutoConfiguration(
     after = [JdbcOutboxAutoConfiguration::class],

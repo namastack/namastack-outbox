@@ -12,7 +12,7 @@ import io.namastack.outbox.OutboxRecord
  * A failure can leave the commit outcome unknown; it does not necessarily mean the write rolled back.
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 interface OutboxCompletionPersistence {
     /**

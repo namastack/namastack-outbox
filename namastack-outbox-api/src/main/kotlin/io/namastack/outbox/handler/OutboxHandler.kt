@@ -48,7 +48,7 @@ interface OutboxHandler {
      * the other handler declarations on the same bean.
      *
      * @return The declared group, or [OutboxProcessingGroup.DEFAULT] when not overridden
-     * @since 1.12.0
+     * @since 2.0.0
      */
     fun getGenericHandlerProcessingGroup(): String = OutboxProcessingGroup.DEFAULT
 

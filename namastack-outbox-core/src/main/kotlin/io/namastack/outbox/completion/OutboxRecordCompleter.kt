@@ -15,7 +15,7 @@ import java.time.Clock
  * @param clock Clock used to set the completion time when records are retained
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 class OutboxRecordCompleter(
     private val persistence: OutboxCompletionPersistence,

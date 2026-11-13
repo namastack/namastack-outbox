@@ -11,7 +11,7 @@ import io.namastack.outbox.toSingleLine
  * the key. It runs only for the rows the outer scan reads, so the row limit bounds its executions.
  *
  * @author Aleksander Zamojski
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal class MariaDbJdbcOutboxRecordQueries(
     tableName: String,

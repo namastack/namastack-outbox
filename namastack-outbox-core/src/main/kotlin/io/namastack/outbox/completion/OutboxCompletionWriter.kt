@@ -1,19 +1,19 @@
 package io.namastack.outbox.completion
 
 /**
- * Writes completion updates and deletions in separate batches.
+ * Writes processing-state updates and record deletions in separate batches.
  *
  * Successful results represent writes whose transactions committed. On a failed result, the
  * database operation either rolled back or its outcome could not be confirmed (for example, if
  * the connection failed while committing). Implementations can retry a failed batch in smaller
- * transactions to identify which actions failed. The writer may be called concurrently.
+ * transactions to identify which actions failed. Each runtime calls its writer from a single worker.
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 interface OutboxCompletionWriter {
     /**
-     * Writes processing-state updates for completed records.
+     * Writes processing-state updates after success, retry scheduling, or permanent failure.
      *
      * The returned results match [updates] by position. An exception means that individual
      * outcomes could not be determined and the caller must fail every update in the batch.

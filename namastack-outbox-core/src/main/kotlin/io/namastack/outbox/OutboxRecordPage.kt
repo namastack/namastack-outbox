@@ -8,7 +8,7 @@ package io.namastack.outbox
  * A page holds all fetched rows and their serialized data in memory; it does not limit rows or bytes.
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 interface OutboxRecordPage {
     /** Number of fetched records, available without decoding in optimized readers. */

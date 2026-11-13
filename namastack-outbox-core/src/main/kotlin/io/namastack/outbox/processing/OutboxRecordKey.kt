@@ -14,7 +14,7 @@ import io.namastack.outbox.handler.OutboxProcessingGroup
  * and is decoded as one (see ADR 0004).
  *
  * @author Roland Beisel
- * @since 1.12.0
+ * @since 2.0.0
  */
 internal object OutboxRecordKey {
     private const val PREFIX = "~ns.pg1~"
