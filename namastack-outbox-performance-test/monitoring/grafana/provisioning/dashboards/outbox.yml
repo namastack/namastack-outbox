@@ -1,0 +1,9 @@
+apiVersion: 1
+
+providers:
+  - name: Namastack Outbox
+    folder: Namastack Outbox
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
+

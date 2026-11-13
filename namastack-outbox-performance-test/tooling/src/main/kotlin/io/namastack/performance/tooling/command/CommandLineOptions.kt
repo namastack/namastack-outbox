@@ -3,22 +3,13 @@ package io.namastack.performance.tooling.command
 import io.namastack.performance.tooling.internal.parseDuration
 import java.time.Duration
 
-/**
- * Parses the benchmark command's named options.
- *
- * @author Roland Beisel
- */
-internal class CommandLineOptions(
-    args: List<String>,
-) {
+internal class CommandLineOptions(args: List<String>) {
     private val values =
         args.associate { argument ->
             require(argument.startsWith("--") && argument.contains("=")) { "Expected --key=value but got '$argument'" }
             val (key, value) = argument.removePrefix("--").split("=", limit = 2)
             key to value
         }
-
-    fun asMap(): Map<String, String> = values.toMap()
 
     fun string(
         name: String,
@@ -34,6 +25,11 @@ internal class CommandLineOptions(
         name: String,
         default: Long? = null,
     ) = string(name, default?.toString()).toLong()
+
+    fun double(
+        name: String,
+        default: Double? = null,
+    ) = string(name, default?.toString()).toDouble()
 
     fun duration(
         name: String,

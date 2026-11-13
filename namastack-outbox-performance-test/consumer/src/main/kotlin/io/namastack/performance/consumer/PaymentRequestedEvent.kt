@@ -7,3 +7,4 @@ data class PaymentRequestedEvent(
     val amount: Double,
     val currency: String,
 )
+

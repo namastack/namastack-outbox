@@ -1,0 +1,50 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Processed outbox records / second",
+      "targets": [{ "expr": "sum(rate(outbox_record_process_seconds_count{outbox_handler_kind=\"primary\"}[5s]))", "legendFormat": "total" }],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Processed records / second by consumer",
+      "targets": [{ "expr": "sum by (consumer) (rate(outbox_record_process_seconds_count{outbox_handler_kind=\"primary\"}[5s]))", "legendFormat": "{{consumer}}" }],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Assigned partitions by consumer",
+      "targets": [{ "expr": "outbox_instance_partitions_assigned", "legendFormat": "{{consumer}}" }],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Consumer process CPU",
+      "targets": [{ "expr": "process_cpu_usage{job=\"outbox-consumer\"}", "legendFormat": "{{consumer}}" }],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Consumer JVM heap",
+      "targets": [{ "expr": "sum by (consumer) (jvm_memory_used_bytes{job=\"outbox-consumer\",area=\"heap\"})", "legendFormat": "{{consumer}}" }],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+    },
+    {
+      "type": "timeseries",
+      "title": "PostgreSQL transactions / second",
+      "targets": [{ "expr": "sum(rate(pg_stat_database_xact_commit{datname=\"outbox_performance_test\"}[10s]))", "legendFormat": "commits" }],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+    }
+  ],
+  "schemaVersion": 41,
+  "tags": ["namastack", "outbox", "performance"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "Namastack Outbox Performance",
+  "uid": "namastack-outbox-performance",
+  "version": 1
+}
+

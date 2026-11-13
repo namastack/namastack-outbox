@@ -1,7 +1,7 @@
 package io.namastack.performance.tooling.jdbc
 
-import io.namastack.performance.tooling.record.PerformanceRecord
 import io.namastack.performance.tooling.store.OutboxRecordWriter
+import io.namastack.performance.tooling.record.PerformanceRecord
 import java.sql.Connection
 import java.sql.PreparedStatement
 
@@ -12,21 +12,12 @@ internal class JdbcOutboxRecordWriter(
 
     init {
         connection.autoCommit = false
-        statement =
-            connection.prepareStatement(
-                """
-                INSERT INTO outbox_record
-                (id, status, record_key, record_type, payload, context, created_at, completed_at,
-                 failure_count, failure_reason, next_retry_at, partition_no, handler_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """.trimIndent(),
-            )
+        statement = connection.prepareStatement(JdbcPerformanceSql.insertOutboxRecord)
     }
 
     override fun append(records: List<PerformanceRecord>) {
         records.forEach { statement.bind(it) }
         statement.executeBatch()
-        statement.clearBatch()
         connection.commit()
     }
 
