@@ -49,6 +49,14 @@ allprojects {
     }
 
     apply { plugin("org.jlleitschuh.gradle.ktlint") }
+
+    configurations.matching { it.name == "dokkaJavadocGeneratorRuntime" }.configureEach {
+        // Korte brings legacy stdlib artifacts into Dokka's JVM runtime, breaking Gradle 9.9
+        // dependency graph serialization. Their APIs are already part of kotlin-stdlib.
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-common")
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk7")
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk8")
+    }
 }
 
 kotlin {

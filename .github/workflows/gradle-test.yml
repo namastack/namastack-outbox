@@ -81,4 +81,9 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.ORG_GRADLE_PROJECT_signingInMemoryKeyPassword }}
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralUsername }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.ORG_GRADLE_PROJECT_mavenCentralPassword }}
-        run: ./gradlew publishToMavenCentral -Prelease=false
+        # Limit snapshot upload bursts and skip SHA-256/SHA-512 checksums rejected by the endpoint.
+        # SHA-1/MD5 checksums and GPG signatures are still published.
+        run: >-
+          ./gradlew publishToMavenCentral -Prelease=false
+          --no-parallel --max-workers=1
+          -Dorg.gradle.internal.publish.checksums.insecure=true
