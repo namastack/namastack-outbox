@@ -30,9 +30,11 @@ class OutboxRuntime internal constructor(
      * Starts this runtime once in dependency order.
      *
      * Repeated calls while the runtime is running are ignored. If startup fails, components that
-     * started successfully are stopped before the failure is rethrown.
+     * started successfully are stopped before the failure is rethrown. The runtime remains closed;
+     * a cleanup failure is attached to the startup failure as a suppressed exception.
      *
      * @throws IllegalStateException if the runtime has already been closed
+     * @throws Throwable if a lifecycle component fails to start
      */
     @Synchronized
     fun start() {
@@ -52,7 +54,7 @@ class OutboxRuntime internal constructor(
             started = true
         } catch (failure: Throwable) {
             closed = true
-            stopStartedComponents()
+            stopStartedComponents()?.let(failure::addSuppressed)
             throw failure
         }
     }
@@ -60,7 +62,8 @@ class OutboxRuntime internal constructor(
     /**
      * Returns whether this runtime and all of its lifecycle components are running.
      *
-     * @return `true` after successful startup and before closing
+     * @return `true` after successful startup while all components are running; `false` before startup,
+     * after closing, or when any component is stopped
      */
     @Synchronized
     fun isRunning(): Boolean =
@@ -72,7 +75,8 @@ class OutboxRuntime internal constructor(
      * Stops this runtime once in reverse dependency order.
      *
      * Repeated calls are ignored. If stopping a component fails, the remaining components are still
-     * stopped and the first failure is rethrown.
+     * stopped and the first failure is rethrown. Work that exceeds a component's shutdown timeout
+     * may continue after this method returns.
      *
      * @throws Throwable if a lifecycle component fails while stopping
      */

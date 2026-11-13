@@ -27,7 +27,7 @@ jobs:
           - java: '17'
             tasks: build
           - java: '21'
-            tasks: test
+            tasks: test testCodeCoverageReport
           - java: '25'
             tasks: test
     name: Java ${{ matrix.java }} tests
@@ -58,14 +58,14 @@ jobs:
             **/build/test-results/
 
       - name: Upload coverage report (artifact)
-        if: matrix.java == '17'
+        if: matrix.java == '21'
         uses: actions/upload-artifact@v7
         with:
-          name: jacoco-coverage
+          name: jacoco-coverage-jdk-${{ matrix.java }}
           path: build/reports/jacoco/testCodeCoverageReport/html
 
       - name: Upload coverage report to Codecov
-        if: matrix.java == '17'
+        if: matrix.java == '21'
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

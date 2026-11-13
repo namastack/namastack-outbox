@@ -623,6 +623,8 @@ class OutboxRecordTest {
 
     /**
      * The partial indexes and the literal `completed_at IS NULL` queries rely on this invariant.
+     *
+     * @author Aleksander Zamojski
      */
     @Nested
     inner class CompletedAtInvariant {

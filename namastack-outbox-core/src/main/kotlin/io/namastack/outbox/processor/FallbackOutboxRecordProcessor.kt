@@ -1,37 +1,32 @@
 package io.namastack.outbox.processor
 
 import io.namastack.outbox.OutboxRecord
-import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.handler.OutboxFallbackDisposition
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
-import io.namastack.outbox.runtime.OutboxRuntimeSettings
 import org.slf4j.LoggerFactory
-import java.time.Clock
 
 /**
  * Processor that handles permanently failed records by invoking fallback handlers.
  *
- * On success with [OutboxFallbackDisposition.COMPLETE]: marks record as COMPLETED or deletes it.
- * On success with [OutboxFallbackDisposition.FAIL]: keeps the original failure and passes
- * the record to the next processor in chain, which marks it as FAILED.
- * On failure: stores fallback exception, passes to next processor in chain.
+ * If the fallback succeeds with [OutboxFallbackDisposition.COMPLETE], marks the record as
+ * COMPLETED or deletes it. With [OutboxFallbackDisposition.FAIL], retains the original failure
+ * and passes the record to the next processor, which marks it as FAILED. If the fallback throws,
+ * stores its exception and passes the record to the next processor.
  *
- * @param recordRepository Repository for persisting record state
+ * @param fallbackHandlerRegistry Registry of fallback handlers
  * @param fallbackHandlerInvoker Invoker for fallback handlers
- * @param settings Effective processing settings
- * @param clock Clock for completion timestamp
+ * @param completer Completes successfully processed records
  *
  * @author Roland Beisel
  * @since 1.0.0
  */
 class FallbackOutboxRecordProcessor(
-    private val recordRepository: OutboxRecordRepository,
     private val fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
     private val fallbackHandlerInvoker: OutboxFallbackHandlerInvoker,
-    private val settings: OutboxRuntimeSettings.Processing,
-    private val clock: Clock,
+    private val completer: OutboxRecordCompleter,
 ) : OutboxRecordProcessor() {
     private val log = LoggerFactory.getLogger(FallbackOutboxRecordProcessor::class.java)
 
@@ -43,8 +38,10 @@ class FallbackOutboxRecordProcessor(
      * If the fallback handler succeeds with [OutboxFallbackDisposition.FAIL], delegates to the next
      * processor without replacing the original failure.
      *
+     * @param record Record whose primary handler failed
      * @return [OutboxRecordProcessingOutcome.COMPLETED] if the fallback succeeds with
      * [OutboxFallbackDisposition.COMPLETE], otherwise the outcome returned by the downstream chain.
+     * @throws Exception if completion persistence or downstream processing fails
      */
     override fun handle(record: OutboxRecord<*>): OutboxRecordProcessingOutcome {
         val fallback = fallbackHandlerRegistry.getByHandlerId(record.handlerId)
@@ -66,7 +63,7 @@ class FallbackOutboxRecordProcessor(
 
         return when (fallback.disposition) {
             OutboxFallbackDisposition.COMPLETE -> {
-                completeRecord(record, recordRepository, settings, clock)
+                completer.complete(record)
                 OutboxRecordProcessingOutcome.COMPLETED
             }
 

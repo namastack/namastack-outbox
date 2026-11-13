@@ -2,7 +2,14 @@ package io.namastack.outbox.runtime
 
 import io.namastack.outbox.OutboxProperties
 
-/** Converts Spring-bound properties into effective immutable runtime settings. */
+/**
+ * Converts Spring-bound properties into effective immutable runtime settings.
+ *
+ * @return Runtime settings with batching settings validated
+ * @throws IllegalStateException if a polling trigger or retry policy is unsupported
+ * @throws IllegalArgumentException if the writer count, batch size, or batch wait is not positive
+ * @throws ArithmeticException if the batch wait in nanoseconds overflows
+ */
 internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
     OutboxRuntimeSettings(
         polling =
@@ -41,6 +48,12 @@ internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
             OutboxRuntimeSettings.Multicaster(
                 enabled = multicaster.enabled,
                 publishAfterSave = multicaster.publishAfterSave,
+            ),
+        completionBatching =
+            OutboxRuntimeSettings.CompletionBatching(
+                enabled = completionBatching.enabled,
+                maxBatchSize = completionBatching.maxBatchSize,
+                maxWait = completionBatching.maxWait,
             ),
     )
 

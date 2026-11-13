@@ -2,6 +2,11 @@ package io.namastack.outbox.runtime
 
 import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxService
+import io.namastack.outbox.completion.OutboxCompletionBatcher
+import io.namastack.outbox.completion.OutboxCompletionBatchingPersistence
+import io.namastack.outbox.completion.OutboxCompletionDirectPersistence
+import io.namastack.outbox.completion.OutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.handler.OutboxHandlerInfrastructure
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionAssignmentCache
@@ -17,7 +22,8 @@ import io.namastack.outbox.trigger.OutboxPollingTriggerFactory
 /**
  * Constructs one stopped outbox runtime from fully resolved inputs.
  *
- * The factory performs no Spring bean lookup, persistence selection, or lifecycle startup.
+ * The factory performs no Spring bean lookup or lifecycle startup. It uses the repositories
+ * supplied in [OutboxRuntimeSpec] and assembles completion persistence against those repositories.
  *
  * @author Roland Beisel
  * @since 1.10.0
@@ -26,8 +32,13 @@ object OutboxRuntimeFactory {
     /**
      * Creates one isolated runtime without starting it.
      *
+     * Construction starts no workers. Closing the runtime stops its completion worker without closing
+     * the executor. Accepted writes may outlive the configured shutdown wait and still require
+     * the borrowed executor and persistence resources.
+     *
      * @param spec Fully resolved inputs for the runtime
      * @return Stopped runtime ready for handler use and explicit startup
+     * @throws IllegalArgumentException if batching is enabled without a persistence writer or completion executor
      * @throws IllegalStateException if the polling configuration is unsupported
      */
     fun create(spec: OutboxRuntimeSpec): OutboxRuntime {
@@ -63,7 +74,9 @@ object OutboxRuntimeFactory {
                 rebalanceInterval = spec.settings.instance.rebalanceInterval,
                 observationRegistry = { spec.observationRegistry },
             )
-        val processorChain = createProcessorChain(handlers, spec)
+        val batcher = createCompletionBatcher(spec)
+        val completionPersistence = createCompletionPersistence(persistence, batcher)
+        val processorChain = createProcessorChain(handlers, spec, completionPersistence)
         val processorChainInvoker =
             OutboxRecordProcessorChainInvoker(
                 recordProcessorChain = processorChain,
@@ -82,29 +95,66 @@ object OutboxRuntimeFactory {
                 settings = spec.settings,
                 clock = spec.clock,
             )
+
         return OutboxRuntime(
             outbox = outbox,
-            lifecycleComponents = listOf(instanceRegistry, partitionCoordinator, processingScheduler),
+            lifecycleComponents =
+                listOfNotNull(
+                    instanceRegistry,
+                    partitionCoordinator,
+                    batcher,
+                    processingScheduler,
+                ),
         )
     }
+
+    private fun createCompletionBatcher(spec: OutboxRuntimeSpec): OutboxCompletionBatcher? {
+        val settings = spec.settings.completionBatching
+        if (!settings.enabled) return null
+
+        val writer =
+            requireNotNull(spec.persistence.completionWriter) {
+                "Completion batching requires a completion writer from the persistence provider"
+            }
+        val executor =
+            requireNotNull(spec.resources.completionExecutor) {
+                "Completion batching requires a completion executor"
+            }
+
+        return OutboxCompletionBatcher(
+            executor = executor,
+            shutdownTimeout = spec.settings.processing.shutdownTimeout,
+            writer = writer,
+            settings = settings,
+        )
+    }
+
+    private fun createCompletionPersistence(
+        persistence: OutboxRuntimePersistence,
+        batcher: OutboxCompletionBatcher?,
+    ): OutboxCompletionPersistence =
+        if (batcher == null) {
+            OutboxCompletionDirectPersistence(persistence.recordRepository)
+        } else {
+            OutboxCompletionBatchingPersistence(persistence.recordRepository, batcher)
+        }
 
     private fun createProcessorChain(
         handlers: OutboxHandlerInfrastructure,
         spec: OutboxRuntimeSpec,
+        completionPersistence: OutboxCompletionPersistence,
     ): OutboxRecordProcessor {
-        val repository = spec.persistence.recordRepository
         val processing = spec.settings.processing
-        val primary = PrimaryOutboxRecordProcessor(handlers.handlerInvoker, repository, processing, spec.clock)
-        val retry = RetryOutboxRecordProcessor(handlers.retryPolicyRegistry, repository, spec.clock)
+        val completer = OutboxRecordCompleter(completionPersistence, processing, spec.clock)
+        val primary = PrimaryOutboxRecordProcessor(handlers.handlerInvoker, completer)
+        val retry = RetryOutboxRecordProcessor(handlers.retryPolicyRegistry, completionPersistence, spec.clock)
         val fallback =
             FallbackOutboxRecordProcessor(
-                recordRepository = repository,
                 fallbackHandlerRegistry = handlers.fallbackHandlerRegistry,
                 fallbackHandlerInvoker = handlers.fallbackHandlerInvoker,
-                settings = processing,
-                clock = spec.clock,
+                completer = completer,
             )
-        val permanentFailure = PermanentFailureOutboxRecordProcessor(repository)
+        val permanentFailure = PermanentFailureOutboxRecordProcessor(completionPersistence)
 
         primary
             .setNext(retry)

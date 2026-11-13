@@ -16,6 +16,7 @@ import java.time.Duration
  * @property instance Instance coordination behavior
  * @property multicaster Spring event multicaster behavior
  * @property processingGroups Opt-in processing group scheduling
+ * @property completionBatching Optional batching of successful completion writes
  *
  * @author Roland Beisel
  * @since 1.10.0
@@ -27,7 +28,30 @@ data class OutboxRuntimeSettings(
     val instance: Instance = Instance(),
     val multicaster: Multicaster = Multicaster(),
     val processingGroups: OutboxProcessingGroupSettings = OutboxProcessingGroupSettings(),
+    val completionBatching: CompletionBatching = CompletionBatching(),
 ) {
+    /**
+     * Immutable batching settings for the single completion worker of one runtime.
+     *
+     * @property enabled Whether processing-state updates and successful record deletions are batched
+     * @property maxBatchSize Maximum number of completions collected per batch
+     * @property maxWait Maximum collection time after the first completion arrives
+     * @throws IllegalArgumentException if the batch size or batch wait is not positive
+     * @throws ArithmeticException if the batch wait in nanoseconds overflows
+     * @author Roland Beisel
+     * @since 1.12.0
+     */
+    data class CompletionBatching(
+        val enabled: Boolean = false,
+        val maxBatchSize: Int = 1024,
+        val maxWait: Duration = Duration.ofMillis(1),
+    ) {
+        init {
+            require(maxBatchSize > 0) { "maxBatchSize must be positive" }
+            require(maxWait > Duration.ZERO && maxWait.toNanos() > 0) { "maxWait must be positive" }
+        }
+    }
+
     /**
      * @property batchSize Maximum number of record keys processed in one batch
      * @property trigger Polling trigger strategy

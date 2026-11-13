@@ -3,6 +3,9 @@ package io.namastack.outbox.config
 import io.namastack.outbox.OutboxChannelNameProvider
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.completion.OutboxCompletionDirectPersistence
+import io.namastack.outbox.completion.OutboxCompletionPersistence
+import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.handler.invoker.OutboxFallbackHandlerInvoker
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.handler.registry.OutboxFallbackHandlerRegistry
@@ -28,27 +31,38 @@ import java.time.Clock
 class OutboxCoreProcessingAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
+    fun outboxCompletionPersistence(recordRepository: OutboxRecordRepository): OutboxCompletionPersistence =
+        OutboxCompletionDirectPersistence(recordRepository)
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxRecordCompleter(
+        completionPersistence: OutboxCompletionPersistence,
+        properties: OutboxProperties,
+        clock: Clock,
+    ): OutboxRecordCompleter =
+        OutboxRecordCompleter(completionPersistence, properties.toRuntimeSettings().processing, clock)
+
+    @Bean
+    @ConditionalOnMissingBean
     fun outboxRecordProcessorChain(
         handlerInvoker: OutboxHandlerInvoker,
         fallbackHandlerRegistry: OutboxFallbackHandlerRegistry,
         fallbackHandlerInvoker: OutboxFallbackHandlerInvoker,
-        recordRepository: OutboxRecordRepository,
+        completionPersistence: OutboxCompletionPersistence,
         retryPolicyRegistry: OutboxRetryPolicyRegistry,
-        properties: OutboxProperties,
+        completer: OutboxRecordCompleter,
         clock: Clock,
     ): OutboxRecordProcessor {
-        val processing = properties.toRuntimeSettings().processing
-        val primary = PrimaryOutboxRecordProcessor(handlerInvoker, recordRepository, processing, clock)
-        val retry = RetryOutboxRecordProcessor(retryPolicyRegistry, recordRepository, clock)
+        val primary = PrimaryOutboxRecordProcessor(handlerInvoker, completer)
+        val retry = RetryOutboxRecordProcessor(retryPolicyRegistry, completionPersistence, clock)
         val fallback =
             FallbackOutboxRecordProcessor(
-                recordRepository = recordRepository,
                 fallbackHandlerRegistry = fallbackHandlerRegistry,
                 fallbackHandlerInvoker = fallbackHandlerInvoker,
-                settings = processing,
-                clock = clock,
+                completer = completer,
             )
-        val permanentFailure = PermanentFailureOutboxRecordProcessor(recordRepository)
+        val permanentFailure = PermanentFailureOutboxRecordProcessor(completionPersistence)
 
         primary
             .setNext(retry)

@@ -14,6 +14,8 @@ import org.springframework.scheduling.TaskScheduler
  * @property taskExecutor Executor for parallel record processing
  * @property taskScheduler Scheduler for polling and partition rebalancing
  * @property heartbeatScheduler Scheduler for instance heartbeats
+ * @property completionExecutor Asynchronous executor required when batching is enabled, with capacity
+ * for one long-running completion worker per runtime independently of record processing
  *
  * @author Roland Beisel
  * @since 1.10.0
@@ -22,4 +24,5 @@ data class OutboxRuntimeResources(
     val taskExecutor: TaskExecutor,
     val taskScheduler: TaskScheduler,
     val heartbeatScheduler: TaskScheduler,
+    val completionExecutor: TaskExecutor? = null,
 )

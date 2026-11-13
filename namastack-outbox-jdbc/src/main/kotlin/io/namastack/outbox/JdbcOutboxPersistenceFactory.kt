@@ -3,6 +3,7 @@ package io.namastack.outbox
 import io.namastack.outbox.config.JdbcDatabaseType
 import io.namastack.outbox.query.JdbcOutboxRecordQueriesFactory
 import io.namastack.outbox.runtime.OutboxRuntimePersistence
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -21,14 +22,14 @@ import javax.sql.DataSource
  */
 object JdbcOutboxPersistenceFactory {
     /**
-     * Creates the three JDBC repository implementations required by one outbox runtime.
+     * Creates the JDBC repositories and matching completion writer for one outbox runtime.
      *
      * @param dataSource Datasource used by all repositories
      * @param transactionManager Transaction manager used for repository transactions
      * @param payloadSerializer Serializer used for record payloads and context
      * @param clock Clock used for time-based record operations
      * @param tableNameResolver Resolver providing one complete physical table namespace
-     * @return Runtime persistence containing the three JDBC repositories
+     * @return Runtime persistence containing the JDBC repositories and a matching completion writer
      */
     fun create(
         dataSource: DataSource,
@@ -39,6 +40,10 @@ object JdbcOutboxPersistenceFactory {
     ): OutboxRuntimePersistence {
         val jdbcClient = JdbcClient.create(dataSource)
         val transactionTemplate = TransactionTemplate(transactionManager)
+        val recordTable = tableNameResolver.outboxRecord
+        val recordQueries by lazy {
+            JdbcOutboxRecordQueriesFactory.create(JdbcDatabaseType.detect(dataSource), recordTable)
+        }
 
         return OutboxRuntimePersistence(
             recordRepository =
@@ -47,12 +52,7 @@ object JdbcOutboxPersistenceFactory {
                     transactionTemplate = transactionTemplate,
                     entityMapper = JdbcOutboxRecordEntityMapper(payloadSerializer),
                     clock = clock,
-                    queries = {
-                        JdbcOutboxRecordQueriesFactory.create(
-                            JdbcDatabaseType.detect(dataSource),
-                            tableNameResolver.outboxRecord,
-                        )
-                    },
+                    queries = { recordQueries },
                 ),
             instanceRepository =
                 JdbcOutboxInstanceRepository(
@@ -65,6 +65,12 @@ object JdbcOutboxPersistenceFactory {
                     jdbcClient = jdbcClient,
                     transactionTemplate = transactionTemplate,
                     tableNameResolver = tableNameResolver,
+                ),
+            completionWriter =
+                JdbcOutboxCompletionBatchWriter(
+                    jdbc = NamedParameterJdbcTemplate(dataSource),
+                    transactions = transactionTemplate,
+                    queries = { recordQueries },
                 ),
         )
     }

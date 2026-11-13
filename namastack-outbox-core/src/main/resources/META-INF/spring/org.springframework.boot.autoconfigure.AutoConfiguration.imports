@@ -4,3 +4,4 @@ io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
 io.namastack.outbox.config.OutboxCoreProcessingAutoConfiguration
 io.namastack.outbox.config.OutboxCoreSchedulingAutoConfiguration
 io.namastack.outbox.config.OutboxCoreMulticasterAutoConfiguration
+io.namastack.outbox.config.OutboxCompletionAutoConfiguration
