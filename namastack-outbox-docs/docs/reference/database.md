@@ -208,33 +208,3 @@ For production environments, it is recommended to disable `auto-index-creation` 
 via the setup script (or your own migration tooling). This gives you full control over when and how
 indexes are created, avoiding potential performance impacts during application startup.
 :::
-
-## Completion Batching
-
-Completion batching groups successful record updates or deletions into fewer database writes.
-It is disabled by default and currently supported with JDBC persistence.
-
-```yaml
-namastack:
-  outbox:
-    completion-batching:
-      enabled: true
-      writer-count: 1
-      max-batch-size: 1024
-      max-wait: 1ms
-```
-
-`max-batch-size` limits the number of completions in a batch. `max-wait` limits how
-long a writer waits to fill a batch after receiving its first completion.
-`writer-count` controls how many batches can be written concurrently. A full batch
-is written immediately, without waiting for `max-wait` to expire.
-
-Batching is most useful when records from many different keys complete concurrently
-and completion writes are a database bottleneck. At low traffic, a completion may
-wait up to `max-wait` (1 ms by default) and still be written alone, adding latency
-without reducing database writes. A workload concentrated on a single key also gains
-little, because records for that key are processed sequentially. Leave batching
-disabled unless your workload benefits from combining concurrent completion writes.
-
-Processing waits for a completion write to commit before continuing with the next
-record for the same key. Pending completions are drained during shutdown.
