@@ -46,21 +46,21 @@ class OutboxCompletionAutoConfigurationTest {
 
     @Test
     @EnabledForJreRange(min = JRE.JAVA_21)
-    fun `completion writers use virtual threads when enabled`() {
+    fun `completion writer uses virtual threads when enabled`() {
         val thread = completionThread("spring.threads.virtual.enabled=true", SimpleAsyncTaskExecutor::class.java)
         assertThat(Thread::class.java.getMethod("isVirtual").invoke(thread)).isEqualTo(true)
     }
 
     @Test
     @EnabledForJreRange(min = JRE.JAVA_21)
-    fun `completion writers use platform threads when virtual threads are disabled`() {
+    fun `completion writer uses platform threads when virtual threads are disabled`() {
         val thread = completionThread("spring.threads.virtual.enabled=false", ThreadPoolTaskExecutor::class.java)
         assertThat(Thread::class.java.getMethod("isVirtual").invoke(thread)).isEqualTo(false)
     }
 
     @Test
     @EnabledForJreRange(max = JRE.JAVA_17)
-    fun `completion writers remain usable on Java 17 with the virtual thread property enabled`() {
+    fun `completion writer remains usable on Java 17 with the virtual thread property enabled`() {
         assertThat(completionThread("spring.threads.virtual.enabled=true", ThreadPoolTaskExecutor::class.java).name)
             .startsWith("outbox-completion-writer-")
     }
@@ -113,10 +113,9 @@ class OutboxCompletionAutoConfigurationTest {
         }
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = [1, 2])
-    fun `platform batcher restarts while previous executor tasks finish cleanup`(writerCount: Int) {
-        val cleaningUp = CountDownLatch(writerCount)
+    @Test
+    fun `platform batcher restarts while the previous executor task finishes cleanup`() {
+        val cleaningUp = CountDownLatch(1)
         val release = CountDownLatch(1)
         val decorator =
             TaskDecorator { task ->
@@ -136,7 +135,6 @@ class OutboxCompletionAutoConfigurationTest {
         runner
             .withPropertyValues(
                 "spring.threads.virtual.enabled=false",
-                "namastack.outbox.completion-batching.writer-count=$writerCount",
             ).withBean(TaskDecorator::class.java, { decorator })
             .withBean(OutboxCompletionWriter::class.java, { writer })
             .run { context ->
@@ -162,7 +160,7 @@ class OutboxCompletionAutoConfigurationTest {
     @ParameterizedTest
     @ValueSource(booleans = [false, true])
     @ExtendWith(OutputCaptureExtension::class)
-    fun `context stops and restarts completion workers without lifecycle timeouts`(
+    fun `context stops and restarts the completion worker without lifecycle timeouts`(
         virtualThreads: Boolean,
         output: CapturedOutput,
     ) {

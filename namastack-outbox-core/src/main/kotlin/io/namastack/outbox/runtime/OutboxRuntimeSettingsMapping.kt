@@ -52,7 +52,6 @@ internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
         completionBatching =
             OutboxRuntimeSettings.CompletionBatching(
                 enabled = completionBatching.enabled,
-                writerCount = completionBatching.writerCount,
                 maxBatchSize = completionBatching.maxBatchSize,
                 maxWait = completionBatching.maxWait,
             ),

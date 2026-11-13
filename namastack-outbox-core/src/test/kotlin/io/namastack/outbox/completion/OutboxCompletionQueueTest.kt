@@ -7,6 +7,8 @@ import org.springframework.test.util.ReflectionTestUtils
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /**
  * Tests submission coordination with shutdown and caller interruption status.
@@ -19,6 +21,7 @@ class OutboxCompletionQueueTest {
         val queue = OutboxCompletionQueue()
         queue.startAccepting()
         val submitted = CompletableFuture<CompletableFuture<Unit>?>()
+        val submissionLock = ReflectionTestUtils.getField(queue, "submissionLock") as ReentrantLock
         val submittingThread =
             Thread {
                 try {
@@ -30,9 +33,9 @@ class OutboxCompletionQueueTest {
 
         try {
             // Hold the insertion lock so shutdown deterministically wins before insertion.
-            synchronized(checkNotNull(ReflectionTestUtils.getField(queue, "submissionLock"))) {
+            submissionLock.withLock {
                 submittingThread.start()
-                await().atMost(Duration.ofSeconds(2)).until { submittingThread.state == Thread.State.BLOCKED }
+                await().atMost(Duration.ofSeconds(2)).until { submissionLock.hasQueuedThread(submittingThread) }
                 queue.stopAccepting()
             }
 

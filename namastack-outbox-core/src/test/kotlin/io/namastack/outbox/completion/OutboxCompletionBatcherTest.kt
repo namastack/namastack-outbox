@@ -58,11 +58,11 @@ class OutboxCompletionBatcherTest {
 
     @Test
     fun `starting a running batcher does not schedule extra workers`() {
-        start(writer { deletions -> deletions.map { Result.success(Unit) } }, writerCount = 2)
+        start(writer { deletions -> deletions.map { Result.success(Unit) } })
 
         batcher.start()
 
-        assertThat(executor.threadPoolExecutor.taskCount).isEqualTo(2)
+        assertThat(executor.threadPoolExecutor.taskCount).isOne()
         batcher.submit(OutboxCompletion.Delete("record"))!!.get(2, TimeUnit.SECONDS)
         assertThat(batcher.isRunning).isTrue()
     }
@@ -140,7 +140,7 @@ class OutboxCompletionBatcherTest {
             assertThat(pending.isDone).isFalse()
             assertThat(executor.threadPoolExecutor.isTerminated).isFalse()
             assertThat(executor.threadPoolExecutor.isShutdown).isFalse()
-            assertThatThrownBy { batcher.start() }.hasMessage("Previous completion writers are still stopping")
+            assertThatThrownBy { batcher.start() }.hasMessage("Previous completion writer is still stopping")
         } finally {
             release.countDown()
         }
@@ -163,43 +163,15 @@ class OutboxCompletionBatcherTest {
     }
 
     @Test
-    fun `partial worker startup stops accepted workers without closing the borrowed executor`() {
-        executor =
-            object : ThreadPoolTaskExecutor() {
-                private var submissions = 0
-
-                override fun execute(task: Runnable) {
-                    if (++submissions == 2) throw IllegalStateException("second worker rejected")
-                    super.execute(task)
-                }
-            }.apply {
-                corePoolSize = 2
-                maxPoolSize = 2
-                initialize()
-            }
-        batcher =
-            OutboxCompletionBatcher(
-                executor = executor,
-                shutdownTimeout = Duration.ofSeconds(2),
-                writer = writer { emptyList() },
-                settings = CompletionBatching(writerCount = 2),
-            )
-        assertThatThrownBy { batcher.start() }.hasMessage("second worker rejected")
-        assertThat(executor.threadPoolExecutor.isShutdown).isFalse()
-        await().atMost(Duration.ofSeconds(2)).untilAsserted { assertThat(executor.activeCount).isZero() }
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = [1, 8])
-    fun `writers collect a full batch without splitting submissions between them`(writerCount: Int) {
+    fun `collects a full batch before writing`() {
         val written = ConcurrentLinkedQueue<List<String>>()
         val writer =
             writer { deletions ->
                 written.add(deletions.map { it.recordId })
                 deletions.map { Result.success(Unit) }
             }
-        start(writer, writerCount = writerCount, maxBatchSize = 3, maxWait = Duration.ofSeconds(1))
-        await().atMost(Duration.ofSeconds(2)).untilAsserted { assertThat(executor.activeCount).isEqualTo(writerCount) }
+        start(writer, maxBatchSize = 3, maxWait = Duration.ofSeconds(1))
+        await().atMost(Duration.ofSeconds(2)).untilAsserted { assertThat(executor.activeCount).isOne() }
 
         val results = (1..3).map { batcher.submit(OutboxCompletion.Delete("record-$it"))!! }
         results.forEach { it.get(2, TimeUnit.SECONDS) }
@@ -261,7 +233,7 @@ class OutboxCompletionBatcherTest {
     }
 
     @Test
-    fun `another writer collects and writes a batch while one writer is blocked`() {
+    fun `finishes the current batch before writing queued completions`() {
         val slowWriting = CountDownLatch(1)
         val releaseSlowWrite = CountDownLatch(1)
         val written = ConcurrentLinkedQueue<List<String>>()
@@ -274,39 +246,51 @@ class OutboxCompletionBatcherTest {
                 }
                 deletions.map { Result.success(Unit) }
             }
-        start(writer, writerCount = 2, maxBatchSize = 2, maxWait = Duration.ofSeconds(1))
+        start(writer, maxBatchSize = 2, maxWait = Duration.ofSeconds(1))
 
         val slow = batcher.submit(OutboxCompletion.Delete("slow"))!!
         assertThat(slowWriting.await(2, TimeUnit.SECONDS)).isTrue()
         val fast = (1..2).map { batcher.submit(OutboxCompletion.Delete("fast-$it"))!! }
 
         try {
-            fast.forEach { it.get(2, TimeUnit.SECONDS) }
+            assertThat(executor.threadPoolExecutor.taskCount).isOne()
+            assertThat(fast).allMatch { !it.isDone }
             assertThat(slow.isDone).isFalse()
-            assertThat(written).containsExactly(listOf("slow"), listOf("fast-1", "fast-2"))
+            assertThat(written).containsExactly(listOf("slow"))
         } finally {
             releaseSlowWrite.countDown()
         }
         slow.get(2, TimeUnit.SECONDS)
+        fast.forEach { it.get(2, TimeUnit.SECONDS) }
+        assertThat(written).containsExactly(listOf("slow"), listOf("fast-1", "fast-2"))
     }
 
     @Test
-    fun `a rejected worker startup never accepts a completion`() {
+    fun `a rejected startup accepts no completions and can be retried`() {
         val scheduling = CountDownLatch(1)
         val reject = CountDownLatch(1)
-        val rejectingExecutor =
+        executor =
             object : ThreadPoolTaskExecutor() {
+                private var submissions = 0
+
                 override fun execute(task: Runnable) {
-                    scheduling.countDown()
-                    reject.await(2, TimeUnit.SECONDS)
-                    throw IllegalStateException("Worker rejected")
+                    if (++submissions == 1) {
+                        scheduling.countDown()
+                        reject.await(2, TimeUnit.SECONDS)
+                        throw IllegalStateException("Worker rejected")
+                    }
+                    super.execute(task)
                 }
+            }.apply {
+                corePoolSize = 1
+                maxPoolSize = 1
+                initialize()
             }
         batcher =
             OutboxCompletionBatcher(
                 writer = writer { deletions -> deletions.map { Result.success(Unit) } },
-                executor = rejectingExecutor,
-                settings = CompletionBatching(writerCount = 1, maxBatchSize = 1),
+                executor = executor,
+                settings = CompletionBatching(maxBatchSize = 1),
                 shutdownTimeout = Duration.ofSeconds(2),
             )
         val starting = CompletableFuture.runAsync { batcher.start() }
@@ -320,6 +304,11 @@ class OutboxCompletionBatcherTest {
         }
         assertThatThrownBy { starting.get(2, TimeUnit.SECONDS) }.hasCauseInstanceOf(IllegalStateException::class.java)
         assertThat(batcher.isRunning()).isFalse()
+        batcher.stop()
+
+        batcher.start()
+        batcher.submit(OutboxCompletion.Delete("after-retry"))!!.get(2, TimeUnit.SECONDS)
+        assertThat(batcher.isRunning()).isTrue()
     }
 
     @Test
@@ -352,11 +341,10 @@ class OutboxCompletionBatcherTest {
         listOf(first, second, third).forEach { it.get(2, TimeUnit.SECONDS) }
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = [1, 8])
-    fun `shutdown flushes a partial batch before its wait expires`(writerCount: Int) {
+    @Test
+    fun `shutdown flushes a partial batch before its wait expires`() {
         val writer = writer { deletions -> deletions.map { Result.success(Unit) } }
-        start(writer, writerCount = writerCount, maxBatchSize = 10, maxWait = Duration.ofSeconds(10))
+        start(writer, maxBatchSize = 10, maxWait = Duration.ofSeconds(10))
 
         val result = batcher.submit(OutboxCompletion.Delete("record"))!!
         val stopping = CompletableFuture.runAsync { batcher.stop() }
@@ -366,11 +354,8 @@ class OutboxCompletionBatcherTest {
         assertThat(batcher.submit(OutboxCompletion.Delete("late"))).isNull()
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = [1, 8])
-    fun `shutdown drains queued completions in bounded batches without waiting to fill the last batch`(
-        writerCount: Int,
-    ) {
+    @Test
+    fun `shutdown drains queued completions in bounded batches without waiting to fill the last batch`() {
         val queue = OutboxCompletionQueue()
         val written = ConcurrentLinkedQueue<List<String>>()
         val writer =
@@ -383,11 +368,10 @@ class OutboxCompletionBatcherTest {
         val results = (1..7).map { queue.submit(OutboxCompletion.Delete("record-$it"))!! }
         queue.stopAccepting()
 
-        val workers = List(writerCount) { CompletableFuture.runAsync { worker.run() } }
-        CompletableFuture.allOf(*workers.toTypedArray()).get(2, TimeUnit.SECONDS)
+        CompletableFuture.runAsync { worker.run() }.get(2, TimeUnit.SECONDS)
 
         results.forEach { it.get(2, TimeUnit.SECONDS) }
-        assertThat(written).containsExactlyInAnyOrder(
+        assertThat(written).containsExactly(
             listOf("record-1", "record-2", "record-3"),
             listOf("record-4", "record-5", "record-6"),
             listOf("record-7"),
@@ -695,15 +679,15 @@ class OutboxCompletionBatcherTest {
 
     private fun start(
         writer: OutboxCompletionWriter,
-        writerCount: Int = 1,
         maxBatchSize: Int = 1,
         maxWait: Duration = Duration.ofMillis(20),
         shutdownTimeout: Duration = Duration.ofSeconds(2),
     ) {
         executor =
             ThreadPoolTaskExecutor().apply {
-                corePoolSize = writerCount
-                maxPoolSize = writerCount
+                // Spare executor capacity must not create additional completion workers.
+                corePoolSize = 4
+                maxPoolSize = 4
                 initialize()
             }
         batcher =
@@ -712,7 +696,6 @@ class OutboxCompletionBatcherTest {
                 executor = executor,
                 settings =
                     CompletionBatching(
-                        writerCount = writerCount,
                         maxBatchSize = maxBatchSize,
                         maxWait = maxWait,
                     ),

@@ -4,6 +4,8 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /**
  * Queues processing results and coordinates submissions with shutdown.
@@ -15,22 +17,23 @@ import java.util.concurrent.atomic.AtomicBoolean
  * @since 1.12.0
  */
 internal class OutboxCompletionQueue {
-    private val submissionLock = Any()
+    // Queue insertion can wait for its internal locks. Avoid pinning a Java 21 virtual thread.
+    private val submissionLock = ReentrantLock()
     private val accepting = AtomicBoolean(false)
     private val queue = LinkedBlockingQueue<OutboxCompletionSubmission>()
 
     /** Opens the queue to submissions. */
     fun startAccepting() {
-        synchronized(submissionLock) { accepting.set(true) }
+        submissionLock.withLock { accepting.set(true) }
     }
 
     /**
-     * Stops accepting new submissions. Queued completions remain available to workers.
+     * Stops accepting new submissions. Queued completions remain available to the worker.
      *
      * This method does not drain the queue or wait for writes to finish.
      */
     fun stopAccepting() {
-        synchronized(submissionLock) { accepting.set(false) }
+        submissionLock.withLock { accepting.set(false) }
     }
 
     /**
@@ -43,20 +46,20 @@ internal class OutboxCompletionQueue {
     /**
      * Reports whether any completion remains queued.
      *
-     * @return true if at least one completion is waiting for a worker
+     * @return true if at least one completion is waiting for the worker
      */
     fun hasPending(): Boolean = queue.isNotEmpty()
 
     /**
      * Enqueues a completion while submissions are accepted.
      *
-     * Insertion and shutdown share a lock so accepted submissions remain available to draining workers.
+     * Insertion and shutdown share a lock so accepted submissions remain available to the draining worker.
      *
      * @param completion Immutable completion action
-     * @return Future completed by a worker, or null if the queue closes before submission
+     * @return Future completed by the worker, or null if the queue closes before submission
      */
     fun submit(completion: OutboxCompletion): CompletableFuture<Unit>? {
-        synchronized(submissionLock) {
+        submissionLock.withLock {
             if (!accepting.get()) return null
             val submission = OutboxCompletionSubmission(completion)
             queue.add(submission)

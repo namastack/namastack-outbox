@@ -10,17 +10,17 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * Coordinates a shared completion queue and its writer workers.
+ * Coordinates a shared completion queue and its single writer worker.
  *
- * The queue opens before workers are scheduled, but callers can submit only after every worker
- * has been scheduled. Shutdown closes the queue so workers can drain pending submissions.
+ * The queue opens before the worker is scheduled, but callers can submit only after scheduling
+ * succeeds. Shutdown closes the queue so the worker can drain pending submissions.
  * The executor is borrowed; its owner initializes and shuts it down.
- * [shutdownTimeout] limits how long shutdown waits for workers; it does not cancel their writes.
+ * [shutdownTimeout] limits how long shutdown waits for the worker; it does not cancel pending writes.
  *
- * @param writer Persists the batches collected by workers
- * @param executor Initialized asynchronous executor with capacity for all long-running workers
- * @param settings Number of workers, batch size, and maximum batch wait
- * @param shutdownTimeout Maximum time [stop] waits for workers to exit
+ * @param writer Persists the batches collected by the worker
+ * @param executor Initialized asynchronous executor with capacity for one long-running worker
+ * @param settings Batch size and maximum batch wait
+ * @param shutdownTimeout Maximum time [stop] waits for the worker to exit
  * @author Roland Beisel
  * @since 1.12.0
  */
@@ -31,7 +31,6 @@ internal class OutboxCompletionBatcher(
     settings: CompletionBatching,
 ) : SmartLifecycle {
     private val log = LoggerFactory.getLogger(OutboxCompletionBatcher::class.java)
-    private val writerCount = settings.writerCount
 
     private val queue: OutboxCompletionQueue
     private val worker: OutboxCompletionWorker
@@ -50,37 +49,44 @@ internal class OutboxCompletionBatcher(
     }
 
     /**
-     * Schedules all completion workers and then allows callers to submit.
+     * Schedules the completion worker and then allows callers to submit.
      *
-     * The queue is opened first so a worker cannot see it as closed and exit during startup.
+     * The queue is opened first so the worker cannot see it as closed and exit during startup.
      * If the executor throws an exception while scheduling, the queue closes and the exception propagates.
      *
-     * @throws IllegalStateException if workers from a previous run are still active
-     * @throws RuntimeException if the executor cannot schedule a worker
+     * @throws IllegalStateException if the worker from a previous run is still active
+     * @throws RuntimeException if the executor cannot schedule the worker
      */
     override fun start() {
         synchronized(lifecycleLock) {
             if (acceptingSubmissions) return
-            check(workerExitLatch.count == 0L) { "Previous completion writers are still stopping" }
+            check(workerExitLatch.count == 0L) { "Previous completion writer is still stopping" }
 
-            val exitLatch = CountDownLatch(writerCount)
+            val exitLatch = CountDownLatch(1)
             workerExitLatch = exitLatch
-            // Workers must see an open queue when they start; submissions remain gated below.
+            // The worker must see an open queue when it starts; submissions remain gated below.
             queue.startAccepting()
             try {
-                scheduleWorkers(exitLatch)
+                executor.execute {
+                    try {
+                        worker.run()
+                    } finally {
+                        exitLatch.countDown()
+                    }
+                }
                 acceptingSubmissions = true
             } catch (failure: Exception) {
                 queue.stopAccepting()
+                exitLatch.countDown()
                 throw failure
             }
         }
     }
 
     /**
-     * Closes the queue and waits up to [shutdownTimeout] for workers to exit.
+     * Closes the queue and waits up to [shutdownTimeout] for the worker to exit.
      *
-     * Workers continue writing queued submissions after the wait times out. If the waiting
+     * The worker continues writing queued submissions after the wait times out. If the waiting
      * thread is interrupted, its interrupted status is restored and the wait ends.
      */
     override fun stop() {
@@ -93,18 +99,18 @@ internal class OutboxCompletionBatcher(
 
         try {
             if (!exitLatch.await(shutdownTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
-                log.warn("Completion writers did not finish within {}", shutdownTimeout)
+                log.warn("Completion writer did not finish within {}", shutdownTimeout)
             }
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
-            log.warn("Interrupted while waiting for completion writers to stop")
+            log.warn("Interrupted while waiting for the completion writer to stop")
         }
     }
 
     /**
-     * Reports whether all workers were scheduled and new submissions are accepted.
+     * Reports whether the worker was scheduled and new submissions are accepted.
      *
-     * @return true after successful startup and before shutdown begins
+     * @return true after successful scheduling and before shutdown begins
      */
     override fun isRunning(): Boolean = acceptingSubmissions
 
@@ -126,33 +132,4 @@ internal class OutboxCompletionBatcher(
      */
     fun submit(completion: OutboxCompletion): CompletableFuture<Unit>? =
         if (acceptingSubmissions) queue.submit(completion) else null
-
-    /**
-     * Schedules workers and counts down the latch for any that could not be scheduled.
-     *
-     * Scheduled workers count down when they exit. The caller closes the queue if scheduling
-     * fails, allowing those workers to exit as well.
-     *
-     * @param exitLatch Tracks worker exits, including slots for workers that could not be scheduled
-     * @throws Exception if the executor fails to schedule a worker
-     */
-    private fun scheduleWorkers(exitLatch: CountDownLatch) {
-        var scheduled = 0
-        try {
-            repeat(writerCount) {
-                executor.execute {
-                    try {
-                        worker.run()
-                    } finally {
-                        exitLatch.countDown()
-                    }
-                }
-                scheduled++
-            }
-        } catch (failure: Exception) {
-            // Unscheduled workers cannot count down when they exit.
-            repeat(writerCount - scheduled) { exitLatch.countDown() }
-            throw failure
-        }
-    }
 }

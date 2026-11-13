@@ -40,7 +40,6 @@ data class OutboxProperties(
      * Settings for batching processing-state updates and successful record deletions.
      *
      * @param enabled Whether batching is enabled; requires a completion writer
-     * @param writerCount Number of concurrent writers
      * @param maxBatchSize Maximum completions collected per batch
      * @param maxWait Maximum collection time after the first completion arrives
      * @author Roland Beisel
@@ -48,7 +47,6 @@ data class OutboxProperties(
      */
     data class CompletionBatching(
         var enabled: Boolean = false,
-        var writerCount: Int = 1,
         var maxBatchSize: Int = 1024,
         var maxWait: Duration = Duration.ofMillis(1),
     )

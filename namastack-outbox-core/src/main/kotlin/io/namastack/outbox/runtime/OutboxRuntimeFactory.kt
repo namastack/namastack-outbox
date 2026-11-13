@@ -32,8 +32,8 @@ object OutboxRuntimeFactory {
     /**
      * Creates one isolated runtime without starting it.
      *
-     * Construction starts no workers. Closing the runtime stops completion workers without closing
-     * their executor. Accepted writes may outlive the configured shutdown wait and still require
+     * Construction starts no workers. Closing the runtime stops its completion worker without closing
+     * the executor. Accepted writes may outlive the configured shutdown wait and still require
      * the borrowed executor and persistence resources.
      *
      * @param spec Fully resolved inputs for the runtime

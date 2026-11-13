@@ -79,18 +79,17 @@ class JdbcOutboxCompletionAutoConfigurationTest {
             .withPropertyValues(
                 "namastack.outbox.completion-batching.enabled=true",
                 "spring.threads.virtual.enabled=$virtualThreads",
-                "namastack.outbox.completion-batching.writer-count=3",
                 "namastack.outbox.completion-batching.max-batch-size=512",
                 "namastack.outbox.completion-batching.max-wait=2ms",
             ).run { context ->
                 assertThat(context).hasNotFailed()
                 if (virtualThreads && Runtime.version().feature() >= 21) {
                     val executor = context.getBean("outboxCompletionExecutor", SimpleAsyncTaskExecutor::class.java)
-                    assertThat(executor.concurrencyLimit).isEqualTo(3)
+                    assertThat(executor.concurrencyLimit).isOne()
                 } else {
                     val executor = context.getBean("outboxCompletionExecutor", ThreadPoolTaskExecutor::class.java)
-                    assertThat(executor.corePoolSize).isEqualTo(3)
-                    assertThat(executor.maxPoolSize).isEqualTo(3)
+                    assertThat(executor.corePoolSize).isOne()
+                    assertThat(executor.maxPoolSize).isOne()
                 }
                 val settings = context.getBean(OutboxProperties::class.java).completionBatching
                 assertThat(settings.maxBatchSize).isEqualTo(512)

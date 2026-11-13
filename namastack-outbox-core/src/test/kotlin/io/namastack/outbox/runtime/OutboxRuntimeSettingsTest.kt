@@ -9,19 +9,11 @@ import org.junit.jupiter.params.provider.ValueSource
 import java.time.Duration
 
 /**
- * Tests completion worker counts, batch sizes, and batch deadlines.
+ * Tests completion batch sizes and batch deadlines.
  *
  * @author Roland Beisel
  */
 class OutboxRuntimeSettingsTest {
-    @ParameterizedTest
-    @ValueSource(ints = [0, -1])
-    fun `rejects nonpositive completion writer counts`(count: Int) {
-        assertThatThrownBy { CompletionBatching(writerCount = count) }
-            .isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessage("writerCount must be positive")
-    }
-
     @ParameterizedTest
     @ValueSource(ints = [0, -1])
     fun `rejects nonpositive completion batch sizes`(size: Int) {
@@ -46,9 +38,8 @@ class OutboxRuntimeSettingsTest {
 
     @Test
     fun `accepts the smallest positive batching settings`() {
-        val settings = CompletionBatching(writerCount = 1, maxBatchSize = 1, maxWait = Duration.ofNanos(1))
+        val settings = CompletionBatching(maxBatchSize = 1, maxWait = Duration.ofNanos(1))
 
-        assertThat(settings.writerCount).isOne()
         assertThat(settings.maxBatchSize).isOne()
         assertThat(settings.maxWait).isEqualTo(Duration.ofNanos(1))
     }

@@ -24,18 +24,17 @@ class OutboxRuntimeSettingsMappingTest {
                 completionBatching =
                     OutboxProperties.CompletionBatching(
                         enabled = true,
-                        writerCount = 3,
                         maxBatchSize = 128,
                         maxWait = Duration.ofMillis(5),
                     ),
             )
         val settings = properties.toRuntimeSettings()
-        properties.completionBatching.writerCount = 7
+        properties.completionBatching.maxBatchSize = 256
+        properties.completionBatching.maxWait = Duration.ofMillis(10)
 
         assertThat(settings.completionBatching).isEqualTo(
             OutboxRuntimeSettings.CompletionBatching(
                 enabled = true,
-                writerCount = 3,
                 maxBatchSize = 128,
                 maxWait = Duration.ofMillis(5),
             ),

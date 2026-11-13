@@ -41,15 +41,12 @@ class OutboxCompletionAutoConfiguration {
     @Bean("outboxCompletionExecutor", autowireCandidate = false)
     @ConditionalOnMissingBean(name = ["outboxCompletionExecutor"])
     @ConditionalOnThreading(Threading.PLATFORM)
-    internal fun outboxCompletionExecutor(
-        builder: ThreadPoolTaskExecutorBuilder,
-        properties: OutboxProperties,
-    ): ThreadPoolTaskExecutor =
+    internal fun outboxCompletionExecutor(builder: ThreadPoolTaskExecutorBuilder): ThreadPoolTaskExecutor =
         builder
-            .corePoolSize(properties.completionBatching.writerCount)
-            .maxPoolSize(properties.completionBatching.writerCount)
-            // Restarted workers can wait while previous executor tasks finish cleanup.
-            .queueCapacity(properties.completionBatching.writerCount)
+            .corePoolSize(1)
+            .maxPoolSize(1)
+            // A restarted worker can wait while the previous executor task finishes cleanup.
+            .queueCapacity(1)
             .threadNamePrefix("outbox-completion-writer-")
             .awaitTermination(true)
             .awaitTerminationPeriod(Duration.ZERO)
@@ -61,10 +58,9 @@ class OutboxCompletionAutoConfiguration {
     @ConditionalOnThreading(Threading.VIRTUAL)
     internal fun outboxCompletionExecutorVirtualThreads(
         builder: SimpleAsyncTaskExecutorBuilder,
-        properties: OutboxProperties,
     ): SimpleAsyncTaskExecutor =
         builder
-            .concurrencyLimit(properties.completionBatching.writerCount)
+            .concurrencyLimit(1)
             .threadNamePrefix("outbox-completion-writer-")
             // The batcher owns the bounded wait; closing the executor must not cancel pending writes.
             .taskTerminationTimeout(Duration.ZERO)

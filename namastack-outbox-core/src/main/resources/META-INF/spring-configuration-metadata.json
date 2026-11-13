@@ -302,12 +302,6 @@
       "description": "Whether completion batching is enabled"
     },
     {
-      "name": "namastack.outbox.completion-batching.writer-count",
-      "type": "java.lang.Integer",
-      "defaultValue": 1,
-      "description": "Number of concurrent completion writers"
-    },
-    {
       "name": "namastack.outbox.completion-batching.max-batch-size",
       "type": "java.lang.Integer",
       "defaultValue": 1024,

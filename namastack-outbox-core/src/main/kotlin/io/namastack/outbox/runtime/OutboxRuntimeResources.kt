@@ -15,7 +15,7 @@ import org.springframework.scheduling.TaskScheduler
  * @property taskScheduler Scheduler for polling and partition rebalancing
  * @property heartbeatScheduler Scheduler for instance heartbeats
  * @property completionExecutor Asynchronous executor required when batching is enabled, with capacity
- * for all configured long-running completion workers independently of record processing
+ * for one long-running completion worker per runtime independently of record processing
  *
  * @author Roland Beisel
  * @since 1.10.0
