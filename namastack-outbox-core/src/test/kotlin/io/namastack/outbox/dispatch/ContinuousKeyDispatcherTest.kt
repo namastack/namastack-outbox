@@ -152,7 +152,8 @@ class ContinuousKeyDispatcherTest {
 
         slow.countDown()
 
-        assertThat(run.get(TIMEOUT_SECONDS, SECONDS)).isEqualTo(7)
+        run.get(TIMEOUT_SECONDS, SECONDS)
+        assertThat(processed).hasSize(7)
         assertThat(processed).containsOnlyOnce("a1")
     }
 
@@ -172,7 +173,8 @@ class ContinuousKeyDispatcherTest {
         }
         slow.countDown()
 
-        assertThat(run.get(TIMEOUT_SECONDS, SECONDS)).isEqualTo(4)
+        run.get(TIMEOUT_SECONDS, SECONDS)
+        assertThat(processed).hasSize(4)
         assertThat(fetches).containsExactly(
             listOf("A", "B"),
             listOf("A", "C"),
@@ -192,9 +194,9 @@ class ContinuousKeyDispatcherTest {
         add("A", "a1")
         afterProcessing["a1"] = { add("A", "a2") }
 
-        val processedKeys = dispatcher(batchSize = 4).dispatch(setOf(1)) { false }
+        dispatcher(batchSize = 4).dispatch(setOf(1)) { false }
 
-        assertThat(processedKeys).isEqualTo(2)
+        assertThat(processed).hasSize(2)
         assertThat(processed).containsExactly("a1", "a2")
     }
 
@@ -218,7 +220,8 @@ class ContinuousKeyDispatcherTest {
         await().atMost(TIMEOUT_SECONDS, SECONDS).until { fetches.size == 2 }
 
         slow.countDown()
-        assertThat(run.get(TIMEOUT_SECONDS, SECONDS)).isEqualTo(3)
+        run.get(TIMEOUT_SECONDS, SECONDS)
+        assertThat(processed).hasSize(3)
     }
 
     @Test
@@ -235,17 +238,30 @@ class ContinuousKeyDispatcherTest {
         assertThat(processed).doesNotContain("a1")
 
         slow.countDown()
-        assertThat(run.get(TIMEOUT_SECONDS, SECONDS)).isEqualTo(2)
+        run.get(TIMEOUT_SECONDS, SECONDS)
+        assertThat(processed).hasSize(2)
     }
 
     @Test
     fun `ends the run when nothing is in flight and the query finds no keys`() {
-        val processedKeys = dispatcher(batchSize = 10).dispatch(setOf(1)) { false }
+        dispatcher(batchSize = 10).dispatch(setOf(1)) { false }
 
-        assertThat(processedKeys).isZero()
+        assertThat(processed).isEmpty()
         assertThat(fetches).containsExactly(emptyList())
         verify(exactly = 1) { trigger.onPollResult(0, 10) }
         verify(exactly = 0) { repository.findIncompleteRecordPages(any()) }
+    }
+
+    @Test
+    fun `reports a failed key query as nothing found`() {
+        add("A", "a1")
+        fetchFailure = { IllegalStateException("query failed") }
+
+        dispatcher(batchSize = 10).dispatch(setOf(1)) { false }
+
+        assertThat(processed).isEmpty()
+        verify(exactly = 1) { trigger.onPollResult(any(), any()) }
+        verify(exactly = 1) { trigger.onPollResult(0, 10) }
     }
 
     @Test
@@ -264,7 +280,8 @@ class ContinuousKeyDispatcherTest {
         }
         acknowledgement.countDown()
 
-        assertThat(run.get(TIMEOUT_SECONDS, SECONDS)).isEqualTo(3)
+        run.get(TIMEOUT_SECONDS, SECONDS)
+        assertThat(processed).hasSize(3)
         verify(exactly = 1) { invoker.process(match { it.id == "a1" }) }
     }
 
@@ -273,9 +290,8 @@ class ContinuousKeyDispatcherTest {
         add("X", "x1")
         every { invoker.process(match { it.id == "x1" }) } throws RuntimeException("boom")
 
-        val processedKeys = dispatcher(batchSize = 4).dispatch(setOf(1)) { false }
+        dispatcher(batchSize = 4).dispatch(setOf(1)) { false }
 
-        assertThat(processedKeys).isEqualTo(1)
         assertThat(fetches).containsExactly(listOf("X"), listOf("X"))
         verify(exactly = 1) { invoker.process(any()) }
         verify(exactly = 1) { trigger.onPollResult(1, 4) }
@@ -300,7 +316,8 @@ class ContinuousKeyDispatcherTest {
 
         slow.countDown()
 
-        assertThat(run.get(TIMEOUT_SECONDS, SECONDS)).isEqualTo(1)
+        run.get(TIMEOUT_SECONDS, SECONDS)
+        assertThat(processed).hasSize(1)
         assertThat(processed).containsExactly("a1")
         assertThat(fetches).hasSize(1)
     }
@@ -392,7 +409,8 @@ class ContinuousKeyDispatcherTest {
         awaitStarted("a1")
         slow.countDown()
 
-        assertThat(run.get(TIMEOUT_SECONDS, SECONDS)).isEqualTo(1)
+        run.get(TIMEOUT_SECONDS, SECONDS)
+        assertThat(processed).hasSize(1)
         assertThat(fetches).hasSize(1)
         assertThat(processed).containsExactly("a1")
     }
@@ -458,8 +476,8 @@ class ContinuousKeyDispatcherTest {
     private fun startDispatch(
         dispatcher: ContinuousKeyDispatcher,
         isStopping: () -> Boolean = { false },
-    ): Future<Int> =
-        dispatching.submit<Int> {
+    ): Future<*> =
+        dispatching.submit {
             dispatchingThread.set(Thread.currentThread())
             try {
                 dispatcher.dispatch(setOf(1), isStopping)

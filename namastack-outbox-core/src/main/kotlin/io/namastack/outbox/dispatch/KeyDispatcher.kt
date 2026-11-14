@@ -8,6 +8,10 @@ package io.namastack.outbox.dispatch
  * returns only after every accepted key task has finished, so the assignment is never released
  * while keys of the run are in progress.
  *
+ * An implementation reports every key query to the polling trigger through
+ * [io.namastack.outbox.trigger.OutboxPollingTrigger.onPollResult], including a failed query as zero
+ * keys found.
+ *
  * This type is part of the processing runtime. It is not intended to be implemented by applications.
  *
  * @author Aleksander Zamojski
@@ -15,23 +19,15 @@ package io.namastack.outbox.dispatch
  */
 interface KeyDispatcher {
     /**
-     * Whether this dispatcher reports each key query to the polling trigger itself.
-     *
-     * When `false`, the scheduler reports the number of processed keys once at the end of each run.
-     */
-    val reportsPollResults: Boolean
-
-    /**
      * Runs one processing run for the given partitions.
      *
      * @param partitions Partitions owned by this instance for the duration of the run
      * @param isStopping Reports whether the scheduler is shutting down
-     * @return Number of record keys submitted for processing during the run
      */
     fun dispatch(
         partitions: Set<Int>,
         isStopping: () -> Boolean,
-    ): Int
+    )
 
     /**
      * Reports whether a compatibility cooldown is active, in which case the scheduler skips the run.

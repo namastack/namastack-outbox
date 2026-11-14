@@ -67,8 +67,8 @@ class OutboxProcessingSchedulerTest {
         }
 
         every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(1)
-        every { partitionCoordinator.withStableAssignments<Int>(any()) } answers {
-            firstArg<(Set<Int>) -> Int>().invoke(partitionCoordinator.getAssignedPartitionNumbers())
+        every { partitionCoordinator.withStableAssignments<Any?>(any()) } answers {
+            firstArg<(Set<Int>) -> Any?>().invoke(partitionCoordinator.getAssignedPartitionNumbers())
         }
     }
 
@@ -89,6 +89,7 @@ class OutboxProcessingSchedulerTest {
             keyProcessor = OutboxRecordKeyProcessor(recordProcessorChainInvoker, settings.processing, clock),
             taskExecutor = SyncTaskExecutor(),
             settings = settings,
+            trigger = trigger,
         )
     }
 
@@ -836,7 +837,7 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
-        fun `batch mode reports processed keys against the batch size once per run`() {
+        fun `batch mode reports the selected keys against the batch size once per run`() {
             scheduler.start()
             prepareFindRecordKeysInPartitions(listOf("key-1", "key-2"))
 
@@ -853,7 +854,63 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
+            verify(exactly = 1) { trigger.onPollResult(any(), any()) }
             verify(exactly = 1) { trigger.onPollResult(0, 100) }
+        }
+
+        @Test
+        fun `batch mode reports a failed key query once as nothing found`() {
+            scheduler.start()
+            every { recordRepository.findRecordKeysInPartitions(any(), any(), any()) } throws
+                RuntimeException("database unavailable")
+
+            scheduler.process()
+
+            verify(exactly = 1) { trigger.onPollResult(any(), any()) }
+            verify(exactly = 1) { trigger.onPollResult(0, 100) }
+        }
+
+        @Test
+        fun `batch mode ends the run without processing when the key query fails`() {
+            every { recordRepository.findRecordKeysInPartitions(any(), any(), any()) } throws
+                RuntimeException("database unavailable")
+
+            batchKeyDispatcher(properties).dispatch(setOf(1)) { false }
+
+            verify(exactly = 0) { recordRepository.findIncompleteRecordPages(any()) }
+        }
+
+        @Test
+        fun `reports nothing when no partitions are assigned`() {
+            scheduler.start()
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns emptySet()
+
+            scheduler.process()
+
+            verify(exactly = 0) { trigger.onPollResult(any(), any()) }
+        }
+
+        @Test
+        fun `reports nothing when the partition assignment fails`() {
+            scheduler.start()
+            every { partitionCoordinator.withStableAssignments<Any?>(any()) } throws
+                RuntimeException("assignment unavailable")
+
+            scheduler.process()
+
+            verify(exactly = 0) { trigger.onPollResult(any(), any()) }
+        }
+
+        @Test
+        fun `batch mode reports a failed record load once with the selected keys`() {
+            scheduler.start()
+            prepareFindRecordKeysInPartitions(listOf("key-1"))
+            every { recordRepository.findIncompleteRecordPages(any()) } throws RuntimeException("database unavailable")
+
+            scheduler.process()
+
+            verify(exactly = 1) { trigger.onPollResult(any(), any()) }
+            verify(exactly = 1) { trigger.onPollResult(1, 100) }
         }
 
         @Test

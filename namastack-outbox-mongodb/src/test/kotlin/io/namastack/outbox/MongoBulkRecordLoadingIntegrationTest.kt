@@ -416,6 +416,7 @@ class MongoBulkRecordLoadingIntegrationTest {
                             ),
                         taskExecutor = TaskExecutor { workers.execute(it) },
                         settings = settings,
+                        trigger = mockk(relaxed = true),
                     ),
                 settings = settings,
             )

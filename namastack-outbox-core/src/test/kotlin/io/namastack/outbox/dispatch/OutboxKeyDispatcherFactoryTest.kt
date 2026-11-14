@@ -16,15 +16,7 @@ class OutboxKeyDispatcherFactoryTest {
 
     @Test
     fun `creates continuous key dispatcher for continuous mode`() {
-        val dispatcher = create(DispatchMode.CONTINUOUS)
-
-        assertThat(dispatcher).isInstanceOf(ContinuousKeyDispatcher::class.java)
-        assertThat(dispatcher.reportsPollResults).isTrue()
-    }
-
-    @Test
-    fun `batch key dispatcher leaves poll result reporting to the scheduler`() {
-        assertThat(create(DispatchMode.BATCH).reportsPollResults).isFalse()
+        assertThat(create(DispatchMode.CONTINUOUS)).isInstanceOf(ContinuousKeyDispatcher::class.java)
     }
 
     private fun create(mode: DispatchMode): KeyDispatcher =

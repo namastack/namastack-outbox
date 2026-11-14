@@ -129,28 +129,19 @@ class OutboxProcessingScheduler(
         if (keyDispatcher.isCompatibilityCooldownActive()) return
         if (!lifecycle.startProcessing()) return
 
-        var processedCount = 0
-
         try {
-            processedCount = processAssignedPartitions()
+            partitionCoordinator.withStableAssignments { partitions ->
+                if (partitions.isNotEmpty()) {
+                    log.debug("Processing {} partitions: {}", partitions.size, partitions.sorted())
+                    keyDispatcher.dispatch(partitions, lifecycle::isStopping)
+                }
+            }
         } catch (ex: Exception) {
             log.error("Error during outbox processing", ex)
         } finally {
-            if (!keyDispatcher.reportsPollResults) {
-                trigger.onPollResult(found = processedCount, requested = settings.polling.batchSize)
-            }
             lifecycle.stopProcessing()
         }
     }
-
-    private fun processAssignedPartitions(): Int =
-        partitionCoordinator.withStableAssignments { partitions ->
-            if (partitions.isEmpty()) return@withStableAssignments 0
-
-            log.debug("Processing {} partitions: {}", partitions.size, partitions.sorted())
-
-            keyDispatcher.dispatch(partitions, lifecycle::isStopping)
-        }
 
     /**
      * Thread-safe lifecycle state machine used by [OutboxProcessingScheduler].

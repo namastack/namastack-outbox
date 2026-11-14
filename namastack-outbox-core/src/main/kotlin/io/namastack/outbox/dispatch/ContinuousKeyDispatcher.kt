@@ -66,12 +66,10 @@ class ContinuousKeyDispatcher(
 
     private val refillThreshold: Int = maxOf(1, batchSize / 4)
 
-    override val reportsPollResults: Boolean = true
-
     override fun dispatch(
         partitions: Set<Int>,
         isStopping: () -> Boolean,
-    ): Int = Run(partitions, isStopping).execute()
+    ) = Run(partitions, isStopping).execute()
 
     override fun isCompatibilityCooldownActive(): Boolean = keyProcessor.isCompatibilityCooldownActive()
 
@@ -101,11 +99,9 @@ class ContinuousKeyDispatcher(
         /** Completions of accepted tasks; touched only by the dispatching thread. */
         private val completions = ArrayList<CompletableFuture<*>>()
 
-        private var submittedKeys = 0
-
         private var stopped = false
 
-        fun execute(): Int {
+        fun execute() {
             try {
                 while (shouldKeepDispatching()) {
                     val keys = selectKeys() ?: break
@@ -118,7 +114,6 @@ class ContinuousKeyDispatcher(
                 // Failed fetches, rejected submissions and interrupts must not release active assignments.
                 CompletableFuture.allOf(*completions.toTypedArray()).join()
             }
-            return submittedKeys
         }
 
         /**
@@ -164,6 +159,7 @@ class ContinuousKeyDispatcher(
                 } catch (ex: Exception) {
                     log.error("Error loading record keys; stopping dispatch for this run", ex)
                     stopped = true
+                    trigger.onPollResult(found = 0, requested = batchSize - inFlightCount())
                     return null
                 }
 
@@ -212,7 +208,6 @@ class ContinuousKeyDispatcher(
                                 }
                         completions.add(completion)
                         accepted++
-                        submittedKeys++
                     }
                 }
             } catch (ex: Exception) {

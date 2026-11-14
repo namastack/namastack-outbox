@@ -54,9 +54,9 @@ class OutboxBulkLoadingTest {
 
     @BeforeEach
     fun setUp() {
-        every { coordinator.withStableAssignments<Int>(any()) } answers {
+        every { coordinator.withStableAssignments<Any?>(any()) } answers {
             try {
-                firstArg<(Set<Int>) -> Int>().invoke(setOf(1))
+                firstArg<(Set<Int>) -> Any?>().invoke(setOf(1))
             } finally {
                 assignmentsReleased.set(true)
             }
@@ -383,6 +383,7 @@ class OutboxBulkLoadingTest {
                     keyProcessor = OutboxRecordKeyProcessor(chain, settings.processing, clock),
                     taskExecutor = executor,
                     settings = settings,
+                    trigger = mockk(relaxed = true),
                 ),
             settings = settings,
         ).also { it.start() }

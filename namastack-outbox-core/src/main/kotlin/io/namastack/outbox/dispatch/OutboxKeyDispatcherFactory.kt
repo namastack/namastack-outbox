@@ -45,6 +45,7 @@ internal object OutboxKeyDispatcherFactory {
                     keyProcessor = keyProcessor,
                     taskExecutor = taskExecutor,
                     settings = settings,
+                    trigger = trigger,
                 )
             }
 
