@@ -16,6 +16,9 @@ import io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
 import io.namastack.outbox.config.OutboxRuntimeModeAutoConfiguration
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
+import io.namastack.outbox.dispatch.BatchKeyDispatcher
+import io.namastack.outbox.dispatch.ContinuousKeyDispatcher
+import io.namastack.outbox.dispatch.KeyDispatcher
 import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxHandlerInfrastructureFactory
 import io.namastack.outbox.handler.OutboxRecordMetadata
@@ -290,8 +293,10 @@ class OutboxCoreAutoConfigurationTest {
                     assertThat(injectedScheduler).isSameAs(heartbeatScheduler)
 
                     // verify injected Executor is the same as outboxTaskExecutor
+                    val keyDispatcher = ReflectionTestUtils.getField(processingScheduler, "keyDispatcher")
+                    assertThat(keyDispatcher).isSameAs(context.getBean<KeyDispatcher>())
                     val injectedExecutor =
-                        ReflectionTestUtils.getField(processingScheduler, "taskExecutor") as TaskExecutor
+                        ReflectionTestUtils.getField(keyDispatcher!!, "taskExecutor") as TaskExecutor
                     val outboxTaskExecutor = context.getBean("outboxTaskExecutor") as TaskExecutor
                     assertThat(injectedExecutor).isSameAs(outboxTaskExecutor)
                 }
@@ -696,6 +701,47 @@ class OutboxCoreAutoConfigurationTest {
                     val heartbeatScheduler = context.getBean("outboxHeartbeatScheduler")
 
                     assertThat(heartbeatScheduler).isNotSameAs(defaultScheduler)
+                }
+        }
+    }
+
+    @Nested
+    @DisplayName("Dispatch Configuration")
+    inner class DispatchConfiguration {
+        @Test
+        fun `creates batch key dispatcher by default`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    assertThat(context).hasSingleBean(KeyDispatcher::class.java)
+                    assertThat(context.getBean<KeyDispatcher>()).isInstanceOf(BatchKeyDispatcher::class.java)
+                }
+        }
+
+        @Test
+        fun `creates continuous key dispatcher when configured`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues("namastack.outbox.processing.dispatch-mode=continuous")
+                .run { context ->
+                    assertThat(context).hasSingleBean(KeyDispatcher::class.java)
+                    val dispatcher = context.getBean<KeyDispatcher>()
+                    assertThat(dispatcher).isInstanceOf(ContinuousKeyDispatcher::class.java)
+                    assertThat(ReflectionTestUtils.getField(dispatcher, "trigger"))
+                        .isSameAs(context.getBean<OutboxPollingTrigger>())
+                }
+        }
+
+        @Test
+        fun `fails on unsupported dispatch mode`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues("namastack.outbox.processing.dispatch-mode=parallel")
+                .run { context ->
+                    assertThat(context).hasFailed()
+                    assertThat(context.startupFailure)
+                        .rootCause()
+                        .hasMessageContaining("Unsupported dispatch-mode: parallel")
                 }
         }
     }

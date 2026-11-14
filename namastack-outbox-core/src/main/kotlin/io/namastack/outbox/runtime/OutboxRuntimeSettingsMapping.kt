@@ -6,7 +6,7 @@ import io.namastack.outbox.OutboxProperties
  * Converts Spring-bound properties into effective immutable runtime settings.
  *
  * @return Runtime settings with batching settings validated
- * @throws IllegalStateException if a polling trigger or retry policy is unsupported
+ * @throws IllegalStateException if a polling trigger, dispatch mode, or retry policy is unsupported
  * @throws IllegalArgumentException if the batch size or batch wait is not positive
  * @throws ArithmeticException if the batch wait in nanoseconds overflows
  */
@@ -32,6 +32,7 @@ internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
             OutboxRuntimeSettings.Processing(
                 stopOnFirstFailure = processing.stopOnFirstFailure,
                 deleteCompletedRecords = processing.deleteCompletedRecords,
+                dispatchMode = processing.dispatchMode.toDispatchMode(),
                 executorCorePoolSize = processing.executorCorePoolSize,
                 executorMaxPoolSize = processing.executorMaxPoolSize,
                 executorConcurrencyLimit = processing.executorConcurrencyLimit,
@@ -84,6 +85,13 @@ private fun String.toPollingTrigger(): OutboxRuntimeSettings.Polling.Trigger =
         equals("fixed", ignoreCase = true) -> OutboxRuntimeSettings.Polling.Trigger.FIXED
         equals("adaptive", ignoreCase = true) -> OutboxRuntimeSettings.Polling.Trigger.ADAPTIVE
         else -> error("Unsupported polling-trigger: $this")
+    }
+
+private fun String.toDispatchMode(): OutboxRuntimeSettings.Processing.DispatchMode =
+    when {
+        equals("batch", ignoreCase = true) -> OutboxRuntimeSettings.Processing.DispatchMode.BATCH
+        equals("continuous", ignoreCase = true) -> OutboxRuntimeSettings.Processing.DispatchMode.CONTINUOUS
+        else -> error("Unsupported dispatch-mode: $this")
     }
 
 private fun String.toRetryPolicy(): OutboxRuntimeSettings.Retry.Policy =

@@ -4,6 +4,8 @@ import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
+import io.namastack.outbox.dispatch.KeyDispatcher
+import io.namastack.outbox.dispatch.OutboxKeyDispatcherFactory
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionAssignmentCache
 import io.namastack.outbox.partition.PartitionAssignmentRepository
@@ -71,29 +73,42 @@ class OutboxCoreSchedulingAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    fun outboxProcessingScheduler(
+    fun outboxKeyDispatcher(
         trigger: OutboxPollingTrigger,
-        observationRegistry: ObjectProvider<ObservationRegistry>,
         recordRepository: OutboxRecordRepository,
         recordProcessorChainInvoker: OutboxRecordProcessorChainInvoker,
-        partitionCoordinator: PartitionCoordinator,
         properties: OutboxProperties,
         clock: Clock,
         beanFactory: BeanFactory,
+    ): KeyDispatcher =
+        OutboxKeyDispatcherFactory.create(
+            settings = properties.toRuntimeSettings(),
+            trigger = trigger,
+            recordRepository = recordRepository,
+            recordProcessorChainInvoker = recordProcessorChainInvoker,
+            taskExecutor = beanFactory.getBean<TaskExecutor>("outboxTaskExecutor"),
+            clock = clock,
+        )
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun outboxProcessingScheduler(
+        trigger: OutboxPollingTrigger,
+        observationRegistry: ObjectProvider<ObservationRegistry>,
+        partitionCoordinator: PartitionCoordinator,
+        keyDispatcher: KeyDispatcher,
+        properties: OutboxProperties,
+        beanFactory: BeanFactory,
     ): OutboxProcessingScheduler {
         val taskScheduler = beanFactory.getBean(OutboxProcessingScheduler.SCHEDULER_NAME) as TaskScheduler
-        val taskExecutor = beanFactory.getBean<TaskExecutor>("outboxTaskExecutor")
 
         return OutboxProcessingScheduler(
             trigger = trigger,
             taskScheduler = taskScheduler,
             observationRegistry = { observationRegistry.getIfAvailable { ObservationRegistry.NOOP } },
-            recordRepository = recordRepository,
-            recordProcessorChainInvoker = recordProcessorChainInvoker,
             partitionCoordinator = partitionCoordinator,
-            taskExecutor = taskExecutor,
+            keyDispatcher = keyDispatcher,
             settings = properties.toRuntimeSettings(),
-            clock = clock,
         )
     }
 }

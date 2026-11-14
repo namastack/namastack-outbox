@@ -151,6 +151,7 @@ data class OutboxRuntimeSettings(
     /**
      * @property stopOnFirstFailure Whether batch processing stops after the first failure
      * @property deleteCompletedRecords Whether successfully processed records are deleted
+     * @property dispatchMode How record keys are dispatched within a processing run (since 2.0.0)
      * @property executorCorePoolSize Core size of a platform-thread executor
      * @property executorMaxPoolSize Maximum size of a platform-thread executor
      * @property executorConcurrencyLimit Concurrency limit of a virtual-thread executor
@@ -159,11 +160,32 @@ data class OutboxRuntimeSettings(
     data class Processing(
         val stopOnFirstFailure: Boolean = true,
         val deleteCompletedRecords: Boolean = false,
+        val dispatchMode: DispatchMode = DispatchMode.BATCH,
         val executorCorePoolSize: Int = 4,
         val executorMaxPoolSize: Int = 8,
         val executorConcurrencyLimit: Int = -1,
         val shutdownTimeout: Duration = Duration.ofSeconds(30),
-    )
+    ) {
+        /**
+         * Available strategies for dispatching record keys within a processing run.
+         *
+         * @author Aleksander Zamojski
+         * @since 2.0.0
+         */
+        enum class DispatchMode {
+            /**
+             * Selects up to [Polling.batchSize] record keys per run and waits for all of them
+             * before the run ends.
+             */
+            BATCH,
+
+            /**
+             * Keeps up to [Polling.batchSize] record keys in flight and selects new keys while
+             * other keys of the run are in progress.
+             */
+            CONTINUOUS,
+        }
+    }
 
     /**
      * @property heartbeatInterval Interval between instance heartbeats

@@ -7,6 +7,8 @@ import io.mockk.verify
 import io.mockk.verifyOrder
 import io.namastack.outbox.completion.OutboxCompletionDirectPersistence
 import io.namastack.outbox.completion.OutboxRecordCompleter
+import io.namastack.outbox.dispatch.BatchKeyDispatcher
+import io.namastack.outbox.dispatch.OutboxRecordKeyProcessor
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome.COMPLETED
@@ -364,22 +366,27 @@ class OutboxBulkLoadingTest {
         strict: Boolean = true,
         executor: TaskExecutor = SyncTaskExecutor(),
         chain: OutboxRecordProcessorChainInvoker = invoker,
-    ): OutboxProcessingScheduler =
-        OutboxProcessingScheduler(
+    ): OutboxProcessingScheduler {
+        val settings =
+            OutboxRuntimeSettings(
+                polling = OutboxRuntimeSettings.Polling(batchSize = batchSize),
+                processing = OutboxRuntimeSettings.Processing(stopOnFirstFailure = strict),
+            )
+        return OutboxProcessingScheduler(
             trigger = mockk<OutboxPollingTrigger>(relaxed = true),
             taskScheduler = mockk<TaskScheduler>(relaxed = true),
             observationRegistry = { ObservationRegistry.NOOP },
-            recordRepository = repository,
-            recordProcessorChainInvoker = chain,
             partitionCoordinator = coordinator,
-            taskExecutor = executor,
-            settings =
-                OutboxRuntimeSettings(
-                    polling = OutboxRuntimeSettings.Polling(batchSize = batchSize),
-                    processing = OutboxRuntimeSettings.Processing(stopOnFirstFailure = strict),
+            keyDispatcher =
+                BatchKeyDispatcher(
+                    recordRepository = repository,
+                    keyProcessor = OutboxRecordKeyProcessor(chain, settings.processing, clock),
+                    taskExecutor = executor,
+                    settings = settings,
                 ),
-            clock = clock,
+            settings = settings,
         ).also { it.start() }
+    }
 
     private fun selectKeys(vararg keys: String) {
         every { repository.findRecordKeysInPartitions(setOf(1), any(), any()) } returns

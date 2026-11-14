@@ -93,6 +93,10 @@ data class OutboxProperties(
      *
      * @param stopOnFirstFailure Whether to stop processing on the first failure
      * @param deleteCompletedRecords Whether to delete completed records after processing
+     * @param dispatchMode How record keys are dispatched within a processing run ("batch" or "continuous").
+     *        "batch" processes one batch of up to `polling.batch-size` keys per run and waits for all of them
+     *        before the run ends. "continuous" keeps up to `polling.batch-size` keys in flight and selects new
+     *        keys while other keys of the run are in progress. (since 2.0.0)
      * @param executorCorePoolSize Core pool size for the processing executor
      * @param executorMaxPoolSize Maximum pool size for the processing executor
      * @param executorConcurrencyLimit Concurrency limit for the virtual thread executor (-1 for no limit)
@@ -101,6 +105,7 @@ data class OutboxProperties(
     data class Processing(
         var stopOnFirstFailure: Boolean = true,
         var deleteCompletedRecords: Boolean = false,
+        var dispatchMode: String = "batch",
         var executorCorePoolSize: Int = 4,
         var executorMaxPoolSize: Int = 8,
         var executorConcurrencyLimit: Int = -1,

@@ -26,7 +26,6 @@ class AdaptivePollingTriggerTest {
             AdaptivePollingTrigger(
                 minDelay = Duration.ofMillis(2000),
                 maxDelay = Duration.ofMillis(60000),
-                batchSize = 100,
                 clock = clock,
             )
 
@@ -42,7 +41,6 @@ class AdaptivePollingTriggerTest {
             AdaptivePollingTrigger(
                 minDelay = Duration.ofMillis(2000),
                 maxDelay = Duration.ofMillis(64000),
-                batchSize = 100,
                 clock = clock,
             )
 
@@ -58,7 +56,6 @@ class AdaptivePollingTriggerTest {
             AdaptivePollingTrigger(
                 minDelay = Duration.ofMillis(2000),
                 maxDelay = Duration.ofMillis(64000),
-                batchSize = 100,
                 clock = clock,
             )
 
@@ -80,20 +77,19 @@ class AdaptivePollingTriggerTest {
         ],
     )
     fun `adaptive delay increases on idle`(
-        recordCount: Int,
+        found: Int,
         expectedDelay: Long,
     ) {
         val trigger =
             AdaptivePollingTrigger(
                 minDelay = Duration.ofMillis(2000),
                 maxDelay = Duration.ofMillis(64000),
-                batchSize = 100,
                 clock = clock,
             )
 
         every { triggerContext.lastCompletion() } returns instant
 
-        trigger.onTaskComplete(recordCount)
+        trigger.onPollResult(found = found, requested = 100)
         val next = trigger.nextExecution(triggerContext)
         assertThat(next).isEqualTo(instant.plusMillis(expectedDelay))
     }
@@ -104,17 +100,16 @@ class AdaptivePollingTriggerTest {
             AdaptivePollingTrigger(
                 minDelay = Duration.ofMillis(2000),
                 maxDelay = Duration.ofMillis(64000),
-                batchSize = 100,
                 clock = clock,
             )
 
         every { triggerContext.lastCompletion() } returns instant
 
-        trigger.onTaskComplete(0)
+        trigger.onPollResult(found = 0, requested = 100)
         val next = trigger.nextExecution(triggerContext)
         assertThat(next).isEqualTo(instant.plusMillis(4000))
 
-        trigger.onTaskComplete(100)
+        trigger.onPollResult(found = 100, requested = 100)
         val next2 = trigger.nextExecution(triggerContext)
         assertThat(next2).isEqualTo(instant.plusMillis(2000))
     }
@@ -125,13 +120,12 @@ class AdaptivePollingTriggerTest {
             AdaptivePollingTrigger(
                 minDelay = Duration.ofMillis(2000),
                 maxDelay = Duration.ofMillis(64000),
-                batchSize = 100,
                 clock = clock,
             )
 
         every { triggerContext.lastCompletion() } returns instant
 
-        trigger.onTaskComplete(100)
+        trigger.onPollResult(found = 100, requested = 100)
         val next = trigger.nextExecution(triggerContext)
         assertThat(next).isEqualTo(instant.plusMillis(2000))
     }
@@ -142,17 +136,16 @@ class AdaptivePollingTriggerTest {
             AdaptivePollingTrigger(
                 minDelay = Duration.ofMillis(2000),
                 maxDelay = Duration.ofMillis(4000),
-                batchSize = 100,
                 clock = clock,
             )
 
         every { triggerContext.lastCompletion() } returns instant
 
-        trigger.onTaskComplete(0)
+        trigger.onPollResult(found = 0, requested = 100)
         val next = trigger.nextExecution(triggerContext)
         assertThat(next).isEqualTo(instant.plusMillis(4000))
 
-        trigger.onTaskComplete(0)
+        trigger.onPollResult(found = 0, requested = 100)
         val next2 = trigger.nextExecution(triggerContext)
         assertThat(next2).isEqualTo(instant.plusMillis(4000))
     }
@@ -164,7 +157,6 @@ class AdaptivePollingTriggerTest {
             AdaptivePollingTrigger(
                 minDelay = Duration.parse(minDelay),
                 maxDelay = Duration.ofSeconds(8),
-                batchSize = 10,
                 clock = clock,
             )
         }.isInstanceOf(IllegalArgumentException::class.java)
@@ -177,7 +169,6 @@ class AdaptivePollingTriggerTest {
             AdaptivePollingTrigger(
                 minDelay = Duration.ofSeconds(2),
                 maxDelay = Duration.ofSeconds(1),
-                batchSize = 10,
                 clock = clock,
             )
         }.isInstanceOf(IllegalArgumentException::class.java)
@@ -190,22 +181,70 @@ class AdaptivePollingTriggerTest {
             AdaptivePollingTrigger(
                 minDelay = Duration.ofMillis(1),
                 maxDelay = Duration.ofSeconds(8),
-                batchSize = 10,
                 clock = clock,
             )
 
         every { triggerContext.lastCompletion() } returns instant
 
-        repeat(13) { trigger.onTaskComplete(0) }
+        repeat(13) { trigger.onPollResult(found = 0, requested = 10) }
         assertThat(trigger.nextExecution(triggerContext)).isEqualTo(instant.plusMillis(8000))
 
-        repeat(13) { trigger.onTaskComplete(10) }
+        repeat(13) { trigger.onPollResult(found = 10, requested = 10) }
         assertThat(trigger.nextExecution(triggerContext)).isEqualTo(instant.plusMillis(1))
 
-        trigger.onTaskComplete(5)
+        trigger.onPollResult(found = 5, requested = 10)
         assertThat(trigger.nextExecution(triggerContext)).isEqualTo(instant.plusMillis(1))
 
-        trigger.onTaskComplete(0)
+        trigger.onPollResult(found = 0, requested = 10)
         assertThat(trigger.nextExecution(triggerContext)).isEqualTo(instant.plusMillis(2))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        value = [
+            "8, 8, 1000",
+            "9, 8, 1000",
+            "3, 8, 2000",
+            "2, 8, 4000",
+            "0, 1, 4000",
+            "1, 1, 1000",
+            "0, 3, 4000",
+        ],
+    )
+    fun `adaptive rule is relative to the requested key count`(
+        found: Int,
+        requested: Int,
+        expectedDelay: Long,
+    ) {
+        val trigger =
+            AdaptivePollingTrigger(
+                minDelay = Duration.ofMillis(1000),
+                maxDelay = Duration.ofMillis(64000),
+                clock = clock,
+            )
+        every { triggerContext.lastCompletion() } returns instant
+        trigger.onPollResult(found = 0, requested = 4)
+        assertThat(trigger.nextExecution(triggerContext)).isEqualTo(instant.plusMillis(2000))
+
+        trigger.onPollResult(found = found, requested = requested)
+
+        assertThat(trigger.nextExecution(triggerContext)).isEqualTo(instant.plusMillis(expectedDelay))
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = [0, -1])
+    fun `poll result without requested keys leaves the delay unchanged`(requested: Int) {
+        val trigger =
+            AdaptivePollingTrigger(
+                minDelay = Duration.ofMillis(1000),
+                maxDelay = Duration.ofMillis(64000),
+                clock = clock,
+            )
+        every { triggerContext.lastCompletion() } returns instant
+        trigger.onPollResult(found = 0, requested = 4)
+
+        trigger.onPollResult(found = 0, requested = requested)
+
+        assertThat(trigger.nextExecution(triggerContext)).isEqualTo(instant.plusMillis(2000))
     }
 }

@@ -5,6 +5,10 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.namastack.outbox.OutboxProcessingScheduler.SchedulerLifecycleStateMachine.LifecycleState
+import io.namastack.outbox.dispatch.BatchKeyDispatcher
+import io.namastack.outbox.dispatch.ContinuousKeyDispatcher
+import io.namastack.outbox.dispatch.KeyDispatcher
+import io.namastack.outbox.dispatch.OutboxRecordKeyProcessor
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
@@ -17,7 +21,9 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.core.task.SyncTaskExecutor
+import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.TaskScheduler
+import org.springframework.scheduling.TriggerContext
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -71,13 +77,20 @@ class OutboxProcessingSchedulerTest {
             trigger = trigger,
             taskScheduler = taskScheduler,
             observationRegistry = { ObservationRegistry.NOOP },
-            recordRepository = recordRepository,
-            recordProcessorChainInvoker = recordProcessorChainInvoker,
             partitionCoordinator = partitionCoordinator,
-            taskExecutor = SyncTaskExecutor(),
+            keyDispatcher = batchKeyDispatcher(properties),
             settings = properties.toRuntimeSettings(),
-            clock = clock,
         )
+
+    private fun batchKeyDispatcher(properties: OutboxProperties): KeyDispatcher {
+        val settings = properties.toRuntimeSettings()
+        return BatchKeyDispatcher(
+            recordRepository = recordRepository,
+            keyProcessor = OutboxRecordKeyProcessor(recordProcessorChainInvoker, settings.processing, clock),
+            taskExecutor = SyncTaskExecutor(),
+            settings = settings,
+        )
+    }
 
     private fun recreateStartedScheduler() {
         scheduler = createScheduler()
@@ -265,12 +278,9 @@ class OutboxProcessingSchedulerTest {
                     trigger = trigger,
                     taskScheduler = taskScheduler,
                     observationRegistry = { ObservationRegistry.NOOP },
-                    recordRepository = recordRepository,
-                    recordProcessorChainInvoker = recordProcessorChainInvoker,
                     partitionCoordinator = partitionCoordinator,
-                    taskExecutor = SyncTaskExecutor(),
+                    keyDispatcher = batchKeyDispatcher(properties),
                     settings = properties.toRuntimeSettings(),
-                    clock = clock,
                 )
 
             every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
@@ -466,14 +476,14 @@ class OutboxProcessingSchedulerTest {
 
             verify(exactly = 1) { partitionCoordinator.getAssignedPartitionNumbers() }
             verify(exactly = 1) { recordRepository.findIncompleteRecordPages(setOf(recordKey)) }
-            verify(exactly = 1) { trigger.onTaskComplete(any()) }
+            verify(exactly = 1) { trigger.onPollResult(any(), any()) }
 
             clock.advanceBy(Duration.ofSeconds(30))
             scheduler.process()
 
             verify(exactly = 2) { partitionCoordinator.getAssignedPartitionNumbers() }
             verify(exactly = 2) { recordRepository.findIncompleteRecordPages(setOf(recordKey)) }
-            verify(exactly = 2) { trigger.onTaskComplete(any()) }
+            verify(exactly = 2) { trigger.onPollResult(any(), any()) }
         }
 
         @Test
@@ -815,6 +825,115 @@ class OutboxProcessingSchedulerTest {
             verify(exactly = 1) { recordProcessorChainInvoker.process(record2) }
             verify(exactly = 1) { recordProcessorChainInvoker.process(record3) }
         }
+    }
+
+    @Nested
+    @DisplayName("Poll results")
+    inner class PollResults {
+        @BeforeEach
+        fun setUp() {
+            every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
+        }
+
+        @Test
+        fun `batch mode reports processed keys against the batch size once per run`() {
+            scheduler.start()
+            prepareFindRecordKeysInPartitions(listOf("key-1", "key-2"))
+
+            scheduler.process()
+
+            verify(exactly = 1) { trigger.onPollResult(any(), any()) }
+            verify(exactly = 1) { trigger.onPollResult(2, 100) }
+        }
+
+        @Test
+        fun `batch mode reports an empty run`() {
+            scheduler.start()
+            prepareFindRecordKeysInPartitions(emptyList())
+
+            scheduler.process()
+
+            verify(exactly = 1) { trigger.onPollResult(0, 100) }
+        }
+
+        @Test
+        fun `continuous mode reports every key query and nothing at the end of the run`() {
+            every { trigger.nextExecution(any()) } answers { firstArg<TriggerContext>().lastCompletion() }
+            scheduler = createContinuousScheduler()
+            scheduler.start()
+            every {
+                recordRepository.findRecordKeysInPartitions(any(), any(), any())
+            } returnsMany listOf(listOf("key-1"), emptyList())
+
+            scheduler.process()
+
+            verify(exactly = 2) { trigger.onPollResult(any(), any()) }
+            verify(exactly = 1) { trigger.onPollResult(1, 100) }
+            verify(exactly = 1) { trigger.onPollResult(0, 100) }
+        }
+
+        @Test
+        fun `continuous mode stops dispatching when the scheduler shuts down`() {
+            every { trigger.nextExecution(any()) } answers
+                { firstArg<TriggerContext>().lastCompletion()!!.plusSeconds(60) }
+            val workers = Executors.newCachedThreadPool()
+            scheduler = createContinuousScheduler(executor = { workers.execute(it) })
+            scheduler.start()
+            val recordKey = "slow-key"
+            val record =
+                OutboxRecordTestFactory.outboxRecord(
+                    recordKey = recordKey,
+                    nextRetryAt = Instant.now(clock).minusSeconds(1),
+                )
+            prepareFindRecordKeysInPartitions(listOf(recordKey))
+            prepareRecordPage(recordKey, listOf(record))
+            val started = CountDownLatch(1)
+            val release = CountDownLatch(1)
+            every { recordProcessorChainInvoker.process(record) } answers {
+                started.countDown()
+                release.await(5, SECONDS)
+                OutboxRecordProcessingOutcome.COMPLETED
+            }
+            val executor = Executors.newFixedThreadPool(2)
+            try {
+                val processing = executor.submit { scheduler.process() }
+                assertThat(started.await(5, SECONDS)).isTrue()
+                val stopping = executor.submit { scheduler.stop() }
+
+                await().atMost(2, SECONDS).untilAsserted { assertThat(scheduler.isRunning()).isTrue() }
+                release.countDown()
+                processing.get(5, SECONDS)
+                stopping.get(5, SECONDS)
+
+                assertThat(scheduler.isRunning()).isFalse()
+                verify(exactly = 1) { recordRepository.findRecordKeysInPartitions(any(), any(), any()) }
+                verify(exactly = 1) { recordProcessorChainInvoker.process(record) }
+            } finally {
+                release.countDown()
+                executor.shutdownNow()
+                workers.shutdownNow()
+            }
+        }
+    }
+
+    private fun createContinuousScheduler(executor: TaskExecutor = SyncTaskExecutor()): OutboxProcessingScheduler {
+        val settings = properties.toRuntimeSettings()
+        return OutboxProcessingScheduler(
+            trigger = trigger,
+            taskScheduler = taskScheduler,
+            observationRegistry = { ObservationRegistry.NOOP },
+            partitionCoordinator = partitionCoordinator,
+            keyDispatcher =
+                ContinuousKeyDispatcher(
+                    recordRepository = recordRepository,
+                    keyProcessor = OutboxRecordKeyProcessor(recordProcessorChainInvoker, settings.processing, clock),
+                    taskExecutor = executor,
+                    settings = settings,
+                    trigger = trigger,
+                    clock = clock,
+                ),
+            settings = settings,
+        )
     }
 
     private fun prepareFindRecordKeysInPartitions(recordKeys: List<String>) {

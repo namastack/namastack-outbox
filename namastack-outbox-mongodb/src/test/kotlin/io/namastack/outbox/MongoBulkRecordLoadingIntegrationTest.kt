@@ -12,6 +12,8 @@ import io.mockk.mockk
 import io.namastack.outbox.completion.OutboxCompletionDirectPersistence
 import io.namastack.outbox.completion.OutboxRecordCompleter
 import io.namastack.outbox.config.MongoOutboxConfigurationProperties
+import io.namastack.outbox.dispatch.BatchKeyDispatcher
+import io.namastack.outbox.dispatch.OutboxRecordKeyProcessor
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionAssignmentCache
@@ -393,22 +395,29 @@ class MongoBulkRecordLoadingIntegrationTest {
                 trigger = mockk(relaxed = true),
                 taskScheduler = taskScheduler,
                 observationRegistry = { ObservationRegistry.NOOP },
-                recordRepository = repository,
-                recordProcessorChainInvoker =
-                    OutboxRecordProcessorChainInvoker(
-                        PrimaryOutboxRecordProcessor(
-                            handlers,
-                            OutboxRecordCompleter(
-                                OutboxCompletionDirectPersistence(repository),
+                partitionCoordinator = coordinator,
+                keyDispatcher =
+                    BatchKeyDispatcher(
+                        recordRepository = repository,
+                        keyProcessor =
+                            OutboxRecordKeyProcessor(
+                                OutboxRecordProcessorChainInvoker(
+                                    PrimaryOutboxRecordProcessor(
+                                        handlers,
+                                        OutboxRecordCompleter(
+                                            OutboxCompletionDirectPersistence(repository),
+                                            settings.processing,
+                                            clock,
+                                        ),
+                                    ),
+                                ),
                                 settings.processing,
                                 clock,
                             ),
-                        ),
+                        taskExecutor = TaskExecutor { workers.execute(it) },
+                        settings = settings,
                     ),
-                partitionCoordinator = coordinator,
-                taskExecutor = TaskExecutor { workers.execute(it) },
                 settings = settings,
-                clock = clock,
             )
         try {
             scheduler.start()

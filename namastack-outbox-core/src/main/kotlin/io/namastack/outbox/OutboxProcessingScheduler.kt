@@ -1,24 +1,16 @@
 package io.namastack.outbox
 
 import io.micrometer.observation.ObservationRegistry
-import io.namastack.outbox.OutboxRecordRepository.Companion.MAX_RECORD_KEYS_PER_FETCH
-import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
+import io.namastack.outbox.dispatch.KeyDispatcher
 import io.namastack.outbox.partition.PartitionCoordinator
-import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.runtime.OutboxRuntimeSettings
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
-import org.springframework.core.task.TaskExecutor
-import org.springframework.core.task.support.TaskExecutorAdapter
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.support.ScheduledMethodRunnable
 import java.lang.reflect.Method
-import java.time.Clock
 import java.time.Duration
-import java.time.Instant
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletionException
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -28,8 +20,9 @@ import kotlin.concurrent.withLock
 /**
  * Scheduler for processing outbox records with partition-aware distribution.
  *
- * Loads record keys from assigned partitions in batches, dispatches them to TaskExecutor
- * for parallel processing, and coordinates with PartitionCoordinator for partition assignment.
+ * Each run takes a stable partition assignment from the PartitionCoordinator and lets the
+ * [KeyDispatcher] select record keys from the assigned partitions and process them on the
+ * processing executor. The dispatcher returns only after every accepted key task has finished.
  *
  * Record processing is delegated to a chain of processors that handle the complete
  * record lifecycle (dispatch to handler, retry logic, fallback invocation, failure marking).
@@ -37,12 +30,9 @@ import kotlin.concurrent.withLock
  * @param trigger Polling trigger that determines when the next processing cycle should occur
  * @param taskScheduler Spring TaskScheduler for scheduling the processing job
  * @param observationRegistry Supplier for obtaining the Micrometer [ObservationRegistry]
- * @param recordRepository Repository for loading records
- * @param recordProcessorChainInvoker Invoker for the instrumented record processor chain
  * @param partitionCoordinator Coordinator for partition assignments
- * @param taskExecutor Executor for parallel key processing
+ * @param keyDispatcher Strategy that selects and processes record keys within one run
  * @param settings Effective runtime settings
- * @param clock Clock for time calculations
  *
  * @author Roland Beisel
  * @since 0.2.0
@@ -52,30 +42,22 @@ class OutboxProcessingScheduler(
     private val trigger: OutboxPollingTrigger,
     private val taskScheduler: TaskScheduler,
     private val observationRegistry: () -> ObservationRegistry,
-    private val recordRepository: OutboxRecordRepository,
-    private val recordProcessorChainInvoker: OutboxRecordProcessorChainInvoker,
     private val partitionCoordinator: PartitionCoordinator,
-    private val taskExecutor: TaskExecutor,
+    private val keyDispatcher: KeyDispatcher,
     private val settings: OutboxRuntimeSettings,
-    private val clock: Clock,
 ) : SmartLifecycle {
     companion object {
         const val SCHEDULER_NAME: String = "outboxDefaultScheduler"
 
-        private val COMPATIBILITY_COOLDOWN: Duration = Duration.ofSeconds(30)
         private val SCHEDULE_METHOD_NAME: String = (OutboxProcessingScheduler::process).name
         private val SCHEDULE_METHOD: Method = OutboxProcessingScheduler::class.java.getMethod(SCHEDULE_METHOD_NAME)
     }
 
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
-    private val asyncTaskExecutor = TaskExecutorAdapter(taskExecutor)
-
     private val lifecycle = SchedulerLifecycleStateMachine(settings.processing.shutdownTimeout)
 
     private var scheduledTask: ScheduledFuture<*>? = null
-
-    private val compatibilityCooldownUntil = AtomicReference<Instant?>()
 
     /**
      * Starts after instance registration, partition coordination, and completion batching.
@@ -103,7 +85,11 @@ class OutboxProcessingScheduler(
         lifecycle.scheduleJob {
             val runnable = ScheduledMethodRunnable(this, SCHEDULE_METHOD, SCHEDULER_NAME, observationRegistry)
             scheduledTask = taskScheduler.schedule(runnable, trigger)
-            log.info("OutboxProcessingScheduler scheduled (trigger={})", trigger.javaClass.simpleName)
+            log.info(
+                "OutboxProcessingScheduler scheduled (trigger={}, dispatcher={})",
+                trigger.javaClass.simpleName,
+                keyDispatcher.javaClass.simpleName,
+            )
         }
     }
 
@@ -111,7 +97,8 @@ class OutboxProcessingScheduler(
      * Unregisters the outbox processing job and performs graceful shutdown.
      *
      * Automatically invoked during application shutdown. Cancels future scheduling and,
-     * if a cycle is currently running, blocks until completion, timeout, or interruption
+     * if a cycle is currently running, stops further dispatching and blocks until the
+     * accepted keys finish, a timeout, or interruption
      * (up to [OutboxRuntimeSettings.Processing.shutdownTimeout]).
      *
      * @throws RuntimeException if cancelling the scheduled job fails
@@ -134,12 +121,12 @@ class OutboxProcessingScheduler(
     /**
      * Main processing cycle. Invoked by the scheduler according to the configured trigger.
      *
-     * Loads record keys from assigned partitions and processes them in parallel.
+     * Lets the [KeyDispatcher] process record keys of the assigned partitions in parallel.
      * Each record is handled by the processor chain (handler → retry → fallback → failure).
-     * If the scheduler is not idle, the cycle is skipped.
+     * If the scheduler is not idle or a compatibility cooldown is active, the cycle is skipped.
      */
     fun process() {
-        if (isCompatibilityCooldownActive()) return
+        if (keyDispatcher.isCompatibilityCooldownActive()) return
         if (!lifecycle.startProcessing()) return
 
         var processedCount = 0
@@ -149,7 +136,9 @@ class OutboxProcessingScheduler(
         } catch (ex: Exception) {
             log.error("Error during outbox processing", ex)
         } finally {
-            trigger.onTaskComplete(processedCount)
+            if (!keyDispatcher.reportsPollResults) {
+                trigger.onPollResult(found = processedCount, requested = settings.polling.batchSize)
+            }
             lifecycle.stopProcessing()
         }
     }
@@ -160,142 +149,8 @@ class OutboxProcessingScheduler(
 
             log.debug("Processing {} partitions: {}", partitions.size, partitions.sorted())
 
-            val recordKeys = loadRecordKeys(partitions)
-            if (recordKeys.isEmpty()) return@withStableAssignments 0
-
-            log.debug("Found {} record keys to process", recordKeys.size)
-            processBatch(recordKeys)
-            log.debug("Finished processing {} record keys", recordKeys.size)
-
-            recordKeys.size
+            keyDispatcher.dispatch(partitions, lifecycle::isStopping)
         }
-
-    private fun loadRecordKeys(partitions: Set<Int>): List<String> =
-        recordRepository.findRecordKeysInPartitions(
-            partitions = partitions,
-            batchSize = settings.polling.batchSize,
-            ignoreRecordKeysWithPreviousFailure = settings.processing.stopOnFirstFailure,
-        )
-
-    private fun processBatch(recordKeys: List<String>) {
-        val completions = ArrayList<CompletableFuture<*>>(recordKeys.size)
-        try {
-            recordKeys.chunked(MAX_RECORD_KEYS_PER_FETCH).forEach { keys ->
-                val pages = recordRepository.findIncompleteRecordPages(keys.toSet())
-                keys.forEach { key ->
-                    val page = pages.getValue(key)
-                    val completion =
-                        asyncTaskExecutor
-                            .submitCompletable { processRecordKey(key, page) }
-                            .exceptionally { failure ->
-                                val cause = (failure as? CompletionException)?.cause ?: failure
-                                log.error("Error processing key {}", key, cause)
-                                null
-                            }
-                    completions.add(completion)
-                }
-            }
-        } finally {
-            // Failed fetches, rejected submissions and interrupts must not release active assignments.
-            CompletableFuture.allOf(*completions.toTypedArray()).join()
-        }
-    }
-
-    private fun processRecordKey(
-        recordKey: String,
-        page: OutboxRecordPage,
-    ) {
-        try {
-            if (page.isEmpty()) return
-
-            log.trace("Processing {} records for key {}", page.size, recordKey)
-
-            for (index in 0 until page.size) {
-                if (!processRecord(page[index])) break
-            }
-        } catch (ex: OutboxPayloadTypeNotFoundException) {
-            handleUnavailablePayloadType(ex)
-        } catch (ex: OutboxHandlerNotFoundException) {
-            handleUnavailableHandler(ex)
-        } catch (ex: Exception) {
-            log.error("Error processing key {}", recordKey, ex)
-        }
-    }
-
-    private fun processRecord(record: OutboxRecord<*>): Boolean {
-        if (!record.canBeRetried(clock)) {
-            log.trace("Skipping record {} - not ready for retry", record.id)
-            return continueOnFailure()
-        }
-
-        val outcome = recordProcessorChainInvoker.process(record)
-
-        return outcome == OutboxRecordProcessingOutcome.COMPLETED || continueOnFailure()
-    }
-
-    private fun continueOnFailure(): Boolean = !settings.processing.stopOnFirstFailure
-
-    private fun handleUnavailablePayloadType(ex: OutboxPayloadTypeNotFoundException) {
-        val cooldownUntil = activateCompatibilityCooldown()
-        log.warn(
-            "Payload type {} is unavailable on this scheduler instance; pausing polling until {} and leaving " +
-                "the record pending without consuming a delivery retry " +
-                "(recordId={}, businessKey={}, processingGroup={}, storageKey={}, handlerId={})",
-            ex.payloadType,
-            cooldownUntil,
-            ex.recordId,
-            ex.businessKey,
-            ex.processingGroup,
-            ex.recordKey,
-            ex.handlerId,
-            ex,
-        )
-    }
-
-    private fun handleUnavailableHandler(ex: OutboxHandlerNotFoundException) {
-        val cooldownUntil = activateCompatibilityCooldown()
-        log.warn(
-            "Handler {} is unavailable on this scheduler instance; pausing polling until {} and leaving the " +
-                "record pending without consuming a delivery retry " +
-                "(recordId={}, businessKey={}, processingGroup={}, storageKey={})",
-            ex.handlerId,
-            cooldownUntil,
-            ex.recordId,
-            ex.businessKey,
-            ex.processingGroup,
-            ex.recordKey,
-            ex,
-        )
-    }
-
-    private fun isCompatibilityCooldownActive(): Boolean {
-        val cooldownUntil = compatibilityCooldownUntil.get() ?: return false
-        if (clock.instant().isBefore(cooldownUntil)) {
-            log.trace(
-                "Skipping outbox polling until {} because this scheduler instance encountered a compatibility failure",
-                cooldownUntil,
-            )
-            return true
-        }
-
-        compatibilityCooldownUntil.compareAndSet(cooldownUntil, null)
-        return false
-    }
-
-    private fun activateCompatibilityCooldown(): Instant {
-        val requestedCooldownUntil = clock.instant().plus(COMPATIBILITY_COOLDOWN)
-
-        val cooldownUntil =
-            compatibilityCooldownUntil.updateAndGet { currentCooldownUntil ->
-                if (currentCooldownUntil == null || requestedCooldownUntil.isAfter(currentCooldownUntil)) {
-                    requestedCooldownUntil
-                } else {
-                    currentCooldownUntil
-                }
-            }
-
-        return checkNotNull(cooldownUntil)
-    }
 
     /**
      * Thread-safe lifecycle state machine used by [OutboxProcessingScheduler].
@@ -337,6 +192,13 @@ class OutboxProcessingScheduler(
          * @return true while idle, processing, or shutting down; false when the state is stopped
          */
         fun isStarted(): Boolean = state.get() != LifecycleState.STOPPED
+
+        /**
+         * Reports whether shutdown was requested while a processing cycle is running.
+         *
+         * @return true in [LifecycleState.SHUTTING_DOWN]
+         */
+        fun isStopping(): Boolean = state.get() == LifecycleState.SHUTTING_DOWN
 
         /**
          * Transitions from [LifecycleState.STOPPED] to [LifecycleState.IDLE] and invokes [schedule].
