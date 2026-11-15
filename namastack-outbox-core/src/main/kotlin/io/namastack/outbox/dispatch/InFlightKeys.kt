@@ -5,12 +5,24 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 
+/**
+ * Bounded set of record keys in flight during one continuous dispatch run.
+ *
+ * Each key holds one of [capacity] slots from [tryReserve] until [release]. The dispatching thread
+ * reserves slots; key tasks release them from worker threads.
+ *
+ * @param capacity Maximum number of keys in flight
+ *
+ * @author Aleksander Zamojski
+ * @since 2.0.0
+ */
 internal class InFlightKeys(
     private val capacity: Int,
 ) {
     private val slots: Semaphore = Semaphore(capacity)
     private val keys: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
+    /** Number of slots not held by a key. */
     val freeSlots: Int
         get() = slots.availablePermits()
 
@@ -28,6 +40,11 @@ internal class InFlightKeys(
         return true
     }
 
+    /**
+     * Releases the slot of [key].
+     *
+     * @throws IllegalStateException if [key] is not in flight; one slot is freed anyway
+     */
     fun release(key: String) {
         val removed = keys.remove(key)
         // The slot is freed even for an unknown key, so a failed check cannot leak a slot.
@@ -66,6 +83,7 @@ internal class InFlightKeys(
         slots.release(capacity)
     }
 
+    /** Reports whether no key is in flight. */
     fun isIdle(): Boolean = freeSlots == capacity
 
     /** Returns the keys in flight at the time of the call. */

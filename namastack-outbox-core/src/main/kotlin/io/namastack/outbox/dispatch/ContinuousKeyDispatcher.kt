@@ -17,15 +17,30 @@ import java.util.concurrent.CompletionException
 /**
  * Dispatches record keys continuously within one run.
  *
- * Steps:
- * 1. Fetch batch
- * 2.
- *  - If batch is empty finished the job (step 4).
- *  - If batch is partially filled then wait for all records to finish (step 4) or timeout (step 3)
- *  - If batch is full then wait for 1/4 batch to finish (step 3) or for timeout (step 3)
- * 3. Fetch next batch. go to step 2
- * 4. Finish the job
+ * At most [OutboxRuntimeSettings.Polling.batchSize] record keys are in flight. A key is in flight
+ * from its submission until its task finishes, including an acknowledged completion commit. Keys in
+ * flight are never fetched again, so a key is never processed twice at the same time on this instance.
  *
+ * A fetch queries record keys, drops the keys in flight, keeps at most one key per free slot, and
+ * reports the kept keys against the free slots to the polling trigger. The wait timeout is the delay
+ * the polling trigger returns for a run that completes now. What follows depends on the fetched batch:
+ *
+ * - **Empty batch**: with nothing in flight, the run ends. The scheduler starts the next run when the
+ *   trigger fires.
+ * - **Partial batch** (fewer keys than free slots, including an empty batch while keys are in flight):
+ *   the dispatcher waits until every key in flight has finished, which ends the run. With every key
+ *   finished, the run behaves like a batch dispatch run. If the wait timeout passes first, a slow key
+ *   is in flight and slots are free, so the dispatcher fetches again.
+ * - **Full batch** (a key for every free slot): the dispatcher waits until a quarter of the batch size
+ *   has finished, then fetches again to refill the free slots. If the wait timeout passes first, the
+ *   dispatcher fetches again as after a partial batch. With no free slot, the fetch skips the query and
+ *   counts as a full batch.
+ *
+ * A run also ends after a failed key query or record load, a rejected submission, a key whose
+ * processing ends with an exception, an interrupt, shutdown, a compatibility cooldown, or a polling
+ * trigger that returns no next execution. Every accepted key task finishes before [dispatch] returns.
+ *
+ * This type is part of the processing runtime. It is not intended to be used by applications.
  *
  * @param recordRepository Repository for loading record keys and records
  * @param keyProcessor Processor for the records of one key
@@ -75,13 +90,16 @@ class ContinuousKeyDispatcher(
     ) {
         private val inFlightKeys = InFlightKeys(batchSize)
 
-        /** Whether the last key query filled every free slot. Touched only by the dispatching thread. */
+        /** Whether the last fetched batch filled every free slot. Touched only by the dispatching thread. */
         private var lastBatchFull = false
 
         /** Written by key tasks and the dispatching thread. */
         @Volatile
         private var stopped = false
 
+        /**
+         * Fetches, submits, and waits until dispatching stops, then waits for every accepted key task.
+         */
         fun execute() {
             try {
                 while (shouldKeepDispatching()) {
@@ -116,7 +134,10 @@ class ContinuousKeyDispatcher(
         }
 
         /**
-         * Queries record keys and keeps at most one key per free slot, skipping keys in flight.
+         * Queries record keys, drops the keys in flight, keeps at most one key per free slot, and reports
+         * the result to the polling trigger. Skips the query when no slot is free.
+         *
+         * @return keys to submit; empty if no key was found, no slot is free, or the query failed
          */
         private fun fetchBatch(): List<String> {
             val freeSlots = inFlightKeys.freeSlots
@@ -142,6 +163,11 @@ class ContinuousKeyDispatcher(
             return batch
         }
 
+        /**
+         * Queries up to one batch of record keys in the run's partitions.
+         *
+         * @return record keys in processing order, or an empty list if the query failed, which stops dispatching
+         */
         private fun queryRecordKeys(): List<String> =
             try {
                 recordRepository.findRecordKeysInPartitions(
@@ -156,7 +182,8 @@ class ContinuousKeyDispatcher(
             }
 
         /**
-         * Loads records of the selected keys and submits one task per key. On failure, stops dispatching.
+         * Loads the records of the given keys and submits one task per key. A failed record load or a
+         * rejected submission stops dispatching; tasks submitted before the failure keep running.
          */
         private fun submitKeys(keys: List<String>) {
             try {
@@ -170,6 +197,9 @@ class ContinuousKeyDispatcher(
             }
         }
 
+        /**
+         * Reserves a slot for [key] and submits its task. Releases the slot if the executor rejects the task.
+         */
         private fun submitKey(
             key: String,
             page: OutboxRecordPage,
@@ -190,6 +220,10 @@ class ContinuousKeyDispatcher(
             }
         }
 
+        /**
+         * Processes the records of [key] and releases its slot. Processing that ends with an exception
+         * stops dispatching.
+         */
         private fun processKey(
             key: String,
             page: OutboxRecordPage,
@@ -207,8 +241,12 @@ class ContinuousKeyDispatcher(
         }
 
         /**
-         * Full batch: waits until the refill threshold of slots is free or the wait timeout passes.
-         * Partial batch: waits until every key finished, which ends the run, or the wait timeout passes.
+         * Waits until the next fetch is due or the run ends.
+         *
+         * After a full batch, waits until the refill threshold of slots is free or the wait timeout
+         * passes. After a partial batch, waits until every key in flight has finished, which ends the
+         * run, or the wait timeout passes. A polling trigger that returns no next execution, or an
+         * interrupt, stops dispatching.
          */
         private fun awaitNextFetch() {
             if (!lastBatchFull && inFlightKeys.isIdle()) {
@@ -240,6 +278,11 @@ class ContinuousKeyDispatcher(
         }
     }
 
+    /**
+     * Asks the polling trigger for the delay of a run that completes now.
+     *
+     * @return wait timeout of at least 1 ms, or `null` when the trigger returns no next execution
+     */
     internal fun waitTimeout(): Duration? {
         val now = clock.instant()
         val next = trigger.nextExecution(SimpleTriggerContext(now, now, now)) ?: return null
