@@ -7,7 +7,6 @@ import io.namastack.outbox.completion.OutboxCompletionBatchingPersistence
 import io.namastack.outbox.completion.OutboxCompletionDirectPersistence
 import io.namastack.outbox.completion.OutboxCompletionPersistence
 import io.namastack.outbox.completion.OutboxRecordCompleter
-import io.namastack.outbox.dispatch.OutboxKeyDispatcherFactory
 import io.namastack.outbox.handler.OutboxHandlerInfrastructure
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionAssignmentCache
@@ -84,24 +83,17 @@ object OutboxRuntimeFactory {
                 instrumentationSupplier = { handlers.instrumentation },
                 channelNameProviderSupplier = { handlers.channelNameProvider },
             )
-        val trigger = OutboxPollingTriggerFactory.create(spec.settings.polling, spec.clock)
-        val keyDispatcher =
-            OutboxKeyDispatcherFactory.create(
-                settings = spec.settings,
-                trigger = trigger,
-                recordRepository = persistence.recordRepository,
-                recordProcessorChainInvoker = processorChainInvoker,
-                taskExecutor = resources.taskExecutor,
-                clock = spec.clock,
-            )
         val processingScheduler =
             OutboxProcessingScheduler(
-                trigger = trigger,
+                trigger = OutboxPollingTriggerFactory.create(spec.settings.polling, spec.clock),
                 taskScheduler = resources.taskScheduler,
                 observationRegistry = { spec.observationRegistry },
+                recordRepository = persistence.recordRepository,
+                recordProcessorChainInvoker = processorChainInvoker,
                 partitionCoordinator = partitionCoordinator,
-                keyDispatcher = keyDispatcher,
+                taskExecutor = resources.taskExecutor,
                 settings = spec.settings,
+                clock = spec.clock,
             )
 
         return OutboxRuntime(

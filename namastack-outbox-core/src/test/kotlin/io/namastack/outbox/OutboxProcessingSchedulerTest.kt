@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.core.task.SyncTaskExecutor
 import org.springframework.core.task.TaskExecutor
+import org.springframework.core.task.support.TaskExecutorAdapter
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.TriggerContext
 import java.time.Clock
@@ -87,7 +88,7 @@ class OutboxProcessingSchedulerTest {
         return BatchKeyDispatcher(
             recordRepository = recordRepository,
             keyProcessor = OutboxRecordKeyProcessor(recordProcessorChainInvoker, settings.processing, clock),
-            taskExecutor = SyncTaskExecutor(),
+            taskExecutor = TaskExecutorAdapter(SyncTaskExecutor()),
             settings = settings,
             trigger = trigger,
         )
@@ -983,7 +984,7 @@ class OutboxProcessingSchedulerTest {
                 ContinuousKeyDispatcher(
                     recordRepository = recordRepository,
                     keyProcessor = OutboxRecordKeyProcessor(recordProcessorChainInvoker, settings.processing, clock),
-                    taskExecutor = executor,
+                    taskExecutor = TaskExecutorAdapter(executor),
                     settings = settings,
                     trigger = trigger,
                     clock = clock,

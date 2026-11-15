@@ -12,12 +12,10 @@ package io.namastack.outbox.dispatch
  * [io.namastack.outbox.trigger.OutboxPollingTrigger.onPollResult], including a failed query as zero
  * keys found.
  *
- * This type is part of the processing runtime. It is not intended to be implemented by applications.
- *
  * @author Aleksander Zamojski
  * @since 2.0.0
  */
-interface OutboxKeyDispatcher {
+internal interface OutboxKeyDispatcher {
     /**
      * Runs one processing run for the given partitions.
      *

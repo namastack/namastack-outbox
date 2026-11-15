@@ -147,10 +147,9 @@ Option D2 for refilling, and Option E2 for the wait timeout.
    ignoring interrupts, before the assignment is released, as in batch processing.
 8. **Implementation shape.** Batch and continuous dispatch are separate strategies,
    `BatchKeyDispatcher` and `ContinuousKeyDispatcher`, behind the `OutboxKeyDispatcher`
-   interface used by `OutboxProcessingScheduler`. `OutboxKeyDispatcherFactory` creates the
-   strategy for the configured mode, and auto-configuration exposes it as a bean. The
-   interface is public because the scheduler's constructor and the bean expose it, but it is
-   part of the processing runtime and not intended for applications.
+   interface used by `OutboxProcessingScheduler`. The scheduler creates the strategy for the
+   configured mode through `OutboxKeyDispatcherFactory`. The strategies are internal to the core
+   module and not exposed as beans, so `processing.dispatch-mode` is the only way to select one.
 
 ## Rationale
 
@@ -188,8 +187,10 @@ partition assignment is cached.
   processing, about one per refill threshold of completed keys. This must be measured.
 - A run whose fetches keep returning full batches does not end until the run-length decision
   below is made. Continuous dispatch must not be released before that.
-- Shutdown and a compatibility cooldown are noticed only when a wait ends, which is at most
-  one wait timeout after they start.
+- Shutdown and a compatibility cooldown stop further fetches; batch processing finishes its
+  whole batch in both cases. They are checked before each fetch, so a fetch already running when
+  they start still submits its keys. A wait ends at the latest when every key in flight has
+  finished, so the run takes no longer to drain than its keys in flight need.
 - Renaming `onTaskComplete` to `onPollResult` and adding the `requested` parameter is a
   breaking change for custom `OutboxPollingTrigger` implementations. The batch-size
   parameter of the `AdaptivePollingTrigger` constructor is removed. Release notes must describe the migration.

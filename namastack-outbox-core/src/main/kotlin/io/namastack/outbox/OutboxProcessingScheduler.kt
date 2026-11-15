@@ -2,14 +2,18 @@ package io.namastack.outbox
 
 import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.dispatch.OutboxKeyDispatcher
+import io.namastack.outbox.dispatch.OutboxKeyDispatcherFactory
 import io.namastack.outbox.partition.PartitionCoordinator
+import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.runtime.OutboxRuntimeSettings
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
+import org.springframework.core.task.TaskExecutor
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.support.ScheduledMethodRunnable
 import java.lang.reflect.Method
+import java.time.Clock
 import java.time.Duration
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -20,25 +24,19 @@ import kotlin.concurrent.withLock
 /**
  * Scheduler for processing outbox records with partition-aware distribution.
  *
- * Each run takes a stable partition assignment from the PartitionCoordinator and lets the
- * [OutboxKeyDispatcher] select record keys from the assigned partitions and process them on the
- * processing executor. The dispatcher returns only after every accepted key task has finished.
+ * Each run takes a stable partition assignment from the PartitionCoordinator, selects record keys
+ * from the assigned partitions, and processes them on the processing executor. How keys are
+ * selected within a run follows [OutboxRuntimeSettings.Processing.dispatchMode]. A run returns only
+ * after every accepted key task has finished.
  *
  * Record processing is delegated to a chain of processors that handle the complete
  * record lifecycle (dispatch to handler, retry logic, fallback invocation, failure marking).
- *
- * @param trigger Polling trigger that determines when the next processing cycle should occur
- * @param taskScheduler Spring TaskScheduler for scheduling the processing job
- * @param observationRegistry Supplier for obtaining the Micrometer [ObservationRegistry]
- * @param partitionCoordinator Coordinator for partition assignments
- * @param keyDispatcher Strategy that selects and processes record keys within one run
- * @param settings Effective runtime settings
  *
  * @author Roland Beisel
  * @since 0.2.0
  */
 @OpenForProxy
-class OutboxProcessingScheduler(
+class OutboxProcessingScheduler internal constructor(
     private val trigger: OutboxPollingTrigger,
     private val taskScheduler: TaskScheduler,
     private val observationRegistry: () -> ObservationRegistry,
@@ -46,6 +44,47 @@ class OutboxProcessingScheduler(
     private val keyDispatcher: OutboxKeyDispatcher,
     private val settings: OutboxRuntimeSettings,
 ) : SmartLifecycle {
+    /**
+     * Creates a scheduler that dispatches record keys according to
+     * [OutboxRuntimeSettings.Processing.dispatchMode].
+     *
+     * @param trigger Polling trigger that determines when the next processing cycle should occur
+     * @param taskScheduler Spring TaskScheduler for scheduling the processing job
+     * @param observationRegistry Supplier for obtaining the Micrometer [ObservationRegistry]
+     * @param recordRepository Repository for loading record keys and records
+     * @param recordProcessorChainInvoker Invoker for the instrumented record processor chain
+     * @param partitionCoordinator Coordinator for partition assignments
+     * @param taskExecutor Executor for parallel key processing
+     * @param settings Effective runtime settings
+     * @param clock Clock for time calculations
+     */
+    constructor(
+        trigger: OutboxPollingTrigger,
+        taskScheduler: TaskScheduler,
+        observationRegistry: () -> ObservationRegistry,
+        recordRepository: OutboxRecordRepository,
+        recordProcessorChainInvoker: OutboxRecordProcessorChainInvoker,
+        partitionCoordinator: PartitionCoordinator,
+        taskExecutor: TaskExecutor,
+        settings: OutboxRuntimeSettings,
+        clock: Clock,
+    ) : this(
+        trigger = trigger,
+        taskScheduler = taskScheduler,
+        observationRegistry = observationRegistry,
+        partitionCoordinator = partitionCoordinator,
+        keyDispatcher =
+            OutboxKeyDispatcherFactory.create(
+                settings = settings,
+                trigger = trigger,
+                recordRepository = recordRepository,
+                recordProcessorChainInvoker = recordProcessorChainInvoker,
+                taskExecutor = taskExecutor,
+                clock = clock,
+            ),
+        settings = settings,
+    )
+
     companion object {
         const val SCHEDULER_NAME: String = "outboxDefaultScheduler"
 

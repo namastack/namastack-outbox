@@ -2,7 +2,6 @@ package io.namastack.outbox.dispatch
 
 import io.namastack.outbox.OutboxHandlerNotFoundException
 import io.namastack.outbox.OutboxPayloadTypeNotFoundException
-import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxRecord
 import io.namastack.outbox.OutboxRecordPage
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
@@ -22,8 +21,7 @@ import java.util.concurrent.atomic.AtomicReference
  * first record that is not completed. A record whose payload type or handler is unavailable on this
  * instance activates a compatibility cooldown, during which the scheduler skips polling.
  *
- * This type is part of the processing runtime and shared by all [OutboxKeyDispatcher] implementations.
- * It is not intended to be used or implemented by applications.
+ * Shared by all [OutboxKeyDispatcher] implementations.
  *
  * @param recordProcessorChainInvoker Invoker for the instrumented record processor chain
  * @param settings Effective processing settings
@@ -32,7 +30,7 @@ import java.util.concurrent.atomic.AtomicReference
  * @author Aleksander Zamojski
  * @since 2.0.0
  */
-class OutboxRecordKeyProcessor(
+internal class OutboxRecordKeyProcessor(
     private val recordProcessorChainInvoker: OutboxRecordProcessorChainInvoker,
     private val settings: OutboxRuntimeSettings.Processing,
     private val clock: Clock,
@@ -41,8 +39,7 @@ class OutboxRecordKeyProcessor(
         private val COMPATIBILITY_COOLDOWN: Duration = Duration.ofSeconds(30)
     }
 
-    // Processing log output uses the scheduler's logger category.
-    private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
+    private val log = LoggerFactory.getLogger(OutboxRecordKeyProcessor::class.java)
 
     private val compatibilityCooldownUntil = AtomicReference<Instant?>()
 

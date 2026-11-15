@@ -25,6 +25,7 @@ import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.core.task.SyncTaskExecutor
 import org.springframework.core.task.TaskExecutor
+import org.springframework.core.task.support.TaskExecutorAdapter
 import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
 import java.time.Instant
@@ -381,7 +382,7 @@ class OutboxBulkLoadingTest {
                 BatchKeyDispatcher(
                     recordRepository = repository,
                     keyProcessor = OutboxRecordKeyProcessor(chain, settings.processing, clock),
-                    taskExecutor = executor,
+                    taskExecutor = TaskExecutorAdapter(executor),
                     settings = settings,
                     trigger = mockk(relaxed = true),
                 ),

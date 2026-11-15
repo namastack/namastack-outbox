@@ -24,6 +24,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.core.task.TaskExecutor
+import org.springframework.core.task.support.TaskExecutorAdapter
 import org.springframework.scheduling.TriggerContext
 import java.time.Clock
 import java.time.Duration
@@ -480,7 +481,7 @@ class ContinuousKeyDispatcherTest {
         return ContinuousKeyDispatcher(
             recordRepository = repository,
             keyProcessor = OutboxRecordKeyProcessor(invoker, settings.processing, clock),
-            taskExecutor = executor,
+            taskExecutor = TaskExecutorAdapter(executor),
             settings = settings,
             trigger = trigger,
             clock = clock,

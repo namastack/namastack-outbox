@@ -1,13 +1,11 @@
 package io.namastack.outbox.dispatch
 
-import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordRepository.Companion.MAX_RECORD_KEYS_PER_FETCH
 import io.namastack.outbox.runtime.OutboxRuntimeSettings
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.slf4j.LoggerFactory
-import org.springframework.core.task.TaskExecutor
-import org.springframework.core.task.support.TaskExecutorAdapter
+import org.springframework.core.task.AsyncTaskExecutor
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
 
@@ -18,8 +16,6 @@ import java.util.concurrent.CompletionException
  * and waits for every task to finish before it returns. The number of selected keys is reported to
  * the polling trigger against the batch size; a failed key query is reported as zero keys found.
  *
- * This type is part of the processing runtime. It is not intended to be used by applications.
- *
  * @param recordRepository Repository for loading record keys and records
  * @param keyProcessor Processor for the records of one key
  * @param taskExecutor Executor for parallel key processing
@@ -29,17 +25,14 @@ import java.util.concurrent.CompletionException
  * @author Aleksander Zamojski
  * @since 2.0.0
  */
-class BatchKeyDispatcher(
+internal class BatchKeyDispatcher(
     private val recordRepository: OutboxRecordRepository,
     private val keyProcessor: OutboxRecordKeyProcessor,
-    private val taskExecutor: TaskExecutor,
+    private val taskExecutor: AsyncTaskExecutor,
     private val settings: OutboxRuntimeSettings,
     private val trigger: OutboxPollingTrigger,
 ) : OutboxKeyDispatcher {
-    // Processing log output uses the scheduler's logger category.
-    private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
-
-    private val asyncTaskExecutor = TaskExecutorAdapter(taskExecutor)
+    private val log = LoggerFactory.getLogger(BatchKeyDispatcher::class.java)
 
     private val batchSize: Int = settings.polling.batchSize
 
@@ -83,7 +76,7 @@ class BatchKeyDispatcher(
                 chunk.forEach { key ->
                     val page = pages.getValue(key)
                     val completion =
-                        asyncTaskExecutor
+                        taskExecutor
                             .submitCompletable { keyProcessor.process(key, page) }
                             .exceptionally { failure ->
                                 val cause = (failure as? CompletionException)?.cause ?: failure

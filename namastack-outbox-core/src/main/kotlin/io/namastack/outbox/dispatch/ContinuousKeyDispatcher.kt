@@ -1,14 +1,12 @@
 package io.namastack.outbox.dispatch
 
-import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxRecordPage
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.OutboxRecordRepository.Companion.MAX_RECORD_KEYS_PER_FETCH
 import io.namastack.outbox.runtime.OutboxRuntimeSettings
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.slf4j.LoggerFactory
-import org.springframework.core.task.TaskExecutor
-import org.springframework.core.task.support.TaskExecutorAdapter
+import org.springframework.core.task.AsyncTaskExecutor
 import org.springframework.scheduling.support.SimpleTriggerContext
 import java.time.Clock
 import java.time.Duration
@@ -40,8 +38,6 @@ import java.util.concurrent.CompletionException
  * processing ends with an exception, an interrupt, shutdown, a compatibility cooldown, or a polling
  * trigger that returns no next execution. Every accepted key task finishes before [dispatch] returns.
  *
- * This type is part of the processing runtime. It is not intended to be used by applications.
- *
  * @param recordRepository Repository for loading record keys and records
  * @param keyProcessor Processor for the records of one key
  * @param taskExecutor Executor for parallel key processing
@@ -52,10 +48,10 @@ import java.util.concurrent.CompletionException
  * @author Aleksander Zamojski
  * @since 2.0.0
  */
-class ContinuousKeyDispatcher(
+internal class ContinuousKeyDispatcher(
     private val recordRepository: OutboxRecordRepository,
     private val keyProcessor: OutboxRecordKeyProcessor,
-    private val taskExecutor: TaskExecutor,
+    private val taskExecutor: AsyncTaskExecutor,
     private val settings: OutboxRuntimeSettings,
     private val trigger: OutboxPollingTrigger,
     private val clock: Clock,
@@ -64,10 +60,7 @@ class ContinuousKeyDispatcher(
         private val MIN_WAIT_TIMEOUT: Duration = Duration.ofMillis(1)
     }
 
-    // Processing log output uses the scheduler's logger category.
-    private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
-
-    private val asyncTaskExecutor = TaskExecutorAdapter(taskExecutor)
+    private val log = LoggerFactory.getLogger(ContinuousKeyDispatcher::class.java)
 
     private val batchSize: Int = settings.polling.batchSize
 
@@ -206,7 +199,7 @@ class ContinuousKeyDispatcher(
         ) {
             check(inFlightKeys.tryReserve(key)) { "No free slot for record key '$key'" }
             try {
-                asyncTaskExecutor
+                taskExecutor
                     .submitCompletable { processKey(key, page) }
                     .exceptionally { failure ->
                         val cause = (failure as? CompletionException)?.cause ?: failure

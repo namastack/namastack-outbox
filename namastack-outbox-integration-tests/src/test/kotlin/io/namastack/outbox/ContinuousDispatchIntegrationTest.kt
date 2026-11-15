@@ -1,7 +1,5 @@
 package io.namastack.outbox
 
-import io.namastack.outbox.dispatch.ContinuousKeyDispatcher
-import io.namastack.outbox.dispatch.OutboxKeyDispatcher
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.partition.PartitionHasher
@@ -16,6 +14,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Component
 import org.springframework.test.context.TestPropertySource
+import org.springframework.test.util.ReflectionTestUtils
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
@@ -54,7 +53,7 @@ class ContinuousDispatchIntegrationTest {
     private lateinit var jdbcClient: JdbcClient
 
     @Autowired
-    private lateinit var keyDispatcher: OutboxKeyDispatcher
+    private lateinit var processingScheduler: OutboxProcessingScheduler
 
     @Autowired
     private lateinit var processor: TestProcessor
@@ -74,7 +73,8 @@ class ContinuousDispatchIntegrationTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     fun `delivers every record exactly once in per-key order`() {
-        assertThat(keyDispatcher).isInstanceOf(ContinuousKeyDispatcher::class.java)
+        val keyDispatcher = ReflectionTestUtils.getField(processingScheduler, "keyDispatcher")
+        assertThat(keyDispatcher?.javaClass?.simpleName).isEqualTo("ContinuousKeyDispatcher")
 
         val keys = (1..20).map { "key-$it" } + SLOW_KEY
         val recordsPerKey = 5
