@@ -49,7 +49,7 @@ class ContinuousKeyDispatcherTest {
     private val trigger = mockk<OutboxPollingTrigger>(relaxed = true)
 
     private val workers = Executors.newCachedThreadPool()
-    private val dispatching = Executors.newSingleThreadExecutor()
+    private val dispatchingExecutor = Executors.newSingleThreadExecutor()
     private val dispatchingThread = AtomicReference<Thread>()
 
     /** Fake outbox table: due records per key in processing order. */
@@ -59,7 +59,7 @@ class ContinuousKeyDispatcherTest {
     private val keysWithFailure = ConcurrentHashMap.newKeySet<String>()
 
     /** Result of every key query, in query order. */
-    private val fetches = CopyOnWriteArrayList<List<String>>()
+    private val queries = CopyOnWriteArrayList<List<String>>()
 
     /** Ids of records processed, in completion order. */
     private val processed = CopyOnWriteArrayList<String>()
@@ -73,19 +73,19 @@ class ContinuousKeyDispatcherTest {
     private val activeByKey = ConcurrentHashMap<String, AtomicInteger>()
     private val concurrentKeyProcessing = AtomicBoolean(false)
 
-    private var waitTimeout: Duration = Duration.ofMinutes(1)
-    private var fetchFailure: (Int) -> Exception? = { null }
+    private var triggerDelay: Duration = Duration.ofMinutes(1)
+    private var queryFailure: (Int) -> Exception? = { null }
     private var pageLoadFailure: (Int) -> Exception? = { null }
 
     @BeforeEach
     fun setUp() {
         every { trigger.nextExecution(any()) } answers {
-            firstArg<TriggerContext>().lastCompletion()!!.plus(waitTimeout)
+            firstArg<TriggerContext>().lastCompletion()!!.plus(triggerDelay)
         }
 
         every { repository.findRecordKeysInPartitions(setOf(1), any(), any()) } answers {
-            fetchFailure(fetches.size + 1)?.let {
-                fetches.add(emptyList())
+            queryFailure(queries.size + 1)?.let {
+                queries.add(emptyList())
                 throw it
             }
             val strict = thirdArg<Boolean>()
@@ -96,7 +96,7 @@ class ContinuousKeyDispatcherTest {
                         .keys
                         .take(secondArg())
                 }
-            fetches.add(keys)
+            queries.add(keys)
             keys
         }
 
@@ -132,7 +132,7 @@ class ContinuousKeyDispatcherTest {
     @AfterEach
     fun tearDown() {
         blockers.values.forEach { it.countDown() }
-        dispatching.shutdownNow()
+        dispatchingExecutor.shutdownNow()
         workers.shutdownNow()
         assertThat(concurrentKeyProcessing.get()).describedAs("a key was processed twice at the same time").isFalse()
     }
@@ -169,64 +169,77 @@ class ContinuousKeyDispatcherTest {
 
         await().atMost(TIMEOUT_SECONDS, SECONDS).untilAsserted {
             assertThat(processed).containsExactly("b1", "c1", "d1")
-            assertThat(fetches).hasSize(4)
+            assertThat(queries).hasSize(4)
         }
         slow.countDown()
 
         run.get(TIMEOUT_SECONDS, SECONDS)
         assertThat(processed).hasSize(4)
-        assertThat(fetches).containsExactly(
+        assertThat(queries).containsExactly(
             listOf("A", "B"),
             listOf("A", "C"),
             listOf("A", "D"),
             listOf("A"),
-            emptyList(),
         )
+        verify(exactly = 4) { trigger.onPollResult(any(), any()) }
         verify(exactly = 1) { trigger.onPollResult(2, 2) }
         verify(exactly = 2) { trigger.onPollResult(1, 1) }
         verify(exactly = 1) { trigger.onPollResult(0, 1) }
-        verify(exactly = 1) { trigger.onPollResult(0, 2) }
         verify(exactly = 1) { invoker.process(match { it.id == "a1" }) }
     }
 
     @Test
-    fun `selects a key again in the same run after its task finished`() {
+    fun `selects a key again in the same run after a full batch finished`() {
+        add("A", "a1")
+        afterProcessing["a1"] = { add("A", "a2") }
+
+        dispatcher(batchSize = 1).dispatch(setOf(1)) { false }
+
+        assertThat(processed).containsExactly("a1", "a2")
+        assertThat(queries).containsExactly(listOf("A"), listOf("A"), emptyList())
+        verify(exactly = 2) { trigger.onPollResult(1, 1) }
+        verify(exactly = 1) { trigger.onPollResult(0, 1) }
+    }
+
+    @Test
+    fun `ends the run when every key of a partial batch has finished`() {
         add("A", "a1")
         afterProcessing["a1"] = { add("A", "a2") }
 
         dispatcher(batchSize = 4).dispatch(setOf(1)) { false }
 
-        assertThat(processed).hasSize(2)
-        assertThat(processed).containsExactly("a1", "a2")
+        assertThat(processed).containsExactly("a1")
+        assertThat(queries).containsExactly(listOf("A"))
+        verify(exactly = 1) { trigger.onPollResult(any(), any()) }
+        verify(exactly = 1) { trigger.onPollResult(1, 4) }
     }
 
     @Test
-    fun `waits for the refill threshold of finished keys before querying again`() {
-        add("A", "a1")
-        add("B", "b1")
-        add("C", "c1")
-        val slow = block("a1")
-        val first = block("b1")
-        val second = block("c1")
+    fun `waits for the refill threshold of finished keys before querying again after a full batch`() {
+        val keys = ('A'..'H').map { it.toString() }
+        keys.forEach { add(it, it.lowercase() + "1") }
+        val blocked = keys.associateWith { block(it.lowercase() + "1") }
 
         val run = startDispatch(dispatcher(batchSize = 8))
-        awaitStarted("a1", "b1", "c1")
+        awaitStarted(*keys.map { it.lowercase() + "1" }.toTypedArray())
 
-        first.countDown()
-        await().atMost(TIMEOUT_SECONDS, SECONDS).until { processed.contains("b1") }
-        await().during(Duration.ofMillis(200)).atMost(TIMEOUT_SECONDS, SECONDS).until { fetches.size == 1 }
+        blocked.getValue("A").countDown()
+        await().atMost(TIMEOUT_SECONDS, SECONDS).until { processed.contains("a1") }
+        await().during(Duration.ofMillis(200)).atMost(TIMEOUT_SECONDS, SECONDS).until { queries.size == 1 }
 
-        second.countDown()
-        await().atMost(TIMEOUT_SECONDS, SECONDS).until { fetches.size == 2 }
+        blocked.getValue("B").countDown()
+        await().atMost(TIMEOUT_SECONDS, SECONDS).until { queries.size == 2 }
 
-        slow.countDown()
+        blocked.values.forEach { it.countDown() }
         run.get(TIMEOUT_SECONDS, SECONDS)
-        assertThat(processed).hasSize(3)
+        assertThat(processed).hasSize(8)
+        verify(exactly = 1) { trigger.onPollResult(8, 8) }
+        verify(exactly = 1) { trigger.onPollResult(0, 2) }
     }
 
     @Test
     fun `queries again after the wait timeout when only a slow key remains`() {
-        waitTimeout = Duration.ofMillis(50)
+        triggerDelay = Duration.ofMillis(50)
         add("A", "a1")
         val slow = block("a1")
 
@@ -247,7 +260,7 @@ class ContinuousKeyDispatcherTest {
         dispatcher(batchSize = 10).dispatch(setOf(1)) { false }
 
         assertThat(processed).isEmpty()
-        assertThat(fetches).containsExactly(emptyList())
+        assertThat(queries).containsExactly(emptyList())
         verify(exactly = 1) { trigger.onPollResult(0, 10) }
         verify(exactly = 0) { repository.findIncompleteRecordPages(any()) }
     }
@@ -255,7 +268,7 @@ class ContinuousKeyDispatcherTest {
     @Test
     fun `reports a failed key query as nothing found`() {
         add("A", "a1")
-        fetchFailure = { IllegalStateException("query failed") }
+        queryFailure = { IllegalStateException("query failed") }
 
         dispatcher(batchSize = 10).dispatch(setOf(1)) { false }
 
@@ -276,7 +289,7 @@ class ContinuousKeyDispatcherTest {
 
         await().atMost(TIMEOUT_SECONDS, SECONDS).untilAsserted {
             assertThat(processed).containsExactly("b1", "c1")
-            assertThat(fetches.last()).containsExactly("A")
+            assertThat(queries.last()).containsExactly("A")
         }
         acknowledgement.countDown()
 
@@ -286,16 +299,17 @@ class ContinuousKeyDispatcherTest {
     }
 
     @Test
-    fun `does not select a key again within one wait timeout after an unexpected failure`() {
+    fun `ends the run when a key fails unexpectedly`() {
         add("X", "x1")
+        add("Y", "y1")
         every { invoker.process(match { it.id == "x1" }) } throws RuntimeException("boom")
 
-        dispatcher(batchSize = 4).dispatch(setOf(1)) { false }
+        dispatcher(batchSize = 1).dispatch(setOf(1)) { false }
 
-        assertThat(fetches).containsExactly(listOf("X"), listOf("X"))
+        assertThat(queries).containsExactly(listOf("X"))
+        assertThat(processed).isEmpty()
         verify(exactly = 1) { invoker.process(any()) }
-        verify(exactly = 1) { trigger.onPollResult(1, 4) }
-        verify(exactly = 1) { trigger.onPollResult(0, 4) }
+        verify(exactly = 1) { trigger.onPollResult(1, 1) }
     }
 
     @Test
@@ -319,7 +333,7 @@ class ContinuousKeyDispatcherTest {
         run.get(TIMEOUT_SECONDS, SECONDS)
         assertThat(processed).hasSize(1)
         assertThat(processed).containsExactly("a1")
-        assertThat(fetches).hasSize(1)
+        assertThat(queries).hasSize(1)
     }
 
     @ParameterizedTest
@@ -329,9 +343,9 @@ class ContinuousKeyDispatcherTest {
         add("A", "a1")
         val slow = block("a1")
         when (cause) {
-            StopCause.FETCH_FAILURE -> {
+            StopCause.QUERY_FAILURE -> {
                 add("B", "b1")
-                fetchFailure = { if (it == 2) IllegalStateException("query failed") else null }
+                queryFailure = { if (it == 2) IllegalStateException("query failed") else null }
             }
 
             StopCause.PAGE_LOAD_FAILURE -> {
@@ -366,7 +380,7 @@ class ContinuousKeyDispatcherTest {
             }
 
             else -> {
-                await().atMost(TIMEOUT_SECONDS, SECONDS).until { fetches.size >= cause.expectedFetches }
+                await().atMost(TIMEOUT_SECONDS, SECONDS).until { queries.size >= cause.expectedFetches }
             }
         }
         await().during(Duration.ofMillis(100)).atMost(TIMEOUT_SECONDS, SECONDS).until { !run.isDone }
@@ -374,7 +388,7 @@ class ContinuousKeyDispatcherTest {
         slow.countDown()
         run.get(TIMEOUT_SECONDS, SECONDS)
 
-        assertThat(fetches).hasSize(cause.expectedFetches)
+        assertThat(queries).hasSize(cause.expectedFetches)
         assertThat(processed).doesNotContain("c1")
         assertThat(processed).contains("a1")
         if (cause == StopCause.INTERRUPT) {
@@ -411,7 +425,7 @@ class ContinuousKeyDispatcherTest {
 
         run.get(TIMEOUT_SECONDS, SECONDS)
         assertThat(processed).hasSize(1)
-        assertThat(fetches).hasSize(1)
+        assertThat(queries).hasSize(1)
         assertThat(processed).containsExactly("a1")
     }
 
@@ -477,7 +491,7 @@ class ContinuousKeyDispatcherTest {
         dispatcher: ContinuousKeyDispatcher,
         isStopping: () -> Boolean = { false },
     ): Future<*> =
-        dispatching.submit {
+        dispatchingExecutor.submit {
             dispatchingThread.set(Thread.currentThread())
             try {
                 dispatcher.dispatch(setOf(1), isStopping)
@@ -511,7 +525,7 @@ class ContinuousKeyDispatcherTest {
     enum class StopCause(
         val expectedFetches: Int,
     ) {
-        FETCH_FAILURE(2),
+        QUERY_FAILURE(2),
         PAGE_LOAD_FAILURE(2),
         COMPATIBILITY_COOLDOWN(1),
         INTERRUPT(1),

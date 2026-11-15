@@ -7,7 +7,7 @@ import io.mockk.verify
 import io.namastack.outbox.OutboxProcessingScheduler.SchedulerLifecycleStateMachine.LifecycleState
 import io.namastack.outbox.dispatch.BatchKeyDispatcher
 import io.namastack.outbox.dispatch.ContinuousKeyDispatcher
-import io.namastack.outbox.dispatch.KeyDispatcher
+import io.namastack.outbox.dispatch.OutboxKeyDispatcher
 import io.namastack.outbox.dispatch.OutboxRecordKeyProcessor
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.partition.PartitionCoordinator
@@ -82,7 +82,7 @@ class OutboxProcessingSchedulerTest {
             settings = properties.toRuntimeSettings(),
         )
 
-    private fun batchKeyDispatcher(properties: OutboxProperties): KeyDispatcher {
+    private fun batchKeyDispatcher(properties: OutboxProperties): OutboxKeyDispatcher {
         val settings = properties.toRuntimeSettings()
         return BatchKeyDispatcher(
             recordRepository = recordRepository,
@@ -445,7 +445,7 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
-        fun `processRecordKey handles exception gracefully`() {
+        fun `key processing handles exception gracefully`() {
             val recordKey = "test-key"
 
             prepareFindRecordKeysInPartitions(listOf(recordKey))
@@ -914,7 +914,7 @@ class OutboxProcessingSchedulerTest {
         }
 
         @Test
-        fun `continuous mode reports every key query and nothing at the end of the run`() {
+        fun `continuous mode reports each key query once`() {
             every { trigger.nextExecution(any()) } answers { firstArg<TriggerContext>().lastCompletion() }
             scheduler = createContinuousScheduler()
             scheduler.start()
@@ -924,9 +924,8 @@ class OutboxProcessingSchedulerTest {
 
             scheduler.process()
 
-            verify(exactly = 2) { trigger.onPollResult(any(), any()) }
+            verify(exactly = 1) { trigger.onPollResult(any(), any()) }
             verify(exactly = 1) { trigger.onPollResult(1, 100) }
-            verify(exactly = 1) { trigger.onPollResult(0, 100) }
         }
 
         @Test

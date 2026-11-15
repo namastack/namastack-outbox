@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicReference
  * first record that is not completed. A record whose payload type or handler is unavailable on this
  * instance activates a compatibility cooldown, during which the scheduler skips polling.
  *
- * This type is part of the processing runtime and shared by all [KeyDispatcher] implementations.
+ * This type is part of the processing runtime and shared by all [OutboxKeyDispatcher] implementations.
  * It is not intended to be used or implemented by applications.
  *
  * @param recordProcessorChainInvoker Invoker for the instrumented record processor chain
@@ -56,7 +56,7 @@ class OutboxRecordKeyProcessor(
      * @return `true` when the key was processed without an unexpected exception, `false` when
      *         processing ended with an exception (including compatibility failures)
      */
-    fun processRecordKey(
+    fun process(
         recordKey: String,
         page: OutboxRecordPage,
     ): Boolean {

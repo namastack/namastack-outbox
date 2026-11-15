@@ -1,7 +1,7 @@
 package io.namastack.outbox
 
 import io.micrometer.observation.ObservationRegistry
-import io.namastack.outbox.dispatch.KeyDispatcher
+import io.namastack.outbox.dispatch.OutboxKeyDispatcher
 import io.namastack.outbox.partition.PartitionCoordinator
 import io.namastack.outbox.runtime.OutboxRuntimeSettings
 import io.namastack.outbox.trigger.OutboxPollingTrigger
@@ -21,7 +21,7 @@ import kotlin.concurrent.withLock
  * Scheduler for processing outbox records with partition-aware distribution.
  *
  * Each run takes a stable partition assignment from the PartitionCoordinator and lets the
- * [KeyDispatcher] select record keys from the assigned partitions and process them on the
+ * [OutboxKeyDispatcher] select record keys from the assigned partitions and process them on the
  * processing executor. The dispatcher returns only after every accepted key task has finished.
  *
  * Record processing is delegated to a chain of processors that handle the complete
@@ -43,7 +43,7 @@ class OutboxProcessingScheduler(
     private val taskScheduler: TaskScheduler,
     private val observationRegistry: () -> ObservationRegistry,
     private val partitionCoordinator: PartitionCoordinator,
-    private val keyDispatcher: KeyDispatcher,
+    private val keyDispatcher: OutboxKeyDispatcher,
     private val settings: OutboxRuntimeSettings,
 ) : SmartLifecycle {
     companion object {
@@ -121,7 +121,7 @@ class OutboxProcessingScheduler(
     /**
      * Main processing cycle. Invoked by the scheduler according to the configured trigger.
      *
-     * Lets the [KeyDispatcher] process record keys of the assigned partitions in parallel.
+     * Lets the [OutboxKeyDispatcher] process record keys of the assigned partitions in parallel.
      * Each record is handled by the processor chain (handler → retry → fallback → failure).
      * If the scheduler is not idle or a compatibility cooldown is active, the cycle is skipped.
      */

@@ -1,7 +1,7 @@
 package io.namastack.outbox
 
 import io.namastack.outbox.dispatch.ContinuousKeyDispatcher
-import io.namastack.outbox.dispatch.KeyDispatcher
+import io.namastack.outbox.dispatch.OutboxKeyDispatcher
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.partition.PartitionHasher
@@ -54,7 +54,7 @@ class ContinuousDispatchIntegrationTest {
     private lateinit var jdbcClient: JdbcClient
 
     @Autowired
-    private lateinit var keyDispatcher: KeyDispatcher
+    private lateinit var keyDispatcher: OutboxKeyDispatcher
 
     @Autowired
     private lateinit var processor: TestProcessor

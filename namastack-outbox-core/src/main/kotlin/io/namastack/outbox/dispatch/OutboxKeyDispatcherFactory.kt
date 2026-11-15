@@ -9,7 +9,7 @@ import org.springframework.core.task.TaskExecutor
 import java.time.Clock
 
 /**
- * Factory for creating [KeyDispatcher] instances based on effective runtime settings.
+ * Factory for creating [OutboxKeyDispatcher] instances based on effective runtime settings.
  *
  * - [DispatchMode.BATCH]: Creates a [BatchKeyDispatcher]
  * - [DispatchMode.CONTINUOUS]: Creates a [ContinuousKeyDispatcher]
@@ -36,7 +36,7 @@ internal object OutboxKeyDispatcherFactory {
         recordProcessorChainInvoker: OutboxRecordProcessorChainInvoker,
         taskExecutor: TaskExecutor,
         clock: Clock,
-    ): KeyDispatcher {
+    ): OutboxKeyDispatcher {
         val keyProcessor = OutboxRecordKeyProcessor(recordProcessorChainInvoker, settings.processing, clock)
         return when (settings.processing.dispatchMode) {
             DispatchMode.BATCH -> {

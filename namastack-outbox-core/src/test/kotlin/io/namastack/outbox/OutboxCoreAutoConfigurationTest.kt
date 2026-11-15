@@ -18,7 +18,7 @@ import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
 import io.namastack.outbox.dispatch.BatchKeyDispatcher
 import io.namastack.outbox.dispatch.ContinuousKeyDispatcher
-import io.namastack.outbox.dispatch.KeyDispatcher
+import io.namastack.outbox.dispatch.OutboxKeyDispatcher
 import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxHandlerInfrastructureFactory
 import io.namastack.outbox.handler.OutboxRecordMetadata
@@ -294,7 +294,7 @@ class OutboxCoreAutoConfigurationTest {
 
                     // verify injected Executor is the same as outboxTaskExecutor
                     val keyDispatcher = ReflectionTestUtils.getField(processingScheduler, "keyDispatcher")
-                    assertThat(keyDispatcher).isSameAs(context.getBean<KeyDispatcher>())
+                    assertThat(keyDispatcher).isSameAs(context.getBean<OutboxKeyDispatcher>())
                     val injectedExecutor =
                         ReflectionTestUtils.getField(keyDispatcher!!, "taskExecutor") as TaskExecutor
                     val outboxTaskExecutor = context.getBean("outboxTaskExecutor") as TaskExecutor
@@ -713,8 +713,8 @@ class OutboxCoreAutoConfigurationTest {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .run { context ->
-                    assertThat(context).hasSingleBean(KeyDispatcher::class.java)
-                    assertThat(context.getBean<KeyDispatcher>()).isInstanceOf(BatchKeyDispatcher::class.java)
+                    assertThat(context).hasSingleBean(OutboxKeyDispatcher::class.java)
+                    assertThat(context.getBean<OutboxKeyDispatcher>()).isInstanceOf(BatchKeyDispatcher::class.java)
                 }
         }
 
@@ -724,8 +724,8 @@ class OutboxCoreAutoConfigurationTest {
                 .withUserConfiguration(MinimalTestConfig::class.java)
                 .withPropertyValues("namastack.outbox.processing.dispatch-mode=continuous")
                 .run { context ->
-                    assertThat(context).hasSingleBean(KeyDispatcher::class.java)
-                    val dispatcher = context.getBean<KeyDispatcher>()
+                    assertThat(context).hasSingleBean(OutboxKeyDispatcher::class.java)
+                    val dispatcher = context.getBean<OutboxKeyDispatcher>()
                     assertThat(dispatcher).isInstanceOf(ContinuousKeyDispatcher::class.java)
                     assertThat(ReflectionTestUtils.getField(dispatcher, "trigger"))
                         .isSameAs(context.getBean<OutboxPollingTrigger>())

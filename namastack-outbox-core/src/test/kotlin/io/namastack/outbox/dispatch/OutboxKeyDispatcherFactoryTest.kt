@@ -19,7 +19,7 @@ class OutboxKeyDispatcherFactoryTest {
         assertThat(create(DispatchMode.CONTINUOUS)).isInstanceOf(ContinuousKeyDispatcher::class.java)
     }
 
-    private fun create(mode: DispatchMode): KeyDispatcher =
+    private fun create(mode: DispatchMode): OutboxKeyDispatcher =
         OutboxKeyDispatcherFactory.create(
             settings = OutboxRuntimeSettings(processing = OutboxRuntimeSettings.Processing(dispatchMode = mode)),
             trigger = mockk(relaxed = true),

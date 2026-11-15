@@ -35,7 +35,7 @@ class BatchKeyDispatcher(
     private val taskExecutor: TaskExecutor,
     private val settings: OutboxRuntimeSettings,
     private val trigger: OutboxPollingTrigger,
-) : KeyDispatcher {
+) : OutboxKeyDispatcher {
     // Processing log output uses the scheduler's logger category.
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
@@ -47,7 +47,7 @@ class BatchKeyDispatcher(
         partitions: Set<Int>,
         isStopping: () -> Boolean,
     ) {
-        val recordKeys = loadRecordKeys(partitions)
+        val recordKeys = queryRecordKeys(partitions)
         trigger.onPollResult(found = recordKeys.size, requested = batchSize)
         if (recordKeys.isEmpty()) return
 
@@ -63,7 +63,7 @@ class BatchKeyDispatcher(
      *
      * @return record keys to process, or an empty list if the query failed
      */
-    private fun loadRecordKeys(partitions: Set<Int>): List<String> =
+    private fun queryRecordKeys(partitions: Set<Int>): List<String> =
         try {
             recordRepository.findRecordKeysInPartitions(
                 partitions = partitions,
@@ -71,20 +71,20 @@ class BatchKeyDispatcher(
                 ignoreRecordKeysWithPreviousFailure = settings.processing.stopOnFirstFailure,
             )
         } catch (ex: Exception) {
-            log.error("Error loading record keys; skipping this run", ex)
+            log.error("Error querying record keys; skipping this run", ex)
             emptyList()
         }
 
     private fun processBatch(recordKeys: List<String>) {
         val completions = ArrayList<CompletableFuture<*>>(recordKeys.size)
         try {
-            recordKeys.chunked(MAX_RECORD_KEYS_PER_FETCH).forEach { keys ->
-                val pages = recordRepository.findIncompleteRecordPages(keys.toSet())
-                keys.forEach { key ->
+            recordKeys.chunked(MAX_RECORD_KEYS_PER_FETCH).forEach { chunk ->
+                val pages = recordRepository.findIncompleteRecordPages(chunk.toSet())
+                chunk.forEach { key ->
                     val page = pages.getValue(key)
                     val completion =
                         asyncTaskExecutor
-                            .submitCompletable { keyProcessor.processRecordKey(key, page) }
+                            .submitCompletable { keyProcessor.process(key, page) }
                             .exceptionally { failure ->
                                 val cause = (failure as? CompletionException)?.cause ?: failure
                                 log.error("Error processing key {}", key, cause)

@@ -4,7 +4,7 @@ import io.micrometer.observation.ObservationRegistry
 import io.namastack.outbox.OutboxProcessingScheduler
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.OutboxRecordRepository
-import io.namastack.outbox.dispatch.KeyDispatcher
+import io.namastack.outbox.dispatch.OutboxKeyDispatcher
 import io.namastack.outbox.dispatch.OutboxKeyDispatcherFactory
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import io.namastack.outbox.partition.PartitionAssignmentCache
@@ -80,7 +80,7 @@ class OutboxCoreSchedulingAutoConfiguration {
         properties: OutboxProperties,
         clock: Clock,
         beanFactory: BeanFactory,
-    ): KeyDispatcher =
+    ): OutboxKeyDispatcher =
         OutboxKeyDispatcherFactory.create(
             settings = properties.toRuntimeSettings(),
             trigger = trigger,
@@ -96,7 +96,7 @@ class OutboxCoreSchedulingAutoConfiguration {
         trigger: OutboxPollingTrigger,
         observationRegistry: ObjectProvider<ObservationRegistry>,
         partitionCoordinator: PartitionCoordinator,
-        keyDispatcher: KeyDispatcher,
+        keyDispatcher: OutboxKeyDispatcher,
         properties: OutboxProperties,
         beanFactory: BeanFactory,
     ): OutboxProcessingScheduler {

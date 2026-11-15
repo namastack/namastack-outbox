@@ -17,7 +17,7 @@ package io.namastack.outbox.dispatch
  * @author Aleksander Zamojski
  * @since 2.0.0
  */
-interface KeyDispatcher {
+interface OutboxKeyDispatcher {
     /**
      * Runs one processing run for the given partitions.
      *
