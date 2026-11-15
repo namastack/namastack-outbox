@@ -34,7 +34,7 @@ guarantees, scheduling behavior, and configuration, so they are recorded here.
 - No schema change and no database-specific scheduling logic.
 - Waiting is driven by completion signals and bounded timeouts, never by a busy loop. Query
   volume while waiting is not higher than regular polling.
-- Batch processing stays the default and keeps its current behavior.
+- Batch processing stays the default. Its key selection and processing are unchanged.
 - Non-goal: preempting slow handlers, or helping when every slot is occupied.
 - Non-goal: capacity isolation between processing groups (issue #532).
 - Non-goal: bounding the run length and yielding to partition rebalancing. This ADR does not
@@ -103,39 +103,54 @@ Option D2 for refilling, and Option E2 for the wait timeout.
    and `continuous`. No other property is added.
 2. **Limits.**
    - **In-flight limit:** at most `polling.batch-size` keys are in flight. A key is in flight
-     from its reservation until its task finishes, including the acknowledged completion
-     commit. The free slots are the batch size minus the keys in flight.
-   - **Refill threshold:** `max(1, batch-size / 4)` keys, using integer division. It is internal
-     and not configurable.
-3. **Run algorithm.** Within one stable partition assignment:
-   1. Query `findRecordKeysInPartitions` with the batch size as limit, skip keys that are in
-      flight, and keep at most as many keys as there are free slots.
-   2. Report the fetch to the trigger with `onPollResult(found, requested)`, where `requested`
-      is the number of free slots and `found` the number of keys kept.
-   3. Reserve each kept key, then load its records with `findIncompleteRecordPages` in the
-      existing chunks, and submit one task per key. Records are loaded only after the
-      reservation, so a key list from a slightly older query can cause wasted work but never
-      repeated processing.
-   4. If nothing is in flight and the fetch found no keys, end the run.
-   5. Otherwise wait until at least the refill threshold of keys have finished since the last
-      fetch, or until the wait timeout passes, whichever comes first, and continue with step 1.
-4. **Wait timeout.** Before each wait, the scheduler calls the trigger's `nextExecution` with a
-   context whose last completion is now, and uses the difference to now. The fixed trigger
-   returns `polling.fixed.interval`; the adaptive trigger returns its current delay. A `null`
-   result ends dispatching for the run; a delay below 1 ms is raised to 1 ms.
-5. **Trigger API.** `OutboxPollingTrigger.onTaskComplete(recordCount: Int)` is replaced by
+     from the reservation of its slot until its task finishes, including the acknowledged
+     completion commit. The free slots are the batch size minus the keys in flight.
+   - **Refill threshold:** `max(1, batch-size / 4)` free slots, using integer division. It is
+     internal and not configurable.
+3. **Fetch.** A fetch queries `findRecordKeysInPartitions` with the batch size as limit, skips
+   keys that are in flight, keeps at most as many keys as there are free slots, and reports the
+   result to the trigger with `onPollResult(found, requested)`, where `requested` is the number of
+   free slots and `found` the number of keys kept. It then loads the records of the kept keys with
+   `findIncompleteRecordPages` in chunks, reserves one slot per key, and submits one task per key.
+   Only the dispatching thread fetches and reserves, and a key leaves the in-flight set only after
+   its task has finished, so a key list from a slightly older query can cause wasted work but
+   never repeated processing. With no free slot, the fetch skips the query and reports nothing.
+4. **Run algorithm.** Within one stable partition assignment, the run fetches and continues by
+   the size of the fetched batch:
+   - **Empty batch** with nothing in flight: the run ends. The scheduler starts the next run when
+     the trigger fires.
+   - **Partial batch** (fewer keys than free slots, including an empty batch while keys are in
+     flight): wait until every key in flight has finished, which ends the run, or until the wait
+     timeout passes, and fetch again. A run whose keys all finish behaves like a batch run.
+   - **Full batch** (a key for every free slot, or no free slot): wait until at least the refill
+     threshold of slots is free, or until the wait timeout passes, and fetch again.
+5. **Wait timeout.** Before each wait, the continuous dispatcher calls the trigger's
+   `nextExecution` with a context whose last completion is now, and uses the difference to now.
+   The fixed trigger returns `polling.fixed.interval`; the adaptive trigger returns its current
+   delay. A `null` result ends dispatching for the run; a delay below 1 ms is raised to 1 ms.
+6. **Trigger API.** `OutboxPollingTrigger.onTaskComplete(recordCount: Int)` is replaced by
    `onPollResult(found: Int, requested: Int)`, with a no-op default. `AdaptivePollingTrigger`
    applies its rule relative to `requested`: a full result halves the delay down to
-   `min-interval`, a result of at most `requested / 4` doubles it up to `max-interval`.
-   - Batch mode calls `onPollResult(count, batch-size)` once at the end of each run, where
-     `count` is the number of keys processed.
-   - Continuous mode calls it after every fetch in the run and not at the end of the run.
-6. **Errors and lifecycle.** A failed fetch or record load, a rejected submission, an
-   interrupt, shutdown, or a compatibility cooldown raised by any task stops further dispatch
-   for the run. A rejected submission releases its reservation immediately. All accepted tasks
-   are drained before the assignment is released, as in batch processing.
-7. **Implementation shape.** Batch and continuous dispatch are separate strategies behind an
-   internal interface used by `OutboxProcessingScheduler`, so the batch path stays unchanged.
+   `min-interval`, a result of at most `requested / 4` doubles it up to `max-interval`, and a
+   result with `requested` of zero leaves it unchanged.
+   - Each dispatcher reports its own key queries; the scheduler reports nothing.
+   - Batch mode calls `onPollResult(found, batch-size)` once per run, right after the key query,
+     where `found` is the number of keys returned.
+   - Continuous mode calls it after every fetch that runs a query.
+   - A failed key query is reported as zero keys found. A run that never reaches a key query,
+     because no partitions are assigned or the assignment lookup fails, reports nothing, and the
+     trigger keeps its delay.
+7. **Errors and lifecycle.** A failed key query or record load, a rejected submission, a key
+   whose processing ends with an exception, an interrupt, shutdown, a compatibility cooldown
+   raised by any task, or a trigger that returns no next execution stops further dispatch for
+   the run. A rejected submission releases its slot immediately. All accepted tasks are drained,
+   ignoring interrupts, before the assignment is released, as in batch processing.
+8. **Implementation shape.** Batch and continuous dispatch are separate strategies,
+   `BatchKeyDispatcher` and `ContinuousKeyDispatcher`, behind the `OutboxKeyDispatcher`
+   interface used by `OutboxProcessingScheduler`. `OutboxKeyDispatcherFactory` creates the
+   strategy for the configured mode, and auto-configuration exposes it as a bean. The
+   interface is public because the scheduler's constructor and the bean expose it, but it is
+   part of the processing runtime and not intended for applications.
 
 ## Rationale
 
@@ -155,17 +170,31 @@ within one polling interval rather than after the slowest key.
 Asking the trigger for its interval keeps fixed and adaptive polling behaving the same way
 inside a run as between runs, without a separate set of wait settings.
 
+Ending the run once a partial batch has finished hands the pause between polls back to the
+trigger, exactly as in batch processing: a partial batch means the backlog is drained, so
+there is nothing to refill. Ending the run when a key fails unexpectedly means a persistent
+failure costs one key query per trigger interval, as in batch processing, without tracking
+failed keys inside the run.
+
+Letting each dispatcher report its own key queries gives the trigger one result per query in
+both modes. Runs without a query report nothing, because they cost almost nothing: the
+partition assignment is cached.
+
 ## Consequences
 
 - Free capacity is reused while slow keys run, and records that arrive during a slow key are
   picked up within one polling interval.
 - Under load, the instance runs more key queries and smaller record loads than batch
   processing, about one per refill threshold of completed keys. This must be measured.
-- A run under sustained load does not end until the run-length decision below is made.
-  Continuous dispatch must not be released before that.
+- A run whose fetches keep returning full batches does not end until the run-length decision
+  below is made. Continuous dispatch must not be released before that.
+- Shutdown and a compatibility cooldown are noticed only when a wait ends, which is at most
+  one wait timeout after they start.
 - Renaming `onTaskComplete` to `onPollResult` and adding the `requested` parameter is a
-  breaking change for custom `OutboxPollingTrigger` implementations. Release notes must
-  describe the migration.
+  breaking change for custom `OutboxPollingTrigger` implementations. The batch-size
+  parameter of the `AdaptivePollingTrigger` constructor is removed. Release notes must describe the migration.
+- In batch mode, the adaptive trigger keeps its delay while no partitions are assigned,
+  instead of backing off.
 - With platform threads, queued keys are reserved and their records loaded before a thread is
   free, as in batch processing. Users keep `batch-size` above `executor-core-pool-size` to
   keep threads busy between refills; the defaults (10 and 4) already do so.
