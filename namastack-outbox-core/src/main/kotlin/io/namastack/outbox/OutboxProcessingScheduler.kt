@@ -162,6 +162,7 @@ class OutboxProcessingScheduler internal constructor(
      *
      * Lets the [OutboxKeyDispatcher] process record keys of the assigned partitions in parallel.
      * Each record is handled by the processor chain (handler → retry → fallback → failure).
+     * A run that keeps dispatching ends when a partition rebalance is due or shutdown starts.
      * If the scheduler is not idle or a compatibility cooldown is active, the cycle is skipped.
      */
     fun process() {
@@ -172,7 +173,9 @@ class OutboxProcessingScheduler internal constructor(
             partitionCoordinator.withStableAssignments { partitions ->
                 if (partitions.isNotEmpty()) {
                     log.debug("Processing {} partitions: {}", partitions.size, partitions.sorted())
-                    keyDispatcher.dispatch(partitions, lifecycle::isStopping)
+                    keyDispatcher.dispatch(partitions) {
+                        partitionCoordinator.isRebalanceDue() || lifecycle.isStopping()
+                    }
                 }
             }
         } catch (ex: Exception) {

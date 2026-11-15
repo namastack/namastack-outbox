@@ -20,11 +20,12 @@ internal interface OutboxKeyDispatcher {
      * Runs one processing run for the given partitions.
      *
      * @param partitions Partitions owned by this instance for the duration of the run
-     * @param isStopping Reports whether the scheduler is shutting down
+     * @param shouldStop Reports whether the run must stop dispatching new keys, because
+     *        a partition rebalance is due or the scheduler is shutting down
      */
     fun dispatch(
         partitions: Set<Int>,
-        isStopping: () -> Boolean,
+        shouldStop: () -> Boolean,
     )
 
     /**

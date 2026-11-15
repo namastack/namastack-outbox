@@ -15,6 +15,7 @@ import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.runtime.toRuntimeSettings
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -32,7 +33,9 @@ import java.time.ZoneId
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.concurrent.TimeUnit.SECONDS
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
@@ -963,6 +966,49 @@ class OutboxProcessingSchedulerTest {
                 stopping.get(5, SECONDS)
 
                 assertThat(scheduler.isRunning()).isFalse()
+                verify(exactly = 1) { recordRepository.findRecordKeysInPartitions(any(), any(), any()) }
+                verify(exactly = 1) { recordProcessorChainInvoker.process(record) }
+            } finally {
+                release.countDown()
+                executor.shutdownNow()
+                workers.shutdownNow()
+            }
+        }
+
+        @Test
+        fun `continuous mode stops dispatching when a rebalance is due`() {
+            every { trigger.nextExecution(any()) } answers
+                { firstArg<TriggerContext>().lastCompletion()!!.plusMillis(10) }
+            every { partitionCoordinator.isRebalanceDue() } returnsMany listOf(false, true)
+            val workers = Executors.newCachedThreadPool()
+            scheduler = createContinuousScheduler(executor = { workers.execute(it) })
+            scheduler.start()
+            val recordKey = "slow-key"
+            val record =
+                OutboxRecordTestFactory.outboxRecord(
+                    recordKey = recordKey,
+                    nextRetryAt = Instant.now(clock).minusSeconds(1),
+                )
+            prepareFindRecordKeysInPartitions(listOf(recordKey))
+            prepareRecordPage(recordKey, listOf(record))
+            val started = CountDownLatch(1)
+            val release = CountDownLatch(1)
+            every { recordProcessorChainInvoker.process(record) } answers {
+                started.countDown()
+                release.await(5, SECONDS)
+                OutboxRecordProcessingOutcome.COMPLETED
+            }
+            val executor = Executors.newSingleThreadExecutor()
+            try {
+                val processing = executor.submit { scheduler.process() }
+                assertThat(started.await(5, SECONDS)).isTrue()
+
+                // The run drains the key in flight before it releases the assignment.
+                assertThatThrownBy { processing.get(200, MILLISECONDS) }
+                    .isInstanceOf(TimeoutException::class.java)
+                release.countDown()
+                processing.get(5, SECONDS)
+
                 verify(exactly = 1) { recordRepository.findRecordKeysInPartitions(any(), any(), any()) }
                 verify(exactly = 1) { recordProcessorChainInvoker.process(record) }
             } finally {

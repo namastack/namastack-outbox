@@ -490,12 +490,12 @@ class ContinuousKeyDispatcherTest {
 
     private fun startDispatch(
         dispatcher: ContinuousKeyDispatcher,
-        isStopping: () -> Boolean = { false },
+        shouldStop: () -> Boolean = { false },
     ): Future<*> =
         dispatchingExecutor.submit {
             dispatchingThread.set(Thread.currentThread())
             try {
-                dispatcher.dispatch(setOf(1), isStopping)
+                dispatcher.dispatch(setOf(1), shouldStop)
             } finally {
                 interruptedAfterDispatch.set(Thread.interrupted())
             }

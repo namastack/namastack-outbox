@@ -35,10 +35,12 @@ guarantees, scheduling behavior, and configuration, so they are recorded here.
 - Waiting is driven by completion signals and bounded timeouts, never by a busy loop. Query
   volume while waiting is not higher than regular polling.
 - Batch processing stays the default. Its key selection and processing are unchanged.
+- A run ends when a partition rebalance is due, so a rebalance waits at most for the keys in
+  flight, as in batch processing. No new configuration.
 - Non-goal: preempting slow handlers, or helping when every slot is occupied.
 - Non-goal: capacity isolation between processing groups (issue #532).
-- Non-goal: bounding the run length and yielding to partition rebalancing. This ADR does not
-  decide it; see Follow-up Work.
+- Non-goal: bounding the rebalance delay when a handler hangs. Processing timeouts are a separate
+  decision.
 
 ## Considered Options
 
@@ -94,10 +96,32 @@ fastest rate while a slow key runs and nothing new arrives.
 adaptive trigger backs off while fetches find nothing and speeds up when they are full,
 inside a run as between runs.
 
+### Ending a run for a rebalance
+
+**Option F1: The remaining delay of the scheduled rebalance** (`ScheduledFuture.getDelay()`).
+Its meaning depends on the scheduler implementation, and it is unverified for user-supplied
+schedulers.
+
+**Option F2: The coordinator's own rebalance deadline**, plus threads queued on the assignment
+lock. The coordinator records when its fixed-delay schedule makes the next rebalance due, which
+works with any scheduler. The queued-thread check covers a rebalance that already waits for the
+lock, as with virtual threads.
+
+**Option F3: A configurable maximum run duration.** It duplicates the rebalance deadline and
+adds a setting.
+
+### Next run after a rebalance yield
+
+**Option G1: Start the next run immediately.** It needs a trigger wrapper, a signal that work
+remains, and a guard against the next run taking the assignment lock before the rebalance.
+
+**Option G2: Schedule the next run by the polling trigger**, as after any other run.
+
 ## Decision
 
 Option A2 for configuration, Option B2 for the in-flight limit, Option C2 for key selection,
-Option D2 for refilling, and Option E2 for the wait timeout.
+Option D2 for refilling, Option E2 for the wait timeout, Option F2 for ending a run for a
+rebalance, and Option G2 for the next run after a yield.
 
 1. **Configuration.** `namastack.outbox.processing.dispatch-mode` accepts `batch` (default)
    and `continuous`. No other property is added.
@@ -141,11 +165,19 @@ Option D2 for refilling, and Option E2 for the wait timeout.
      because no partitions are assigned or the assignment lookup fails, reports nothing, and the
      trigger keeps its delay.
 7. **Errors and lifecycle.** A failed key query or record load, a rejected submission, a key
-   whose processing ends with an exception, an interrupt, shutdown, a compatibility cooldown
-   raised by any task, or a trigger that returns no next execution stops further dispatch for
-   the run. A rejected submission releases its slot immediately. All accepted tasks are drained,
-   ignoring interrupts, before the assignment is released, as in batch processing.
-8. **Implementation shape.** Batch and continuous dispatch are separate strategies,
+   whose processing ends with an exception, an interrupt, shutdown, a due rebalance (item 8), a
+   compatibility cooldown raised by any task, or a trigger that returns no next execution stops
+   further dispatch for the run. A rejected submission releases its slot immediately. All
+   accepted tasks are drained, ignoring interrupts, before the assignment is released, as in
+   batch processing.
+8. **Rebalance yield.** `PartitionCoordinator` reports a rebalance as due when the time since the
+   last rebalance completed reaches `instance.rebalance-interval`, which is when its fixed-delay
+   schedule runs it, or when a thread waits for the assignment lock. A stopped coordinator reports
+   none. The scheduler combines this with shutdown into the stop signal the dispatcher checks
+   before every fetch. Once it is set, the run stops fetching, drains its keys in flight, and
+   releases the assignment. The rebalance runs, and the polling trigger schedules the next run.
+   Batch processing ends after one batch and needs no check.
+9. **Implementation shape.** Batch and continuous dispatch are separate strategies,
    `BatchKeyDispatcher` and `ContinuousKeyDispatcher`, behind the `OutboxKeyDispatcher`
    interface used by `OutboxProcessingScheduler`. The scheduler creates the strategy for the
    configured mode through `OutboxKeyDispatcherFactory`. The strategies are internal to the core
@@ -179,14 +211,22 @@ Letting each dispatcher report its own key queries gives the trigger one result 
 both modes. Runs without a query report nothing, because they cost almost nothing: the
 partition assignment is cached.
 
+The rebalance deadline bounds the run length without a new setting, and the coordinator's own
+schedule gives the same answer for every scheduler implementation. Scheduling the next run by
+the trigger keeps one path for starting runs; removing the pause after a full run is the subject
+of issue #540 for both modes.
+
 ## Consequences
 
 - Free capacity is reused while slow keys run, and records that arrive during a slow key are
   picked up within one polling interval.
 - Under load, the instance runs more key queries and smaller record loads than batch
   processing, about one per refill threshold of completed keys. This must be measured.
-- A run whose fetches keep returning full batches does not end until the run-length decision
-  below is made. Continuous dispatch must not be released before that.
+- Under sustained load, a run ends about once per rebalance interval, and the next run starts
+  after one trigger delay: `polling.fixed.interval`, or the adaptive delay, which full fetches
+  have reduced to `polling.adaptive.min-interval`. Issue #540 covers removing that pause.
+- A rebalance waits for the slowest key in flight when it becomes due, as in batch processing.
+  A hanging handler delays it without bound.
 - Shutdown and a compatibility cooldown stop further fetches; batch processing finishes its
   whole batch in both cases. They are checked before each fetch, so a fetch already running when
   they start still submits its keys. A wait ends at the latest when every key in flight has
@@ -204,13 +244,10 @@ partition assignment is cached.
 
 ## Follow-up Work
 
-- Decide how a continuous run ends under sustained load and yields to partition rebalancing:
-  a maximum run duration bounded by `instance.rebalance-interval`, and a rebalance-due signal
-  such as queued threads on the assignment lock or the coordinator's last rebalance time.
 - Measure uniform and mixed handler durations, including a few slow keys among many fast keys
   and new arrivals after the backlog drains. Compare fast-key latency, executor usage, query
-  volume, memory, and rebalance delay against batch processing, and exercise node joins,
-  crashes, shutdown, retries, and task rejection with keys in flight.
+  volume, memory, and rebalance delay under sustained load against batch processing, and
+  exercise node joins, crashes, shutdown, retries, and task rejection with keys in flight.
 - Revisit the refill threshold or an explicit prefetch buffer if measurements show idle
   threads while refill queries run.
 - Document the mode in `namastack-outbox-docs/docs/reference/`.

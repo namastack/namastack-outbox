@@ -38,7 +38,7 @@ internal class BatchKeyDispatcher(
 
     override fun dispatch(
         partitions: Set<Int>,
-        isStopping: () -> Boolean,
+        shouldStop: () -> Boolean,
     ) {
         val recordKeys = queryRecordKeys(partitions)
         trigger.onPollResult(found = recordKeys.size, requested = batchSize)

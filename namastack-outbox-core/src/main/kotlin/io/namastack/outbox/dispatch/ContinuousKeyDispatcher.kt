@@ -35,8 +35,8 @@ import java.util.concurrent.CompletionException
  *   counts as a full batch.
  *
  * A run also ends after a failed key query or record load, a rejected submission, a key whose
- * processing ends with an exception, an interrupt, shutdown, a compatibility cooldown, or a polling
- * trigger that returns no next execution. Every accepted key task finishes before [dispatch] returns.
+ * processing ends with an exception, an interrupt, shutdown, a due partition rebalance, a compatibility
+ * cooldown, or a polling trigger that returns no next execution. Every accepted key task finishes before [dispatch] returns.
  *
  * @param recordRepository Repository for loading record keys and records
  * @param keyProcessor Processor for the records of one key
@@ -68,8 +68,8 @@ internal class ContinuousKeyDispatcher(
 
     override fun dispatch(
         partitions: Set<Int>,
-        isStopping: () -> Boolean,
-    ) = Run(partitions, isStopping).execute()
+        shouldStop: () -> Boolean,
+    ) = Run(partitions, shouldStop).execute()
 
     override fun isCompatibilityCooldownActive(): Boolean = keyProcessor.isCompatibilityCooldownActive()
 
@@ -79,7 +79,7 @@ internal class ContinuousKeyDispatcher(
      */
     private inner class Run(
         private val partitions: Set<Int>,
-        private val isStopping: () -> Boolean,
+        private val shouldStop: () -> Boolean,
     ) {
         private val inFlightKeys = InFlightKeys(batchSize)
 
@@ -115,8 +115,8 @@ internal class ContinuousKeyDispatcher(
                 log.debug("Stopping continuous dispatch because the processing thread was interrupted")
                 return false
             }
-            if (isStopping()) {
-                log.debug("Stopping continuous dispatch because the scheduler is shutting down")
+            if (shouldStop()) {
+                log.debug("Stopping continuous dispatch because a rebalance is due or the scheduler is shutting down")
                 return false
             }
             if (keyProcessor.isCompatibilityCooldownActive()) {
