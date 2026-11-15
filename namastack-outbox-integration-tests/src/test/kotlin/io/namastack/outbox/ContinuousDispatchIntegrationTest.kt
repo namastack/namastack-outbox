@@ -21,9 +21,11 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit.SECONDS
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Integration test for continuous dispatch.
@@ -32,6 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * - Many record keys with several records each, plus one slow key, and a batch size smaller than the key count
  * - Verifies that every record is delivered exactly once, in creation order per key, and that a key is
  *   never handled concurrently
+ * - Verifies that the other keys are delivered while one key is blocked, which a batch barrier prevents
  */
 @OutboxIntegrationTest
 @Import(ContinuousDispatchIntegrationTest.TestProcessor::class)
@@ -63,6 +66,7 @@ class ContinuousDispatchIntegrationTest {
 
     @AfterEach
     fun cleanup() {
+        processor.releaseBlockedKey()
         transactionTemplate.executeWithoutResult {
             jdbcClient.sql("DELETE FROM outbox_record").update()
             jdbcClient.sql("DELETE FROM outbox_instance").update()
@@ -109,6 +113,37 @@ class ContinuousDispatchIntegrationTest {
         assertThat(processor.concurrentKeyHandling.get()).describedAs("a key was handled concurrently").isFalse()
     }
 
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `delivers other keys while one key is blocked`() {
+        processor.blockKey(SLOW_KEY)
+        val otherKeys = (1..12).map { "key-$it" }
+        val base = Instant.now().minusSeconds(60)
+        transactionTemplate.executeWithoutResult {
+            // The blocked key is the oldest, so it is part of the first selected batch.
+            (listOf(SLOW_KEY) + otherKeys).forEachIndexed { index, key ->
+                saveRecord(
+                    id = "00000000-0000-4000-8000-%012d".format(index + 1),
+                    key = key,
+                    payload = "$key:0",
+                    createdAt = base.plusMillis(index.toLong()),
+                )
+            }
+        }
+
+        // With a batch size of 4, a batch barrier would hold all but three other keys behind the blocked key.
+        await().atMost(30, SECONDS).untilAsserted {
+            assertThat(processor.handledByKey.keys).containsExactlyInAnyOrderElementsOf(otherKeys)
+        }
+        assertThat(processor.handledByKey).doesNotContainKey(SLOW_KEY)
+
+        processor.releaseBlockedKey()
+
+        await().atMost(30, SECONDS).untilAsserted {
+            assertThat(outboxRecordRepository.findCompletedRecords()).hasSize(otherKeys.size + 1)
+        }
+    }
+
     private fun saveRecord(
         id: String,
         key: String,
@@ -144,7 +179,22 @@ class ContinuousDispatchIntegrationTest {
         val concurrentKeyHandling = AtomicBoolean(false)
         private val activeByKey = ConcurrentHashMap<String, AtomicInteger>()
 
+        @Volatile
+        private var blockedKey: String? = null
+        private val blockedKeyRelease = AtomicReference(CountDownLatch(0))
+
+        fun blockKey(key: String) {
+            blockedKeyRelease.set(CountDownLatch(1))
+            blockedKey = key
+        }
+
+        fun releaseBlockedKey() {
+            blockedKeyRelease.get().countDown()
+        }
+
         fun reset() {
+            blockedKey = null
+            releaseBlockedKey()
             handled.clear()
             handledByKey.clear()
             concurrentKeyHandling.set(false)
@@ -159,7 +209,11 @@ class ContinuousDispatchIntegrationTest {
             val active = activeByKey.computeIfAbsent(key) { AtomicInteger() }
             if (active.incrementAndGet() > 1) concurrentKeyHandling.set(true)
             try {
-                if (key == SLOW_KEY) Thread.sleep(200)
+                if (key == blockedKey) {
+                    blockedKeyRelease.get().await(30, SECONDS)
+                } else if (key == SLOW_KEY) {
+                    Thread.sleep(200)
+                }
                 handledByKey.computeIfAbsent(key) { CopyOnWriteArrayList() }.add(index.toInt())
                 handled.add(payload)
             } finally {

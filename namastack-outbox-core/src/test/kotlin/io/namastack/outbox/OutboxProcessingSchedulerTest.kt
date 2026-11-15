@@ -3,10 +3,10 @@ package io.namastack.outbox
 import io.micrometer.observation.ObservationRegistry
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import io.namastack.outbox.OutboxProcessingScheduler.SchedulerLifecycleStateMachine.LifecycleState
 import io.namastack.outbox.dispatch.BatchKeyDispatcher
-import io.namastack.outbox.dispatch.ContinuousKeyDispatcher
 import io.namastack.outbox.dispatch.OutboxKeyDispatcher
 import io.namastack.outbox.dispatch.OutboxRecordKeyProcessor
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
@@ -15,17 +15,14 @@ import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.runtime.toRuntimeSettings
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.core.task.SyncTaskExecutor
-import org.springframework.core.task.TaskExecutor
 import org.springframework.core.task.support.TaskExecutorAdapter
 import org.springframework.scheduling.TaskScheduler
-import org.springframework.scheduling.TriggerContext
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -33,9 +30,7 @@ import java.time.ZoneId
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.concurrent.TimeUnit.SECONDS
-import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
@@ -396,648 +391,147 @@ class OutboxProcessingSchedulerTest {
     @Nested
     @DisplayName("Process")
     inner class ProcessTestCase {
+        private val keyDispatcher = mockk<OutboxKeyDispatcher>(relaxed = true)
+
         @BeforeEach
         fun setUp() {
             every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
+            every { keyDispatcher.isCompatibilityCooldownActive() } returns false
+            scheduler = schedulerWith(keyDispatcher)
             scheduler.start()
         }
 
         @Test
-        fun `process does nothing when no partitions assigned`() {
+        fun `dispatches the assigned partitions while the assignment is held`() {
+            val assignmentHeld = AtomicBoolean(false)
+            val dispatchedWithAssignment = AtomicBoolean(false)
+            every { partitionCoordinator.getAssignedPartitionNumbers() } returns setOf(3, 1)
+            every { partitionCoordinator.withStableAssignments<Any?>(any()) } answers {
+                assignmentHeld.set(true)
+                try {
+                    firstArg<(Set<Int>) -> Any?>().invoke(partitionCoordinator.getAssignedPartitionNumbers())
+                } finally {
+                    assignmentHeld.set(false)
+                }
+            }
+            every { keyDispatcher.dispatch(any(), any()) } answers
+                { dispatchedWithAssignment.set(assignmentHeld.get()) }
+
+            scheduler.process()
+
+            verify(exactly = 1) { keyDispatcher.dispatch(setOf(1, 3), any()) }
+            assertThat(dispatchedWithAssignment.get()).isTrue()
+        }
+
+        @Test
+        fun `does not dispatch when no partitions are assigned`() {
             every { partitionCoordinator.getAssignedPartitionNumbers() } returns emptySet()
 
             scheduler.process()
 
-            verify(exactly = 0) {
-                recordRepository.findRecordKeysInPartitions(
-                    partitions = any(),
-                    batchSize = any(),
-                    ignoreRecordKeysWithPreviousFailure = any(),
-                )
-            }
+            verify(exactly = 0) { keyDispatcher.dispatch(any(), any()) }
         }
 
         @Test
-        fun `process does nothing when no record keys found`() {
-            prepareFindRecordKeysInPartitions(emptyList())
+        fun `skips the run while a compatibility cooldown is active`() {
+            every { keyDispatcher.isCompatibilityCooldownActive() } returnsMany listOf(true, false)
 
             scheduler.process()
 
-            verify(exactly = 0) { recordRepository.findIncompleteRecordPages(any()) }
+            verify(exactly = 0) { partitionCoordinator.withStableAssignments<Any?>(any()) }
+            verify(exactly = 0) { keyDispatcher.dispatch(any(), any()) }
+
+            scheduler.process()
+
+            verify(exactly = 1) { keyDispatcher.dispatch(any(), any()) }
         }
 
         @Test
-        fun `process loads record keys from assigned partitions`() {
-            val recordKey = "key"
-
-            prepareFindRecordKeysInPartitions(listOf(recordKey))
-
-            prepareRecordPage(recordKey, emptyList())
-
+        fun `leaves poll results to the dispatcher`() {
             scheduler.process()
-
-            verify(exactly = 1) { recordRepository.findIncompleteRecordPages(setOf(recordKey)) }
-        }
-
-        @Test
-        fun `process handles exception in processing cycle gracefully`() {
-            every { partitionCoordinator.getAssignedPartitionNumbers() } throws RuntimeException("Coordinator error")
-
-            scheduler.process()
-
-            verify { partitionCoordinator.getAssignedPartitionNumbers() }
-        }
-
-        @Test
-        fun `key processing handles exception gracefully`() {
-            val recordKey = "test-key"
-
-            prepareFindRecordKeysInPartitions(listOf(recordKey))
-
-            every { recordRepository.findIncompleteRecordPages(setOf(recordKey)) } throws RuntimeException("DB error")
-
-            scheduler.process()
-
-            verify { recordRepository.findIncompleteRecordPages(setOf(recordKey)) }
-        }
-
-        @Test
-        fun `unavailable payload type pauses polling without reporting cooldown skips to trigger`() {
-            val recordKey = "incompatible-key"
-            val exception =
-                OutboxPayloadTypeNotFoundException(
-                    recordId = "record-id",
-                    recordKey = recordKey,
-                    payloadType = "example.UnavailablePayload",
-                    handlerId = "handler-id",
-                    cause = ClassNotFoundException("example.UnavailablePayload"),
-                )
-
-            prepareFindRecordKeysInPartitions(listOf(recordKey))
-            prepareDecodingFailure(recordKey, exception)
-
-            scheduler.process()
-            scheduler.process()
-
-            verify(exactly = 1) { partitionCoordinator.getAssignedPartitionNumbers() }
-            verify(exactly = 1) { recordRepository.findIncompleteRecordPages(setOf(recordKey)) }
-            verify(exactly = 1) { trigger.onPollResult(any(), any()) }
-
-            clock.advanceBy(Duration.ofSeconds(30))
-            scheduler.process()
-
-            verify(exactly = 2) { partitionCoordinator.getAssignedPartitionNumbers() }
-            verify(exactly = 2) { recordRepository.findIncompleteRecordPages(setOf(recordKey)) }
-            verify(exactly = 2) { trigger.onPollResult(any(), any()) }
-        }
-
-        @Test
-        fun `unavailable handler pauses later polling but lets the current batch finish`() {
-            val incompatibleKey = "incompatible-key"
-            val compatibleKey = "compatible-key"
-            val incompatibleRecord =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = incompatibleKey,
-                    nextRetryAt = Instant.now(clock).minusSeconds(1),
-                )
-            val incompatibleSuccessor =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = incompatibleKey,
-                    nextRetryAt = Instant.now(clock).minusSeconds(1),
-                )
-            val compatibleRecord =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = compatibleKey,
-                    nextRetryAt = Instant.now(clock).minusSeconds(1),
-                )
-
-            prepareFindRecordKeysInPartitions(listOf(incompatibleKey, compatibleKey))
-            prepareRecordPage(
-                incompatibleKey,
-                listOf(incompatibleRecord, incompatibleSuccessor),
-            )
-            prepareRecordPage(compatibleKey, listOf(compatibleRecord))
-            every { recordProcessorChainInvoker.process(incompatibleRecord) } throws
-                OutboxHandlerNotFoundException(
-                    recordId = incompatibleRecord.id,
-                    recordKey = incompatibleRecord.key,
-                    handlerId = incompatibleRecord.handlerId,
-                )
-            every { recordProcessorChainInvoker.process(compatibleRecord) } returns
-                OutboxRecordProcessingOutcome.COMPLETED
-
-            scheduler.process()
-            scheduler.process()
-
-            verify(exactly = 1) { recordProcessorChainInvoker.process(incompatibleRecord) }
-            verify(exactly = 0) { recordProcessorChainInvoker.process(incompatibleSuccessor) }
-            verify(exactly = 1) { recordProcessorChainInvoker.process(compatibleRecord) }
-            verify(exactly = 1) { partitionCoordinator.getAssignedPartitionNumbers() }
-        }
-
-        @Test
-        fun `ordinary processing exception does not pause polling`() {
-            val recordKey = "record-key"
-
-            prepareFindRecordKeysInPartitions(listOf(recordKey))
-            every { recordRepository.findIncompleteRecordPages(setOf(recordKey)) } throws RuntimeException("DB error")
-
-            scheduler.process()
-            scheduler.process()
-
-            verify(exactly = 2) { partitionCoordinator.getAssignedPartitionNumbers() }
-            verify(exactly = 2) { recordRepository.findIncompleteRecordPages(setOf(recordKey)) }
-        }
-
-        @Test
-        fun `process respects batch size configuration`() {
-            properties.polling.batchSize = 50
-            recreateStartedScheduler()
-
-            prepareFindRecordKeysInPartitions(emptyList())
-
-            scheduler.process()
-
-            verify {
-                recordRepository.findRecordKeysInPartitions(
-                    partitions = any(),
-                    batchSize = 50,
-                    ignoreRecordKeysWithPreviousFailure = any(),
-                )
-            }
-        }
-
-        @Test
-        fun `process passes stopOnFirstFailure flag to repository`() {
-            properties.processing.stopOnFirstFailure = true
-            recreateStartedScheduler()
-
-            prepareFindRecordKeysInPartitions(emptyList())
-
-            scheduler.process()
-
-            verify {
-                recordRepository.findRecordKeysInPartitions(
-                    partitions = any(),
-                    batchSize = any(),
-                    ignoreRecordKeysWithPreviousFailure = true,
-                )
-            }
-        }
-
-        @Test
-        fun `does not invoke processor chain when no incomplete records found for key`() {
-            val key = "record-key"
-
-            prepareFindRecordKeysInPartitions(listOf(key))
-            prepareRecordPage(
-                recordKey = key,
-                incompleteRecords = emptyList(),
-            )
-
-            scheduler.process()
-
-            verify(exactly = 0) { recordProcessorChainInvoker.process(any()) }
-        }
-
-        @Test
-        fun `does not invoke processor chain when incomplete records cannot be retried`() {
-            val key = "record-key"
-            val record =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).plusSeconds(5),
-                )
-
-            prepareFindRecordKeysInPartitions(listOf(key))
-            prepareRecordPage(
-                recordKey = key,
-                incompleteRecords = listOf(record),
-            )
-
-            scheduler.process()
-
-            verify(exactly = 0) { recordProcessorChainInvoker.process(record) }
-        }
-
-        @Test
-        fun `invokes processor chain when incomplete records found for key`() {
-            val key = "record-key"
-            val record =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).minusSeconds(5),
-                )
-
-            prepareFindRecordKeysInPartitions(listOf(key))
-            prepareRecordPage(
-                recordKey = key,
-                incompleteRecords = listOf(record),
-            )
-
-            scheduler.process()
-
-            verify(exactly = 1) { recordProcessorChainInvoker.process(record) }
-        }
-
-        @Test
-        fun `processes multiple records for same key sequentially`() {
-            val key = "record-key"
-            val record1 =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).minusSeconds(5),
-                )
-            val record2 =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).minusSeconds(5),
-                )
-
-            prepareFindRecordKeysInPartitions(listOf(key))
-            prepareRecordPage(
-                recordKey = key,
-                incompleteRecords = listOf(record1, record2),
-            )
-
-            every { recordProcessorChainInvoker.process(any()) } returns OutboxRecordProcessingOutcome.COMPLETED
-
-            scheduler.process()
-
-            verify(exactly = 1) { recordProcessorChainInvoker.process(record1) }
-            verify(exactly = 1) { recordProcessorChainInvoker.process(record2) }
-        }
-
-        @Test
-        fun `stops processing key when record not ready and stopOnFirstFailure enabled`() {
-            properties.processing.stopOnFirstFailure = true
-            recreateStartedScheduler()
-
-            val key = "record-key"
-            val notReadyRecord =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).plusSeconds(5),
-                )
-            val readyRecord =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).minusSeconds(5),
-                )
-
-            prepareFindRecordKeysInPartitions(listOf(key))
-            prepareRecordPage(
-                recordKey = key,
-                incompleteRecords = listOf(notReadyRecord, readyRecord),
-            )
-
-            scheduler.process()
-
-            verify(exactly = 0) { recordProcessorChainInvoker.process(notReadyRecord) }
-            verify(exactly = 0) { recordProcessorChainInvoker.process(readyRecord) }
-        }
-
-        @Test
-        fun `continues processing when record not ready and stopOnFirstFailure disabled`() {
-            properties.processing.stopOnFirstFailure = false
-            recreateStartedScheduler()
-
-            val key = "record-key"
-            val notReadyRecord =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).plusSeconds(5),
-                )
-            val readyRecord =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).minusSeconds(5),
-                )
-
-            prepareFindRecordKeysInPartitions(listOf(key))
-            prepareRecordPage(
-                recordKey = key,
-                incompleteRecords = listOf(notReadyRecord, readyRecord),
-            )
-
-            every { recordProcessorChainInvoker.process(any()) } returns OutboxRecordProcessingOutcome.COMPLETED
-
-            scheduler.process()
-
-            verify(exactly = 0) { recordProcessorChainInvoker.process(notReadyRecord) }
-            verify(exactly = 1) { recordProcessorChainInvoker.process(readyRecord) }
-        }
-
-        @Test
-        fun `stops processing key when processor chain returns false and stopOnFirstFailure enabled`() {
-            properties.processing.stopOnFirstFailure = true
-            recreateStartedScheduler()
-
-            val key = "record-key"
-            val record1 =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).minusSeconds(5),
-                )
-            val record2 =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).minusSeconds(5),
-                )
-
-            prepareFindRecordKeysInPartitions(listOf(key))
-            prepareRecordPage(
-                recordKey = key,
-                incompleteRecords = listOf(record1, record2),
-            )
-
-            every { recordProcessorChainInvoker.process(record1) } returns
-                OutboxRecordProcessingOutcome.RETRY_SCHEDULED
-            every { recordProcessorChainInvoker.process(record2) } returns OutboxRecordProcessingOutcome.COMPLETED
-
-            scheduler.process()
-
-            verify(exactly = 1) { recordProcessorChainInvoker.process(record1) }
-            verify(exactly = 0) { recordProcessorChainInvoker.process(record2) }
-        }
-
-        @Test
-        fun `continues processing when processor chain returns false and stopOnFirstFailure disabled`() {
-            properties.processing.stopOnFirstFailure = false
-            recreateStartedScheduler()
-
-            val key = "record-key"
-            val record1 =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).minusSeconds(5),
-                )
-            val record2 =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).minusSeconds(5),
-                )
-
-            prepareFindRecordKeysInPartitions(listOf(key))
-            prepareRecordPage(
-                recordKey = key,
-                incompleteRecords = listOf(record1, record2),
-            )
-
-            every { recordProcessorChainInvoker.process(record1) } returns
-                OutboxRecordProcessingOutcome.RETRY_SCHEDULED
-            every { recordProcessorChainInvoker.process(record2) } returns OutboxRecordProcessingOutcome.COMPLETED
-
-            scheduler.process()
-
-            verify(exactly = 1) { recordProcessorChainInvoker.process(record1) }
-            verify(exactly = 1) { recordProcessorChainInvoker.process(record2) }
-        }
-
-        @Test
-        fun `processes all ready records when all succeed and stopOnFirstFailure disabled`() {
-            properties.processing.stopOnFirstFailure = false
-            recreateStartedScheduler()
-
-            val key = "record-key"
-            val record1 =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).minusSeconds(5),
-                )
-            val record2 =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).minusSeconds(5),
-                )
-            val record3 =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = key,
-                    nextRetryAt = Instant.now(clock).minusSeconds(5),
-                )
-
-            prepareFindRecordKeysInPartitions(listOf(key))
-            prepareRecordPage(
-                recordKey = key,
-                incompleteRecords = listOf(record1, record2, record3),
-            )
-
-            every { recordProcessorChainInvoker.process(any()) } returns OutboxRecordProcessingOutcome.COMPLETED
-
-            scheduler.process()
-
-            verify(exactly = 1) { recordProcessorChainInvoker.process(record1) }
-            verify(exactly = 1) { recordProcessorChainInvoker.process(record2) }
-            verify(exactly = 1) { recordProcessorChainInvoker.process(record3) }
-        }
-    }
-
-    @Nested
-    @DisplayName("Poll results")
-    inner class PollResults {
-        @BeforeEach
-        fun setUp() {
-            every { taskScheduler.schedule(any(), trigger) } returns scheduledFuture
-        }
-
-        @Test
-        fun `batch mode reports the selected keys against the batch size once per run`() {
-            scheduler.start()
-            prepareFindRecordKeysInPartitions(listOf("key-1", "key-2"))
-
-            scheduler.process()
-
-            verify(exactly = 1) { trigger.onPollResult(any(), any()) }
-            verify(exactly = 1) { trigger.onPollResult(2, 100) }
-        }
-
-        @Test
-        fun `batch mode reports an empty run`() {
-            scheduler.start()
-            prepareFindRecordKeysInPartitions(emptyList())
-
-            scheduler.process()
-
-            verify(exactly = 1) { trigger.onPollResult(any(), any()) }
-            verify(exactly = 1) { trigger.onPollResult(0, 100) }
-        }
-
-        @Test
-        fun `batch mode reports a failed key query once as nothing found`() {
-            scheduler.start()
-            every { recordRepository.findRecordKeysInPartitions(any(), any(), any()) } throws
-                RuntimeException("database unavailable")
-
-            scheduler.process()
-
-            verify(exactly = 1) { trigger.onPollResult(any(), any()) }
-            verify(exactly = 1) { trigger.onPollResult(0, 100) }
-        }
-
-        @Test
-        fun `batch mode ends the run without processing when the key query fails`() {
-            every { recordRepository.findRecordKeysInPartitions(any(), any(), any()) } throws
-                RuntimeException("database unavailable")
-
-            batchKeyDispatcher(properties).dispatch(setOf(1)) { false }
-
-            verify(exactly = 0) { recordRepository.findIncompleteRecordPages(any()) }
-        }
-
-        @Test
-        fun `reports nothing when no partitions are assigned`() {
-            scheduler.start()
             every { partitionCoordinator.getAssignedPartitionNumbers() } returns emptySet()
-
+            scheduler.process()
+            every { partitionCoordinator.withStableAssignments<Any?>(any()) } throws RuntimeException("unavailable")
             scheduler.process()
 
             verify(exactly = 0) { trigger.onPollResult(any(), any()) }
         }
 
         @Test
-        fun `reports nothing when the partition assignment fails`() {
-            scheduler.start()
+        fun `recovers after a failed run`() {
+            every { keyDispatcher.dispatch(any(), any()) } throws RuntimeException("dispatch failed") andThen Unit
+
+            scheduler.process()
+            scheduler.process()
+
+            verify(exactly = 2) { keyDispatcher.dispatch(any(), any()) }
+        }
+
+        @Test
+        fun `recovers after a failed partition assignment lookup`() {
             every { partitionCoordinator.withStableAssignments<Any?>(any()) } throws
-                RuntimeException("assignment unavailable")
+                RuntimeException("assignment unavailable") andThenAnswer {
+                    firstArg<(Set<Int>) -> Any?>().invoke(setOf(1))
+                }
 
             scheduler.process()
+            scheduler.process()
 
-            verify(exactly = 0) { trigger.onPollResult(any(), any()) }
+            verify(exactly = 1) { keyDispatcher.dispatch(setOf(1), any()) }
         }
 
         @Test
-        fun `batch mode reports a failed record load once with the selected keys`() {
-            scheduler.start()
-            prepareFindRecordKeysInPartitions(listOf("key-1"))
-            every { recordRepository.findIncompleteRecordPages(any()) } throws RuntimeException("database unavailable")
+        fun `asks the dispatcher to stop when a rebalance is due`() {
+            val shouldStop = slot<() -> Boolean>()
+            every { keyDispatcher.dispatch(any(), capture(shouldStop)) } returns Unit
+            every { partitionCoordinator.isRebalanceDue() } returns false
 
             scheduler.process()
 
-            verify(exactly = 1) { trigger.onPollResult(any(), any()) }
-            verify(exactly = 1) { trigger.onPollResult(1, 100) }
+            assertThat(shouldStop.captured()).isFalse()
+            every { partitionCoordinator.isRebalanceDue() } returns true
+            assertThat(shouldStop.captured()).isTrue()
         }
 
         @Test
-        fun `continuous mode reports each key query once`() {
-            every { trigger.nextExecution(any()) } answers { firstArg<TriggerContext>().lastCompletion() }
-            scheduler = createContinuousScheduler()
-            scheduler.start()
-            every {
-                recordRepository.findRecordKeysInPartitions(any(), any(), any())
-            } returnsMany listOf(listOf("key-1"), emptyList())
-
-            scheduler.process()
-
-            verify(exactly = 1) { trigger.onPollResult(any(), any()) }
-            verify(exactly = 1) { trigger.onPollResult(1, 100) }
-        }
-
-        @Test
-        fun `continuous mode stops dispatching when the scheduler shuts down`() {
-            every { trigger.nextExecution(any()) } answers
-                { firstArg<TriggerContext>().lastCompletion()!!.plusSeconds(60) }
-            val workers = Executors.newCachedThreadPool()
-            scheduler = createContinuousScheduler(executor = { workers.execute(it) })
-            scheduler.start()
-            val recordKey = "slow-key"
-            val record =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = recordKey,
-                    nextRetryAt = Instant.now(clock).minusSeconds(1),
-                )
-            prepareFindRecordKeysInPartitions(listOf(recordKey))
-            prepareRecordPage(recordKey, listOf(record))
-            val started = CountDownLatch(1)
+        fun `asks the dispatcher to stop when shutdown starts during a run`() {
+            every { partitionCoordinator.isRebalanceDue() } returns false
+            val shouldStop = AtomicReference<() -> Boolean>()
             val release = CountDownLatch(1)
-            every { recordProcessorChainInvoker.process(record) } answers {
-                started.countDown()
+            every { keyDispatcher.dispatch(any(), any()) } answers {
+                shouldStop.set(secondArg())
                 release.await(5, SECONDS)
-                OutboxRecordProcessingOutcome.COMPLETED
             }
             val executor = Executors.newFixedThreadPool(2)
             try {
                 val processing = executor.submit { scheduler.process() }
-                assertThat(started.await(5, SECONDS)).isTrue()
+                await().atMost(2, SECONDS).until { shouldStop.get() != null }
+                assertThat(shouldStop.get()()).isFalse()
+
                 val stopping = executor.submit { scheduler.stop() }
 
-                await().atMost(2, SECONDS).untilAsserted { assertThat(scheduler.isRunning()).isTrue() }
+                await().atMost(2, SECONDS).until { shouldStop.get()() }
+                assertThat(stopping.isDone).describedAs("stop waits for the run").isFalse()
                 release.countDown()
                 processing.get(5, SECONDS)
                 stopping.get(5, SECONDS)
-
                 assertThat(scheduler.isRunning()).isFalse()
-                verify(exactly = 1) { recordRepository.findRecordKeysInPartitions(any(), any(), any()) }
-                verify(exactly = 1) { recordProcessorChainInvoker.process(record) }
             } finally {
                 release.countDown()
                 executor.shutdownNow()
-                workers.shutdownNow()
-            }
-        }
-
-        @Test
-        fun `continuous mode stops dispatching when a rebalance is due`() {
-            every { trigger.nextExecution(any()) } answers
-                { firstArg<TriggerContext>().lastCompletion()!!.plusMillis(10) }
-            every { partitionCoordinator.isRebalanceDue() } returnsMany listOf(false, true)
-            val workers = Executors.newCachedThreadPool()
-            scheduler = createContinuousScheduler(executor = { workers.execute(it) })
-            scheduler.start()
-            val recordKey = "slow-key"
-            val record =
-                OutboxRecordTestFactory.outboxRecord(
-                    recordKey = recordKey,
-                    nextRetryAt = Instant.now(clock).minusSeconds(1),
-                )
-            prepareFindRecordKeysInPartitions(listOf(recordKey))
-            prepareRecordPage(recordKey, listOf(record))
-            val started = CountDownLatch(1)
-            val release = CountDownLatch(1)
-            every { recordProcessorChainInvoker.process(record) } answers {
-                started.countDown()
-                release.await(5, SECONDS)
-                OutboxRecordProcessingOutcome.COMPLETED
-            }
-            val executor = Executors.newSingleThreadExecutor()
-            try {
-                val processing = executor.submit { scheduler.process() }
-                assertThat(started.await(5, SECONDS)).isTrue()
-
-                // The run drains the key in flight before it releases the assignment.
-                assertThatThrownBy { processing.get(200, MILLISECONDS) }
-                    .isInstanceOf(TimeoutException::class.java)
-                release.countDown()
-                processing.get(5, SECONDS)
-
-                verify(exactly = 1) { recordRepository.findRecordKeysInPartitions(any(), any(), any()) }
-                verify(exactly = 1) { recordProcessorChainInvoker.process(record) }
-            } finally {
-                release.countDown()
-                executor.shutdownNow()
-                workers.shutdownNow()
             }
         }
     }
 
-    private fun createContinuousScheduler(executor: TaskExecutor = SyncTaskExecutor()): OutboxProcessingScheduler {
-        val settings = properties.toRuntimeSettings()
-        return OutboxProcessingScheduler(
+    private fun schedulerWith(keyDispatcher: OutboxKeyDispatcher): OutboxProcessingScheduler =
+        OutboxProcessingScheduler(
             trigger = trigger,
             taskScheduler = taskScheduler,
             observationRegistry = { ObservationRegistry.NOOP },
             partitionCoordinator = partitionCoordinator,
-            keyDispatcher =
-                ContinuousKeyDispatcher(
-                    recordRepository = recordRepository,
-                    keyProcessor = OutboxRecordKeyProcessor(recordProcessorChainInvoker, settings.processing, clock),
-                    taskExecutor = TaskExecutorAdapter(executor),
-                    settings = settings,
-                    trigger = trigger,
-                    clock = clock,
-                ),
-            settings = settings,
+            keyDispatcher = keyDispatcher,
+            settings = properties.toRuntimeSettings(),
         )
-    }
 
     private fun prepareFindRecordKeysInPartitions(recordKeys: List<String>) {
         every {
@@ -1057,13 +551,6 @@ class OutboxProcessingSchedulerTest {
             LazyOutboxRecordPage(incompleteRecords) { it }
     }
 
-    private fun prepareDecodingFailure(
-        recordKey: String,
-        failure: RuntimeException,
-    ) {
-        pagesByKey[recordKey] = LazyOutboxRecordPage(listOf(recordKey)) { throw failure }
-    }
-
     private class MutableClock(
         initialInstant: Instant,
         private val zoneId: ZoneId = ZoneId.of("UTC"),
@@ -1075,9 +562,5 @@ class OutboxProcessingSchedulerTest {
         override fun withZone(zone: ZoneId): Clock = MutableClock(instant(), zone)
 
         override fun instant(): Instant = currentInstant.get()
-
-        fun advanceBy(duration: Duration) {
-            currentInstant.updateAndGet { it.plus(duration) }
-        }
     }
 }
