@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.spring) apply false
     alias(libs.plugins.spring.boot) apply false
+    alias(libs.plugins.ktlint) apply false
 }
 
 val javaVersion = 21
@@ -19,12 +20,17 @@ allprojects {
     version = "1.11.1-SNAPSHOT"
 
     repositories {
-        mavenLocal()
         mavenCentral()
     }
 }
 
 subprojects {
+    apply(plugin = "org.jlleitschuh.gradle.ktlint")
+
+    tasks.withType<org.jlleitschuh.gradle.ktlint.tasks.BaseKtLintCheckTask>().configureEach {
+        workerMaxHeapSize.set("256m")
+    }
+
     tasks.withType<Test> {
         useJUnitPlatform()
 

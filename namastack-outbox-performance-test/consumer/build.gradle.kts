@@ -10,14 +10,15 @@ dependencies {
 
     implementation("io.namastack:namastack-outbox-starter-jdbc")
     implementation("io.namastack:namastack-outbox-observability")
-    implementation("io.namastack:namastack-outbox-actuator")
 
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation(libs.jackson.module.kotlin)
-    runtimeOnly("io.micrometer:micrometer-registry-prometheus")
     runtimeOnly(libs.postgresql)
+    runtimeOnly(libs.mysql.connector.j)
+    runtimeOnly(libs.mariadb.java.client)
+    runtimeOnly(libs.mssql.jdbc)
+    runtimeOnly(libs.oracle.jdbc)
+    runtimeOnly(libs.h2)
 }
 
 tasks.bootJar {

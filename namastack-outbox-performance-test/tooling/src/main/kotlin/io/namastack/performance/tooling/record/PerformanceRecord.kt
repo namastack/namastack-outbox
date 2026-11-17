@@ -23,24 +23,7 @@ internal data class PerformanceRecord(
     val nextRetryAt: Instant,
     val partition: Int,
     val handlerId: String,
-) {
-    fun values(): List<String?> =
-        listOf(
-            id,
-            status,
-            recordKey,
-            recordType,
-            payload,
-            context,
-            createdAt.toString(),
-            completedAt?.toString(),
-            failureCount.toString(),
-            failureReason,
-            nextRetryAt.toString(),
-            partition.toString(),
-            handlerId,
-        )
-}
+)
 
 internal fun performanceRecord(
     runId: String,
@@ -56,7 +39,10 @@ internal fun performanceRecord(
         recordKey = recordKey,
         recordType = RECORD_TYPE,
         payload =
-            """{"paymentId":"pay-${sequence.toString().padStart(12, '0')}","orderId":"order-$sequence","customerId":"customer-$sequence","amount":129.90,"currency":"EUR"}""",
+            """{"paymentId":"pay-${sequence.toString().padStart(
+                12,
+                '0',
+            )}","orderId":"order-$sequence","customerId":"customer-$sequence","amount":129.90,"currency":"EUR"}""",
         context = """{"benchmarkRunId":"$runId"}""",
         createdAt = createdAt,
         completedAt = null,

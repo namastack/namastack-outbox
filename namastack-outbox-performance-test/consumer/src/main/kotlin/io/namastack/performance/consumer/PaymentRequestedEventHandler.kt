@@ -20,4 +20,3 @@ class PaymentRequestedEventHandler : OutboxTypedHandler<PaymentRequestedEvent> {
                 "io.namastack.outbox.handler.OutboxRecordMetadata)"
     }
 }
-

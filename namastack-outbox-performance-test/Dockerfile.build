@@ -1,0 +1,7 @@
+FROM eclipse-temurin:17-jdk AS library-jdk
+
+FROM eclipse-temurin:21-jdk
+COPY --from=library-jdk /opt/java/openjdk /opt/java/jdk17
+ENV GRADLE_USER_HOME=/gradle-cache
+RUN mkdir /gradle-cache && chmod 1777 /gradle-cache
+WORKDIR /workspace/namastack-outbox-performance-test

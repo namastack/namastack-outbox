@@ -20,4 +20,3 @@ class OutboxPerformanceConsumerApplication {
 fun main(args: Array<String>) {
     runApplication<OutboxPerformanceConsumerApplication>(*args)
 }
-
