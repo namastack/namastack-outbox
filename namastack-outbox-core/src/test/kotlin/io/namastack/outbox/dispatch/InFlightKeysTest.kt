@@ -10,6 +10,7 @@ import java.time.Duration
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit.SECONDS
+import java.util.concurrent.atomic.AtomicBoolean
 
 class InFlightKeysTest {
     private val inFlightKeys = InFlightKeys(capacity = 3)
@@ -139,6 +140,38 @@ class InFlightKeysTest {
 
                 assertThat(inFlightKeys.freeSlots).isEqualTo(2)
             } finally {
+                executor.shutdownNow()
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("Snapshot")
+    inner class Snapshot {
+        @Test
+        fun `snapshot does not fail while another thread releases the last key`() {
+            val singleSlot = InFlightKeys(capacity = 1)
+            val stop = AtomicBoolean(false)
+            val executor = Executors.newSingleThreadExecutor()
+            try {
+                val churn =
+                    executor.submit {
+                        while (!stop.get()) {
+                            if (singleSlot.tryReserve("A")) {
+                                singleSlot.release("A")
+                            }
+                        }
+                    }
+
+                val deadline = System.nanoTime() + Duration.ofMillis(200).toNanos()
+                while (System.nanoTime() < deadline) {
+                    assertThat(singleSlot.snapshot()).isSubsetOf("A")
+                }
+
+                stop.set(true)
+                churn.get(5, SECONDS)
+            } finally {
+                stop.set(true)
                 executor.shutdownNow()
             }
         }

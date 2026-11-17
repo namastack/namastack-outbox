@@ -86,6 +86,19 @@ internal class InFlightKeys(
     /** Reports whether no key is in flight. */
     fun isIdle(): Boolean = freeSlots == capacity
 
-    /** Returns the keys in flight at the time of the call. */
-    fun snapshot(): Set<String> = keys.toSet()
+    /**
+     * Returns a copy of the keys in flight.
+     *
+     * The copy is weakly consistent: keys released by workers during the call may or may not be
+     * included. Keys reserved by the dispatching thread before the call are included unless released.
+     */
+    fun snapshot(): Set<String> {
+        // Copies through the iterator only. Collection.toSet() checks size() first and then calls
+        // iterator().next() for a single element, which throws if a worker releases that key in between.
+        val snapshot = HashSet<String>()
+        for (key in keys) {
+            snapshot.add(key)
+        }
+        return snapshot
+    }
 }
