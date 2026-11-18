@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicReference
 @Import(ContinuousDispatchIntegrationTest.TestProcessor::class)
 @TestPropertySource(
     properties = [
-        "namastack.outbox.processing.dispatch-mode=continuous",
+        "namastack.outbox.polling.dispatch-mode=continuous",
         "namastack.outbox.polling.batch-size=4",
         "namastack.outbox.processing.executor-core-pool-size=4",
     ],

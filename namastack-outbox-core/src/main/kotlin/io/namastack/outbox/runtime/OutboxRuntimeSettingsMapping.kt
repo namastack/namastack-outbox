@@ -16,6 +16,7 @@ internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
             OutboxRuntimeSettings.Polling(
                 batchSize = polling.batchSize,
                 trigger = polling.trigger.toPollingTrigger(),
+                dispatchMode = polling.dispatchMode.toDispatchMode(),
                 fixed =
                     OutboxRuntimeSettings.FixedPolling(
                         interval = polling.fixed.interval,
@@ -32,7 +33,6 @@ internal fun OutboxProperties.toRuntimeSettings(): OutboxRuntimeSettings =
             OutboxRuntimeSettings.Processing(
                 stopOnFirstFailure = processing.stopOnFirstFailure,
                 deleteCompletedRecords = processing.deleteCompletedRecords,
-                dispatchMode = processing.dispatchMode.toDispatchMode(),
                 executorCorePoolSize = processing.executorCorePoolSize,
                 executorMaxPoolSize = processing.executorMaxPoolSize,
                 executorConcurrencyLimit = processing.executorConcurrencyLimit,
@@ -87,10 +87,10 @@ private fun String.toPollingTrigger(): OutboxRuntimeSettings.Polling.Trigger =
         else -> error("Unsupported polling-trigger: $this")
     }
 
-private fun String.toDispatchMode(): OutboxRuntimeSettings.Processing.DispatchMode =
+private fun String.toDispatchMode(): OutboxRuntimeSettings.Polling.DispatchMode =
     when {
-        equals("batch", ignoreCase = true) -> OutboxRuntimeSettings.Processing.DispatchMode.BATCH
-        equals("continuous", ignoreCase = true) -> OutboxRuntimeSettings.Processing.DispatchMode.CONTINUOUS
+        equals("batch", ignoreCase = true) -> OutboxRuntimeSettings.Polling.DispatchMode.BATCH
+        equals("continuous", ignoreCase = true) -> OutboxRuntimeSettings.Polling.DispatchMode.CONTINUOUS
         else -> error("Unsupported dispatch-mode: $this")
     }
 
