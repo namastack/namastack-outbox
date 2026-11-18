@@ -16,6 +16,9 @@ import io.namastack.outbox.config.OutboxCoreThreadingAutoConfiguration
 import io.namastack.outbox.config.OutboxRuntimeModeAutoConfiguration
 import io.namastack.outbox.context.OutboxContextCollector
 import io.namastack.outbox.context.OutboxContextProvider
+import io.namastack.outbox.dispatch.BatchKeyDispatcher
+import io.namastack.outbox.dispatch.ContinuousKeyDispatcher
+import io.namastack.outbox.dispatch.OutboxKeyDispatcher
 import io.namastack.outbox.handler.OutboxHandlerIdentity
 import io.namastack.outbox.handler.OutboxHandlerInfrastructureFactory
 import io.namastack.outbox.handler.OutboxRecordMetadata
@@ -51,6 +54,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration
 import org.springframework.boot.autoconfigure.task.TaskSchedulingAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
+import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.Ordered
@@ -290,8 +294,9 @@ class OutboxCoreAutoConfigurationTest {
                     assertThat(injectedScheduler).isSameAs(heartbeatScheduler)
 
                     // verify injected Executor is the same as outboxTaskExecutor
+                    val keyDispatcher = ReflectionTestUtils.getField(processingScheduler, "keyDispatcher")
                     val injectedExecutor =
-                        ReflectionTestUtils.getField(processingScheduler, "taskExecutor") as TaskExecutor
+                        ReflectionTestUtils.getField(keyDispatcher!!, "taskExecutor") as TaskExecutor
                     val outboxTaskExecutor = context.getBean("outboxTaskExecutor") as TaskExecutor
                     assertThat(injectedExecutor).isSameAs(outboxTaskExecutor)
                 }
@@ -699,6 +704,51 @@ class OutboxCoreAutoConfigurationTest {
                 }
         }
     }
+
+    @Nested
+    @DisplayName("Dispatch Configuration")
+    inner class DispatchConfiguration {
+        @Test
+        fun `creates batch key dispatcher by default`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .run { context ->
+                    assertThat(keyDispatcher(context)).isInstanceOf(BatchKeyDispatcher::class.java)
+                }
+        }
+
+        @Test
+        fun `creates continuous key dispatcher when configured`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues("namastack.outbox.processing.dispatch-mode=continuous")
+                .run { context ->
+                    val dispatcher = keyDispatcher(context)
+                    assertThat(dispatcher).isInstanceOf(ContinuousKeyDispatcher::class.java)
+                    assertThat(ReflectionTestUtils.getField(dispatcher, "trigger"))
+                        .isSameAs(context.getBean<OutboxPollingTrigger>())
+                }
+        }
+
+        @Test
+        fun `fails on unsupported dispatch mode`() {
+            contextRunner
+                .withUserConfiguration(MinimalTestConfig::class.java)
+                .withPropertyValues("namastack.outbox.processing.dispatch-mode=parallel")
+                .run { context ->
+                    assertThat(context).hasFailed()
+                    assertThat(context.startupFailure)
+                        .rootCause()
+                        .hasMessageContaining("Unsupported dispatch-mode: parallel")
+                }
+        }
+    }
+
+    private fun keyDispatcher(context: ApplicationContext): OutboxKeyDispatcher =
+        ReflectionTestUtils.getField(
+            context.getBean<OutboxProcessingScheduler>(),
+            "keyDispatcher",
+        ) as OutboxKeyDispatcher
 
     @Nested
     @DisplayName("Polling Configuration")

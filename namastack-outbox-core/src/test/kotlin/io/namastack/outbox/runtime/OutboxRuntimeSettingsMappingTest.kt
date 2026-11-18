@@ -2,6 +2,7 @@ package io.namastack.outbox.runtime
 
 import io.namastack.outbox.OutboxProperties
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.boot.context.properties.bind.Bindable
 import org.springframework.boot.context.properties.bind.Binder
@@ -51,6 +52,7 @@ class OutboxRuntimeSettingsMappingTest {
                     "namastack.outbox.instance.rebalance-interval" to "1m",
                     "namastack.outbox.multicaster.publish-after-save" to "false",
                     "namastack.outbox.processing.shutdown-timeout" to "30s",
+                    "namastack.outbox.processing.dispatch-mode" to "continuous",
                     "namastack.outbox.instance.heartbeat-interval" to "5s",
                     "namastack.outbox.instance.stale-instance-timeout" to "2m",
                     "namastack.outbox.instance.graceful-shutdown-timeout" to "500ms",
@@ -64,6 +66,8 @@ class OutboxRuntimeSettingsMappingTest {
         assertThat(settings.instance.rebalanceInterval).isEqualTo(Duration.ofMinutes(1))
         assertThat(settings.multicaster.publishAfterSave).isFalse()
         assertThat(settings.processing.shutdownTimeout).isEqualTo(Duration.ofSeconds(30))
+        assertThat(settings.processing.dispatchMode)
+            .isEqualTo(OutboxRuntimeSettings.Processing.DispatchMode.CONTINUOUS)
         assertThat(settings.instance.heartbeatInterval).isEqualTo(Duration.ofSeconds(5))
         assertThat(settings.instance.staleInstanceTimeout).isEqualTo(Duration.ofMinutes(2))
         assertThat(settings.instance.gracefulShutdownTimeout).isEqualTo(Duration.ofMillis(500))
@@ -115,11 +119,29 @@ class OutboxRuntimeSettingsMappingTest {
             OutboxProperties(
                 polling = OutboxProperties.Polling(trigger = "ADAPTIVE"),
                 retry = OutboxProperties.Retry(policy = "LINEAR"),
+                processing = OutboxProperties.Processing(dispatchMode = "CONTINUOUS"),
             )
 
         val settings = properties.toRuntimeSettings()
 
         assertThat(settings.polling.trigger).isEqualTo(OutboxRuntimeSettings.Polling.Trigger.ADAPTIVE)
         assertThat(settings.retry.policy).isEqualTo(OutboxRuntimeSettings.Retry.Policy.LINEAR)
+        assertThat(settings.processing.dispatchMode)
+            .isEqualTo(OutboxRuntimeSettings.Processing.DispatchMode.CONTINUOUS)
+    }
+
+    @Test
+    fun `maps batch dispatch mode by default`() {
+        assertThat(OutboxProperties().toRuntimeSettings().processing.dispatchMode)
+            .isEqualTo(OutboxRuntimeSettings.Processing.DispatchMode.BATCH)
+    }
+
+    @Test
+    fun `rejects unsupported dispatch mode`() {
+        val properties = OutboxProperties(processing = OutboxProperties.Processing(dispatchMode = "parallel"))
+
+        assertThatThrownBy { properties.toRuntimeSettings() }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessage("Unsupported dispatch-mode: parallel")
     }
 }

@@ -7,6 +7,8 @@ import io.mockk.verify
 import io.mockk.verifyOrder
 import io.namastack.outbox.completion.OutboxCompletionDirectPersistence
 import io.namastack.outbox.completion.OutboxRecordCompleter
+import io.namastack.outbox.dispatch.BatchKeyDispatcher
+import io.namastack.outbox.dispatch.OutboxRecordKeyProcessor
 import io.namastack.outbox.handler.invoker.OutboxHandlerInvoker
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome
 import io.namastack.outbox.instrumentation.OutboxRecordProcessingOutcome.COMPLETED
@@ -23,6 +25,7 @@ import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.core.task.SyncTaskExecutor
 import org.springframework.core.task.TaskExecutor
+import org.springframework.core.task.support.TaskExecutorAdapter
 import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
 import java.time.Instant
@@ -52,9 +55,9 @@ class OutboxBulkLoadingTest {
 
     @BeforeEach
     fun setUp() {
-        every { coordinator.withStableAssignments<Int>(any()) } answers {
+        every { coordinator.withStableAssignments<Any?>(any()) } answers {
             try {
-                firstArg<(Set<Int>) -> Int>().invoke(setOf(1))
+                firstArg<(Set<Int>) -> Any?>().invoke(setOf(1))
             } finally {
                 assignmentsReleased.set(true)
             }
@@ -364,22 +367,28 @@ class OutboxBulkLoadingTest {
         strict: Boolean = true,
         executor: TaskExecutor = SyncTaskExecutor(),
         chain: OutboxRecordProcessorChainInvoker = invoker,
-    ): OutboxProcessingScheduler =
-        OutboxProcessingScheduler(
+    ): OutboxProcessingScheduler {
+        val settings =
+            OutboxRuntimeSettings(
+                polling = OutboxRuntimeSettings.Polling(batchSize = batchSize),
+                processing = OutboxRuntimeSettings.Processing(stopOnFirstFailure = strict),
+            )
+        return OutboxProcessingScheduler(
             trigger = mockk<OutboxPollingTrigger>(relaxed = true),
             taskScheduler = mockk<TaskScheduler>(relaxed = true),
             observationRegistry = { ObservationRegistry.NOOP },
-            recordRepository = repository,
-            recordProcessorChainInvoker = chain,
             partitionCoordinator = coordinator,
-            taskExecutor = executor,
-            settings =
-                OutboxRuntimeSettings(
-                    polling = OutboxRuntimeSettings.Polling(batchSize = batchSize),
-                    processing = OutboxRuntimeSettings.Processing(stopOnFirstFailure = strict),
+            keyDispatcher =
+                BatchKeyDispatcher(
+                    recordRepository = repository,
+                    keyProcessor = OutboxRecordKeyProcessor(chain, settings.processing, clock),
+                    taskExecutor = TaskExecutorAdapter(executor),
+                    settings = settings,
+                    trigger = mockk(relaxed = true),
                 ),
-            clock = clock,
+            settings = settings,
         ).also { it.start() }
+    }
 
     private fun selectKeys(vararg keys: String) {
         every { repository.findRecordKeysInPartitions(setOf(1), any(), any()) } returns

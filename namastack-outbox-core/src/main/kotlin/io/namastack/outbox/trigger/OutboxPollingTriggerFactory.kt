@@ -40,7 +40,6 @@ internal object OutboxPollingTriggerFactory {
                 AdaptivePollingTrigger(
                     minDelay = settings.adaptive.minInterval,
                     maxDelay = settings.adaptive.maxInterval,
-                    batchSize = settings.batchSize,
                     clock = clock,
                 )
             }

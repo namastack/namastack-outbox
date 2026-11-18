@@ -13,6 +13,7 @@ import org.springframework.scheduling.support.ScheduledMethodRunnable
 import java.lang.reflect.Method
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
@@ -29,6 +30,7 @@ import kotlin.concurrent.withLock
  *
  * Rebalancing owns its scheduling lifecycle. Record processing uses [withStableAssignments] so a
  * rebalance cannot overlap a processing batch even when the supplied scheduler has multiple threads.
+ * A processing run that keeps dispatching checks [isRebalanceDue] and ends, so the rebalance can run.
  *
  * @author Roland Beisel
  * @since 0.2.0
@@ -54,6 +56,10 @@ class PartitionCoordinator(
     private val running = AtomicBoolean(false)
 
     private var scheduledRebalance: ScheduledFuture<*>? = null
+
+    /** When the next scheduled rebalance is due: completion of the last rebalance plus the interval. */
+    @Volatile
+    private var nextRebalanceAt: Instant? = null
 
     /** Starts after instance registration and before record processing. */
     override fun getPhase(): Int = 1
@@ -140,9 +146,25 @@ class PartitionCoordinator(
                     releaseSurplusPartitions(partitionContext)
                 } finally {
                     partitionAssignmentCache.evictAll()
+                    nextRebalanceAt = taskScheduler.clock.instant().plus(rebalanceInterval)
                 }
             }
         }
+
+    /**
+     * Reports whether a scheduled rebalance is due or already waiting for the assignment lock.
+     *
+     * The due time follows the fixed-delay schedule: completion of the last rebalance plus the
+     * rebalance interval. It does not depend on the scheduler implementation. A stopped coordinator
+     * schedules no rebalance, so none is due.
+     *
+     * @return `true` when a processing run should end so the rebalance can run
+     */
+    internal fun isRebalanceDue(): Boolean {
+        if (!running.get()) return false
+        val dueAt = nextRebalanceAt ?: return false
+        return !taskScheduler.clock.instant().isBefore(dueAt) || assignmentLock.hasQueuedThreads()
+    }
 
     /** Runs work against one stable partition assignment without overlapping a rebalance. */
     internal fun <T> withStableAssignments(action: (Set<Int>) -> T): T =

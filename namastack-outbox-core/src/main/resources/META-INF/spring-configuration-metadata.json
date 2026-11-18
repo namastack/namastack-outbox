@@ -226,6 +226,13 @@
       "description": "If true, completed outbox records will be deleted from the outbox table after successful processing instead of being marked as completed. Default: false."
     },
     {
+      "name": "namastack.outbox.processing.dispatch-mode",
+      "type": "java.lang.String",
+      "sourceType": "io.namastack.outbox.OutboxProperties$Processing",
+      "defaultValue": "batch",
+      "description": "How record keys are dispatched within a processing run. Options: 'batch', 'continuous'. 'batch' (default) processes one batch of up to polling.batch-size record keys per run and waits for all of them before the run ends. 'continuous' keeps up to polling.batch-size record keys in flight and selects new keys while other keys of the run are still processed."
+    },
+    {
       "name": "namastack.outbox.processing.executor-core-pool-size",
       "type": "java.lang.Integer",
       "sourceType": "io.namastack.outbox.OutboxProperties$Processing",

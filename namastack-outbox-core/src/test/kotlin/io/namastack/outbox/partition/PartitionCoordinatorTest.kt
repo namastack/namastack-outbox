@@ -12,6 +12,7 @@ import io.mockk.verify
 import io.namastack.outbox.instance.OutboxInstanceRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -22,6 +23,7 @@ import org.springframework.scheduling.TaskScheduler
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+import java.time.ZoneOffset
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
@@ -239,6 +241,91 @@ class PartitionCoordinatorTest {
                 allowProcessingToFinish.countDown()
                 executor.shutdownNow()
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("Rebalance Due")
+    inner class RebalanceDue {
+        private var now: Instant = Instant.parse("2026-01-01T00:00:00Z")
+
+        @BeforeEach
+        fun setUpClock() {
+            every { taskScheduler.clock } answers { Clock.fixed(now, ZoneOffset.UTC) }
+        }
+
+        @Test
+        fun `is not due before start`() {
+            now = now.plus(REBALANCE_INTERVAL)
+
+            assertThat(partitionCoordinator.isRebalanceDue()).isFalse()
+        }
+
+        @Test
+        fun `is due once the rebalance interval has passed since start`() {
+            partitionCoordinator.start()
+            assertThat(partitionCoordinator.isRebalanceDue()).isFalse()
+
+            now = now.plus(REBALANCE_INTERVAL).minusMillis(1)
+            assertThat(partitionCoordinator.isRebalanceDue()).isFalse()
+
+            now = now.plusMillis(1)
+            assertThat(partitionCoordinator.isRebalanceDue()).isTrue()
+        }
+
+        @Test
+        fun `is not due after a rebalance completes`() {
+            partitionCoordinator.start()
+            now = now.plus(REBALANCE_INTERVAL)
+            assertThat(partitionCoordinator.isRebalanceDue()).isTrue()
+
+            partitionCoordinator.rebalance()
+
+            assertThat(partitionCoordinator.isRebalanceDue()).isFalse()
+        }
+
+        @Test
+        fun `is due after a failed rebalance only once the interval has passed again`() {
+            partitionCoordinator.start()
+            now = now.plus(REBALANCE_INTERVAL)
+            every { instanceRegistry.getActiveInstanceIds() } returns emptySet()
+
+            runCatching { partitionCoordinator.rebalance() }
+
+            assertThat(partitionCoordinator.isRebalanceDue()).isFalse()
+            now = now.plus(REBALANCE_INTERVAL)
+            assertThat(partitionCoordinator.isRebalanceDue()).isTrue()
+        }
+
+        @Test
+        fun `is not due after stop`() {
+            partitionCoordinator.start()
+            partitionCoordinator.stop()
+
+            now = now.plus(REBALANCE_INTERVAL)
+
+            assertThat(partitionCoordinator.isRebalanceDue()).isFalse()
+        }
+
+        @Test
+        fun `is due while a rebalance waits for the assignment lock`() {
+            partitionCoordinator.start()
+            val executor = Executors.newSingleThreadExecutor()
+            try {
+                partitionCoordinator.withStableAssignments {
+                    assertThat(partitionCoordinator.isRebalanceDue()).isFalse()
+
+                    executor.submit { partitionCoordinator.rebalance() }
+
+                    await().atMost(5, SECONDS).untilAsserted {
+                        assertThat(partitionCoordinator.isRebalanceDue()).isTrue()
+                    }
+                }
+            } finally {
+                executor.shutdown()
+                assertThat(executor.awaitTermination(5, SECONDS)).isTrue()
+            }
+            assertThat(partitionCoordinator.isRebalanceDue()).isFalse()
         }
     }
 

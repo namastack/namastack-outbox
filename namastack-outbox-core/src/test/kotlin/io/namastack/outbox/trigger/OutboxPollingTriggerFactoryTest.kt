@@ -60,8 +60,8 @@ class OutboxPollingTriggerFactoryTest {
         assertThat(next).isEqualTo(instant.plusMillis(2000))
 
         // max boundary
-        trigger.onTaskComplete(5)
-        trigger.onTaskComplete(5)
+        trigger.onPollResult(found = 5, requested = 20)
+        trigger.onPollResult(found = 5, requested = 20)
         val next2 = trigger.nextExecution(triggerContext)
         assertThat(next2).isEqualTo(instant.plusMillis(4000))
     }
