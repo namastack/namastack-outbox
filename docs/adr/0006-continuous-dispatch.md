@@ -1,10 +1,10 @@
 # ADR-0006: Continuous Dispatch of Record Keys
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-14
 - **Decision owner:** @Alek96
 - **Discussion:** [How should the scheduler poll again without waiting when records are pending?](https://github.com/orgs/namastack/discussions/537)
-- **Related:** discussion #537, issue #545
+- **Related:** issue #545
 - **Supersedes:** None
 
 ## Context
