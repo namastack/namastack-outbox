@@ -16,8 +16,6 @@ import java.lang.reflect.Method
 import java.time.Clock
 import java.time.Duration
 import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -48,7 +46,7 @@ class OutboxProcessingScheduler internal constructor(
      * Creates a scheduler that dispatches record keys according to
      * [OutboxRuntimeSettings.Processing.dispatchMode].
      *
-     * @param trigger Polling trigger that determines when the next processing cycle should occur
+     * @param trigger Polling trigger that determines when the next processing run should occur
      * @param taskScheduler Spring TaskScheduler for scheduling the processing job
      * @param observationRegistry Supplier for obtaining the Micrometer [ObservationRegistry]
      * @param recordRepository Repository for loading record keys and records
@@ -94,7 +92,7 @@ class OutboxProcessingScheduler internal constructor(
 
     private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
-    private val lifecycle = SchedulerLifecycleStateMachine(settings.processing.shutdownTimeout)
+    private val lifecycle = SchedulerLifecycle(settings.processing.shutdownTimeout)
 
     private var scheduledTask: ScheduledFuture<*>? = null
 
@@ -106,11 +104,12 @@ class OutboxProcessingScheduler internal constructor(
     override fun getPhase(): Int = 3
 
     /**
-     * Returns `true` while this lifecycle is active (idle, running, or shutting down).
+     * Reports whether the processing job is scheduled.
      *
-     * @return true while idle, processing, or shutting down; false when the lifecycle state is stopped
+     * @return true from [start] until [stop]; false once [stop] has started, also while a cancelled run
+     * finishes its accepted keys
      */
-    override fun isRunning(): Boolean = lifecycle.isStarted()
+    override fun isRunning(): Boolean = lifecycle.isScheduled()
 
     /**
      * Registers the outbox processing job with the task scheduler.
@@ -136,15 +135,17 @@ class OutboxProcessingScheduler internal constructor(
      * Unregisters the outbox processing job and performs graceful shutdown.
      *
      * Automatically invoked during application shutdown. Cancels future scheduling and,
-     * if a cycle is currently running, stops further dispatching and blocks until the
+     * if a run is active, stops it from dispatching further keys and blocks until the
      * accepted keys finish, a timeout, or interruption
-     * (up to [OutboxRuntimeSettings.Processing.shutdownTimeout]).
+     * (up to [OutboxRuntimeSettings.Processing.shutdownTimeout]). A run that outlasts the
+     * wait finishes its accepted keys without dispatching new ones, also after a restart;
+     * no new run starts until it ends.
      *
      * @throws RuntimeException if cancelling the scheduled job fails
      */
     override fun stop() {
         log.info("Initiating OutboxProcessingScheduler shutdown...")
-        lifecycle.cancelScheduledJob {
+        lifecycle.shutdown {
             scheduledTask?.cancel(false)?.also { cancelled ->
                 if (cancelled) {
                     log.debug("Cancelled scheduled outbox task")
@@ -158,201 +159,175 @@ class OutboxProcessingScheduler internal constructor(
     }
 
     /**
-     * Main processing cycle. Invoked by the scheduler according to the configured trigger.
+     * Main processing run. Invoked by the scheduler according to the configured trigger.
      *
      * Lets the [OutboxKeyDispatcher] process record keys of the assigned partitions in parallel.
      * Each record is handled by the processor chain (handler → retry → fallback → failure).
      * A run that keeps dispatching ends when a partition rebalance is due or shutdown starts.
-     * If the scheduler is not idle or a compatibility cooldown is active, the cycle is skipped.
+     * If the job is not scheduled, another run is active, or a compatibility cooldown is active,
+     * the run is skipped.
      */
     fun process() {
         if (keyDispatcher.isCompatibilityCooldownActive()) return
-        if (!lifecycle.startProcessing()) return
+        val run = lifecycle.startRun() ?: return
 
         try {
             partitionCoordinator.withStableAssignments { partitions ->
                 if (partitions.isNotEmpty()) {
                     log.debug("Processing {} partitions: {}", partitions.size, partitions.sorted())
                     keyDispatcher.dispatch(partitions) {
-                        partitionCoordinator.isRebalanceDue() || lifecycle.isStopping()
+                        partitionCoordinator.isRebalanceDue() || run.isCancelled
                     }
                 }
             }
         } catch (ex: Exception) {
             log.error("Error during outbox processing", ex)
         } finally {
-            lifecycle.stopProcessing()
+            lifecycle.finishRun(run)
         }
     }
 
     /**
-     * Thread-safe lifecycle state machine used by [OutboxProcessingScheduler].
+     * Thread-safe lifecycle of [OutboxProcessingScheduler].
      *
-     * It coordinates job registration, processing execution, and graceful shutdown,
-     * including waiting for an in-flight cycle to complete with a bounded timeout.
+     * It tracks two facts separately: whether the processing job is scheduled, and which processing
+     * run is active. At most one run is active at a time. Shutdown cancels the active run, and a
+     * cancelled run stays cancelled until it ends, even after the shutdown timeout or a restart.
      *
-     * @param shutdownTimeout Maximum time to wait for an active cycle during shutdown
+     * @param shutdownTimeout Maximum time to wait for an active run during shutdown
      */
-    class SchedulerLifecycleStateMachine(
+    internal class SchedulerLifecycle(
         private val shutdownTimeout: Duration,
     ) {
         /**
-         * Lifecycle states for scheduler registration and processing execution.
+         * One processing run. Once cancelled, it stays cancelled.
          */
-        enum class LifecycleState {
-            /** Scheduler is not registered and not running any work. */
-            STOPPED,
+        class Run internal constructor() {
+            /** Whether shutdown asked this run to stop dispatching new keys. */
+            @Volatile
+            var isCancelled: Boolean = false
+                private set
 
-            /** Scheduler is registered and waiting for the next trigger. */
-            IDLE,
-
-            /** A processing cycle is currently running. */
-            RUNNING,
-
-            /** Shutdown is in progress and waiting for an active cycle to finish. */
-            SHUTTING_DOWN,
+            internal fun cancel() {
+                isCancelled = true
+            }
         }
 
         private val log = LoggerFactory.getLogger(OutboxProcessingScheduler::class.java)
 
         private val lock = ReentrantLock()
-        private val processingComplete = lock.newCondition()
-        private val state = AtomicReference(LifecycleState.STOPPED)
+        private val runFinished = lock.newCondition()
+
+        @Volatile
+        private var scheduled = false
+
+        /** Guarded by [lock]; only the run's own [finishRun] clears it. */
+        private var activeRun: Run? = null
 
         /**
-         * Reports whether the lifecycle state is other than [LifecycleState.STOPPED].
+         * Reports whether the processing job is scheduled.
          *
-         * @return true while idle, processing, or shutting down; false when the state is stopped
+         * @return true from [scheduleJob] until [shutdown]
          */
-        fun isStarted(): Boolean = state.get() != LifecycleState.STOPPED
+        fun isScheduled(): Boolean = scheduled
 
         /**
-         * Reports whether shutdown was requested while a processing cycle is running.
+         * Invokes [schedule] and marks the job as scheduled. Ignored if the job is already scheduled.
          *
-         * @return true in [LifecycleState.SHUTTING_DOWN]
-         */
-        fun isStopping(): Boolean = state.get() == LifecycleState.SHUTTING_DOWN
-
-        /**
-         * Transitions from [LifecycleState.STOPPED] to [LifecycleState.IDLE] and invokes [schedule].
+         * A cancelled run that is still finishing stays cancelled; no new run starts until it ends.
          *
-         * If already started, the request is ignored.
-         *
-         * @param schedule Registers the processing job when the lifecycle is stopped
-         * @throws Exception if registering the processing job fails; the lifecycle remains stopped
+         * @param schedule Registers the processing job
+         * @throws Exception if registering the processing job fails; the job stays unscheduled
          */
         fun scheduleJob(schedule: () -> Unit) =
             lock.withLock {
-                if (state.get() == LifecycleState.STOPPED) {
+                if (scheduled) {
+                    log.trace("Ignoring schedule request because the processing job is already scheduled")
+                } else {
                     schedule.invoke()
-                    transitionTo(LifecycleState.IDLE, "scheduler registered")
-                } else {
-                    log.trace(
-                        "Ignoring schedule request because scheduler is already active (state={})",
-                        state.get(),
-                    )
+                    scheduled = true
+                    log.trace("Processing job scheduled")
                 }
             }
 
         /**
-         * Marks the beginning of a processing cycle.
+         * Starts a processing run.
          *
-         * @return `true` only when transition from [LifecycleState.IDLE] to [LifecycleState.RUNNING] succeeds
+         * @return the new run, or `null` if the job is not scheduled or another run is active
          */
-        fun startProcessing(): Boolean =
+        fun startRun(): Run? =
             lock.withLock {
-                return if (state.get() == LifecycleState.IDLE) {
-                    transitionTo(LifecycleState.RUNNING, "processing cycle started")
-                    true
-                } else {
-                    log.trace(
-                        "Skipping processing cycle because scheduler is not idle (state={})",
-                        state.get(),
-                    )
-                    false
+                when {
+                    !scheduled -> {
+                        log.trace("Skipping processing run because the processing job is not scheduled")
+                        null
+                    }
+
+                    activeRun != null -> {
+                        log.trace("Skipping processing run because another run is active")
+                        null
+                    }
+
+                    else -> Run().also { activeRun = it }
                 }
             }
 
         /**
-         * Marks processing completion.
+         * Records that [run] has ended and notifies threads waiting in [shutdown].
          *
-         * In [LifecycleState.SHUTTING_DOWN], notifies waiting shutdown threads instead of returning to idle.
+         * Ignored if [run] is not the active run.
+         *
+         * @param run Run returned by [startRun]
          */
-        fun stopProcessing(): Unit =
+        fun finishRun(run: Run): Unit =
             lock.withLock {
-                if (state.get() == LifecycleState.RUNNING) {
-                    transitionTo(LifecycleState.IDLE, "processing cycle finished")
-                } else if (state.get() == LifecycleState.SHUTTING_DOWN) {
-                    log.trace("Processing cycle finished during shutdown. Notifying waiting thread")
-                    processingComplete.signalAll()
-                } else {
-                    log.trace(
-                        "Ignoring stopProcessing because scheduler is not running (state={})",
-                        state.get(),
-                    )
-                }
+                if (activeRun !== run) return@withLock
+                activeRun = null
+                runFinished.signalAll()
             }
 
         /**
-         * Cancels scheduling and transitions the lifecycle toward [LifecycleState.STOPPED].
+         * Cancels the scheduled job, cancels the active run, and waits for that run to end.
          *
-         * When called during [LifecycleState.RUNNING] or [LifecycleState.SHUTTING_DOWN], this method waits
-         * for processing completion, timeout, or interruption before finalizing stop.
+         * The wait ends when the run ends, after [shutdownTimeout], or on interruption. The job is
+         * unscheduled in every case; a run still finishing after the wait stays cancelled.
          *
-         * @param cancel Cancels the scheduled processing job when the lifecycle is idle or running
-         * @throws Exception if cancelling the scheduled job fails before shutdown can proceed
+         * @param cancelJob Cancels the scheduled processing job when it is scheduled
+         * @throws Exception if cancelling the scheduled job fails; nothing changes in that case
          */
-        fun cancelScheduledJob(cancel: () -> Unit) =
+        fun shutdown(cancelJob: () -> Unit) =
             lock.withLock {
-                when (state.get()) {
-                    LifecycleState.IDLE -> {
-                        cancel.invoke()
-                        transitionTo(LifecycleState.STOPPED, "scheduler cancelled while idle")
-                    }
-
-                    LifecycleState.RUNNING -> {
-                        cancel.invoke()
-                        transitionTo(LifecycleState.SHUTTING_DOWN, "scheduler cancelled while processing")
-                        awaitProcessingComplete()
-                        transitionTo(LifecycleState.STOPPED, "shutdown finished")
-                    }
-
-                    LifecycleState.SHUTTING_DOWN -> {
-                        log.trace("Already shutting down. Awaiting processing completion")
-                        awaitProcessingComplete()
-                        transitionTo(LifecycleState.STOPPED, "shutdown finished")
-                    }
-
-                    LifecycleState.STOPPED -> {
-                        log.trace("Ignoring cancel request because scheduler is already stopped")
-                    }
+                if (scheduled) {
+                    cancelJob.invoke()
+                    scheduled = false
+                    log.trace("Processing job cancelled")
                 }
+                val run = activeRun ?: return@withLock
+                run.cancel()
+                awaitRunFinished(run)
             }
 
-        private fun awaitProcessingComplete() {
-            log.debug("Waiting for processing cycle to complete (timeout={}ms)", shutdownTimeout.toMillis())
+        private fun awaitRunFinished(run: Run) {
+            log.debug("Waiting for processing run to complete (timeout={}ms)", shutdownTimeout.toMillis())
 
+            var remainingNanos = shutdownTimeout.toNanos()
             try {
-                val completed = processingComplete.await(shutdownTimeout.toMillis(), TimeUnit.MILLISECONDS)
-                if (completed) {
-                    log.trace("Processing cycle completed while shutting down")
-                } else {
-                    log.warn("Shutdown timeout reached after {}ms; forcing shutdown", shutdownTimeout.toMillis())
+                while (activeRun === run && remainingNanos > 0) {
+                    remainingNanos = runFinished.awaitNanos(remainingNanos)
                 }
             } catch (ex: InterruptedException) {
                 Thread.currentThread().interrupt()
-                log.warn("Interrupted while waiting for processing cycle completion; forcing shutdown", ex)
+                log.warn("Interrupted while waiting for processing run completion; forcing shutdown", ex)
+                return
             }
-        }
 
-        private fun transitionTo(
-            newState: LifecycleState,
-            reason: String,
-        ) {
-            val oldState = state.get()
-            if (oldState != newState) {
-                log.trace("BeanState transition: {} -> {} ({})", oldState, newState, reason)
-                state.set(newState)
+            if (activeRun === run) {
+                log.warn(
+                    "Shutdown timeout reached after {}ms; the active run finishes its accepted keys without dispatching new ones",
+                    shutdownTimeout.toMillis(),
+                )
+            } else {
+                log.trace("Processing run completed while shutting down")
             }
         }
     }
