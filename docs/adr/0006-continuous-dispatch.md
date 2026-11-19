@@ -1,10 +1,10 @@
 # ADR-0006: Continuous Dispatch of Record Keys
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-14
 - **Decision owner:** @Alek96
 - **Discussion:** [How should the scheduler poll again without waiting when records are pending?](https://github.com/orgs/namastack/discussions/537)
-- **Related:** discussion #537, issue #545
+- **Related:** issue #545
 - **Supersedes:** None
 
 ## Context
@@ -50,7 +50,7 @@ guarantees, scheduling behavior, and configuration, so they are recorded here.
 This adds a second limit that can conflict with `polling.batch-size` and the executor size,
 and it leaves no room for further dispatch strategies without more flags.
 
-**Option A2: A `processing.dispatch-mode` selector** (`batch` or `continuous`) that reuses
+**Option A2: A `polling.dispatch-mode` selector** (`batch` or `continuous`) that reuses
 the existing batch size and polling settings.
 
 ### In-flight limit
@@ -123,7 +123,7 @@ Option A2 for configuration, Option B2 for the in-flight limit, Option C2 for ke
 Option D2 for refilling, Option E2 for the wait timeout, Option F2 for ending a run for a
 rebalance, and Option G2 for the next run after a yield.
 
-1. **Configuration.** `namastack.outbox.processing.dispatch-mode` accepts `batch` (default)
+1. **Configuration.** `namastack.outbox.polling.dispatch-mode` accepts `batch` (default)
    and `continuous`. No other property is added.
 2. **Limits.**
    - **In-flight limit:** at most `polling.batch-size` keys are in flight. A key is in flight
@@ -181,7 +181,7 @@ rebalance, and Option G2 for the next run after a yield.
    `BatchKeyDispatcher` and `ContinuousKeyDispatcher`, behind the `OutboxKeyDispatcher`
    interface used by `OutboxProcessingScheduler`. The scheduler creates the strategy for the
    configured mode through `OutboxKeyDispatcherFactory`. The strategies are internal to the core
-   module and not exposed as beans, so `processing.dispatch-mode` is the only way to select one.
+   module and not exposed as beans, so `polling.dispatch-mode` is the only way to select one.
 
 ## Rationale
 

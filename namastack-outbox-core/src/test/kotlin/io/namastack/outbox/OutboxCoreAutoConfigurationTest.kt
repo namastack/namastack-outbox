@@ -721,7 +721,7 @@ class OutboxCoreAutoConfigurationTest {
         fun `creates continuous key dispatcher when configured`() {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
-                .withPropertyValues("namastack.outbox.processing.dispatch-mode=continuous")
+                .withPropertyValues("namastack.outbox.polling.dispatch-mode=continuous")
                 .run { context ->
                     val dispatcher = keyDispatcher(context)
                     assertThat(dispatcher).isInstanceOf(ContinuousKeyDispatcher::class.java)
@@ -734,7 +734,7 @@ class OutboxCoreAutoConfigurationTest {
         fun `fails on unsupported dispatch mode`() {
             contextRunner
                 .withUserConfiguration(MinimalTestConfig::class.java)
-                .withPropertyValues("namastack.outbox.processing.dispatch-mode=parallel")
+                .withPropertyValues("namastack.outbox.polling.dispatch-mode=parallel")
                 .run { context ->
                     assertThat(context).hasFailed()
                     assertThat(context.startupFailure)

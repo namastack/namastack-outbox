@@ -24,7 +24,7 @@ import kotlin.concurrent.withLock
  *
  * Each run takes a stable partition assignment from the PartitionCoordinator, selects record keys
  * from the assigned partitions, and processes them on the processing executor. How keys are
- * selected within a run follows [OutboxRuntimeSettings.Processing.dispatchMode]. A run returns only
+ * selected within a run follows [OutboxRuntimeSettings.Polling.dispatchMode]. A run returns only
  * after every accepted key task has finished.
  *
  * Record processing is delegated to a chain of processors that handle the complete
@@ -44,7 +44,7 @@ class OutboxProcessingScheduler internal constructor(
 ) : SmartLifecycle {
     /**
      * Creates a scheduler that dispatches record keys according to
-     * [OutboxRuntimeSettings.Processing.dispatchMode].
+     * [OutboxRuntimeSettings.Polling.dispatchMode].
      *
      * @param trigger Polling trigger that determines when the next processing run should occur
      * @param taskScheduler Spring TaskScheduler for scheduling the processing job

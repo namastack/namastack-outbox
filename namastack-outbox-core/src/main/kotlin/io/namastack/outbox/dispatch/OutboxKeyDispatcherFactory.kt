@@ -3,7 +3,7 @@ package io.namastack.outbox.dispatch
 import io.namastack.outbox.OutboxRecordRepository
 import io.namastack.outbox.processor.OutboxRecordProcessorChainInvoker
 import io.namastack.outbox.runtime.OutboxRuntimeSettings
-import io.namastack.outbox.runtime.OutboxRuntimeSettings.Processing.DispatchMode
+import io.namastack.outbox.runtime.OutboxRuntimeSettings.Polling.DispatchMode
 import io.namastack.outbox.trigger.OutboxPollingTrigger
 import org.springframework.core.task.AsyncTaskExecutor
 import org.springframework.core.task.TaskExecutor
@@ -21,7 +21,7 @@ import java.time.Clock
  */
 internal object OutboxKeyDispatcherFactory {
     /**
-     * Creates the dispatcher selected by [OutboxRuntimeSettings.Processing.dispatchMode].
+     * Creates the dispatcher selected by [OutboxRuntimeSettings.Polling.dispatchMode].
      *
      * @param settings Effective runtime settings
      * @param trigger Polling trigger of the scheduler that uses the dispatcher
@@ -41,7 +41,7 @@ internal object OutboxKeyDispatcherFactory {
     ): OutboxKeyDispatcher {
         val keyProcessor = OutboxRecordKeyProcessor(recordProcessorChainInvoker, settings.processing, clock)
         val asyncTaskExecutor = taskExecutor as? AsyncTaskExecutor ?: TaskExecutorAdapter(taskExecutor)
-        return when (settings.processing.dispatchMode) {
+        return when (settings.polling.dispatchMode) {
             DispatchMode.BATCH -> {
                 BatchKeyDispatcher(
                     recordRepository = recordRepository,
