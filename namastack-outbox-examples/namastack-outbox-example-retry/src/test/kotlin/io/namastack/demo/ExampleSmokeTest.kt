@@ -9,11 +9,12 @@ import org.springframework.boot.test.system.CapturedOutput
 import org.springframework.boot.test.system.OutputCaptureExtension
 import java.util.concurrent.TimeUnit.SECONDS
 
-@SpringBootTest
+// Exercise all retry attempts within the smoke test's deadline, even when every mail attempt fails.
+@SpringBootTest(properties = ["namastack.outbox.polling.fixed.interval=100ms"])
 @ExtendWith(OutputCaptureExtension::class)
 class ExampleSmokeTest {
     @Test
-    fun `prints annotation handler signal`(output: CapturedOutput) {
+    fun `prints retry example handler signals`(output: CapturedOutput) {
         await()
             .atMost(10, SECONDS)
             .untilAsserted {

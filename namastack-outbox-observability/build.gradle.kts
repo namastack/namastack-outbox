@@ -21,6 +21,7 @@ dependencies {
 
     testImplementation(project(":namastack-outbox-starter-jdbc"))
     testImplementation(libs.spring.boot.starter.jdbc.test)
+    testImplementation(libs.spring.boot.metrics)
     testImplementation(libs.jackson.module.kotlin)
     testImplementation(libs.h2)
     testImplementation(libs.mockk)

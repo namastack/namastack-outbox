@@ -1,7 +1,7 @@
 [versions]
 # Kotlin and Plugin versions
 kotlin = "2.4.21"
-springBoot = "4.1.2"
+springBoot = "4.2.0-RC2"
 springCloudAws = "4.2.2"
 ktlint = "14.2.0"
 dokka = "2.3.0"
@@ -15,10 +15,11 @@ testcontainers = "2.0.5"
 # Spring Boot dependencies
 spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
 spring-boot = { module = "org.springframework.boot:spring-boot" }
-spring-boot-amqp = { module = "org.springframework.boot:spring-boot-amqp" }
+spring-boot-rabbitmq = { module = "org.springframework.boot:spring-boot-rabbitmq" }
 spring-boot-actuator = { module = "org.springframework.boot:spring-boot-actuator" }
 spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure" }
 spring-boot-tracing = { module = "org.springframework.boot:spring-boot-micrometer-tracing" }
+spring-boot-metrics = { module = "org.springframework.boot:spring-boot-micrometer-metrics" }
 spring-boot-jdbc = { module = "org.springframework.boot:spring-boot-jdbc" }
 spring-boot-kafka = { module = "org.springframework.boot:spring-boot-kafka" }
 spring-boot-data-mongodb = { module = "org.springframework.boot:spring-boot-data-mongodb" }

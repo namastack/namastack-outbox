@@ -13,7 +13,7 @@ dependencies {
     implementation(libs.spring.boot.autoconfigure)
     implementation(libs.spring.amqp)
     implementation(libs.spring.rabbit)
-    implementation(libs.spring.boot.amqp)
+    implementation(libs.spring.boot.rabbitmq)
     implementation(libs.jackson.databind)
     implementation(libs.slf4j.api)
 
