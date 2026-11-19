@@ -10,6 +10,7 @@ import io.namastack.outbox.observability.metrics.OutboxInstanceMetricsMeterBinde
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
+import org.springframework.boot.micrometer.metrics.autoconfigure.system.SystemMetricsAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -33,7 +34,8 @@ class OutboxChannelsObservabilityAutoConfigurationTest {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @EnableAutoConfiguration
+    // Host metrics are unrelated to channel wiring and depend on the runner's JVM/cgroup support.
+    @EnableAutoConfiguration(exclude = [SystemMetricsAutoConfiguration::class])
     internal class TestApplication {
         @Bean
         fun channelsRuntimeModeProvider(): OutboxRuntimeModeProvider = OutboxRuntimeModeProvider { CHANNELS }
