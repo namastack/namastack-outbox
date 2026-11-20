@@ -1,8 +1,8 @@
 package io.namastack.outbox.handler.method.handler
 
 import io.namastack.outbox.handler.OutboxRecordMetadata
-import io.namastack.outbox.handler.ReflectionUtils
 import io.namastack.outbox.handler.method.InvocableHandlerMethod
+import io.namastack.outbox.support.ReflectionUtils
 import java.lang.reflect.Method
 
 /**

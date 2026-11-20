@@ -3,7 +3,7 @@ package io.namastack.outbox.handler.discovery
 import io.namastack.outbox.handler.OutboxFailureContext
 import io.namastack.outbox.handler.OutboxHandlerWithFallback
 import io.namastack.outbox.handler.OutboxTypedHandlerWithFallback
-import io.namastack.outbox.handler.ReflectionUtils
+import io.namastack.outbox.support.ReflectionUtils
 
 /**
  * Discovers fallback methods implemented through the public handler interfaces.
@@ -25,7 +25,7 @@ internal object InterfaceFallbackDiscoverer {
         buildList {
             if (bean is OutboxTypedHandlerWithFallback<*>) {
                 val payloadType =
-                    ReflectionUtils.resolveInterfacePayloadType(bean, OutboxTypedHandlerWithFallback::class.java)
+                    ReflectionUtils.resolveFirstInterfaceTypeArgument(bean, OutboxTypedHandlerWithFallback::class.java)
                 add(
                     FallbackCandidate(
                         bean = bean,

@@ -1,7 +1,7 @@
 package io.namastack.outbox.handler.discovery
 
 import io.namastack.outbox.annotation.OutboxHandler
-import io.namastack.outbox.handler.ReflectionUtils
+import io.namastack.outbox.support.ReflectionUtils
 import org.springframework.core.annotation.AnnotatedElementUtils
 
 /**

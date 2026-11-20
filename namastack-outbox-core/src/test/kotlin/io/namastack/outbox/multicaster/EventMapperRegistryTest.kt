@@ -15,7 +15,7 @@ class EventMapperRegistryTest {
     fun `rejects erased generic sources instead of registering an accidental catch all`() {
         assertThatThrownBy { EventMapperRegistry(listOf(ErasedMapper<ProxySource>())) }
             .isInstanceOf(IllegalStateException::class.java)
-            .hasMessageContaining("Cannot resolve payload type")
+            .hasMessageContaining("Cannot resolve first type argument")
     }
 
     @Test

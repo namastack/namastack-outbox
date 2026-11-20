@@ -1,18 +1,18 @@
-package io.namastack.outbox.handler
+package io.namastack.outbox.support
 
 import org.springframework.aop.support.AopUtils
 import org.springframework.core.MethodIntrospector
 import org.springframework.core.ResolvableType
 import org.springframework.core.annotation.AnnotatedElementUtils
-import org.springframework.util.ReflectionUtils
 import java.lang.reflect.Method
+import org.springframework.util.ReflectionUtils as SpringReflectionUtils
 
 /**
- * Utility object for common reflection operations on handler methods.
+ * Utility object for common reflection operations on Spring-managed beans.
  *
  * Provides reusable functions for:
  * - Resolving target classes behind AOP proxies
- * - Resolving generic interface payload types
+ * - Resolving the first generic type argument of an interface
  * - Finding interface methods by their complete resolved signature
  * - Discovering merged method annotations across type hierarchies
  *
@@ -40,25 +40,29 @@ internal object ReflectionUtils {
         }
 
     /**
-     * Resolves the payload type supplied to a generic handler interface.
+     * Resolves the first generic type argument of the specified interface through the bean's type hierarchy.
      *
-     * @param bean Bean implementing [handlerInterface]
-     * @param handlerInterface Generic handler interface whose first type argument is the payload
-     * @return Concrete payload type resolved through the bean's complete type hierarchy
-     * @throws IllegalStateException if the payload type cannot be resolved
+     * Resolves the bean's target class behind Spring AOP proxies and follows inherited generic
+     * declarations across superclasses and interfaces.
+     *
+     * @param bean Bean implementing [interfaceType]
+     * @param interfaceType Generic interface whose first type argument should be resolved
+     * @return Resolved Java class of the interface's first generic type argument
+     * @throws IllegalStateException if the first generic type argument cannot be resolved
+     * @since 2.1.0
      */
-    fun resolveInterfacePayloadType(
+    fun resolveFirstInterfaceTypeArgument(
         bean: Any,
-        handlerInterface: Class<*>,
+        interfaceType: Class<*>,
     ): Class<*> =
         checkNotNull(
             ResolvableType
                 .forClass(getTargetClass(bean))
-                .`as`(handlerInterface)
+                .`as`(interfaceType)
                 .getGeneric(0)
                 .resolve(),
         ) {
-            "Cannot resolve payload type for ${handlerInterface.name} on ${getTargetClass(bean).name}"
+            "Cannot resolve first type argument for ${interfaceType.name} on ${getTargetClass(bean).name}"
         }
 
     /**
@@ -89,7 +93,7 @@ internal object ReflectionUtils {
 
         val interfaceMethod =
             checkNotNull(
-                ReflectionUtils.findMethod(
+                SpringReflectionUtils.findMethod(
                     handlerInterface,
                     methodName,
                     Any::class.java,

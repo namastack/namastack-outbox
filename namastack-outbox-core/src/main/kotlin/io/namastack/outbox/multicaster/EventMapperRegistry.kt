@@ -1,8 +1,8 @@
 package io.namastack.outbox.multicaster
 
 import io.namastack.outbox.annotation.OutboxEvent
-import io.namastack.outbox.handler.ReflectionUtils
 import io.namastack.outbox.mapping.EventMapper
+import io.namastack.outbox.support.ReflectionUtils
 import org.springframework.core.annotation.MergedAnnotations
 
 /**
@@ -71,7 +71,7 @@ internal class EventMapperRegistry(
      */
     private fun <S : Any, T : Any> register(mapper: EventMapper<S, T>) {
         @Suppress("UNCHECKED_CAST")
-        val sourceType = ReflectionUtils.resolveInterfacePayloadType(mapper, EventMapper::class.java) as Class<S>
+        val sourceType = ReflectionUtils.resolveFirstInterfaceTypeArgument(mapper, EventMapper::class.java) as Class<S>
 
         requireUnannotatedSource(sourceType)
         require(sourceType !in mappings) {

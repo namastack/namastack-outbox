@@ -1,8 +1,8 @@
 package io.namastack.outbox.handler.registry
 
-import io.namastack.outbox.handler.ReflectionUtils
 import io.namastack.outbox.handler.method.handler.OutboxHandlerMethod
 import io.namastack.outbox.handler.method.handler.TypedHandlerMethod
+import io.namastack.outbox.support.ReflectionUtils
 
 /**
  * Projects invocable handler methods into public operational descriptors.

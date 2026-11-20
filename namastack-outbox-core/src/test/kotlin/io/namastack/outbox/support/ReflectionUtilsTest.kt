@@ -1,5 +1,9 @@
-package io.namastack.outbox.handler
+package io.namastack.outbox.support
 
+import io.namastack.outbox.handler.JavaPackagePrivateAnnotatedBean
+import io.namastack.outbox.handler.OutboxRecordMetadata
+import io.namastack.outbox.handler.OutboxTypedHandler
+import io.namastack.outbox.handler.TestJavaAnnotation
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -91,10 +95,10 @@ class ReflectionUtilsTest {
     }
 
     @Test
-    fun `resolveInterfacePayloadType resolves inherited generic argument`() {
+    fun `resolveFirstInterfaceTypeArgument resolves inherited generic argument`() {
         val bean = InheritedTypedHandler()
 
-        val result = ReflectionUtils.resolveInterfacePayloadType(bean, OutboxTypedHandler::class.java)
+        val result = ReflectionUtils.resolveFirstInterfaceTypeArgument(bean, OutboxTypedHandler::class.java)
 
         assertThat(result).isEqualTo(HandlerPayload::class.java)
     }

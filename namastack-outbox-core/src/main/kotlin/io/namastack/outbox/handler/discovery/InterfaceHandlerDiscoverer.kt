@@ -3,7 +3,7 @@ package io.namastack.outbox.handler.discovery
 import io.namastack.outbox.handler.OutboxHandler
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
-import io.namastack.outbox.handler.ReflectionUtils
+import io.namastack.outbox.support.ReflectionUtils
 import org.springframework.util.ClassUtils
 
 /**
@@ -33,7 +33,11 @@ internal object InterfaceHandlerDiscoverer {
         val lambdaId = beanName.takeIf { ClassUtils.isLambdaClass(ReflectionUtils.getTargetClass(bean)) }
         return buildList {
             if (bean is OutboxTypedHandler<*>) {
-                val payloadType = ReflectionUtils.resolveInterfacePayloadType(bean, OutboxTypedHandler::class.java)
+                val payloadType =
+                    ReflectionUtils.resolveFirstInterfaceTypeArgument(
+                        bean,
+                        OutboxTypedHandler::class.java,
+                    )
                 val identity = bean.getTypedHandlerIdentity()
                 add(
                     HandlerCandidate(
