@@ -16,6 +16,9 @@ import io.namastack.outbox.annotation.OutboxEvent
  * Implementations must be registered as Spring beans, for example through `@Component` or `@Bean`.
  * Mapping requires Namastack's application-event multicaster to be enabled.
  * Namastack collects these beans; it does not scan for or instantiate other implementations.
+ * Mapping becomes available after singleton initialization and mapper discovery complete. Events
+ * published earlier, including from constructors or `@PostConstruct`, retain ordinary Spring/outbox
+ * handling without mapping and are not replayed. Publish events that require mapping after startup.
  * The source type is resolved from [S] through the bean's complete type hierarchy, including
  * generic base classes and interfaces behind Spring AOP proxies, as for typed outbox handlers.
  * Declare a resolvable source type on the implementation rather than an erased type variable.

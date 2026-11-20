@@ -21,6 +21,8 @@ import org.springframework.core.ResolvableType
  * Registered [EventMapper] beans translate events at publication time, before outbox scheduling. Mapped
  * targets follow the same annotation-based persistence rules and are never mapped recursively;
  * original payloads remain available to local listeners.
+ * Mapping becomes available after singleton initialization. Earlier events retain ordinary
+ * Spring/outbox handling without mapping or later replay.
  *
  * ## Key Features
  *
@@ -53,21 +55,25 @@ class OutboxEventMulticaster(
     private val eventMappers: ObjectProvider<EventMapper<*, *>>,
 ) : ApplicationEventMulticaster by delegateEventMulticaster,
     SmartInitializingSingleton {
-    private val mapperRegistry by lazy { EventMapperRegistry(eventMappers.orderedStream().toList()) }
+    @Volatile
+    private var mapperRegistry: EventMapperRegistry? = null
 
     companion object {
         private val log = LoggerFactory.getLogger(OutboxEventMulticaster::class.java)
     }
 
     /**
-     * Validates mapper registrations after Spring has initialized the singleton beans.
+     * Discovers and validates mapper registrations after Spring has initialized the singleton beans.
+     *
+     * The complete registry is published only after discovery succeeds. Events emitted while mapper
+     * beans are being created, including lazy beans, retain ordinary Spring/outbox handling.
      *
      * @throws IllegalArgumentException if a mapper source is annotated or registered more than once
      * @throws IllegalStateException if a mapper's generic source type cannot be resolved
      * @since 2.1.0
      */
     override fun afterSingletonsInstantiated() {
-        mapperRegistry
+        mapperRegistry = EventMapperRegistry(eventMappers.orderedStream().toList())
     }
 
     /**
@@ -76,6 +82,7 @@ class OutboxEventMulticaster(
      * Applies an exact or unique most-specific registered mapper to published events. Targets go
      * directly through delivery without another mapping round; the source remains available to
      * local listeners. Events without a mapper retain their annotation-based delivery behavior.
+     * Before the mapper registry is ready, all events use that behavior without mapping or replay.
      *
      * ## Transaction Requirement
      *
@@ -131,14 +138,15 @@ class OutboxEventMulticaster(
      * original event source. This method neither schedules nor publishes the result.
      *
      * @param event Published Spring event or payload wrapper to inspect for a registered mapper
-     * @return Mapped Spring event, or `null` when no mapper applies
+     * @return Mapped Spring event, or `null` when the registry is not ready or no mapper applies
      * @throws IllegalStateException if incomparable mapper source types match
      * @throws IllegalArgumentException if the source is annotated or mapping returns null
      * @since 2.1.0
      */
     private fun mapEventIfSupported(event: ApplicationEvent): ApplicationEvent? {
+        val registry = mapperRegistry ?: return null
         val sourcePayload = if (event is PayloadApplicationEvent<*>) event.payload else event
-        val mappedPayload = mapperRegistry.mapIfSupported(sourcePayload) ?: return null
+        val mappedPayload = registry.mapIfSupported(sourcePayload) ?: return null
 
         return mappedPayload as? ApplicationEvent ?: PayloadApplicationEvent(event.source, mappedPayload)
     }
