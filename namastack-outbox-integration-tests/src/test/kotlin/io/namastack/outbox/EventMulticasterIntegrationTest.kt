@@ -3,15 +3,23 @@ package io.namastack.outbox
 import io.namastack.outbox.annotation.OutboxEvent
 import io.namastack.outbox.handler.OutboxRecordMetadata
 import io.namastack.outbox.handler.OutboxTypedHandler
+import io.namastack.outbox.mapping.EventMapper
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.context.ApplicationEvent
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
+import org.springframework.context.event.EventListener
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
@@ -20,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit.SECONDS
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Integration test for @OutboxEvent annotation with Spring ApplicationEventPublisher.
@@ -32,6 +41,8 @@ import java.util.concurrent.TimeUnit.SECONDS
     EventMulticasterIntegrationTest.EventPublisherService::class,
     EventMulticasterIntegrationTest.OrderEventHandler::class,
     EventMulticasterIntegrationTest.PaymentEventHandler::class,
+    EventMulticasterIntegrationTest.MappingConfiguration::class,
+    EventMulticasterIntegrationTest.NativeEventHandler::class,
 )
 class EventMulticasterIntegrationTest {
     @Autowired
@@ -46,9 +57,14 @@ class EventMulticasterIntegrationTest {
     @Autowired
     private lateinit var eventPublisherService: EventPublisherService
 
+    @Autowired
+    private lateinit var publisher: ApplicationEventPublisher
+
     @BeforeEach
     fun resetHandledEvents() {
         handledEvents.clear()
+        mappingCalls.set(0)
+        retryAttempts.set(0)
     }
 
     @AfterEach
@@ -111,6 +127,144 @@ class EventMulticasterIntegrationTest {
             }
     }
 
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `mapped domain event persists and delivers only its integration payload`() {
+        transactionTemplate.executeWithoutResult {
+            publisher.publishEvent(InternalOrderPlaced("mapped-order", "customer-1"))
+        }
+
+        await().atMost(10, SECONDS).untilAsserted {
+            val records = recordRepository.findCompletedRecords()
+            assertThat(records).hasSize(1)
+            assertThat(records.single().payload).isEqualTo(OrderCreatedEvent("mapped-order", "customer-1"))
+            assertThat(
+                handledEvents["OrderEventHandler"],
+            ).containsExactly(OrderCreatedEvent("mapped-order", "customer-1"))
+            assertThat(
+                jdbcClient.sql("select count(*) from outbox_record").query(Long::class.java).single(),
+            ).isEqualTo(1)
+        }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `native Spring events map serialize persist and deserialize for their outbox handler`() {
+        transactionTemplate.executeWithoutResult {
+            publisher.publishEvent(NativeOrderPlaced("native-order"))
+        }
+        await().atMost(10, SECONDS).untilAsserted {
+            val records = recordRepository.findCompletedRecords()
+            assertThat(records).hasSize(1)
+            assertThat(records.single().payload).isEqualTo(NativeOrderMessage("native-order"))
+            assertThat(records.single().key).isEqualTo("native-order")
+            assertThat(handledEvents["NativeEventHandler"]).containsExactly(NativeOrderMessage("native-order"))
+        }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `retry reuses the stored integration payload without remapping the source`() {
+        transactionTemplate.executeWithoutResult {
+            publisher.publishEvent(InternalOrderPlaced("retry-order", "customer-1"))
+        }
+
+        await().atMost(10, SECONDS).untilAsserted {
+            val records = recordRepository.findCompletedRecords()
+            assertThat(records).hasSize(1)
+            assertThat(records.single().payload).isEqualTo(OrderCreatedEvent("retry-order", "customer-1"))
+            assertThat(
+                handledEvents["OrderEventHandler"],
+            ).containsExactly(OrderCreatedEvent("retry-order", "customer-1"))
+            assertThat(retryAttempts.get()).isEqualTo(2)
+            assertThat(mappingCalls.get()).isEqualTo(1)
+            assertThat(
+                jdbcClient.sql("select count(*) from outbox_record").query(Long::class.java).single(),
+            ).isEqualTo(1)
+        }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `failure of an original local listener rolls back the mapped outbox record and business data`() {
+        jdbcClient.sql("create table if not exists mapping_business (id varchar(64) primary key)").update()
+        assertThatThrownBy {
+            transactionTemplate.executeWithoutResult {
+                jdbcClient.sql("insert into mapping_business (id) values ('local-listener-failure')").update()
+                publisher.publishEvent(InternalOrderPlaced("local-listener-failure", "customer-1"))
+            }
+        }.hasMessage("Original listener failed")
+
+        assertThat(jdbcClient.sql("select count(*) from mapping_business").query(Long::class.java).single()).isZero()
+        assertThat(jdbcClient.sql("select count(*) from outbox_record").query(Long::class.java).single()).isZero()
+        assertThat(mappingCalls.get()).isEqualTo(1)
+        assertThat(handledEvents).isEmpty()
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `mapping and subsequent business failures roll back business data and outbox together`(failMapping: Boolean) {
+        jdbcClient.sql("create table if not exists mapping_business (id varchar(64) primary key)").update()
+
+        assertThatThrownBy {
+            transactionTemplate.executeWithoutResult {
+                jdbcClient.sql("insert into mapping_business (id) values ('rollback-order')").update()
+                publisher.publishEvent(InternalOrderPlaced("rollback-order", "customer-1", failMapping))
+                error("Business failed")
+            }
+        }.hasMessage(if (failMapping) "Mapping failed" else "Business failed")
+
+        assertThat(jdbcClient.sql("select count(*) from mapping_business").query(Long::class.java).single()).isZero()
+        assertThat(jdbcClient.sql("select count(*) from outbox_record").query(Long::class.java).single()).isZero()
+        assertThat(handledEvents).isEmpty()
+    }
+
+    abstract class InternalOrderEvent {
+        abstract val orderId: String
+        abstract val customerId: String
+        abstract val failMapping: Boolean
+    }
+
+    data class InternalOrderPlaced(
+        override val orderId: String,
+        override val customerId: String,
+        override val failMapping: Boolean = false,
+    ) : InternalOrderEvent()
+
+    data class NativeOrderPlaced(
+        val orderId: String,
+    ) : ApplicationEvent("order-module")
+
+    @OutboxEvent(key = "#this.orderId")
+    data class NativeOrderMessage(
+        val orderId: String,
+    ) : ApplicationEvent("order-module")
+
+    @Configuration(proxyBeanMethods = false)
+    class MappingConfiguration {
+        @Bean
+        fun nativeMapper(): EventMapper<NativeOrderPlaced, NativeOrderMessage> =
+            object : EventMapper<NativeOrderPlaced, NativeOrderMessage> {
+                override fun map(event: NativeOrderPlaced): NativeOrderMessage = NativeOrderMessage(event.orderId)
+            }
+
+        @Bean
+        fun orderMapper(): EventMapper<InternalOrderEvent, OrderCreatedEvent> =
+            object : EventMapper<InternalOrderEvent, OrderCreatedEvent> {
+                override fun map(event: InternalOrderEvent): OrderCreatedEvent {
+                    mappingCalls.incrementAndGet()
+                    check(!event.failMapping) { "Mapping failed" }
+                    return OrderCreatedEvent(event.orderId, event.customerId)
+                }
+            }
+
+        @EventListener
+        fun originalEvent(event: InternalOrderEvent) {
+            check(event.orderId != "local-listener-failure") { "Original listener failed" }
+        }
+    }
+
     private fun cleanupTables() {
         transactionTemplate.executeWithoutResult {
             jdbcClient.sql("DELETE FROM outbox_record").update()
@@ -169,6 +323,9 @@ class EventMulticasterIntegrationTest {
             payload: OrderCreatedEvent,
             metadata: OutboxRecordMetadata,
         ) {
+            if (payload.orderId == "retry-order" && retryAttempts.incrementAndGet() == 1) {
+                error("Transient handler failure")
+            }
             handledEvents.computeIfAbsent("OrderEventHandler") { mutableListOf() }.add(payload)
         }
     }
@@ -183,8 +340,19 @@ class EventMulticasterIntegrationTest {
         }
     }
 
+    class NativeEventHandler : OutboxTypedHandler<NativeOrderMessage> {
+        override fun handle(
+            payload: NativeOrderMessage,
+            metadata: OutboxRecordMetadata,
+        ) {
+            handledEvents.computeIfAbsent("NativeEventHandler") { mutableListOf() }.add(payload)
+        }
+    }
+
     companion object {
         val handledEvents = ConcurrentHashMap<String, MutableList<Any>>()
+        val mappingCalls = AtomicInteger()
+        val retryAttempts = AtomicInteger()
     }
 
     @SpringBootApplication

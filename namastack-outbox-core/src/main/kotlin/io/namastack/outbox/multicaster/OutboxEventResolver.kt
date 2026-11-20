@@ -17,7 +17,8 @@ import kotlin.uuid.Uuid
  *
  * Direct and composed annotations use Spring merged-annotation semantics without inheriting an
  * annotation from a payload superclass. Key and context expressions are evaluated against the
- * concrete payload using Spring Expression Language.
+ * concrete payload using Spring Expression Language. Payload application events are unwrapped;
+ * native application events are inspected directly.
  *
  * @author Roland Beisel
  * @since 1.10.0
@@ -29,8 +30,9 @@ object OutboxEventResolver {
     /**
      * Resolves an outbox event for programmatic scheduling.
      *
-     * Non-payload and unannotated events return `null`. An annotated event requires an active
-     * transaction. An empty key expression produces a generated UUID.
+     * Unannotated events return `null`. Payload application events contribute their payload;
+     * native application events contribute the event itself (supported since 2.1.0). An annotated
+     * event requires an active transaction. An empty key expression produces a generated UUID.
      *
      * @param event Spring application event to inspect
      * @return Resolved scheduling values, or `null` when the event is not an outbox event
@@ -39,18 +41,17 @@ object OutboxEventResolver {
      */
     @OptIn(ExperimentalUuidApi::class)
     fun resolve(event: ApplicationEvent): ResolvedOutboxEvent? {
-        if (event !is PayloadApplicationEvent<*>) return null
-
-        val annotation = findAnnotation(event.payload) ?: return null
+        val payload = if (event is PayloadApplicationEvent<*>) event.payload else event
+        val annotation = findAnnotation(payload) ?: return null
 
         check(TransactionSynchronizationManager.isActualTransactionActive()) {
             "OutboxEvent requires an active transaction"
         }
 
         return ResolvedOutboxEvent(
-            payload = event.payload,
-            key = resolveEventKey(event.payload, annotation) ?: Uuid.generateV7().toString(),
-            context = resolveContext(event.payload, annotation) ?: emptyMap(),
+            payload = payload,
+            key = resolveEventKey(payload, annotation) ?: Uuid.generateV7().toString(),
+            context = resolveContext(payload, annotation) ?: emptyMap(),
         )
     }
 

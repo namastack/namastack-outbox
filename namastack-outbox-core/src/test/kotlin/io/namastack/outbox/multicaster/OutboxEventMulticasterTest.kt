@@ -8,6 +8,7 @@ import io.namastack.outbox.Outbox
 import io.namastack.outbox.OutboxProperties
 import io.namastack.outbox.annotation.OutboxEvent
 import io.namastack.outbox.annotation.OutboxEvent.OutboxContextEntry
+import io.namastack.outbox.mapping.EventMapper
 import io.namastack.outbox.runtime.toRuntimeSettings
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.ObjectProvider
+import org.springframework.beans.factory.support.StaticListableBeanFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.PayloadApplicationEvent
 import org.springframework.context.event.ContextRefreshedEvent
@@ -31,6 +33,7 @@ class OutboxEventMulticasterTest {
     private var outboxProvider = mockk<ObjectProvider<Outbox>>(relaxed = true)
     private var outboxProperties = OutboxProperties(multicaster = OutboxProperties.Multicaster(publishAfterSave = true))
     private var delegateEventMulticaster = mockk<SimpleApplicationEventMulticaster>()
+    private val eventMappers = StaticListableBeanFactory().getBeanProvider(EventMapper::class.java)
 
     private lateinit var eventMulticaster: OutboxEventMulticaster
 
@@ -43,6 +46,7 @@ class OutboxEventMulticasterTest {
                 outboxProvider = outboxProvider,
                 settings = outboxProperties.toRuntimeSettings().multicaster,
                 delegateEventMulticaster = delegateEventMulticaster,
+                eventMappers = eventMappers,
             )
 
         every { delegateEventMulticaster.multicastEvent(any(), any()) } answers { }
@@ -161,6 +165,7 @@ class OutboxEventMulticasterTest {
                     outboxProvider = outboxProvider,
                     settings = localProperties.toRuntimeSettings().multicaster,
                     delegateEventMulticaster = delegateEventMulticaster,
+                    eventMappers = eventMappers,
                 )
 
             val payload = AnnotatedEvent(id = "agg-1")
@@ -197,6 +202,7 @@ class OutboxEventMulticasterTest {
                     outboxProvider = outboxProvider,
                     settings = localProperties.toRuntimeSettings().multicaster,
                     delegateEventMulticaster = delegateEventMulticaster,
+                    eventMappers = eventMappers,
                 )
 
             val payload = AnnotatedEvent(id = "agg-1")
