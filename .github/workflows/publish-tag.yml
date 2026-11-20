@@ -114,12 +114,13 @@ jobs:
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
         run: |
+          # --fail-on-no-commits rejects diverged histories, including new releases
+          # when the latest stable release was published from a maintenance branch.
           release_args=(
             --repo "$GITHUB_REPOSITORY"
             --title "Namastack Outbox $RELEASE_TAG"
             --generate-notes
             --verify-tag
-            --fail-on-no-commits
           )
           if [[ "$RELEASE_VERSION" == *-* ]]; then
             release_args+=(--prerelease --latest=false)

@@ -87,9 +87,10 @@ jobs:
 
       - name: Create GitHub Release
         run: |
+          # --fail-on-no-commits rejects diverged histories, including new releases
+          # when the latest stable release was published from a maintenance branch.
           gh release create "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Namastack Outbox $RELEASE_TAG" \
             --generate-notes \
-            --verify-tag \
-            --fail-on-no-commits
+            --verify-tag

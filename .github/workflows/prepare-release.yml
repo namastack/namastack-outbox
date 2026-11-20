@@ -88,6 +88,8 @@ jobs:
 
           Once the release commit is validated, create the annotated tag v$RELEASE_VERSION.
           Run Publish Existing Tag with version $RELEASE_VERSION in dry-run mode before publishing.
+
+          After publishing a stable release in a new major or minor line, run [Prepare Docs Release](https://github.com/namastack/namastack-website/actions/workflows/prepare-docs-release.yml) in the website repository with product outbox and the corresponding documentation line (for example 2.0.x). Review and merge the documentation PR to deploy the website. Patch releases update the existing documentation snapshot; prereleases stay in Next.
           EOF
 
           existing_pr_url="$(
