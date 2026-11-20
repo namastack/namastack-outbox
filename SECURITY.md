@@ -8,7 +8,8 @@ latest available patch release in their selected line.
 
 | Version           | Status                                     | Supported          |
 |-------------------|--------------------------------------------|--------------------|
-| 1.11.x            | Current release line (starting with 1.11.0) | :white_check_mark: |
+| 2.0.x             | Current release line (starting with 2.0.0) | :white_check_mark: |
+| 1.11.x            | End of security support                    | :x:                |
 | 1.10.x            | End of security support                    | :x:                |
 | 1.9.x             | End of security support                    | :x:                |
 | 1.8.x             | End of security support                    | :x:                |
