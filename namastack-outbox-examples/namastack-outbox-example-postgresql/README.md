@@ -52,28 +52,6 @@ datasource:
    docker-compose down
    ```
 
-## Testing retries
-
-[`ExamplePostgresqlRetryTest`](src/test/kotlin/io/namastack/demo/ExamplePostgresqlRetryTest.kt) uses
-Spring Boot and a PostgreSQL Testcontainer. The retry test loads the JDBC starter with a single
-test-only handler and schedules one `RetryEvent` in a committed transaction. `FailOnceHandler`
-records the metadata from each invocation, throws an exception on the first invocation, and stores
-the successfully processed event on the next one.
-
-Awaitility waits for that event. The test checks that both invocations have the same non-blank
-`recordId`, that `attempt` progresses from `1` to `2`, and that `isRetry` changes from `false` to
-`true`. This verifies that the outbox retries the same persisted record after a transient handler
-failure.
-
-Run these commands from the repository root with Docker running. Use JDK 21 to run Gradle and make
-JDK 17 available for the build toolchain. Testcontainers starts PostgreSQL for the tests.
-
-```bash
-./gradlew publishToMavenLocal -x test --no-daemon
-cd namastack-outbox-examples/namastack-outbox-example-postgresql
-./gradlew test --rerun --no-daemon
-```
-
 ## What Happens
 
 The application will:

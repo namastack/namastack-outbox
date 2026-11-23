@@ -10,33 +10,18 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Bean
-import org.springframework.test.annotation.DirtiesContext
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.transaction.support.TransactionTemplate
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit.SECONDS
 
-@SpringBootTest(classes = [ExamplePostgresqlRetryTest.RetryTestConfiguration::class])
-@Testcontainers
-// Close Spring while the database is still running.
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-class ExamplePostgresqlRetryTest {
-    companion object {
-        @Container
-        @JvmStatic
-        private val postgres = ExamplePostgresqlContainer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun registerDataSource(registry: DynamicPropertyRegistry) = postgres.registerDataSource(registry)
-    }
-
+@SpringBootTest(
+    classes = [ExampleRetryTest.RetryTestConfiguration::class],
+    properties = ["spring.datasource.url=jdbc:h2:mem:retry-test"],
+)
+class ExampleRetryTest {
     @Test
-    fun `retries the same outbox record after a transient failure`(
+    fun `retries the same outbox record after a transient handler failure`(
         @Autowired outbox: Outbox,
         @Autowired transactions: TransactionTemplate,
         @Autowired handler: FailOnceHandler,
@@ -57,7 +42,6 @@ class ExamplePostgresqlRetryTest {
         assertThat(attempts.map { it.isRetry }).containsExactly(false, true)
     }
 
-    // Load the JDBC starter with only the deterministic retry handler.
     @EnableAutoConfiguration
     class RetryTestConfiguration {
         @Bean
