@@ -29,7 +29,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("io.namastack:namastack-outbox-starter-jdbc")
-    runtimeOnly("org.postgresql:postgresql:42.7.14")
+    runtimeOnly("org.postgresql:postgresql:42.7.15")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation(platform(libs.testcontainers.bom))
